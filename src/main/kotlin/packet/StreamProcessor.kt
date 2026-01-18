@@ -202,6 +202,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return (packet[offset].toInt() and 0xff) or ((packet[offset + 1].toInt() and 0xff) shl 8)
     }
 
+    private fun parseUInt32le(packet: ByteArray,offset: Int=0):Int{
+        require(offset + 4 <= packet.size) { "패킷 길이가 필요길이보다 짧음" }
+        return ((packet[offset].toInt() and 0xFF)) or
+                ((packet[offset + 1].toInt() and 0xFF) shl 8) or
+                ((packet[offset + 2].toInt() and 0xFF) shl 16) or
+                ((packet[offset + 3].toInt() and 0xFF) shl 24)
+    }
+
     private fun parsingNickname(packet: ByteArray): Boolean {
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
@@ -276,14 +284,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val temp = offset
 
-        val skillCode = parseUInt16le(packet, offset)
+        val skillCode = parseUInt32le(packet, offset)
         pdp.setSkillCode(skillCode)
-        offset += 2
 
-        val skillType = parseUInt16le(packet, offset)
-        pdp.setSkillType(skillType)
-        // 다음연계기가 있을경우 168,조건기 170? 절단2타와 올려치기 모두 174로 동일 유린/검난/결박 172
-        // 발목격파가 171, 연계기 174 예상 파기
         offset = temp + 5
 
         val typeInfo = readVarInt(packet, offset)
