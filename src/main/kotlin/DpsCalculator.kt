@@ -103,6 +103,21 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private val SKILL_CODES: IntArray =
         intArrayOf(
+            37447,
+            53872,
+            63872,
+            22985,
+            58336,
+            2800,
+            12800,
+            28336,
+            18336,
+            8336,
+            22800,
+            46192,
+            56192,
+            47264,
+            47265,
             15296,
             53152,
             39760,
