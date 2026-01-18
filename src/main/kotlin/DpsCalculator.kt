@@ -31,8 +31,58 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             3450
         )
 
+    private val SKILL_MAP = mapOf(
+        39063 to "파괴 충동",
+        3528 to "살기파열",
+        9952 to "예리한일격",
+        19952 to "파열의일격",
+        29952 to "분노의일격",
+        38880 to "무모한일격",
+        65488 to "절단의 맹타",
+        16736 to "격파의 맹타",
+        48880 to "도약 찍기",
+        17808 to "유린의검",
+        17809 to "유린의검(행동불가면역대상)",
+        28880 to "내려찍기",
+        36736 to "올려치기",
+        58880 to "발목베기",
+        39952 to "분쇄파동",
+        49952 to "광폭파동",
+        22272 to "돌진일격",
+        24418 to "파멸의맹타",
+        27808 to "공중결박"
+    )
+
     private val SKILL_CODES: IntArray =
-        intArrayOf(9952, 60832, 33872, 19216, 53136, 36176, 5648, 16912).apply { sort() }
+        intArrayOf(
+            39063,
+            3528,
+            9952,
+            19952,
+            29952,
+            38880,
+            65488,
+            16736,
+            48880,
+            17808,
+            17809,
+            26960,
+            28880,
+            36736,
+            58880,
+            39952,
+            49952,
+            22272,
+            24418,
+            27808,
+            60832,
+            33872,
+            19216,
+            53136,
+            36176,
+            5648,
+            16912
+        ).apply { sort() }
 
     private val targetInfoMap = hashMapOf<Int, TargetInfo>()
 
@@ -80,6 +130,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             if (!dpsData.map.containsKey(uid)) {
                 dpsData.map[uid] = PersonalData(nickname = nickname)
             }
+            pdp.setSkillCode(inferOriginalSkillCode(pdp.getSkillCode1()) ?: pdp.getSkillCode1())
             dpsData.map[uid]!!.processPdp(pdp)
             if (dpsData.map[uid]!!.job == "") {
                 val origSkillCode = inferOriginalSkillCode(pdp.getSkillCode1()) ?: -1
@@ -134,10 +185,15 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 pData.amount,
                 pData.damageContribution
             )
-            pData.analyzedData.forEach { (key,data) ->
-                logger.info("스킬코드: {} 스킬 총 피해량: {}",key,data.damageAmount)
-                logger.info("사용 횟수: {} 치명타 횟수: {} 치명타 비율:{}",data.times,data.critTimes,data.critTimes/data.times * 100)
-                logger.info("스킬의 딜 지분: {}%",(data.damageAmount / pData.amount * 100).roundToInt())
+            pData.analyzedData.forEach { (key, data) ->
+                logger.info("스킬(코드): {} 스킬 총 피해량: {}", SKILL_MAP[key] ?: key, data.damageAmount)
+                logger.info(
+                    "사용 횟수: {} 치명타 횟수: {} 치명타 비율:{}",
+                    data.times,
+                    data.critTimes,
+                    data.critTimes / data.times * 100
+                )
+                logger.info("스킬의 딜 지분: {}%", (data.damageAmount / pData.amount * 100).roundToInt())
             }
             logger.info("-----------------------------------------")
         }
