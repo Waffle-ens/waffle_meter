@@ -58,7 +58,14 @@ const createDetailsUI = ({
     nameEl.className = "cell name";
 
     const castEl = document.createElement("div");
-    castEl.className = "cell cast right";
+    castEl.className = "cell cast";
+    const hitEl = document.createElement("span");
+    hitEl.className = "castHit";
+
+    const critEl = document.createElement("span");
+    critEl.className = "castCrit";
+    castEl.appendChild(hitEl);
+    castEl.appendChild(critEl);
 
     const dmgEl = document.createElement("div");
     dmgEl.className = "cell dmg right";
@@ -76,7 +83,7 @@ const createDetailsUI = ({
     rowEl.appendChild(castEl);
     rowEl.appendChild(dmgEl);
 
-    return { rowEl, nameEl, castEl, dmgFillEl, dmgTextEl };
+    return { rowEl, nameEl, castEl, hitEl, critEl, dmgFillEl, dmgTextEl };
   };
 
   const skillSlots = [];
@@ -119,9 +126,15 @@ const createDetailsUI = ({
       const damagePercent = (damage / percentBaseTotal) * 100;
       const damagePercentRounded = Math.round(damagePercent);
       const barFillRatio = clamp01(damage / percentBaseTotal);
+      const hits = Number(skill.time) || 0;
+      const crits = Number(skill.crit) || 0;
+
+      // 0으로 나누기 방지
+      const critRate = hits > 0 ? Math.floor((crits / hits) * 100) : 0;
 
       view.nameEl.textContent = skill.name ?? "";
-      view.castEl.textContent = `${skill.time}회 (${skill.crit}회)`;
+      view.hitEl.textContent = `${hits}회`;
+      view.critEl.textContent = `(${critRate}%)`;
       view.dmgTextEl.textContent = `${formatNum(damage)} (${damagePercentRounded}%)`;
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
     }

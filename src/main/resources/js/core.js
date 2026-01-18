@@ -184,7 +184,7 @@ class DpsApp {
     const percent = Number.isFinite(contrib) ? `${contrib.toFixed(1)}%` : "-";
 
     //혹시 나중에  전투시간을 줄수도 있으니 남김
-    const combatTime = detailObj.combatTime ? detailObj.combatTime : "-";
+    const combatTime = detailObj.combatTime ? detailObj.combatTime : "현재 미지원";
 
     return {
       totalDmg,
