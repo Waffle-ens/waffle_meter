@@ -6,6 +6,8 @@ import com.tbread.entity.PersonalData
 import com.tbread.entity.TargetInfo
 import kotlinx.coroutines.Job
 import org.slf4j.LoggerFactory
+import kotlin.math.log
+import kotlin.math.roundToInt
 
 class DpsCalculator(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
@@ -72,17 +74,18 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         }
         pdpMap[currentTarget]!!.forEach lastPdpLoop@{ pdp ->
             totalDamage += pdp.getDamage()
+            val uid = pdp.getActorId()
             val nickname = nicknameData[pdp.getActorId()] ?: nicknameData[dataStorage.getSummonData()[pdp.getActorId()]
                 ?: return@lastPdpLoop] ?: return@lastPdpLoop
-            if (!dpsData.map.containsKey(nickname)) {
-                dpsData.map[nickname] = PersonalData()
+            if (!dpsData.map.containsKey(uid)) {
+                dpsData.map[uid] = PersonalData(nickname = nickname)
             }
-            dpsData.map[nickname]!!.addDamage(pdp.getDamage().toDouble())
-            if (dpsData.map[nickname]!!.job == "") {
+            dpsData.map[uid]!!.processPdp(pdp)
+            if (dpsData.map[uid]!!.job == "") {
                 val origSkillCode = inferOriginalSkillCode(pdp.getSkillCode1()) ?: -1
                 val job = JobClass.convertFromSkill(origSkillCode)
                 if (job != null) {
-                    dpsData.map[nickname]!!.job = job.className
+                    dpsData.map[uid]!!.job = job.className
                 }
             }
         }
@@ -112,7 +115,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         for (offset in POSSIBLE_OFFSETS) {
             val possibleOrigin = skillCode - offset
             if (SKILL_CODES.binarySearch(possibleOrigin) >= 0) {
-                logger.debug("추론 성공한 원본 스킬코드 :{}",possibleOrigin)
+                logger.debug("추론 성공한 원본 스킬코드 :{}", possibleOrigin)
                 return possibleOrigin
             }
         }
@@ -121,6 +124,23 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     fun resetDataStorage() {
+        val dpsData = getDps()
+        dpsData.map.forEach { (_, pData) ->
+            logger.info("-----------------------------------------")
+            logger.info(
+                "닉네임: {} 직업: {} 총 딜량: {} 기여도: {}",
+                pData.nickname,
+                pData.job,
+                pData.amount,
+                pData.damageContribution
+            )
+            pData.analyzedData.forEach { (key,data) ->
+                logger.info("스킬코드: {} 스킬 총 피해량: {}",key,data.damageAmount)
+                logger.info("사용 횟수: {} 치명타 횟수: {} 치명타 비율:{}",data.times,data.critTimes,data.critTimes/data.times * 100)
+                logger.info("스킬의 딜 지분: {}%",(data.damageAmount / pData.amount * 100).roundToInt())
+            }
+            logger.info("-----------------------------------------")
+        }
         dataStorage.flushDamageStorage()
         targetInfoMap.clear()
         logger.info("대상 데미지 누적 데이터 초기화 완료")

@@ -95,6 +95,10 @@ class ParsedDamagePacket {
                 return this.id
         }
 
+        fun isCrit():Boolean{
+                return this.type == 3
+        }
+
 
 
 }
