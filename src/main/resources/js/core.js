@@ -7,11 +7,15 @@ class DpsApp {
     }
 
     this.POLL_MS = 200;
-    this.USER_NAME = "--------";
+    this.USER_NAME = "승찬";
     this.lastJson = null;
     this.isCollapse = false;
 
     this.dpsFormatter = new Intl.NumberFormat("ko-KR");
+    // 빈값으로 덮어씌우게 하지 않도록 스냅샷
+    this.lastSnapshot = null;
+    // reset 직후 잠깐 이전값으로 덮어씌우는 ui 버그떄문에 팬딩추가
+    this.resetPending = false;
 
     DpsApp.instance = this;
   }
@@ -63,26 +67,36 @@ class DpsApp {
 
   fetchDps() {
     const raw = window.dpsData?.getDpsData?.();
-    if (typeof raw !== "string") {
-      return;
-    }
-    if (raw === this.lastJson) {
-      return;
-    }
+    if (typeof raw !== "string") return;
+    if (raw === this.lastJson) return;
     this.lastJson = raw;
-    uiDebug?.log("getDpsData", raw);
 
-    const { rows, targetName } = this.buildRowsFromPayload(raw);
+    let { rows, targetName } = this.buildRowsFromPayload(raw);
 
-    //UI 초기화 안되는 버그 있어서 주석처리
-    // if (rows.length > 0) {
-    //   this.lastNonEmptyRows = rows;
-    // } else if (this.lastNonEmptyRows) {
-    //   rows = this.lastNonEmptyRows;
-    // }
+    // 리셋 누르면 빈값이 올때까지 렌더 안함
+    if (this.resetPending) {
+      if (rows.length > 0) {
+        // 서버에서 예전데이터 주는거 무시
+        return;
+      }
+      // 빈값이 오면 reset 확인 완료
+      this.resetPending = false;
+      // UI는 onResetMeterUi로 이미 비움
+      return;
+    }
+
+    // 빈 데이터는 UI를 덮어씌우지 않음
+    if (rows.length === 0) {
+      if (this.lastSnapshot) {
+        rows = this.lastSnapshot;
+      } else {
+        return;
+      }
+    } else {
+      this.lastSnapshot = rows; // 정상 데이터면 스냅샷 갱신
+    }
 
     this.elBossName.textContent = targetName;
-
     this.meterUI.updateFromRows(rows);
   }
   buildRowsFromPayload(raw) {
@@ -103,6 +117,8 @@ class DpsApp {
       const job = isObj ? (value.job ?? "") : "";
       const dpsRaw = isObj ? value.dps : value;
       const dps = Math.trunc(Number(dpsRaw));
+      const nickname = isObj ? (value.nickname ?? "") : "";
+      const name = nickname || String(id);
       const damageContribution = isObj ? Number(value.damageContribution).toFixed(1) : "";
 
       if (!Number.isFinite(dps)) {
@@ -111,63 +127,66 @@ class DpsApp {
 
       rows.push({
         id: id,
-        name: value.nickname,
+        name: name,
         job,
         dps,
         damageContribution,
-        isUser: value.nickname === this.USER_NAME,
+        isUser: name === this.USER_NAME,
       });
     }
 
     return rows;
   }
 
-  getDetails(row) {
-    const data = window.dpsData.getBattleDetail(row.id);
-    uiDebug?.log("getBattleDetail", data);
+  async getDetails(row) {
+    const raw = await window.dpsData?.getBattleDetail?.(row.id);
+    uiDebug?.log("getBattleDetail", raw);
 
-    const skills = [
-      {
-        code: 24,
-        name: "내려찍기",
-        time: 324,
-        crit: 300,
-        dmg: Math.round(Math.random() * 1000000),
-      },
-      {
-        code: 6765,
-        name: "맹렬한 일격",
-        time: 32,
-        crit: 20,
-        dmg: Math.round(Math.random() * 500000),
-      },
-      {
-        code: 954,
-        name: "파멸의 맹타",
-        time: 324,
-        crit: 300,
-        dmg: Math.round(Math.random() * 400000),
-      },
-      { code: 9981, name: "단죄", time: 14, crit: 3, dmg: Math.round(Math.random() * 900000) },
-      {
-        code: 12345,
-        name: "비호의 일격",
-        time: 4,
-        crit: 2,
-        dmg: Math.round(Math.random() * 200000),
-      },
-      { code: 4332, name: "심판", time: 54, crit: 1, dmg: Math.round(Math.random() * 400000) },
-    ];
+    let detailObj = raw;
+    if (typeof raw === "string") {
+      try {
+        detailObj = JSON.parse(raw);
+      } catch {
+        detailObj = {};
+      }
+    }
+    if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
-    const sumSkills = skills.reduce((acc, s) => acc + (Number(s.dmg) || 0), 0);
-    const totalDmg = sumSkills + Math.round(sumSkills * 0.12);
+    const skills = [];
+    let totalDmg = 0;
+
+    for (const [code, value] of Object.entries(detailObj)) {
+      if (!value || typeof value !== "object") {
+        continue;
+      }
+
+      const dmg = Math.trunc(Number(value.damageAmount)) || 0;
+      if (dmg <= 0) {
+        continue;
+      }
+
+      totalDmg += dmg;
+
+      const nameRaw = typeof value.skillName === "string" ? value.skillName.trim() : "";
+      skills.push({
+        code,
+        name: nameRaw ? nameRaw : `스킬 ${code}`,
+        time: Math.trunc(Number(value.times)) || 0,
+        crit: Math.trunc(Number(value.critTimes)) || 0,
+        dmg,
+      });
+    }
+
+    const contrib = Number(row?.damageContribution);
+    const percent = Number.isFinite(contrib) ? `${contrib.toFixed(1)}%` : "-";
+
+    //혹시 나중에  전투시간을 줄수도 있으니 남김
+    const combatTime = detailObj.combatTime ? detailObj.combatTime : "-";
 
     return {
       totalDmg,
-      percent: `${Math.round(Math.random() * 30) + 10}%`,
-      parry: `${Math.round(Math.random() * 50)}%`,
-      eva: `${Math.round(Math.random() * 30)}%`,
-      combatTime: "2분 36초",
+      percent,
+      combatTime,
       skills,
     };
   }
@@ -189,6 +208,9 @@ class DpsApp {
     });
 
     this.resetBtn?.addEventListener("click", () => {
+      this.resetPending = true;
+      this.lastSnapshot = null;
+
       this.detailsUI?.close?.();
       this.meterUI?.onResetMeterUi?.();
 
@@ -227,7 +249,9 @@ class DpsApp {
 }
 
 const setupDebugConsole = () => {
-  if (globalThis.uiDebug?.log) return globalThis.uiDebug;
+  if (globalThis.uiDebug?.log) {
+    return globalThis.uiDebug;
+  }
 
   const consoleDiv = document.querySelector(".console");
 
@@ -236,13 +260,17 @@ const setupDebugConsole = () => {
     return globalThis.uiDebug;
   }
 
-  const safeStringify = (v) => {
-    if (typeof v === "string") return v;
-    if (v instanceof Error) return `${v.name}: ${v.message}`;
+  const safeStringify = (value) => {
+    if (typeof value === "string") {
+      return value;
+    }
+    if (value instanceof Error) {
+      return `${value.name}: ${value.message}`;
+    }
     try {
-      return JSON.stringify(v);
+      return JSON.stringify(value);
     } catch {
-      return String(v);
+      return String(value);
     }
   };
 
@@ -254,7 +282,9 @@ const setupDebugConsole = () => {
 
   globalThis.uiDebug = {
     log(tag, payload) {
-      if (globalThis.dpsData?.isDebuggingMode?.() !== true) return;
+      if (globalThis.dpsData?.isDebuggingMode?.() !== true) {
+        return;
+      }
 
       const time = new Date().toLocaleTimeString("ko-KR", { hour12: false });
       const line = `${time} ${tag} ${safeStringify(payload)}`;
