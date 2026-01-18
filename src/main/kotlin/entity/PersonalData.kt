@@ -20,7 +20,7 @@ data class PersonalData(
     fun processPdp(pdp: ParsedDamagePacket) {
         addDamage(pdp.getDamage().toDouble())
         if (!analyzedData.containsKey(pdp.getSkillCode1())) {
-            val analyzedSkill = AnalyzedSkill(pdp.getSkillCode1())
+            val analyzedSkill = AnalyzedSkill(pdp)
             analyzedData[pdp.getSkillCode1()] = analyzedSkill
         }
         val analyzedSkill = analyzedData[pdp.getSkillCode1()]!!
