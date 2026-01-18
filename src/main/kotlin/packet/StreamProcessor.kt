@@ -173,7 +173,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             offset += mobInfo.length
             if (packet.size > offset) {
                 val mobInfo2 = readVarInt(packet, offset)
-                if (mobInfo2.length <0) return false
+                if (mobInfo2.length < 0) return false
                 if (mobInfo.value == mobInfo2.value) {
                     logger.debug("mid: {}, code: {}", summonInfo.value, mobInfo.value)
                     dataStorage.appendMob(summonInfo.value, mobInfo.value)
@@ -205,7 +205,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parsingNickname(packet: ByteArray): Boolean {
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
-        if (packetLengthInfo.length <0) return false
+        if (packetLengthInfo.length < 0) return false
         offset += packetLengthInfo.length
 //        if (packetLengthInfo.value < 32) return
         //좀더 검증필요 대부분이 0x20,0x23 정도였음
@@ -238,7 +238,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packet[0] == 0x20.toByte()) return false
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
-        if (packetLengthInfo.length<0) return false
+        if (packetLengthInfo.length < 0) return false
         val pdp = ParsedDamagePacket()
 
         offset += packetLengthInfo.length
@@ -249,13 +249,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         offset += 2
         if (offset >= packet.size) return false
         val targetInfo = readVarInt(packet, offset)
-        if (targetInfo.length <0) return false
+        if (targetInfo.length < 0) return false
         pdp.setTargetId(targetInfo)
         offset += targetInfo.length //타겟
         if (offset >= packet.size) return false
 
         val switchInfo = readVarInt(packet, offset)
-        if (switchInfo.length <0) return false
+        if (switchInfo.length < 0) return false
         pdp.setSwitchVariable(switchInfo)
         offset += switchInfo.length //점프용
         if (offset >= packet.size) return false
@@ -267,7 +267,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (offset >= packet.size) return false
 
         val actorInfo = readVarInt(packet, offset)
-        if (actorInfo.length <0) return false
+        if (actorInfo.length < 0) return false
         pdp.setActorId(actorInfo)
         offset += actorInfo.length
         if (offset >= packet.size) return false
@@ -304,13 +304,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (offset >= packet.size) return false
 
         val unknownInfo = readVarInt(packet, offset)
-        if (unknownInfo.length <0) return false
+        if (unknownInfo.length < 0) return false
         pdp.setUnknown(unknownInfo)
         offset += unknownInfo.length
         if (offset >= packet.size) return false
 
         val damageInfo = readVarInt(packet, offset)
-        if (damageInfo.length <0) return false
+        if (damageInfo.length < 0) return false
         pdp.setDamage(damageInfo)
         offset += damageInfo.length
         if (offset >= packet.size) return false
@@ -340,7 +340,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             pdp.getDamage()
         )
 
-        dataStorage.appendDamage(pdp)
+        if (pdp.getActorId() != pdp.getTargetId()) {
+            //추후 hps 를 넣는다면 수정하기
+            //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
+            dataStorage.appendDamage(pdp)
+        }
         return true
 
     }
