@@ -94,4 +94,8 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         return debugMode
     }
 
+    fun getBattleDetail(uid:Int):String{
+        return Json.encodeToString(dpsData.map[uid]?.analyzedData)
+    }
+
 }
