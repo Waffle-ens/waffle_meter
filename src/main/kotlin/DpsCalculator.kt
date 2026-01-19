@@ -235,6 +235,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             18210000 to "진동쇄",
             18390000 to "격동쇄",
             18080000 to "파동격",
+            18080001 to "파동격",
             18290000 to "회전격",
             18200000 to "충격 해제",
             18410000 to "강격쇄",
@@ -259,7 +260,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             18770000 to "격노의 주문",
             18780000 to "대지의 약속",
             18790000 to "생존 의지",
-            18800000 to "바람의 약속",
+            18800001 to "바람의 약속",
 
             /*
         궁성
@@ -630,6 +631,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 18210000,
                 18390000,
                 18080000,
+                18080001,
                 18290000,
                 18200000,
                 18410000,
@@ -654,7 +656,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 18770000,
                 18780000,
                 18790000,
-                18800000,
+                18800001,
                 14020000,
                 14030000,
                 14040000,
