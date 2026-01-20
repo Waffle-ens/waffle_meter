@@ -424,7 +424,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
 
             if ((flagByte and 0x04) != 0) {
-                flags.add(SpecialDamage.UNKNOWN2)
+                flags.add(SpecialDamage.PARRY)
             }
 
             if ((flagByte and 0x08) != 0) {
@@ -436,7 +436,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
 
             if ((flagByte and 0x20) != 0) {
-                flags.add(SpecialDamage.UNKNOWN3)
+                flags.add(SpecialDamage.ENDURE)
             }
 
             if ((flagByte and 0x40) != 0) {
