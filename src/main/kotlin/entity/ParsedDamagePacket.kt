@@ -16,7 +16,11 @@ class ParsedDamagePacket {
         private var skipValues = mutableListOf<Int>()
         private val timestamp = System.currentTimeMillis()
         private val id = UUID.randomUUID()
+        private var specials:List<SpecialDamage> = arrayListOf()
 
+        fun setSpecials(specials: List<SpecialDamage>) {
+                this.specials = specials
+        }
         fun setActorId(actorInfo: StreamProcessor.VarIntOutput){
                 this.actorId = actorInfo.value
         }
@@ -86,6 +90,9 @@ class ParsedDamagePacket {
         }
         fun getUuid():UUID{
                 return this.id
+        }
+        fun getSpecials():List<SpecialDamage>{
+                return this.specials
         }
 
         fun isCrit():Boolean{

@@ -2,6 +2,7 @@ package com.tbread.packet
 
 import com.tbread.DataStorage
 import com.tbread.entity.ParsedDamagePacket
+import com.tbread.entity.SpecialDamage
 import org.slf4j.LoggerFactory
 
 class StreamProcessor(private val dataStorage: DataStorage) {
@@ -202,7 +203,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return (packet[offset].toInt() and 0xff) or ((packet[offset + 1].toInt() and 0xff) shl 8)
     }
 
-    private fun parseUInt32le(packet: ByteArray,offset: Int=0):Int{
+    private fun parseUInt32le(packet: ByteArray, offset: Int = 0): Int {
         require(offset + 4 <= packet.size) { "패킷 길이가 필요길이보다 짧음" }
         return ((packet[offset].toInt() and 0xFF)) or
                 ((packet[offset + 1].toInt() and 0xFF) shl 8) or
@@ -295,14 +296,21 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         offset += typeInfo.length
         if (offset >= packet.size) return false
 
+        val damageType = packet[offset]
+
         val andResult = switchInfo.value and mask
-        offset += when (andResult) {
+        val start = offset
+        var tempV = 0
+        tempV += when (andResult) {
             4 -> 8
             5 -> 12
             6 -> 10
             7 -> 14
             else -> return false
         }
+        pdp.setSpecials(parseSpecialDamageFlags(packet.copyOfRange(start,start+tempV)))
+        offset += tempV
+
 
         if (offset >= packet.size) return false
 
@@ -334,13 +342,21 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             }
         }
 
+        logger.trace("{}", toHex(packet))
+        logger.trace("타입패킷 {}", toHex(byteArrayOf(damageType)))
+        logger.trace(
+            "타입패킷비트 {}", String.format("%8s", (damageType.toInt() and 0xFF).toString(2))
+                .replace(' ', '0')
+        )
+        logger.trace("가변패킷: {}", toHex(packet.copyOfRange(start, start + tempV)))
         logger.debug(
-            "피격자: {},공격자: {},스킬: {},타입: {},데미지: {}",
+            "피격자: {},공격자: {},스킬: {},타입: {},데미지: {},데미지플래그: {}",
             pdp.getTargetId(),
             pdp.getActorId(),
             pdp.getSkillCode1(),
             pdp.getType(),
-            pdp.getDamage()
+            pdp.getDamage(),
+            pdp.getSpecials()
         )
 
         if (pdp.getActorId() != pdp.getTargetId()) {
@@ -389,5 +405,49 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 return VarIntOutput(-1, -1)
             }
         }
+    }
+
+    private fun parseSpecialDamageFlags(packet: ByteArray): List<SpecialDamage> {
+        val flags = mutableListOf<SpecialDamage>()
+
+        if (packet.size == 8) {
+            return emptyList()
+        }
+        if (packet.size >= 10) {
+            val flagByte = packet[0].toInt() and 0xFF
+
+            if ((flagByte and 0x01) != 0) {
+                flags.add(SpecialDamage.BACK)
+            }
+            if ((flagByte and 0x02) != 0) {
+                flags.add(SpecialDamage.UNKNOWN)
+            }
+
+            if ((flagByte and 0x04) != 0) {
+                flags.add(SpecialDamage.UNKNOWN2)
+            }
+
+            if ((flagByte and 0x08) != 0) {
+                flags.add(SpecialDamage.PERFECT)
+            }
+
+            if ((flagByte and 0x10) != 0) {
+                flags.add(SpecialDamage.DOUBLE)
+            }
+
+            if ((flagByte and 0x20) != 0) {
+                flags.add(SpecialDamage.UNKNOWN3)
+            }
+
+            if ((flagByte and 0x40) != 0) {
+                flags.add(SpecialDamage.UNKNOWN4)
+            }
+
+            if ((flagByte and 0x80) != 0) {
+                flags.add(SpecialDamage.POWER_SHARD)
+            }
+        }
+
+        return flags
     }
 }
