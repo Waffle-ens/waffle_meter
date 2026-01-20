@@ -880,8 +880,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         pdpMap[currentTarget]!!.forEach lastPdpLoop@{ pdp ->
             totalDamage += pdp.getDamage()
             val uid = dataStorage.getSummonData()[pdp.getActorId()] ?: pdp.getActorId()
-            val nickname = nicknameData[pdp.getActorId()] ?: nicknameData[dataStorage.getSummonData()[pdp.getActorId()]
-                ?: return@lastPdpLoop] ?: return@lastPdpLoop
+            val nickname:String = nicknameData[pdp.getActorId()]
+                ?: nicknameData[dataStorage.getSummonData()[pdp.getActorId()]]
+                ?: pdp.getActorId().toString()
             if (!dpsData.map.containsKey(uid)) {
                 dpsData.map[uid] = PersonalData(nickname = nickname)
             }
