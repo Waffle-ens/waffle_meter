@@ -17,12 +17,20 @@ const createDetailsUI = ({
     if (!Number.isFinite(n)) return "-";
     return dpsFormatter.format(n);
   };
-
+  const pctText = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? `${n.toFixed(1)}%` : "-";
+  };
   const STATUS = [
     { label: "누적 피해량", getValue: (d) => formatNum(d?.totalDmg) },
-    { label: "피해량 기여도", getValue: (d) => d?.percent ?? "-" },
+    { label: "피해량 기여도", getValue: (d) => pctText(d?.contributionPct) },
     // { label: "보스 막기비율", getValue: (d) => d?.parry ?? "-" },
     // { label: "보스 회피비율", getValue: (d) => d?.eva ?? "-" },
+    { label: "치명타 비율", getValue: (d) => pctText(d?.totalCritPct) },
+    { label: "완벽 비율", getValue: (d) => pctText(d?.totalPerfectPct) },
+    { label: "강타 비율", getValue: (d) => pctText(d?.totalDoublePct) },
+    { label: "백어택 비율", getValue: (d) => pctText(d?.totalBackPct) },
+    { label: "보스 막기비율", getValue: (d) => pctText(d?.totalParryPct) },
     { label: "전투시간", getValue: (d) => d?.combatTime ?? "-" },
   ];
 
@@ -60,15 +68,24 @@ const createDetailsUI = ({
     const nameEl = document.createElement("div");
     nameEl.className = "cell name";
 
-    const castEl = document.createElement("div");
-    castEl.className = "cell cast";
-    const hitEl = document.createElement("span");
-    hitEl.className = "castHit";
-
+    const hitEl = document.createElement("div");
+    const hitTimesEl = document.createElement("span");
     const critEl = document.createElement("span");
-    critEl.className = "castCrit";
-    castEl.appendChild(hitEl);
-    castEl.appendChild(critEl);
+    hitEl.className = "cell base hit";
+    hitEl.appendChild(hitTimesEl);
+    hitEl.appendChild(critEl);
+
+    const parryEl = document.createElement("div");
+
+    parryEl.className = "cell center parry";
+    const backEl = document.createElement("div");
+    backEl.className = "cell center back";
+
+    const perfectEl = document.createElement("div");
+    perfectEl.className = "cell center perfect";
+
+    const doubleEl = document.createElement("div");
+    doubleEl.className = "cell center double";
 
     const dmgEl = document.createElement("div");
     dmgEl.className = "cell dmg right";
@@ -83,10 +100,26 @@ const createDetailsUI = ({
     dmgEl.appendChild(dmgTextEl);
 
     rowEl.appendChild(nameEl);
-    rowEl.appendChild(castEl);
+    rowEl.appendChild(hitEl);
+    rowEl.appendChild(parryEl);
+    rowEl.appendChild(perfectEl);
+    rowEl.appendChild(doubleEl);
+    rowEl.appendChild(backEl);
+
     rowEl.appendChild(dmgEl);
 
-    return { rowEl, nameEl, castEl, hitEl, critEl, dmgFillEl, dmgTextEl };
+    return {
+      rowEl,
+      nameEl,
+      hitTimesEl,
+      critEl,
+      parryEl,
+      backEl,
+      perfectEl,
+      doubleEl,
+      dmgFillEl,
+      dmgTextEl,
+    };
   };
 
   const skillSlots = [];
@@ -125,20 +158,35 @@ const createDetailsUI = ({
 
       view.rowEl.style.display = "";
 
-      const damage = Number(skill.dmg) || 0;
-      const damagePercent = (damage / percentBaseTotal) * 100;
-      const damagePercentRounded = Math.round(damagePercent);
+      const damage = skill.dmg || 0;
       const barFillRatio = clamp01(damage / percentBaseTotal);
-      const hits = Number(skill.time) || 0;
-      const crits = Number(skill.crit) || 0;
+      const hits = skill.time || 0;
+      const crits = skill.crit || 0;
+      const parry = skill.parry || 0;
+      const perfect = skill.perfect || 0;
+      const double = skill.double || 0;
+      const back = skill.back || 0;
 
-      // 0으로 나누기 방지
-      const critRate = hits > 0 ? Math.floor((crits / hits) * 100) : 0;
+      const pct = (num, den) => (den > 0 ? Math.round((num / den) * 100) : 0);
+
+      const damageRate = percentBaseTotal > 0 ? (damage / percentBaseTotal) * 100 : 0;
+
+      const critRate = pct(crits, hits);
+      const parryRate = pct(parry, hits);
+      const backRate = pct(back, hits);
+      const perfectRate = pct(perfect, hits);
+      const doubleRate = pct(double, hits);
 
       view.nameEl.textContent = skill.name ?? "";
-      view.hitEl.textContent = `${hits}회`;
+      view.hitTimesEl.textContent = `${hits}회`;
       view.critEl.textContent = `(${critRate}%)`;
-      view.dmgTextEl.textContent = `${formatNum(damage)} (${damagePercentRounded}%)`;
+
+      view.parryEl.textContent = `${parryRate}%`;
+      view.backEl.textContent = `${backRate}%`;
+      view.perfectEl.textContent = `${perfectRate}%`;
+      view.doubleEl.textContent = `${doubleRate}%`;
+
+      view.dmgTextEl.textContent = `${formatNum(damage)} (${damageRate.toFixed(1)}%)`;
       view.dmgFillEl.style.transform = `scaleX(${barFillRatio})`;
     }
   };

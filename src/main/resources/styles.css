@@ -31,7 +31,7 @@
   position: relative;
 }
 .meter {
-  width: 340px;
+  width: 350px;
   background: rgba(12, 22, 40, 0.4);
 
   /* backdrop-filter: blur(1px) saturate(180%); */
@@ -152,6 +152,9 @@
       font-size: 18px;
       text-shadow: var(--text-shadow);
       font-weight: bold;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
     .dps {
       color: var(--dps);
@@ -208,7 +211,7 @@
   left: 0px;
   top: calc(100% + 4px);
   font-weight: bold;
-  width: 640px;
+  width: 940px;
   border: 1px solid var(--panel-border);
   background: rgba(12, 22, 40, 0.7);
   padding: 12px 24px;
@@ -257,13 +260,19 @@
   }
 
   .detailsSkills {
-    margin-top: 14px;
+    margin-top: 24px;
+    .cell {
+      min-width: 50px;
+    }
+    .cell.center {
+      text-align: center;
+    }
     .cell.name {
       flex: 0 0 210px;
 
       color: var(--row-fill);
     }
-    .cell.cast {
+    .cell.base {
       flex: 0 0 110px;
       display: flex;
       position: relative;
