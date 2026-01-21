@@ -30,7 +30,6 @@ data class TargetInfo(
         } else if (ts > targetDamageEnded){
             targetDamageEnded = ts
         }
-        targetDamageEnded = pdp.getTimeStamp()
         processedUuid.add(pdp.getUuid())
     }
 
