@@ -5,7 +5,7 @@ import java.util.UUID
 data class TargetInfo(
     private val targetId: Int,
     private var damagedAmount: Int = 0,
-    private val targetDamageStarted: Long,
+    private var targetDamageStarted: Long,
     private var targetDamageEnded: Long,
     private val processedUuid: MutableSet<UUID> = mutableSetOf(),
 ) {
@@ -24,6 +24,12 @@ data class TargetInfo(
     fun processPdp(pdp:ParsedDamagePacket){
         if (processedUuid.contains(pdp.getUuid())) return
         damagedAmount += pdp.getDamage()
+        val ts = pdp.getTimeStamp()
+        if (ts < targetDamageStarted){
+            targetDamageStarted = ts
+        } else if (ts > targetDamageEnded){
+            targetDamageEnded = ts
+        }
         targetDamageEnded = pdp.getTimeStamp()
         processedUuid.add(pdp.getUuid())
     }
