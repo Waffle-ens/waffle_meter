@@ -75,7 +75,6 @@ cd Aion2-Dps-Meter
 
 <br />
 
-![image](./readme-asset/battleAnalyze.png)
 
 <br />
 
