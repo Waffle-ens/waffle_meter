@@ -171,7 +171,7 @@ const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow }) =>
       }
 
       view.dpsNumber.textContent = `${dpsFormatter.format(dps)}/초`;
-      view.dpsContribution.textContent = `${damageContribution}%`;
+      view.dpsContribution.textContent = `${damageContribution.toFixed(1)}%`;
       const ratio = Math.max(0, Math.min(1, dps / topDps));
       view.fillEl.style.transform = `scaleX(${ratio})`;
 
