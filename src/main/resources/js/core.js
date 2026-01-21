@@ -268,25 +268,39 @@ class DpsApp {
     globalThis.uiDebug?.log?.("getBattleDetail", raw);
 
     let detailObj = raw;
-    if (typeof raw === "string") {
-      detailObj = this.safeParseJSON(raw, {});
-    }
-    if (!detailObj || typeof detailObj !== "object") {
-      detailObj = {};
-    }
+    if (typeof raw === "string") detailObj = this.safeParseJSON(raw, {});
+    if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
     const skills = [];
     let totalDmg = 0;
 
+    let totalTimes = 0;
+    let totalCrit = 0;
+    let totalParry = 0;
+    let totalBack = 0;
+    let totalPerfect = 0;
+    let totalDouble = 0;
+
     for (const [code, value] of Object.entries(detailObj)) {
-      if (!value || typeof value !== "object") {
-        continue;
-      }
+      if (!value || typeof value !== "object") continue;
 
       const dmg = Math.trunc(Number(value.damageAmount)) || 0;
-      if (dmg <= 0) {
-        continue;
-      }
+      if (dmg <= 0) continue;
+
+      const time = Number(value.times) || 0;
+      const crit = Number(value.critTimes) || 0;
+
+      const parry = Number(value.parryTimes) || 0;
+      const back = Number(value.backTimes) || 0;
+      const perfect = Number(value.perfectTimes) || 0;
+      const double = Number(value.doubleTimes) || 0;
+
+      totalTimes += time;
+      totalCrit += crit;
+      totalParry += parry;
+      totalBack += back;
+      totalPerfect += perfect;
+      totalDouble += double;
 
       totalDmg += dmg;
 
@@ -294,21 +308,33 @@ class DpsApp {
       skills.push({
         code,
         name: nameRaw ? nameRaw : `스킬 ${code}`,
-        time: Math.trunc(Number(value.times)) || 0,
-        crit: Math.trunc(Number(value.critTimes)) || 0,
+        time,
+        crit,
+        parry,
+        back,
+        perfect,
+        double,
         dmg,
       });
     }
 
-    const contrib = Number(row?.damageContribution);
-    const percent = Number.isFinite(contrib) ? `${contrib.toFixed(1)}%` : "-";
-
+    const pct = (num, den) => {
+      if (den <= 0) return 0;
+      return Math.round((num / den) * 1000) / 10;
+    };
+    const contributionPct = Number(row?.damageContribution);
     const combatTime = this.battleTime?.getCombatTimeText?.(this.nowMs()) ?? "00:00";
 
     return {
       totalDmg,
-      percent,
+      contributionPct,
+      totalCritPct: pct(totalCrit, totalTimes),
+      totalParryPct: pct(totalParry, totalTimes),
+      totalBackPct: pct(totalBack, totalTimes),
+      totalPerfectPct: pct(totalPerfect, totalTimes),
+      totalDoublePct: pct(totalDouble, totalTimes),
       combatTime,
+
       skills,
     };
   }
