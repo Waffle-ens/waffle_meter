@@ -896,7 +896,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
                 }
             }
         }
-        dpsData.map.forEach { (_, data) ->
+        dpsData.map.forEach { (key, data) ->
+            if (dataStorage.getSummonData().containsKey(key)){
+                dataStorage.getSummonData().remove(key)
+            }
             data.dps = data.amount / battleTime * 1000
             data.damageContribution = data.amount / totalDamage * 100
         }
