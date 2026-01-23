@@ -20,11 +20,9 @@ class DpsApp {
     this.GRACE_MS = 30000;
     this.GRACE_ARM_MS = 1000;
 
-    this.prevDpsById = new Map();
-    this.nextDpsById = new Map();
-
     // battleTime 캐시
     this._battleTimeVisible = false;
+    this._lastBattleTimeMs = null;
 
     DpsApp.instance = this;
   }
@@ -77,6 +75,7 @@ class DpsApp {
       dpsFormatter: this.dpsFormatter,
       getDetails: (row) => this.getDetails(row),
     });
+    window.ReleaseChecker?.start?.();
 
     setInterval(() => this.fetchDps(), this.POLL_MS);
   }
@@ -100,20 +99,22 @@ class DpsApp {
   fetchDps() {
     const now = this.nowMs();
     const raw = window.dpsData?.getDpsData?.();
+    // globalThis.uiDebug?.log?.("getBattleDetail", raw);
 
-    // 값이 없으면 활동 없음 + 타임 숨김
+    // 값이 없으면 타이머 숨김
     if (typeof raw !== "string") {
-      this.battleTime.update(now, false);
+      this._lastBattleTimeMs = null;
       this._battleTimeVisible = false;
       this.battleTime.setVisible(false);
       return;
     }
 
-    // 값이 동일해도 타이머는 계속 업데이트 해야함 유예나 종료필요하니까
     if (raw === this.lastJson) {
-      this.battleTime.update(now, false);
-      this.battleTime.setVisible(this._battleTimeVisible);
-      if (this._battleTimeVisible) {
+      const shouldBeVisible = this._battleTimeVisible && !this.isCollapse;
+
+      this.battleTime.setVisible(shouldBeVisible);
+      if (shouldBeVisible) {
+        this.battleTime.update(now, this._lastBattleTimeMs);
         this.battleTime.render(now);
       }
       return;
@@ -121,35 +122,24 @@ class DpsApp {
 
     this.lastJson = raw;
 
-    // 파싱
-    const { rows, targetName } = this.buildRowsFromPayload(raw);
+    const { rows, targetName, battleTimeMs } = this.buildRowsFromPayload(raw);
+    this._lastBattleTimeMs = battleTimeMs;
+
     const showByServer = rows.length > 0;
 
-    // 서버가 빈값 줄때까지 데이터 무시
     if (this.resetPending) {
-      // 표시 숨김
       this._battleTimeVisible = false;
       this.battleTime.setVisible(false);
 
-      if (rows.length === 0) {
-        this.resetPending = false;
-      }
+      if (rows.length === 0) this.resetPending = false;
       return;
     }
-
-    // dps 기준 변화감지
-    const isActivity = this.computedDps(rows);
-
-    //타이머 업데이트
-    this.battleTime.update(now, isActivity);
 
     // 빈값은 ui 안덮어씀
     let rowsToRender = rows;
     if (rows.length === 0) {
-      if (this.lastSnapshot) {
-        rowsToRender = this.lastSnapshot;
-      } else {
-        //타이머 숨김
+      if (this.lastSnapshot) rowsToRender = this.lastSnapshot;
+      else {
         this._battleTimeVisible = false;
         this.battleTime.setVisible(false);
         return;
@@ -158,15 +148,19 @@ class DpsApp {
       this.lastSnapshot = rows;
     }
 
-    // 타이머표시 여부
+    // 타이머 표시 여부 
     const showByRender = rowsToRender.length > 0;
     const showBattleTime = this.BATTLE_TIME_BASIS === "server" ? showByServer : showByRender;
-    const shouldBeVisible = showBattleTime && !this.isCollapse;
+
+    const shouldBeVisible =
+      showBattleTime && !this.isCollapse && Number.isFinite(Number(battleTimeMs));
 
     this._battleTimeVisible = shouldBeVisible;
     this.battleTime.setVisible(shouldBeVisible);
+
     if (shouldBeVisible) {
-      this.battleTime.render(now);
+      this.battleTime.update(now, battleTimeMs);
+      this.battleTime.render(now); 
     }
 
     // 렌더
@@ -181,7 +175,10 @@ class DpsApp {
     const mapObj = payload?.map && typeof payload.map === "object" ? payload.map : {};
     const rows = this.buildRowsFromMapObject(mapObj);
 
-    return { rows, targetName };
+    const battleTimeMsRaw = payload?.battleTime;
+    const battleTimeMs = Number.isFinite(Number(battleTimeMsRaw)) ? Number(battleTimeMsRaw) : null;
+
+    return { rows, targetName, battleTimeMs };
   }
 
   buildRowsFromMapObject(mapObj) {
@@ -218,49 +215,6 @@ class DpsApp {
     }
 
     return rows;
-  }
-
-  // dps변화 기준
-  computedDps(serverRows) {
-    if (!Array.isArray(serverRows) || serverRows.length === 0) {
-      return false;
-    }
-
-    this.nextDpsById.clear();
-
-    let changed = false;
-
-    for (const row of serverRows) {
-      const id = row?.id ?? row?.name;
-      if (!id) continue;
-
-      const dps = Math.trunc(Number(row?.dps) || 0);
-      this.nextDpsById.set(id, dps);
-
-      const prev = this.prevDpsById.get(id);
-      if (prev === undefined || prev !== dps) {
-        changed = true;
-      }
-    }
-
-    if (!changed) {
-      if (this.prevDpsById.size !== this.nextDpsById.size) {
-        changed = true;
-      } else {
-        for (const id of this.prevDpsById.keys()) {
-          if (!this.nextDpsById.has(id)) {
-            changed = true;
-            break;
-          }
-        }
-      }
-    }
-
-    const tmp = this.prevDpsById;
-    this.prevDpsById = this.nextDpsById;
-    this.nextDpsById = tmp;
-
-    return changed;
   }
 
   async getDetails(row) {
@@ -323,7 +277,7 @@ class DpsApp {
       return Math.round((num / den) * 1000) / 10;
     };
     const contributionPct = Number(row?.damageContribution);
-    const combatTime = this.battleTime?.getCombatTimeText?.(this.nowMs()) ?? "00:00";
+    const combatTime = this.battleTime?.getCombatTimeText?.() ?? "00:00";
 
     return {
       totalDmg,
@@ -366,9 +320,6 @@ class DpsApp {
       this._battleTimeVisible = false;
       this.battleTime.reset();
       this.battleTime.setVisible(false);
-
-      this.prevDpsById.clear();
-      this.nextDpsById.clear();
 
       this.detailsUI?.close?.();
       this.meterUI?.onResetMeterUi?.();

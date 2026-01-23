@@ -23,8 +23,8 @@
   font-family: "Spoqa Han Sans Neo", sans-serif;
   margin: 0;
   padding: 0;
-  -webkit-user-select: none;
-  user-select: none;
+  /* -webkit-user-select: none; */
+  /* user-select: none; */
 }
 
 .container {
@@ -331,4 +331,48 @@
       }
     }
   }
+}
+
+.updateModal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+}
+
+.updateModal.isOpen {
+  display: flex;
+}
+
+.updateModalCard {
+  width: 360px;
+  border-radius: 24px;
+  background: rgba(12, 22, 40, 0.9);
+  padding: 24px;
+  font-weight: bold;
+  color: white;
+}
+
+.updateModalTitle {
+  font-size: 24px;
+}
+
+.updateModalText {
+  margin: 24px 0px;
+  white-space: pre-line;
+}
+
+.updateModalBtn {
+  border: none;
+  background: var(--error-fill);
+  font-size: 18px;
+  font-weight: bold;
+  border-radius: 8px;
+  padding: 8px;
+  width: 100%;
+  cursor: pointer;
+  color: white;
+  text-shadow: var(--text-shadow);
 }
