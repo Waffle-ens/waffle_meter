@@ -148,7 +148,7 @@ class DpsApp {
       this.lastSnapshot = rows;
     }
 
-    // 타이머 표시 여부 
+    // 타이머 표시 여부
     const showByRender = rowsToRender.length > 0;
     const showBattleTime = this.BATTLE_TIME_BASIS === "server" ? showByServer : showByRender;
 
@@ -160,7 +160,7 @@ class DpsApp {
 
     if (shouldBeVisible) {
       this.battleTime.update(now, battleTimeMs);
-      this.battleTime.render(now); 
+      this.battleTime.render(now);
     }
 
     // 렌더
@@ -194,7 +194,7 @@ class DpsApp {
       const dpsRaw = isObj ? value.dps : value;
       const dps = Math.trunc(Number(dpsRaw));
 
-      // 소숫점 한자리
+      // 소수점 한자리
       const contribRaw = isObj ? Number(value.damageContribution) : NaN;
       const damageContribution = Number.isFinite(contribRaw)
         ? Math.round(contribRaw * 10) / 10
@@ -219,9 +219,9 @@ class DpsApp {
 
   async getDetails(row) {
     const raw = await window.dpsData?.getBattleDetail?.(row.id);
-    globalThis.uiDebug?.log?.("getBattleDetail", raw);
-
     let detailObj = raw;
+    globalThis.uiDebug?.log?.("getBattleDetail", detailObj);
+
     if (typeof raw === "string") detailObj = this.safeParseJSON(raw, {});
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
@@ -238,38 +238,74 @@ class DpsApp {
     for (const [code, value] of Object.entries(detailObj)) {
       if (!value || typeof value !== "object") continue;
 
-      const dmg = Math.trunc(Number(value.damageAmount)) || 0;
-      if (dmg <= 0) continue;
-
-      const time = Number(value.times) || 0;
-      const crit = Number(value.critTimes) || 0;
-
-      const parry = Number(value.parryTimes) || 0;
-      const back = Number(value.backTimes) || 0;
-      const perfect = Number(value.perfectTimes) || 0;
-      const double = Number(value.doubleTimes) || 0;
-
-      totalTimes += time;
-      totalCrit += crit;
-      totalParry += parry;
-      totalBack += back;
-      totalPerfect += perfect;
-      totalDouble += double;
-
-      totalDmg += dmg;
-
       const nameRaw = typeof value.skillName === "string" ? value.skillName.trim() : "";
-      skills.push({
-        code,
-        name: nameRaw ? nameRaw : `스킬 ${code}`,
+      const baseName = nameRaw ? nameRaw : `스킬 ${code}`;
+
+      // 공통 totals + skills
+      const pushSkill = ({
+        codeKey,
+        name,
         time,
-        crit,
-        parry,
-        back,
-        perfect,
-        double,
         dmg,
+        crit = 0,
+        parry = 0,
+        back = 0,
+        perfect = 0,
+        double = 0,
+        countForTotals = true,
+      }) => {
+        const dmgInt = Math.trunc(Number(String(dmg ?? "").replace(/,/g, ""))) || 0;
+        if (dmgInt <= 0) {
+          return;
+        }
+
+        const t = Number(time) || 0;
+
+        totalDmg += dmgInt;
+        if (countForTotals) {
+          totalTimes += t;
+          totalCrit += Number(crit) || 0;
+          totalParry += Number(parry) || 0;
+          totalBack += Number(back) || 0;
+          totalPerfect += Number(perfect) || 0;
+          totalDouble += Number(double) || 0;
+        }
+        skills.push({
+          code: String(codeKey),
+          name,
+          time: t,
+          crit: Number(crit) || 0,
+          parry: Number(parry) || 0,
+          back: Number(back) || 0,
+          perfect: Number(perfect) || 0,
+          double: Number(double) || 0,
+          dmg: dmgInt,
+        });
+      };
+
+      // 일반 피해
+      pushSkill({
+        codeKey: code,
+        name: baseName,
+        time: value.times,
+        dmg: value.damageAmount,
+        crit: value.critTimes,
+        parry: value.parryTimes,
+        back: value.backTimes,
+        perfect: value.perfectTimes,
+        double: value.doubleTimes,
       });
+
+      // 도트피해
+      if (Number(String(value.dotDamageAmount ?? "").replace(/,/g, "")) > 0) {
+        pushSkill({
+          codeKey: `${code}-dot`, // 유니크키
+          name: `${baseName} - 지속피해`,
+          time: value.dotTimes,
+          dmg: value.dotDamageAmount,
+          countForTotals: false,
+        });
+      }
     }
 
     const pct = (num, den) => {
@@ -277,7 +313,7 @@ class DpsApp {
       return Math.round((num / den) * 1000) / 10;
     };
     const contributionPct = Number(row?.damageContribution);
-    const combatTime = this.battleTime?.getCombatTimeText?.() ?? "00:00";
+    const combatTime = this.battleTime?.getCombatTimeText?.(this.nowMs()) ?? "00:00";
 
     return {
       totalDmg,
