@@ -164,8 +164,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (damageInfo.length < 0) return
         pdp.setDamage(damageInfo)
 
-        logger.info("도트데미지 공격자 {},피격자 {},스킬 {},데미지 {}",pdp.getActorId(),pdp.getTargetId(),pdp.getSkillCode1(),pdp.getDamage())
-        logger.info("전체 패킷: {}",toHex(packet))
+        logger.debug("도트데미지 공격자 {},피격자 {},스킬 {},데미지 {}",pdp.getActorId(),pdp.getTargetId(),pdp.getSkillCode1(),pdp.getDamage())
         if (pdp.getActorId() != pdp.getTargetId()) {
             dataStorage.appendDamage(pdp)
         }
@@ -394,7 +393,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 .replace(' ', '0')
         )
         logger.trace("가변패킷: {}", toHex(packet.copyOfRange(start, start + tempV)))
-        logger.info(
+        logger.debug(
             "피격자: {},공격자: {},스킬: {},타입: {},데미지: {},데미지플래그: {}",
             pdp.getTargetId(),
             pdp.getActorId(),
