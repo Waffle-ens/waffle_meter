@@ -313,7 +313,7 @@ class DpsApp {
       return Math.round((num / den) * 1000) / 10;
     };
     const contributionPct = Number(row?.damageContribution);
-    const combatTime = this.battleTime?.getCombatTimeText?.(this.nowMs()) ?? "00:00";
+    const combatTime = this.battleTime?.getCombatTimeText?.() ?? "00:00";
 
     return {
       totalDmg,
