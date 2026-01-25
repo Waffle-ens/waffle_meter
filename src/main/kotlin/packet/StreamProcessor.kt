@@ -50,12 +50,41 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
     }
-    private fun parseBrokenLengthPacket(packet: ByteArray) {
+
+    private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true) {
         if (packet[2] != 0xff.toByte() || packet[3] != 0xff.toByte()) {
-            parseNicknameFromBrokenLengthPacket(packet)
+            logger.trace("b잔여패킷: {}", toHex(packet))
+            val target = dataStorage.getCurrentTarget()
+            var processed = false
+            if (target != 0) {
+                val targetBytes = convertVarInt(target)
+                val opcodes = byteArrayOf(0x04, 0x38)
+                val keyword = opcodes + targetBytes
+                val idx = findArrayIndex(packet, keyword)
+                if (idx > 0) {
+                    val packetLengthInfo = readVarInt(packet, idx - 1)
+                    if (packetLengthInfo.length == 1) {
+                        val startIdx = idx - 1
+                        val endIdx = idx - 1 + packetLengthInfo.value - 3
+                        if (startIdx in 0..<endIdx && endIdx <= packet.size) {
+                            val extractedPacket = packet.copyOfRange(startIdx, endIdx)
+                            parsingDamage(extractedPacket)
+                            processed = true
+                            if (endIdx < packet.size) {
+                                val remainingPacket = packet.copyOfRange(endIdx, packet.size)
+                                parseBrokenLengthPacket(remainingPacket, false)
+                            }
+                        }
+                    }
+                }
+            }
+            if (flag && !processed) {
+                logger.info("잔여패킷 {}",toHex(packet))
+                parseNicknameFromBrokenLengthPacket(packet)
+            }
             return
         }
-        val newPacket = packet.copyOfRange(10,packet.size)
+        val newPacket = packet.copyOfRange(10, packet.size)
         onPacketReceived(newPacket)
     }
 
@@ -178,11 +207,36 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
     }
+
     private fun findArrayIndex(data: ByteArray, vararg pattern: Int): Int {
         if (pattern.isEmpty()) return 0
 
         val p = ByteArray(pattern.size) { pattern[it].toByte() }
 
+        val lps = IntArray(p.size)
+        var len = 0
+        for (i in 1 until p.size) {
+            while (len > 0 && p[i] != p[len]) len = lps[len - 1]
+            if (p[i] == p[len]) len++
+            lps[i] = len
+        }
+
+        var i = 0
+        var j = 0
+        while (i < data.size) {
+            if (data[i] == p[j]) {
+                i++; j++
+                if (j == p.size) return i - j
+            } else if (j > 0) {
+                j = lps[j - 1]
+            } else {
+                i++
+            }
+        }
+        return -1
+    }
+
+    private fun findArrayIndex(data: ByteArray, p: ByteArray): Int {
         val lps = IntArray(p.size)
         var len = 0
         for (i in 1 until p.size) {
@@ -360,7 +414,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             7 -> 14
             else -> return false
         }
-        pdp.setSpecials(parseSpecialDamageFlags(packet.copyOfRange(start,start+tempV)))
+        if (start+tempV > packet.size) return false
+        pdp.setSpecials(parseSpecialDamageFlags(packet.copyOfRange(start, start + tempV)))
         offset += tempV
 
 
@@ -459,6 +514,19 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
     }
 
+    fun convertVarInt(value: Int): ByteArray {
+        val bytes = mutableListOf<Byte>()
+        var num = value
+
+        while (num > 0x7F) {
+            bytes.add(((num and 0x7F) or 0x80).toByte())
+            num = num ushr 7
+        }
+        bytes.add(num.toByte())
+
+        return bytes.toByteArray()
+    }
+
     private fun parseSpecialDamageFlags(packet: ByteArray): List<SpecialDamage> {
         val flags = mutableListOf<SpecialDamage>()
 
@@ -502,4 +570,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         return flags
     }
+
+
 }

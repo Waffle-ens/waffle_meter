@@ -922,6 +922,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         val target: Int = targetInfoMap.maxByOrNull { it.value.damagedAmount() }?.key ?: 0
         var targetName = ""
         currentTarget = target
+        dataStorage.setCurrentTarget(target)
         //데미지 누계말고도 건수누적방식도 추가하는게 좋을지도? 지금방식은 정복같은데선 타겟변경에 너무 오랜시간이듬
         if (dataStorage.getMobData().containsKey(target)) {
             val mobCode = dataStorage.getMobData()[target]
