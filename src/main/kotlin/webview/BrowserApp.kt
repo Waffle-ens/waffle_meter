@@ -53,7 +53,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
     private val debugMode = false
 
-    private val version = "0.2.3"
+    private val version = "0.2.4"
 
 
     override fun start(stage: Stage) {
