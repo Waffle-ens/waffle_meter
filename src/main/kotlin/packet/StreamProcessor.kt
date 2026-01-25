@@ -201,9 +201,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val actorInfo = readVarInt(packet,offset)
         if (actorInfo.length < 0) return
         if (actorInfo.value == targetInfo.value) return
-        offset += actorInfo.length + 2
+        offset += actorInfo.length
         if (packet.size < offset) return
         pdp.setActorId(actorInfo)
+
+        val unknownInfo = readVarInt(packet,offset)
+        if (unknownInfo.length <0) return
+        offset += unknownInfo.length
 
         val skillCode:Int = parseUInt32le(packet,offset) / 100
         offset += 4
@@ -214,7 +218,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (damageInfo.length < 0) return
         pdp.setDamage(damageInfo)
 
+        logger.debug("{}",toHex(packet))
         logger.debug("도트데미지 공격자 {},피격자 {},스킬 {},데미지 {}",pdp.getActorId(),pdp.getTargetId(),pdp.getSkillCode1(),pdp.getDamage())
+        logger.debug("----------------------------------")
         if (pdp.getActorId() != pdp.getTargetId()) {
             dataStorage.appendDamage(pdp)
         }
