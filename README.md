@@ -34,7 +34,7 @@ cd Aion2-Dps-Meter
 ### 위 빌드하기는 일반 사용자와는 무관합니다.
 
 1. npcap (https://npcap.com/#download) 를 설치합니다. (Install Npcap in WinPcap API-compatible Mode 필수 체크)
-2. [이동](https://github.com/TK-open-public/Aion2-Dps-Meter/releases) 해당 링크에서 aion2meter4j-0.2.0.msi을 다운받아 설치합니다.
+2. [이동](https://github.com/TK-open-public/Aion2-Dps-Meter/releases) 해당 링크에서 aion2meter4j-x.x.x.msi을 다운받아 설치합니다.
 3. **아이온이 켜져있는 상태라면 먼저 캐릭터 선택창으로 이동합니다**.
 4. 프로그램이 설치된 위치 (기본 설치 경로 C:\Program Files\aion2meter4j)의 aion2meter4j.exe 를 **반드시 관리자 권한으로 실행합니다.**
 
