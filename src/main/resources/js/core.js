@@ -20,9 +20,23 @@ class DpsApp {
     this.GRACE_MS = 30000;
     this.GRACE_ARM_MS = 1000;
 
+    //자동리셋 시간
+    this.AUTO_RESET_AFTER_ENDED_MS = 60000; // ended 이후 1분
+
+    //자동리셋 관련
+    this._endedAt = null;
+    this._rawLastChangedAt = 0;
+    this._hadCombat = false;
+
+    this._autoResetStableStart = null;
+    this._autoResetElapsedMs = 0;
+    this._autoResetLastAt = 0;
+
     // battleTime 캐시
     this._battleTimeVisible = false;
     this._lastBattleTimeMs = null;
+
+    this._pollTimer = null;
 
     DpsApp.instance = this;
   }
@@ -77,7 +91,8 @@ class DpsApp {
     });
     window.ReleaseChecker?.start?.();
 
-    setInterval(() => this.fetchDps(), this.POLL_MS);
+    this.startPolling();
+    this.fetchDps();
   }
 
   nowMs() {
@@ -96,13 +111,126 @@ class DpsApp {
     }
   }
 
+  startPolling() {
+    if (this._pollTimer) return;
+    this._pollTimer = setInterval(() => this.fetchDps(), this.POLL_MS);
+  }
+
+  stopPolling() {
+    if (!this._pollTimer) return;
+    clearInterval(this._pollTimer);
+    this._pollTimer = null;
+  }
+
+  resetAll({ callBackend = true } = {}) {
+    this.resetPending = !!callBackend;
+
+    this._resetAutoResetState?.();
+
+    this.lastSnapshot = null;
+    this.lastJson = null;
+
+    this._battleTimeVisible = false;
+    this._lastBattleTimeMs = null;
+    this.battleTime?.reset?.();
+    this.battleTime?.setVisible?.(false);
+
+    this.detailsUI?.close?.();
+    this.meterUI?.onResetMeterUi?.();
+
+    if (this.elBossName) {
+      this.elBossName.textContent = "DPS METER";
+    }
+    if (callBackend) {
+      window.javaBridge?.resetDps?.();
+    }
+  }
+
+  _resetAutoResetState() {
+    this._endedAt = null;
+    this._rawLastChangedAt = 0;
+    this._hadCombat = false;
+
+    this._autoResetStableStart = null;
+    this._autoResetElapsedMs = 0;
+    this._autoResetLastAt = 0;
+  }
+
+  // 전투 끝난 후 (회색불) AUTO_RESET_AFTER_ENDED_MS 이후 초기화
+  // detail 열려있으면 잠시 중단
+
+  _tickAutoReset(now, { rawChanged = false, hasRows = false } = {}) {
+    if (this.isCollapse) return;
+    if (this.resetPending) return;
+
+    if (rawChanged) {
+      this._rawLastChangedAt = now;
+    } else if (!this._rawLastChangedAt) {
+      this._rawLastChangedAt = now;
+    }
+
+    if (hasRows) {
+      this._hadCombat = true;
+    }
+
+    // 전투 종료는 isEnded(회색불)로 변한 순간
+    const endedNow = !!this.battleTime?.isEnded?.();
+
+    // ended가 아니면 카운트다운 초기화
+    if (!endedNow) {
+      this._endedAt = null;
+      this._autoResetStableStart = null;
+      this._autoResetElapsedMs = 0;
+      this._autoResetLastAt = 0;
+      return;
+    }
+
+    if (!this._hadCombat) {
+      return;
+    }
+
+    // 전투 종료 시점 (회색불 들어온 순간)
+    if (this._endedAt === null) {
+      this._endedAt = now;
+    }
+
+    // 전투 종료 후 1분간 raw가 완전히 동일하면 리셋
+
+    const paused = !!this.detailsUI?.isOpen?.();
+    const stableStartCandidate = Math.max(this._endedAt, this._rawLastChangedAt || this._endedAt);
+
+    // raw가 바뀌었거나 endedAt이 갱신되면 시간초 초기화
+    if (this._autoResetStableStart !== stableStartCandidate) {
+      this._autoResetStableStart = stableStartCandidate;
+      this._autoResetElapsedMs = 0;
+      this._autoResetLastAt = now;
+    }
+
+    // details가 열려 있으면 잠깐 멈춤.
+    if (paused) {
+      this._autoResetLastAt = now; // 멈춘동안 delta가 누적되지 않게 고정
+      return;
+    }
+
+    const lastAt = this._autoResetLastAt || now;
+    this._autoResetElapsedMs += Math.max(0, now - lastAt);
+    this._autoResetLastAt = now;
+
+    if (this._autoResetElapsedMs >= this.AUTO_RESET_AFTER_ENDED_MS) {
+      this.resetAll({ callBackend: true });
+    }
+  }
+
   fetchDps() {
+    if (this.isCollapse) return;
     const now = this.nowMs();
     const raw = window.dpsData?.getDpsData?.();
     // globalThis.uiDebug?.log?.("getBattleDetail", raw);
 
     // 값이 없으면 타이머 숨김
     if (typeof raw !== "string") {
+      this._rawLastChangedAt = now;
+
       this._lastBattleTimeMs = null;
       this._battleTimeVisible = false;
       this.battleTime.setVisible(false);
@@ -115,8 +243,11 @@ class DpsApp {
       this.battleTime.setVisible(shouldBeVisible);
       if (shouldBeVisible) {
         this.battleTime.update(now, this._lastBattleTimeMs);
-        this.battleTime.render(now);
       }
+      this._tickAutoReset(now, this._lastBattleTimeMs, {
+        rawChanged: false,
+        hasRows: !!(this.lastSnapshot && this.lastSnapshot.length),
+      });
       return;
     }
 
@@ -125,16 +256,21 @@ class DpsApp {
     const { rows, targetName, battleTimeMs } = this.buildRowsFromPayload(raw);
     this._lastBattleTimeMs = battleTimeMs;
 
-    const showByServer = rows.length > 0;
+    this._tickAutoReset(now, battleTimeMs, { rawChanged: true, hasRows: rows.length > 0 });
 
+    const showByServer = rows.length > 0;
     if (this.resetPending) {
+      const resetAck = rows.length === 0;
+
       this._battleTimeVisible = false;
       this.battleTime.setVisible(false);
 
-      if (rows.length === 0) this.resetPending = false;
-      return;
-    }
+      if (!resetAck) {
+        return;
+      }
 
+      this.resetPending = false;
+    }
     // 빈값은 ui 안덮어씀
     let rowsToRender = rows;
     if (rows.length === 0) {
@@ -152,15 +288,15 @@ class DpsApp {
     const showByRender = rowsToRender.length > 0;
     const showBattleTime = this.BATTLE_TIME_BASIS === "server" ? showByServer : showByRender;
 
-    const shouldBeVisible =
-      showBattleTime && !this.isCollapse && Number.isFinite(Number(battleTimeMs));
+    const eligible = showBattleTime && Number.isFinite(Number(battleTimeMs));
 
-    this._battleTimeVisible = shouldBeVisible;
+    this._battleTimeVisible = eligible;
+    const shouldBeVisible = eligible && !this.isCollapse;
+
     this.battleTime.setVisible(shouldBeVisible);
 
     if (shouldBeVisible) {
       this.battleTime.update(now, battleTimeMs);
-      this.battleTime.render(now);
     }
 
     // 렌더
@@ -220,7 +356,7 @@ class DpsApp {
   async getDetails(row) {
     const raw = await window.dpsData?.getBattleDetail?.(row.id);
     let detailObj = raw;
-    globalThis.uiDebug?.log?.("getBattleDetail", detailObj);
+    // globalThis.uiDebug?.log?.("getBattleDetail", detailObj);
 
     if (typeof raw === "string") detailObj = this.safeParseJSON(raw, {});
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
@@ -241,7 +377,7 @@ class DpsApp {
       const nameRaw = typeof value.skillName === "string" ? value.skillName.trim() : "";
       const baseName = nameRaw ? nameRaw : `스킬 ${code}`;
 
-      // 공통 totals + skills
+      // 공통 
       const pushSkill = ({
         codeKey,
         name,
@@ -332,10 +468,18 @@ class DpsApp {
   bindHeaderButtons() {
     this.collapseBtn?.addEventListener("click", () => {
       this.isCollapse = !this.isCollapse;
-      this._battleTimeVisible = !this.isCollapse;
-      this.battleTime?.setVisible?.(!this.isCollapse);
 
-      this.elList.style.display = this.isCollapse ? "none" : "grid";
+      // 접히면 polling 멈추고 완전 초기화
+      if (this.isCollapse) {
+        this.stopPolling();
+        this.elList.style.display = "none";
+        this.resetAll({ callBackend: true });
+      } else {
+        // 펼치면 polling 재개하고 즉시 1회 fetch
+        this.elList.style.display = "grid";
+        this.startPolling();
+        this.fetchDps();
+      }
 
       const iconName = this.isCollapse ? "arrow-down-wide-narrow" : "arrow-up-wide-narrow";
       const iconEl =
@@ -347,22 +491,8 @@ class DpsApp {
       iconEl.setAttribute("data-lucide", iconName);
       lucide.createIcons({ root: this.collapseBtn });
     });
-
     this.resetBtn?.addEventListener("click", () => {
-      this.resetPending = true;
-      this.lastSnapshot = null;
-      this.lastJson = null;
-
-      this._battleTimeVisible = false;
-      this.battleTime.reset();
-      this.battleTime.setVisible(false);
-
-      this.detailsUI?.close?.();
-      this.meterUI?.onResetMeterUi?.();
-
-      this.elBossName.textContent = "DPS METER";
-
-      window.javaBridge?.resetDps?.();
+      this.resetAll({ callBackend: true });
     });
   }
 
@@ -398,6 +528,7 @@ class DpsApp {
 
 // 디버그콘솔
 const setupDebugConsole = () => {
+  const g = globalThis;
   if (globalThis.uiDebug?.log) return globalThis.uiDebug;
 
   const consoleDiv = document.querySelector(".console");
@@ -423,13 +554,13 @@ const setupDebugConsole = () => {
   };
 
   globalThis.uiDebug = {
-    log(tag, payload) {
-      if (globalThis.dpsData?.isDebuggingMode?.() !== true) return;
-      const time = new Date().toLocaleTimeString("ko-KR", { hour12: false });
-      appendLine(`${time} ${tag} ${safeStringify(payload)}`);
-    },
     clear() {
       consoleDiv.innerHTML = "";
+    },
+    log(...args) {
+      const line = args.map(safeStringify).join(" ");
+      appendLine(line);
+      console.log(...args);
     },
   };
 

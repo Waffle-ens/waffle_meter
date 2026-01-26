@@ -131,14 +131,13 @@ const createDetailsUI = ({
   };
 
   const renderSkills = (details) => {
-
     const skills = Array.isArray(details?.skills) ? details.skills : [];
     const topSkills = [...skills].sort((a, b) => (Number(b?.dmg) || 0) - (Number(a?.dmg) || 0));
     // .slice(0, 12);
 
     const totalDamage = Number(details?.totalDmg);
     if (!Number.isFinite(totalDamage) || totalDamage <= 0) {
-      uiDebug?.log("details:invalidTotalDmg", details);
+      // uiDebug?.log("details:invalidTotalDmg", details);
       return;
     }
     const percentBaseTotal = totalDamage;
@@ -238,7 +237,7 @@ const createDetailsUI = ({
       render(details, row);
     } catch (e) {
       if (seq !== openSeq) return;
-      uiDebug?.log("getDetails:error", { id: rowId, message: e?.message });
+      // uiDebug?.log("getDetails:error", { id: rowId, message: e?.message });
     }
   };
   const close = () => {

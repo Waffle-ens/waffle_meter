@@ -14,6 +14,8 @@ const createBattleTimeUI = ({
 
   let lastBattleTimeMs = null;
 
+  let currentState = "";
+
   let lastChangedAt = 0;
 
   let lastSeenAt = 0;
@@ -29,6 +31,7 @@ const createBattleTimeUI = ({
   const setState = (state) => {
     rootEl.classList.remove("state-fighting", "state-grace", "state-ended");
     if (state) rootEl.classList.add(state);
+    currentState = state || "";
 
     if (statusEl) statusEl.dataset.state = state || "";
   };
@@ -89,5 +92,8 @@ const createBattleTimeUI = ({
 
   const getCombatTimeText = () => formatMMSS(lastBattleTimeMs ?? 0);
 
-  return { setVisible, update, render, reset, getCombatTimeText };
+  const getState = () => currentState;
+  const isEnded = () => currentState === "state-ended";
+
+  return { setVisible, update, render, reset, getCombatTimeText, getState, isEnded };
 };
