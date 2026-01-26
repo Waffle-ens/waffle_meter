@@ -198,7 +198,6 @@ const createMeterUI = ({ elList, dpsFormatter, getUserName, onClickUserRow }) =>
     elList.classList.remove("hasRows");
     lastVisibleIds = new Set();
 
-    // ✅ battleTime은 남겨둠
     const battleTimeEl = elList.querySelector(".battleTime");
     if (battleTimeEl) {
       elList.replaceChildren(battleTimeEl);

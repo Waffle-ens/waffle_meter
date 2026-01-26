@@ -20,17 +20,6 @@ class DpsApp {
     this.GRACE_MS = 30000;
     this.GRACE_ARM_MS = 1000;
 
-    //자동리셋 시간
-    this.AUTO_RESET_AFTER_ENDED_MS = 60000; // ended 이후 1분
-
-    //자동리셋 관련
-    this._endedAt = null;
-    this._rawLastChangedAt = 0;
-    this._hadCombat = false;
-
-    this._autoResetStableStart = null;
-    this._autoResetElapsedMs = 0;
-    this._autoResetLastAt = 0;
 
     // battleTime 캐시
     this._battleTimeVisible = false;
@@ -125,7 +114,6 @@ class DpsApp {
   resetAll({ callBackend = true } = {}) {
     this.resetPending = !!callBackend;
 
-    this._resetAutoResetState?.();
 
     this.lastSnapshot = null;
     this.lastJson = null;
@@ -146,80 +134,8 @@ class DpsApp {
     }
   }
 
-  _resetAutoResetState() {
-    this._endedAt = null;
-    this._rawLastChangedAt = 0;
-    this._hadCombat = false;
 
-    this._autoResetStableStart = null;
-    this._autoResetElapsedMs = 0;
-    this._autoResetLastAt = 0;
-  }
 
-  // 전투 끝난 후 (회색불) AUTO_RESET_AFTER_ENDED_MS 이후 초기화
-  // detail 열려있으면 잠시 중단
-
-  _tickAutoReset(now, { rawChanged = false, hasRows = false } = {}) {
-    if (this.isCollapse) return;
-    if (this.resetPending) return;
-
-    if (rawChanged) {
-      this._rawLastChangedAt = now;
-    } else if (!this._rawLastChangedAt) {
-      this._rawLastChangedAt = now;
-    }
-
-    if (hasRows) {
-      this._hadCombat = true;
-    }
-
-    // 전투 종료는 isEnded(회색불)로 변한 순간
-    const endedNow = !!this.battleTime?.isEnded?.();
-
-    // ended가 아니면 카운트다운 초기화
-    if (!endedNow) {
-      this._endedAt = null;
-      this._autoResetStableStart = null;
-      this._autoResetElapsedMs = 0;
-      this._autoResetLastAt = 0;
-      return;
-    }
-
-    if (!this._hadCombat) {
-      return;
-    }
-
-    // 전투 종료 시점 (회색불 들어온 순간)
-    if (this._endedAt === null) {
-      this._endedAt = now;
-    }
-
-    // 전투 종료 후 1분간 raw가 완전히 동일하면 리셋
-
-    const paused = !!this.detailsUI?.isOpen?.();
-    const stableStartCandidate = Math.max(this._endedAt, this._rawLastChangedAt || this._endedAt);
-
-    // raw가 바뀌었거나 endedAt이 갱신되면 시간초 초기화
-    if (this._autoResetStableStart !== stableStartCandidate) {
-      this._autoResetStableStart = stableStartCandidate;
-      this._autoResetElapsedMs = 0;
-      this._autoResetLastAt = now;
-    }
-
-    // details가 열려 있으면 잠깐 멈춤.
-    if (paused) {
-      this._autoResetLastAt = now; // 멈춘동안 delta가 누적되지 않게 고정
-      return;
-    }
-
-    const lastAt = this._autoResetLastAt || now;
-    this._autoResetElapsedMs += Math.max(0, now - lastAt);
-    this._autoResetLastAt = now;
-
-    if (this._autoResetElapsedMs >= this.AUTO_RESET_AFTER_ENDED_MS) {
-      this.resetAll({ callBackend: true });
-    }
-  }
 
   fetchDps() {
     if (this.isCollapse) return;
@@ -244,10 +160,7 @@ class DpsApp {
       if (shouldBeVisible) {
         this.battleTime.update(now, this._lastBattleTimeMs);
       }
-      this._tickAutoReset(now, this._lastBattleTimeMs, {
-        rawChanged: false,
-        hasRows: !!(this.lastSnapshot && this.lastSnapshot.length),
-      });
+  
       return;
     }
 
@@ -256,7 +169,6 @@ class DpsApp {
     const { rows, targetName, battleTimeMs } = this.buildRowsFromPayload(raw);
     this._lastBattleTimeMs = battleTimeMs;
 
-    this._tickAutoReset(now, battleTimeMs, { rawChanged: true, hasRows: rows.length > 0 });
 
     const showByServer = rows.length > 0;
     if (this.resetPending) {
