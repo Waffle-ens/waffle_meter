@@ -389,17 +389,25 @@
       margin: 24px 0px;
       white-space: pre-line;
     }
-    .updateModalBtn {
-      border: none;
-      background: var(--error-fill);
-      font-size: 18px;
-      font-weight: bold;
-      border-radius: 8px;
-      padding: 8px;
-      width: 100%;
-      cursor: pointer;
-      color: white;
-      text-shadow: var(--text-shadow);
+    .updateModalActions {
+      display: flex;
+      gap: 12px;
+      .updateModalBtn {
+        border: none;
+        background: #1877f2;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 8px;
+        padding: 8px;
+        width: 100%;
+        cursor: pointer;
+        color: white;
+        text-shadow: var(--text-shadow);
+      }
+      .updateModalBtn.secondary {
+        background: rgba(255, 255, 255, 0.16);
+        color: white;
+      }
     }
   }
 }
