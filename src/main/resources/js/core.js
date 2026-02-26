@@ -50,7 +50,6 @@ class DpsApp {
     this.bindHeaderButtons();
     this.bindDragToMoveWindow();
     this.bindSettingsUI();
-    this.bindNativeKeyEvents();
 
     this.meterUI = createMeterUI({
       elList: this.elList,
@@ -423,14 +422,6 @@ class DpsApp {
     });
   }
 
-  bindNativeKeyEvents() {
-    window.addEventListener("nativeResetHotKey", (event) => {
-      const detail = event?.detail;
-      if (!detail) return;
-      this.resetAll({ callBackend: true });
-    });
-  }
-
   bindDragToMoveWindow() {
     let isDragging = false;
     let startX = 0,
@@ -508,10 +499,9 @@ const setupDebugConsole = () => {
 
 setupDebugConsole();
 const dpsApp = DpsApp.createInstance();
-window.resetDpsUi = function (options) {
-  const app = DpsApp.instance || dpsApp || DpsApp.createInstance();
 
-  const callBackend = options?.callBackend === true;
+const resetDpsUI = () => {
+  const app = dpsApp;
 
-  app.resetAll({ callBackend });
+  app.resetAll({ callBackend: true });
 };

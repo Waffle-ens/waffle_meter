@@ -39,7 +39,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
         fun resetDps(){
             dpsCalculator.resetDataStorage()
-            engine.executeScript("window.resetDpsUi()")
+            engine.executeScript("resetDpsUI()")
         }
 
         fun updateHotkey(modifiers: Int, vkCode: Int) {
