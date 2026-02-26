@@ -39,7 +39,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
         fun resetDps(){
             dpsCalculator.resetDataStorage()
-            engine.executeScript("resetDpsUI()")
+            engine.executeScript("window.resetDpsUi()")
         }
 
         fun updateHotkey(modifiers: Int, vkCode: Int) {
@@ -114,7 +114,10 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
         stage.show()
         HotkeyHandler.registerCallback {
-            bridge.resetDps()
+            Platform.runLater{
+                bridge.resetDps()
+            }
+
         }
         HotkeyHandler.start()
         Timeline(KeyFrame(Duration.millis(500.0), {
