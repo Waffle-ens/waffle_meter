@@ -488,7 +488,10 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (pdp.getActorId() != pdp.getTargetId()) {
             //추후 hps 를 넣는다면 수정하기
             //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
-            dataStorage.appendDamage(pdp)
+            if (pdp.getDamage() < 10000000) {
+                //무의요람 버그수정을 위해 일단 천만이상의 데미지 무시
+                dataStorage.appendDamage(pdp)
+            }
         }
         return true
 
