@@ -481,3 +481,11 @@ const setupDebugConsole = () => {
 
 setupDebugConsole();
 const dpsApp = DpsApp.createInstance();
+
+window.resetDpsUi = function (options) {
+  const app = DpsApp.instance || dpsApp || DpsApp.createInstance();
+
+  const callBackend = options?.callBackend === true;
+
+  app.resetAll({ callBackend });
+};
