@@ -43,6 +43,8 @@ dependencies {
 
     implementation("net.java.dev.jna:jna-platform:5.17.0")
 
+    implementation("at.yawk.lz4:lz4-java:1.10.4")
+
 
 }
 
