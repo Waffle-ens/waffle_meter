@@ -18,7 +18,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     fun onPacketReceived(packet: ByteArray, cnt: Int = 0) {
         try {
-            if (packet.size == 3) return
+            if (packet.size <= 3) return
             val packetLengthInfo = readVarInt(packet)
             val splitFlag = if (packetLengthInfo.length == 1) 3 else 2
 
@@ -54,8 +54,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private fun parsePerfectPacket(packet: ByteArray) {
         var flag = parsingDamage(packet)
         if (flag) return
-        flag = parsingNickname(packet)
-        if (flag) return
         flag = parseSummonPacket(packet)
         if (flag) return
         flag = parseDoTPacket(packet)
@@ -63,7 +61,30 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         searchNickname(packet)
     }
 
-    private fun searchNickname(packet: ByteArray) {}
+    private fun searchNickname(packet: ByteArray) {
+        val flagIdx = findArrayIndex(packet, 0x33, 0x36)
+        if (flagIdx == -1) return
+
+        var offset = flagIdx + 2
+        val userInfo = readVarInt(packet, offset)
+        if (userInfo.length < 0) return
+
+        offset += userInfo.length
+        if (offset >= packet.size) return
+
+        val spliterIdx = findArrayIndex(packet.copyOfRange(offset, offset + 10), 0x07)
+        if (spliterIdx == -1) return
+        offset += spliterIdx + 1
+
+        val nameLengthInfo = readVarInt(packet, offset)
+        offset += nameLengthInfo.length
+        if (nameLengthInfo.length > 71) return
+        if (offset >= packet.size) return
+
+        val np = packet.copyOfRange(offset, offset + nameLengthInfo.value)
+        val nickname = String(np,Charsets.UTF_8)
+        dataStorage.appendNickname(userInfo.value,nickname)
+    }
 
     private fun parseDoTPacket(packet: ByteArray): Boolean {
         var offset = 0
@@ -230,38 +251,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 ((packet[offset + 1].toInt() and 0xFF) shl 8) or
                 ((packet[offset + 2].toInt() and 0xFF) shl 16) or
                 ((packet[offset + 3].toInt() and 0xFF) shl 24)
-    }
-
-    private fun parsingNickname(packet: ByteArray): Boolean {
-        var offset = 0
-        val packetLengthInfo = readVarInt(packet)
-        if (packetLengthInfo.length < 0) return false
-        offset += packetLengthInfo.length
-//        if (packetLengthInfo.value < 32) return
-        //좀더 검증필요 대부분이 0x20,0x23 정도였음
-
-        if (packet[offset] != 0x04.toByte()) return false
-        if (packet[offset + 1] != 0x8d.toByte()) return false
-        offset = 10
-
-        if (offset >= packet.size) return false
-
-        val playerInfo = readVarInt(packet, offset)
-        if (playerInfo.length <= 0) return false
-        offset += playerInfo.length
-
-        if (offset >= packet.size) return false
-
-        val nicknameLength = packet[offset]
-        if (nicknameLength < 0 || nicknameLength > 72) return false
-        if (nicknameLength + offset > packet.size) return false
-
-        val np = packet.copyOfRange(offset + 1, offset + nicknameLength + 1)
-
-        logger.debug("0번 패턴에서 발견된 확정 닉네임 {}", String(np, Charsets.UTF_8))
-        dataStorage.appendNickname(playerInfo.value, String(np, Charsets.UTF_8))
-
-        return true
     }
 
     private fun parsingDamage(packet: ByteArray): Boolean {
