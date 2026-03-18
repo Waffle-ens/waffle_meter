@@ -46,9 +46,7 @@ class PacketAccumulator {
     }
 
     @Synchronized
-    fun getRange(start: Int, endExclusive: Int): ByteArray {
-        //완성패킷 찾았을때 복사용
-        //todo: 패킷구조 좀 더확실하게 확인되면 바꿀수도? (페이로드안에 매직패킷처럼 생긴 데이터 있는경우 / 아직까진 사례 없음)
+    fun getRange(start: Int, endExclusive: Int=buffer.size()): ByteArray {
         val allBytes = buffer.toByteArray()
         if (start < 0 || endExclusive > allBytes.size || start > endExclusive) {
             return ByteArray(0)
@@ -58,11 +56,8 @@ class PacketAccumulator {
 
     @Synchronized
     fun discardBytes(length: Int) {
-        //완성패킷 찾았을때 제거용
-        //gc 관련 문서좀 더 찾아서 어느정도의 효과인지 체크좀 해야할것같음
         val allBytes = buffer.toByteArray()
         buffer.reset()
-        //이거 싹 비우고 재조립하는게 최선이 맞나? 나중에 확인 필요함 우선도는 낮음
 
         if (length < allBytes.size) {
             buffer.write(allBytes, length, allBytes.size - length)

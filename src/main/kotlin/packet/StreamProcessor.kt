@@ -382,12 +382,12 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
     }
 
-    private fun toHex(bytes: ByteArray): String {
+    fun toHex(bytes: ByteArray): String {
         //출력테스트용
         return bytes.joinToString(" ") { "%02X".format(it) }
     }
 
-    private fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntOutput {
+    fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntOutput {
         //구글 Protocol Buffers 라이브러리에 이미 있나? 코드 효율성에 차이있어보이면 나중에 바꾸는게 나을듯?
         var value = 0
         var shift = 0
