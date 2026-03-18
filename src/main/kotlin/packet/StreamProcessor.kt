@@ -16,50 +16,66 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private val decompressFactory = LZ4Factory.fastestInstance()
     private val decompressor = decompressFactory.fastDecompressor()
 
-    fun onPacketReceived(packet: ByteArray, cnt: Int = 0) {
+    fun onPacketReceived(packet: ByteArray) {
         try {
-            if (packet.size <= 3) return
-            val packetLengthInfo = readVarInt(packet)
-            val splitFlag = if (packetLengthInfo.length == 1) 3 else 2
-
-            if (packet.size == packetLengthInfo.value || (packetLengthInfo.length == 2 && packet.size == packetLengthInfo.value + 1)) {
-                parsePerfectPacket(packet.copyOfRange(0, packet.size - 3))
-                //더이상 자를필요가 없는 최종 패킷뭉치
-                return
-            }
-            if (packet[packetLengthInfo.length] == 0xff.toByte() && packet[packetLengthInfo.length + 1] == 0xff.toByte()) {
-                decompressPacket(packet, packetLengthInfo.length)
-                return
-            }
-            if (packet.copyOfRange(0, packetLengthInfo.value - 3).size != 3) {
-                if (packet.copyOfRange(0, packetLengthInfo.value - 3).isNotEmpty()) {
-                    parsePerfectPacket(packet.copyOfRange(0, packetLengthInfo.value - splitFlag))
+            if (packet.size == 3) return
+            logger.debug("들어온 패킷: {}", toHex(packet))
+            val length = readVarInt(packet).length
+            val extraFlag = packet[length] >= 0xf0.toByte() && packet[length] < 0xff.toByte()
+            if (extraFlag) {
+                if (packet[length + 1] == 0xff.toByte() && packet[length + 2] == 0xff.toByte()) {
+                    decompressPacket(packet, length, true)
+                    return
+                }
+            } else {
+                if (packet[length] == 0xff.toByte() && packet[length + 1] == 0xff.toByte()) {
+                    decompressPacket(packet, length, false)
+                    return
                 }
             }
-            onPacketReceived(packet.copyOfRange(packetLengthInfo.value - splitFlag, packet.size), cnt + 1)
+            var flag = parsingDamage(packet, extraFlag)
+            if (flag) return
+            flag = parseSummonPacket(packet, extraFlag)
+            if (flag) return
+            flag = parseDoTPacket(packet, extraFlag)
+            if (flag) return
+            searchNickname(packet)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
-    private fun decompressPacket(packet: ByteArray, length: Int) {
-        var offset = length + 2
+    private fun decompressPacket(packet: ByteArray, headerLength: Int, extraFlag: Boolean) {
+        var offset = headerLength + 2
+        if (extraFlag) {
+            offset += 1
+        }
         val originLength = parseUInt32le(packet, offset)
         offset += 4
         val restored = ByteArray(originLength)
         decompressor.decompress(packet, offset, restored, 0, originLength)
-        onPacketReceived(restored)
+
+        var innerOffset = 0
+        while (true){
+            val pastInnerOffset = innerOffset
+            val lengthInfo = readVarInt(restored)
+            if (lengthInfo.value == 0){
+                innerOffset += 1
+                continue
+            }
+
+            val realLength = lengthInfo.value + lengthInfo.length - 4
+            if (realLength <= 0) {
+                logger.error("패킷 길이 체크에서 오류발생 {}, 오프셋 {}", toHex(packet),innerOffset)
+                break
+            }
+
+            onPacketReceived(packet.copyOfRange(pastInnerOffset,pastInnerOffset+realLength))
+            innerOffset += realLength
+        }
+        logger.trace("압축 패킷 해제 종료")
     }
 
-    private fun parsePerfectPacket(packet: ByteArray) {
-        var flag = parsingDamage(packet)
-        if (flag) return
-        flag = parseSummonPacket(packet)
-        if (flag) return
-        flag = parseDoTPacket(packet)
-        if (flag) return
-        searchNickname(packet)
-    }
 
     private fun searchNickname(packet: ByteArray) {
         val flagIdx = findArrayIndex(packet, 0x33, 0x36)
@@ -82,11 +98,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (offset >= packet.size) return
 
         val np = packet.copyOfRange(offset, offset + nameLengthInfo.value)
-        val nickname = String(np,Charsets.UTF_8)
-        dataStorage.appendNickname(userInfo.value,nickname)
+        val nickname = String(np, Charsets.UTF_8)
+        dataStorage.appendNickname(userInfo.value, nickname)
     }
 
-    private fun parseDoTPacket(packet: ByteArray): Boolean {
+    private fun parseDoTPacket(packet: ByteArray, extraFlag: Boolean): Boolean {
         var offset = 0
         val pdp = ParsedDamagePacket()
         pdp.setDot(true)
@@ -94,6 +110,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         if (packetLengthInfo.length < 0) return false
         offset += packetLengthInfo.length
 
+        if (extraFlag) {
+            offset += 1
+        }
         if (packet[offset] != 0x05.toByte()) return false
         if (packet[offset + 1] != 0x38.toByte()) return false
         offset += 2
@@ -196,11 +215,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         return -1
     }
 
-    private fun parseSummonPacket(packet: ByteArray): Boolean {
+    private fun parseSummonPacket(packet: ByteArray, extraFlag: Boolean): Boolean {
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
         if (packetLengthInfo.length < 0) return false
         offset += packetLengthInfo.length
+
+        if (extraFlag) {
+            offset += 1
+        }
 
 
         if (packet[offset] != 0x40.toByte()) return false
@@ -253,7 +276,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 ((packet[offset + 3].toInt() and 0xFF) shl 24)
     }
 
-    private fun parsingDamage(packet: ByteArray): Boolean {
+    private fun parsingDamage(packet: ByteArray, extraFlag: Boolean): Boolean {
         if (packet[0] == 0x20.toByte()) return false
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
@@ -262,7 +285,11 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         offset += packetLengthInfo.length
 
+        if (extraFlag) {
+            offset += 1
+        }
         if (offset >= packet.size) return false
+
         if (packet[offset] != 0x04.toByte()) return false
         if (packet[offset + 1] != 0x38.toByte()) return false
         offset += 2
@@ -388,7 +415,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
     fun readVarInt(bytes: ByteArray, offset: Int = 0): VarIntOutput {
-        //구글 Protocol Buffers 라이브러리에 이미 있나? 코드 효율성에 차이있어보이면 나중에 바꾸는게 나을듯?
         var value = 0
         var shift = 0
         var count = 0
