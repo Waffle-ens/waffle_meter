@@ -73,7 +73,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 innerOffset += realLength
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error("패킷 압축 해제중 에러",e)
         }
         logger.trace("압축 패킷 해제 종료")
     }
