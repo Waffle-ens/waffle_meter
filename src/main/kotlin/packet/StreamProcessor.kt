@@ -3,6 +3,7 @@ package com.tbread.packet
 import com.tbread.DataStorage
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
+import net.jpountz.lz4.LZ4Factory
 import org.slf4j.LoggerFactory
 
 class StreamProcessor(private val dataStorage: DataStorage) {
@@ -11,6 +12,9 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     data class VarIntOutput(val value: Int, val length: Int)
 
     private val mask = 0x0f
+
+    private val decompressFactory = LZ4Factory.fastestInstance()
+    private val decompressor = decompressFactory.fastDecompressor()
 
     fun onPacketReceived(packet: ByteArray) {
         val packetLengthInfo = readVarInt(packet)
@@ -22,13 +26,17 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
         if (packet.size <= 3) return
         // 매직패킷 단일로 올때 무시
-        if (packetLengthInfo.value > packet.size) {
-            logger.trace("현재 바이트길이가 예상 길이보다 짧음 : {}", toHex(packet))
-            parseBrokenLengthPacket(packet)
-            //길이헤더가 실제패킷보다 김 보통 여기 닉네임이 몰려있는듯?
+        if (packet[packetLengthInfo.length] == 0xff.toByte() && packet[packetLengthInfo.length+1] == 0xff.toByte()) {
+
+//            parseBrokenLengthPacket(packet)
+
+            decompressPacket(packet,packetLengthInfo.length)
+
             return
         }
         if (packetLengthInfo.value <= 3) {
+            //이부분 대충 패킷자를때 01,02,03 같은 한개짜리 바이트가와서 임시 추가했던걸로 기억함
+            //일단 두고 압축패킷 정상처리후 주석처리해서 없어졌나 확인필요
             onPacketReceived(packet.copyOfRange(1, packet.size))
             return
         }
@@ -49,6 +57,20 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             return
         }
 
+    }
+
+    private fun decompressPacket(packet: ByteArray,length: Int){
+        var offset = length+2
+        val originLength = parseUInt32le(packet,offset)
+        offset += 4
+        val restored = ByteArray(originLength)
+        try {
+            decompressor.decompress(packet, offset, restored, 0, originLength)
+        } catch (e:Exception){
+            println("에러남")
+        }
+        println("해제패킷 :${toHex(restored)}")
+        onPacketReceived(restored)
     }
 
     private fun parseBrokenLengthPacket(packet: ByteArray, flag: Boolean = true) {
