@@ -5,6 +5,7 @@ import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
 import net.jpountz.lz4.LZ4Factory
 import org.slf4j.LoggerFactory
+import java.nio.ByteBuffer
 
 class StreamProcessor(private val dataStorage: DataStorage) {
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
@@ -17,7 +18,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     private val decompressor = decompressFactory.fastDecompressor()
 
     fun onPacketReceived(packet: ByteArray) {
-        val temp = if (packet.size < 10) packet.size else 10
         if (packet.size == 3) return
         val length = readVarInt(packet).length
         val extraFlag = (packet[length] >= 0xf0.toByte() && packet[length] < 0xff.toByte())
@@ -32,13 +32,13 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 return
             }
         }
+        searchOwnNickname(packet)
         var flag = parsingDamage(packet, extraFlag)
         if (flag) return
         flag = parseSummonPacket(packet, extraFlag)
         if (flag) return
         flag = parseDoTPacket(packet, extraFlag)
         if (flag) return
-        searchNickname(packet)
     }
 
     private fun decompressPacket(packet: ByteArray, headerLength: Int, extraFlag: Boolean) {
@@ -77,7 +77,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
     }
 
 
-    private fun searchNickname(packet: ByteArray) {
+    private fun searchOwnNickname(packet: ByteArray) {
         val flagIdx = findArrayIndex(packet, 0x33, 0x36)
         if (flagIdx == -1) return
 
@@ -88,6 +88,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         offset += userInfo.length
         if (offset >= packet.size) return
 
+        if (packet.size < offset + 10) return
         val spliterIdx = findArrayIndex(packet.copyOfRange(offset, offset + 10), 0x07)
         if (spliterIdx == -1) return
         offset += spliterIdx + 1
@@ -100,6 +101,14 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val np = packet.copyOfRange(offset, offset + nameLengthInfo.value)
         val nickname = String(np, Charsets.UTF_8)
         dataStorage.appendNickname(userInfo.value, nickname)
+
+        offset += nameLengthInfo.value
+        if (packet.size < offset + 2) return
+        val server = ByteBuffer.wrap(packet,offset,2).getShort().toInt() and 0xffff
+        offset += 2
+
+        if (packet.size < offset +1) return
+        val job = packet[offset].toInt() and 0xff
     }
 
     private fun parseDoTPacket(packet: ByteArray, extraFlag: Boolean): Boolean {
