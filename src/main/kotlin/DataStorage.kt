@@ -88,6 +88,10 @@ class DataStorage {
         }
     }
 
+    fun setServer(uid:Int,server:Int){
+        userStorage[uid]!!.server = server
+    }
+
     private fun changeExecutorId(uid: Int) {
         if (nowExecutor != 0) {
             userStorage[nowExecutor]!!.isExecutor = false

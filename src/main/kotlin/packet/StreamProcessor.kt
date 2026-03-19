@@ -108,7 +108,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val np = packet.copyOfRange(offset, offset + nameLengthInfo.value)
         val nickname = String(np, Charsets.UTF_8)
         if (!isValidNickname(nickname)) return
-        dataStorage.appendNickname(userInfo.value, nickname,true)
+        dataStorage.appendNickname(userInfo.value, nickname, true)
 
         offset += nameLengthInfo.value
         if (packet.size >= offset + 2) {
@@ -122,6 +122,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 job = packet[offset].toInt() and 0xff
             }
         }
+        if (server != -1) dataStorage.setServer(userInfo.value, server)
+
     }
 
     private fun searchOtherNickname(packet: ByteArray, lengthInfo: VarIntOutput) {
@@ -209,6 +211,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         }
 
         dataStorage.appendNickname(userInfo.value, nickname)
+        if (server != -1) dataStorage.setServer(userInfo.value, server)
 
     }
 
