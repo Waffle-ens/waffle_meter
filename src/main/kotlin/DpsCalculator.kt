@@ -927,10 +927,9 @@ class DpsCalculator(private val dataStorage: DataStorage) {
         if (dataStorage.getMobData().containsKey(target)) {
             val mobCode = dataStorage.getMobData()[target]
             if (dataStorage.getMobCodeData().containsKey(mobCode)) {
-                targetName = dataStorage.getMobCodeData()[mobCode]!!
+                targetName = dataStorage.getMobCodeData()[mobCode]?.name ?: ""
             }
         }
-
         return Pair(target, targetName)
     }
 
