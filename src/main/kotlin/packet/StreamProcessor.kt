@@ -1,6 +1,6 @@
 package com.tbread.packet
 
-import com.tbread.DataStorage
+import com.tbread.DataManager
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
 import net.jpountz.lz4.LZ4Factory
@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-class StreamProcessor(private val dataStorage: DataStorage) {
+class StreamProcessor() {
     private val logger = LoggerFactory.getLogger(StreamProcessor::class.java)
 
     data class VarIntOutput(val value: Int, val length: Int)
@@ -108,7 +108,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val np = packet.copyOfRange(offset, offset + nameLengthInfo.value)
         val nickname = String(np, Charsets.UTF_8)
         if (!isValidNickname(nickname)) return
-        dataStorage.appendNickname(userInfo.value, nickname, true)
+        DataManager.saveNickname(userInfo.value, nickname, true)
 
         offset += nameLengthInfo.value
         if (packet.size >= offset + 2) {
@@ -122,7 +122,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
                 job = packet[offset].toInt() and 0xff
             }
         }
-        if (server != -1) dataStorage.setServer(userInfo.value, server)
+        if (server != -1) DataManager.saveServer(userInfo.value, server)
 
     }
 
@@ -210,8 +210,8 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 //            }
         }
 
-        dataStorage.appendNickname(userInfo.value, nickname)
-        if (server != -1) dataStorage.setServer(userInfo.value, server)
+        DataManager.saveNickname(userInfo.value, nickname)
+        if (server != -1) DataManager.saveServer(userInfo.value, server)
 
     }
 
@@ -270,7 +270,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         )
         logger.debug("----------------------------------")
         if (pdp.getActorId() != pdp.getTargetId()) {
-            dataStorage.appendDamage(pdp)
+            DataManager.saveDamage(pdp)
         }
         return true
 
@@ -353,7 +353,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             val mobCode = (packet[codeMarkerIdx - 1].toInt() and 0xFF shl 16) or
                     (packet[codeMarkerIdx - 2].toInt() and 0xFF shl 8) or
                     (packet[codeMarkerIdx - 3].toInt() and 0xFF)
-            dataStorage.getMobData()[summonInfo.value] = mobCode
+            DataManager.saveMobId(summonInfo.value, mobCode)
         }
 
 
@@ -369,7 +369,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         val realActorId = parseUInt16le(packet, offset)
 
         logger.debug("소환몹 맵핑 성공 {},{}", realActorId, summonInfo.value)
-        dataStorage.appendSummon(realActorId, summonInfo.value)
+        DataManager.saveSummon(summonInfo.value,realActorId)
         return true
     }
 
@@ -511,7 +511,7 @@ class StreamProcessor(private val dataStorage: DataStorage) {
             //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
             if (pdp.getDamage() < 10000000) {
                 //무의요람 버그수정을 위해 일단 천만이상의 데미지 무시
-                dataStorage.appendDamage(pdp)
+                DataManager.saveDamage(pdp)
             }
         }
         return true

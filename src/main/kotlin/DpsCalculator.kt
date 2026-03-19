@@ -1,15 +1,10 @@
 package com.tbread
 
 import com.tbread.entity.*
-import kotlinx.coroutines.Job
 import org.slf4j.LoggerFactory
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.CopyOnWriteArrayList
-import kotlin.math.log
-import kotlin.math.roundToInt
 
-class DpsCalculator(private val dataStorage: DataStorage) {
+class DpsCalculator() {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
 
     companion object {
@@ -847,31 +842,26 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     private var currentTarget: Int = 0
 
-    private fun getBattleData(): CopyOnWriteArrayList<ParsedDamagePacket>? {
-        if (currentTarget == 0) {
-            return CopyOnWriteArrayList(dataStorage.getBattleDataForStart().values.flatten().filter {
-                !dataStorage.getMobData().containsKey(it.getTargetId())
-            })
-        }
-        return dataStorage.getBattleData(currentTarget)
+    private fun battleData(): CopyOnWriteArrayList<ParsedDamagePacket>? {
+        return DataManager.battleData(currentTarget)
     }
 
 
     fun getDps(): DpsData {
         val dpsData = DpsData()
-        val storageTarget = dataStorage.currentTarget()
+        val storageTarget = DataManager.currentTarget()
         if (currentTarget != storageTarget) {
-            getBattleData()?.let { dataStorage.saveBattleLog(it) }
+            battleData()?.let { DataManager.saveBattleLog(it) }
         }
         currentTarget = storageTarget
-        val pdpMap = getBattleData()
+        val pdpMap = battleData()
         var totalDamage = 0.0
         val targetInfo = TargetInfo(currentTarget, 0, 0, 0)
         pdpMap?.forEach {
             totalDamage += it.getDamage()
             targetInfo.processPdp(it)
-            val actor = dataStorage.getSummonData()[it.getActorId()] ?: it.getActorId()
-            val user = dataStorage.user(actor) ?: User(
+            val actor = DataManager.summonerId(it.getActorId()) ?: it.getActorId()
+            val user = DataManager.user(actor) ?: User(
                 actor,
                 nickname = actor.toString()
             )
@@ -889,8 +879,8 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
         targetInfoMap[currentTarget] = targetInfo
         val battleTime = targetInfo.parseBattleTime()
-        val mob = dataStorage.getMobData()[currentTarget]
-        dpsData.targetName = dataStorage.getMobCodeData()[mob]?.name ?: ""
+        val mobId = DataManager.mobId(currentTarget)
+        dpsData.targetName = mobId?.let { DataManager.mob(it)?.name } ?: ""
         dpsData.battleTime = battleTime
         val iterator = dpsData.map.iterator()
         while (iterator.hasNext()) {
@@ -918,9 +908,10 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     }
 
     fun resetDataStorage() {
-        dataStorage.flushDamageStorage()
-        println(currentTarget)
+        battleData()?.let { DataManager.saveBattleLog(it) }
+        DataManager.flushPacket()
         currentTarget = 0
+        targetInfoMap.clear()
         logger.info("대상 데미지 누적 데이터 초기화 완료")
     }
 
