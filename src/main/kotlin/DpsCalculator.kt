@@ -2,6 +2,7 @@ package com.tbread
 
 import com.tbread.data.DataManager
 import com.tbread.entity.*
+import com.tbread.entity.enums.JobClass
 import org.slf4j.LoggerFactory
 import java.util.concurrent.CopyOnWriteArrayList
 

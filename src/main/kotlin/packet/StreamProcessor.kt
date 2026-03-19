@@ -2,7 +2,7 @@ package com.tbread.packet
 
 import com.tbread.data.DataManager
 import com.tbread.entity.ParsedDamagePacket
-import com.tbread.entity.SpecialDamage
+import com.tbread.entity.enums.SpecialDamage
 import net.jpountz.lz4.LZ4Factory
 import org.slf4j.LoggerFactory
 import java.nio.ByteBuffer
