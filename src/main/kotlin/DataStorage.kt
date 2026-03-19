@@ -17,14 +17,19 @@ class DataStorage {
     private val mobStorage = HashMap<Int, Int>()
     private var currentTarget: Int = 0
     private var nowExecutor: Int = 0
+    private var battleLog = mutableListOf<CopyOnWriteArrayList<ParsedDamagePacket>>()
 
     @Synchronized
     fun appendDamage(pdp: ParsedDamagePacket) {
         packetStorage.computeIfAbsent(pdp.getTargetId()) { CopyOnWriteArrayList() }
             .add(pdp)
-        if (mobCodeData[mobStorage[pdp.getTargetId()]]?.boss == true) {
+        if (mobCodeData[mobStorage[pdp.getTargetId()]]?.boss == true && currentTarget != pdp.getTargetId()) {
             setCurrentTarget(pdp.getTargetId())
         }
+    }
+
+    fun saveBattleLog(data:CopyOnWriteArrayList<ParsedDamagePacket>){
+        battleLog.add(data)
     }
 
     fun getBattleData(targetId: Int): CopyOnWriteArrayList<ParsedDamagePacket>? {

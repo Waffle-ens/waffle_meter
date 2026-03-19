@@ -859,7 +859,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
 
     fun getDps(): DpsData {
         val dpsData = DpsData()
-        this.currentTarget = dataStorage.currentTarget()
+        val storageTarget = dataStorage.currentTarget()
+        if (currentTarget != storageTarget) {
+            getBattleData()?.let { dataStorage.saveBattleLog(it) }
+        }
+        currentTarget = storageTarget
         val pdpMap = getBattleData()
         var totalDamage = 0.0
         val targetInfo = TargetInfo(currentTarget, 0, 0, 0)
