@@ -20,11 +20,13 @@ class StreamAssembler(private val processor: StreamProcessor) {
             }
             if (lengthInfo.value == -1){
                 logger.error("패킷 길이 Varint 체크에서 오류발생 {}", processor.toHex(fullPacket))
+                buffer.flush()
                 break
             }
             val realLength = lengthInfo.value + lengthInfo.length - 4
             if (realLength <= 0) {
                 logger.error("패킷 길이 체크에서 오류발생 {}", processor.toHex(fullPacket))
+                buffer.flush()
                 break
             }
 

@@ -65,4 +65,8 @@ class PacketAccumulator {
         }
     }
 
+    fun flush(){
+        buffer.reset()
+    }
+
 }
