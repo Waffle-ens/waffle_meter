@@ -1,6 +1,6 @@
 package com.tbread.packet
 
-import com.tbread.DataManager
+import com.tbread.data.DataManager
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.SpecialDamage
 import net.jpountz.lz4.LZ4Factory

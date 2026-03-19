@@ -1,6 +1,7 @@
 package com.tbread
 
 import com.tbread.config.PcapCapturerConfig
+import com.tbread.data.DataManager
 import com.tbread.packet.PcapCapturer
 import com.tbread.packet.StreamAssembler
 import com.tbread.packet.StreamProcessor

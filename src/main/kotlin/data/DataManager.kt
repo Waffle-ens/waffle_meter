@@ -1,9 +1,9 @@
-package com.tbread
+package com.tbread.data
 
+import com.tbread.data.repository.*
 import com.tbread.entity.Mob
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.User
-import com.tbread.repository.*
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.util.concurrent.CopyOnWriteArrayList

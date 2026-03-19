@@ -1,4 +1,4 @@
-package com.tbread.repository
+package com.tbread.data.repository
 
 import com.tbread.entity.User
 import java.util.concurrent.ConcurrentHashMap

@@ -1,10 +1,7 @@
 package com.tbread.config
 
 import com.sun.jna.platform.win32.User32
-import com.sun.jna.platform.win32.WinDef
 import com.sun.jna.platform.win32.WinUser
-import com.tbread.packet.PropertyHandler
-import com.tbread.webview.BrowserApp
 import org.slf4j.LoggerFactory
 
 object HotkeyHandler {

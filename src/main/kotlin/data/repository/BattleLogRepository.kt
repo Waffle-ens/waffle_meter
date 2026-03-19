@@ -1,4 +1,4 @@
-package com.tbread.repository
+package com.tbread.data.repository
 
 import com.tbread.entity.ParsedDamagePacket
 import java.util.concurrent.CopyOnWriteArrayList

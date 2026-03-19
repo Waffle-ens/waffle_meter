@@ -1,6 +1,6 @@
-package com.tbread.repository
+package com.tbread.data.repository
 
-class SummonRepository {
+class MobIdRepository {
     private val storage = HashMap<Int, Int>()
 
     fun save(key: Int, value: Int): Int? {

@@ -1,6 +1,5 @@
 package com.tbread.config
 
-import com.tbread.packet.PropertyHandler
 import org.slf4j.LoggerFactory
 
 data class PcapCapturerConfig(
