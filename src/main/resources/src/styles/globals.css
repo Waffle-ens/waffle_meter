@@ -123,3 +123,10 @@
     @apply bg-background text-foreground;
   }
 }
+body {
+  background: transparent;
+}
+#root {
+  width: 400px;
+  height: 300px;
+}
