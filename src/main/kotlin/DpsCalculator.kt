@@ -848,6 +848,11 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     private var currentTarget: Int = 0
 
     private fun getBattleData(): CopyOnWriteArrayList<ParsedDamagePacket>? {
+        if (currentTarget == 0) {
+            return CopyOnWriteArrayList(dataStorage.getBattleDataForStart().values.flatten().filter {
+                !dataStorage.getMobData().containsKey(it.getTargetId())
+            })
+        }
         return dataStorage.getBattleData(currentTarget)
     }
 
@@ -855,9 +860,6 @@ class DpsCalculator(private val dataStorage: DataStorage) {
     fun getDps(): DpsData {
         val dpsData = DpsData()
         this.currentTarget = dataStorage.currentTarget()
-        if (currentTarget == 0) {
-            return dpsData
-        }
         val pdpMap = getBattleData()
         var totalDamage = 0.0
         val targetInfo = TargetInfo(currentTarget, 0, 0, 0)
@@ -876,7 +878,7 @@ class DpsCalculator(private val dataStorage: DataStorage) {
             it.setSkillCode(inferOriginalSkillCode(it.getSkillCode1()) ?: it.getSkillCode1())
             dpsData.map[actor]!!.processPdp(it)
             if (user.job == null) {
-                user.job = JobClass.convertFromSkill(inferOriginalSkillCode(it.getSkillCode1())?:-1)
+                user.job = JobClass.convertFromSkill(inferOriginalSkillCode(it.getSkillCode1()) ?: -1)
             }
 
         } ?: return dpsData

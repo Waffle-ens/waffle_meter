@@ -31,6 +31,10 @@ class DataStorage {
         return packetStorage[targetId]
     }
 
+    fun getBattleDataForStart(): ConcurrentHashMap<Int, CopyOnWriteArrayList<ParsedDamagePacket>> {
+        return packetStorage
+    }
+
     private fun setCurrentTarget(targetId: Int) {
         currentTarget = targetId
     }
@@ -88,7 +92,7 @@ class DataStorage {
         }
     }
 
-    fun setServer(uid:Int,server:Int){
+    fun setServer(uid: Int, server: Int) {
         userStorage[uid]!!.server = server
     }
 
