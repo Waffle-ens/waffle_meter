@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Player } from "../types";
 import { parseCombatData } from "../utils/parser";
-// import { useDebugStore } from "../stores/debugStore";
+import { useDebugStore } from "../stores/debugStore";
 
 const POLL_MS = 300;
 
@@ -9,7 +9,7 @@ export const useCombatController = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [targetName, setTargetName] = useState<string>("");
   const [isCollapse, setIsCollapse] = useState(false);
-  // const addLog = useDebugStore((s) => s.addLog);
+  const addLog = useDebugStore((s) => s.addLog);
 
   const [battleTime, setBattleTime] = useState<number | null>(null);
   const lastJsonRef = useRef<string | null>(null);
@@ -31,7 +31,7 @@ export const useCombatController = () => {
     if (isCollapse) return;
 
     const raw = window.dpsData?.getDpsData?.();
-    // addLog(raw);
+    addLog(raw);
     if (typeof raw !== "string") return;
 
     if (raw === lastJsonRef.current) return;

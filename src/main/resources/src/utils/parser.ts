@@ -2,7 +2,6 @@ import type { Player, RawCombatData, RawPlayerValue } from "../types";
 
 export function parseCombatData(raw: unknown): Player[] {
   const data = raw as RawCombatData;
-  const USER_NAME = "임시";
 
   if (!data?.map) return [];
 
@@ -10,12 +9,13 @@ export function parseCombatData(raw: unknown): Player[] {
 
   for (const [id, value] of Object.entries(data.map)) {
     const isObj = value && typeof value === "object";
-
     const obj = isObj ? (value as RawPlayerValue) : null;
 
-    const job = obj?.job ?? "";
-    const nickname = obj?.nickname ?? "";
+    const user = obj?.user;
+    const job = user?.job ?? "";
+    const nickname = user?.nickname ?? "";
     const name = nickname || String(id);
+    const isUser = user?.isExecutor ?? false; 
 
     const dpsRaw = isObj ? obj?.dps : value;
     const dps = Math.trunc(Number(dpsRaw));
@@ -32,7 +32,7 @@ export function parseCombatData(raw: unknown): Player[] {
       dps,
       totalDamage: 0,
       damageContribution,
-      isUser: name === USER_NAME,
+      isUser,
     });
   }
 

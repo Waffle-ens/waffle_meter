@@ -6,12 +6,15 @@ export interface Skill {
 }
 
 export interface RawPlayerValue {
-  job?: string;
+  user?: {
+    id?: number;
+    nickname?: string;
+    job?: string;
+    isExecutor?: boolean;
+  };
   dps?: number | string;
   damageContribution?: number | string;
-  nickname?: string;
 }
-
 export interface RawCombatData {
   map?: Record<string, RawPlayerValue | number>;
   targetName?: string;

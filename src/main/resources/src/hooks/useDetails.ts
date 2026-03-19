@@ -109,7 +109,7 @@ export const useDetails = () => {
       totalBackPct: pct(totalBack, totalTimes),
       totalPerfectPct: pct(totalPerfect, totalTimes),
       totalDoublePct: pct(totalDouble, totalTimes),
-      combatTime: "00:00", // timer 제거
+      combatTime: "00:00", 
       skills: skills.sort((a, b) => b.dmg - a.dmg),
     };
   };
