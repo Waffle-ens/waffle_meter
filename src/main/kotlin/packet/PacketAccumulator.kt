@@ -22,6 +22,7 @@ class PacketAccumulator {
         if (buffer.size() > MAX_BUFFER_SIZE) {
             logger.error("{} : 버퍼 용량 제한 초과, 강제 초기화 진행",logger.name)
             buffer.reset()
+            return
         }
         buffer.write(data)
     }
