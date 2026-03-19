@@ -1,4 +1,3 @@
-// hooks/useDragWindow.ts
 import { useEffect } from "react";
 
 export const useDragWindow = (selector: string) => {

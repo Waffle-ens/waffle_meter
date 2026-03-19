@@ -6,9 +6,12 @@ import { DetailsPanel } from "./components/DetailsPanel";
 import { useDragWindow } from "./hooks/useDragWindow";
 
 import type { Player } from "./types";
+import { SettingsPanel } from "./components/SettingsPanel.tsx";
+import { DebugPanel } from "./components/DebugPanel.tsx";
 
 export default function App() {
   const { players, targetName, reset, toggleCollapse } = useCombatController();
+  const [settings, setSettings] = useState(false);
 
   const [selected, setSelected] = useState<Player | null>(null);
   useDragWindow(".drag-area");
@@ -33,6 +36,7 @@ export default function App() {
 
           <div className="flex gap-2">
             <button onClick={reset}>Reset</button>
+            <button onClick={() => setSettings(true)}>Settings</button>
             <button onClick={toggleCollapse}>Toggle</button>
           </div>
         </div>
@@ -45,8 +49,13 @@ export default function App() {
               onSelect={handleSelect}
             />
           </div>
-
+          <SettingsPanel
+            open={settings}
+            onClose={() => setSettings(false)}
+          />
           <div className="w-1/2 p-2">{selected && <DetailsPanel player={selected} />}</div>
+
+          <DebugPanel></DebugPanel>
         </div>
       </div>
     </div>

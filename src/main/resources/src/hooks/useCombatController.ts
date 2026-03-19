@@ -31,7 +31,7 @@ export const useCombatController = () => {
     if (isCollapse) return;
 
     const raw = window.dpsData?.getDpsData?.();
-
+    // addLog(raw);
     if (typeof raw !== "string") return;
 
     if (raw === lastJsonRef.current) return;
