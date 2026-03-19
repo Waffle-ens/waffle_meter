@@ -78,7 +78,6 @@ class StreamProcessor(private val dataStorage: DataStorage) {
         logger.trace("압축 패킷 해제 종료")
     }
 
-
     private fun searchOwnNickname(packet: ByteArray) {
         val flagIdx = findArrayIndex(packet, 0x33, 0x36)
         if (flagIdx == -1) return
@@ -341,19 +340,15 @@ class StreamProcessor(private val dataStorage: DataStorage) {
 
         val summonInfo = readVarInt(packet, offset)
         if (summonInfo.length < 0) return false
-        offset += summonInfo.length + 28
-        if (packet.size > offset) {
-            val mobInfo = readVarInt(packet, offset)
-            if (mobInfo.length < 0) return false
-            offset += mobInfo.length
-            if (packet.size > offset) {
-                val mobInfo2 = readVarInt(packet, offset)
-                if (mobInfo2.length < 0) return false
-                if (mobInfo.value == mobInfo2.value) {
-                    logger.debug("mid: {}, code: {}", summonInfo.value, mobInfo.value)
-                    dataStorage.appendMob(summonInfo.value, mobInfo.value)
-                }
-            }
+
+        val codeMarkerIdx = findArrayIndex(packet, 0x00, 0x40, 0x02)
+            .takeIf { it != -1 }
+            ?: findArrayIndex(packet, 0x00, 0x00, 0x02)
+        if (codeMarkerIdx != -1){
+            val mobCode = (packet[codeMarkerIdx - 1].toInt() and 0xFF shl 16) or
+                    (packet[codeMarkerIdx - 2].toInt() and 0xFF shl 8) or
+                    (packet[codeMarkerIdx - 3].toInt() and 0xFF)
+            
         }
 
 
