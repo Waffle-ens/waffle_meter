@@ -853,10 +853,7 @@ class DpsCalculator() {
         val data = battleData()
         val storageTarget = DataManager.currentTarget()
         if (storageTarget != currentTarget) {
-            battleData()?.let {
-                DataManager.saveBattleLog(it)
-                //그냥 recent 저장하는거 고민하기
-            }
+                DataManager.saveBattleLog(recentData)
         }
         currentTarget = storageTarget
         if (currentTarget == -1) {
@@ -878,7 +875,7 @@ class DpsCalculator() {
             report.contributors.remove(user)
             report.contributors.add(user)
             if (user.job == null) {
-                user.job = JobClass.convertFromSkill(inferOriginalSkillCode(it.getSkillCode1()) ?: -1)
+                user.job = JobClass.convertFromSkill(it.getSkillCode1())
             }
             DataManager.saveUser(user.id, user)
             report.information.getOrPut(user.id) { DpsInformation() }.addDamage(it.getDamage().toDouble())
@@ -909,9 +906,9 @@ class DpsCalculator() {
     }
 
     fun resetDataStorage() {
-        battleData()?.let { DataManager.saveBattleLog(it) }
-        //그냥 recent 저장하기?
-
+        if (!recentData.isEmpty()){
+            DataManager.saveBattleLog(recentData)
+        }
         DataManager.flushPacket()
         currentTarget = -1
         logger.info("대상 데미지 누적 데이터 초기화 완료")

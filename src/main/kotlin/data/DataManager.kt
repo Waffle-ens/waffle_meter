@@ -1,6 +1,7 @@
 package com.tbread.data
 
 import com.tbread.data.repository.*
+import com.tbread.entity.DpsReport
 import com.tbread.entity.Mob
 import com.tbread.entity.ParsedDamagePacket
 import com.tbread.entity.User
@@ -91,7 +92,7 @@ object DataManager {
     /*
     battleLog 영역
      */
-    fun saveBattleLog(data: CopyOnWriteArrayList<ParsedDamagePacket>) {
+    fun saveBattleLog(data: DpsReport) {
         battleLogRepository.save(data)
     }
 

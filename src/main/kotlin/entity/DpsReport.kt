@@ -10,10 +10,14 @@ data class DpsReport(
     val information: HashMap<Int, DpsInformation> = HashMap(),
     var target: MobInfo? = null,
     @Transient var fakeTimeFlag: Boolean = false,
-    @Transient var packets:MutableList<ParsedDamagePacket>? = null
+    @Transient var packets: MutableList<ParsedDamagePacket>? = null
 ) {
     fun target(mobInfo: MobInfo) {
         this.target = mobInfo
+    }
+
+    fun isEmpty(): Boolean {
+        return information.isEmpty()
     }
 
     fun compareBattleTime(time: Long) {
