@@ -84,7 +84,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return Json.encodeToString(dpsCalculator.battleDetails(dpsCalculator.getRecentData(), uid))
         }
 
-        fun getBattleDetail(idx: Int, uid: Int): String {
+        fun getBattleDetailFromList(idx: Int, uid: Int): String {
             return Json.encodeToString(dpsCalculator.battleDetails(DataManager.battleLog(idx), uid))
         }
 
