@@ -46,7 +46,7 @@ export const useMeter = () => {
 
   const fetchDps = () => {
     if (isCollapseRef.current) return;
-    const raw = window.dpsData?.getDpsData?.();
+    const raw = window.javaBridge?.getDpsData?.();
     if (typeof raw !== "string") return;
 
     if (raw === lastJsonRef.current) return;
