@@ -12,4 +12,8 @@ class BattleLogRepository {
     fun get(idx: Int): DpsReport? {
         return storage[idx]
     }
+
+    fun getAll(): List<DpsReport> {
+        return storage
+    }
 }

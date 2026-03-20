@@ -69,8 +69,11 @@ class DpsCalculator() {
         return report
     }
 
-    fun battleDetails(data: DpsReport, uid: Int): HashMap<String, AnalyzedSkill> {
+    fun battleDetails(data: DpsReport?, uid: Int): HashMap<String, AnalyzedSkill> {
         val analyzedData: HashMap<String, AnalyzedSkill> = hashMapOf()
+        if (data == null){
+            return analyzedData
+        }
         data.packets?.forEach {
             val skillName = DataManager.skill(it.getSkillCode1().toLong()) ?: it.getSkillCode1().toString()
             if (it.getActorId() == uid) {

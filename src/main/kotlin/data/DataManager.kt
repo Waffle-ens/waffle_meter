@@ -36,8 +36,8 @@ object DataManager {
         val skillJson = object {}.javaClass.getResourceAsStream("/json/skills.json")
             ?.bufferedReader()
             ?.readText()!!
-        Json.decodeFromString<Map<String, String>>(skillJson).forEach { (skillId,skillName) ->
-            saveSkill(skillId.toLong(),skillName)
+        Json.decodeFromString<Map<String, String>>(skillJson).forEach { (skillId, skillName) ->
+            saveSkill(skillId.toLong(), skillName)
         }
     }
 
@@ -116,6 +116,19 @@ object DataManager {
      */
     fun saveBattleLog(data: DpsReport) {
         battleLogRepository.save(data)
+    }
+
+    fun recentBattleList(): List<Pair<Int, String>> {
+        val battleList: MutableList<Pair<Int, String>> = mutableListOf()
+        val battleLogs = battleLogRepository.getAll()
+        battleLogs.forEachIndexed { idx, it ->
+            battleList.add(Pair(idx, it.target?.mob?.name ?: "복합 전투"))
+        }
+        return battleList
+    }
+
+    fun battleLog(idx: Int): DpsReport? {
+        return battleLogRepository.get(idx)
     }
 
 

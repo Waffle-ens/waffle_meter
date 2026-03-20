@@ -3,6 +3,7 @@ package com.tbread.webview
 import com.tbread.DpsCalculator
 import com.tbread.config.HotkeyHandler
 import com.tbread.config.VersionConfig
+import com.tbread.data.DataManager
 import com.tbread.entity.DpsReport
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
@@ -139,9 +140,13 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         return Json.encodeToString(dpsCalculator.battleDetails(dpsData, uid))
     }
 
-//    fun getBattleDetail(idx:Int,uid:Int):String{
-//
-//    }
+    fun getBattleDetail(idx: Int, uid: Int): String {
+        return Json.encodeToString(dpsCalculator.battleDetails(DataManager.battleLog(idx), uid))
+    }
+
+    fun getBattleList():String{
+        return Json.encodeToString(DataManager.recentBattleList())
+    }
 
 
     fun getVersion(): String {
