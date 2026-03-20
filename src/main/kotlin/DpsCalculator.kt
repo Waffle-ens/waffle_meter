@@ -57,7 +57,9 @@ class DpsCalculator() {
         }
         report.information.forEach { (_, info) ->
             val totalDamage = report.information.values.sumOf { it.amount }
-            info.dps = info.amount / (report.battleEnd - report.battleStart) * 1000
+            if (report.battleEnd - report.battleStart != 0L) {
+                info.dps = info.amount / (report.battleEnd - report.battleStart) * 1000
+            }
             if (totalDamage != 0.0) {
                 info.contribution = info.amount / totalDamage * 100
             }
@@ -70,7 +72,7 @@ class DpsCalculator() {
     fun battleDetails(data: DpsReport, uid: Int): HashMap<String, AnalyzedSkill> {
         val analyzedData: HashMap<String, AnalyzedSkill> = hashMapOf()
         data.packets?.forEach {
-            val skillName = DataManager.skill(it.getSkillCode1().toLong())!!
+            val skillName = DataManager.skill(it.getSkillCode1().toLong()) ?: it.getSkillCode1().toString()
             if (it.getActorId() == uid) {
                 if (!analyzedData.containsKey(skillName)) {
                     val analyzedSkill = AnalyzedSkill(it)

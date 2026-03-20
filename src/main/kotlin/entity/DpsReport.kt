@@ -1,8 +1,9 @@
 package com.tbread.entity
 
+import com.tbread.util.DpsReportSerializer
 import kotlinx.serialization.Serializable
 
-@Serializable
+@Serializable(with = DpsReportSerializer::class)
 data class DpsReport(
     val contributors: MutableSet<User> = mutableSetOf(),
     var battleStart: Long = 0,

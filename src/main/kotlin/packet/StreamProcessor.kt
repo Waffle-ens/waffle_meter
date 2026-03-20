@@ -254,7 +254,12 @@ class StreamProcessor() {
         if (unknownInfo.length < 0) return false
         offset += unknownInfo.length
 
-        val skillCode: Int = parseUInt32le(packet, offset) / 100
+        val skillCodeCandidate = parseUInt32le(packet, offset)
+        val skillCode: Int = if (DataManager.skill((skillCodeCandidate / 10).toLong()) != null) {
+            skillCodeCandidate / 10
+        } else {
+            skillCodeCandidate / 100
+        }
         offset += 4
         if (packet.size <= offset) return false
         pdp.setSkillCode(skillCode)
@@ -437,7 +442,10 @@ class StreamProcessor() {
 
         val temp = offset
 
-        val skillCode = parseUInt32le(packet, offset)
+        var skillCode = parseUInt32le(packet, offset)
+        if (DataManager.skill(skillCode.toLong()) == null){
+            skillCode = (skillCode / 10) * 10
+        }
         pdp.setSkillCode(skillCode)
 
         offset = temp + 5
@@ -494,23 +502,6 @@ class StreamProcessor() {
 //                offset += skipValueInfo.length
 //            }
 //        }
-
-        logger.trace("{}", toHex(packet))
-        logger.trace("타입패킷 {}", toHex(byteArrayOf(damageType)))
-        logger.trace(
-            "타입패킷비트 {}", String.format("%8s", (damageType.toInt() and 0xFF).toString(2))
-                .replace(' ', '0')
-        )
-        logger.trace("가변패킷: {}", toHex(packet.copyOfRange(start, start + tempV)))
-        logger.debug(
-            "피격자: {},공격자: {},스킬: {},타입: {},데미지: {},데미지플래그: {}",
-            pdp.getTargetId(),
-            pdp.getActorId(),
-            pdp.getSkillCode1(),
-            pdp.getType(),
-            pdp.getDamage(),
-            pdp.getSpecials()
-        )
 
         if (pdp.getActorId() != pdp.getTargetId()) {
             //추후 hps 를 넣는다면 수정하기
