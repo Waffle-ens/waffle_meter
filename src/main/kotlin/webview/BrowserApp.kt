@@ -2,6 +2,7 @@ package com.tbread.webview
 
 import com.tbread.DpsCalculator
 import com.tbread.config.HotkeyHandler
+import com.tbread.config.PropertyHandler
 import com.tbread.config.VersionConfig
 import com.tbread.entity.DpsData
 import javafx.animation.KeyFrame
@@ -30,6 +31,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private lateinit var engine: WebEngine
 
     inner class JSBridge(private val stage: Stage, private val hostServices: HostServices) {
+
+        fun saveProps(key:String,value:String){
+            PropertyHandler.setProperty(key,value)
+        }
 
         fun moveWindow(x: Double, y: Double) {
             stage.x = x
