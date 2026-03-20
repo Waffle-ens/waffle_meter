@@ -1,9 +1,11 @@
 import type { Player, Skill, Details } from "@/types";
+import { useDebugStore } from "../stores/debugStore";
 
 export const useDetails = () => {
   const getDetails = async (row: Player, combatTime: string = "00:00"): Promise<Details> => {
+    const addLog = useDebugStore.getState().addLog;
     const raw = await window.javaBridge?.getBattleDetail?.(row.id);
-
+    addLog(`detail ${raw}`);
     let detailObj = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
 

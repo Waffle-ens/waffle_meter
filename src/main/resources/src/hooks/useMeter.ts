@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import type { Player } from "../types";
 import { parseCombatData } from "../utils/parser";
-// import { useDebugStore } from "../stores/debugStore";
+import { useDebugStore } from "../stores/debugStore";
 
 const POLL_MS = 300;
 
 export const useMeter = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [targetName, setTargetName] = useState<string>("");
+  const [remainHp, setRemainHp] = useState<string | number>(0);
   const [isCollapse, setIsCollapse] = useState(false);
   const [isInCombat, setIsInCombat] = useState(false);
   const [battleTime, setBattleTime] = useState<number | null>(null);
-  // const addLog = useDebugStore((s) => s.addLog);
+  const addLog = useDebugStore((s) => s.addLog);
   const isCollapseRef = useRef(false);
   const lastBattleTimeRef = useRef<number | null>(null);
   const combatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -48,13 +49,16 @@ export const useMeter = () => {
     if (isCollapseRef.current) return;
     const raw = window.javaBridge?.getDpsData?.();
     if (typeof raw !== "string") return;
-
-    if (raw === lastJsonRef.current) return;
+    if (raw === lastJsonRef.current) {
+      return;
+    } else {
+      addLog(`raw${raw}`);
+    }
 
     lastJsonRef.current = raw;
 
     const parsed = JSON.parse(raw);
-    const rows = parseCombatData(parsed);
+    const { players: rows, targetName, remainHp } = parseCombatData(parsed);
 
     if (resetPendingRef.current) {
       if (rows.length > 0) {
@@ -64,14 +68,15 @@ export const useMeter = () => {
       }
     }
 
-    const targetName = parsed.targetName ?? "";
-    const battleTime = parsed.battleTime ?? null;
-    if (battleTime !== lastBattleTimeRef.current) {
-      lastBattleTimeRef.current = battleTime;
+    const battleStart = parsed.battleStart ?? null;
+    const battleEnd = parsed.battleEnd ?? null;
+    const battleTime = battleStart && battleEnd ? battleEnd - battleStart : null;
+
+    if (battleEnd !== lastBattleTimeRef.current) {
+      lastBattleTimeRef.current = battleEnd;
       setIsInCombat(true);
 
       if (combatTimerRef.current) clearTimeout(combatTimerRef.current);
-
       combatTimerRef.current = setTimeout(() => {
         setIsInCombat(false);
       }, 1000);
@@ -91,6 +96,7 @@ export const useMeter = () => {
 
     setPlayersIfChanged(rowsToRender);
     setTargetName(targetName);
+    setRemainHp(remainHp);
     setBattleTime(battleTime);
   };
   const startPolling = () => {
@@ -115,6 +121,8 @@ export const useMeter = () => {
 
     setPlayers([]);
     setTargetName("");
+    setRemainHp(0);
+
     setIsInCombat(false);
     setBattleTime(null);
 
@@ -152,6 +160,7 @@ export const useMeter = () => {
     isCollapse,
     battleTime,
     isInCombat,
+    remainHp,
     formatBattleTime,
     reset,
     toggleCollapse,
