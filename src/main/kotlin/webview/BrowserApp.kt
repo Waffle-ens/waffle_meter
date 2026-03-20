@@ -62,6 +62,22 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             exitProcess(0)
         }
 
+        fun getDpsData(): String {
+            return Json.encodeToString(dpsData)
+        }
+
+        fun isDebuggingMode(): Boolean {
+            return debugMode
+        }
+
+        fun getBattleDetail(uid: Int): String {
+            return Json.encodeToString(dpsData.map[uid]?.analyzedData)
+        }
+
+        fun getVersion(): String {
+            return version
+        }
+
     }
 
     @Volatile
@@ -86,7 +102,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             if (newState == Worker.State.SUCCEEDED) {
                 val window = engine.executeScript("window") as JSObject
                 window.setMember("javaBridge", bridge)
-                window.setMember("dpsData", this)
             }
         }
 
@@ -125,22 +140,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             cycleCount = Timeline.INDEFINITE
             play()
         }
-    }
-
-    fun getDpsData(): String {
-        return Json.encodeToString(dpsData)
-    }
-
-    fun isDebuggingMode(): Boolean {
-        return debugMode
-    }
-
-    fun getBattleDetail(uid: Int): String {
-        return Json.encodeToString(dpsData.map[uid]?.analyzedData)
-    }
-
-    fun getVersion(): String {
-        return version
     }
 
 }
