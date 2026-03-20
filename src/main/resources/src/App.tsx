@@ -11,7 +11,7 @@ import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { useResizable } from "@/hooks/useResizable";
 import { useSettingsStore } from "@/stores/useSettingsStore";
-
+import { DebugConsole } from "./components/DebugConsole";
 export default function App() {
   const {
     players,
@@ -100,6 +100,7 @@ export default function App() {
     <div
       style={{ width: "fit-content" }}
       className="relative">
+      <DebugConsole></DebugConsole>
       <div
         className="rounded-lg meter p-4"
         style={{ width: meterWidth }}>
