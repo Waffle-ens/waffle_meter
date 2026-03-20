@@ -9,7 +9,14 @@ plugins {
 }
 
 group = "com.tbread"
-version = "1.0-SNAPSHOT"
+version = "1.1.1"
+
+tasks.processResources {
+    outputs.upToDateWhen { false }
+    filesMatching("version.properties") {
+        expand("version" to project.version)
+    }
+}
 
 repositories {
     mavenCentral()
@@ -61,7 +68,7 @@ compose.desktop {
             }
             targetFormats(TargetFormat.Msi)
             packageName = "aion2meter4j"
-            packageVersion = "1.0.0"
+            packageVersion = version.toString()
             copyright = "Copyright 2026 TK open public Licensed under MIT License"
         }
 

@@ -1,5 +1,6 @@
 package com.tbread.entity
 
+import com.tbread.entity.enums.SpecialDamage
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient

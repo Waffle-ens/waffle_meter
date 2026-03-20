@@ -1,7 +1,8 @@
 package com.tbread.entity
 
+import com.tbread.entity.enums.SpecialDamage
 import com.tbread.packet.StreamProcessor
-import java.util.UUID
+import java.util.*
 
 class ParsedDamagePacket {
         private var actorId = 0

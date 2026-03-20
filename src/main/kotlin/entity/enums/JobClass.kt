@@ -1,4 +1,4 @@
-package com.tbread.entity
+package com.tbread.entity.enums
 
 import com.tbread.util.JobClassSerializer
 import kotlinx.serialization.Serializable

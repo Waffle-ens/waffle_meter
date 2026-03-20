@@ -1,4 +1,4 @@
-package com.tbread.packet
+package com.tbread.config
 
 import org.slf4j.LoggerFactory
 import java.io.*
@@ -6,17 +6,25 @@ import java.util.*
 
 object PropertyHandler {
     private val props = Properties()
-    private const val PROPERTIES_FILE_NAME = "settings.properties"
+    private const val SETTING_PROPERTY_FILE_NAME = "settings.properties"
+    private const val VERSION_PROPERTY_FILE_NAME = "version.properties"
     private val logger = LoggerFactory.getLogger(PropertyHandler::class.java)
 
     init {
-        loadProperties(PROPERTIES_FILE_NAME)
+        loadProperties(SETTING_PROPERTY_FILE_NAME, true)
+        loadProperties(VERSION_PROPERTY_FILE_NAME, false)
     }
 
-    fun loadProperties(fname: String) {
+    private fun loadProperties(fname: String, outerFlag: Boolean) {
         try {
-            FileInputStream(fname).use { fis ->
-                props.load(fis)
+            if (outerFlag) {
+                FileInputStream(fname).use { fis ->
+                    props.load(fis)
+                }
+            } else {
+                object {}.javaClass.getResourceAsStream("/$fname")?.use {
+                    props.load(it)
+                }
             }
         } catch (e: FileNotFoundException) {
             logger.info("설정파일이 존재하지 않아 파일을 생성합니다.")
@@ -35,8 +43,8 @@ object PropertyHandler {
         }
     }
 
-    private fun save(){
-        FileOutputStream(PROPERTIES_FILE_NAME).use { fos ->
+    private fun save() {
+        FileOutputStream(SETTING_PROPERTY_FILE_NAME).use { fos ->
             props.store(fos, "settings")
         }
     }
@@ -49,8 +57,8 @@ object PropertyHandler {
         return encodeToEucKr(props.getProperty(key, defaultValue))
     }
 
-    fun setProperty(key:String,value:String){
-        props.setProperty(key,value)
+    fun setProperty(key: String, value: String) {
+        props.setProperty(key, value)
         save()
     }
 

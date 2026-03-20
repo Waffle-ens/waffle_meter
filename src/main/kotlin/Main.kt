@@ -1,41 +1,36 @@
 package com.tbread
 
 import com.tbread.config.PcapCapturerConfig
-import com.tbread.entity.Mob
+import com.tbread.config.VersionConfig
+import com.tbread.data.DataManager
 import com.tbread.packet.PcapCapturer
 import com.tbread.packet.StreamAssembler
 import com.tbread.packet.StreamProcessor
 import com.tbread.webview.BrowserApp
-import javafx.application.Application
 import javafx.application.Platform
 import javafx.stage.Stage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 fun main() = runBlocking {
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         println("thread dead ${t.name}")
         e.printStackTrace()
     }
+
+    DataManager.load()
+
     val channel = Channel<ByteArray>(Channel.UNLIMITED)
-    val config = PcapCapturerConfig.loadFromProperties()
+    val pcapConfig = PcapCapturerConfig.loadFromProperties()
+    val versionConfig = VersionConfig.loadFromProperties()
 
-    val dataStorage = DataStorage()
 
-    val mobJson = object {}.javaClass.getResourceAsStream("/json/mobs.json")
-        ?.bufferedReader()
-        ?.readText()!!
-    Json.decodeFromString<List<Mob>>(mobJson).forEach { dataStorage.appendMobCode(it) }
-    //추후 데이터스토리지 개편해서 리팩토링하고 코드 여기서치우기
-
-    val processor = StreamProcessor(dataStorage)
+    val processor = StreamProcessor()
     val assembler = StreamAssembler(processor)
-    val capturer = PcapCapturer(config, channel)
-    val calculator = DpsCalculator(dataStorage)
+    val capturer = PcapCapturer(pcapConfig, channel)
+    val calculator = DpsCalculator()
 
     launch(Dispatchers.Default) {
         for (chunk in channel) {
@@ -48,7 +43,7 @@ fun main() = runBlocking {
     }
 
     Platform.startup {
-        val browserApp = BrowserApp(calculator)
+        val browserApp = BrowserApp(versionConfig,calculator)
         browserApp.start(Stage())
     }
 }
