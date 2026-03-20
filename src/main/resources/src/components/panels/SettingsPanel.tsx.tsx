@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { useSettingsStore } from "../stores/useSettingsStore";
-import { useHotkeyCapture } from "../hooks/useHotkeyCapture";
-import { formatHotkey, parseHotkeyString } from "../utils/hotKey";
+import { useSettingsStore } from "@/stores/useSettingsStore";
+import { useHotkeyCapture } from "@/hooks/useHotkeyCapture";
+import { formatHotkey, parseHotkeyString } from "@/utils/hotKey";
 
 interface Props {
   onClose: () => void;

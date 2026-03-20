@@ -1,17 +1,21 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useMeter } from "./hooks/useMeter";
+
+import type { Player } from "./types";
+import type { PanelType } from "./components/panels/SidePanel.tsx";
 
 import { MeterList } from "./components/MeterList";
 import { useDragWindow } from "./hooks/useDragWindow";
 
-import type { Player } from "./types";
-import { Header } from "./components/Header.tsx";
-import { TargetInfo } from "./components/TargetInfo";
-import { SidePanel } from "./components/SidePanel.tsx";
-import type { PanelType } from "./components/SidePanel.tsx";
-import { CombatTimer } from "./components/CombatTimer.tsx";
+import { Header } from "@/components/Header.tsx";
+import { TargetInfo } from "@/components/TargetInfo";
+import { SidePanel } from "@/components/panels/SidePanel.tsx";
+import { CombatTimer } from "@/components/CombatTimer.tsx";
+import { useVersionCheck } from "@/hooks/useVersionCheck";
+// import { DebugPanel } from "./components/DebugPanel";
+// import { useDebugStore } from "./stores/debugStore.ts";
+
 export default function App() {
- 
   const {
     players,
     targetName,
@@ -22,6 +26,9 @@ export default function App() {
     formatBattleTime,
     isInCombat,
   } = useMeter();
+  const activePanelRef = useRef<PanelType>(null);
+  const selectedRef = useRef<Player | null>(null);
+  const { updateInfo, openReleasePage } = useVersionCheck();
 
   const [activePanel, setActivePanel] = useState<PanelType>(null);
 
@@ -50,7 +57,7 @@ export default function App() {
       const player = players.find((p) => p.id === id);
       if (!player) return;
 
-      if (activePanel === "details" && selected?.id === player.id) {
+      if (activePanelRef.current === "details" && selectedRef.current?.id === player.id) {
         setActivePanel(null);
         return;
       }
@@ -58,8 +65,19 @@ export default function App() {
       setSelected(player);
       setActivePanel("details");
     },
-    [players, activePanel, selected],
+    [players],
   );
+
+  const handleClose = useCallback(() => {
+    setActivePanel(null);
+  }, []);
+
+  useEffect(() => {
+    activePanelRef.current = activePanel;
+  }, [activePanel]);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
 
   useEffect(() => {
     (window as any).resetDpsUI = () => {
@@ -67,13 +85,33 @@ export default function App() {
       setActivePanel(null);
       setSelected(null);
     };
-  }, []);
+  }, [reset]);
 
+  // const addLog = useDebugStore((s) => s.addLog);
+  useEffect(() => {
+    if (updateInfo) {
+      // addLog(`updateinfo 바뀜: ${JSON.stringify(updateInfo)}`);
+      setActivePanel("update");
+    }
+  }, [updateInfo]);
+
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, [handleClose]);
+  
   return (
     <div
       style={{ width: "fit-content" }}
       className="relative">
-      <div className="w-[400px] rounded-lg meter p-4">
+      <div className="w-100 rounded-lg meter p-4">
+        {/* <DebugPanel />  */}
         <Header
           reset={handleReset}
           setSettings={handlePanelToggle}
@@ -96,8 +134,10 @@ export default function App() {
       <SidePanel
         type={activePanel}
         player={selected}
-        onClose={() => setActivePanel(null)}
+        onClose={handleClose}
         combatTime={formatBattleTime(battleTime)}
+        updateInfo={updateInfo}
+        onUpdate={openReleasePage}
       />
     </div>
   );

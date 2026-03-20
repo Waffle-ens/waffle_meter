@@ -30,6 +30,19 @@ export const useMeter = () => {
 
     return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   };
+  const setPlayersIfChanged = (newRows: Player[]) => {
+    setPlayers((prev) => {
+      const isSame =
+        prev.length === newRows.length &&
+        prev.every(
+          (p, i) =>
+            p.id === newRows[i].id &&
+            p.dps === newRows[i].dps &&
+            p.damageContribution === newRows[i].damageContribution,
+        );
+      return isSame ? prev : newRows;
+    });
+  };
 
   const fetchDps = () => {
     if (isCollapseRef.current) return;
@@ -76,7 +89,7 @@ export const useMeter = () => {
       snapshotRef.current = rows;
     }
 
-    setPlayers(rowsToRender);
+    setPlayersIfChanged(rowsToRender);
     setTargetName(targetName);
     setBattleTime(battleTime);
   };
@@ -98,6 +111,8 @@ export const useMeter = () => {
 
     snapshotRef.current = null;
     lastJsonRef.current = null;
+    lastBattleTimeRef.current = null;
+
     setPlayers([]);
     setTargetName("");
     setIsInCombat(false);
@@ -105,6 +120,7 @@ export const useMeter = () => {
 
     if (combatTimerRef.current) {
       clearTimeout(combatTimerRef.current);
+      combatTimerRef.current = null;
     }
   };
 

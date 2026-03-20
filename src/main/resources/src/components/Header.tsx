@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import logoSrc from "../assets/logo.png";
-import type { PanelType } from "./SidePanel";
+import type { PanelType } from "@/components/panels/SidePanel";
 import {
   Settings,
   RefreshCcw,
@@ -51,7 +51,6 @@ export const Header = ({ isCollapse, reset, setSettings, toggleCollapse }: Props
         <Button
           variant="ghost"
           size="icon"
-          onClick={toggleCollapse}
           className="rounded-full">
           <ClipboardClock className="scale-125" />
         </Button>

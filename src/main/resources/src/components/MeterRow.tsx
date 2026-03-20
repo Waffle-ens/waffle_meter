@@ -19,7 +19,7 @@ const gradients = {
   error: "linear-gradient(to right, #c24343, #5c1010)",
 };
 export const MeterRow = memo(
-  ({ id, name, job, dps, contribution, isUser,  onSelect, topDps }: Props) => {
+  ({ id, name, job, dps, contribution, isUser, onSelect, topDps }: Props) => {
     const ratio = Math.max(0, Math.min(1, dps / topDps));
     const iconSrc = getJobIconSrc(job);
     const fillGradient = isUser
@@ -61,6 +61,16 @@ export const MeterRow = memo(
           </div>
         </div>
       </div>
+    );
+  },
+  (prev, next) => {
+    return (
+      prev.dps === next.dps &&
+      prev.contribution === next.contribution &&
+      prev.isSelected === next.isSelected &&
+      prev.topDps === next.topDps &&
+      prev.name === next.name &&
+      prev.job === next.job
     );
   },
 );

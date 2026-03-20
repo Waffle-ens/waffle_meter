@@ -1,25 +1,18 @@
 import { create } from "zustand";
 
-interface DebugState {
+interface DebugStore {
   logs: string[];
-  addLog: (log: any) => void;
+  addLog: (msg: string) => void;
   clear: () => void;
 }
 
-export const useDebugStore = create<DebugState>((set) => ({
+export const useDebugStore = create<DebugStore>((set) => ({
   logs: [],
-
-  addLog: (log) =>
-    set((state) => {
-      const text =
-        typeof log === "string"
-          ? log
-          : JSON.stringify(log, null, 2);
-
-      return {
-        logs: [...state.logs.slice(-200), text], 
-      };
-    }),
-
+  addLog: (msg: string) => {
+    const time = new Date().toLocaleTimeString();
+    set((prev) => ({
+      logs: [...prev.logs.slice(-30), `${time} ${msg}`],
+    }));
+  },
   clear: () => set({ logs: [] }),
 }));

@@ -2,17 +2,28 @@ import { useEffect, useState, useRef } from "react";
 import type { Player } from "@/types";
 import { DetailsPanel } from "./DetailsPanel";
 import { SettingsPanel } from "./SettingsPanel.tsx";
+import { UpdatePanel } from "./UpdatePanel";
+import type { UpdateInfo } from "@/hooks/useVersionCheck";
 
-export type PanelType = "details" | "settings" | "history" | null;
+export type PanelType = "details" | "settings" | "history" | "update" | null;
 
 interface SidePanelProps {
   type: PanelType;
   player: Player | null;
   onClose: () => void;
   combatTime: string;
+  updateInfo?: UpdateInfo | null;
+  onUpdate?: () => void;
 }
 
-export const SidePanel = ({ type, player, onClose, combatTime }: SidePanelProps) => {
+export const SidePanel = ({
+  type,
+  player,
+  onClose,
+  combatTime,
+  updateInfo,
+  onUpdate,
+}: SidePanelProps) => {
   const [visible, setVisible] = useState(false);
   const [rendered, setRendered] = useState(false);
   const [currentType, setCurrentType] = useState<PanelType>(null);
@@ -72,6 +83,14 @@ export const SidePanel = ({ type, player, onClose, combatTime }: SidePanelProps)
       {currentType === "settings" && (
         <SettingsPanel
           onClose={onClose}
+          onReady={() => setTimeout(() => setVisible(true), 10)}
+        />
+      )}
+      {currentType === "update" && updateInfo && (
+        <UpdatePanel
+          updateInfo={updateInfo}
+          onClose={onClose}
+          onUpdate={onUpdate ?? (() => {})}
           onReady={() => setTimeout(() => setVisible(true), 10)}
         />
       )}
