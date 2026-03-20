@@ -2,42 +2,41 @@ package com.tbread.webview
 
 import com.tbread.DpsCalculator
 import com.tbread.config.HotkeyHandler
+import com.tbread.config.VersionConfig
 import com.tbread.entity.DpsData
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
 import javafx.application.Application
 import javafx.application.HostServices
+import javafx.application.Platform
 import javafx.concurrent.Worker
 import javafx.scene.Scene
 import javafx.scene.paint.Color
+import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 import javafx.stage.Stage
 import javafx.stage.StageStyle
 import javafx.util.Duration
-import javafx.application.Platform
-import javafx.scene.web.WebEngine
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
-import kotlin.system.exitProcess
-
+import kotlinx.serialization.json.Json
 import netscape.javascript.JSObject
 import org.slf4j.LoggerFactory
 import kotlin.system.exitProcess
 
-class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
+class BrowserApp(private val config: VersionConfig, private val dpsCalculator: DpsCalculator) : Application() {
 
     private val logger = LoggerFactory.getLogger(BrowserApp::class.java)
 
-    private lateinit var engine:WebEngine
+    private lateinit var engine: WebEngine
 
-    inner class JSBridge(private val stage: Stage,private val hostServices: HostServices,) {
+    inner class JSBridge(private val stage: Stage, private val hostServices: HostServices) {
 
         fun moveWindow(x: Double, y: Double) {
             stage.x = x
             stage.y = y
         }
 
-        fun resetDps(){
+        fun resetDps() {
             dpsCalculator.resetDataStorage()
             engine.executeScript("resetDpsUI()")
         }
@@ -59,8 +58,8 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         }
 
         fun exitApp() {
-          Platform.exit()     
-          exitProcess(0)       
+            Platform.exit()
+            exitProcess(0)
         }
 
     }
@@ -70,7 +69,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
     private val debugMode = false
 
-    private val version = "1.1.0"
+    private val version = config.version
 
 
     override fun start(stage: Stage) {
@@ -104,7 +103,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
             setBgMethod.isAccessible = true
             setBgMethod.invoke(page, 0)
         } catch (e: Exception) {
-            logger.error("리플렉션 실패",e)
+            logger.error("리플렉션 실패", e)
         }
 
         stage.initStyle(StageStyle.TRANSPARENT)
@@ -114,7 +113,7 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
 
         stage.show()
         HotkeyHandler.registerCallback {
-            Platform.runLater{
+            Platform.runLater {
                 bridge.resetDps()
             }
 
@@ -136,11 +135,11 @@ class BrowserApp(private val dpsCalculator: DpsCalculator) : Application() {
         return debugMode
     }
 
-    fun getBattleDetail(uid:Int):String{
+    fun getBattleDetail(uid: Int): String {
         return Json.encodeToString(dpsData.map[uid]?.analyzedData)
     }
 
-    fun getVersion():String{
+    fun getVersion(): String {
         return version
     }
 

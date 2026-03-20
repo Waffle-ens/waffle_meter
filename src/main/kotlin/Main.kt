@@ -1,6 +1,7 @@
 package com.tbread
 
 import com.tbread.config.PcapCapturerConfig
+import com.tbread.config.VersionConfig
 import com.tbread.data.DataManager
 import com.tbread.packet.PcapCapturer
 import com.tbread.packet.StreamAssembler
@@ -22,12 +23,13 @@ fun main() = runBlocking {
     DataManager.load()
 
     val channel = Channel<ByteArray>(Channel.UNLIMITED)
-    val config = PcapCapturerConfig.loadFromProperties()
+    val pcapConfig = PcapCapturerConfig.loadFromProperties()
+    val versionConfig = VersionConfig.loadFromProperties()
 
 
     val processor = StreamProcessor()
     val assembler = StreamAssembler(processor)
-    val capturer = PcapCapturer(config, channel)
+    val capturer = PcapCapturer(pcapConfig, channel)
     val calculator = DpsCalculator()
 
     launch(Dispatchers.Default) {
@@ -41,7 +43,7 @@ fun main() = runBlocking {
     }
 
     Platform.startup {
-        val browserApp = BrowserApp(calculator)
+        val browserApp = BrowserApp(versionConfig,calculator)
         browserApp.start(Stage())
     }
 }
