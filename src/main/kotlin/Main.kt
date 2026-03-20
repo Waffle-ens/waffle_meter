@@ -23,7 +23,7 @@ fun main() = runBlocking {
 
     DataManager.load()
 
-    val channel = Channel<Pair<Long,ByteArray>>(Channel.UNLIMITED)
+    val channel = Channel<Triple<String,Long,ByteArray>>(Channel.UNLIMITED)
     val pcapConfig = PcapCapturerConfig.loadFromProperties()
     val versionConfig = VersionConfig.loadFromProperties()
 
@@ -35,7 +35,12 @@ fun main() = runBlocking {
     val calculator = DpsCalculator()
 
     launch(Dispatchers.Default) {
-        for ((seq, data) in channel) {
+        var currentIp = ""
+        for ((ip, seq, data) in channel) {
+            if (ip != currentIp) {
+                currentIp = ip
+                alignmenter.reset()
+            }
             val chunks = alignmenter.feed(seq, data)
             for (chunk in chunks) {
                 assembler.processChunk(chunk)

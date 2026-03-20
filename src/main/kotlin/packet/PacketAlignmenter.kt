@@ -12,6 +12,7 @@ class PacketAlignmenter {
         }
 
         holdBuffer[seq] = data
+//        println("holdBuffer keys: ${holdBuffer.keys}, nextExpected: $nextExpectedSeq, 들어온 seq: $seq")
         val result = mutableListOf<ByteArray>()
 
         while (holdBuffer.isNotEmpty()) {
@@ -32,5 +33,10 @@ class PacketAlignmenter {
             }
         }
         return result
+    }
+
+    fun reset() {
+        holdBuffer.clear()
+        nextExpectedSeq = -1L
     }
 }
