@@ -15,6 +15,7 @@ interface Props {
   onSelect: (id: string) => void;
   topDps: number;
   rowHeight: number;
+  server: number;
 }
 const gradients = {
   user: "linear-gradient(to right, #55c42a, #3a9e20)",
@@ -22,8 +23,27 @@ const gradients = {
   warning: "linear-gradient(to right, #ffa537, #7a3d00)",
   error: "linear-gradient(to right, #c24343, #5c1010)",
 };
+const getNameColor = (server?: number) => {
+  if (!server) return "#ffffff";
+  if (server >= 1001 && server <= 1021) return "#7dd3fc";
+  if (server >= 2001 && server <= 2021) return "#c084fc";
+  return "#ffffff";
+};
+
 export const MeterRow = memo(
-  ({ id, name, job, dps, contribution, isUser, onSelect, topDps, amount, rowHeight }: Props) => {
+  ({
+    id,
+    name,
+    job,
+    dps,
+    server,
+    contribution,
+    isUser,
+    onSelect,
+    topDps,
+    amount,
+    rowHeight,
+  }: Props) => {
     const displayMode = useSettingsStore((s) => s.displayMode);
     const nameDisplay = useSettingsStore((s) => s.nameDisplay);
     const maskedName = (name: string) => `${name[0]}***`;
@@ -108,7 +128,7 @@ export const MeterRow = memo(
           </div>
           <span
             className=" font-bold text-shadow-meter flex-1 truncate"
-            style={{ color: "#ffffff", fontSize }}>
+            style={{ color: getNameColor(server), fontSize }}>
             {displayName}
           </span>
           <div className=" flex items-center gap-2 font-bold text-shadow-meter">

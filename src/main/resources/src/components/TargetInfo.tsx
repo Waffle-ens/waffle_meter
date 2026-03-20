@@ -3,9 +3,10 @@ import bossIcon from "../assets/bossIcon.png";
 interface Props {
   targetName: string;
   rowHeight: number;
+  remainHp: string | number;
 }
 
-export const TargetInfo = memo(({ targetName, rowHeight }: Props) => {
+export const TargetInfo = memo(({ targetName, rowHeight, remainHp }: Props) => {
   const displayName = targetName || "타겟 인식 실패";
   const isFailed = !targetName;
 
@@ -40,7 +41,7 @@ export const TargetInfo = memo(({ targetName, rowHeight }: Props) => {
         </span>
         {!isFailed && (
           <div className="ml-auto font-bold text-shadow-meter">
-            <span style={{ color: "#e63333", fontSize }}>76,521,443</span>
+            <span style={{ color: "#e63333", fontSize }}>{remainHp}</span>
           </div>
         )}
       </div>

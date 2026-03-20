@@ -23,6 +23,7 @@ export interface Player {
   amount: number;
   damageContribution: number;
   isUser: boolean;
+  server: number;
 }
 export interface CombatRaw {
   combatants: Record<string, any>;
@@ -76,4 +77,3 @@ export interface UpdateInfo {
   latestVersion: string;
   isPrerelease: boolean;
 }
-

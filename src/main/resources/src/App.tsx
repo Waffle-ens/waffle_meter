@@ -11,17 +11,19 @@ import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { useResizable } from "@/hooks/useResizable";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { DebugConsole } from "./components/DebugConsole";
 
 export default function App() {
   const {
     players,
     targetName,
     isCollapse,
+    isInCombat,
+    remainHp,
     reset,
     toggleCollapse,
     battleTime,
     formatBattleTime,
-    isInCombat,
   } = useMeter();
 
   const activePanelRef = useRef<PanelType>(null);
@@ -128,6 +130,7 @@ export default function App() {
           <TargetInfo
             targetName={targetName}
             rowHeight={rowHeight}
+            remainHp={remainHp}
           />
         )}
         <MeterList
@@ -152,6 +155,7 @@ export default function App() {
           </div>
         )}
       </div>
+      <DebugConsole></DebugConsole>
       <div>
         <SidePanel
           type={activePanel}

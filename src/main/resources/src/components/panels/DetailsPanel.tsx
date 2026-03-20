@@ -47,7 +47,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime }: Props) =>
 
   return (
     <div className="relative text-white font-bold rounded-lg py-4 px-7">
-      {/* 헤더 */}
+
       <div className="flex items-center pb-3 border-b border-white/10">
         <span>{player.name} 상세내역</span>
         <Button
@@ -58,7 +58,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime }: Props) =>
         </Button>
       </div>
 
-      {/* 스탯 그리드 */}
+   
       {details && (
         <div className="grid grid-cols-2 py-3">
           {[
@@ -81,7 +81,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime }: Props) =>
         </div>
       )}
 
-      {/* 스킬 헤더 */}
+
       <div className="flex items-center py-3 gap-2 border-b border-white/10">
         <span
           className="text-left shrink-0"
@@ -125,7 +125,6 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime }: Props) =>
         </span>
       </div>
 
-      {/* 스킬 목록 */}
       <div
         ref={scrollRef}
         className="overflow-y-auto"
