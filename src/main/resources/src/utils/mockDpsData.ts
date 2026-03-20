@@ -194,9 +194,9 @@ const MOCK_DATA = {
 };
 
 export const injectMockDpsData = () => {
-  if ((window as any).dpsData) return;
+  if ((window as any).javaBridge) return;
 
-  (window as any).dpsData = {
+  (window as any).javaBridge = {
     getDpsData: () => JSON.stringify(MOCK_DATA),
     getBattleDetail: (_id: string) => JSON.stringify(MOCK_DETAIL_DATA),
   };

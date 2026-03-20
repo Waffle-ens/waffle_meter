@@ -50,7 +50,7 @@ export const useVersionCheck = () => {
 
   useEffect(() => {
     const check = async () => {
-      const version = window.dpsData?.getVersion?.();
+      const version = window.javaBridge?.getVersion?.();
       // addLog(`version: ${version}`);
 
       const current = parseVersion(version ?? "");

@@ -2,7 +2,7 @@ import type { Player, Skill, Details } from "@/types";
 
 export const useDetails = () => {
   const getDetails = async (row: Player, combatTime: string = "00:00"): Promise<Details> => {
-    const raw = await window.dpsData?.getBattleDetail?.(row.id);
+    const raw = await window.javaBridge?.getBattleDetail?.(row.id);
 
     let detailObj = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!detailObj || typeof detailObj !== "object") detailObj = {};

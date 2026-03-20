@@ -2,6 +2,7 @@ package com.tbread.webview
 
 import com.tbread.DpsCalculator
 import com.tbread.config.HotkeyHandler
+import com.tbread.config.PropertyHandler
 import com.tbread.config.VersionConfig
 import com.tbread.data.DataManager
 import com.tbread.entity.DpsReport
@@ -31,6 +32,14 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private lateinit var engine: WebEngine
 
     inner class JSBridge(private val stage: Stage, private val hostServices: HostServices) {
+
+        fun saveProps(key:String,value:String){
+            PropertyHandler.setProperty(key,value)
+        }
+
+        fun loadProps(key:String): String?{
+            return PropertyHandler.getProperty(key)
+        }
 
         fun moveWindow(x: Double, y: Double) {
             stage.x = x
@@ -63,6 +72,30 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             exitProcess(0)
         }
 
+        fun getDpsData(): String {
+            return Json.encodeToString(dpsData)
+        }
+
+        fun isDebuggingMode(): Boolean {
+            return debugMode
+        }
+
+        fun getBattleDetail(uid: Int): String {
+            return Json.encodeToString(dpsCalculator.battleDetails(dpsData, uid))
+        }
+
+        fun getBattleDetail(idx: Int, uid: Int): String {
+            return Json.encodeToString(dpsCalculator.battleDetails(DataManager.battleLog(idx), uid))
+        }
+
+        fun getBattleList():String{
+            return Json.encodeToString(DataManager.recentBattleList())
+        }
+
+        fun getVersion(): String {
+            return version
+        }
+
     }
 
     @Volatile
@@ -87,7 +120,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             if (newState == Worker.State.SUCCEEDED) {
                 val window = engine.executeScript("window") as JSObject
                 window.setMember("javaBridge", bridge)
-                window.setMember("dpsData", this)
             }
         }
 
@@ -126,31 +158,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             cycleCount = Timeline.INDEFINITE
             play()
         }
-    }
-
-    fun getDpsData(): String {
-        return Json.encodeToString(dpsData)
-    }
-
-    fun isDebuggingMode(): Boolean {
-        return debugMode
-    }
-
-    fun getBattleDetail(uid: Int): String {
-        return Json.encodeToString(dpsCalculator.battleDetails(dpsData, uid))
-    }
-
-    fun getBattleDetail(idx: Int, uid: Int): String {
-        return Json.encodeToString(dpsCalculator.battleDetails(DataManager.battleLog(idx), uid))
-    }
-
-    fun getBattleList():String{
-        return Json.encodeToString(DataManager.recentBattleList())
-    }
-
-
-    fun getVersion(): String {
-        return version
     }
 
 }

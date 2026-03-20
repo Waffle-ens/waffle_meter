@@ -14,7 +14,7 @@ interface Props {
   isSelected: boolean;
   onSelect: (id: string) => void;
   topDps: number;
-  rowHeight: number; 
+  rowHeight: number;
 }
 const gradients = {
   user: "linear-gradient(to right, #55c42a, #3a9e20)",
@@ -121,12 +121,12 @@ export const MeterRow = memo(
   (prev, next) => {
     return (
       prev.dps === next.dps &&
-        prev.contribution === next.contribution &&
-        prev.isSelected === next.isSelected &&
-        prev.topDps === next.topDps &&
-        prev.name === next.name &&
-        prev.job === next.job,
+      prev.contribution === next.contribution &&
+      prev.isSelected === next.isSelected &&
+      prev.topDps === next.topDps &&
+      prev.name === next.name &&
+      prev.job === next.job &&
       prev.rowHeight === next.rowHeight
-    ); // 추가
+    );
   },
 );
