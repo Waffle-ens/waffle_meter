@@ -100,6 +100,11 @@
     @apply bg-background text-foreground;
   }
 }
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 body {
   min-width: 100%;
   font-family:
