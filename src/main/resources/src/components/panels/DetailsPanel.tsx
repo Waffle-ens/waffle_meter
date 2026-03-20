@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Player } from "@/types";
-import { useDetails, type Details } from "@/hooks/useDetails";
+import type { Player, Details } from "@/types";
+import { useDetails } from "@/hooks/useDetails";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 interface Props {

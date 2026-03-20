@@ -3,9 +3,7 @@ import type { Player } from "@/types";
 import { DetailsPanel } from "./DetailsPanel";
 import { SettingsPanel } from "./SettingsPanel.tsx";
 import { UpdatePanel } from "./UpdatePanel";
-import type { UpdateInfo } from "@/hooks/useVersionCheck";
-
-export type PanelType = "details" | "settings" | "history" | "update" | null;
+import type { UpdateInfo, PanelType } from "@/types";
 
 interface SidePanelProps {
   type: PanelType;

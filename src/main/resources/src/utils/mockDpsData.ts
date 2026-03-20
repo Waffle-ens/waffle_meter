@@ -164,7 +164,7 @@ const MOCK_DATA = {
       damageContribution: 35.5,
     },
     "2": {
-      user: { id: 2, nickname: "딜러A", job: "마도성", isExecutor: false },
+      user: { id: 2, nickname: "딜러A딜러A딜러A딜러A딜러A딜러A", job: "마도성", isExecutor: false },
       dps: 45000,
       damageContribution: 35.5,
     },

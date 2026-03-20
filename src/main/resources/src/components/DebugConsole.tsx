@@ -1,6 +1,6 @@
 import { useDebugStore } from "../stores/debugStore";
 
-export const DebugPanel = () => {
+export const DebugConsole = () => {
   const { logs } = useDebugStore();
 
   return (

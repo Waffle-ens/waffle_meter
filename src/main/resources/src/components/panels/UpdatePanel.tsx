@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import type { UpdateInfo } from "@/hooks/useVersionCheck";
+import type { UpdateInfo } from "@/types";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+
 interface Props {
   updateInfo: UpdateInfo;
   onClose: () => void;
@@ -45,13 +46,13 @@ export const UpdatePanel = ({ updateInfo, onClose, onUpdate, onReady }: Props) =
         <Button
           onClick={onClose}
           size="lg"
-          className=" text-sm opacity-60 hover:opacity-100 transition-opacity">
+          className=" p-4 w-20  opacity-60 hover:opacity-100 transition-opacity">
           나중에
         </Button>
         <Button
           onClick={onUpdate}
           size="lg"
-          className="text-sm bg-purple-600 hover:bg-purple-500 rounded-md transition-colors">
+          className="p-4 w-20 bg-purple-600 hover:bg-purple-700  rounded-md transition-colors">
           업데이트
         </Button>
       </div>

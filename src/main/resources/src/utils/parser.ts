@@ -15,10 +15,12 @@ export function parseCombatData(raw: unknown): Player[] {
     const job = user?.job ?? "";
     const nickname = user?.nickname ?? "";
     const name = nickname || String(id);
-    const isUser = user?.isExecutor ?? false; 
+    const isUser = user?.isExecutor ?? false;
 
     const dpsRaw = isObj ? obj?.dps : value;
+    const amountRaw = isObj ? obj?.amount : 0;
     const dps = Math.trunc(Number(dpsRaw));
+    const amount = Number(amountRaw);
 
     const contribRaw = isObj ? Number(obj?.damageContribution) : NaN;
     const damageContribution = Number.isFinite(contribRaw) ? Math.round(contribRaw * 10) / 10 : 0;
@@ -30,7 +32,7 @@ export function parseCombatData(raw: unknown): Player[] {
       name,
       job,
       dps,
-      totalDamage: 0,
+      amount,
       damageContribution,
       isUser,
     });

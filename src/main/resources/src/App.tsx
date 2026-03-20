@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useMeter } from "./hooks/useMeter";
 
 import type { Player } from "./types";
-import type { PanelType } from "./components/panels/SidePanel.tsx";
+import type { PanelType } from "./types";
 
 import { MeterList } from "./components/MeterList";
 import { useDragWindow } from "./hooks/useDragWindow";
@@ -12,7 +12,7 @@ import { TargetInfo } from "@/components/TargetInfo";
 import { SidePanel } from "@/components/panels/SidePanel.tsx";
 import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
-// import { DebugPanel } from "./components/DebugPanel";
+import { DebugConsole } from "./components/DebugConsole";
 // import { useDebugStore } from "./stores/debugStore.ts";
 
 export default function App() {
@@ -105,20 +105,20 @@ export default function App() {
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
   }, [handleClose]);
-  
+
   return (
     <div
       style={{ width: "fit-content" }}
       className="relative">
       <div className="w-100 rounded-lg meter p-4">
-        {/* <DebugPanel />  */}
+        <DebugConsole />
         <Header
           reset={handleReset}
           setSettings={handlePanelToggle}
           isCollapse={isCollapse}
           toggleCollapse={handleToggleCollapse}
         />
-        <TargetInfo targetName={targetName} />
+        {players.length > 0 && <TargetInfo targetName={targetName} />}
         <MeterList
           players={players}
           selectedId={selected?.id}

@@ -1,11 +1,14 @@
 import { memo } from "react";
 import { getJobIconSrc } from "../utils/jobIcon";
+import { formatAmount } from "@/utils/format";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 
 interface Props {
   id: string;
   name: string;
   job?: string;
   dps: number;
+  amount: number;
   contribution: number;
   isUser: boolean;
   isSelected: boolean;
@@ -19,7 +22,11 @@ const gradients = {
   error: "linear-gradient(to right, #c24343, #5c1010)",
 };
 export const MeterRow = memo(
-  ({ id, name, job, dps, contribution, isUser, onSelect, topDps }: Props) => {
+  ({ id, name, job, dps, contribution, isUser, onSelect, topDps, amount }: Props) => {
+    const displayMode = useSettingsStore((s) => s.displayMode);
+    const nameDisplay = useSettingsStore((s) => s.nameDisplay);
+    const maskedName = (name: string) => `${name[0]}***`;
+
     const ratio = Math.max(0, Math.min(1, dps / topDps));
     const iconSrc = getJobIconSrc(job);
     const fillGradient = isUser
@@ -29,6 +36,44 @@ export const MeterRow = memo(
         : Number(contribution) < 5
           ? gradients.warning
           : gradients.normal;
+
+    const renderStats = () => {
+      switch (displayMode) {
+        case "amount_dps_percent":
+          return (
+            <>
+              <span style={{ color: "#ffe566" }}>{formatAmount(amount)}</span>
+              <span style={{ color: "#ffffff" }}>{dps.toLocaleString()}/초</span>
+              <span style={{ color: "#ffe566" }}>{contribution.toFixed(1)}%</span>
+            </>
+          );
+        case "amount_percent":
+          return (
+            <>
+              <span style={{ color: "#ffe566" }}>{formatAmount(amount)}</span>
+              <span style={{ color: "#ffe566" }}>{contribution.toFixed(1)}%</span>
+            </>
+          );
+        case "dps_percent":
+        default:
+          return (
+            <>
+              <span style={{ color: "#ffffff" }}>{dps.toLocaleString()}/초</span>
+              <span style={{ color: "#ffe566" }}>{contribution.toFixed(1)}%</span>
+            </>
+          );
+      }
+    };
+    const displayName = (() => {
+      switch (nameDisplay) {
+        case "all":
+          return name;
+        case "me_only":
+          return isUser ? name : maskedName(name);
+        case "hidden":
+          return maskedName(name);
+      }
+    })();
 
     return (
       <div
@@ -43,21 +88,25 @@ export const MeterRow = memo(
         />
 
         <div className="relative h-full flex items-center gap-3">
-          <div className="w-8 h-7 flex items-center justify-center shrink-0">
+          <div className="w-8 h-7 flex items-center justify-center ">
             {iconSrc && (
               <img
                 src={iconSrc}
                 draggable={false}
-                className="w-full h-full object-contain "
+                className="w-full h-full object-contain"
+                style={{
+                  filter: "drop-shadow(0 0 3px rgba(20,20,20,0.6))",
+                }}
               />
             )}
           </div>
-
-          <span className=" text-lg font-bold text-shadow-lg text-white">{name}</span>
-
-          <div className="ml-auto flex items-center gap-2 font-bold  text-dps text-shadow-lg">
-            <span>{dps.toLocaleString()}/초</span>
-            <span className="">{contribution.toFixed(1)}%</span>
+          <span
+            className="text-lg font-bold text-shadow-meter flex-1 truncate"
+            style={{ color: "#ffffff" }}>
+            {displayName}
+          </span>
+          <div className=" flex items-center gap-2 font-bold text-shadow-meter">
+            {renderStats()}
           </div>
         </div>
       </div>

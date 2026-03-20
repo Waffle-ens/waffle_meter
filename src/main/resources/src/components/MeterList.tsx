@@ -32,9 +32,7 @@ export const MeterList = memo(({ players, selectedId, onSelect }: Props) => {
       next.every((p, i) => {
         const prev = prevRowsRef.current[i];
         return (
-          prev.id === p.id &&
-          prev.dps === p.dps &&
-          prev.damageContribution === p.damageContribution
+          prev.id === p.id && prev.dps === p.dps && prev.damageContribution === p.damageContribution
         );
       });
 
@@ -50,7 +48,7 @@ export const MeterList = memo(({ players, selectedId, onSelect }: Props) => {
   if (cachedPlayersRef.current.size > MAX_CACHE) {
     const visibleIds = new Set(rows.map((p) => p.id));
     const candidates = Array.from(cachedPlayersRef.current.keys()).filter(
-      (id) => !visibleIds.has(id)
+      (id) => !visibleIds.has(id),
     );
     candidates.slice(0, cachedPlayersRef.current.size - MAX_CACHE).forEach((id) => {
       cachedPlayersRef.current.delete(id);
@@ -66,12 +64,16 @@ export const MeterList = memo(({ players, selectedId, onSelect }: Props) => {
         const current = isVisible ? rows.find((r) => r.id === cached.id)! : cached;
 
         return (
-          <div key={cached.id} style={{ display: isVisible ? "block" : "none" }}>
+          <div
+            className="overflow-hidden"
+            key={cached.id}
+            style={{ display: isVisible ? "block" : "none" }}>
             <MeterRow
               id={current.id}
               name={current.name}
               job={current.job}
               dps={current.dps}
+              amount={current.amount}
               contribution={current.damageContribution}
               isUser={current.isUser}
               isSelected={selectedId === current.id}

@@ -1,25 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import type { Version, UpdateInfo } from "@/types";
 // import { useDebugStore } from "../stores/debugStore";
-
 const API = "https://api.github.com/repos/TK-open-public/Aion2-Dps-Meter/releases?per_page=10";
 const RELEASE_URL = "https://github.com/TK-open-public/Aion2-Dps-Meter/releases";
 
 const RETRY_INTERVAL = 800;
 const RETRY_LIMIT = 5;
-
-interface Version {
-  major: number;
-  minor: number;
-  patch: number;
-  pre: string | null;
-  raw: string;
-}
-
-export interface UpdateInfo {
-  currentVersion: string;
-  latestVersion: string;
-  isPrerelease: boolean;
-}
 
 const parseVersion = (value: string): Version | null => {
   const raw = String(value || "")

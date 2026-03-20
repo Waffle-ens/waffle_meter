@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import logoSrc from "../assets/logo.png";
-import type { PanelType } from "@/components/panels/SidePanel";
+import type { PanelType } from "@/types";
 import {
   Settings,
   RefreshCcw,

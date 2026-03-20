@@ -1,34 +1,4 @@
-import type { Player } from "../types";
-
-export interface Skill {
-  code: string;
-  name: string;
-  time: number;
-  crit: number;
-  parry: number;
-  back: number;
-  perfect: number;
-  double: number;
-  dmg: number;
-
-  critPct: number;
-  parryPct: number;
-  perfectPct: number;
-  doublePct: number;
-  backPct: number;
-}
-
-export interface Details {
-  totalDmg: number;
-  contributionPct: number;
-  totalCritPct: number;
-  totalParryPct: number;
-  totalBackPct: number;
-  totalPerfectPct: number;
-  totalDoublePct: number;
-  combatTime: string;
-  skills: Skill[];
-}
+import type { Player, Skill, Details } from "@/types";
 
 export const useDetails = () => {
   const getDetails = async (row: Player, combatTime: string = "00:00"): Promise<Details> => {
