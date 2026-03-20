@@ -36,6 +36,7 @@ object DpsReportSerializer : KSerializer<DpsReport> {
             encodeLongElement(descriptor, 1, value.battleStart)
             encodeLongElement(descriptor, 2, value.battleEnd)
             encodeSerializableElement(descriptor, 3, serializer(), value.information)
+            encodeNullableSerializableElement(descriptor, 4, serializer(), value.target)
         }
     }
 }
