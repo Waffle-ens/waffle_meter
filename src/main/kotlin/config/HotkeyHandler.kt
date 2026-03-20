@@ -91,7 +91,11 @@ object HotkeyHandler {
                         onHotkeyPressed?.invoke()
                     }
                 } else {
-                    Thread.sleep(10)
+                    try {
+                        Thread.sleep(10)
+                    } catch (e: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                    }
                 }
             }
 
