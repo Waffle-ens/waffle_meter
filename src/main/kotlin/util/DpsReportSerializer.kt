@@ -2,6 +2,7 @@ package com.tbread.util
 
 import com.tbread.entity.DpsInformation
 import com.tbread.entity.DpsReport
+import com.tbread.entity.MobInfo
 import com.tbread.entity.User
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
@@ -18,6 +19,7 @@ object DpsReportSerializer : KSerializer<DpsReport> {
         element<Long>("battleStart")
         element<Long>("battleEnd")
         element<HashMap<Int, DpsInformation>>("information")
+        element<MobInfo?>("target")
     }
 
     override fun deserialize(decoder: Decoder): DpsReport {
