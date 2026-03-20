@@ -18,6 +18,10 @@ class DpsCalculator() {
         return DataManager.battleData(currentTarget)
     }
 
+    fun getRecentData():DpsReport{
+        return recentData
+    }
+
 
     fun getDps(): DpsReport {
         val data = battleData()
