@@ -35,7 +35,10 @@ class StreamProcessor() {
         }
         searchOwnNickname(packet, lengthInfo)
         searchOtherNickname(packet, lengthInfo)
-        var flag = parsingDamage(packet, extraFlag)
+        var flag = false
+        flag = parseBattlePacket(packet, lengthInfo, extraFlag)
+        if (flag) return
+        flag = parsingDamage(packet, extraFlag)
         if (flag) return
         flag = parseSummonPacket(packet, extraFlag)
         if (flag) return
@@ -354,6 +357,9 @@ class StreamProcessor() {
                     (packet[codeMarkerIdx - 2].toInt() and 0xFF shl 8) or
                     (packet[codeMarkerIdx - 3].toInt() and 0xFF)
             DataManager.saveMobId(summonInfo.value, mobCode)
+//            if (DataManager.mob(mobCode)?.boss == true) {
+//                println("${summonInfo.value} 스폰, 몬스터명 ${DataManager.mob(mobCode)?.name}")
+//            }
         }
 
 
@@ -369,7 +375,7 @@ class StreamProcessor() {
         val realActorId = parseUInt16le(packet, offset)
 
         logger.debug("소환몹 맵핑 성공 {},{}", realActorId, summonInfo.value)
-        DataManager.saveSummon(summonInfo.value,realActorId)
+        DataManager.saveSummon(summonInfo.value, realActorId)
         return true
     }
 
@@ -609,6 +615,33 @@ class StreamProcessor() {
                     it.isDigit()                 // 숫자
         }
         return hasKoreanOrEnglish && allValid
+    }
+
+    private fun parseBattlePacket(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean): Boolean {
+        var offset = lengthInfo.length
+        if (extraFlag) {
+            offset++
+        }
+        if (packet.size < offset + 2) return false
+
+        if (packet[offset] != 0x21.toByte()) return false
+        if (packet[offset + 1] != 0x8d.toByte()) return false
+        offset += 2
+
+        val battleInfo = readVarInt(packet, offset)
+        if (battleInfo.length <= 0) return false
+
+
+        val mobCode = DataManager.mobId(battleInfo.value) ?: return true
+        val mob = DataManager.mob(mobCode) ?: return true
+        if (mob.boss) {
+//            println("${battleInfo.value} 전투시작(종료), 몬스터명 ${
+//                DataManager.mobId(battleInfo.value)
+//                    ?.let { DataManager.mob(it)?.name }
+//            }")
+            DataManager.toggleBattle(battleInfo.value)
+        }
+        return true
     }
 
 }

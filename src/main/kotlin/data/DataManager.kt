@@ -32,11 +32,6 @@ object DataManager {
     @Synchronized
     fun saveDamage(pdp: ParsedDamagePacket) {
         packetRepository.save(pdp)
-        if (mobIdRepository.get(pdp.getTargetId())
-                ?.let { mobRepository.get(it)?.boss } == true && packetRepository.currentTarget() != pdp.getTargetId()
-        ) {
-            saveCurrentTarget(pdp.getTargetId())
-        }
     }
 
 
@@ -56,6 +51,33 @@ object DataManager {
         return packetRepository.currentTarget()
     }
 
+    fun toggleBattle(mobId: Int) {
+        val pastTarget = currentTarget()
+        if (pastTarget == mobId) {
+            saveCurrentBattleEnd()
+            saveCurrentTarget(-1)
+            return
+        }
+        saveCurrentBattleStart()
+        saveCurrentTarget(mobId)
+    }
+
+    fun currentBattleStart(): Long {
+        return packetRepository.currentBattleStart()
+    }
+
+    fun currentBattleEnd(): Long {
+        return packetRepository.currentBattleEnd()
+    }
+
+    private fun saveCurrentBattleStart() {
+        packetRepository.saveCurrentBattleStart()
+    }
+
+    private fun saveCurrentBattleEnd() {
+        packetRepository.saveCurrentBattleEnd()
+    }
+
     private fun saveCurrentTarget(targetId: Int) {
         packetRepository.currentTarget(targetId)
     }
@@ -63,7 +85,6 @@ object DataManager {
     @Synchronized
     fun flushPacket() {
         packetRepository.flush()
-        logger.info("데미지 패킷 초기화됨")
     }
 
 

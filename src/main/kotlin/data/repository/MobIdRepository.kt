@@ -15,6 +15,10 @@ class MobIdRepository {
         return storage.containsKey(id)
     }
 
+    fun delete(id: Int) {
+        storage.remove(id)
+    }
+
     fun flush() {
         storage.clear()
     }

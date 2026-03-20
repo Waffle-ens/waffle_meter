@@ -844,6 +844,8 @@ class DpsCalculator() {
 
     private var currentTarget: Int = 0
 
+    private var recentData = DpsData()
+
     private fun battleData(): CopyOnWriteArrayList<ParsedDamagePacket>? {
         return DataManager.battleData(currentTarget)
     }
@@ -853,9 +855,16 @@ class DpsCalculator() {
         val dpsData = DpsData()
         val storageTarget = DataManager.currentTarget()
         if (currentTarget != storageTarget) {
-            battleData()?.let { DataManager.saveBattleLog(it) }
+            battleData()?.let {
+                DataManager.saveBattleLog(it)
+            }
+            targetInfoMap.clear()
         }
         currentTarget = storageTarget
+        if (currentTarget == -1){
+            DataManager.flushPacket()
+            return recentData
+        }
         val pdpMap = battleData()
         var totalDamage = 0.0
         val targetInfo = TargetInfo(currentTarget, 0, 0, 0)
@@ -884,17 +893,22 @@ class DpsCalculator() {
         val mobId = DataManager.mobId(currentTarget)
         dpsData.targetName = mobId?.let { DataManager.mob(it)?.name } ?: ""
         dpsData.battleTime = battleTime
+        wrapUpData(dpsData,totalDamage)
+        recentData = dpsData
+        return dpsData
+    }
+
+    private fun wrapUpData(dpsData: DpsData,totalDamage:Double){
         val iterator = dpsData.map.iterator()
         while (iterator.hasNext()) {
             val (_, data) = iterator.next()
             if (data.user.job == null) {
                 iterator.remove()
             } else {
-                data.dps = data.amount / battleTime * 1000
-                data.damageContribution = data.amount / totalDamage * 100
+                data.dps = data.amount / dpsData.battleTime * 1000
+                data.damageContribution = data.amount / totalDamage  * 100
             }
         }
-        return dpsData
     }
 
     private fun inferOriginalSkillCode(skillCode: Int): Int? {
@@ -912,7 +926,7 @@ class DpsCalculator() {
     fun resetDataStorage() {
         battleData()?.let { DataManager.saveBattleLog(it) }
         DataManager.flushPacket()
-        currentTarget = 0
+        currentTarget = -1
         targetInfoMap.clear()
         logger.info("대상 데미지 누적 데이터 초기화 완료")
     }
