@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useHotkeyCapture } from "@/hooks/useHotkeyCapture";
-import { formatHotkey, parseHotkeyString } from "@/utils/hotKey";
+import { formatHotkey } from "@/utils/hotKey";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -28,24 +28,28 @@ const NAME_DISPLAY_MODES: { value: NameDisplay; label: string; description: stri
 ];
 
 export const SettingsPanel = ({ onClose, onReady }: Props) => {
-  const { hotkey, setHotkey, displayMode, setDisplayMode, nameDisplay, setNameDisplay } =
-    useSettingsStore();
-  const { isCapturing, pending, start, stop, reset } = useHotkeyCapture(hotkey);
+  const {
+    hotkey,
+    setHotkey,
+    displayMode,
+    setDisplayMode,
+    nameDisplay,
+    setNameDisplay,
+    rowHeight,
+    setRowHeight,
+  } = useSettingsStore();
+
+  const { isCapturing, pending, start, stop } = useHotkeyCapture(hotkey);
 
   useEffect(() => {
-    const jb = (window as any).javaBridge;
-    const raw = jb?.getHotkey?.() ?? jb?.getHotKey?.();
-    const parsed = parseHotkeyString(raw);
-    if (parsed) {
-      setHotkey(parsed);
-      reset(parsed);
-    }
     onReady?.();
   }, []);
 
+  const [localRowHeight, setLocalRowHeight] = useState(rowHeight);
+
   const handleSave = () => {
     setHotkey(pending);
-    (window as any).javaBridge?.updateHotkey?.(pending.modifiers, pending.vkCode);
+    setRowHeight(localRowHeight);
     onClose();
   };
 
@@ -135,7 +139,20 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
           ))}
         </ToggleGroup>
       </div>
-
+      <div className="py-4 border-b border-white/10">
+        <div className="text-sm mb-3 opacity-80">행 높이</div>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={28}
+            max={64}
+            value={localRowHeight}
+            onChange={(e) => setLocalRowHeight(Number(e.target.value))}
+            className="flex-1 accent-purple-500"
+          />
+          <span className="text-sm opacity-60 w-12 text-right">{localRowHeight}px</span>
+        </div>
+      </div>
       <div className="flex justify-end gap-2 pt-4">
         <Button
           onClick={onClose}

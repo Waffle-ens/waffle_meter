@@ -8,6 +8,7 @@ interface Props {
   players: Player[];
   selectedId?: string;
   onSelect: (id: string) => void;
+  rowHeight: number;
 }
 
 const getDisplayRows = (players: Player[]): Player[] => {
@@ -20,7 +21,7 @@ const getDisplayRows = (players: Player[]): Player[] => {
   return [...top6, user];
 };
 
-export const MeterList = memo(({ players, selectedId, onSelect }: Props) => {
+export const MeterList = memo(({ players, selectedId, onSelect, rowHeight }: Props) => {
   const cachedPlayersRef = useRef<Map<string, Player>>(new Map());
   const prevRowsRef = useRef<Player[]>([]);
 
@@ -40,6 +41,7 @@ export const MeterList = memo(({ players, selectedId, onSelect }: Props) => {
     prevRowsRef.current = next;
     return next;
   }, [players]);
+  const rowMap = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
 
   const topDps = useMemo(() => Math.max(...rows.map((p) => p.dps), 1), [rows]);
 
@@ -59,30 +61,39 @@ export const MeterList = memo(({ players, selectedId, onSelect }: Props) => {
 
   return (
     <div className="grid gap-1">
-      {Array.from(cachedPlayersRef.current.values()).map((cached) => {
-        const isVisible = visibleIds.has(cached.id);
-        const current = isVisible ? rows.find((r) => r.id === cached.id)! : cached;
+      {Array.from(cachedPlayersRef.current.values())
+        .sort((a, b) => {
+          const aVisible = visibleIds.has(a.id);
+          const bVisible = visibleIds.has(b.id);
+          if (aVisible && !bVisible) return -1;
+          if (!aVisible && bVisible) return 1;
+          return (rowMap.get(b.id)?.dps ?? 0) - (rowMap.get(a.id)?.dps ?? 0);
+        })
+        .map((cached) => {
+          const isVisible = visibleIds.has(cached.id);
+          const current = isVisible ? rows.find((r) => r.id === cached.id)! : cached;
 
-        return (
-          <div
-            className="overflow-hidden"
-            key={cached.id}
-            style={{ display: isVisible ? "block" : "none" }}>
-            <MeterRow
-              id={current.id}
-              name={current.name}
-              job={current.job}
-              dps={current.dps}
-              amount={current.amount}
-              contribution={current.damageContribution}
-              isUser={current.isUser}
-              isSelected={selectedId === current.id}
-              onSelect={onSelect}
-              topDps={topDps}
-            />
-          </div>
-        );
-      })}
+          return (
+            <div
+              className="overflow-hidden"
+              key={cached.id}
+              style={{ display: isVisible ? "block" : "none" }}>
+              <MeterRow
+                id={current.id}
+                name={current.name}
+                job={current.job}
+                rowHeight={rowHeight}
+                dps={current.dps}
+                amount={current.amount}
+                contribution={current.damageContribution}
+                isUser={current.isUser}
+                isSelected={selectedId === current.id}
+                onSelect={onSelect}
+                topDps={topDps}
+              />
+            </div>
+          );
+        })}
     </div>
   );
 });

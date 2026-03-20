@@ -4,6 +4,7 @@ import { DetailsPanel } from "./DetailsPanel";
 import { SettingsPanel } from "./SettingsPanel.tsx";
 import { UpdatePanel } from "./UpdatePanel";
 import type { UpdateInfo, PanelType } from "@/types";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 
 interface SidePanelProps {
   type: PanelType;
@@ -33,6 +34,7 @@ export const SidePanel = ({
     setCurrentPlayer(panelPlayer);
     setRendered(true);
   };
+  const meterWidth = useSettingsStore((s) => s.meterWidth);
 
   const closePanel = (callback?: () => void) => {
     setVisible(false);
@@ -66,7 +68,8 @@ export const SidePanel = ({
 
   return (
     <div
-      className={` min-w-0 fixed top-0 left-100 ml-2 h-auto z-50 bg-[rgb(12,22,40)] text-white rounded-lg
+      style={{ left: meterWidth }}
+      className={` min-w-0 fixed top-0  ml-1 h-auto z-50 bg-[rgb(12,22,40)] text-white rounded-lg
     transition-all duration-200 ease-in-out
     ${visible ? "visible  translate-x-0" : "invisible  -translate-x-2"}`}>
       {currentType === "details" && (

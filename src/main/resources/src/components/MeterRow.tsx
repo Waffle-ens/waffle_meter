@@ -14,6 +14,7 @@ interface Props {
   isSelected: boolean;
   onSelect: (id: string) => void;
   topDps: number;
+  rowHeight: number; 
 }
 const gradients = {
   user: "linear-gradient(to right, #55c42a, #3a9e20)",
@@ -22,10 +23,12 @@ const gradients = {
   error: "linear-gradient(to right, #c24343, #5c1010)",
 };
 export const MeterRow = memo(
-  ({ id, name, job, dps, contribution, isUser, onSelect, topDps, amount }: Props) => {
+  ({ id, name, job, dps, contribution, isUser, onSelect, topDps, amount, rowHeight }: Props) => {
     const displayMode = useSettingsStore((s) => s.displayMode);
     const nameDisplay = useSettingsStore((s) => s.nameDisplay);
     const maskedName = (name: string) => `${name[0]}***`;
+    const iconSize = Math.round(rowHeight * 0.7);
+    const fontSize = `${Math.max(12, Math.round(rowHeight * 0.4))}px`; // 비례 계산
 
     const ratio = Math.max(0, Math.min(1, dps / topDps));
     const iconSrc = getJobIconSrc(job);
@@ -42,24 +45,24 @@ export const MeterRow = memo(
         case "amount_dps_percent":
           return (
             <>
-              <span style={{ color: "#ffe566" }}>{formatAmount(amount)}</span>
-              <span style={{ color: "#ffffff" }}>{dps.toLocaleString()}/초</span>
-              <span style={{ color: "#ffe566" }}>{contribution.toFixed(1)}%</span>
+              <span style={{ color: "#ffe566", fontSize }}>{formatAmount(amount)}</span>
+              <span style={{ color: "#ffffff", fontSize }}>{dps.toLocaleString()}/초</span>
+              <span style={{ color: "#ffe566", fontSize }}>{contribution.toFixed(1)}%</span>
             </>
           );
         case "amount_percent":
           return (
             <>
-              <span style={{ color: "#ffe566" }}>{formatAmount(amount)}</span>
-              <span style={{ color: "#ffe566" }}>{contribution.toFixed(1)}%</span>
+              <span style={{ color: "#ffe566", fontSize }}>{formatAmount(amount)}</span>
+              <span style={{ color: "#ffe566", fontSize }}>{contribution.toFixed(1)}%</span>
             </>
           );
         case "dps_percent":
         default:
           return (
             <>
-              <span style={{ color: "#ffffff" }}>{dps.toLocaleString()}/초</span>
-              <span style={{ color: "#ffe566" }}>{contribution.toFixed(1)}%</span>
+              <span style={{ color: "#ffffff", fontSize }}>{dps.toLocaleString()}/초</span>
+              <span style={{ color: "#ffe566", fontSize }}>{contribution.toFixed(1)}%</span>
             </>
           );
       }
@@ -78,7 +81,8 @@ export const MeterRow = memo(
     return (
       <div
         onClick={() => onSelect(id)}
-        className={`w-full relative h-10 px-2 rounded-sm overflow-hidden bg-black/30 cursor-pointer `}>
+        style={{ height: rowHeight }}
+        className={`w-full relative  px-2 rounded-sm overflow-hidden bg-black/30 cursor-pointer `}>
         <div
           className="absolute inset-0 origin-left transition-transform duration-150 ease-out"
           style={{
@@ -88,7 +92,9 @@ export const MeterRow = memo(
         />
 
         <div className="relative h-full flex items-center gap-3">
-          <div className="w-8 h-7 flex items-center justify-center ">
+          <div
+            style={{ width: iconSize, height: iconSize }}
+            className=" flex items-center justify-center shrink-0 ">
             {iconSrc && (
               <img
                 src={iconSrc}
@@ -101,8 +107,8 @@ export const MeterRow = memo(
             )}
           </div>
           <span
-            className="text-lg font-bold text-shadow-meter flex-1 truncate"
-            style={{ color: "#ffffff" }}>
+            className=" font-bold text-shadow-meter flex-1 truncate"
+            style={{ color: "#ffffff", fontSize }}>
             {displayName}
           </span>
           <div className=" flex items-center gap-2 font-bold text-shadow-meter">
@@ -115,11 +121,12 @@ export const MeterRow = memo(
   (prev, next) => {
     return (
       prev.dps === next.dps &&
-      prev.contribution === next.contribution &&
-      prev.isSelected === next.isSelected &&
-      prev.topDps === next.topDps &&
-      prev.name === next.name &&
-      prev.job === next.job
-    );
+        prev.contribution === next.contribution &&
+        prev.isSelected === next.isSelected &&
+        prev.topDps === next.topDps &&
+        prev.name === next.name &&
+        prev.job === next.job,
+      prev.rowHeight === next.rowHeight
+    ); // 추가
   },
 );

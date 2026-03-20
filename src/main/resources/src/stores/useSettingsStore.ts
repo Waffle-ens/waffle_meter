@@ -11,19 +11,59 @@ interface SettingsState {
   nameDisplay: NameDisplay;
   setNameDisplay: (mode: NameDisplay) => void;
   meterWidth: number;
-  meterHeight: number;
+  setMeterWidth: (w: number) => void;
+  rowHeight: number;
+  setRowHeight: (h: number) => void;
+  detailWidth: number;
+  setDetailWidth: (w: number) => void;
   setHotkey: (h: Hotkey) => void;
-  setMeterSize: (w: number, h: number) => void;
 }
 
-export const useSettingsStore = create<SettingsState>((set) => ({
+const jb = () => (window as any).javaBridge;
+
+const defaultSettings = {
   hotkey: { modifiers: 2, vkCode: 0x52 },
   meterWidth: 400,
-  meterHeight: 300,
-  displayMode: "dps_percent",
-  setDisplayMode: (displayMode) => set({ displayMode }),
-  nameDisplay: "all",
-  setNameDisplay: (nameDisplay) => set({ nameDisplay }),
-  setHotkey: (hotkey) => set({ hotkey }),
-  setMeterSize: (w, h) => set({ meterWidth: w, meterHeight: h }),
-}));
+  rowHeight: 40,
+  detailWidth: 720,
+  displayMode: "dps_percent" as DisplayMode,
+  nameDisplay: "all" as NameDisplay,
+};
+
+export const useSettingsStore = create<SettingsState>((set) => {
+  const saved = jb()?.getSettings?.();
+
+  return {
+    hotkey: saved?.hotkey ?? defaultSettings.hotkey,
+    meterWidth: saved?.meterWidth ?? defaultSettings.meterWidth,
+    rowHeight: saved?.rowHeight ?? defaultSettings.rowHeight,
+    detailWidth: saved?.detailWidth ?? defaultSettings.detailWidth,
+    displayMode: saved?.displayMode ?? defaultSettings.displayMode,
+    nameDisplay: saved?.nameDisplay ?? defaultSettings.nameDisplay,
+
+    setHotkey: (hotkey) => {
+      set({ hotkey });
+      jb()?.saveSetting?.("hotkey", hotkey);
+    },
+    setDisplayMode: (displayMode) => {
+      set({ displayMode });
+      jb()?.saveSetting?.("displayMode", displayMode);
+    },
+    setNameDisplay: (nameDisplay) => {
+      set({ nameDisplay });
+      jb()?.saveSetting?.("nameDisplay", nameDisplay);
+    },
+    setMeterWidth: (meterWidth) => {
+      set({ meterWidth });
+      jb()?.saveSetting?.("meterWidth", meterWidth);
+    },
+    setRowHeight: (rowHeight) => {
+      set({ rowHeight });
+      jb()?.saveSetting?.("rowHeight", rowHeight);
+    },
+    setDetailWidth: (detailWidth) => {
+      set({ detailWidth });
+      jb()?.saveSetting?.("detailWidth", detailWidth);
+    },
+  };
+});

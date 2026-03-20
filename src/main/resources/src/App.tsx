@@ -1,19 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useMeter } from "./hooks/useMeter";
-
 import type { Player } from "./types";
 import type { PanelType } from "./types";
-
 import { MeterList } from "./components/MeterList";
 import { useDragWindow } from "./hooks/useDragWindow";
-
 import { Header } from "@/components/Header.tsx";
 import { TargetInfo } from "@/components/TargetInfo";
 import { SidePanel } from "@/components/panels/SidePanel.tsx";
 import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
-// import { DebugConsole } from "./components/DebugConsole";
-// import { useDebugStore } from "./stores/debugStore.ts";
+import { useResizable } from "@/hooks/useResizable";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 
 export default function App() {
   const {
@@ -26,11 +23,13 @@ export default function App() {
     formatBattleTime,
     isInCombat,
   } = useMeter();
+
   const activePanelRef = useRef<PanelType>(null);
   const selectedRef = useRef<Player | null>(null);
   const { updateInfo, openReleasePage } = useVersionCheck();
-
   const [activePanel, setActivePanel] = useState<PanelType>(null);
+  const { meterWidth, onMouseDown } = useResizable();
+  const rowHeight = useSettingsStore((s) => s.rowHeight);
 
   const handlePanelToggle = useCallback((panel: PanelType) => {
     setActivePanel((prev) => (prev === panel ? null : panel));
@@ -56,12 +55,10 @@ export default function App() {
     (id: string) => {
       const player = players.find((p) => p.id === id);
       if (!player) return;
-
       if (activePanelRef.current === "details" && selectedRef.current?.id === player.id) {
         setActivePanel(null);
         return;
       }
-
       setSelected(player);
       setActivePanel("details");
     },
@@ -87,21 +84,14 @@ export default function App() {
     };
   }, [reset]);
 
-  // const addLog = useDebugStore((s) => s.addLog);
   useEffect(() => {
-    if (updateInfo) {
-      // addLog(`updateinfo 바뀜: ${JSON.stringify(updateInfo)}`);
-      setActivePanel("update");
-    }
+    if (updateInfo) setActivePanel("update");
   }, [updateInfo]);
 
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        handleClose();
-      }
+      if (e.key === "Escape") handleClose();
     };
-
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
   }, [handleClose]);
@@ -110,19 +100,26 @@ export default function App() {
     <div
       style={{ width: "fit-content" }}
       className="relative">
-      <div className="w-100 rounded-lg meter p-4">
-        {/* <DebugConsole /> */}
+      <div
+        className="rounded-lg meter p-4"
+        style={{ width: meterWidth }}>
         <Header
           reset={handleReset}
           setSettings={handlePanelToggle}
           isCollapse={isCollapse}
           toggleCollapse={handleToggleCollapse}
         />
-        {players.length > 0 && <TargetInfo targetName={targetName} />}
+        {players.length > 0 && (
+          <TargetInfo
+            targetName={targetName}
+            rowHeight={rowHeight}
+          />
+        )}
         <MeterList
           players={players}
           selectedId={selected?.id}
           onSelect={handleSelect}
+          rowHeight={rowHeight}
         />
         {battleTime && (
           <CombatTimer
@@ -131,6 +128,13 @@ export default function App() {
           />
         )}
       </div>
+      <div
+        onMouseDown={onMouseDown}
+        className="absolute bottom-1 right-1 w-4 h-4 cursor-e-resize opacity-30 hover:opacity-80 transition-opacity"
+        style={{
+          background: "linear-gradient(135deg, transparent 50%, rgba(255,255,255,1) 10%)",
+        }}
+      />
       <SidePanel
         type={activePanel}
         player={selected}
