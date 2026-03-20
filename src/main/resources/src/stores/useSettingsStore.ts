@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import type { Hotkey } from "@/types";
 import { parseHotkeyString } from "@/utils/hotKey";
-
 export type DisplayMode = "dps_percent" | "amount_dps_percent" | "amount_percent";
 export type NameDisplay = "all" | "me_only" | "hidden";
 
@@ -18,6 +17,9 @@ interface SettingsState {
   detailHeight: number;
   setDetailHeight: (h: number) => void;
   setHotkey: (h: Hotkey) => void;
+  isMinimal: boolean;
+  setIsMinimal: (v: boolean) => void;
+  toggleMinimal: () => void;
 }
 
 const jb = () => (window as any).javaBridge;
@@ -27,19 +29,22 @@ const defaultSettings = {
   meterWidth: 400,
   rowHeight: 40,
   detailHeight: 600,
-
   displayMode: "dps_percent" as DisplayMode,
   nameDisplay: "all" as NameDisplay,
+  isMinimal: false,
 };
+
 export const useSettingsStore = create<SettingsState>((set) => {
   const raw = jb()?.getHotkey?.();
   const parsedHotkey = raw ? parseHotkeyString(raw) : null;
+
   const interval = setInterval(() => {
     const j = jb();
-    if (!j) return;
+    if (!j || typeof j.loadProps !== "function") return;
 
     const raw = j.getHotkey?.();
     const parsedHotkey = raw ? parseHotkeyString(raw) : null;
+    const savedIsMinimal = j.loadProps("isMinimal") === "true";
 
     set({
       hotkey: parsedHotkey ?? defaultSettings.hotkey,
@@ -48,13 +53,14 @@ export const useSettingsStore = create<SettingsState>((set) => {
       detailHeight: Number(j.loadProps?.("detailHeight")) || defaultSettings.detailHeight,
       displayMode: j.loadProps?.("displayMode") ?? defaultSettings.displayMode,
       nameDisplay: j.loadProps?.("nameDisplay") ?? defaultSettings.nameDisplay,
+      isMinimal: savedIsMinimal,
     });
-
     clearInterval(interval);
-  }, 200);
+  }, 300);
 
   return {
     hotkey: parsedHotkey ?? defaultSettings.hotkey,
+    isMinimal: defaultSettings.isMinimal,
     meterWidth: defaultSettings.meterWidth,
     rowHeight: defaultSettings.rowHeight,
     detailHeight: defaultSettings.detailHeight,
@@ -65,6 +71,16 @@ export const useSettingsStore = create<SettingsState>((set) => {
       set({ hotkey });
       jb()?.updateHotkey?.(hotkey.modifiers, hotkey.vkCode);
     },
+    setIsMinimal: (isMinimal) => {
+      set({ isMinimal });
+      jb()?.saveProps?.("isMinimal", String(isMinimal));
+    },
+    toggleMinimal: () =>
+      set((s) => {
+        const next = !s.isMinimal;
+        jb()?.saveProps?.("isMinimal", String(next));
+        return { isMinimal: next };
+      }),
     setDisplayMode: (displayMode) => {
       set({ displayMode });
       jb()?.saveProps?.("displayMode", displayMode);

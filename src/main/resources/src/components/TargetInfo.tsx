@@ -2,7 +2,7 @@ import { memo } from "react";
 import bossIcon from "../assets/bossIcon.png";
 interface Props {
   targetName: string;
-  rowHeight: number; 
+  rowHeight: number;
 }
 
 export const TargetInfo = memo(({ targetName, rowHeight }: Props) => {
@@ -14,7 +14,7 @@ export const TargetInfo = memo(({ targetName, rowHeight }: Props) => {
 
   return (
     <div
-      className="relative w-full px-2 mt-4 my-2 rounded-sm overflow-hidden bg-black/30"
+      className="relative w-full px-2 mb-2 rounded-sm overflow-hidden bg-black/30"
       style={{ height: rowHeight }}>
       <div
         className="absolute inset-0 origin-left"

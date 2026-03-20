@@ -59,6 +59,31 @@ export const MeterList = memo(({ players, selectedId, onSelect, rowHeight }: Pro
 
   const visibleIds = new Set(rows.map((p) => p.id));
 
+  if (rows.length === 0) {
+    return (
+      <div className=" w-full  ">
+        <div
+          style={{ height: rowHeight }}
+          className="px-2 rounded-sm bg-black/30 h-full flex items-center gap-3">
+          <div
+            className="flex items-center justify-center shrink-0"
+            style={{ width: Math.round(rowHeight * 0.7), height: Math.round(rowHeight * 0.7) }}>
+            <div
+              className="rounded-full bg-white/10"
+              style={{ width: Math.round(rowHeight * 0.5), height: Math.round(rowHeight * 0.5) }}
+            />
+          </div>
+          <span
+            className="font-bold"
+            style={{
+              fontSize: `${Math.max(12, Math.round(rowHeight * 0.4))}px`,
+            }}>
+            전투 대기 중
+          </span>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="grid gap-1">
       {Array.from(cachedPlayersRef.current.values())

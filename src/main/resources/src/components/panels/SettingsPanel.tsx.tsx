@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { DisplayMode, NameDisplay } from "@/stores/useSettingsStore";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   onClose: () => void;
@@ -15,11 +16,7 @@ interface Props {
 
 const DISPLAY_MODES: { value: DisplayMode; label: string; description: string }[] = [
   { value: "dps_percent", label: "DPS / 기여도", description: "45,000/초 (35.5%)" },
-  {
-    value: "amount_dps_percent",
-    label: "누적 / DPS / 기여도",
-    description: "1.2M 45,000/초 (35.5%)",
-  },
+  { value: "amount_dps_percent", label: "누적 / DPS / 기여도", description: "1.2M 45,000/초 (35.5%)" },
   { value: "amount_percent", label: "누적 / 기여도", description: "1.2M (35.5%)" },
 ];
 
@@ -39,6 +36,8 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
     setNameDisplay,
     rowHeight,
     setRowHeight,
+    isMinimal,
+    setIsMinimal,
   } = useSettingsStore();
 
   const { isCapturing, pending, start, stop, reset } = useHotkeyCapture(hotkey);
@@ -48,7 +47,7 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
     displayMode,
     nameDisplay,
     rowHeight,
-    pending: hotkey,
+    isMinimal,
   }));
 
   useEffect(() => {
@@ -76,6 +75,7 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
     setDisplayMode(snapshot.displayMode);
     setNameDisplay(snapshot.nameDisplay);
     setRowHeight(snapshot.rowHeight);
+    setIsMinimal(snapshot.isMinimal);
     setHotkey(snapshot.hotkey);
     reset(snapshot.hotkey);
     onClose();
@@ -85,23 +85,17 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
     <div className="font-bold rounded-lg py-4 px-7 w-[360px]">
       <div className="flex items-center pb-3 border-b border-white/10">
         <span>설정</span>
-        <Button
-          variant="ghost"
-          className="ml-auto"
-          onClick={handleCancel}>
+        <Button variant="ghost" className="ml-auto" onClick={handleCancel}>
           <X className="scale-125" />
         </Button>
       </div>
 
-      {/* 핫키 */}
+      {/* 새로고침 단축키 */}
       <div className="py-4 border-b border-white/10">
         <div className="text-sm mb-2 opacity-80">새로고침 단축키</div>
         <input
           readOnly
-          onClick={() => {
-            if (isCapturing) stop();
-            else start();
-          }}
+          onClick={() => { if (isCapturing) stop(); else start(); }}
           value={formatHotkey(pending.modifiers, pending.vkCode)}
           className="w-full p-2 rounded-md bg-white/5 border text-sm cursor-pointer hover:border-white/10 transition-colors"
         />
@@ -110,6 +104,22 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
             키 조합을 입력하세요 (Ctrl / Alt + 키)
           </p>
         )}
+      </div>
+
+      <div className="py-4 border-b border-white/10">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm opacity-80">최소화 모드</div>
+            <div className="text-xs opacity-40 font-normal mt-0.5">
+              DPS 행만 표시하고 나머지를 숨깁니다
+            </div>
+          </div>
+          <Switch
+            checked={isMinimal}
+            onCheckedChange={(v) => setIsMinimal(v)}
+            className="data-[state=checked]:bg-purple-500"
+          />
+        </div>
       </div>
 
       {/* 표시 형식 */}

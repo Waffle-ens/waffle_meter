@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 
 export const useResizable = () => {
@@ -6,10 +6,12 @@ export const useResizable = () => {
   const isResizing = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   const onMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     isResizing.current = true;
+    setIsDragging(true);
     startX.current = e.clientX;
     startWidth.current = meterWidth;
   };
@@ -25,6 +27,8 @@ export const useResizable = () => {
     const onMouseUp = () => {
       if (isResizing.current) {
         isResizing.current = false;
+        setIsDragging(false);
+
         const { meterWidth } = useSettingsStore.getState();
         setMeterWidth(meterWidth);
       }
@@ -38,5 +42,5 @@ export const useResizable = () => {
     };
   }, []);
 
-  return { meterWidth, onMouseDown };
+  return { meterWidth, onMouseDown, isDragging };
 };
