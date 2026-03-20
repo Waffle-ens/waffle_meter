@@ -118,11 +118,11 @@ object DataManager {
         battleLogRepository.save(data)
     }
 
-    fun recentBattleList(): List<Pair<Int, String>> {
-        val battleList: MutableList<Pair<Int, String>> = mutableListOf()
+    fun recentBattleList(): List<Pair<Int, DpsReport>> {
+        val battleList: MutableList<Pair<Int, DpsReport>> = mutableListOf()
         val battleLogs = battleLogRepository.getAll()
         battleLogs.forEachIndexed { idx, it ->
-            battleList.add(Pair(idx, it.target?.mob?.name ?: "복합 전투"))
+            battleList.add(Pair(idx, it))
         }
         return battleList
     }
