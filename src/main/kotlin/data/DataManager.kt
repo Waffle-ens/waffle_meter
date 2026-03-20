@@ -18,21 +18,38 @@ object DataManager {
     private val packetRepository = PacketRepository()
     private val summonRepository = SummonRepository()
     private val battleLogRepository = BattleLogRepository()
+    private val skillRepository = SkillRepository()
 
     fun load() {
+        loadMobJson()
+        loadSkillJson()
+    }
+
+    private fun loadMobJson() {
         val mobJson = object {}.javaClass.getResourceAsStream("/json/mobs.json")
             ?.bufferedReader()
             ?.readText()!!
         Json.decodeFromString<List<Mob>>(mobJson).forEach { saveMob(it) }
     }
 
+    private fun loadSkillJson() {
+        val skillJson = object {}.javaClass.getResourceAsStream("/json/skills.json")
+            ?.bufferedReader()
+            ?.readText()!!
+        Json.decodeFromString<Map<String, String>>(skillJson).forEach { (skillId,skillName) ->
+            saveSkill(skillId.toLong(),skillName)
+        }
+    }
 
     /*
-    복합 영역
+    skill 영역
      */
-    @Synchronized
-    fun saveDamage(pdp: ParsedDamagePacket) {
-        packetRepository.save(pdp)
+    fun saveSkill(skillId: Long, skillName: String): String? {
+        return skillRepository.save(skillId, skillName)
+    }
+
+    fun skill(skillId: Long): String? {
+        return skillRepository.get(skillId)
     }
 
 
@@ -86,6 +103,11 @@ object DataManager {
     @Synchronized
     fun flushPacket() {
         packetRepository.flush()
+    }
+
+    @Synchronized
+    fun saveDamage(pdp: ParsedDamagePacket) {
+        packetRepository.save(pdp)
     }
 
 
@@ -144,8 +166,8 @@ object DataManager {
         return userRepository.get(uid)
     }
 
-    fun saveUser(uid:Int,user: User){
-        userRepository.save(uid,user)
+    fun saveUser(uid: Int, user: User) {
+        userRepository.save(uid, user)
     }
 
     fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false) {
