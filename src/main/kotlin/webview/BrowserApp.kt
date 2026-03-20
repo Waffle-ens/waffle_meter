@@ -136,9 +136,13 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     }
 
     fun getBattleDetail(uid: Int): String {
-//        return Json.encodeToString(dpsData.map[uid]?.analyzedData)
-        return ""
+        return Json.encodeToString(dpsCalculator.battleDetails(dpsData, uid))
     }
+
+//    fun getBattleDetail(idx:Int,uid:Int):String{
+//
+//    }
+
 
     fun getVersion(): String {
         return version

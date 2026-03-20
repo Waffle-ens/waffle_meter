@@ -1,7 +1,5 @@
 package com.tbread.entity
 
-import com.tbread.data.DataManager
-import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -13,7 +11,6 @@ data class AnalyzedSkill(
     var dotTimes: Int = 0,
     var critTimes: Int = 0,
     var times: Int = 0,
-    @Required val skillName: String,
     var backTimes: Int = 0,
     var perfectTimes: Int = 0,
     var doubleTimes: Int = 0,
@@ -26,7 +23,6 @@ data class AnalyzedSkill(
         0,
         0,
         0,
-        DataManager.skill(pdp.getSkillCode1().toLong()) ?: pdp.getSkillCode1().toString(),
         0,
         0,
         0

@@ -67,25 +67,28 @@ class DpsCalculator() {
         return report
     }
 
-    fun battleDetails(data: DpsReport): HashMap<Int, AnalyzedSkill> {
-        val analyzedData: HashMap<Int, AnalyzedSkill> = hashMapOf()
+    fun battleDetails(data: DpsReport, uid: Int): HashMap<String, AnalyzedSkill> {
+        val analyzedData: HashMap<String, AnalyzedSkill> = hashMapOf()
         data.packets?.forEach {
-            if (!analyzedData.containsKey(it.getSkillCode1())) {
-                val analyzedSkill = AnalyzedSkill(it)
-                analyzedData[it.getSkillCode1()] = analyzedSkill
-            }
-            val analyzedSkill = analyzedData[it.getSkillCode1()]!!
-            if (it.isDoT()) {
-                analyzedSkill.dotTimes++
-                analyzedSkill.dotDamageAmount += it.getDamage()
-            } else {
-                analyzedSkill.times++
-                analyzedSkill.damageAmount += it.getDamage()
-                if (it.isCrit()) analyzedSkill.critTimes++
-                if (it.getSpecials().contains(SpecialDamage.BACK)) analyzedSkill.backTimes++
-                if (it.getSpecials().contains(SpecialDamage.PARRY)) analyzedSkill.parryTimes++
-                if (it.getSpecials().contains(SpecialDamage.DOUBLE)) analyzedSkill.doubleTimes++
-                if (it.getSpecials().contains(SpecialDamage.PERFECT)) analyzedSkill.perfectTimes++
+            val skillName = DataManager.skill(it.getSkillCode1().toLong())!!
+            if (it.getActorId() == uid) {
+                if (!analyzedData.containsKey(skillName)) {
+                    val analyzedSkill = AnalyzedSkill(it)
+                    analyzedData[skillName] = analyzedSkill
+                }
+                val analyzedSkill = analyzedData[skillName]!!
+                if (it.isDoT()) {
+                    analyzedSkill.dotTimes++
+                    analyzedSkill.dotDamageAmount += it.getDamage()
+                } else {
+                    analyzedSkill.times++
+                    analyzedSkill.damageAmount += it.getDamage()
+                    if (it.isCrit()) analyzedSkill.critTimes++
+                    if (it.getSpecials().contains(SpecialDamage.BACK)) analyzedSkill.backTimes++
+                    if (it.getSpecials().contains(SpecialDamage.PARRY)) analyzedSkill.parryTimes++
+                    if (it.getSpecials().contains(SpecialDamage.DOUBLE)) analyzedSkill.doubleTimes++
+                    if (it.getSpecials().contains(SpecialDamage.PERFECT)) analyzedSkill.perfectTimes++
+                }
             }
         }
         return analyzedData
