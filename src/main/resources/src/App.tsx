@@ -12,7 +12,7 @@ import { TargetInfo } from "@/components/TargetInfo";
 import { SidePanel } from "@/components/panels/SidePanel.tsx";
 import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
-import { DebugConsole } from "./components/DebugConsole";
+// import { DebugConsole } from "./components/DebugConsole";
 // import { useDebugStore } from "./stores/debugStore.ts";
 
 export default function App() {
@@ -111,7 +111,7 @@ export default function App() {
       style={{ width: "fit-content" }}
       className="relative">
       <div className="w-100 rounded-lg meter p-4">
-        <DebugConsole />
+        {/* <DebugConsole /> */}
         <Header
           reset={handleReset}
           setSettings={handlePanelToggle}
