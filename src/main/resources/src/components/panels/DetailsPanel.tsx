@@ -10,11 +10,12 @@ interface Props {
   onClose: () => void;
   onReady?: () => void;
   combatTime: string;
+  historyIdx?: number;
 }
 
 const col = { name: 180, stat: 80, dmg: 220 };
 
-export const DetailsPanel = ({ player, onClose, onReady, combatTime }: Props) => {
+export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx }: Props) => {
   const { getDetails } = useDetails();
   const [details, setDetails] = useState<Details | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -24,7 +25,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime }: Props) =>
   useEffect(() => {
     if (!player) return;
     setDetails(null);
-    getDetails(player, combatTime).then((data) => {
+    getDetails(player, combatTime, historyIdx).then((data) => {
       setDetails(data);
     });
   }, [player]);
@@ -47,7 +48,6 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime }: Props) =>
 
   return (
     <div className="relative text-white font-bold rounded-lg py-4 px-7">
-
       <div className="flex items-center pb-3 border-b border-white/10">
         <span>{player.name} 상세내역</span>
         <Button
@@ -58,7 +58,6 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime }: Props) =>
         </Button>
       </div>
 
-   
       {details && (
         <div className="grid grid-cols-2 py-3">
           {[
@@ -80,7 +79,6 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime }: Props) =>
           ))}
         </div>
       )}
-
 
       <div className="flex items-center py-3 gap-2 border-b border-white/10">
         <span

@@ -1,11 +1,18 @@
 import type { Player, Skill, Details } from "@/types";
-import { useDebugStore } from "../stores/debugStore";
+// import { useDebugStore } from "../stores/debugStore";
 
 export const useDetails = () => {
-  const getDetails = async (row: Player, combatTime: string = "00:00"): Promise<Details> => {
-    const addLog = useDebugStore.getState().addLog;
-    const raw = await window.javaBridge?.getBattleDetail?.(Number(row.id));
-    addLog(`detail ${raw}`);
+  const getDetails = async (
+    row: Player,
+    combatTime: string = "00:00",
+    historyIdx?: number,
+  ): Promise<Details> => {
+    // const addLog = useDebugStore.getState().addLog;
+    const raw =
+      historyIdx !== undefined
+        ? await window.javaBridge?.getBattleDetailFromList?.(historyIdx, Number(row.id))
+        : await window.javaBridge?.getBattleDetail?.(Number(row.id));
+    // addLog(`detail ${raw}`);
     let detailObj = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
@@ -60,7 +67,7 @@ export const useDetails = () => {
 
       const v = value as Record<string, unknown>;
       const baseName = code;
-      
+
       pushSkill({
         code,
         name: baseName,

@@ -10,6 +10,8 @@ declare global {
       getDpsData?: () => void;
       getBattleDetail?: (id: number) => Promise<any>;
       getVersion?: () => void;
+      getBattleList?: () => void;
+      getBattleDetailFromList?: (idx: number, id: number) => Promise<any>;
     };
   }
 }
