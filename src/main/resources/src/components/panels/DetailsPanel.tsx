@@ -139,7 +139,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                     i < details.skills.length - 1 ? "1px solid rgba(255,255,255,0.08)" : "none",
                 }}>
                 <span
-                  className="text-left text-row-fill truncate shrink-0"
+                  className="text-left text-row-fill text-shadow-meter truncate shrink-0"
                   style={{ width: col.name }}>
                   {s.name}
                 </span>
@@ -178,10 +178,13 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                   className="relative h-8 shrink-0 text-end"
                   style={{ width: col.dmg }}>
                   <div
-                    className="absolute inset-0 origin-left rounded-md bg-isUser-fill"
-                    style={{ transform: `scaleX(${ratio})` }}
+                    className="absolute inset-0 origin-left rounded-md "
+                    style={{
+                      background: "linear-gradient(to right, #55c42a, #3a9e20)",
+                      transform: `scaleX(${ratio})`,
+                    }}
                   />
-                  <div className="relative z-10 h-full flex items-center justify-end gap-2 text-dps">
+                  <div className="relative z-10 h-full flex items-center justify-end gap-2 text-row-fill text-shadow-meter">
                     <span>{s.dmg.toLocaleString()}</span>
                     <span>({(ratio * 100).toFixed(1)}%)</span>
                   </div>
