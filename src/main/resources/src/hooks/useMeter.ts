@@ -156,10 +156,11 @@ export const useMeter = () => {
     }
   };
   const setHistoryData = useCallback((report: any) => {
-    const { players: rows, targetName } = parseCombatData(report);
+    const { players: rows, targetName, remainHp } = parseCombatData(report);
     const battleTime = (report.battleEnd ?? 0) - (report.battleStart ?? 0);
     setPlayersIfChanged(rows);
     setTargetName(targetName);
+    setRemainHp(remainHp);
     setBattleTime(battleTime);
     setIsInCombat(false);
   }, []);
