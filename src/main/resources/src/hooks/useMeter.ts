@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Player } from "../types";
 import { parseCombatData } from "../utils/parser";
-// import { useDebugStore } from "../stores/debugStore";
+import { useDebugStore } from "../stores/debugStore";
 
 const POLL_MS = 300;
 
@@ -13,7 +13,7 @@ export const useMeter = () => {
   const [isInCombat, setIsInCombat] = useState(false);
 
   const [battleTime, setBattleTime] = useState<number | null>(null);
-  // const addLog = useDebugStore((s) => s.addLog);
+  const addLog = useDebugStore((s) => s.addLog);
   const isCollapseRef = useRef(false);
   const lastBattleTimeRef = useRef<number | null>(null);
   const combatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -53,9 +53,7 @@ export const useMeter = () => {
     if (raw === lastJsonRef.current) {
       return;
     }
-    //  else {
-    //   addLog(`raw${raw}`);
-    // }
+    addLog(`로우 : ${raw}`);
 
     lastJsonRef.current = raw;
 
@@ -63,10 +61,12 @@ export const useMeter = () => {
     const { players: rows, targetName, remainHp } = parseCombatData(parsed);
 
     if (resetPendingRef.current) {
-      if (rows.length > 0) {
+      const contributors = parsed.contributors ?? [];
+      if (contributors.length > 0) {
         return;
       } else {
         resetPendingRef.current = false;
+        return;
       }
     }
 
@@ -115,11 +115,10 @@ export const useMeter = () => {
   };
 
   const reset = () => {
-    resetPendingRef.current = true;
-
     snapshotRef.current = null;
     lastJsonRef.current = null;
     lastBattleTimeRef.current = null;
+    resetPendingRef.current = false;
 
     setPlayers([]);
     setTargetName("");
@@ -131,6 +130,7 @@ export const useMeter = () => {
       clearTimeout(combatTimerRef.current);
       combatTimerRef.current = null;
     }
+    addLog(`리셋---------------------------`);
   };
 
   const toggleCollapse = () => {

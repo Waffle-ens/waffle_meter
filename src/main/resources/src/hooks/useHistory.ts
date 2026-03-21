@@ -34,7 +34,7 @@ export const useHistory = () => {
     setLoading(true);
     try {
       const raw = window.javaBridge?.getBattleList?.();
-      addLog(`raw${raw}`);
+      addLog(`히스토리 ${raw}`);
 
       if (!raw) return;
 
