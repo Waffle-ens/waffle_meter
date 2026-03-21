@@ -14,12 +14,13 @@ class DpsCalculator() {
     private var recentTargetWasDummy: Boolean = false
 
     private var recentData = DpsReport()
+    private var recentDataSaved = false
 
     private fun battleData(): CopyOnWriteArrayList<ParsedDamagePacket>? {
         return DataManager.battleData(currentTarget)
     }
 
-    fun getRecentData():DpsReport{
+    fun getRecentData(): DpsReport {
         return recentData
     }
 
@@ -30,17 +31,22 @@ class DpsCalculator() {
         val prevTargetDummy = DataManager.isCurrentTargetDummy()
         val isNewBattleEnd = storageTarget == -1 && storageTarget != currentTarget
         if (storageTarget != currentTarget && !prevTargetDummy
-            && storageTarget != -1 && currentTarget != -1) {
+            && storageTarget != -1 && currentTarget != -1
+        ) {
             DataManager.saveBattleLog(recentData)
+            recentDataSaved = true
         }
         currentTarget = storageTarget
         recentTargetWasDummy = prevTargetDummy
         if (currentTarget == -1) {
             val battleEnd = DataManager.currentBattleEnd()
             DataManager.flushPacket()
-            recentData.battleEnd = battleEnd
+            if (isNewBattleEnd) {
+                recentData.battleEnd = battleEnd
+            }
             if (isNewBattleEnd && !recentData.isEmpty() && !recentTargetWasDummy) {
                 DataManager.saveBattleLog(recentData)
+                recentDataSaved = true
             }
             return recentData
         }
@@ -54,7 +60,7 @@ class DpsCalculator() {
             val mobCode = DataManager.mobId(currentTarget)
             val mob = DataManager.mob(mobCode!!)
             report.target = MobInfo(currentTarget, mob!!)
-            //남은체력 여기서 불러오기
+            report.target!!.remainHp = DataManager.mobHp(currentTarget)?:0
         }
         data?.forEach {
             val actor = DataManager.summonerId(it.getActorId()) ?: it.getActorId()
@@ -87,17 +93,19 @@ class DpsCalculator() {
         }
 
         recentData = report
+        recentDataSaved = false
         return report
     }
 
     fun battleDetails(data: DpsReport?, uid: Int): HashMap<String, AnalyzedSkill> {
         val analyzedData: HashMap<String, AnalyzedSkill> = hashMapOf()
-        if (data == null){
+        if (data == null) {
             return analyzedData
         }
         data.packets?.forEach {
             val skillName = DataManager.skill(it.getSkillCode1().toLong()) ?: it.getSkillCode1().toString()
-            if (it.getActorId() == uid) {
+            val realActor = DataManager.summonerId(it.getActorId()) ?: it.getActorId()
+            if (realActor == uid) {
                 if (!analyzedData.containsKey(skillName)) {
                     val analyzedSkill = AnalyzedSkill(it)
                     analyzedData[skillName] = analyzedSkill
@@ -121,11 +129,14 @@ class DpsCalculator() {
     }
 
     fun resetDataStorage() {
-        if (!recentData.isEmpty() && !DataManager.isCurrentTargetDummy()) {
+        if (!recentData.isEmpty() && !recentDataSaved && !DataManager.isCurrentTargetDummy()) {
             DataManager.saveBattleLog(recentData)
+            recentDataSaved = true
         }
         DataManager.flushPacket()
         currentTarget = -1
+        recentData = DpsReport()
+        recentDataSaved = false
         logger.info("대상 데미지 누적 데이터 초기화 완료")
     }
 

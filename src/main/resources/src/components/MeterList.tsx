@@ -13,12 +13,12 @@ interface Props {
 
 const getDisplayRows = (players: Player[]): Player[] => {
   const sorted = [...players].sort((a, b) => b.dps - a.dps);
-  const top6 = sorted.slice(0, 6);
+  const top8 = sorted.slice(0, 8);
   const user = sorted.find((p) => p.isUser);
 
-  if (!user) return top6;
-  if (top6.some((p) => p.isUser)) return top6;
-  return [...top6, user];
+  if (!user) return top8;
+  if (top8.some((p) => p.isUser)) return top8;
+  return [...top8, user];
 };
 
 export const MeterList = memo(({ players, selectedId, onSelect, rowHeight }: Props) => {

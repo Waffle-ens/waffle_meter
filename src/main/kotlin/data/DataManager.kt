@@ -19,6 +19,7 @@ object DataManager {
     private val summonRepository = SummonRepository()
     private val battleLogRepository = BattleLogRepository()
     private val skillRepository = SkillRepository()
+    private val mobHpRepository = MobHpRepository()
 
     fun load() {
         loadMobJson()
@@ -39,6 +40,18 @@ object DataManager {
         Json.decodeFromString<Map<String, String>>(skillJson).forEach { (skillId, skillName) ->
             saveSkill(skillId.toLong(), skillName)
         }
+    }
+
+    /*
+    mobHp 영역
+     */
+
+    fun mobHp(mobId:Int):Int?{
+        return mobHpRepository.get(mobId)
+    }
+
+    fun mobHp(mobId:Int,mobHp:Int){
+        mobHpRepository.set(mobId, mobHp)
     }
 
     /*

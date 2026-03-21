@@ -7,11 +7,19 @@ import org.slf4j.LoggerFactory
 object HotkeyHandler {
     private val logger = LoggerFactory.getLogger(HotkeyHandler::class.java)
     private const val propertyKey = "hotkey"
+    private const val visibilityPropertyKey = "hideHotkey"
+
+    private const val RESET_HOTKEY_ID = 1
+    private const val VISIBILITY_HOTKEY_ID = 2
 
     private val defaultHotkey = HotkeyCombo(modifiers = WinUser.MOD_CONTROL, vkCode = 0x52)
+    private val defaultVisibilityHotkey = HotkeyCombo(modifiers = WinUser.MOD_CONTROL, vkCode = 0x48) // Ctrl+H
 
     @Volatile
     private var currentHotkey: HotkeyCombo = loadHotkeyFromProperties()
+
+    @Volatile
+    private var visibilityHotkey: HotkeyCombo = loadVisibilityHotkeyFromProperties()
 
     private var listenerThread: Thread? = null
 
@@ -19,9 +27,14 @@ object HotkeyHandler {
     private var running = false
 
     private var onHotkeyPressed: (() -> Unit)? = null
+    private var onVisibilityHotkeyPressed: (() -> Unit)? = null
 
     fun registerCallback(callback: () -> Unit) {
         onHotkeyPressed = callback
+    }
+
+    fun registerVisibilityCallback(callback: () -> Unit) {
+        onVisibilityHotkeyPressed = callback
     }
 
     data class HotkeyCombo(val modifiers: Int, val vkCode: Int) {
@@ -49,14 +62,28 @@ object HotkeyHandler {
         return if (raw != null) HotkeyCombo.fromString(raw) ?: defaultHotkey else defaultHotkey
     }
 
+    private fun loadVisibilityHotkeyFromProperties(): HotkeyCombo {
+        val raw = PropertyHandler.getProperty(visibilityPropertyKey)
+        return if (raw != null) HotkeyCombo.fromString(raw) ?: defaultVisibilityHotkey else defaultVisibilityHotkey
+    }
+
     fun getCurrentHotkey(): HotkeyCombo = currentHotkey
 
+    fun getVisibilityHotkey(): HotkeyCombo = visibilityHotkey
 
     fun updateHotkey(modifiers: Int, vkCode: Int) {
         currentHotkey = HotkeyCombo(modifiers, vkCode)
         PropertyHandler.setProperty(propertyKey, currentHotkey.toString())
         logger.info("단축키 변경: $currentHotkey")
 
+        stop()
+        start()
+    }
+
+    fun updateVisibilityHotkey(modifiers: Int, vkCode: Int) {
+        visibilityHotkey = HotkeyCombo(modifiers, vkCode)
+        PropertyHandler.setProperty(visibilityPropertyKey, visibilityHotkey.toString())
+        logger.info("숨기기 단축키 변경: $visibilityHotkey")
 
         stop()
         start()
@@ -67,28 +94,28 @@ object HotkeyHandler {
         running = true
         listenerThread = Thread({
             val user32 = User32.INSTANCE
-            val hotkeyId = 1
 
-            val registered = user32.RegisterHotKey(
-                null,
-                hotkeyId,
-                currentHotkey.modifiers,
-                currentHotkey.vkCode
-            )
+            val registeredReset = user32.RegisterHotKey(null, RESET_HOTKEY_ID, currentHotkey.modifiers, currentHotkey.vkCode)
+            if (!registeredReset) logger.error("단축키 등록 실패: $currentHotkey")
+            else logger.info("단축키 등록 성공: $currentHotkey")
 
-            if (!registered) {
-                logger.error("단축키 등록 실패: $currentHotkey")
+            val registeredVisibility = user32.RegisterHotKey(null, VISIBILITY_HOTKEY_ID, visibilityHotkey.modifiers, visibilityHotkey.vkCode)
+            if (!registeredVisibility) logger.error("숨기기 단축키 등록 실패: $visibilityHotkey")
+            else logger.info("숨기기 단축키 등록 성공: $visibilityHotkey")
+
+            if (!registeredReset && !registeredVisibility) {
                 running = false
                 return@Thread
             }
-
-            logger.info("단축키 등록 성공: $currentHotkey")
 
             val msg = WinUser.MSG()
             while (running) {
                 if (user32.PeekMessage(msg, null, 0, 0, 1)) {
                     if (msg.message == WinUser.WM_HOTKEY) {
-                        onHotkeyPressed?.invoke()
+                        when (msg.wParam.toInt()) {
+                            RESET_HOTKEY_ID -> onHotkeyPressed?.invoke()
+                            VISIBILITY_HOTKEY_ID -> onVisibilityHotkeyPressed?.invoke()
+                        }
                     }
                 } else {
                     try {
@@ -99,16 +126,17 @@ object HotkeyHandler {
                 }
             }
 
-            user32.UnregisterHotKey(null, hotkeyId)
+            user32.UnregisterHotKey(null, RESET_HOTKEY_ID)
+            user32.UnregisterHotKey(null, VISIBILITY_HOTKEY_ID)
             logger.info("단축키 해제")
         }, "HotkeyListener").apply { isDaemon = true }
 
         listenerThread!!.start()
     }
-
     fun stop() {
         running = false
         listenerThread?.interrupt()
+        listenerThread?.join()
         listenerThread = null
     }
 }

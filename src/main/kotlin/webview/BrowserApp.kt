@@ -72,6 +72,20 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             exitProcess(0)
         }
 
+        fun toggleVisibility() {
+            Platform.runLater {
+                if (stage.isShowing) stage.hide() else stage.show()
+            }
+        }
+
+        fun getHideHotkey(): String {
+            return HotkeyHandler.getVisibilityHotkey().toString()
+        }
+
+        fun updateHideHotkey(modifiers: Int, vkCode: Int) {
+            HotkeyHandler.updateVisibilityHotkey(modifiers, vkCode)
+        }
+
         fun getDpsData(): String {
             return Json.encodeToString(dpsData)
         }
@@ -107,6 +121,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
 
     override fun start(stage: Stage) {
+        Platform.setImplicitExit(false)
         stage.setOnCloseRequest {
             HotkeyHandler.stop()
             exitProcess(0)
@@ -149,7 +164,11 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             Platform.runLater {
                 bridge.resetDps()
             }
-
+        }
+        HotkeyHandler.registerVisibilityCallback {
+            Platform.runLater {
+                if (stage.isShowing) stage.hide() else stage.show()
+            }
         }
         HotkeyHandler.start()
         Timeline(KeyFrame(Duration.millis(500.0), {

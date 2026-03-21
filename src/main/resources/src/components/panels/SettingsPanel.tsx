@@ -8,7 +8,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { DisplayMode, NameDisplay } from "@/stores/useSettingsStore";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-
+import { SettingsItem } from "./SettingsItem";
 interface Props {
   onClose: () => void;
   onReady?: () => void;
@@ -33,7 +33,10 @@ const NAME_DISPLAY_MODES: { value: NameDisplay; label: string; description: stri
 export const SettingsPanel = ({ onClose, onReady }: Props) => {
   const {
     hotkey,
+
     setHotkey,
+    hideHotkey,
+    setHideHotkey,
     displayMode,
     setDisplayMode,
     nameDisplay,
@@ -45,10 +48,19 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
   } = useSettingsStore();
 
   const { isCapturing, pending, start, stop, reset } = useHotkeyCapture(hotkey);
+  const {
+    isCapturing: isCapturingHide,
+    pending: pendingHide,
+    start: startHide,
+    stop: stopHide,
+    reset: resetHide,
+  } = useHotkeyCapture(hideHotkey);
 
   const [snapshot] = useState(() => ({
     hotkey,
+    hideHotkey,
     displayMode,
+
     nameDisplay,
     rowHeight,
     isMinimal,
@@ -72,6 +84,8 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
 
   const handleSave = () => {
     setHotkey(pending);
+    setHideHotkey(pendingHide);
+
     onClose();
   };
 
@@ -82,6 +96,7 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
     setIsMinimal(snapshot.isMinimal);
     setHotkey(snapshot.hotkey);
     reset(snapshot.hotkey);
+    resetHide(snapshot.hideHotkey);
     onClose();
   };
 
@@ -96,29 +111,10 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
           <X className="scale-125" />
         </Button>
       </div>
-
-      <div className="py-4 border-b border-white/10">
-        <div className="text-sm mb-2 opacity-80">새로고침 단축키</div>
-        <input
-          readOnly
-          onClick={() => {
-            if (isCapturing) stop();
-            else start();
-          }}
-          value={formatHotkey(pending.modifiers, pending.vkCode)}
-          className="w-full p-2 rounded-md bg-white/5 border text-sm cursor-pointer  "
-        />
-        {isCapturing && (
-          <p className="text-xs text-purple-400 mt-2 opacity-80">
-            키 조합을 입력하세요 (Ctrl / Alt + 키)
-          </p>
-        )}
-      </div>
-
-      <div className="py-4 border-b border-white/10">
+      <SettingsItem className="py-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm opacity-80">최소화 모드</div>
+            <div className="text-sm opacity-80">컴팩트 모드</div>
             <div className="text-xs opacity-40  mt-1">DPS만 표시하고 나머지를 숨깁니다</div>
           </div>
           <Switch
@@ -127,10 +123,45 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
             className="data-[state=checked]:bg-purple-500"
           />
         </div>
-      </div>
+      </SettingsItem>
+      <SettingsItem>
+        <div>
+          <p className="text-sm mb-2 opacity-80">새로고침 단축키</p>
+          <input
+            readOnly
+            onFocus={start}
+            onBlur={stop}
+            value={formatHotkey(pending.modifiers, pending.vkCode)}
+            className="w-full p-2 rounded-md bg-white/5 border text-sm cursor-pointer  "
+          />
+          <div
+            className={`transition-all duration-200 ${isCapturing ? "opacity-100 " : "opacity-0 "}`}>
+            <p className="text-xs text-purple-400 mt-1 opacity-80">
+              키 조합을 입력하세요 (Ctrl / Alt + 키)
+            </p>
+          </div>
+        </div>
+        <div className="mt-1">
+          <p className="text-sm mb-2 opacity-80">최소화 단축키</p>
+          <input
+            readOnly
+            onFocus={startHide}
+            onBlur={stopHide}
+            value={formatHotkey(pendingHide.modifiers, pendingHide.vkCode)}
+            className="w-full p-2 rounded-md bg-white/5 border text-sm cursor-pointer"
+          />
+          <div
+            className={`transition-all duration-200 ${isCapturingHide ? "opacity-100" : "opacity-0"}`}>
+            <p className="text-xs mt-1 mb-2 text-purple-400  opacity-80">
+              키 조합을 입력하세요 (Ctrl / Alt + 키)
+            </p>
+          </div>
+        </div>
+      </SettingsItem>
 
-      <div className="py-4 border-b border-white/10">
-        <div className="text-sm mb-3 opacity-80">표시 형식</div>
+      <SettingsItem
+        title="표시 형식"
+        className="">
         <ToggleGroup
           type="single"
           value={displayMode}
@@ -150,11 +181,11 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-      </div>
+      </SettingsItem>
 
-      {/* 아이디 표기 */}
-      <div className="py-4 border-b border-white/10">
-        <div className="text-sm mb-3 opacity-80">아이디 표기</div>
+      <SettingsItem
+        title="아이디 표기"
+        className="py-4">
         <ToggleGroup
           type="single"
           value={nameDisplay}
@@ -171,11 +202,11 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-      </div>
+      </SettingsItem>
 
-      {/* 행 높이 */}
-      <div className="py-4 border-b border-white/10">
-        <div className="text-sm mb-3 opacity-80">행 높이</div>
+      <SettingsItem
+        title="행 높이"
+        className="pt-4">
         <div className="flex items-center gap-3">
           <Slider
             min={28}
@@ -186,9 +217,9 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
           />
           <span className="text-sm opacity-60 w-12 text-right">{rowHeight}px</span>
         </div>
-      </div>
+      </SettingsItem>
 
-      <div className="flex justify-end gap-2 pt-4">
+      <div className="flex justify-end gap-2 pt-8">
         <Button
           onClick={handleCancel}
           size="lg"
