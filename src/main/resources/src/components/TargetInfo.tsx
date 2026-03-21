@@ -41,7 +41,7 @@ export const TargetInfo = memo(({ targetName, rowHeight, remainHp }: Props) => {
         </span>
         {!isFailed && (
           <div className="ml-auto font-bold text-shadow-meter">
-            <span style={{ color: "#e63333", fontSize }}>{remainHp}</span>
+            <span style={{ color: "#e63333", fontSize }}> {Number(remainHp).toLocaleString()}</span>
           </div>
         )}
       </div>
