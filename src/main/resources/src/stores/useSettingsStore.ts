@@ -18,6 +18,9 @@ interface SettingsState {
   setDetailHeight: (h: number) => void;
   setHotkey: (h: Hotkey) => void;
   isMinimal: boolean;
+  hideHotkey: Hotkey;
+  setHideHotkey: (h: Hotkey) => void;
+
   setIsMinimal: (v: boolean) => void;
   toggleMinimal: () => void;
 }
@@ -26,6 +29,7 @@ const jb = () => (window as any).javaBridge;
 
 const defaultSettings = {
   hotkey: { modifiers: 2, vkCode: 0x52 },
+  hideHotkey: { modifiers: 2, vkCode: 0x48 },
   meterWidth: 400,
   rowHeight: 40,
   detailHeight: 600,
@@ -36,7 +40,9 @@ const defaultSettings = {
 
 export const useSettingsStore = create<SettingsState>((set) => {
   const raw = jb()?.getHotkey?.();
+  const rawHide = jb()?.getHideHotkey?.();
   const parsedHotkey = raw ? parseHotkeyString(raw) : null;
+  const parsedHideHotkey = rawHide ? parseHotkeyString(rawHide) : null;
 
   const interval = setInterval(() => {
     const j = jb();
@@ -48,6 +54,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
 
     set({
       hotkey: parsedHotkey ?? defaultSettings.hotkey,
+      hideHotkey: parsedHideHotkey ?? defaultSettings.hideHotkey,
+
       meterWidth: Number(j.loadProps?.("meterWidth")) || defaultSettings.meterWidth,
       rowHeight: Number(j.loadProps?.("rowHeight")) || defaultSettings.rowHeight,
       detailHeight: Number(j.loadProps?.("detailHeight")) || defaultSettings.detailHeight,
@@ -60,6 +68,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
 
   return {
     hotkey: parsedHotkey ?? defaultSettings.hotkey,
+    hideHotkey: parsedHideHotkey ?? defaultSettings.hideHotkey,
+
     isMinimal: defaultSettings.isMinimal,
     meterWidth: defaultSettings.meterWidth,
     rowHeight: defaultSettings.rowHeight,
@@ -70,6 +80,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setHotkey: (hotkey) => {
       set({ hotkey });
       jb()?.updateHotkey?.(hotkey.modifiers, hotkey.vkCode);
+    },
+    setHideHotkey: (hideHotkey) => {
+      set({ hideHotkey });
+      jb()?.updateHideHotkey?.(hideHotkey.modifiers, hideHotkey.vkCode);
     },
     setIsMinimal: (isMinimal) => {
       set({ isMinimal });
