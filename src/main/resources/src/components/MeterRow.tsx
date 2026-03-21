@@ -25,8 +25,8 @@ const gradients = {
 };
 const getNameColor = (server?: number) => {
   if (!server) return "#ffffff";
-  if (server >= 1001 && server <= 1021) return "#7dd3fc";
-  if (server >= 2001 && server <= 2021) return "#e879f9";
+  if (server >= 1001 && server <= 1021) return "#95ddff";
+  if (server >= 2001 && server <= 2021) return "#f3a5ff";
   return "#ffffff";
 };
 
@@ -127,8 +127,11 @@ export const MeterRow = memo(
             )}
           </div>
           <span
-            className=" font-bold text-shadow-meter flex-1 truncate"
-            style={{ color: getNameColor(server), fontSize }}>
+            className="font-bold text-shadow-meter flex-1 truncate"
+            style={{
+              color: getNameColor(server),
+              fontSize,
+            }}>
             {displayName}
           </span>
           <div className=" flex items-center gap-2 font-bold text-shadow-meter">

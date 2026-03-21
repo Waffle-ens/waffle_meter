@@ -12,7 +12,7 @@ export const useDetails = () => {
       historyIdx !== undefined
         ? await window.javaBridge?.getBattleDetailFromList?.(historyIdx, Number(row.id))
         : await window.javaBridge?.getBattleDetail?.(Number(row.id));
-    // addLog(`detail ${raw}`);
+    // addLog(`${historyIdx ? `히스토리 디테일 ${raw}` : `일반 detail ${raw}`}`);
     let detailObj = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
