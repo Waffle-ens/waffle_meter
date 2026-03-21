@@ -14,11 +14,11 @@ interface InformationValue {
 }
 interface Target {
   id: number;
+  remainHp: string;
   mob?: {
     code: number;
     name: string;
     boss: boolean;
-    remainHp: string;
   };
 }
 interface RawCombatData {
@@ -120,6 +120,6 @@ export function parseCombatData(raw: unknown): {
   }
 
   const targetName = data.target?.mob?.name ?? "";
-  const remainHp = data.target?.mob?.remainHp ?? 0;
+  const remainHp = data.target?.remainHp ?? 0;
   return { players: rows.sort((a, b) => b.dps - a.dps), targetName, remainHp };
 }
