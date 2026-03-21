@@ -19,7 +19,7 @@ class DpsCalculator() {
         return DataManager.battleData(currentTarget)
     }
 
-    fun getRecentData():DpsReport{
+    fun getRecentData(): DpsReport {
         return recentData
     }
 
@@ -30,7 +30,8 @@ class DpsCalculator() {
         val prevTargetDummy = DataManager.isCurrentTargetDummy()
         val isNewBattleEnd = storageTarget == -1 && storageTarget != currentTarget
         if (storageTarget != currentTarget && !prevTargetDummy
-            && storageTarget != -1 && currentTarget != -1) {
+            && storageTarget != -1 && currentTarget != -1
+        ) {
             DataManager.saveBattleLog(recentData)
         }
         currentTarget = storageTarget
@@ -38,7 +39,9 @@ class DpsCalculator() {
         if (currentTarget == -1) {
             val battleEnd = DataManager.currentBattleEnd()
             DataManager.flushPacket()
-            recentData.battleEnd = battleEnd
+            if (isNewBattleEnd) {
+                recentData.battleEnd = battleEnd
+            }
             if (isNewBattleEnd && !recentData.isEmpty() && !recentTargetWasDummy) {
                 DataManager.saveBattleLog(recentData)
             }
@@ -92,7 +95,7 @@ class DpsCalculator() {
 
     fun battleDetails(data: DpsReport?, uid: Int): HashMap<String, AnalyzedSkill> {
         val analyzedData: HashMap<String, AnalyzedSkill> = hashMapOf()
-        if (data == null){
+        if (data == null) {
             return analyzedData
         }
         data.packets?.forEach {
