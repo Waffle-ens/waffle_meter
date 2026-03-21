@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { getJobIconSrc } from "../utils/jobIcon";
+import { getJobIconSrc } from "@/utils/icons";
 import { formatAmount } from "@/utils/format";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 

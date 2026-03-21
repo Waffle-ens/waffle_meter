@@ -1,5 +1,5 @@
 import { memo } from "react";
-import bossIcon from "../assets/bossIcon.png";
+import bossIcon from "@/assets/bossIcon.png";
 interface Props {
   targetName: string;
   rowHeight: number;

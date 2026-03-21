@@ -4,6 +4,7 @@ import { useDetails } from "@/hooks/useDetails";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useResizableDetail } from "@/hooks/useResizableDetail";
+import { getSkillIconSrc } from "@/utils/icons";
 
 interface Props {
   player: Player | null;
@@ -15,6 +16,34 @@ interface Props {
 
 const col = { name: 180, stat: 80, dmg: 220 };
 
+const SkillIcon = ({ name, img }: { name: string; img?: string }) => {
+  const [failed, setFailed] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
+
+  const src = !img || useFallback ? getSkillIconSrc(name) : img;
+
+  if (!src || failed) {
+    return (
+      <div className="w-7 h-7 shrink-0 rounded bg-white/10 flex items-center justify-center">
+        <span className="text-xs opacity-40">?</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      className="w-7 h-7 shrink-0 rounded object-contain"
+      onError={() => {
+        if (!useFallback && img) {
+          setUseFallback(true);
+        } else {
+          setFailed(true);
+        }
+      }}
+    />
+  );
+};
 export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx }: Props) => {
   const { getDetails } = useDetails();
   const [details, setDetails] = useState<Details | null>(null);
@@ -138,11 +167,17 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                   borderBottom:
                     i < details.skills.length - 1 ? "1px solid rgba(255,255,255,0.08)" : "none",
                 }}>
-                <span
-                  className="text-left text-row-fill text-shadow-meter truncate shrink-0"
+                <div
+                  className="flex items-center gap-2 shrink-0 overflow-hidden"
                   style={{ width: col.name }}>
-                  {s.name}
-                </span>
+                  <SkillIcon
+                    name={s.name}
+                    img={s.img}
+                  />
+                  <span className="text-left text-row-fill text-shadow-meter truncate">
+                    {s.name}
+                  </span>
+                </div>
                 <span
                   className="text-center shrink-0"
                   style={{ minWidth: col.stat }}>

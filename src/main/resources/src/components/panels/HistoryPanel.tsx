@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useHistory } from "@/hooks/useHistory";
-import bossIcon from "../../assets/bossIcon.png";
+import bossIcon from "@/assets/bossIcon.png";
 
 interface Props {
   onClose: () => void;
