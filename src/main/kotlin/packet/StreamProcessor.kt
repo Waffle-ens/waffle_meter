@@ -45,6 +45,8 @@ class StreamProcessor() {
         if (flag) return
         flag = parseDoTPacket(packet, extraFlag)
         if (flag) return
+        flag = parseRemainHp(packet,lengthInfo,extraFlag)
+        if (flag) return
     }
 
     private fun decompressPacket(packet: ByteArray, headerLength: Int, extraFlag: Boolean) {
@@ -682,6 +684,33 @@ class StreamProcessor() {
         offset += 6
 
         val power = parseUInt32le(packet,offset)
+    }
+
+    private fun parseRemainHp(packet:ByteArray,lengthInfo: VarIntOutput,extraFlag: Boolean):Boolean{
+        var offset = lengthInfo.length
+        if (extraFlag) {
+            offset++
+        }
+        if (packet.size < offset + 2) return false
+
+        if (packet[offset] != 0x00.toByte()) return false
+        if (packet[offset+1] != 0x8d.toByte()) return false
+        offset += 2
+
+        val mobIdInfo = readVarInt(packet, offset)
+        offset += mobIdInfo.length
+        val mobCode = DataManager.mobId(mobIdInfo.value) ?: return true
+        val mob = DataManager.mob(mobCode) ?: return true
+        if (!mob.boss) return true
+
+        offset += readVarInt(packet, offset).length
+        offset += readVarInt(packet, offset).length
+        offset += readVarInt(packet, offset).length
+
+        val mobHp = parseUInt32le(packet,offset)
+        DataManager.mobHp(mobIdInfo.value,mobHp)
+        return true
+
     }
 
 }

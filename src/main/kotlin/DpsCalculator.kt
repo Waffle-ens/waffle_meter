@@ -60,7 +60,7 @@ class DpsCalculator() {
             val mobCode = DataManager.mobId(currentTarget)
             val mob = DataManager.mob(mobCode!!)
             report.target = MobInfo(currentTarget, mob!!)
-            //남은체력 여기서 불러오기
+            report.target!!.remainHp = DataManager.mobHp(currentTarget)?:0
         }
         data?.forEach {
             val actor = DataManager.summonerId(it.getActorId()) ?: it.getActorId()
