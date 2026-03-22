@@ -65,24 +65,52 @@ export const MeterRow = memo(
         case "amount_dps_percent":
           return (
             <>
-              <span style={{ color: "#ffe566", fontSize }}>{formatAmount(amount)}</span>
-              <span style={{ color: "#ffffff", fontSize }}>{dps.toLocaleString()}/초</span>
-              <span style={{ color: "#ffe566", fontSize }}>{contribution.toFixed(1)}%</span>
+              <span
+                className="min-w-12.5 text-end"
+                style={{ color: "#ffe566", fontSize }}>
+                {formatAmount(amount)}
+              </span>
+              <span
+                className="min-w-22 text-end"
+                style={{ color: "#ffffff", fontSize }}>
+                {dps.toLocaleString()}/초
+              </span>
+              <span
+                className="text-end min-w-12.5"
+                style={{ color: "#ffe566", fontSize }}>
+                {contribution.toFixed(1)}%
+              </span>
             </>
           );
         case "amount_percent":
           return (
             <>
-              <span style={{ color: "#ffe566", fontSize }}>{formatAmount(amount)}</span>
-              <span style={{ color: "#ffe566", fontSize }}>{contribution.toFixed(1)}%</span>
+              <span
+                className="min-w-12.5 text-end"
+                style={{ color: "#ffffff", fontSize }}>
+                {formatAmount(amount)}
+              </span>
+              <span
+                className="text-end min-w-12.5"
+                style={{ color: "#ffe566", fontSize }}>
+                {contribution.toFixed(1)}%
+              </span>
             </>
           );
         case "dps_percent":
         default:
           return (
             <>
-              <span style={{ color: "#ffffff", fontSize }}>{dps.toLocaleString()}/초</span>
-              <span style={{ color: "#ffe566", fontSize }}>{contribution.toFixed(1)}%</span>
+              <span
+                className="min-w-22 text-end"
+                style={{ color: "#ffffff", fontSize }}>
+                {dps.toLocaleString()}/초
+              </span>
+              <span
+                className="text-end min-w-12.5"
+                style={{ color: "#ffe566", fontSize }}>
+                {contribution.toFixed(1)}%
+              </span>
             </>
           );
       }
