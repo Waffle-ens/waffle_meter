@@ -34,7 +34,7 @@ const compareVersion = (a: Version, b: Version): number => {
 
 const pickLatestRelease = (
   releases: any[],
-  wantPrerelease: boolean
+  wantPrerelease: boolean,
 ): { version: Version; msiUrl: string } | null => {
   return releases
     .filter((r) => !r.draft && !!r.prerelease === wantPrerelease)
@@ -53,13 +53,25 @@ export const useVersionCheck = () => {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [downloadState, setDownloadState] = useState<DownloadState>({ status: "idle" });
   const retryCountRef = useRef(0);
+  const currentVersionRef = useRef<Version | null>(null);
 
-  // 버전 체크
   useEffect(() => {
+    let cancelled = false; 
+
     const check = async () => {
+      if (cancelled) return; 
+      // if (import.meta.env.DEV) {
+      //   setUpdateInfo({
+      //     currentVersion: "1.2.1",
+      //     latestVersion: "1.2.3",
+      //     isPrerelease: false,
+      //     msiUrl: "https://example.com/mock.msi",
+      //   });
+      //   return;
+      // }
       const version = window.javaBridge?.getVersion?.();
       const current = parseVersion(version ?? "");
-
+      if (current) currentVersionRef.current = current; 
       if (!current || !(window as any).javaBridge) {
         if (retryCountRef.current < RETRY_LIMIT) {
           retryCountRef.current++;
@@ -73,7 +85,7 @@ export const useVersionCheck = () => {
           headers: { Accept: "application/vnd.github+json" },
           cache: "no-store",
         });
-        if (!res.ok) return;
+        if (!res.ok || cancelled) return; 
 
         const releases = await res.json();
         const latestStable = pickLatestRelease(releases, false);
@@ -85,27 +97,29 @@ export const useVersionCheck = () => {
         if (latestStable && compareVersion(latestStable.version, current) > 0) {
           target = latestStable;
           isPrerelease = false;
-        } else if (
-          current.pre &&
-          latestBeta &&
-          compareVersion(latestBeta.version, current) > 0
-        ) {
+        } else if (current.pre && latestBeta && compareVersion(latestBeta.version, current) > 0) {
           target = latestBeta;
           isPrerelease = true;
         }
 
-        if (target) {
-          setUpdateInfo({
-            currentVersion: current.raw,
-            latestVersion: target.version.raw,
-            isPrerelease,
-            msiUrl: target.msiUrl,
+        if (target && !cancelled) {
+          setUpdateInfo((prev) => {
+            if (prev?.latestVersion === target.version.raw) return prev; 
+            return {
+              currentVersion: current.raw,
+              latestVersion: target.version.raw,
+              isPrerelease,
+              msiUrl: target.msiUrl,
+            };
           });
         }
       } catch (e) {}
     };
 
     check();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -127,8 +141,10 @@ export const useVersionCheck = () => {
   }, []);
 
   const startUpdate = (msiUrl: string) => {
-    setDownloadState({ status: "downloading", percent: 0 });
-    (window as any).javaBridge.startUpdate(msiUrl);
+    setDownloadState({ status: "error" });
+    console.log(msiUrl);
+    // setDownloadState({ status: "downloading", percent: 0 });
+    // (window as any).javaBridge.startUpdate(msiUrl);
   };
 
   const retryDownload = () => {
@@ -136,7 +152,6 @@ export const useVersionCheck = () => {
     startUpdate(updateInfo.msiUrl);
   };
 
-  // 기존 수동 설치 fallback
   const openReleasePage = () => {
     (window as any).javaBridge.openBrowser(RELEASE_URL);
     (window as any).javaBridge.exitApp();
@@ -148,5 +163,6 @@ export const useVersionCheck = () => {
     startUpdate,
     retryDownload,
     openReleasePage,
+    currentVersion: currentVersionRef.current?.raw ?? null, 
   };
 };

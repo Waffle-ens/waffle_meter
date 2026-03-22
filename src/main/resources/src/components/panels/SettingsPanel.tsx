@@ -9,9 +9,13 @@ import type { DisplayMode, NameDisplay } from "@/stores/useSettingsStore";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { SettingsItem } from "./SettingsItem";
+import type { UpdateInfo } from "@/types";
 interface Props {
   onClose: () => void;
   onReady?: () => void;
+  currentVersion?: string;
+  updateInfo?: UpdateInfo | null;
+  onCheckUpdate?: () => void;
 }
 
 const DISPLAY_MODES: { value: DisplayMode; label: string; description: string }[] = [
@@ -30,7 +34,13 @@ const NAME_DISPLAY_MODES: { value: NameDisplay; label: string; description: stri
   { value: "hidden", label: "모두 숨김", description: "바*** 이*** 트***" },
 ];
 
-export const SettingsPanel = ({ onClose, onReady }: Props) => {
+export const SettingsPanel = ({
+  onClose,
+  onReady,
+  currentVersion,
+  updateInfo,
+  onCheckUpdate,
+}: Props) => {
   const {
     hotkey,
 
@@ -101,7 +111,7 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
   };
 
   return (
-    <div className="font-bold rounded-lg py-4 px-7 w-90">
+    <div className="font-bold  overflow-y-auto rounded-lg py-3 px-7 w-90">
       <div className="flex items-center pb-3 border-b border-white/10">
         <span>설정</span>
         <Button
@@ -111,7 +121,30 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
           <X className="scale-125" />
         </Button>
       </div>
-      <SettingsItem className="py-4">
+
+      <SettingsItem className="py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm opacity-80">버전 정보</div>
+            <div className="text-xs opacity-40 mt-1">
+              {currentVersion ? `v${currentVersion}` : "-"}
+            </div>
+          </div>
+          <Button
+            onClick={onCheckUpdate}
+            variant="ghost"
+            size="lg"
+            className={`text-sm py-3 transition-all
+              ${
+                updateInfo
+                  ? "text-green-400 border border-green-400/30 hover:bg-green-400/10"
+                  : "opacity-60 hover:opacity-100"
+              }`}>
+            {updateInfo ? `v${updateInfo.latestVersion} 업데이트` : "업데이트 확인"}
+          </Button>
+        </div>
+      </SettingsItem>
+      <SettingsItem className="pb-4">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm opacity-80">컴팩트 모드</div>
@@ -158,7 +191,6 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
           </div>
         </div>
       </SettingsItem>
-
       <SettingsItem
         title="표시 형식"
         className="">
@@ -182,10 +214,9 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
           ))}
         </ToggleGroup>
       </SettingsItem>
-
       <SettingsItem
         title="아이디 표기"
-        className="py-4">
+        className="py-3">
         <ToggleGroup
           type="single"
           value={nameDisplay}
@@ -203,10 +234,9 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
           ))}
         </ToggleGroup>
       </SettingsItem>
-
       <SettingsItem
         title="행 높이"
-        className="pt-4">
+        className="pt-3">
         <div className="flex items-center gap-3">
           <Slider
             min={28}
@@ -218,7 +248,6 @@ export const SettingsPanel = ({ onClose, onReady }: Props) => {
           <span className="text-sm opacity-60 w-12 text-right">{rowHeight}px</span>
         </div>
       </SettingsItem>
-
       <div className="flex justify-end gap-2 pt-8">
         <Button
           onClick={handleCancel}

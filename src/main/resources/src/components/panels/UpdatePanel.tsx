@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { UpdateInfo, DownloadState } from "@/types";
 import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   updateInfo: UpdateInfo;
@@ -9,6 +10,7 @@ interface Props {
   onUpdate: () => void;
   onRetryDownload: () => void;
   onReady?: () => void;
+  onOpenReleasePage: () => void;
 }
 
 // ── 상태별 상수 ──────────────────────────────────────────────────────────────
@@ -31,43 +33,25 @@ const HEADER_TITLE: Record<DownloadState["status"], string> = {
 
 const CLS = {
   // 레이아웃
-  body: "flex-1 px-4 pt-[14px] pb-0 flex flex-col",
-  footer: "px-4 pt-[10px] pb-[14px] flex-shrink-0",
+  body: "flex-1 px-4  ",
+  footer: "px-4 py-3 flex-shrink-0",
 
   // 버전 row
-  verRow:
-    "flex justify-between items-center px-[10px] py-[7px] mb-[5px]" +
-    " rounded-[7px] bg-white/[0.03] text-[12px]",
-  errRow:
-    "flex justify-between items-center px-[10px] py-[7px] mb-[5px]" +
-    " rounded-[7px] bg-red-400/[0.05] border border-red-400/[0.1] text-[12px]",
-  verLabel: "text-white/[0.38]",
-  verCur: "text-slate-400 font-medium tabular-nums",
-  verNew: "text-green-400 font-semibold tabular-nums",
+  verRow: "text-sm flex justify-between items-center p-2 mb-1" + "text-sm",
+  errRow: "text-sm flex justify-between items-center p-2 mb-1" + "text-sm",
+  verLabel: "text-white/[0.5] ",
+  verCur: "text-slate-400  tabular-nums",
+  verNew: "text-green-400  tabular-nums",
 
   // 구분선
   dividerLine: "flex-1 h-px bg-white/[0.07]",
-  dividerText: "text-[10.5px] font-medium tracking-[0.07em] uppercase whitespace-nowrap",
+  dividerText: "text-[10.5px] font-semibold tracking-[0.07em] uppercase whitespace-nowrap",
 
   // 버튼
-  btnLater:
-    "flex-1 py-2 rounded-lg text-[12.5px] font-semibold cursor-pointer" +
-    " bg-white/5 border border-white/[0.07] text-white/40" +
-    " hover:text-white/70 hover:bg-white/[0.09] transition-all",
-  btnUpdate:
-    "flex-1 py-2 rounded-lg text-[12.5px] font-semibold cursor-pointer border-0" +
-    " text-white bg-gradient-to-br from-violet-600 to-violet-700" +
-    " shadow-[0_2px_10px_rgba(124,58,237,0.28)]" +
-    " hover:shadow-[0_4px_16px_rgba(124,58,237,0.45)] hover:-translate-y-px transition-all",
-  btnErr:
-    "flex-1 py-2 rounded-lg text-[12.5px] font-semibold cursor-pointer" +
-    " bg-red-400/[0.12] border border-red-400/25 text-red-300" +
-    " hover:bg-red-400/[0.2] transition-all",
 } as const;
 
-
 const Divider = ({ label, labelCls }: { label: string; labelCls: string }) => (
-  <div className="flex items-center gap-2 mb-3">
+  <div className="flex items-center gap-2 mb-3 ">
     <div className={CLS.dividerLine} />
     <span className={`${CLS.dividerText} ${labelCls}`}>{label}</span>
     <div className={CLS.dividerLine} />
@@ -87,12 +71,12 @@ const VersionRows = ({ current, latest }: { current: string; latest: string }) =
   </>
 );
 
-
 export const UpdatePanel = ({
   updateInfo,
   downloadState,
   onClose,
   onUpdate,
+  onOpenReleasePage,
   onRetryDownload,
   onReady,
 }: Props) => {
@@ -118,25 +102,17 @@ export const UpdatePanel = ({
 
   return (
     <div
-      className="w-[300px] h-[240px] rounded-[14px] overflow-hidden
-                 bg-[rgba(15,28,50,0.92)] border border-white/[0.08]
-                 text-[#d7d7d7] flex flex-col transition-opacity duration-150"
+      className="w-75   overflow-hidden font-semibold flex flex-col transition-opacity duration-150"
       style={{ opacity: visible ? 1 : 0 }}>
-      <div
-        className="flex items-center gap-2.5 px-4 py-[13px]
-                      border-b border-white/[0.07] flex-shrink-0">
-        <div className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${DOT_CLS[status]}`} />
-        <span className="flex-1 text-[12.5px] font-semibold tracking-wide text-slate-200">
-          {HEADER_TITLE[status]}
-        </span>
+      <div className="flex items-center gap-2.5 px-4 py-3 shrink-0">
+        <div className={`w-2 h-2 rounded-full shrink-0 ${DOT_CLS[status]}`} />
+        <span className="flex-1 text-sm ">{HEADER_TITLE[status]}</span>
         {showClose && (
-          <button
-            onClick={onClose}
-            className="w-[22px] h-[22px] rounded-md flex items-center justify-center
-                       bg-white/5 hover:bg-white/10 text-[#777] hover:text-[#ccc]
-                       border-0 cursor-pointer transition-all">
-            <X size={12} />
-          </button>
+          <Button
+            variant="ghost"
+            onClick={onClose}>
+            <X className="scale-125" />
+          </Button>
         )}
       </div>
 
@@ -145,24 +121,25 @@ export const UpdatePanel = ({
           <div className={CLS.body}>
             <Divider
               label={updateInfo.isPrerelease ? "베타 버전" : "정식 릴리즈"}
-              labelCls={updateInfo.isPrerelease ? "text-yellow-400/45" : "text-white/[0.28]"}
+              labelCls={updateInfo.isPrerelease ? "text-white/[0.4]" : "text-purple-400"}
             />
             <VersionRows
               current={updateInfo.currentVersion}
               latest={updateInfo.latestVersion}
             />
           </div>
-          <div className={`${CLS.footer} flex gap-[7px]`}>
-            <button
+          <div className={`${CLS.footer} flex gap-2`}>
+            <Button
               onClick={onClose}
-              className={CLS.btnLater}>
+              size="lg"
+              className="p-4 w-20 opacity-60 hover:opacity-100 transition-opacity flex-1">
               나중에
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={onUpdate}
-              className={CLS.btnUpdate}>
+              className="bg-purple-600 hover:bg-purple-700 transition-colors p-4 w-20 flex-1">
               업데이트
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -179,16 +156,14 @@ export const UpdatePanel = ({
               latest={updateInfo.latestVersion}
             />
           </div>
-          <div className={`${CLS.footer} flex flex-col gap-[7px]`}>
-            <div className="flex justify-between text-[11.5px]">
+          <div className={`${CLS.footer} flex flex-col gap-2`}>
+            <div className="flex justify-between text-sm">
               <span className="text-white/[0.28]">설치 중에는 앱을 종료하지 마세요</span>
-              <span className="text-purple-400 font-semibold tabular-nums">
-                {downloadState.percent}%
-              </span>
+              <span className="text-purple-400  tabular-nums">{downloadState.percent}%</span>
             </div>
-            <div className="h-[5px] rounded-full bg-white/[0.07] overflow-hidden">
+            <div className="h-1.5 rounded-full bg-white/[0.07] overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-violet-600 to-purple-400
+                className="h-full rounded-full bg-linear-to-r from-violet-600 to-purple-400
                            transition-[width] duration-300 ease-out"
                 style={{ width: `${downloadState.percent}%` }}
               />
@@ -199,14 +174,14 @@ export const UpdatePanel = ({
 
       {/* ── complete ── */}
       {status === "complete" && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-[5px]">
+        <div className="flex-1 flex flex-col items-center justify-center gpa-1.25">
           <div
-            className="w-9 h-9 rounded-full flex items-center justify-center mb-[3px]
+            className="w-9 h-9 rounded-full flex items-center justify-center mb-1
                           bg-green-400/10 border border-green-400/20 text-green-400 text-[15px]">
             ✓
           </div>
-          <p className="text-[13px] font-semibold text-slate-200">다운로드가 완료되었습니다</p>
-          <p className="text-[11px] text-white/[0.35]">잠시 후 앱이 자동으로 재실행됩니다</p>
+          <p className="text-sm  text-slate-200">다운로드가 완료되었습니다</p>
+          <p className="text-sm text-white/45">잠시 후 앱이 자동으로 재실행됩니다</p>
         </div>
       )}
 
@@ -215,7 +190,7 @@ export const UpdatePanel = ({
           <div className={CLS.body}>
             <Divider
               label="설치 오류"
-              labelCls="text-red-400/50"
+              labelCls="text-red-400/50 "
             />
             <div className={CLS.verRow}>
               <span className={CLS.verLabel}>현재</span>
@@ -226,17 +201,18 @@ export const UpdatePanel = ({
               <span className="text-red-300">네트워크 또는 권한 문제</span>
             </div>
           </div>
-          <div className={`${CLS.footer} flex gap-[7px]`}>
-            <button
-              onClick={onClose}
-              className={CLS.btnLater}>
+          <div className={`${CLS.footer} flex gap-2`}>
+            <Button
+              onClick={onOpenReleasePage}
+              size="lg"
+              className="flex-1 p-4 w-20 opacity-60 hover:opacity-100 transition-opacity">
               수동 설치
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={onRetryDownload}
-              className={CLS.btnErr}>
+              className="flex-1 bg-destructive hover:bg-destructive/70 transition-colors p-4 w-20">
               다시 시도
-            </button>
+            </Button>
           </div>
         </>
       )}

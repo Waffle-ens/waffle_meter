@@ -30,7 +30,8 @@ export default function App() {
 
   const activePanelRef = useRef<PanelType>(null);
   const selectedRef = useRef<Player | null>(null);
-  const { updateInfo, openReleasePage, downloadState, retryDownload } = useVersionCheck();
+  const { updateInfo, openReleasePage, downloadState, currentVersion, retryDownload, startUpdate } =
+    useVersionCheck();
   const [activePanel, setActivePanel] = useState<PanelType>(null);
   const { meterWidth, onMouseDown, isDragging } = useResizable();
   const rowHeight = useSettingsStore((s) => s.rowHeight);
@@ -72,6 +73,9 @@ export default function App() {
   );
   const handleClose = useCallback(() => {
     setActivePanel(null);
+  }, []);
+  const handleCheckUpdate = useCallback(() => {
+    handlePanelToggle("update");
   }, []);
 
   useEffect(() => {
@@ -165,15 +169,18 @@ export default function App() {
             onClose={handleClose}
             combatTime={formatBattleTime(battleTime)}
             updateInfo={updateInfo}
-            onUpdate={openReleasePage}
+            onUpdate={() => updateInfo && startUpdate(updateInfo.msiUrl)}
             downloadState={downloadState}
             onRetryDownload={retryDownload}
             formatBattleTime={formatBattleTime}
             historyIdx={selectedHistoryIdx}
+            onOpenReleasePage={openReleasePage}
             onSelectHistory={(idx, report) => {
               setHistoryData(report);
               setSelectedHistoryIdx(idx);
             }}
+            currentVersion={currentVersion ?? undefined}
+            onCheckUpdate={handleCheckUpdate}
           />
         </div>
       </div>

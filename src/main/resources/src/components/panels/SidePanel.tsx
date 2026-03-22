@@ -15,10 +15,13 @@ interface SidePanelProps {
   updateInfo?: UpdateInfo | null;
   onUpdate?: () => void;
   formatBattleTime: (ms: number) => string;
-  onSelectHistory: (idx: number, report: any) => void; // idx 추가
+  onSelectHistory: (idx: number, report: any) => void; 
   historyIdx?: number;
+  onOpenReleasePage: () => void;
   downloadState: DownloadState;
   onRetryDownload: () => void;
+  currentVersion?: string; 
+  onCheckUpdate?: () => void; 
 }
 
 export const SidePanel = ({
@@ -31,9 +34,11 @@ export const SidePanel = ({
   onUpdate,
   downloadState,
   onRetryDownload,
-
+  onOpenReleasePage,
   historyIdx,
   formatBattleTime,
+  currentVersion,
+  onCheckUpdate,
 }: SidePanelProps) => {
   const [visible, setVisible] = useState(false);
   const [rendered, setRendered] = useState(false);
@@ -98,6 +103,9 @@ export const SidePanel = ({
         <SettingsPanel
           onClose={onClose}
           onReady={() => setTimeout(() => setVisible(true), 10)}
+          currentVersion={currentVersion} 
+          updateInfo={updateInfo} 
+          onCheckUpdate={onCheckUpdate} 
         />
       )}
       {currentType === "update" && updateInfo && (
@@ -107,6 +115,7 @@ export const SidePanel = ({
           downloadState={downloadState}
           onRetryDownload={onRetryDownload}
           onUpdate={onUpdate ?? (() => {})}
+          onOpenReleasePage={onOpenReleasePage}
           onReady={() => setTimeout(() => setVisible(true), 10)}
         />
       )}
