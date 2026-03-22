@@ -74,4 +74,11 @@ export interface UpdateInfo {
   currentVersion: string;
   latestVersion: string;
   isPrerelease: boolean;
+  msiUrl: string;
 }
+
+export type DownloadState =
+  | { status: "idle" }
+  | { status: "downloading"; percent: number }
+  | { status: "complete" }
+  | { status: "error" };

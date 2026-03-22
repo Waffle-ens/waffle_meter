@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Version, UpdateInfo } from "@/types";
+import type { Version, UpdateInfo, DownloadState } from "@/types";
 // import { useDebugStore } from "../stores/debugStore";
 const API = "https://api.github.com/repos/TK-open-public/Aion2-Dps-Meter/releases?per_page=10";
 const RELEASE_URL = "https://github.com/TK-open-public/Aion2-Dps-Meter/releases";
@@ -32,32 +32,35 @@ const compareVersion = (a: Version, b: Version): number => {
   return a.pre.localeCompare(b.pre);
 };
 
-const pickLatest = (releases: any[], wantPrerelease: boolean): Version | null => {
+const pickLatestRelease = (
+  releases: any[],
+  wantPrerelease: boolean
+): { version: Version; msiUrl: string } | null => {
   return releases
     .filter((r) => !r.draft && !!r.prerelease === wantPrerelease)
-    .reduce<Version | null>((best, r) => {
+    .reduce<{ version: Version; msiUrl: string } | null>((best, r) => {
       const v = parseVersion(r.tag_name);
       if (!v) return best;
-      if (!best || compareVersion(v, best) > 0) return v;
+      const msiAsset = r.assets?.find((a: any) => a.name?.endsWith(".msi"));
+      if (!msiAsset) return best;
+      if (!best || compareVersion(v, best.version) > 0)
+        return { version: v, msiUrl: msiAsset.browser_download_url };
       return best;
     }, null);
 };
 
 export const useVersionCheck = () => {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [downloadState, setDownloadState] = useState<DownloadState>({ status: "idle" });
   const retryCountRef = useRef(0);
-  // const addLog = useDebugStore((s) => s.addLog);
 
+  // 버전 체크
   useEffect(() => {
     const check = async () => {
       const version = window.javaBridge?.getVersion?.();
-      // addLog(`version: ${version}`);
-
       const current = parseVersion(version ?? "");
-      // addLog(`current: ${JSON.stringify(current)}`);
 
       if (!current || !(window as any).javaBridge) {
-        // addLog(`재시도: ${retryCountRef.current}`);
         if (retryCountRef.current < RETRY_LIMIT) {
           retryCountRef.current++;
           setTimeout(check, RETRY_INTERVAL);
@@ -66,55 +69,84 @@ export const useVersionCheck = () => {
       }
 
       try {
-        // addLog("릴리즈 대기");
         const res = await fetch(API, {
           headers: { Accept: "application/vnd.github+json" },
           cache: "no-store",
         });
-        if (!res.ok) {
-          // addLog(`실패: ${res.status}`);
-          return;
-        }
+        if (!res.ok) return;
 
         const releases = await res.json();
-        // addLog(`릴리즈: ${releases.length}`);
+        const latestStable = pickLatestRelease(releases, false);
+        const latestBeta = pickLatestRelease(releases, true);
 
-        const latestStable = pickLatest(releases, false);
-        const latestBeta = pickLatest(releases, true);
-        // addLog(`마지막: ${latestStable?.raw} 마지막베타: ${latestBeta?.raw}`);
-
-        let target: Version | null = null;
+        let target: { version: Version; msiUrl: string } | null = null;
         let isPrerelease = false;
 
-        if (latestStable && compareVersion(latestStable, current) > 0) {
+        if (latestStable && compareVersion(latestStable.version, current) > 0) {
           target = latestStable;
           isPrerelease = false;
-        } else if (current.pre && latestBeta && compareVersion(latestBeta, current) > 0) {
+        } else if (
+          current.pre &&
+          latestBeta &&
+          compareVersion(latestBeta.version, current) > 0
+        ) {
           target = latestBeta;
           isPrerelease = true;
         }
 
-        // addLog(`타겟: ${target?.raw ?? "없음"}`);
-
         if (target) {
           setUpdateInfo({
             currentVersion: current.raw,
-            latestVersion: target.raw,
+            latestVersion: target.version.raw,
             isPrerelease,
+            msiUrl: target.msiUrl,
           });
         }
-      } catch (e) {
-        // addLog(`에러: ${e}`);
-      }
+      } catch (e) {}
     };
 
     check();
   }, []);
 
+  useEffect(() => {
+    (window as any).onDownloadProgress = (percent: number) => {
+      setDownloadState({ status: "downloading", percent });
+    };
+    (window as any).onDownloadComplete = () => {
+      setDownloadState({ status: "complete" });
+    };
+    (window as any).onDownloadError = () => {
+      setDownloadState({ status: "error" });
+    };
+
+    return () => {
+      delete (window as any).onDownloadProgress;
+      delete (window as any).onDownloadComplete;
+      delete (window as any).onDownloadError;
+    };
+  }, []);
+
+  const startUpdate = (msiUrl: string) => {
+    setDownloadState({ status: "downloading", percent: 0 });
+    (window as any).javaBridge.startUpdate(msiUrl);
+  };
+
+  const retryDownload = () => {
+    if (!updateInfo) return;
+    startUpdate(updateInfo.msiUrl);
+  };
+
+  // 기존 수동 설치 fallback
   const openReleasePage = () => {
     (window as any).javaBridge.openBrowser(RELEASE_URL);
     (window as any).javaBridge.exitApp();
   };
 
-  return { updateInfo, openReleasePage };
+  return {
+    updateInfo,
+    downloadState,
+    startUpdate,
+    retryDownload,
+    openReleasePage,
+  };
 };

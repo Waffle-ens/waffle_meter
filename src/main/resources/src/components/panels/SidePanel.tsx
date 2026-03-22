@@ -3,7 +3,7 @@ import type { Player } from "@/types";
 import { DetailsPanel } from "./DetailsPanel";
 import { SettingsPanel } from "./SettingsPanel.tsx";
 import { UpdatePanel } from "./UpdatePanel";
-import type { UpdateInfo, PanelType } from "@/types";
+import type { UpdateInfo, PanelType, DownloadState } from "@/types";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { HistoryPanel } from "./HistoryPanel";
 
@@ -17,6 +17,8 @@ interface SidePanelProps {
   formatBattleTime: (ms: number) => string;
   onSelectHistory: (idx: number, report: any) => void; // idx 추가
   historyIdx?: number;
+  downloadState: DownloadState;
+  onRetryDownload: () => void;
 }
 
 export const SidePanel = ({
@@ -27,6 +29,9 @@ export const SidePanel = ({
   updateInfo,
   onSelectHistory,
   onUpdate,
+  downloadState,
+  onRetryDownload,
+
   historyIdx,
   formatBattleTime,
 }: SidePanelProps) => {
@@ -99,6 +104,8 @@ export const SidePanel = ({
         <UpdatePanel
           updateInfo={updateInfo}
           onClose={onClose}
+          downloadState={downloadState}
+          onRetryDownload={onRetryDownload}
           onUpdate={onUpdate ?? (() => {})}
           onReady={() => setTimeout(() => setVisible(true), 10)}
         />

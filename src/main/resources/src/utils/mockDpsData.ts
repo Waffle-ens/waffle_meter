@@ -594,7 +594,7 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
 const MOCK_DATA = {
   contributors: [
     { id: 1, nickname: "나", server: 1001, job: "검성", isExecutor: true },
-    { id: 2, nickname: "딜러A딜러A딜러A딜러A", server: 1002, job: "마도성" },
+    { id: 2, nickname: "딜러A딜러A딜러A딜러A", server: 2002, job: "마도성" },
     { id: 3, nickname: "딜러B", server: 2001, job: "정령성" },
     { id: 4, nickname: "딜러C", server: 1003, job: "호법성" },
     { id: 5, nickname: "서폿A", server: 1004, job: "치유성" },

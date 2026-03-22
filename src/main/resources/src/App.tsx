@@ -30,7 +30,7 @@ export default function App() {
 
   const activePanelRef = useRef<PanelType>(null);
   const selectedRef = useRef<Player | null>(null);
-  const { updateInfo, openReleasePage } = useVersionCheck();
+  const { updateInfo, openReleasePage, downloadState, retryDownload } = useVersionCheck();
   const [activePanel, setActivePanel] = useState<PanelType>(null);
   const { meterWidth, onMouseDown, isDragging } = useResizable();
   const rowHeight = useSettingsStore((s) => s.rowHeight);
@@ -82,25 +82,8 @@ export default function App() {
   }, [selected]);
 
   useEffect(() => {
-    (window as any).resetDpsUI = () => {
-      reset();
-      setActivePanel(null);
-      setSelected(null);
-    };
-  }, [reset]);
-
-  useEffect(() => {
     if (updateInfo) setActivePanel("update");
   }, [updateInfo]);
-
-  useEffect(() => {
-    const handleKeydown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
-    };
-    window.addEventListener("keydown", handleKeydown);
-    return () => window.removeEventListener("keydown", handleKeydown);
-  }, [handleClose]);
-
   const meterCss = `
   rounded-lg transition-all duration-300 text-[rgba(215,215,215)] p-4 
   ${
@@ -113,6 +96,22 @@ export default function App() {
   const headerCss = `transition-opacity duration-300 ${
     isMinimal ? "opacity-0 group-hover:opacity-100" : "opacity-100"
   }`;
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, [handleClose]);
+
+  useEffect(() => {
+    (window as any).resetDpsUI = () => {
+      reset();
+      setActivePanel(null);
+      setSelected(null);
+    };
+  }, [reset]);
+
   return (
     <TooltipProvider>
       <div
@@ -167,6 +166,8 @@ export default function App() {
             combatTime={formatBattleTime(battleTime)}
             updateInfo={updateInfo}
             onUpdate={openReleasePage}
+            downloadState={downloadState}
+            onRetryDownload={retryDownload}
             formatBattleTime={formatBattleTime}
             historyIdx={selectedHistoryIdx}
             onSelectHistory={(idx, report) => {
