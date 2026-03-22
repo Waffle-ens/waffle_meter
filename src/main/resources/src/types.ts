@@ -38,7 +38,6 @@ export interface Skill {
   perfect: number;
   double: number;
   dmg: number;
-  img?: string;
   critPct: number;
   parryPct: number;
   perfectPct: number;

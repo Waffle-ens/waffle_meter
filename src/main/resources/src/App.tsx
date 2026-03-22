@@ -155,7 +155,7 @@ export default function App() {
           </div>
         )}
       </div>
-      <DebugConsole></DebugConsole>
+      {/* <DebugConsole></DebugConsole> */}
       <div>
         <SidePanel
           type={activePanel}

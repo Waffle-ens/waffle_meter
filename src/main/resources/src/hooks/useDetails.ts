@@ -1,5 +1,5 @@
 import type { Player, Skill, Details } from "@/types";
-import { useDebugStore } from "../stores/debugStore";
+// import { useDebugStore } from "../stores/debugStore";
 
 export const useDetails = () => {
   const getDetails = async (
@@ -7,12 +7,12 @@ export const useDetails = () => {
     combatTime: string = "00:00",
     historyIdx?: number,
   ): Promise<Details> => {
-    const addLog = useDebugStore.getState().addLog;
+    // const addLog = useDebugStore.getState().addLog;
     const raw =
       historyIdx !== undefined
         ? await window.javaBridge?.getBattleDetailFromList?.(historyIdx, Number(row.id))
         : await window.javaBridge?.getBattleDetail?.(Number(row.id));
-    addLog(`${historyIdx ? `히스토리 디테일 ${raw}` : `일반 detail ${raw}`}`);
+    // addLog(`${historyIdx ? `히스토리 디테일 ${raw}` : `일반 detail ${raw}`}`);
     let detailObj = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
@@ -54,7 +54,6 @@ export const useDetails = () => {
         perfect: skill.perfect || 0,
         double: skill.double || 0,
         dmg,
-        img: skill.img,
 
         critPct: pctInt(crit, time),
         parryPct: pctInt(skill.parry || 0, time),
@@ -80,7 +79,6 @@ export const useDetails = () => {
         back: Number(v.backTimes) || 0,
         perfect: Number(v.perfectTimes) || 0,
         double: Number(v.doubleTimes) || 0,
-        img: typeof v.img === "string" && v.img ? v.img : undefined, // 추가
       });
 
       if (Number(v.dotDamageAmount) > 0) {

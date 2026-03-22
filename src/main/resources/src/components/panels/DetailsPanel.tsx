@@ -16,11 +16,9 @@ interface Props {
 
 const col = { name: 180, stat: 80, dmg: 220 };
 
-const SkillIcon = ({ name, img }: { name: string; img?: string }) => {
+const SkillIcon = ({ name }: { name: string }) => {
   const [failed, setFailed] = useState(false);
-  const [useFallback, setUseFallback] = useState(false);
-
-  const src = !img || useFallback ? getSkillIconSrc(name) : img;
+  const src = getSkillIconSrc(name);
 
   if (!src || failed) {
     return (
@@ -34,13 +32,7 @@ const SkillIcon = ({ name, img }: { name: string; img?: string }) => {
     <img
       src={src}
       className="w-7 h-7 shrink-0 rounded object-contain"
-      onError={() => {
-        if (!useFallback && img) {
-          setUseFallback(true);
-        } else {
-          setFailed(true);
-        }
-      }}
+      onError={() => setFailed(true)}
     />
   );
 };
@@ -172,7 +164,6 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                   style={{ width: col.name }}>
                   <SkillIcon
                     name={s.name}
-                    img={s.img}
                   />
                   <span className="text-left text-row-fill text-shadow-meter truncate">
                     {s.name}
