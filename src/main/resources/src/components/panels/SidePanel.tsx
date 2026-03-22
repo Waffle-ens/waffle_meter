@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import type { Player } from "@/types";
+import type { CheckStatus, Player } from "@/types";
 import { DetailsPanel } from "./DetailsPanel";
 import { SettingsPanel } from "./SettingsPanel.tsx";
 import { UpdatePanel } from "./UpdatePanel";
@@ -19,7 +19,7 @@ interface SidePanelProps {
   historyIdx?: number;
   onOpenReleasePage: () => void;
   downloadState: DownloadState;
-
+  checkStatus: CheckStatus;
   onRetryDownload: () => void;
   currentVersion?: string;
   onCheckUpdate?: () => void;
@@ -39,6 +39,7 @@ export const SidePanel = ({
   historyIdx,
   formatBattleTime,
   currentVersion,
+  checkStatus,
   onCheckUpdate,
 }: SidePanelProps) => {
   const [visible, setVisible] = useState(false);
@@ -112,6 +113,7 @@ export const SidePanel = ({
       {currentType === "update" && (
         <UpdatePanel
           updateInfo={updateInfo ?? null}
+          checkStatus={checkStatus}
           onClose={onClose}
           downloadState={downloadState}
           onRetryDownload={onRetryDownload}

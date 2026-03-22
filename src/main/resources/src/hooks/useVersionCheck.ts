@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { Version, UpdateInfo, DownloadState } from "@/types";
+import type { Version, UpdateInfo, DownloadState, CheckStatus } from "@/types";
 
 const API = "https://api.github.com/repos/TK-open-public/Aion2-Dps-Meter/releases?per_page=10";
 const RELEASE_URL = "https://github.com/TK-open-public/Aion2-Dps-Meter/releases";
@@ -8,9 +8,7 @@ const RETRY_INTERVAL = 800;
 const RETRY_LIMIT = 5;
 
 const parseVersion = (value: string): Version | null => {
-  const raw = String(value || "")
-    .trim()
-    .replace(/^v/i, "");
+  const raw = String(value || "").trim().replace(/^v/i, "");
   const match = raw.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
   if (!match) return null;
   return {
@@ -52,6 +50,7 @@ const pickLatest = (
 export const useVersionCheck = () => {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [downloadState, setDownloadState] = useState<DownloadState>({ status: "idle" });
+  const [checkStatus, setCheckStatus] = useState<CheckStatus>("idle");
   const retryCountRef = useRef(0);
   const currentVersionRef = useRef<Version | null>(null);
   const cancelledRef = useRef(false);
@@ -61,6 +60,7 @@ export const useVersionCheck = () => {
     await new Promise((r) => setTimeout(r, 0));
     cancelledRef.current = false;
     retryCountRef.current = 0;
+    setCheckStatus("checking");
 
     const check = async () => {
       if (cancelledRef.current) return;
@@ -72,6 +72,8 @@ export const useVersionCheck = () => {
         if (retryCountRef.current < RETRY_LIMIT) {
           retryCountRef.current++;
           setTimeout(check, RETRY_INTERVAL);
+        } else {
+          setCheckStatus("error"); 
         }
         return;
       }
@@ -85,7 +87,10 @@ export const useVersionCheck = () => {
         });
 
         if (cancelledRef.current) return;
-        if (!res.ok) return;
+        if (!res.ok) {
+          setCheckStatus("error");
+          return;
+        }
 
         const releases = await res.json();
         const latestStable = pickLatest(releases, false);
@@ -102,7 +107,9 @@ export const useVersionCheck = () => {
           isPrerelease = true;
         }
 
-        if (target && !cancelledRef.current) {
+        if (cancelledRef.current) return;
+
+        if (target) {
           setUpdateInfo((prev) => {
             if (prev?.latestVersion === target.version.raw) return prev;
             return {
@@ -112,8 +119,14 @@ export const useVersionCheck = () => {
               msiUrl: target.msiUrl,
             };
           });
+          setCheckStatus("updateAvailable");
+        } else {
+          setUpdateInfo(null);
+          setCheckStatus("upToDate");
         }
-      } catch (e) {}
+      } catch (e) {
+        if (!cancelledRef.current) setCheckStatus("error");
+      }
     };
 
     check();
@@ -136,7 +149,6 @@ export const useVersionCheck = () => {
     (window as any).onDownloadError = () => {
       setDownloadState({ status: "error" });
     };
-
     return () => {
       delete (window as any).onDownloadProgress;
       delete (window as any).onDownloadComplete;
@@ -163,6 +175,7 @@ export const useVersionCheck = () => {
     updateInfo,
     currentVersion: currentVersionRef.current?.raw ?? null,
     downloadState,
+    checkStatus,
     startUpdate,
     retryDownload,
     openReleasePage,

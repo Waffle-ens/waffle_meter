@@ -82,3 +82,5 @@ export type DownloadState =
   | { status: "downloading"; percent: number }
   | { status: "complete" }
   | { status: "error" };
+
+export type CheckStatus = "idle" | "checking" | "upToDate" | "updateAvailable" | "error";

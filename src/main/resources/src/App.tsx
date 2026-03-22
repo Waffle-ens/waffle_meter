@@ -34,11 +34,13 @@ export default function App() {
     updateInfo,
     currentVersion,
     openReleasePage,
-    checkUpdate,
     downloadState,
     retryDownload,
     startUpdate,
+    checkUpdate,
+    checkStatus,
   } = useVersionCheck();
+
   const headerPosition = useSettingsStore((s) => s.headerPosition);
 
   const [activePanel, setActivePanel] = useState<PanelType>(null);
@@ -87,7 +89,6 @@ export default function App() {
   }, []);
   const handleCheckUpdate = useCallback(() => {
     checkUpdate();
-
     handlePanelToggle("update");
   }, []);
 
@@ -198,6 +199,7 @@ export default function App() {
             combatTime={formatBattleTime(battleTime)}
             updateInfo={updateInfo}
             onUpdate={startUpdate}
+            checkStatus={checkStatus}
             downloadState={downloadState}
             onRetryDownload={retryDownload}
             formatBattleTime={formatBattleTime}
