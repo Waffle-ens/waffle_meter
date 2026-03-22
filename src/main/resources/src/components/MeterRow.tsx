@@ -71,7 +71,7 @@ export const MeterRow = memo(
                 {formatAmount(amount)}
               </span>
               <span
-                className="min-w-22 text-end"
+                className="min-w-20.5 text-end"
                 style={{ color: "#ffffff", fontSize }}>
                 {dps.toLocaleString()}/초
               </span>
@@ -102,7 +102,7 @@ export const MeterRow = memo(
           return (
             <>
               <span
-                className="min-w-22 text-end"
+                className="min-w-20.5 text-end"
                 style={{ color: "#ffffff", fontSize }}>
                 {dps.toLocaleString()}/초
               </span>
