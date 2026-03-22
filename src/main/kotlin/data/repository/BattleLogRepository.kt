@@ -3,17 +3,21 @@ package com.tbread.data.repository
 import com.tbread.entity.DpsReport
 
 class BattleLogRepository {
-    private val storage = mutableListOf<DpsReport>()
+    private val maxSize = 20
+    private val storage = ArrayDeque<DpsReport>()
 
     fun save(data: DpsReport) {
-        storage.add(data)
+        if (storage.size >= maxSize) {
+            storage.removeFirst()
+        }
+        storage.addLast(data)
     }
 
     fun get(idx: Int): DpsReport? {
-        return storage[idx]
+        return storage.elementAtOrNull(idx)
     }
 
     fun getAll(): List<DpsReport> {
-        return storage
+        return storage.toList()
     }
 }
