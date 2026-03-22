@@ -20,6 +20,7 @@ interface SettingsState {
   isMinimal: boolean;
   hideHotkey: Hotkey;
   setHideHotkey: (h: Hotkey) => void;
+  isDebugMode: boolean;
 
   setIsMinimal: (v: boolean) => void;
   toggleMinimal: () => void;
@@ -32,6 +33,7 @@ const defaultSettings = {
   hideHotkey: { modifiers: 2, vkCode: 0x48 },
   meterWidth: 400,
   rowHeight: 40,
+  isDebugMode: false,
   detailHeight: 600,
   displayMode: "dps_percent" as DisplayMode,
   nameDisplay: "all" as NameDisplay,
@@ -56,6 +58,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       rowHeight: Number(j.loadProps?.("rowHeight")) || defaultSettings.rowHeight,
       detailHeight: Number(j.loadProps?.("detailHeight")) || defaultSettings.detailHeight,
       displayMode: j.loadProps?.("displayMode") ?? defaultSettings.displayMode,
+      isDebugMode: j.isDebuggingMode?.() ?? false,
       nameDisplay: j.loadProps?.("nameDisplay") ?? defaultSettings.nameDisplay,
       isMinimal: savedIsMinimal,
     });
@@ -71,7 +74,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     detailHeight: defaultSettings.detailHeight,
     displayMode: defaultSettings.displayMode,
     nameDisplay: defaultSettings.nameDisplay,
-
+    isDebugMode: defaultSettings.isDebugMode,
     setHotkey: (hotkey) => {
       set({ hotkey });
       jb()?.updateHotkey?.(hotkey.modifiers, hotkey.vkCode);

@@ -13,7 +13,7 @@ import { useResizable } from "@/hooks/useResizable";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-// import { DebugConsole } from "./components/DebugConsole";
+import { DebugConsole } from "./components/DebugConsole";
 export default function App() {
   const {
     players,
@@ -158,7 +158,7 @@ export default function App() {
             </div>
           )}
         </div>
-        {/* <DebugConsole></DebugConsole> */}
+        <DebugConsole></DebugConsole>
         <div>
           <SidePanel
             type={activePanel}

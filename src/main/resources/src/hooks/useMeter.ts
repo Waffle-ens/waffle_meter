@@ -14,7 +14,7 @@ export const useMeter = () => {
   const resetTimestampRef = useRef<number>(0);
 
   const [battleTime, setBattleTime] = useState<number | null>(null);
-  // const addLog = useDebugStore((s) => s.addLog);
+  // const { addLog } = useDebugStore();
   const isCollapseRef = useRef(false);
   const lastBattleTimeRef = useRef<number | null>(null);
   const combatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
