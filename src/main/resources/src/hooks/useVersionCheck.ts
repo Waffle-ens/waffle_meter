@@ -155,17 +155,17 @@ export const useVersionCheck = () => {
     };
   }, []);
 
-  // const startUpdate = () => {
-  //   if (!updateInfo) return;
-  //   setDownloadState({ status: "downloading", percent: 0 });
-  //   (window as any).javaBridge.startUpdate(updateInfo.msiUrl);
-  // };
   const startUpdate = () => {
-    // addLog(`startUpdate 호출 - updateInfo: ${JSON.stringify(updateInfo)}`);
     if (!updateInfo) return;
     setDownloadState({ status: "downloading", percent: 0 });
-    (window as any).javaBridge.startUpdate("https://invalid-url-test.com/fake.msi");
+    (window as any).javaBridge.startUpdate(updateInfo.msiUrl);
   };
+  // const startUpdate = () => {
+  //   // addLog(`startUpdate 호출 - updateInfo: ${JSON.stringify(updateInfo)}`);
+  //   if (!updateInfo) return;
+  //   setDownloadState({ status: "downloading", percent: 0 });
+  //   (window as any).javaBridge.startUpdate("https://invalid-url-test.com/fake.msi");
+  // };
   const retryDownload = () => {
     startUpdate();
   };
