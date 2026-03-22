@@ -24,6 +24,16 @@ class DpsCalculator() {
         return recentData
     }
 
+    fun getLiveReport(): DpsReport {
+        val storageTarget = DataManager.currentTarget()
+        if (storageTarget == -1) return recentData
+        return DpsReport(
+            battleStart = DataManager.currentBattleStart(),
+            battleEnd = DataManager.currentBattleEnd(),
+            packets = DataManager.battleData(storageTarget)
+        )
+    }
+
 
     fun getDps(): DpsReport {
         val storageTarget = DataManager.currentTarget()
