@@ -183,8 +183,8 @@ export const UpdatePanel = ({
             )}
           </div>
           <div className={`${CLS.footer} flex flex-col gap-2`}>
-            <div className="flex justify-between text-sm">
-              <span className="text-white/[0.28]">설치 중에는 앱을 종료하지 마세요</span>
+            <div className="flex justify-between items-center text-sm">
+              <p className=" text-white/40">설치 완료 후 자동으로 재실행 됩니다.</p>
               <span className="text-purple-400  tabular-nums">{downloadState.percent}%</span>
             </div>
             <div className="h-1.5 rounded-full bg-white/[0.07] overflow-hidden">
