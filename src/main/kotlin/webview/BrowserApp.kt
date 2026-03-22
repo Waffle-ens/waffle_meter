@@ -151,7 +151,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     val psFile = java.io.File(tempDir, "aion2meter_updater.ps1")
                     psFile.writeText(
                         """
-                        Start-Process msiexec -ArgumentList '/i','${msiFile.absolutePath.replace("'", "''")}','/qn' -Wait
+                        Start-Process msiexec -ArgumentList '/i','${msiFile.absolutePath.replace("'", "''")}','/qn','/norestart' -Wait
                         $relaunchLine
                         """.trimIndent()
                     )
