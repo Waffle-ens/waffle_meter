@@ -109,11 +109,19 @@ object DataManager {
         }
     }
 
+    private val recentlyEndedMobs = HashMap<Int, Long>()
+    private val BATTLE_END_COOLDOWN_MS = 1000L
+
     fun toggleBattle(mobId: Int) {
         val pastTarget = currentTarget()
         if (pastTarget == mobId) {
             saveCurrentBattleEnd()
             saveCurrentTarget(-1)
+            recentlyEndedMobs[mobId] = System.currentTimeMillis()
+            return
+        }
+        val recentEnd = recentlyEndedMobs[mobId]
+        if (recentEnd != null && System.currentTimeMillis() - recentEnd < BATTLE_END_COOLDOWN_MS) {
             return
         }
         saveCurrentBattleStart()
