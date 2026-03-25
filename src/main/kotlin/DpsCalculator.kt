@@ -7,7 +7,7 @@ import com.tbread.entity.enums.SpecialDamage
 import org.slf4j.LoggerFactory
 import java.util.concurrent.CopyOnWriteArrayList
 
-class DpsCalculator() {
+class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
 
     private var currentTarget: Int = 0
@@ -150,6 +150,15 @@ class DpsCalculator() {
         recentData = DpsReport()
         recentDataSaved = false
         logger.info("대상 데미지 누적 데이터 초기화 완료")
+    }
+
+    fun hardReset() {
+        DataManager.hardReset()
+        streamResetCallback?.invoke()
+        currentTarget = -1
+        recentData = DpsReport()
+        recentDataSaved = false
+        logger.info("전체 강제 초기화 완료")
     }
 
 }

@@ -28,6 +28,9 @@ class PacketRepository {
     }
 
     fun flush() {
+        currentTarget = 0
+        currentBattleStart = 0
+        currentBattleEnd = 0
         storage.clear()
     }
 

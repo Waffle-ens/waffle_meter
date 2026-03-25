@@ -7,6 +7,10 @@ class StreamAssembler(private val processor: StreamProcessor) {
 
     private val buffer = PacketAccumulator()
 
+    fun flush() {
+        buffer.flush()
+    }
+
     suspend fun processChunk(chunk: ByteArray) {
         buffer.append(chunk)
         while (true) {

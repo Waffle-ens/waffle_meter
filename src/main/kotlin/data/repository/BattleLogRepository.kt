@@ -20,4 +20,8 @@ class BattleLogRepository {
     fun getAll(): List<DpsReport> {
         return storage.toList()
     }
+
+    fun flush(){
+        storage.clear()
+    }
 }

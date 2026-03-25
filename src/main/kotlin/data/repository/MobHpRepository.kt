@@ -11,4 +11,8 @@ class MobHpRepository {
         storage[key] = value
     }
 
+    fun flush(){
+        storage.clear()
+    }
+
 }

@@ -20,16 +20,21 @@ class StreamProcessor() {
 
     fun onPacketReceived(packet: ByteArray) {
         if (packet.size == 3) return
+
+
+        val epoch = DataManager.currentEpoch()
+
+
         val lengthInfo = readVarInt(packet)
         val extraFlag = (packet[lengthInfo.length] >= 0xf0.toByte() && packet[lengthInfo.length] < 0xff.toByte())
         if (extraFlag) {
             if (packet[lengthInfo.length + 1] == 0xff.toByte() && packet[lengthInfo.length + 2] == 0xff.toByte()) {
-                decompressPacket(packet, lengthInfo.length, true)
+                decompressPacket(packet, lengthInfo.length, true, epoch)
                 return
             }
         } else {
             if (packet[lengthInfo.length] == 0xff.toByte() && packet[lengthInfo.length + 1] == 0xff.toByte()) {
-                decompressPacket(packet, lengthInfo.length, false)
+                decompressPacket(packet, lengthInfo.length, false, epoch)
                 return
             }
         }
@@ -39,17 +44,17 @@ class StreamProcessor() {
         var flag = false
         flag = parseBattlePacket(packet, lengthInfo, extraFlag)
         if (flag) return
-        flag = parsingDamage(packet, extraFlag)
+        flag = parsingDamage(packet, extraFlag, epoch)
         if (flag) return
         flag = parseSummonPacket(packet, extraFlag)
         if (flag) return
-        flag = parseDoTPacket(packet, extraFlag)
+        flag = parseDoTPacket(packet, extraFlag, epoch)
         if (flag) return
         flag = parseRemainHp(packet,lengthInfo,extraFlag)
         if (flag) return
     }
 
-    private fun decompressPacket(packet: ByteArray, headerLength: Int, extraFlag: Boolean) {
+    private fun decompressPacket(packet: ByteArray, headerLength: Int, extraFlag: Boolean, epoch: Long) {
         try {
             var offset = headerLength + 2
             if (extraFlag) {
@@ -221,7 +226,7 @@ class StreamProcessor() {
 
     }
 
-    private fun parseDoTPacket(packet: ByteArray, extraFlag: Boolean): Boolean {
+    private fun parseDoTPacket(packet: ByteArray, extraFlag: Boolean, epoch: Long): Boolean {
         var offset = 0
         val pdp = ParsedDamagePacket()
         pdp.setDot(true)
@@ -281,11 +286,11 @@ class StreamProcessor() {
         )
         logger.debug("----------------------------------")
         if (pdp.getActorId() != pdp.getTargetId()) {
-            DataManager.saveDamage(pdp)
+            DataManager.saveDamage(pdp, epoch)
             val mobCode = DataManager.mobId(pdp.getTargetId())?:return true
             val mob = DataManager.mob(mobCode)?: return true
             if (mob.isDummy){
-                DataManager.touchDummyBattle(pdp.getTargetId())
+                DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
             }
         }
         return true
@@ -404,7 +409,7 @@ class StreamProcessor() {
                 ((packet[offset + 3].toInt() and 0xFF) shl 24)
     }
 
-    private fun parsingDamage(packet: ByteArray, extraFlag: Boolean): Boolean {
+    private fun parsingDamage(packet: ByteArray, extraFlag: Boolean, epoch: Long): Boolean {
         if (packet[0] == 0x20.toByte()) return false
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
@@ -516,10 +521,10 @@ class StreamProcessor() {
             //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
             if (pdp.getDamage() < 10000000) {
                 //무의요람 버그수정을 위해 일단 천만이상의 데미지 무시
-                DataManager.saveDamage(pdp)
+                DataManager.saveDamage(pdp, epoch)
                 val mobCode = DataManager.mobId(pdp.getTargetId())
                 if (mobCode != null && DataManager.mob(mobCode)?.isDummy == true) {
-                    DataManager.touchDummyBattle(pdp.getTargetId())
+                    DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
                 }
             }
         }

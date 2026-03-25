@@ -5,9 +5,14 @@ import com.tbread.entity.*
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicLong
 
 object DataManager {
     private val logger = LoggerFactory.getLogger(DataManager::class.java)
+
+    private val resetEpoch = AtomicLong(0)
+
+    fun currentEpoch(): Long = resetEpoch.get()
 
     private val mobIdRepository = MobIdRepository()
     private val mobRepository = MobRepository()
@@ -37,6 +42,19 @@ object DataManager {
         Json.decodeFromString<List<Skill>>(skillJson).forEach {
             saveSkill(it)
         }
+    }
+
+    @Synchronized
+    fun hardReset() {
+        resetEpoch.incrementAndGet()
+        battleLogRepository.flush()
+        mobHpRepository.flush()
+        mobIdRepository.flush()
+        packetRepository.flush()
+        summonRepository.flush()
+        userRepository.flush()
+        lastDummyHitTime = 0
+        recentlyEndedMobs.clear()
     }
 
     /*
@@ -90,7 +108,8 @@ object DataManager {
     private var lastDummyHitTime: Long = 0
     private val DUMMY_TIMEOUT_MS = 5000L
 
-    fun touchDummyBattle(mobId: Int) {
+    fun touchDummyBattle(mobId: Int, epoch: Long) {
+        if (resetEpoch.get() != epoch) return
         lastDummyHitTime = System.currentTimeMillis()
         if (currentTarget() <= 0) {
             saveCurrentBattleStart()
@@ -157,7 +176,8 @@ object DataManager {
     }
 
     @Synchronized
-    fun saveDamage(pdp: ParsedDamagePacket) {
+    fun saveDamage(pdp: ParsedDamagePacket, epoch: Long) {
+        if (resetEpoch.get() != epoch) return
         packetRepository.save(pdp)
     }
 

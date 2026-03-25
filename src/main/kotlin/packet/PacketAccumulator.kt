@@ -73,6 +73,7 @@ class PacketAccumulator {
         buffer.write(allBytes, 0, newSize)
     }
 
+    @Synchronized
     fun flush(){
         buffer.reset()
     }

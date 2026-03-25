@@ -33,7 +33,10 @@ fun main() = runBlocking {
     val alignmenter = PacketAlignmenter()
     val assembler = StreamAssembler(processor)
     val capturer = PcapCapturer(pcapConfig, channel)
-    val calculator = DpsCalculator()
+    val calculator = DpsCalculator {
+        assembler.flush()
+        alignmenter.reset()
+    }
 
     launch(Dispatchers.Default) {
         var currentIp = ""
