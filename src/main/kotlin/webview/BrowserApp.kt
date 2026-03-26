@@ -58,7 +58,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         fun hardResetDps() {
             dpsCalculator.hardReset()
-            engine.executeScript("resetDpsUI()")
+            engine.executeScript("strongReset()")
         }
 
         fun updateHotkey(modifiers: Int, vkCode: Int) {
