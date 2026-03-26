@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-version = "1.3.5"
+version = "1.3.6"
 
 tasks.processResources {
     outputs.upToDateWhen { false }
