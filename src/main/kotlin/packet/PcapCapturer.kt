@@ -43,12 +43,11 @@ class PcapCapturer(private val config: PcapCapturerConfig, private val channel: 
 
     fun start() {
         val socket = DatagramSocket()
-        socket.connect(InetAddress.getByName("8.8.8.8"), 10002);
+        socket.connect(InetAddress.getByName(config.serverIp.split("/")[0]), config.serverPort.toInt())
         val ip = socket.localAddress.hostAddress
         if (ip == null) {
             logger.error("ip 검색에 실패했습니다.")
             exitProcess(1)
-            //나중에 gui 연결후 어떻게할지 정리해서 처리
         }
         val nif = getMainDevice(ip)
         if (nif == null){
