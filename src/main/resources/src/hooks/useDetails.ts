@@ -28,38 +28,55 @@ export const useDetails = () => {
     const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 1000) / 10 : 0);
     const pctInt = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : 0);
 
-    const pushSkill = (skill: Partial<Skill> & { code: string }) => {
+    const pushSkill = (
+      skill: {
+        code: string;
+        name?: string;
+        time?: number;
+        dmg?: number;
+        crit?: number;
+        parry?: number;
+        back?: number;
+        perfect?: number;
+        double?: number;
+      },
+      isDot = false,
+    ) => {
       const dmg = Math.trunc(Number(skill.dmg || 0));
       if (dmg <= 0) return;
 
       const time = skill.time || 0;
-      const crit = skill.crit || 0;
-      const back = skill.back || 0;
+      const crit = skill.crit ?? 0;
+      const parry = skill.parry ?? 0;
+      const back = skill.back ?? 0;
+      const perfect = skill.perfect ?? 0;
+      const double_ = skill.double ?? 0;
 
       totalDmg += dmg;
-      totalTimes += time;
-      totalCrit += crit;
-      totalParry += skill.parry || 0;
-      totalBack += back;
-      totalPerfect += skill.perfect || 0;
-      totalDouble += skill.double || 0;
+      if (!isDot) {
+        totalTimes += time;
+        totalCrit += crit;
+        totalParry += parry;
+        totalBack += back;
+        totalPerfect += perfect;
+        totalDouble += double_;
+      }
 
       skills.push({
         code: skill.code,
         name: skill.name || "",
         time,
         crit,
-        parry: skill.parry || 0,
+        parry,
         back,
-        perfect: skill.perfect || 0,
-        double: skill.double || 0,
+        perfect,
+        double: double_,
         dmg,
-
-        critPct: pctInt(crit, time),
-        parryPct: pctInt(skill.parry || 0, time),
-        perfectPct: pctInt(skill.perfect || 0, time),
-        doublePct: pctInt(skill.double || 0, time),
-        backPct: pctInt(back, time),
+        critPct: isDot ? "-" : pctInt(crit, time),
+        parryPct: isDot ? "-" : pctInt(parry, time),
+        perfectPct: isDot ? "-" : pctInt(perfect, time),
+        doublePct: isDot ? "-" : pctInt(double_, time),
+        backPct: isDot ? "-" : pctInt(back, time),
       });
     };
 
@@ -82,12 +99,15 @@ export const useDetails = () => {
       });
 
       if (Number(v.dotDamageAmount) > 0) {
-        pushSkill({
-          code: `${code}-dot`,
-          name: `${baseName} - 지속`,
-          time: Number(v.dotTimes) || 0,
-          dmg: Number(v.dotDamageAmount) || 0,
-        });
+        pushSkill(
+          {
+            code: `${code}-dot`,
+            name: `${baseName} - 지속`,
+            time: Number(v.dotTimes) || 0,
+            dmg: Number(v.dotDamageAmount) || 0,
+          },
+          true,
+        );
       }
     }
 

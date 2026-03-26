@@ -41,7 +41,6 @@ const defaultSettings = {
   displayMode: "dps_percent" as DisplayMode,
   nameDisplay: "all" as NameDisplay,
   headerPosition: "top" as HeaderPosition,
-
   isMinimal: false,
 };
 

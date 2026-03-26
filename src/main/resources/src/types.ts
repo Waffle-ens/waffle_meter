@@ -38,11 +38,11 @@ export interface Skill {
   perfect: number;
   double: number;
   dmg: number;
-  critPct: number;
-  parryPct: number;
-  perfectPct: number;
-  doublePct: number;
-  backPct: number;
+  critPct: number | "-";
+  parryPct: number | "-";
+  perfectPct: number | "-";
+  doublePct: number | "-";
+  backPct: number | "-";
 }
 
 export interface Details {

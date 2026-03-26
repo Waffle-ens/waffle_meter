@@ -66,12 +66,12 @@ export const MeterRow = memo(
           return (
             <>
               <span
-                className=" text-end"
+                className="text-end"
                 style={{ color: "#ffe566", fontSize }}>
                 {formatAmount(amount)}
               </span>
               <span
-                className=" text-end"
+                className="text-end"
                 style={{ color: "#ffffff", fontSize }}>
                 {dps.toLocaleString()}/초
               </span>

@@ -177,27 +177,27 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                 <span
                   className="text-center shrink-0"
                   style={{ minWidth: col.stat }}>
-                  {s.critPct}%
+                  {s.critPct === "-" ? s.critPct : `${s.critPct}%`}
                 </span>
                 <span
                   className="text-center shrink-0"
                   style={{ minWidth: col.stat }}>
-                  {s.parryPct}%
+                  {s.parryPct === "-" ? s.parryPct : `${s.parryPct}%`}
                 </span>
                 <span
                   className="text-center shrink-0"
                   style={{ minWidth: col.stat }}>
-                  {s.perfectPct}%
+                  {s.perfectPct === "-" ? s.perfectPct : `${s.perfectPct}%`}
                 </span>
                 <span
                   className="text-center shrink-0"
                   style={{ minWidth: col.stat }}>
-                  {s.doublePct}%
+                  {s.doublePct === "-" ? s.doublePct : `${s.doublePct}%`}
                 </span>
                 <span
                   className="text-center shrink-0"
                   style={{ minWidth: col.stat }}>
-                  {s.backPct}%
+                  {s.backPct === "-" ? s.backPct : `${s.backPct}%`}
                 </span>
 
                 <div
