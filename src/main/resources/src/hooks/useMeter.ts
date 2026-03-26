@@ -9,7 +9,7 @@ export const useMeter = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [targetName, setTargetName] = useState<string>("");
   const [remainHp, setRemainHp] = useState<string | number>(0);
-  const [isCollapse, setIsCollapse] = useState(false);
+  // const [isCollapse, setIsCollapse] = useState(false);
   const [isInCombat, setIsInCombat] = useState(false);
   const resetTimestampRef = useRef<number>(0);
 
@@ -141,20 +141,20 @@ export const useMeter = () => {
     // addLog("---------리셋------------");
   };
 
-  const toggleCollapse = () => {
-    const next = !isCollapseRef.current;
-    isCollapseRef.current = next;
-    setIsCollapse(next);
+  // const toggleCollapse = () => {
+  //   const next = !isCollapseRef.current;
+  //   isCollapseRef.current = next;
+  //   setIsCollapse(next);
 
-    if (next) {
-      stopPolling();
-      reset();
-      window?.javaBridge?.resetDps?.();
-    } else {
-      startPolling();
-      fetchDps();
-    }
-  };
+  //   if (next) {
+  //     stopPolling();
+  //     reset();
+  //     window?.javaBridge?.resetDps?.();
+  //   } else {
+  //     startPolling();
+  //     fetchDps();
+  //   }
+  // };
   const setHistoryData = useCallback((report: any) => {
     const { players: rows, targetName, remainHp } = parseCombatData(report);
     const battleTime = (report.battleEnd ?? 0) - (report.battleStart ?? 0);
@@ -175,13 +175,13 @@ export const useMeter = () => {
   return {
     players,
     targetName,
-    isCollapse,
+    // isCollapse,
     battleTime,
     isInCombat,
     remainHp,
     formatBattleTime,
     reset,
-    toggleCollapse,
+    // toggleCollapse,
     setHistoryData,
   };
 };

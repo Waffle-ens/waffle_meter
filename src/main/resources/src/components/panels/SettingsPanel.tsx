@@ -277,8 +277,8 @@ export const SettingsPanel = ({
         className="pt-3">
         <div className="flex items-center gap-3">
           <Slider
-            min={28}
-            max={64}
+            min={24}
+            max={80}
             step={1}
             value={[rowHeight]}
             onValueChange={(value) => handleChange({ rowHeight: value[0] })}
@@ -286,6 +286,7 @@ export const SettingsPanel = ({
           <span className="text-sm opacity-60 w-12 text-right">{rowHeight}px</span>
         </div>
       </SettingsItem>
+
       <div className="flex justify-end gap-2 pt-8">
         <Button
           onClick={handleCancel}

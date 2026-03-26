@@ -35,7 +35,7 @@ const defaultSettings = {
   hotkey: { modifiers: 2, vkCode: 0x52 },
   hideHotkey: { modifiers: 2, vkCode: 0x48 },
   meterWidth: 400,
-  rowHeight: 40,
+  rowHeight: 36,
   isDebugMode: false,
   detailHeight: 600,
   displayMode: "dps_percent" as DisplayMode,

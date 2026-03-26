@@ -11,7 +11,7 @@ export const TargetInfo = memo(({ targetName, rowHeight, remainHp }: Props) => {
   const isFailed = !targetName;
 
   const iconSize = Math.round(rowHeight * 0.7);
-  const fontSize = `${Math.max(12, Math.round(rowHeight * 0.4))}px`;
+  const fontSize = `${Math.max(10, Math.round(rowHeight * 0.4))}px`;
 
   return (
     <div

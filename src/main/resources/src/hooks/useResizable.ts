@@ -20,7 +20,7 @@ export const useResizable = () => {
     const onMouseMove = (e: MouseEvent) => {
       if (!isResizing.current) return;
       const dx = e.clientX - startX.current;
-      const newW = Math.max(300, Math.min(800, startWidth.current + dx));
+      const newW = Math.max(240, Math.min(800, startWidth.current + dx));
       useSettingsStore.setState({ meterWidth: newW });
     };
 

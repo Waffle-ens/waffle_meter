@@ -11,18 +11,18 @@ import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { useResizable } from "@/hooks/useResizable";
 import { useSettingsStore } from "@/stores/useSettingsStore";
-import { TooltipProvider } from "@/components/ui/tooltip";
+// import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { DebugConsole } from "./components/DebugConsole";
 export default function App() {
   const {
     players,
     targetName,
-    isCollapse,
+    // isCollapse,
     isInCombat,
     remainHp,
     reset,
-    toggleCollapse,
+    // toggleCollapse,
     battleTime,
     formatBattleTime,
     setHistoryData,
@@ -56,11 +56,11 @@ export default function App() {
 
   const { wasDraggingRef } = useDragWindow(".drag-area");
 
-  const handleToggleCollapse = useCallback(() => {
-    toggleCollapse();
-    setActivePanel(null);
-    setSelected(null);
-  }, [toggleCollapse]);
+  // const handleToggleCollapse = useCallback(() => {
+  //   toggleCollapse();
+  //   setActivePanel(null);
+  //   setSelected(null);
+  // }, [toggleCollapse]);
 
   const handleReset = useCallback(() => {
     reset();
@@ -123,7 +123,7 @@ export default function App() {
   }, [handleClose]);
 
   useEffect(() => {
-    (window as any).resetDpsUI = () => {
+    (window as any).strongReset = () => {
       reset();
       setActivePanel(null);
       setSelected(null);
@@ -131,7 +131,7 @@ export default function App() {
   }, [reset]);
 
   return (
-    <TooltipProvider>
+    // <TooltipProvider>
       <div
         style={{ width: "fit-content" }}
         className={`drag-area cursor-move select-none
@@ -145,8 +145,8 @@ export default function App() {
                 className={`${headerCss} `}
                 reset={handleReset}
                 setSettings={handlePanelToggle}
-                isCollapse={isCollapse}
-                toggleCollapse={handleToggleCollapse}
+                // isCollapse={isCollapse}
+                // toggleCollapse={handleToggleCollapse}
               />
             </div>
           )}
@@ -184,8 +184,8 @@ export default function App() {
                 className={`${headerCss} `}
                 reset={handleReset}
                 setSettings={handlePanelToggle}
-                isCollapse={isCollapse}
-                toggleCollapse={handleToggleCollapse}
+                // isCollapse={isCollapse}
+                // toggleCollapse={handleToggleCollapse}
               />
             </div>
           )}
@@ -214,6 +214,6 @@ export default function App() {
           />
         </div>
       </div>
-    </TooltipProvider>
+    // </TooltipProvider>
   );
 }

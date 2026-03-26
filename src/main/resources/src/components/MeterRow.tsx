@@ -48,7 +48,7 @@ export const MeterRow = memo(
     const nameDisplay = useSettingsStore((s) => s.nameDisplay);
     const maskedName = (name: string) => `${name[0]}***`;
     const iconSize = Math.round(rowHeight * 0.7);
-    const fontSize = `${Math.max(12, Math.round(rowHeight * 0.4))}px`; // 비례 계산
+    const fontSize = `${Math.max(10, Math.round(rowHeight * 0.4))}px`; 
 
     const ratio = Math.max(0, Math.min(1, dps / topDps));
     const iconSrc = getJobIconSrc(job);
@@ -66,17 +66,17 @@ export const MeterRow = memo(
           return (
             <>
               <span
-                className="min-w-12.5 text-end"
+                className=" text-end"
                 style={{ color: "#ffe566", fontSize }}>
                 {formatAmount(amount)}
               </span>
               <span
-                className="min-w-20.5 text-end"
+                className=" text-end"
                 style={{ color: "#ffffff", fontSize }}>
                 {dps.toLocaleString()}/초
               </span>
               <span
-                className="text-end min-w-12.5"
+                className="text-end "
                 style={{ color: "#ffe566", fontSize }}>
                 {contribution.toFixed(1)}%
               </span>
@@ -86,12 +86,12 @@ export const MeterRow = memo(
           return (
             <>
               <span
-                className="min-w-12.5 text-end"
+                className=" text-end"
                 style={{ color: "#ffffff", fontSize }}>
                 {formatAmount(amount)}
               </span>
               <span
-                className="text-end min-w-12.5"
+                className="text-end "
                 style={{ color: "#ffe566", fontSize }}>
                 {contribution.toFixed(1)}%
               </span>
@@ -102,12 +102,12 @@ export const MeterRow = memo(
           return (
             <>
               <span
-                className="min-w-20.5 text-end"
+                className=" text-end"
                 style={{ color: "#ffffff", fontSize }}>
                 {dps.toLocaleString()}/초
               </span>
               <span
-                className="text-end min-w-12.5"
+                className="text-end "
                 style={{ color: "#ffe566", fontSize }}>
                 {contribution.toFixed(1)}%
               </span>
