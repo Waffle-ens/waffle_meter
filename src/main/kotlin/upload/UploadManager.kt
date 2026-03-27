@@ -1,10 +1,8 @@
 package com.tbread.upload
 
 import com.tbread.entity.DpsLog
-import kotlinx.serialization.json.Json
 
 object UploadManager {
-    private val json = Json { ignoreUnknownKeys = true }
     private val uploader: BattleLogUploader? by lazy { tryLoad() }
 
     private fun tryLoad(): BattleLogUploader? = try {
@@ -22,7 +20,6 @@ object UploadManager {
 
     fun upload(log: DpsLog): Boolean {
         val u = uploader ?: return false
-        val logJson = json.encodeToString(DpsLog.serializer(), log)
-        return u.upload(logJson)
+        return u.upload(log)
     }
 }

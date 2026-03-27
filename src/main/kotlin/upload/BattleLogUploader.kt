@@ -1,5 +1,7 @@
 package com.tbread.upload
 
+import com.tbread.entity.DpsLog
+
 interface BattleLogUploader {
-    fun upload(reportJson: String): Boolean
+    fun upload(log: DpsLog): Boolean
 }
