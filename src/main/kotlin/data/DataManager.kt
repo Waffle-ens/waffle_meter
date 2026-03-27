@@ -215,8 +215,8 @@ object DataManager {
         return battleList
     }
 
-    fun battleLog(idx: Int): DpsReport? {
-        return battleLogRepository.get(idx)?.report
+    fun battleLog(idx: Int): DpsLog? {
+        return battleLogRepository.get(idx)
     }
 
 
