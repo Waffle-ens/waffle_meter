@@ -1,6 +1,6 @@
 package com.tbread.upload
 
-import com.tbread.entity.DpsReport
+import com.tbread.entity.DpsLog
 import kotlinx.serialization.json.Json
 
 object UploadManager {
@@ -20,9 +20,9 @@ object UploadManager {
 
     fun isAvailable(): Boolean = uploader != null
 
-    fun upload(report: DpsReport): Boolean {
+    fun upload(log: DpsLog): Boolean {
         val u = uploader ?: return false
-        val reportJson = json.encodeToString(DpsReport.serializer(), report)
-        return u.upload(reportJson)
+        val logJson = json.encodeToString(DpsLog.serializer(), log)
+        return u.upload(logJson)
     }
 }

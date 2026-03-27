@@ -4,6 +4,7 @@ import com.tbread.data.repository.*
 import com.tbread.entity.*
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
 
@@ -13,6 +14,19 @@ object DataManager {
     private val resetEpoch = AtomicLong(0)
 
     fun currentEpoch(): Long = resetEpoch.get()
+
+    /*
+    rawPacket 버퍼 영역
+     */
+    private val rawPacketBuffer = ConcurrentLinkedDeque<RawPacket>()
+
+    fun saveRawPacket(data: ByteArray, timestamp: Long) {
+        rawPacketBuffer.add(RawPacket(data, timestamp))
+    }
+
+    fun rawPacketsInRange(from: Long, to: Long): List<RawPacket> {
+        return rawPacketBuffer.filter { it.timestamp in from..to }
+    }
 
     private val mobIdRepository = MobIdRepository()
     private val mobRepository = MobRepository()
@@ -53,6 +67,7 @@ object DataManager {
         packetRepository.flush()
         summonRepository.flush()
         userRepository.flush()
+        rawPacketBuffer.clear()
         lastDummyHitTime = 0
         recentlyEndedMobs.clear()
     }
@@ -185,8 +200,9 @@ object DataManager {
     /*
     battleLog 영역
      */
-    fun saveBattleLog(data: DpsReport,packets:List<ParsedDamagePacket>?=null) {
-        battleLogRepository.save(DpsLog(data, summonRepository.getAll(),packets))
+    fun saveBattleLog(data: DpsReport) {
+        val packets = rawPacketsInRange(data.battleStart - 5000L, data.battleEnd)
+        battleLogRepository.save(DpsLog(data, summonRepository.getAll(), packets))
     }
 
     fun recentBattleList(): List<Pair<Int, DpsReport>> {
@@ -209,6 +225,8 @@ object DataManager {
     fun summonerId(summonId: Int): Int? {
         return summonRepository.get(summonId)
     }
+
+    fun summonMap(): Map<Int, Int> = summonRepository.getAll()
 
     fun saveSummon(summonId: Int, summonerId: Int) {
         summonRepository.save(summonId, summonerId)
