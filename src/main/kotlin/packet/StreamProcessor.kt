@@ -18,7 +18,7 @@ class StreamProcessor() {
     private val decompressFactory = LZ4Factory.fastestInstance()
     private val decompressor = decompressFactory.fastDecompressor()
 
-    fun onPacketReceived(packet: ByteArray) {
+    fun onPacketReceived(packet: ByteArray, arrivedAt: Long) {
         if (packet.size == 3) return
 
 
@@ -29,12 +29,12 @@ class StreamProcessor() {
         val extraFlag = (packet[lengthInfo.length] >= 0xf0.toByte() && packet[lengthInfo.length] < 0xff.toByte())
         if (extraFlag) {
             if (packet[lengthInfo.length + 1] == 0xff.toByte() && packet[lengthInfo.length + 2] == 0xff.toByte()) {
-                decompressPacket(packet, lengthInfo.length, true, epoch)
+                decompressPacket(packet, lengthInfo.length, true, epoch, arrivedAt)
                 return
             }
         } else {
             if (packet[lengthInfo.length] == 0xff.toByte() && packet[lengthInfo.length + 1] == 0xff.toByte()) {
-                decompressPacket(packet, lengthInfo.length, false, epoch)
+                decompressPacket(packet, lengthInfo.length, false, epoch, arrivedAt)
                 return
             }
         }
@@ -44,17 +44,17 @@ class StreamProcessor() {
         var flag = false
         flag = parseBattlePacket(packet, lengthInfo, extraFlag)
         if (flag) return
-        flag = parsingDamage(packet, extraFlag, epoch)
+        flag = parsingDamage(packet, extraFlag, epoch, arrivedAt)
         if (flag) return
         flag = parseSummonPacket(packet, extraFlag)
         if (flag) return
-        flag = parseDoTPacket(packet, extraFlag, epoch)
+        flag = parseDoTPacket(packet, extraFlag, epoch, arrivedAt)
         if (flag) return
         flag = parseRemainHp(packet,lengthInfo,extraFlag)
         if (flag) return
     }
 
-    private fun decompressPacket(packet: ByteArray, headerLength: Int, extraFlag: Boolean, epoch: Long) {
+    private fun decompressPacket(packet: ByteArray, headerLength: Int, extraFlag: Boolean, epoch: Long, arrivedAt: Long) {
         try {
             var offset = headerLength + 2
             if (extraFlag) {
@@ -80,7 +80,7 @@ class StreamProcessor() {
                     break
                 }
 
-                onPacketReceived(restored.copyOfRange(pastInnerOffset, pastInnerOffset + realLength))
+                onPacketReceived(restored.copyOfRange(pastInnerOffset, pastInnerOffset + realLength), arrivedAt)
                 innerOffset += realLength
             }
         } catch (e: Exception) {
@@ -226,7 +226,7 @@ class StreamProcessor() {
 
     }
 
-    private fun parseDoTPacket(packet: ByteArray, extraFlag: Boolean, epoch: Long): Boolean {
+    private fun parseDoTPacket(packet: ByteArray, extraFlag: Boolean, epoch: Long, arrivedAt: Long): Boolean {
         var offset = 0
         val pdp = ParsedDamagePacket()
         pdp.setDot(true)
@@ -286,6 +286,7 @@ class StreamProcessor() {
         )
         logger.debug("----------------------------------")
         if (pdp.getActorId() != pdp.getTargetId()) {
+            pdp.setTimestamp(arrivedAt)
             DataManager.saveDamage(pdp, epoch)
             val mobCode = DataManager.mobId(pdp.getTargetId())?:return true
             val mob = DataManager.mob(mobCode)?: return true
@@ -409,7 +410,7 @@ class StreamProcessor() {
                 ((packet[offset + 3].toInt() and 0xFF) shl 24)
     }
 
-    private fun parsingDamage(packet: ByteArray, extraFlag: Boolean, epoch: Long): Boolean {
+    private fun parsingDamage(packet: ByteArray, extraFlag: Boolean, epoch: Long, arrivedAt: Long): Boolean {
         if (packet[0] == 0x20.toByte()) return false
         var offset = 0
         val packetLengthInfo = readVarInt(packet)
@@ -521,6 +522,7 @@ class StreamProcessor() {
             //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
             if (pdp.getDamage() < 10000000) {
                 //무의요람 버그수정을 위해 일단 천만이상의 데미지 무시
+                pdp.setTimestamp(arrivedAt)
                 DataManager.saveDamage(pdp, epoch)
                 val mobCode = DataManager.mobId(pdp.getTargetId())
                 if (mobCode != null && DataManager.mob(mobCode)?.isDummy == true) {
