@@ -203,6 +203,7 @@ object DataManager {
     fun saveBattleLog(data: DpsReport) {
         val packets = rawPacketsInRange(data.battleStart - 5000L, data.battleEnd)
         battleLogRepository.save(DpsLog(data, summonRepository.getAll(), packets))
+        rawPacketBuffer.removeIf { it.timestamp <= data.battleEnd }
     }
 
     fun recentBattleList(): List<Pair<Int, DpsReport>> {
