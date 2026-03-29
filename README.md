@@ -45,7 +45,7 @@ cd Aion2-Dps-Meter
 
 4. 프로그램이 설치된 위치 (기본 설치 경로 C:\Program Files\aion2meter4j) 또는 시작 창의 바로가기에 aion2meter4j.exe 를 **반드시 관리자 권한으로 실행합니다.**
 
-![image](./readme-asset/firstUI.png)
+![image](./readme-asset/firstUI_new.png)
 
 5. 위의 UI가 출력된다면 성공적으로 실행되었습니다.
 
@@ -56,7 +56,7 @@ cd Aion2-Dps-Meter
 
 <br />
 
-![image](./readme-asset/uiDesc.png)
+![image](./readme-asset/uiDesc_new.png)
 
 <br />
 
