@@ -8,6 +8,7 @@
 
 해당 프로젝트는 운영측의 요청, 패킷암호화등의 조치, 공식적인 사용중단 언급이 있다면 중지 및 비공개상태로 전환됩니다.
 
+
 ## Table of Contents
 
 - [빌드하기](#빌드하기)
@@ -15,6 +16,8 @@
 - [UI설명](#ui-설명)
 - [FAQ](#FAQ)
 - [다운로드](#다운로드)
+
+
 
 ## 빌드하기
 
@@ -53,7 +56,7 @@ cd Aion2-Dps-Meter
 
 <br />
 
-![image](./readme-asset/uiDesc.png)
+![image](./readme-asset/uiDesc2.png)
 
 <br />
 
@@ -99,6 +102,18 @@ cd Aion2-Dps-Meter
 <br />
 타격 횟수는 시전 횟수가 아닌, 명중 횟수 입니다.
 스킬을 1회 시전을 했을 때 3회 타격을 하는 스킬이라면, 명중 횟수는 3회가 표기됩니다.
+
+<br />
+
+
+
+### 실제 전투를 시작했을 때 그려지는 모습
+![image](./readme-asset/start.png)
+
+<br />
+
+### 컴팩트 모드 + 버튼 위치 하단을 설정 했을 경우
+![image](./readme-asset/compact.png)
 
 
 ## FAQ
