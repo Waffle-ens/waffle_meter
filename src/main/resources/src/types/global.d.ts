@@ -9,7 +9,7 @@ declare global {
       getDpsData?: () => void;
       getBattleDetail?: (id: number) => Promise<any>;
       getVersion?: () => string;
-      upload?: (idx: number) => void;
+      upload?: (idx: number) => Promise<any>;
       getBattleList?: () => void;
       getBattleDetailFromList?: (idx: number, id: number) => Promise<any>;
       openBrowser?: (url: string) => void;

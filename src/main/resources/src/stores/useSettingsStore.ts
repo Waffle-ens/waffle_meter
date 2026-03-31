@@ -27,6 +27,7 @@ interface SettingsState {
 
   setIsMinimal: (v: boolean) => void;
   toggleMinimal: () => void;
+  
 }
 
 const jb = () => (window as any).javaBridge;

@@ -122,8 +122,8 @@ export const SettingsPanel = ({
   };
 
   return (
-    <div className="font-bold  overflow-y-auto rounded-lg py-3 px-7 w-90">
-      <div className="flex items-center pb-3 border-b border-white/10">
+    <div className="font-bold relative rounded-lg py-3 px-7 w-90 ">
+      <div className="flex items-center pb-3 border-b border-white/10  ">
         <span>설정</span>
         <Button
           variant="ghost"
@@ -132,162 +132,164 @@ export const SettingsPanel = ({
           <X className="scale-125" />
         </Button>
       </div>
-
-      <SettingsItem className="py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm opacity-80">버전 정보</div>
-            <div className="text-xs opacity-40 mt-1">
-              {currentVersion ? `v${currentVersion}` : "-"}
+      <div className="max-h-200 py-2 -mr-4 pr-4 overflow-y-auto">
+        <SettingsItem className="py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm opacity-80">버전 정보</div>
+              <div className="text-xs opacity-40 mt-1">
+                {currentVersion ? `v${currentVersion}` : "-"}
+              </div>
             </div>
-          </div>
-          <Button
-            onClick={onCheckUpdate}
-            variant="ghost"
-            size="lg"
-            className={`text-sm py-3 transition-all
+            <Button
+              onClick={onCheckUpdate}
+              variant="ghost"
+              size="lg"
+              className={`text-sm py-3 transition-all
               ${
                 updateInfo
                   ? "text-green-400 border border-green-400/30 hover:bg-green-400/10"
                   : "opacity-60 hover:opacity-100"
               }`}>
-            {updateInfo ? `v${updateInfo.latestVersion} 업데이트` : "업데이트 확인"}
-          </Button>
-        </div>
-      </SettingsItem>
-      <SettingsItem className="pb-4">
-        <div className="flex items-center justify-between">
+              {updateInfo ? `v${updateInfo.latestVersion} 업데이트` : "업데이트 확인"}
+            </Button>
+          </div>
+        </SettingsItem>
+        <SettingsItem className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm opacity-80">컴팩트 모드</div>
+              <div className="text-xs opacity-40  mt-1">DPS만 표시하고 나머지를 숨깁니다</div>
+            </div>
+            <Switch
+              checked={isMinimal}
+              onCheckedChange={(v) => setIsMinimal(v)}
+              className="data-[state=checked]:bg-purple-500"
+            />
+          </div>
+        </SettingsItem>
+        <SettingsItem className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm opacity-80">버튼 위치</div>
+              <div className="text-xs opacity-40 mt-1">헤더 버튼의 위치를 설정합니다</div>
+            </div>
+            <Select
+              value={headerPosition}
+              onValueChange={(v) => setHeaderPosition(v as HeaderPosition)}>
+              <SelectTrigger className="w-24 bg-white/5 border-white/10 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  value="top"
+                  className="px-4 py-2">
+                  상단
+                </SelectItem>
+                <SelectItem
+                  value="bottom"
+                  className="px-4 py-2">
+                  하단
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </SettingsItem>
+        <SettingsItem>
           <div>
-            <div className="text-sm opacity-80">컴팩트 모드</div>
-            <div className="text-xs opacity-40  mt-1">DPS만 표시하고 나머지를 숨깁니다</div>
+            <p className="text-sm mb-2 opacity-80">새로고침 단축키</p>
+            <input
+              readOnly
+              onFocus={start}
+              onBlur={stop}
+              value={formatHotkey(pending.modifiers, pending.vkCode)}
+              className="w-full p-2 rounded-md bg-white/5 border text-sm cursor-pointer  "
+            />
+            <div
+              className={`transition-all duration-200 ${isCapturing ? "opacity-100 " : "opacity-0 "}`}>
+              <p className="text-xs text-purple-400 mt-1 opacity-80">
+                키 조합을 입력하세요 (Ctrl / Alt + 키)
+              </p>
+            </div>
           </div>
-          <Switch
-            checked={isMinimal}
-            onCheckedChange={(v) => setIsMinimal(v)}
-            className="data-[state=checked]:bg-purple-500"
-          />
-        </div>
-      </SettingsItem>
-      <SettingsItem className="pb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm opacity-80">버튼 위치</div>
-            <div className="text-xs opacity-40 mt-1">헤더 버튼의 위치를 설정합니다</div>
+          <div className="mt-1">
+            <p className="text-sm mb-2 opacity-80">최소화 단축키</p>
+            <input
+              readOnly
+              onFocus={startHide}
+              onBlur={stopHide}
+              value={formatHotkey(pendingHide.modifiers, pendingHide.vkCode)}
+              className="w-full p-2 rounded-md bg-white/5 border text-sm cursor-pointer"
+            />
+            <div
+              className={`transition-all duration-200 ${isCapturingHide ? "opacity-100" : "opacity-0"}`}>
+              <p className="text-xs mt-1 mb-2 text-purple-400  opacity-80">
+                키 조합을 입력하세요 (Ctrl / Alt + 키)
+              </p>
+            </div>
           </div>
-          <Select
-            value={headerPosition}
-            onValueChange={(v) => setHeaderPosition(v as HeaderPosition)}>
-            <SelectTrigger className="w-24 bg-white/5 border-white/10 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                value="top"
-                className="px-4 py-2">
-                상단
-              </SelectItem>
-              <SelectItem
-                value="bottom"
-                className="px-4 py-2">
-                하단
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </SettingsItem>
-      <SettingsItem>
-        <div>
-          <p className="text-sm mb-2 opacity-80">새로고침 단축키</p>
-          <input
-            readOnly
-            onFocus={start}
-            onBlur={stop}
-            value={formatHotkey(pending.modifiers, pending.vkCode)}
-            className="w-full p-2 rounded-md bg-white/5 border text-sm cursor-pointer  "
-          />
-          <div
-            className={`transition-all duration-200 ${isCapturing ? "opacity-100 " : "opacity-0 "}`}>
-            <p className="text-xs text-purple-400 mt-1 opacity-80">
-              키 조합을 입력하세요 (Ctrl / Alt + 키)
-            </p>
-          </div>
-        </div>
-        <div className="mt-1">
-          <p className="text-sm mb-2 opacity-80">최소화 단축키</p>
-          <input
-            readOnly
-            onFocus={startHide}
-            onBlur={stopHide}
-            value={formatHotkey(pendingHide.modifiers, pendingHide.vkCode)}
-            className="w-full p-2 rounded-md bg-white/5 border text-sm cursor-pointer"
-          />
-          <div
-            className={`transition-all duration-200 ${isCapturingHide ? "opacity-100" : "opacity-0"}`}>
-            <p className="text-xs mt-1 mb-2 text-purple-400  opacity-80">
-              키 조합을 입력하세요 (Ctrl / Alt + 키)
-            </p>
-          </div>
-        </div>
-      </SettingsItem>
-      <SettingsItem
-        title="표시 형식"
-        className="">
-        <ToggleGroup
-          type="single"
-          value={displayMode}
-          orientation="vertical"
-          spacing={1}
-          onValueChange={(value) => value && handleChange({ displayMode: value as DisplayMode })}
-          className="w-full">
-          {DISPLAY_MODES.map(({ value, label, description }) => (
-            <ToggleGroupItem
-              key={value}
-              value={value}
-              className=" w-full data-[state=on]:border-purple-500 data-[state=on]:bg-purple-500/40
+        </SettingsItem>
+        <SettingsItem
+          title="표시 형식"
+          className="">
+          <ToggleGroup
+            type="single"
+            value={displayMode}
+            orientation="vertical"
+            spacing={1}
+            onValueChange={(value) => value && handleChange({ displayMode: value as DisplayMode })}
+            className="w-full">
+            {DISPLAY_MODES.map(({ value, label, description }) => (
+              <ToggleGroupItem
+                key={value}
+                value={value}
+                className=" w-full data-[state=on]:border-purple-500 data-[state=on]:bg-purple-500/40
                 hover:bg-purple-300/10 hover:text-gray-200 transition-colors
                 flex flex-col items-start gap-1 p-3 h-auto">
-              <span className="font-bold">{label}</span>
-              <span className="text-sm opacity-50 ">{description}</span>
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </SettingsItem>
-      <SettingsItem
-        title="아이디 표기"
-        className="py-3">
-        <ToggleGroup
-          type="single"
-          value={nameDisplay}
-          spacing={4}
-          onValueChange={(value) => value && handleChange({ nameDisplay: value as NameDisplay })}
-          className="w-full">
-          {NAME_DISPLAY_MODES.map(({ value, label }) => (
-            <ToggleGroupItem
-              key={value}
-              value={value}
-              className="data-[state=on]:border-purple-500 data-[state=on]:bg-purple-500/40
+                <span className="font-bold">{label}</span>
+                <span className="text-sm opacity-50 ">{description}</span>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </SettingsItem>
+        <SettingsItem
+          title="아이디 표기"
+          className="py-3">
+          <ToggleGroup
+            type="single"
+            value={nameDisplay}
+            spacing={4}
+            onValueChange={(value) => value && handleChange({ nameDisplay: value as NameDisplay })}
+            className="w-full">
+            {NAME_DISPLAY_MODES.map(({ value, label }) => (
+              <ToggleGroupItem
+                key={value}
+                value={value}
+                className="data-[state=on]:border-purple-500 data-[state=on]:bg-purple-500/40
                 hover:bg-purple-300/10 hover:text-gray-200 transition-colors px-4">
-              <span className="font-bold">{label}</span>
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </SettingsItem>
-      <SettingsItem
-        title="행 높이"
-        className="pt-3">
-        <div className="flex items-center gap-3">
-          <Slider
-            min={24}
-            max={80}
-            step={1}
-            value={[rowHeight]}
-            onValueChange={(value) => handleChange({ rowHeight: value[0] })}
-          />
-          <span className="text-sm opacity-60 w-12 text-right">{rowHeight}px</span>
-        </div>
-      </SettingsItem>
+                <span className="font-bold">{label}</span>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </SettingsItem>
+        <SettingsItem
+          title="행 높이"
+          className="pt-3">
+          <div className="flex items-center gap-3">
+            <Slider
+              min={24}
+              max={80}
+              step={1}
+              value={[rowHeight]}
+              onValueChange={(value) => handleChange({ rowHeight: value[0] })}
+            />
+            <span className="text-sm opacity-60 w-12 text-right">{rowHeight}px</span>
+          </div>
+        </SettingsItem>
+     
+      </div>
 
-      <div className="flex justify-end gap-2 pt-8">
+      <div className=" pt-4 flex  justify-end gap-2     w-full">
         <Button
           onClick={handleCancel}
           size="lg"
