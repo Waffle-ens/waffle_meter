@@ -3,6 +3,7 @@ import { X, Upload, Loader2, TriangleAlert, House } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useHistory } from "@/hooks/useHistory";
 import bossIcon from "@/assets/bossIcon.png";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 
 interface Props {
   onClose: () => void;
@@ -22,6 +23,7 @@ const formatDateTime = (ms: number) => {
 
 export const HistoryPanel = ({ onClose, onReady, formatBattleTime, onSelectHistory }: Props) => {
   const { historyList, loading, fetchHistory } = useHistory();
+  const theme = useSettingsStore((s) => s.theme);
   const [uploadStatus, setUploadStatus] = useState<Record<number, UploadStatus>>({});
   const [uploadSlugs, setUploadSlugs] = useState<Record<number, string>>({});
 
@@ -80,18 +82,18 @@ export const HistoryPanel = ({ onClose, onReady, formatBattleTime, onSelectHisto
                 onClick={() => onSelectHistory(item.idx, item.raw)}
                 key={item.idx}
                 className="relative w-full px-3 rounded-lg overflow-hidden bg-black/30 cursor-pointer hover:brightness-125 transition-all duration-200"
-                style={{ minHeight: 56 }}>
+                style={{ minHeight: 52 }}>
                 <div
                   className="absolute inset-0 origin-left"
                   style={{
-                    background: "linear-gradient(to right, #6b0f1a, #5c1a24)",
+                    background: `linear-gradient(to right, ${theme.bossBar[0]}, ${theme.bossBar[1]})`,
                     opacity: item.isBoss ? 0.8 : 0.2,
                   }}
                 />
 
                 <div
                   className="relative flex items-center gap-3"
-                  style={{ minHeight: 56 }}>
+                  style={{ minHeight: 52 }}>
                   <div
                     className="flex items-center justify-center shrink-0"
                     style={{ width: 32, height: 32 }}>
@@ -117,7 +119,7 @@ export const HistoryPanel = ({ onClose, onReady, formatBattleTime, onSelectHisto
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       <span
                         className="font-bold text-shadow-meter"
-                        style={{ color: "#e63333" }}>
+                        style={{ color: theme.bossRightValue }}>
                         {formatBattleTime(item.battleTime)}
                       </span>
                     </div>
@@ -125,7 +127,7 @@ export const HistoryPanel = ({ onClose, onReady, formatBattleTime, onSelectHisto
                 </div>
               </div>
               <div
-                style={{ minHeight: 56 }}
+                style={{ minHeight: 52 }}
                 className=" rounded-lg w-16 flex items-center justify-center bg-black/30 cursor-pointer hover:brightness-125 transition-all duration-200">
                 <div className="">
                   {status === "idle" && (

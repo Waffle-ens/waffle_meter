@@ -1,77 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@font-face {
-  font-family: "Suit";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-Thin.woff2")
-    format("woff2");
-  font-weight: 100;
-  font-display: swap;
-}
 
-@font-face {
-  font-family: "Suit";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-ExtraLight.woff2")
-    format("woff2");
-  font-weight: 200;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Suit";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-Light.woff2")
-    format("woff2");
-  font-weight: 300;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Suit";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-Regular.woff2")
-    format("woff2");
-  font-weight: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Suit";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-Medium.woff2")
-    format("woff2");
-  font-weight: 500;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Suit";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-SemiBold.woff2")
-    format("woff2");
-  font-weight: 600;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Suit";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-Bold.woff2")
-    format("woff2");
-  font-weight: 700;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Suit";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-ExtraBold.woff2")
-    format("woff2");
-  font-weight: 800;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Suit";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-Heavy.woff2")
-    format("woff2");
-  font-weight: 900;
-  font-display: swap;
-}
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -176,10 +106,10 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    font-family: "Suit";
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Spoqa Han Sans Neo";
   }
 }
 * {
@@ -201,7 +131,7 @@ body {
 .text-shadow-meter {
   text-shadow:
     0 1px 3px rgba(0, 0, 0, 0.9),
-    0 0 5px rgba(0, 0, 0, 0.6);
+    0 0 6px rgba(0, 0, 0, 0.6);
 }
 
 ::-webkit-scrollbar {
@@ -211,8 +141,8 @@ body {
 ::-webkit-scrollbar-track {
   background: rgba(30, 30, 30);
   border-radius: 999px;
-  margin-top: 8px;
-  margin-bottom: 8px;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
