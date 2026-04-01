@@ -6,6 +6,10 @@
 [![GitHub Issues](https://img.shields.io/github/issues/TK-open-public/Aion2-Dps-Meter)](https://github.com/TK-open-public/Aion2-Dps-Meter/issues)
 [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/TK-open-public/Aion2-Dps-Meter)](https://github.com/TK-open-public/Aion2-Dps-Meter/pulls)
 
+Fonts:
+- Spoqa Han Sans Neo, Freesentation, Pretendard (OFL 1.1)
+- NEXON Lv2 Gothic, Tmoney Round Wind (Custom License)
+- 
 해당 프로젝트는 운영측의 요청, 패킷암호화등의 조치, 공식적인 사용중단 언급이 있다면 중지 및 비공개상태로 전환됩니다.
 
 
@@ -165,6 +169,3 @@ cd Aion2-Dps-Meter
 해당 프로그램을 사용함으로써 생기는 책임은 사용자 본인에게 있습니다.
 
 
-Fonts:
-- Spoqa Han Sans Neo, Freesentation, Pretendard (OFL 1.1)
-- NEXON Lv2 Gothic, Tmoney Round Wind (Custom License)
