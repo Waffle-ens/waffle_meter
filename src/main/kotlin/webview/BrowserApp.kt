@@ -115,6 +115,11 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return Json.encodeToString(DataManager.recentBattleList())
         }
 
+        fun getLiveBuffOperatingRate(uid: Int): String {
+            val report = dpsCalculator.getLiveReport()
+            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,report.battleEnd))
+        }
+
         fun getBuffOperatingRate(idx: Int, uid: Int): String {
             val report = DataManager.battleLog(idx)?.report ?: return ""
             return Json.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,report.battleEnd))
