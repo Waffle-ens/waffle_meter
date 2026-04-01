@@ -228,7 +228,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
 
-        val scene = Scene(webView, 1800.0, 1000.0)
+        val scene = Scene(webView, 1920.0, 1080.0)
         scene.fill = Color.TRANSPARENT
 
         try {

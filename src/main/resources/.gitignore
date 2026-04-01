@@ -24,5 +24,4 @@ dist-ssr
 *.sw?
 
 src/assets/skill-icons/
-src/assets/buff.json/
 json/*
