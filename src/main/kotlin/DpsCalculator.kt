@@ -70,7 +70,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             val mobCode = DataManager.mobId(currentTarget)
             val mob = DataManager.mob(mobCode!!)
             report.target = MobInfo(currentTarget, mob!!)
-            report.target!!.remainHp = DataManager.mobHp(currentTarget)?:0
+            report.target!!.remainHp = DataManager.mobHp(currentTarget) ?: 0
         }
         data?.forEach {
             val actor = DataManager.summonerId(it.getActorId()) ?: it.getActorId()
@@ -134,6 +134,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                     if (it.getSpecials().contains(SpecialDamage.PARRY)) analyzedSkill.parryTimes++
                     if (it.getSpecials().contains(SpecialDamage.DOUBLE)) analyzedSkill.doubleTimes++
                     if (it.getSpecials().contains(SpecialDamage.PERFECT)) analyzedSkill.perfectTimes++
+                    if (it.getSpecials().contains(SpecialDamage.POWER_SHARD)) analyzedSkill.shardTimes++
                 }
             }
         }
