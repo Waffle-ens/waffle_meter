@@ -262,6 +262,9 @@ class StreamProcessor() {
         val unknownInfo = readVarInt(packet, offset)
         if (unknownInfo.length < 0) return false
         offset += unknownInfo.length
+        // 0a -> 정상범주
+        // 08 -> 실패
+        // 바이트체크?
 
         val skillCodeCandidate = parseUInt32le(packet, offset)
         val skillCode: Int = if (DataManager.skill((skillCodeCandidate / 10).toLong()) != null) {
@@ -278,14 +281,14 @@ class StreamProcessor() {
         pdp.setDamage(damageInfo)
 
         logger.debug("{}", toHex(packet))
-        logger.info(
+        logger.debug(
             "도트데미지 공격자 {},피격자 {},스킬 {},데미지 {}",
             pdp.getActorId(),
             pdp.getTargetId(),
             pdp.getSkillCode1(),
             pdp.getDamage()
         )
-        logger.info("{}",toHex(packet))
+        logger.debug("{}",toHex(packet))
         logger.debug("----------------------------------")
         if (pdp.getActorId() != pdp.getTargetId()) {
             pdp.setTimestamp(arrivedAt)
