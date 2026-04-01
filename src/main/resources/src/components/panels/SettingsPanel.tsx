@@ -417,14 +417,14 @@ export const SettingsPanel = ({
         <SettingsItem title="보스 / 전투 기록">
           <div className="flex flex-col gap-2.5">
             <GradientRow
-              label="보스 (타겟/전투기록)"
+              label="타겟 / 전투 기록"
               value={theme.bossBar}
               onChange={(v) => setThemeColor("bossBar", v)}
             />
           </div>
           <div className="flex flex-col gap-2.5">
             <ColorSwatch
-              label="남은 체력 / 남은 시간"
+              label="남은 체력 / 경과 시간"
               value={theme.bossRightValue}
               onChange={(v) => setThemeColor("bossRightValue", v)}
             />
