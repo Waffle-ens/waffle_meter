@@ -249,7 +249,18 @@ class StreamProcessor() {
         if (packet.size < offset) return false
         pdp.setTargetId(targetInfo)
 
-        offset += 1
+
+        val unknownBitFlagByte = packet[offset]
+        if (unknownBitFlagByte.toInt() and 0x02 == 0) return true
+        offset++
+        // 0a -> 정상범주
+        // 08 -> 실패
+        // 02 -> 정상범주
+        // 03 -> 정상범주
+        // 비트플래그? 1010 / 0010 / 0011  성공 1000 실패 -> 두번째 비트?
+        // 추후 나머지자리 비트플래그 체크 필요함
+
+
         if (packet.size < offset) return false
 
         val actorInfo = readVarInt(packet, offset)
@@ -262,9 +273,6 @@ class StreamProcessor() {
         val unknownInfo = readVarInt(packet, offset)
         if (unknownInfo.length < 0) return false
         offset += unknownInfo.length
-        // 0a -> 정상범주
-        // 08 -> 실패
-        // 바이트체크?
 
         val skillCodeCandidate = parseUInt32le(packet, offset)
         val skillCode: Int = if (DataManager.skill((skillCodeCandidate / 10).toLong()) != null) {
@@ -288,7 +296,6 @@ class StreamProcessor() {
             pdp.getSkillCode1(),
             pdp.getDamage()
         )
-        logger.debug("{}",toHex(packet))
         logger.debug("----------------------------------")
         if (pdp.getActorId() != pdp.getTargetId()) {
             pdp.setTimestamp(arrivedAt)
