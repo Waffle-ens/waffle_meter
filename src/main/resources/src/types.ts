@@ -34,6 +34,7 @@ export interface Skill {
   time: number;
   crit: number;
   parry: number;
+  shardTimes: number;
   back: number;
   perfect: number;
   double: number;
@@ -54,6 +55,7 @@ export interface Details {
   totalPerfectPct: number;
   totalDoublePct: number;
   combatTime: string;
+  buffOperatingRate: any;
   skills: Skill[];
 }
 

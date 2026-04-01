@@ -58,6 +58,9 @@ interface SettingsState {
   setMeterWidth: (w: number) => void;
   rowHeight: number;
   setRowHeight: (h: number) => void;
+  detailWidth: number;
+  setDetailWidth: (w: number) => void;
+
   detailHeight: number;
   setDetailHeight: (h: number) => void;
   setHotkey: (h: Hotkey) => void;
@@ -84,6 +87,8 @@ const defaultSettings = {
   rowHeight: 36,
   isDebugMode: false,
   detailHeight: 600,
+  detailWidth: 800,
+
   displayMode: "dps_percent" as DisplayMode,
   nameDisplay: "all" as NameDisplay,
   fontFamily: "Spoqa Han Sans Neo" as FontFamily,
@@ -115,6 +120,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
       meterWidth: Number(j.loadProps?.("meterWidth")) || defaultSettings.meterWidth,
       rowHeight: Number(j.loadProps?.("rowHeight")) || defaultSettings.rowHeight,
       detailHeight: Number(j.loadProps?.("detailHeight")) || defaultSettings.detailHeight,
+      detailWidth: Number(j.loadProps?.("detailWidth")) || defaultSettings.detailWidth,
+
       displayMode: j.loadProps?.("displayMode") ?? defaultSettings.displayMode,
       isDebugMode: j.isDebuggingMode?.() ?? false,
       nameDisplay: j.loadProps?.("nameDisplay") ?? defaultSettings.nameDisplay,
@@ -133,6 +140,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
     meterWidth: defaultSettings.meterWidth,
     rowHeight: defaultSettings.rowHeight,
     detailHeight: defaultSettings.detailHeight,
+    detailWidth: defaultSettings.detailWidth,
+
     displayMode: defaultSettings.displayMode,
     nameDisplay: defaultSettings.nameDisplay,
     fontFamily: defaultSettings.fontFamily,
@@ -182,6 +191,11 @@ export const useSettingsStore = create<SettingsState>((set) => {
       set({ detailHeight });
       jb()?.saveProps?.("detailHeight", detailHeight);
     },
+    setDetailWidth: (detailWidth) => {
+      set({ detailWidth });
+      jb()?.saveProps?.("detailWidth", detailWidth);
+    },
+
     setHeaderPosition: (headerPosition) => {
       set({ headerPosition });
       jb()?.saveProps?.("headerPosition", headerPosition);

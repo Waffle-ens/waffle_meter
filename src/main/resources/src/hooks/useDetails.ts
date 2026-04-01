@@ -1,5 +1,5 @@
 import type { Player, Skill, Details } from "@/types";
-// import { useDebugStore } from "../stores/debugStore";
+import { useDebugStore } from "../stores/debugStore";
 
 export const useDetails = () => {
   const getDetails = async (
@@ -7,12 +7,19 @@ export const useDetails = () => {
     combatTime: string = "00:00",
     historyIdx?: number,
   ): Promise<Details> => {
-    // const addLog = useDebugStore.getState().addLog;
+    const addLog = useDebugStore.getState().addLog;
+
     const raw =
       historyIdx !== undefined
         ? await window.javaBridge?.getBattleDetailFromList?.(historyIdx, Number(row.id))
         : await window.javaBridge?.getBattleDetail?.(Number(row.id));
-    // addLog(`${historyIdx ? `히스토리 디테일 ${raw}` : `일반 detail rowID${row.id} ${raw}`}`);
+    const buffRaw =
+      historyIdx !== undefined
+        ? await window.javaBridge?.getBuffOperatingRate?.(historyIdx, Number(row.id))
+        : await window.javaBridge?.getLiveBuffOperatingRate?.(Number(row.id));
+    addLog(
+      `${historyIdx ? `히스토리 디테일 ${buffRaw}` : `일반 detail rowID${row.id} ${buffRaw}`}`,
+    );
     let detailObj = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
@@ -35,6 +42,7 @@ export const useDetails = () => {
         time?: number;
         dmg?: number;
         crit?: number;
+        shardTimes?: number;
         parry?: number;
         back?: number;
         perfect?: number;
@@ -51,7 +59,7 @@ export const useDetails = () => {
       const back = skill.back ?? 0;
       const perfect = skill.perfect ?? 0;
       const double_ = skill.double ?? 0;
-
+      const shardTimes = skill.shardTimes ?? 0;
       totalDmg += dmg;
       if (!isDot) {
         totalTimes += time;
@@ -70,6 +78,7 @@ export const useDetails = () => {
         parry,
         back,
         perfect,
+        shardTimes,
         double: double_,
         dmg,
         critPct: isDot ? "-" : pctInt(crit, time),
@@ -91,6 +100,7 @@ export const useDetails = () => {
         name: baseName,
         time: Number(v.times) || 0,
         dmg: Number(v.damageAmount) || 0,
+        shardTimes: Number(v.shardTimes) || 0,
         crit: Number(v.critTimes) || 0,
         parry: Number(v.parryTimes) || 0,
         back: Number(v.backTimes) || 0,
@@ -110,6 +120,7 @@ export const useDetails = () => {
         );
       }
     }
+    const buffOperatingRate = typeof buffRaw === "string" ? JSON.parse(buffRaw) : (buffRaw ?? null);
 
     return {
       totalDmg,
@@ -121,6 +132,7 @@ export const useDetails = () => {
       totalDoublePct: pct(totalDouble, totalTimes),
       combatTime,
       skills: skills.sort((a, b) => b.dmg - a.dmg),
+      buffOperatingRate,
     };
   };
 
