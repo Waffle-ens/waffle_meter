@@ -163,3 +163,8 @@ cd Aion2-Dps-Meter
 딜을 잘 못넣는 유저가 있더라도 불평하지마시고 그럴수도있지 라는 마음으로 넘어가주세요
 
 해당 프로그램을 사용함으로써 생기는 책임은 사용자 본인에게 있습니다.
+
+
+Fonts:
+- Spoqa Han Sans Neo, Freesentation, Pretendard (OFL 1.1)
+- NEXON Lv2 Gothic, Tmoney Round Wind (Custom License)
