@@ -36,6 +36,7 @@ object DataManager {
     private val battleLogRepository = BattleLogRepository()
     private val skillRepository = SkillRepository()
     private val mobHpRepository = MobHpRepository()
+    private val useBuffRepository = UseBuffRepository()
 
     fun load() {
         loadMobJson()
@@ -300,5 +301,12 @@ object DataManager {
             userRepository.executor(uid)
             userRepository.get(uid)!!.isExecutor = true
         }
+    }
+
+    /*
+    buff 영역
+     */
+    fun saveUseBuff(uid: Int, useBuff: UseBuff) {
+        useBuffRepository.save(uid, useBuff)
     }
 }
