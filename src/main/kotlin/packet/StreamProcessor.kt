@@ -779,6 +779,13 @@ class StreamProcessor() {
             val skillCode = parseUInt32le(packet, offset)
             offset += 4
 
+            if (skillCode < 110000000 || skillCode > 190000000) {
+                if (skillCode >= 30000000 || skillCode < 20000000){
+                    return true
+                }
+            }
+            // 임시
+
             val duration = readUInt32leAsLong(packet, offset)
             offset += 16
 

@@ -37,10 +37,12 @@ object DataManager {
     private val skillRepository = SkillRepository()
     private val mobHpRepository = MobHpRepository()
     private val useBuffRepository = UseBuffRepository()
+    private val buffRepository = BuffRepository()
 
     fun load() {
         loadMobJson()
         loadSkillJson()
+        loadBuffJson()
     }
 
     private fun loadMobJson() {
@@ -56,6 +58,19 @@ object DataManager {
             ?.readText()!!
         Json.decodeFromString<List<Skill>>(skillJson).forEach {
             saveSkill(it)
+        }
+    }
+
+    private fun loadBuffJson() {
+        try {
+            val buffJson = object {}.javaClass.getResourceAsStream("/json/buff.json")
+                ?.bufferedReader()
+                ?.readText()!!
+
+            Json.decodeFromString<Map<String, Buff>>(buffJson).forEach { (code, buff) ->
+                saveBuff(buff.copy(code = code.toInt()))
+            }
+        } catch (_:Exception){
         }
     }
 
@@ -308,5 +323,9 @@ object DataManager {
      */
     fun saveUseBuff(uid: Int, useBuff: UseBuff) {
         useBuffRepository.save(uid, useBuff)
+    }
+
+    private fun saveBuff(buff: Buff){
+        buffRepository.save(buff)
     }
 }
