@@ -31,7 +31,7 @@ export const useResizableDetail = () => {
 
       if (isResizing.current === "vertical") {
         const dy = e.clientY - startY.current;
-        const newH = Math.max(300, Math.min(900, startHeight.current + dy));
+        const newH = Math.max(300, Math.min(1070, startHeight.current + dy));
         useSettingsStore.setState({ detailHeight: newH });
       } else {
         const dx = e.clientX - startX.current;

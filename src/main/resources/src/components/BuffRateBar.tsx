@@ -59,13 +59,11 @@ export const BuffRateBar = ({ id, rate, info }: BuffRateBarProps) => {
                 </div>
               </div>
 
-              {info?.effect && (
-                <div className="pt-2 border-t border-white/10">
-                  <p className="text-xs text-white/60 whitespace-pre-line leading-relaxed">
-                    {info.effect}
-                  </p>
-                </div>
-              )}
+              <div className="pt-2 border-t border-white/10">
+                <p className="text-xs text-white/60 whitespace-pre-line leading-relaxed">
+                  {info?.effect ? info?.effect : info?.summary ? info?.summary : ""}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TooltipContent>

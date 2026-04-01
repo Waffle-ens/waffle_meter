@@ -60,6 +60,7 @@ interface SettingsState {
   setRowHeight: (h: number) => void;
   detailWidth: number;
   setDetailWidth: (w: number) => void;
+  isLoaded: boolean;
 
   detailHeight: number;
   setDetailHeight: (h: number) => void;
@@ -76,6 +77,9 @@ interface SettingsState {
   setTheme: (theme: ThemeColors) => void;
   setThemeColor: <K extends keyof ThemeColors>(key: K, value: ThemeColors[K]) => void;
   resetTheme: () => void;
+  windowX: number;
+  windowY: number;
+  setWindowPosition: (x: number, y: number) => void;
 }
 
 const jb = () => (window as any).javaBridge;
@@ -88,7 +92,9 @@ const defaultSettings = {
   isDebugMode: false,
   detailHeight: 600,
   detailWidth: 800,
-
+  windowX: 0,
+  windowY: 0,
+  isLoaded: false,
   displayMode: "dps_percent" as DisplayMode,
   nameDisplay: "all" as NameDisplay,
   fontFamily: "Spoqa Han Sans Neo" as FontFamily,
@@ -129,9 +135,13 @@ export const useSettingsStore = create<SettingsState>((set) => {
       isMinimal: savedIsMinimal,
       headerPosition: j.loadProps?.("headerPosition") ?? defaultSettings.headerPosition,
       theme: savedTheme,
+      windowX: Number(j.loadProps?.("windowX")) || defaultSettings.windowX,
+      windowY: Number(j.loadProps?.("windowY")) || defaultSettings.windowY,
+
+      isLoaded: true,
     });
     clearInterval(interval);
-  }, 300);
+  }, 100);
 
   return {
     hotkey: defaultSettings.hotkey,
@@ -148,7 +158,9 @@ export const useSettingsStore = create<SettingsState>((set) => {
     isDebugMode: defaultSettings.isDebugMode,
     headerPosition: defaultSettings.headerPosition,
     theme: defaultSettings.theme,
-
+    windowX: defaultSettings.windowX,
+    windowY: defaultSettings.windowY,
+    isLoaded: defaultSettings.isLoaded,
     setHotkey: (hotkey) => {
       set({ hotkey });
       jb()?.updateHotkey?.(hotkey.modifiers, hotkey.vkCode);
@@ -213,6 +225,11 @@ export const useSettingsStore = create<SettingsState>((set) => {
     resetTheme: () => {
       set({ theme: DEFAULT_THEME });
       jb()?.saveProps?.("theme", JSON.stringify(DEFAULT_THEME));
+    },
+    setWindowPosition: (windowX, windowY) => {
+      set({ windowX, windowY });
+      jb()?.saveProps?.("windowX", String(windowX));
+      jb()?.saveProps?.("windowY", String(windowY));
     },
   };
 });

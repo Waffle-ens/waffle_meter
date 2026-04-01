@@ -42,6 +42,8 @@ export default function App() {
   } = useVersionCheck();
 
   const headerPosition = useSettingsStore((s) => s.headerPosition);
+  const { windowX, windowY } = useSettingsStore();
+  const isLoaded = useSettingsStore((s) => s.isLoaded);
 
   const [activePanel, setActivePanel] = useState<PanelType>(null);
   const { meterWidth, onMouseDown, isDragging } = useResizable();
@@ -98,22 +100,16 @@ export default function App() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
+  
+  useEffect(() => {
+    if (!isLoaded) return;
+    (window as any).javaBridge?.moveWindow(windowX, windowY);
+  }, [isLoaded]);
 
   useEffect(() => {
     if (updateInfo) setActivePanel("update");
   }, [updateInfo]);
-  const meterCss = `
-  rounded-lg transition-all duration-300 text-[rgba(215,215,215)] p-4 
-  ${
-    isMinimal
-      ? "bg-transparent   hover:bg-[rgba(12,22,40,0.4)] "
-      : "bg-[rgba(12,22,40,0.4)] border-[rgba(209,213,219,0.3)]"
-  }
-`;
 
-  const headerCss = `transition-opacity duration-300 ${
-    isMinimal ? "opacity-0 group-hover:opacity-100" : " opacity-100"
-  }`;
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
       if (e.key === "Escape") handleClose();
@@ -134,11 +130,26 @@ export default function App() {
       setSelectedHistoryIdx(undefined);
     }
   }, [isInCombat]);
-  
+
+  const meterCss = `
+  rounded-lg transition-all duration-300 text-[rgba(215,215,215)] p-4 
+  ${
+    isMinimal
+      ? "bg-transparent   hover:bg-[rgba(12,22,40,0.4)] "
+      : "bg-[rgba(12,22,40,0.4)] border-[rgba(209,213,219,0.3)]"
+  }
+`;
+
+  const headerCss = `transition-opacity duration-300 ${
+    isMinimal ? "opacity-0 group-hover:opacity-100" : " opacity-100"
+  }`;
+
   return (
     // <TooltipProvider>
     <div
-      style={{ width: "fit-content" }}
+      style={{
+        width: "fit-content",
+      }}
       className={`drag-area cursor-move select-none
  relative  group ${isDragging ? "pointer-events-none" : ""}`}>
       <div
