@@ -117,7 +117,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         fun getLiveBuffOperatingRate(uid: Int): String {
             val report = dpsCalculator.getLiveReport()
-            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,report.battleEnd))
+            val end = if (report.battleEnd == 0L) System.currentTimeMillis() else report.battleEnd
+            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,end))
         }
 
         fun getBuffOperatingRate(idx: Int, uid: Int): String {
