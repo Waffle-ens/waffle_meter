@@ -2,16 +2,14 @@ import { useState } from "react";
 import { getSkillIconSrc } from "@/utils/icons";
 
 interface Props {
-  name?: string; 
-  id?: string;   
+  code?: string; 
   size?: number;
 }
 
-export const SkillIcon = ({ name, id, size = 24 }: Props) => {
+export const SkillIcon = ({ code,  size = 24 }: Props) => {
   const [failed, setFailed] = useState(false);
+  const src = getSkillIconSrc(code);
 
-  const key = name ?? id ?? "";
-  const src = getSkillIconSrc(key);
 
   if (!src || failed) {
     return (

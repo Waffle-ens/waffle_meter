@@ -117,7 +117,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                   style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
                   <div className="flex items-center gap-2 mb-2">
                     <SkillIcon
-                      name={s.name}
+                      code={s.code}
                       size={26}
                     />
                     <span className="text-sm truncate flex-1 text-row-fill text-shadow-meter">
@@ -199,8 +199,8 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                     <TableCell className="py-1.5">
                       <div className="flex items-center gap-2 overflow-hidden">
                         <SkillIcon
-                          name={s.name}
-                          size={28}
+                          code={s.code}
+                          size={26}
                         />
                         <span className="truncate text-row-fill text-shadow-meter">{s.name}</span>
                       </div>

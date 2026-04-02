@@ -11,16 +11,13 @@ type BuffMap = Record<string, BuffInfo>;
 export const useBuffInfo = () => {
   const normalize = (data: any): BuffMap => {
     const result: BuffMap = {};
-
     for (const key in data) {
-      const item = data[key];
       result[key] = {
-        name: item.name,
-        summary: item.summary ?? "",
-        effect: item.effect ?? "",
+        name: data[key].name,
+        summary: data[key].summary ?? "",
+        effect: data[key].effect ?? "",
       };
     }
-
     return result;
   };
   return normalize(buffData);
