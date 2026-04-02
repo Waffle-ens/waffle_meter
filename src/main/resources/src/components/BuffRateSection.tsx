@@ -107,7 +107,7 @@ export const BuffRateSection = ({ buffOperatingRate, columns = 1, playerJob }: P
   const { mine, party, other } = categorize(entries, myPrefix);
 
   return (
-    <div className="mb-3 border border-white/10 rounded-lg overflow-hidden">
+    <div className="mb-3  rounded-lg overflow-hidden">
       <div className="px-4 py-2   space-y-1">
         <SectionGrid
           label="내 버프"

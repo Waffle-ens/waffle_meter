@@ -128,7 +128,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
               <span>스킬 피해량</span>
             </AccordionTrigger>
             <AccordionContent key={buffColumns}>
-              <div>
+              <div className="px-2.5 pt-2">
                 {isCompact ? (
                   <div className="space-y-1.5">
                     {details.skills.map((s) => {
