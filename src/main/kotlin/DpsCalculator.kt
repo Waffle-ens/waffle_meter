@@ -114,11 +114,12 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         }
         data.packets?.forEach {
             val skill = DataManager.skill(it.getSkillCode1().toLong())
-            val skillName = skill?.name ?: it.getSkillCode1().toString()
+            val skillName = it.getSkillCode1().toString()
             val realActor = DataManager.summonerId(it.getActorId()) ?: it.getActorId()
             if (realActor == uid) {
                 if (!analyzedData.containsKey(skillName)) {
                     val analyzedSkill = AnalyzedSkill(it)
+                    analyzedSkill.name = skill?.name ?: it.getSkillCode1().toString()
                     analyzedData[skillName] = analyzedSkill
                 }
                 val analyzedSkill = analyzedData[skillName]!!
