@@ -1,5 +1,5 @@
 import type { Player, Skill, Details } from "@/types";
-import { useDebugStore } from "../stores/debugStore";
+// import { useDebugStore } from "../stores/debugStore";
 
 export const useDetails = () => {
   const getDetails = async (
@@ -7,7 +7,7 @@ export const useDetails = () => {
     combatTime: string = "00:00",
     historyIdx?: number,
   ): Promise<Details> => {
-    const addLog = useDebugStore.getState().addLog;
+    // const addLog = useDebugStore.getState().addLog;
 
     const raw =
       historyIdx !== undefined
@@ -17,9 +17,7 @@ export const useDetails = () => {
       historyIdx !== undefined
         ? await window.javaBridge?.getBuffOperatingRate?.(historyIdx, Number(row.id))
         : await window.javaBridge?.getLiveBuffOperatingRate?.(Number(row.id));
-    addLog(
-      `${historyIdx ? `히스토리 디테일 ${buffRaw}` : `일반 detail rowID${row.id} ${buffRaw}`}`,
-    );
+    // addLog(`${historyIdx ? `히스토리 디테일 ${raw}` : `일반 detail rowID${row.id} ${raw}`}`);
     let detailObj = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
@@ -93,11 +91,11 @@ export const useDetails = () => {
       if (!value || typeof value !== "object") continue;
 
       const v = value as Record<string, unknown>;
-      const baseName = code;
+      const name = v.name as string;
 
       pushSkill({
         code,
-        name: baseName,
+        name: name,
         time: Number(v.times) || 0,
         dmg: Number(v.damageAmount) || 0,
         shardTimes: Number(v.shardTimes) || 0,
@@ -111,8 +109,8 @@ export const useDetails = () => {
       if (Number(v.dotDamageAmount) > 0) {
         pushSkill(
           {
-            code: `${code}-dot`,
-            name: `${baseName} - 지속`,
+            code: code,
+            name: `${name} - 지속`,
             time: Number(v.dotTimes) || 0,
             dmg: Number(v.dotDamageAmount) || 0,
           },
