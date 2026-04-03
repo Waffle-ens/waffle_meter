@@ -2,7 +2,7 @@ package com.tbread.data
 
 import com.tbread.data.repository.*
 import com.tbread.entity.*
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
@@ -67,10 +67,24 @@ object DataManager {
                 ?.bufferedReader()
                 ?.readText()!!
 
-            Json.decodeFromString<Map<String, Buff>>(buffJson).forEach { (code, buff) ->
-                saveBuff(buff.copy(code = code.toInt()))
+            val json = Json { ignoreUnknownKeys = true }
+
+            json.decodeFromString<JsonObject>(buffJson).forEach { (code, element) ->
+                val obj = element.jsonObject
+                val buff = obj["effect"]?.jsonPrimitive?.contentOrNull?.let {
+                    obj["summary"]?.jsonPrimitive?.contentOrNull?.let { it1 ->
+                        Buff(
+                            code = code.toInt(),
+                            name = obj["name"]?.jsonPrimitive?.content ?: "",
+                            summary = it1,
+                            effect = it
+                        )
+                    }
+                }
+                buff?.let { saveBuff(it) }
             }
-        } catch (_:Exception){
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

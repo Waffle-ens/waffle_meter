@@ -649,11 +649,10 @@ class StreamProcessor() {
                 flags.add(SpecialDamage.UNKNOWN4)
             }
 
-            if ((flagByte and 0x80) != 0) {
-                flags.add(SpecialDamage.POWER_SHARD)
-            }
+//            if ((flagByte and 0x80) != 0) {
+//                flags.add(SpecialDamage.POWER_SHARD)
+//            }
         }
-
         return flags
     }
 
@@ -792,8 +791,11 @@ class StreamProcessor() {
             val actorInfo = readVarInt(packet, offset)
 
             val buff = UseBuff(skillCode, arrivedAt, arrivedAt + duration, duration, actorInfo.value)
+            if (duration == 4294967295L ){
+                return true
+            }
             DataManager.saveUseBuff(targetInfo.value, buff)
-            println("대상자: ${targetInfo.value}, 사용자: ${actorInfo.value}, 버프코드: ${skillCode},버프이름: ${DataManager.buff(skillCode)?.name} 길이: $duration")
+//            println("대상자: ${targetInfo.value}, 사용자: ${actorInfo.value}, 버프코드: ${skillCode},버프이름: ${DataManager.buff(skillCode)?.name} 길이: $duration")
             return true
         } catch (_:Exception){
             return false

@@ -1,12 +1,12 @@
 package com.tbread.webview
 
 import com.tbread.DpsCalculator
+import com.tbread.addon.UploadManager
 import com.tbread.config.HotkeyHandler
 import com.tbread.config.PropertyHandler
 import com.tbread.config.VersionConfig
 import com.tbread.data.DataManager
 import com.tbread.entity.DpsReport
-import com.tbread.upload.UploadManager
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
 import javafx.application.Application
