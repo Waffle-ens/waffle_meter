@@ -792,7 +792,6 @@ class StreamProcessor() {
 
             val serverTime = readUInt64le(packet,offset)
             offset += 8
-            PacketAddonManager.loggingServerTime(arrivedAt, duration, serverTime)
 
             val actorInfo = readVarInt(packet, offset)
 
@@ -800,6 +799,7 @@ class StreamProcessor() {
             if (duration == 4294967295L ){
                 return true
             }
+            PacketAddonManager.loggingServerTime(arrivedAt, duration, serverTime)
             DataManager.saveUseBuff(targetInfo.value, buff)
 //            println("대상자: ${targetInfo.value}, 사용자: ${actorInfo.value}, 버프코드: ${skillCode},버프이름: ${DataManager.buff(skillCode)?.name} 길이: $duration")
             return true
