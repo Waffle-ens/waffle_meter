@@ -165,7 +165,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 }
 
                 val rate = merged.sumOf { it.second - it.first }.toDouble() / totalDuration * 100.0
-                OperatingData(buff, rate)
+                OperatingData(skillCode, buff, rate)
             }
     }
 
