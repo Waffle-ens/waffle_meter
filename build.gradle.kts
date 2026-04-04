@@ -64,6 +64,13 @@ compose.desktop {
 
 
 
+        buildTypes.release.proguard {
+            configurationFiles.from("proguard-rules.pro")
+            isEnabled = true
+            obfuscate = true
+            version = "7.5.0"
+        }
+
         nativeDistributions {
             windows{
                 // upgradeUuid = "B8A7C3D2-1F4E-4A8B-9C6D-E5F234567890"
