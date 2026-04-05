@@ -71,6 +71,8 @@ class StreamProcessor() {
         if (flag) return
         flag = parseAdmitJoinRequest(packet,lengthInfo,extraFlag)
         if (flag) return
+        flag = parseRefuseJoinRequest(packet,lengthInfo,extraFlag)
+        if (flag) return
 
     }
 
@@ -885,6 +887,19 @@ class StreamProcessor() {
         if (packet[offset + 1] != 0x97.toByte()) return false
 
         PacketEventBus.events.tryEmit(PacketEvent.ExitPartyUI)
+        return true
+    }
+
+    private fun parseRefuseJoinRequest(packet:ByteArray,lengthInfo: VarIntOutput,extraFlag: Boolean):Boolean{
+        var offset = lengthInfo.length
+        if (extraFlag) {
+            offset++
+        }
+        if (packet.size < offset + 2) return false
+
+        if (packet[offset] != 0x09.toByte()) return false
+        if (packet[offset + 1] != 0x97.toByte()) return false
+        PacketEventBus.events.tryEmit(PacketEvent.RefuseJoinRequest)
         return true
     }
 
