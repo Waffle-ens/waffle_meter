@@ -70,6 +70,8 @@ class StreamProcessor() {
         if (flag) return
         flag = parseExitParty(packet,lengthInfo,extraFlag)
         if (flag) return
+        flag = parseAdmitJoinRequest(packet,lengthInfo,extraFlag)
+        if (flag) return
 
     }
 
@@ -762,6 +764,22 @@ class StreamProcessor() {
         if (packet.size < offset + 2) return false
 
         if (packet[offset] != 0x25.toByte()) return false
+        if (packet[offset + 1] != 0x97.toByte()) return false
+        offset += 2
+
+        val requester = parseUInt32le(packet, offset)
+        PacketEventBus.events.tryEmit(PacketEvent.JoinRequestRemove(requester))
+        return true
+    }
+
+    private fun parseAdmitJoinRequest(packet: ByteArray,lengthInfo: VarIntOutput,extraFlag: Boolean):Boolean{
+        var offset = lengthInfo.length
+        if (extraFlag) {
+            offset++
+        }
+        if (packet.size < offset + 2) return false
+
+        if (packet[offset] != 0x0B.toByte()) return false
         if (packet[offset + 1] != 0x97.toByte()) return false
         offset += 2
 
