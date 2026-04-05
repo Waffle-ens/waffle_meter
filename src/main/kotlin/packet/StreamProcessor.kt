@@ -43,9 +43,6 @@ class StreamProcessor() {
                 return
             }
         }
-        if (packet[lengthInfo.length +1] == 0x97.toByte()){
-            println(toHex(packet))
-        }
         searchOwnNickname(packet, lengthInfo,arrivedAt)
         searchOtherNickname(packet, lengthInfo,arrivedAt)
         var flag = false
@@ -753,6 +750,7 @@ class StreamProcessor() {
         val power = parseUInt32le(packet, offset)
         val realClass = JobClass.convertFromCode(job)
         val request = JoinRequestUser(String(np,Charsets.UTF_8),power,realClass?.name,server,requester,arrivedAt)
+        println("닉네임: ${String(np,Charsets.UTF_8)} 전투력: $power 직업:${realClass?.name} 코드:$job 서버:$server")
         PacketEventBus.events.tryEmit(PacketEvent.JoinRequest(request))
         return true
     }
