@@ -7,6 +7,7 @@ export interface JoinRequestUser {
   server: number;
   requester: number;
   arrivedAt: number;
+  skill: Record<string, number>;
 }
 
 interface JoinRequestStore {

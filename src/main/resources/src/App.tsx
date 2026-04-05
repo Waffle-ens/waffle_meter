@@ -12,7 +12,7 @@ import { useResizable } from "@/hooks/useResizable";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 // import { TooltipProvider } from "@/components/ui/tooltip";
 import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
-import { JoinRequestPanel } from "@/components/JoinRequestPanel";
+import { JoinRequestPanel } from "@/components/joinPanel/JoinRequestPanel";
 
 import { DebugConsole } from "./components/DebugConsole";
 export default function App() {
@@ -223,8 +223,7 @@ export default function App() {
           </div>
         )}
       </div>
-      <JoinRequestPanel />
-
+      <JoinRequestPanel maxWidth={meterWidth} />
       <DebugConsole></DebugConsole>
       <div>
         <SidePanel

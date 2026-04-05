@@ -767,21 +767,134 @@ export const injectMockDpsData = () => {
       }, 400);
     },
   };
-const MOCK_JOIN_REQUESTS = [
-  { nickname: "검성유저A", power: 121, job: "검성", server: 1001, requester: 1001 },
-  { nickname: "마도성유저B", power: 98000, job: "마도성", server: 1002, requester: 1002 },
-  { nickname: "정령성유저C", power: 110000, job: "정령성", server: 2001, requester: 1003 },
-  { nickname: "궁성유저D", power: 132000, job: "궁성", server: 1003, requester: 1004 },
-  { nickname: "살성유저E", power: 88000, job: "살성", server: 2002, requester: 1005 },
-  { nickname: "치유성유저F", power: 95000, job: "치유성", server: 1004, requester: 1006 },
-  { nickname: "호법성유저G", power: 102000, job: "호법성", server: 1005, requester: 1007 },
-  { nickname: "수호성유저H", power: 118000, job: "수호성", server: 2003, requester: 1008 },
-  { nickname: "정령성유저I", power: 76000, job: "정령성", server: 1006, requester: 1009 },
-  { nickname: "검성유저J", power: 143000, job: "검성", server: 2004, requester: 1010 },
-];
+  const MOCK_JOIN_REQUESTS = [
+    {
+      nickname: "치4유성유저F",
+      power: 95000,
+      job: "치유성",
+      server: 1004,
+      requester: 10206,
+      skill: {
+        "16140340": 13,
+        "17160000": 10,
+        "1739000": 20,
+        "17420000": 12,
+        "17080000": 20,
+        "17400000": 10,
+        "17070000": 5,
+        "1741000": 10,
+        "17780000": 10,
+      },
+    },
+    {
+      nickname: "치2유성유저F",
+      power: 95000,
+      job: "치유성",
+      server: 1004,
+      requester: 10016,
+      skill: {
+        "17090000": 13,
+        "17160000": 10,
+        "1739000": 20,
+        "17420000": 12,
+        "17080000": 20,
+        "17400000": 10,
+        "17070000": 5,
+        "1741000": 10,
+        "17780000": 10,
+      },
+    },
+    {
+      nickname: "검성유저A",
+      power: 121,
+      job: "검성",
+      server: 1001,
+      requester: 1001,
+      skill: { "11800000": 10, "11250000": 8 },
+    },
+    {
+      nickname: "마도성유저B",
+      power: 98000,
+      job: "마도성",
+      server: 1002,
+      requester: 1002,
+      skill: { "15110000": 15, "15320000": 12 },
+    },
+    {
+      nickname: "정령성유저C",
+      power: 110000,
+      job: "정령성",
+      server: 2001,
+      requester: 1003,
+      skill: { "16370000": 9, "16150000": 11 },
+    },
+    {
+      nickname: "궁성유저D",
+      power: 132000,
+      job: "궁성",
+      server: 1003,
+      requester: 1004,
+      skill: { "14310000": 10, "14220000": 7 },
+    },
+    { nickname: "살성유저E", power: 88000, job: "살성", server: 2002, requester: 1005, skill: {} },
+    {
+      nickname: "치유성유저F",
+      power: 95000,
+      job: "치유성",
+      server: 1004,
+      requester: 1006,
+      skill: {
+        "17090000": 13,
+        "17160000": 10,
+        "1739000": 20,
+        "17420000": 12,
+        "17080000": 20,
+        "17400000": 10,
+        "17070000": 5,
+        "1741000": 10,
+        "17780000": 10,
+      },
+    },
+    {
+      nickname: "호법성유저G",
+      power: 102000,
+      job: "호법성",
+      server: 1005,
+      requester: 1007,
+      skill: { "18080000": 11, "18780000": 9 },
+    },
+    {
+      nickname: "수호성유저H",
+      power: 118000,
+      job: "수호성",
+      server: 2003,
+      requester: 1008,
+      skill: { "12780000": 10, "12120000": 8 },
+    },
+    {
+      nickname: "정령성유저I",
+      power: 76000,
+      job: "정령성",
+      server: 1006,
+      requester: 1009,
+      skill: { "16220000": 7 },
+    },
+    {
+      nickname: "검성유저J",
+      power: 143000,
+      job: "검성",
+      server: 2004,
+      requester: 1010,
+      skill: { "11800000": 12, "11400000": 10 },
+    },
+  ];
 
-MOCK_JOIN_REQUESTS.forEach((req, i) => {
-  setTimeout(() => {
-    (window as any).onJoinRequest?.({ ...req, arrivedAt: Date.now() });
-  }, 3000 + i * 2000);
-});};
+  MOCK_JOIN_REQUESTS.forEach((req, i) => {
+    setTimeout(
+      () => {
+        (window as any).onJoinRequest?.({ ...req, arrivedAt: Date.now() });
+      },
+      3000 + i * 2000,
+    );
+  });
+};
