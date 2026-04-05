@@ -46,6 +46,7 @@ bin/
 
 ### Private addon module ###
 /addon/
+addon/
 
 ### ProGuard ###
 /proguard-rules.pro
