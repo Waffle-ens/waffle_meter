@@ -286,7 +286,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             PacketEventBus.events.collect { event ->
                 Platform.runLater {
                     when (event) {
-                        is PacketEvent.JoinRequest -> bridge.pushJoinRequest(event.user,event.arrivedAt)
+                        is PacketEvent.JoinRequest -> bridge.pushJoinRequest(event.user)
                         is PacketEvent.JoinRequestRemove -> bridge.pushJoinRequestRemove(event.id)
                         is PacketEvent.ExitPartyUI -> bridge.pushExitPartyUI()
                     }
