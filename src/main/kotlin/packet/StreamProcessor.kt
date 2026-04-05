@@ -62,6 +62,9 @@ class StreamProcessor() {
         if (flag) return
         flag = parseBuffPacket(packet,lengthInfo,extraFlag,arrivedAt)
         if (flag) return
+        parseJoinRequestPacket(packet,lengthInfo,extraFlag)
+        parseCancelJoinRequest(packet,lengthInfo,extraFlag)
+
     }
 
     private fun decompressPacket(
