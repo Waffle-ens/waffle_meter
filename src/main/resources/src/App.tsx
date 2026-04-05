@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useMeter } from "./hooks/useMeter";
-import type { Player ,PanelType} from "@/types";
+import type { Player, PanelType } from "@/types";
 import { MeterList } from "./components/MeterList";
 import { useDragWindow } from "./hooks/useDragWindow";
 import { Header } from "@/components/Header.tsx";
@@ -11,6 +11,8 @@ import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { useResizable } from "@/hooks/useResizable";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 // import { TooltipProvider } from "@/components/ui/tooltip";
+import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
+import { JoinRequestPanel } from "@/components/JoinRequestPanel";
 
 import { DebugConsole } from "./components/DebugConsole";
 export default function App() {
@@ -39,6 +41,7 @@ export default function App() {
     checkUpdate,
     checkStatus,
   } = useVersionCheck();
+  const { addRequest, removeRequest, clearAll, refuseRequest } = useJoinRequestStore();
 
   const headerPosition = useSettingsStore((s) => s.headerPosition);
   const { windowX, windowY } = useSettingsStore();
@@ -99,7 +102,7 @@ export default function App() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
-  
+
   useEffect(() => {
     if (!isLoaded) return;
     (window as any).javaBridge?.moveWindow(windowX, windowY);
@@ -124,12 +127,27 @@ export default function App() {
       setSelected(null);
     };
   }, [reset]);
+
   useEffect(() => {
     if (isInCombat) {
       setSelectedHistoryIdx(undefined);
     }
   }, [isInCombat]);
 
+  useEffect(() => {
+    (window as any).onJoinRequest = (data: any) => {
+      addRequest(data);
+    };
+    (window as any).onJoinRequestRemove = (id: number) => {
+      removeRequest(id);
+    };
+    (window as any).onExitPartyUI = () => {
+      clearAll();
+    };
+    (window as any).onRefuseJoinRequest = () => {
+      refuseRequest();
+    };
+  }, [addRequest, removeRequest, clearAll, refuseRequest]);
   const meterCss = `
   rounded-lg transition-all duration-300 text-[rgba(215,215,215)] p-4 
   ${
@@ -205,6 +223,8 @@ export default function App() {
           </div>
         )}
       </div>
+      <JoinRequestPanel />
+
       <DebugConsole></DebugConsole>
       <div>
         <SidePanel

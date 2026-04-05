@@ -9,6 +9,8 @@ import {
   Bug,
 } from "lucide-react";
 // import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Users } from "lucide-react";
+import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
 
 interface Props {
   // isCollapse: boolean;
@@ -25,7 +27,8 @@ export const Header = ({
   setSettings,
 }: Props) => {
   const isDebugMode = useSettingsStore((s) => s.isDebugMode);
-
+  const { requests, isOpen, setOpen } = useJoinRequestStore();
+  const requestCount = requests.length;
   const exitApp = () => {
     (window as any).javaBridge.exitApp();
   };
@@ -68,6 +71,19 @@ export const Header = ({
           {/* </TooltipTrigger>
             <TooltipContent>새로고침</TooltipContent>
           </Tooltip> */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setOpen(!isOpen)}
+            className="rounded-full relative">
+            <Users className={`scale-125 ${className}`} />
+            {requestCount > 0 && (
+              <span
+                className={`${className} absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[10px] flex items-center justify-center font-bold`}>
+                {requestCount}
+              </span>
+            )}
+          </Button>
 
           {/* <Tooltip>
             <TooltipTrigger asChild> */}

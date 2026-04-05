@@ -74,7 +74,7 @@ const SERVER_NAMES: Record<string, string> = {
   "2021": "이스할겐",
 };
 
-const getServerLabel = (server?: number) => {
+export const getServerLabel = (server?: number) => {
   if (!server) return "";
   const name = SERVER_NAMES[String(server)];
   if (!name) return "";
