@@ -73,7 +73,7 @@ enum class JobClass(val className: String, val basicSkillCode: Int) {
                     return GLADIATOR
                 }
 
-                9, 11, 12 -> {
+                9,10, 11, 12 -> {
                     return TEMPLAR
                 }
 

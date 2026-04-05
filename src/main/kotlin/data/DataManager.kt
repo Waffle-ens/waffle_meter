@@ -306,6 +306,14 @@ object DataManager {
         userRepository.save(uid, user)
     }
 
+    fun saveUser(user: User) {
+        userRepository.savePending(user)
+    }
+
+    fun findUserByNicknameAndServer(nickname: String, server: Int): User? {
+        return userRepository.findByNicknameAndServer(nickname, server)
+    }
+
     fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false) {
         if (!userRepository.exist(uid)) {
             userRepository.save(uid, User(uid, nickname, -1, null, isExecutor))

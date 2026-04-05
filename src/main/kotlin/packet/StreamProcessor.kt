@@ -43,8 +43,8 @@ class StreamProcessor() {
                 return
             }
         }
-        searchOwnNickname(packet, lengthInfo,arrivedAt)
-        searchOtherNickname(packet, lengthInfo,arrivedAt)
+        searchOwnNickname(packet, lengthInfo, arrivedAt)
+        searchOtherNickname(packet, lengthInfo, arrivedAt)
         var flag = false
         flag = parseBattlePacket(packet, lengthInfo, extraFlag)
         if (flag) return
@@ -56,20 +56,21 @@ class StreamProcessor() {
         if (flag) return
         flag = parseRemainHp(packet, lengthInfo, extraFlag)
         if (flag) return
-        flag = parseBuffPacket(packet,lengthInfo,extraFlag,arrivedAt)
+        flag = parseBuffPacket(packet, lengthInfo, extraFlag, arrivedAt)
         if (flag) return
-        flag = parseJoinRequestPacket(packet,lengthInfo,extraFlag,arrivedAt)
+        flag = parseJoinRequestPacket(packet, lengthInfo, extraFlag, arrivedAt)
         if (flag) return
-        flag = parseCancelJoinRequest(packet,lengthInfo,extraFlag)
+        flag = parseCancelJoinRequest(packet, lengthInfo, extraFlag)
         if (flag) return
-        flag = parseInstanceStartPacket(packet,lengthInfo,extraFlag)
+        flag = parseInstanceStartPacket(packet, lengthInfo, extraFlag)
         if (flag) return
-        flag = parseExitParty(packet,lengthInfo,extraFlag)
+        flag = parseExitParty(packet, lengthInfo, extraFlag)
         if (flag) return
-        flag = parseAdmitJoinRequest(packet,lengthInfo,extraFlag)
+        flag = parseAdmitJoinRequest(packet, lengthInfo, extraFlag)
         if (flag) return
-        flag = parseRefuseJoinRequest(packet,lengthInfo,extraFlag)
+        flag = parseRefuseJoinRequest(packet, lengthInfo, extraFlag)
         if (flag) return
+        addonTest(packet,lengthInfo,extraFlag)
 
     }
 
@@ -114,7 +115,7 @@ class StreamProcessor() {
         logger.trace("압축 패킷 해제 종료")
     }
 
-    private fun searchOwnNickname(packet: ByteArray, lengthInfo: VarIntOutput,arrivedAt: Long) {
+    private fun searchOwnNickname(packet: ByteArray, lengthInfo: VarIntOutput, arrivedAt: Long) {
         var offset = lengthInfo.length
         if (packet[offset] != 0x33.toByte()) return
         if (packet[offset + 1] != 0x36.toByte()) return
@@ -159,10 +160,10 @@ class StreamProcessor() {
             }
         }
         if (server != -1) DataManager.saveServer(userInfo.value, server)
-        PacketAddonManager.parse(packet,arrivedAt)
+        PacketAddonManager.parse(packet, arrivedAt)
     }
 
-    private fun searchOtherNickname(packet: ByteArray, lengthInfo: VarIntOutput,arrivedAt: Long) {
+    private fun searchOtherNickname(packet: ByteArray, lengthInfo: VarIntOutput, arrivedAt: Long) {
         var offset = lengthInfo.length
         if (packet[offset] != 0x44.toByte()) return
         if (packet[offset + 1] != 0x36.toByte()) return
@@ -244,7 +245,7 @@ class StreamProcessor() {
 //                legionName = legionNameCandidate
 //                break
 //            }
-            PacketAddonManager.parse(packet,arrivedAt)
+            PacketAddonManager.parse(packet, arrivedAt)
         }
 
         DataManager.saveNickname(userInfo.value, nickname)
@@ -711,7 +712,12 @@ class StreamProcessor() {
         return true
     }
 
-    private fun parseJoinRequestPacket(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean,arrivedAt: Long):Boolean {
+    private fun parseJoinRequestPacket(
+        packet: ByteArray,
+        lengthInfo: VarIntOutput,
+        extraFlag: Boolean,
+        arrivedAt: Long
+    ): Boolean {
         var offset = lengthInfo.length
         if (extraFlag) {
             offset++
@@ -749,13 +755,22 @@ class StreamProcessor() {
 
         val power = parseUInt32le(packet, offset)
         val realClass = JobClass.convertFromCode(job)
-        val request = PacketAddonManager.processingUser(JoinRequestUser(String(np,Charsets.UTF_8),power,realClass?.className,server,requester,arrivedAt))
+        val request = PacketAddonManager.processingUser(
+            JoinRequestUser(
+                String(np, Charsets.UTF_8),
+                power,
+                realClass?.className,
+                server,
+                requester,
+                arrivedAt
+            )
+        )
         println("닉네임: ${String(np,Charsets.UTF_8)} 전투력: $power 직업:${realClass?.className} 코드:$job 서버:$server")
         PacketEventBus.events.tryEmit(PacketEvent.JoinRequest(request))
         return true
     }
 
-    private fun parseCancelJoinRequest(packet: ByteArray,lengthInfo: VarIntOutput, extraFlag: Boolean):Boolean {
+    private fun parseCancelJoinRequest(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean): Boolean {
         var offset = lengthInfo.length
         if (extraFlag) {
             offset++
@@ -771,7 +786,7 @@ class StreamProcessor() {
         return true
     }
 
-    private fun parseAdmitJoinRequest(packet: ByteArray,lengthInfo: VarIntOutput,extraFlag: Boolean):Boolean{
+    private fun parseAdmitJoinRequest(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean): Boolean {
         var offset = lengthInfo.length
         if (extraFlag) {
             offset++
@@ -814,7 +829,12 @@ class StreamProcessor() {
 
     }
 
-    private fun parseBuffPacket(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean,arrivedAt: Long):Boolean {
+    private fun parseBuffPacket(
+        packet: ByteArray,
+        lengthInfo: VarIntOutput,
+        extraFlag: Boolean,
+        arrivedAt: Long
+    ): Boolean {
         try {
             var offset = lengthInfo.length
             if (extraFlag) {
@@ -833,7 +853,7 @@ class StreamProcessor() {
             offset += 4
 
             if (skillCode < 110000000 || skillCode > 190000000) {
-                if (skillCode >= 30000000 || skillCode < 20000000){
+                if (skillCode >= 30000000 || skillCode < 20000000) {
                     return true
                 }
             }
@@ -842,25 +862,25 @@ class StreamProcessor() {
             val duration = readUInt32leAsLong(packet, offset)
             offset += 8
 
-            val serverTime = readUInt64le(packet,offset)
+            val serverTime = readUInt64le(packet, offset)
             offset += 8
 
             val actorInfo = readVarInt(packet, offset)
 
             val buff = UseBuff(skillCode, arrivedAt, arrivedAt + duration, duration, actorInfo.value)
-            if (duration == 4294967295L ){
+            if (duration == 4294967295L) {
                 return true
             }
             PacketAddonManager.loggingServerTime(arrivedAt, duration, serverTime)
             DataManager.saveUseBuff(targetInfo.value, buff)
 //            println("대상자: ${targetInfo.value}, 사용자: ${actorInfo.value}, 버프코드: ${skillCode},버프이름: ${DataManager.buff(skillCode)?.name} 길이: $duration")
             return true
-        } catch (_:Exception){
+        } catch (_: Exception) {
             return false
         }
     }
 
-    private fun parseInstanceStartPacket(packet:ByteArray,lengthInfo: VarIntOutput,extraFlag: Boolean):Boolean{
+    private fun parseInstanceStartPacket(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean): Boolean {
         var offset = lengthInfo.length
         if (extraFlag) {
             offset++
@@ -874,7 +894,7 @@ class StreamProcessor() {
         return true
     }
 
-    private fun parseExitParty(packet: ByteArray,lengthInfo: VarIntOutput,extraFlag: Boolean):Boolean{
+    private fun parseExitParty(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean): Boolean {
         var offset = lengthInfo.length
         if (extraFlag) {
             offset++
@@ -888,7 +908,7 @@ class StreamProcessor() {
         return true
     }
 
-    private fun parseRefuseJoinRequest(packet:ByteArray,lengthInfo: VarIntOutput,extraFlag: Boolean):Boolean{
+    private fun parseRefuseJoinRequest(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean): Boolean {
         var offset = lengthInfo.length
         if (extraFlag) {
             offset++
@@ -899,6 +919,19 @@ class StreamProcessor() {
         if (packet[offset + 1] != 0x97.toByte()) return false
         PacketEventBus.events.tryEmit(PacketEvent.RefuseJoinRequest)
         return true
+    }
+
+    private fun addonTest(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean) {
+        var offset = lengthInfo.length
+        if (extraFlag) {
+            offset++
+        }
+        if (packet.size < offset + 2) return
+
+        if (packet[offset] != 0x00.toByte()) return
+        if (packet[offset + 1] != 0x92.toByte()) return
+        offset += 2
+        PacketAddonManager.power(packet, offset)
     }
 
 }
