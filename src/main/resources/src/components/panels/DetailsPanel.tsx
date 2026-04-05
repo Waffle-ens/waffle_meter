@@ -115,11 +115,12 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                 </span>
               </div>
             </AccordionTrigger>
-            <AccordionContent  key={buffColumns}>
+            <AccordionContent key={buffColumns}>
               <BuffRateSection
                 buffOperatingRate={details.buffOperatingRate}
                 columns={buffColumns}
                 playerJob={player.job}
+                playerId={player.id}
               />
             </AccordionContent>
           </AccordionItem>

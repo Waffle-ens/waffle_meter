@@ -1,21 +1,14 @@
 "use client";
 
 import { BuffRateBar } from "@/components/BuffRateBar";
-
-type BuffEntry = {
-  code: string;
-  name: string;
-  summary: string;
-  effect: string;
-  operatingRate: number;
-};
+import type { BuffEntry } from "@/types";
 
 interface Props {
-  buffOperatingRate: Record<string, BuffEntry> | null | undefined;
+  buffOperatingRate: BuffEntry[] | null | undefined;
   columns?: number;
   playerJob?: string;
+  playerId: number;
 }
-
 const JOB_PREFIX_MAP: Record<string, number> = {
   검성: 11,
   수호성: 12,
@@ -27,11 +20,9 @@ const JOB_PREFIX_MAP: Record<string, number> = {
   호법성: 18,
 };
 
-const PARTY_PREFIXES = new Set([11, 12, 13, 14, 15, 16, 17, 18]);
-
 interface SectionGridProps {
   label: string;
-  entries: [string, BuffEntry][];
+  entries: BuffEntry[];
   gridClass: string;
 }
 const getCodePrefix = (id: string): number | null => {
@@ -41,32 +32,34 @@ const getCodePrefix = (id: string): number | null => {
 };
 
 const categorize = (
-  entries: [string, BuffEntry][],
+  entries: BuffEntry[],
+  myActorId: number,
   myPrefix: number | null,
 ): {
-  mine: [string, BuffEntry][];
-  party: [string, BuffEntry][];
-  other: [string, BuffEntry][];
+  mine: BuffEntry[];
+  party: BuffEntry[];
+  other: BuffEntry[];
 } => {
-  const mine: [string, BuffEntry][] = [];
-  const party: [string, BuffEntry][] = [];
-  const other: [string, BuffEntry][] = [];
+  const mine: BuffEntry[] = [];
+  const party: BuffEntry[] = [];
+  const other: BuffEntry[] = [];
 
   for (const entry of entries) {
-    const prefix = getCodePrefix(entry[0]);
-    if (prefix === null) {
-      other.push(entry);
-    } else if (myPrefix !== null && prefix === myPrefix) {
-      mine.push(entry);
-    } else if (PARTY_PREFIXES.has(prefix)) {
-      party.push(entry);
+    if (Number(entry.actorId) === Number(myActorId)) {
+      const prefix = getCodePrefix(entry.code);
+      if (myPrefix !== null && prefix === myPrefix) {
+        mine.push(entry);
+      } else {
+        other.push(entry);
+      }
     } else {
-      other.push(entry);
+      party.push(entry);
     }
   }
 
   return { mine, party, other };
 };
+
 const SectionGrid = ({ label, entries, gridClass }: SectionGridProps) => {
   if (entries.length === 0) return null;
   return (
@@ -77,11 +70,11 @@ const SectionGrid = ({ label, entries, gridClass }: SectionGridProps) => {
       </div>
       <div className={`grid ${gridClass} gap-x-4 gap-y-0.5`}>
         {entries
-          .sort((a, b) => b[1].operatingRate - a[1].operatingRate)
-          .map(([id, val]) => (
+          .sort((a, b) => b.operatingRate - a.operatingRate)
+          .map((val) => (
             <BuffRateBar
-              key={id}
-              id={id}
+              key={val.code}
+              id={val.code}
               code={val.code}
               rate={val.operatingRate}
               info={{ name: val.name, summary: val.summary, effect: val.effect }}
@@ -91,9 +84,11 @@ const SectionGrid = ({ label, entries, gridClass }: SectionGridProps) => {
     </div>
   );
 };
-export const BuffRateSection = ({ buffOperatingRate, columns = 1, playerJob }: Props) => {
-  const entries: [string, BuffEntry][] = buffOperatingRate ? Object.entries(buffOperatingRate) : [];
+export const BuffRateSection = ({ buffOperatingRate, playerId, columns = 1, playerJob }: Props) => {
+  const entries: BuffEntry[] = buffOperatingRate ?? [];
   if (entries.length === 0) return null;
+  const myPrefix = playerJob ? (JOB_PREFIX_MAP[playerJob] ?? null) : null;
+  const { mine, party, other } = categorize(entries, playerId, myPrefix);
 
   const gridClass =
     columns >= 4
@@ -103,9 +98,6 @@ export const BuffRateSection = ({ buffOperatingRate, columns = 1, playerJob }: P
         : columns >= 2
           ? "grid-cols-2"
           : "grid-cols-1";
-
-  const myPrefix = playerJob ? (JOB_PREFIX_MAP[playerJob] ?? null) : null;
-  const { mine, party, other } = categorize(entries, myPrefix);
 
   return (
     <div className="rounded-lg overflow-hidden">

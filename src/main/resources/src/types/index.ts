@@ -16,7 +16,7 @@ export interface RawCombatData {
 }
 
 export interface Player {
-  id: string;
+  id: number;
   name: string;
   job: string;
   dps: number;
@@ -55,7 +55,7 @@ export interface Details {
   totalPerfectPct: number;
   totalDoublePct: number;
   combatTime: string;
-  buffOperatingRate: any;
+  buffOperatingRate: BuffEntry[];
   skills: Skill[];
 }
 
@@ -86,3 +86,12 @@ export type DownloadState =
   | { status: "error" };
 
 export type CheckStatus = "idle" | "checking" | "upToDate" | "updateAvailable" | "error";
+
+export type BuffEntry = {
+  code: string;
+  name: string;
+  summary: string;
+  effect: string;
+  operatingRate: number;
+  actorId: number;
+};
