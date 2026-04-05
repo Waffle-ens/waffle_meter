@@ -65,7 +65,7 @@ enum class JobClass(val className: String, val basicSkillCode: Int) {
                     return ELEMENTALIST
                 }
 
-                25, 28 -> {
+                25, 27, 28 -> {
                     return SORCERER
                 }
 
