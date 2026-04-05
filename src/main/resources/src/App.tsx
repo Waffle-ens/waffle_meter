@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useMeter } from "./hooks/useMeter";
-import type { Player } from "./types";
-import type { PanelType } from "./types";
+import type { Player ,PanelType} from "@/types";
 import { MeterList } from "./components/MeterList";
 import { useDragWindow } from "./hooks/useDragWindow";
 import { Header } from "@/components/Header.tsx";
@@ -72,7 +71,7 @@ export default function App() {
   }, [reset]);
 
   const handleSelect = useCallback(
-    (id: string) => {
+    (id: number) => {
       if (wasDraggingRef.current) return;
 
       const player = players.find((p) => p.id === id);
