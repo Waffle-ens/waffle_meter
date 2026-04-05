@@ -45,7 +45,7 @@ enum class JobClass(val className: String, val basicSkillCode: Int) {
 
         fun convertFromCode(job: Int): JobClass? {
             when (job) {
-                13, 14, 16 -> {
+                13, 14, 15, 16 -> {
                     return RANGER
                 }
 
@@ -61,11 +61,11 @@ enum class JobClass(val className: String, val basicSkillCode: Int) {
                     return CLERIC
                 }
 
-                22, 24 -> {
+                22, 23, 24 -> {
                     return ELEMENTALIST
                 }
 
-                25, 27, 28 -> {
+                25, 26, 27, 28 -> {
                     return SORCERER
                 }
 
@@ -73,7 +73,7 @@ enum class JobClass(val className: String, val basicSkillCode: Int) {
                     return GLADIATOR
                 }
 
-                11, 12 -> {
+                9, 11, 12 -> {
                     return TEMPLAR
                 }
 
