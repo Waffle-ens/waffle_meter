@@ -46,7 +46,6 @@ class StreamProcessor() {
         if (packet[lengthInfo.length +1] == 0x97.toByte()){
             println(toHex(packet))
         }
-        parseJoinRequestPacket(packet, lengthInfo, extraFlag)
         searchOwnNickname(packet, lengthInfo,arrivedAt)
         searchOtherNickname(packet, lengthInfo,arrivedAt)
         var flag = false
@@ -62,7 +61,7 @@ class StreamProcessor() {
         if (flag) return
         flag = parseBuffPacket(packet,lengthInfo,extraFlag,arrivedAt)
         if (flag) return
-        flag = parseJoinRequestPacket(packet,lengthInfo,extraFlag)
+        flag = parseJoinRequestPacket(packet,lengthInfo,extraFlag,arrivedAt)
         if (flag) return
         flag = parseCancelJoinRequest(packet,lengthInfo,extraFlag)
         if (flag) return
@@ -713,7 +712,7 @@ class StreamProcessor() {
         return true
     }
 
-    private fun parseJoinRequestPacket(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean):Boolean {
+    private fun parseJoinRequestPacket(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean,arrivedAt: Long):Boolean {
         var offset = lengthInfo.length
         if (extraFlag) {
             offset++
@@ -751,7 +750,7 @@ class StreamProcessor() {
 
         val power = parseUInt32le(packet, offset)
         val realClass = JobClass.convertFromCode(job)
-        val request = JoinRequestUser(String(np,Charsets.UTF_8),power,realClass?.name,server,requester)
+        val request = JoinRequestUser(String(np,Charsets.UTF_8),power,realClass?.name,server,requester,arrivedAt)
         PacketEventBus.events.tryEmit(PacketEvent.JoinRequest(request))
         return true
     }
