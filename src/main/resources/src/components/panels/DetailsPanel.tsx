@@ -139,7 +139,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                       const ratio = s.dmg / (details.totalDmg || 1);
                       const stats = [
                         { label: "명중", value: s.time },
-                        { label: "봉혼석", value: s.shardTimes },
+                        // { label: "봉혼석", value: s.shardTimes },
                         { label: "치명", value: s.critPct === "-" ? "-" : `${s.critPct}%` },
                         { label: "패리", value: s.parryPct === "-" ? "-" : `${s.parryPct}%` },
                         { label: "완벽", value: s.perfectPct === "-" ? "-" : `${s.perfectPct}%` },
@@ -197,7 +197,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                   <Table className="w-full table-fixed text-sm border-collapse">
                     <colgroup>
                       <col />
-                      {Array.from({ length: 7 }).map((_, i) => (
+                      {Array.from({ length: 6 }).map((_, i) => (
                         <col
                           key={i}
                           style={{ width: "9%" }}
@@ -214,9 +214,9 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
                         <TableHead className="py-2 font-bold text-center text-white">
                           명중 횟수
                         </TableHead>
-                        <TableHead className="py-2 font-bold text-center text-white">
+                        {/* <TableHead className="py-2 font-bold text-center text-white">
                           봉혼석
-                        </TableHead>
+                        </TableHead> */}
                         <TableHead className="py-2 text-center font-bold text-white">
                           치명타
                         </TableHead>
@@ -266,7 +266,7 @@ export const DetailsPanel = ({ player, onClose, onReady, combatTime, historyIdx 
 
                             {[
                               s.time,
-                              s.shardTimes,
+                              // s.shardTimes,
                               s.critPct === "-" ? "-" : `${s.critPct}%`,
                               s.parryPct === "-" ? "-" : `${s.parryPct}%`,
                               s.perfectPct === "-" ? "-" : `${s.perfectPct}%`,
