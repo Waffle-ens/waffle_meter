@@ -93,6 +93,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             if (stage.isShowing) hideToTray(stage) else showFromTray(stage)
         }
 
+        fun showWindow() {
+            if (!stage.isShowing) showFromTray(stage)
+        }
+
         fun getHideHotkey(): String {
             return HotkeyHandler.getVisibilityHotkey().toString()
         }
