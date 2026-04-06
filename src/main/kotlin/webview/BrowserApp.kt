@@ -1,5 +1,6 @@
 package com.tbread.webview
 
+import com.sun.jna.platform.win32.User32
 import com.tbread.DpsCalculator
 import com.tbread.addon.UploadManager
 import com.tbread.config.HotkeyHandler
@@ -276,6 +277,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.title = "Aion2 Dps Overlay"
 
         stage.show()
+        applyOverlayWindowStyle(stage.title)
 
         setupTray(stage)
 
@@ -310,6 +312,18 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             cycleCount = Timeline.INDEFINITE
             play()
         }
+    }
+
+    private fun applyOverlayWindowStyle(title: String) {
+        val GWL_EXSTYLE = -20
+        val WS_EX_TOOLWINDOW = 0x00000080
+        val WS_EX_APPWINDOW = 0x00040000
+        val user32 = User32.INSTANCE
+        val hwnd = user32.FindWindow(null, title) ?: return
+        val exStyle = user32.GetWindowLong(hwnd, GWL_EXSTYLE)
+        user32.SetWindowLong(hwnd, GWL_EXSTYLE,
+            (exStyle or WS_EX_TOOLWINDOW) and WS_EX_APPWINDOW.inv()
+        )
     }
 
     private fun setupTray(stage: Stage) {
