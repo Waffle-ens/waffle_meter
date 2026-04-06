@@ -10,5 +10,5 @@ data class JoinRequestUser(
     val server: Int,
     val requester: Int,
     val arrivedAt: Long,
-    val skill: HashMap<String, Int> = HashMap()
+    val skill: HashMap<Int, Int> = HashMap()
 )
