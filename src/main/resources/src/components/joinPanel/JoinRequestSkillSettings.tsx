@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { SkillIcon } from "../SkillIcon";
-import { getBadgeColor } from "@/utils/badgeColor";
+import { getClassColor } from "@/utils/classColor";
 import { GROUPED_BY_JOB, getSkillName } from "@/constants/codes";
 import { cn } from "@/lib/utils";
 export const JoinRequestSkillSettings = ({
@@ -95,8 +95,8 @@ export const JoinRequestSkillSettings = ({
                       size="sm"
                       onClick={() => toggle(code)}
                       className={cn(
-                        "flex items-center text-xs px-3 gap-1 rounded-xl",
-                        getBadgeColor(job),
+                        "flex items-center text-xs px-3 gap-2 rounded-xl",
+                        getClassColor(job),
                         visibleSkillCodes.includes(code) ? "opacity-100" : "opacity-40",
                       )}>
                       <SkillIcon

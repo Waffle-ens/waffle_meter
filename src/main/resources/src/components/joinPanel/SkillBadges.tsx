@@ -1,7 +1,7 @@
 import { useRef, useLayoutEffect, useState } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SkillIcon } from "../SkillIcon";
-import { getBadgeColor } from "@/utils/badgeColor";
+import { getClassColor } from "@/utils/classColor";
 
 interface SkillBadge {
   name: string;
@@ -9,7 +9,7 @@ interface SkillBadge {
   lv: number;
 }
 export const SkillBadges = ({ badges, job }: { badges: SkillBadge[]; job?: string }) => {
-  const badgeClass = getBadgeColor(job);
+  const badgeClass = getClassColor(job);
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(badges.length);
@@ -18,7 +18,7 @@ export const SkillBadges = ({ badges, job }: { badges: SkillBadge[]; job?: strin
   }, [badges.length]);
   useLayoutEffect(() => {
     if (!containerRef.current || !measureRef.current) return;
-    const containerWidth = containerRef.current.clientWidth - 10;
+    const containerWidth = containerRef.current.clientWidth;
     const reservedWidth = 44;
     const children = Array.from(measureRef.current.children) as HTMLElement[];
 
@@ -44,12 +44,14 @@ export const SkillBadges = ({ badges, job }: { badges: SkillBadge[]; job?: strin
         {visible.map(({ code, name, lv }) => (
           <div
             key={code}
-            className={`${badgeClass} flex items-center text-xs px-2 py-1 gap-1 rounded-xl `}>
+            className={`${badgeClass} flex items-center text-xs px-2 py-1 gap-2 rounded-xl `}>
             <SkillIcon
               code={code}
               size={14}
             />
-            <span key={name}>
+            <span
+              className=" text-shadow-meter"
+              key={name}>
               {name} Lv{lv}
             </span>
           </div>
@@ -58,8 +60,8 @@ export const SkillBadges = ({ badges, job }: { badges: SkillBadge[]; job?: strin
           <TooltipProvider delayDuration={10}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="py-0 px-2 rounded-full border border-white/30 cursor-pointer">
-                  <span className="text-xs">+{hidden.length}</span>
+                <div className="py-0 text-shadow-meter px-2 rounded-full border border-white/20 cursor-pointer">
+                  <span className=" text-xs">+{hidden.length}</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent
@@ -68,7 +70,7 @@ export const SkillBadges = ({ badges, job }: { badges: SkillBadge[]; job?: strin
                 <div className=" flex flex-wrap gap-2 p-2 ">
                   {hidden.map(({ code, name, lv }) => (
                     <div
-                      className={`${badgeClass} flex items-center text-xs px-2 py-1 gap-1 rounded-xl `}>
+                      className={`${badgeClass} flex items-center text-xs px-2 py-1 gap-2 rounded-xl `}>
                       <SkillIcon
                         code={code}
                         size={14}
@@ -91,7 +93,7 @@ export const SkillBadges = ({ badges, job }: { badges: SkillBadge[]; job?: strin
         {badges.map(({ code, name, lv }) => (
           <div
             key={code}
-            className="flex items-center text-xs px-2 py-1 gap-1 rounded-xl  whitespace-nowrap">
+            className={`${badgeClass} flex items-center text-xs px-2 py-1 gap-2 rounded-xl whitespace-nowrap`}>
             <SkillIcon
               code={code}
               size={14}

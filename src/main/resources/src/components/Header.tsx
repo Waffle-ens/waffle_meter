@@ -47,7 +47,7 @@ export const Header = ({
           />
         </div>
 
-        <div className="flex gap-2">
+        <div className={`${className} flex gap-2`}>
           {/* <Tooltip>
             <TooltipTrigger asChild> */}
           <Button
@@ -55,7 +55,7 @@ export const Header = ({
             onClick={exitApp}
             size="icon"
             className="rounded-full">
-            <Power className={`scale-125 ${className}`} />
+            <Power className="size-5" />
           </Button>
           {/* </TooltipTrigger> */}
           {/* <TooltipContent>종료</TooltipContent> */}
@@ -67,7 +67,7 @@ export const Header = ({
             variant="ghost"
             onClick={reset}
             className="rounded-full">
-            <RefreshCcw className={`scale-125 ${className}`} />
+            <RefreshCcw className="size-5" />
           </Button> */}
           {/* </TooltipTrigger>
             <TooltipContent>새로고침</TooltipContent>
@@ -77,7 +77,7 @@ export const Header = ({
             onClick={() => setOpen(!isOpen)}
             size="icon"
             className="rounded-full relative">
-            <Users className={`scale-125 ${className}`} />
+            <Users className="size-5" />
             {requestCount > 0 && (
               <span
                 className={`${className} absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[10px] flex items-center justify-center font-bold`}>
@@ -93,7 +93,7 @@ export const Header = ({
             variant="ghost"
             onClick={() => setSettings("settings")}
             className="rounded-full">
-            <Settings className={`scale-125 ${className}`} />
+            <Settings className="size-5" />
           </Button>
           {/* </TooltipTrigger>
             <TooltipContent>설정</TooltipContent>
@@ -106,7 +106,7 @@ export const Header = ({
             size="icon"
             onClick={() => setSettings("history")}
             className="rounded-full">
-            <ClipboardClock className={`scale-125 ${className}`} />
+            <ClipboardClock className="size-5" />
           </Button>
           {/* </TooltipTrigger>
             <TooltipContent>전투 기록</TooltipContent>
@@ -120,7 +120,7 @@ export const Header = ({
               size="icon"
               onClick={toggleDebugConsole}
               className="rounded-full">
-              <Bug className={`scale-125 ${className}`} />
+              <Bug className="size-5" />
             </Button>
             //   </TooltipTrigger>
             //   <TooltipContent>디버그 콘솔</TooltipContent>
