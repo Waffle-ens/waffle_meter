@@ -26,8 +26,4 @@ object PacketAddonManager {
     fun processingUser(joinRequestUser: JoinRequestUser):JoinRequestUser {
         return addon?.processingUser(joinRequestUser)?:joinRequestUser
     }
-
-    fun power(packet:ByteArray,offset:Int){
-        addon?.power(packet,offset)
-    }
 }

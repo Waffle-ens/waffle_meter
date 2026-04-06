@@ -71,7 +71,6 @@ class StreamProcessor() {
         if (flag) return
         flag = parseRefuseJoinRequest(packet, lengthInfo, extraFlag)
         if (flag) return
-        addonTest(packet, lengthInfo, extraFlag)
 
     }
 
@@ -924,19 +923,6 @@ class StreamProcessor() {
         if (packet[offset + 1] != 0x97.toByte()) return false
         PacketEventBus.events.tryEmit(PacketEvent.RefuseJoinRequest)
         return true
-    }
-
-    private fun addonTest(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean) {
-        var offset = lengthInfo.length
-        if (extraFlag) {
-            offset++
-        }
-        if (packet.size < offset + 2) return
-
-        if (packet[offset] != 0x00.toByte()) return
-        if (packet[offset + 1] != 0x92.toByte()) return
-        offset += 2
-        PacketAddonManager.power(packet, offset)
     }
 
 }
