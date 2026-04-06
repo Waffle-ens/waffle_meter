@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
-import { X } from "lucide-react";
+import { Settings, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getServerLabel } from "@/utils/parser";
 import { getJobIconSrc } from "@/utils/icons";
@@ -8,6 +8,7 @@ import { useSettingsStore } from "@/stores/useSettingsStore";
 import { getSkillName } from "@/constants/codes";
 import { JoinRequestSkillSettings } from "./JoinRequestSkillSettings";
 import { SkillBadges } from "./SkillBadges";
+import { cn } from "@/lib/utils";
 
 const TOTAL_SEC = 20;
 
@@ -51,33 +52,79 @@ const TimerBar = ({ arrivedAt }: { arrivedAt: number }) => {
   );
 };
 
-export const JoinRequestPanel = ({ maxWidth }: { maxWidth: number }) => {
+export const JoinRequestPanel = ({
+  maxWidth,
+  isMinimal,
+}: {
+  maxWidth: number;
+  isMinimal: boolean;
+}) => {
   const { requests, isOpen, setOpen } = useJoinRequestStore();
   const visibleSkillCodes = useSettingsStore((s) => s.visibleSkillCodes);
+  const [skillSettingsOpen, setSkillSettingsOpen] = useState(false); 
+  const [rendered, setRendered] = useState(false);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (isOpen) {
+      setRendered(true);
+      setTimeout(() => setVisible(true), 10);
+    } else {
+      setVisible(false);
+      setTimeout(() => setRendered(false), 200); 
+    }
+  }, [isOpen]);
+  if (!rendered) return null;
 
-  if (!isOpen) return null;
+  const rootClass = cn(
+    "group/join text-[rgba(215,215,215)] transition-all duration-200 ease-in-out relative rounded-lg font-bold",
+    visible ? "opacity-100 translate-y-2" : "opacity-0 -translate-y-2",
+    isMinimal
+      ? "bg-transparent group-hover/join:bg-[rgba(12,22,40,0.4)] group-hover/app:bg-[rgba(12,22,40,0.4)]"
+      : "bg-[rgba(12,22,40,0.4)]",
+  );
 
+  const headerClass = cn(
+    " duration-150 transition",
+    isMinimal &&
+      !skillSettingsOpen &&
+      "opacity-0 group-hover/join:opacity-100 group-hover/app:opacity-100",
+  );
   return (
     <div
       style={{ maxWidth }}
-      className={`mt-2 relative rounded-lg text-white bg-[rgba(12,22,40,0.4)]  font-bold transition-all duration-300 `}>
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10  rounded-t-lg">
-        <span className="text-sm">파티 신청</span>
-        <div className="flex items-center gap-1">
-          <span className="text-xs opacity-50 mr-2">{requests.length}건</span>
-          <JoinRequestSkillSettings />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setOpen(false)}>
-            <X />
-          </Button>
+      className={rootClass}>
+      <div>
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 rounded-t-lg">
+          <span className={`${headerClass} text-sm`}>파티 신청</span>
+          <div className="flex items-center gap-2">
+            <span className={`${headerClass} text-xs w-8 text-center`}>{requests.length}건</span>
+
+            <Button
+              size="icon"
+              variant="ghost"
+              className={`${headerClass} rounded-full`}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setSkillSettingsOpen((v) => !v)}>
+              <Settings className={`scale-125`} />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className={`${headerClass} rounded-full`}
+              onClick={() => setOpen(false)}>
+              <X className={`scale-125`} />
+            </Button>
+          </div>
         </div>
+        <JoinRequestSkillSettings
+          open={skillSettingsOpen}
+          onOpenChange={setSkillSettingsOpen}
+        />
       </div>
 
       <div>
         {requests.length === 0 ? (
-          <div className="flex items-center justify-center py-6 opacity-40">
+          <div className="flex items-center justify-center py-6 ">
             <span className="text-sm">파티 신청이 없습니다</span>
           </div>
         ) : (

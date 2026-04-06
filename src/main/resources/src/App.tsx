@@ -13,6 +13,7 @@ import { useSettingsStore } from "@/stores/useSettingsStore";
 // import { TooltipProvider } from "@/components/ui/tooltip";
 import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
 import { JoinRequestPanel } from "@/components/joinPanel/JoinRequestPanel";
+import { cn } from "@/lib/utils";
 
 import { DebugConsole } from "./components/DebugConsole";
 export default function App() {
@@ -148,34 +149,34 @@ export default function App() {
       refuseRequest();
     };
   }, [addRequest, removeRequest, clearAll, refuseRequest]);
-  const meterCss = `
-  rounded-lg transition-all duration-300 text-[rgba(215,215,215)] p-4 
-  ${
+  const meterClass = cn(
+    "rounded-lg transition-all duration-300 text-[rgba(215,215,215)] p-4",
     isMinimal
-      ? "bg-transparent   hover:bg-[rgba(12,22,40,0.4)] "
-      : "bg-[rgba(12,22,40,0.4)] border-[rgba(209,213,219,0.3)]"
-  }
-`;
+      ? "bg-transparent group-hover/app:bg-[rgba(12,22,40,0.4)]"
+      : "bg-[rgba(12,22,40,0.4)]",
+  );
 
-  const headerCss = `transition-opacity duration-300 ${
-    isMinimal ? "opacity-0 group-hover:opacity-100" : " opacity-100"
-  }`;
+  const headerClass = cn(
+    "transition-opacity duration-300",
+    isMinimal && "opacity-0 group-hover/app:opacity-100",
+  );
 
+  const rootClass = cn(
+    "drag-area cursor-move select-none relative group/app",
+    isDragging && "pointer-events-none",
+  );
   return (
     // <TooltipProvider>
     <div
-      style={{
-        width: "fit-content",
-      }}
-      className={`drag-area cursor-move select-none
- relative  group ${isDragging ? "pointer-events-none" : ""}`}>
+      style={{ width: "fit-content" }}
+      className={rootClass}>
       <div
-        className={`${meterCss} `}
+        className={meterClass}
         style={{ width: meterWidth }}>
         {headerPosition === "top" && (
           <div className=" mb-4">
             <Header
-              className={`${headerCss} `}
+              className={headerClass}
               reset={handleReset}
               setSettings={handlePanelToggle}
               // isCollapse={isCollapse}
@@ -214,7 +215,7 @@ export default function App() {
         {headerPosition === "bottom" && (
           <div className=" mt-4">
             <Header
-              className={`${headerCss} `}
+              className={headerClass}
               reset={handleReset}
               setSettings={handlePanelToggle}
               // isCollapse={isCollapse}
@@ -223,7 +224,12 @@ export default function App() {
           </div>
         )}
       </div>
-      <JoinRequestPanel maxWidth={meterWidth} />
+      <div className="group/join">
+        <JoinRequestPanel
+          isMinimal={isMinimal}
+          maxWidth={meterWidth}
+        />
+      </div>
       <DebugConsole></DebugConsole>
       <div>
         <SidePanel
