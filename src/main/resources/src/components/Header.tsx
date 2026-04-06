@@ -53,6 +53,7 @@ export const Header = ({
           <Button
             variant="ghost"
             onClick={exitApp}
+            size="icon"
             className="rounded-full">
             <Power className={`scale-125 ${className}`} />
           </Button>
@@ -73,8 +74,8 @@ export const Header = ({
           </Tooltip> */}
           <Button
             variant="ghost"
-            size="icon"
             onClick={() => setOpen(!isOpen)}
+            size="icon"
             className="rounded-full relative">
             <Users className={`scale-125 ${className}`} />
             {requestCount > 0 && (
@@ -88,6 +89,7 @@ export const Header = ({
           {/* <Tooltip>
             <TooltipTrigger asChild> */}
           <Button
+            size="icon"
             variant="ghost"
             onClick={() => setSettings("settings")}
             className="rounded-full">

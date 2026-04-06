@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import type { CheckStatus, Player ,UpdateInfo, PanelType, DownloadState} from "@/types";
+import type { CheckStatus, Player, UpdateInfo, PanelType, DownloadState } from "@/types";
 import { DetailsPanel } from "./DetailsPanel";
 import { SettingsPanel } from "./SettingsPanel.tsx";
 import { UpdatePanel } from "./UpdatePanel";
@@ -51,7 +51,9 @@ export const SidePanel = ({
     setCurrentType(panelType);
     setCurrentPlayer(panelPlayer);
     setRendered(true);
+    setTimeout(() => setVisible(true), 10);
   };
+
   const meterWidth = useSettingsStore((s) => s.meterWidth);
 
   const closePanel = (callback?: () => void) => {
@@ -97,13 +99,11 @@ export const SidePanel = ({
           onClose={onClose}
           combatTime={combatTime}
           historyIdx={historyIdx}
-          onReady={() => setTimeout(() => setVisible(true), 10)}
         />
       )}
       {currentType === "settings" && (
         <SettingsPanel
           onClose={onClose}
-          onReady={() => setTimeout(() => setVisible(true), 10)}
           currentVersion={currentVersion}
           updateInfo={updateInfo}
           onCheckUpdate={onCheckUpdate}
@@ -118,14 +118,12 @@ export const SidePanel = ({
           onRetryDownload={onRetryDownload}
           onUpdate={onUpdate ?? (() => {})}
           onOpenReleasePage={onOpenReleasePage}
-          onReady={() => setTimeout(() => setVisible(true), 10)}
         />
       )}
       {currentType === "history" && (
         <HistoryPanel
           key={currentPlayer?.id}
           onClose={onClose}
-          onReady={() => setTimeout(() => setVisible(true), 10)}
           onSelectHistory={onSelectHistory}
           formatBattleTime={formatBattleTime}
         />
