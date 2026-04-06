@@ -61,11 +61,23 @@ export const JoinRequestPanel = ({
 }) => {
   const { requests, isOpen, setOpen } = useJoinRequestStore();
   const visibleSkillCodes = useSettingsStore((s) => s.visibleSkillCodes);
-  const [skillSettingsOpen, setSkillSettingsOpen] = useState(false); // 추가
+  const [skillSettingsOpen, setSkillSettingsOpen] = useState(false); 
+  const [rendered, setRendered] = useState(false);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (isOpen) {
+      setRendered(true);
+      setTimeout(() => setVisible(true), 10);
+    } else {
+      setVisible(false);
+      setTimeout(() => setRendered(false), 200); 
+    }
+  }, [isOpen]);
+  if (!rendered) return null;
 
   const rootClass = cn(
     "group/join text-[rgba(215,215,215)] transition-all duration-200 ease-in-out relative rounded-lg font-bold",
-    isOpen ? "visible translate-y-2" : "invisible -translate-y-2",
+    visible ? "opacity-100 translate-y-2" : "opacity-0 -translate-y-2",
     isMinimal
       ? "bg-transparent group-hover/join:bg-[rgba(12,22,40,0.4)] group-hover/app:bg-[rgba(12,22,40,0.4)]"
       : "bg-[rgba(12,22,40,0.4)]",
@@ -83,9 +95,9 @@ export const JoinRequestPanel = ({
       className={rootClass}>
       <div>
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 rounded-t-lg">
-          <span className="text-sm">파티 신청</span>
+          <span className={`${headerClass} text-sm`}>파티 신청</span>
           <div className="flex items-center gap-2">
-            <span className="text-xs w-8 text-center ">{requests.length}건</span>
+            <span className={`${headerClass} text-xs w-8 text-center`}>{requests.length}건</span>
 
             <Button
               size="icon"
