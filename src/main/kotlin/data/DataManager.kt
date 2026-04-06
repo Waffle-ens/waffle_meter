@@ -314,19 +314,15 @@ object DataManager {
         return userRepository.findByNicknameAndServer(nickname, server)
     }
 
-    fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false) {
+    fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false,server:Int) {
         if (!userRepository.exist(uid)) {
-            userRepository.save(uid, User(uid, nickname, -1, null, isExecutor))
+            userRepository.save(uid, User(uid, nickname, server, null, isExecutor))
         }
         if (userRepository.get(uid)!!.equals(nickname)) return
         userRepository.get(uid)!!.nickname = nickname
         if (isExecutor) {
             saveExecutorId(uid)
         }
-    }
-
-    fun saveServer(uid: Int, server: Int) {
-        userRepository.get(uid)!!.server = server
     }
 
     private fun saveExecutorId(uid: Int) {

@@ -12,8 +12,8 @@ class UserRepository {
         val pendingUser = subStorage.find { it.nickname.equals(value.nickname) && it.server == value.server }
         if (pendingUser != null) {
             value.power = pendingUser.power
+            subStorage.remove(pendingUser)
         }
-        subStorage.remove(pendingUser)
         return storage.put(key, value)
     }
 

@@ -145,7 +145,6 @@ class StreamProcessor() {
         val np = packet.copyOfRange(offset, offset + nameLengthInfo.value)
         val nickname = String(np, Charsets.UTF_8)
         if (!isValidNickname(nickname)) return
-        DataManager.saveNickname(userInfo.value, nickname, true)
 
         offset += nameLengthInfo.value
         if (packet.size >= offset + 2) {
@@ -159,7 +158,7 @@ class StreamProcessor() {
                 job = packet[offset].toInt() and 0xff
             }
         }
-        if (server != -1) DataManager.saveServer(userInfo.value, server)
+        DataManager.saveNickname(userInfo.value, nickname, true,server)
         PacketAddonManager.parse(packet, arrivedAt)
     }
 
@@ -248,8 +247,7 @@ class StreamProcessor() {
             PacketAddonManager.parse(packet, arrivedAt)
         }
 
-        DataManager.saveNickname(userInfo.value, nickname)
-        if (server != -1) DataManager.saveServer(userInfo.value, server)
+        DataManager.saveNickname(userInfo.value, nickname,false,server)
 
     }
 
