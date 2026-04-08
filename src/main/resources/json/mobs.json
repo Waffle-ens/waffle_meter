@@ -30453,5 +30453,35 @@
     "code": 2980259,
     "name": "망령 지젤",
     "boss": true
+  },
+  {
+    "code": 2311402,
+    "name": "나사라크",
+    "boss": true
+  },
+  {
+    "code": 2311401,
+    "name": "글래스베인",
+    "boss": true
+  },
+  {
+    "code": 2311403,
+    "name": "나트하라",
+    "boss": true
+  },
+  {
+    "code": 2321402,
+    "name": "나사라크",
+    "boss": true
+  },
+  {
+    "code": 2321401,
+    "name": "글래스베인",
+    "boss": true
+  },
+  {
+    "code": 2321403,
+    "name": "나트하라",
+    "boss": true
   }
 ]

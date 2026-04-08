@@ -566,6 +566,7 @@ class StreamProcessor() {
             if (pdp.getDamage() < 10000000) {
                 //무의요람 버그수정을 위해 일단 천만이상의 데미지 무시
                 pdp.setTimestamp(arrivedAt)
+//                println("mobCode:${DataManager.mobId(pdp.getTargetId())}")
                 DataManager.saveDamage(pdp, epoch)
                 val mobCode = DataManager.mobId(pdp.getTargetId())
                 if (mobCode != null && DataManager.mob(mobCode)?.isDummy == true) {
