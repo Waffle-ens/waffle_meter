@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-version = "1.4.5"
+version = "1.5.0"
 
 tasks.processResources {
     outputs.upToDateWhen { false }
@@ -62,14 +62,7 @@ compose.desktop {
     application {
         mainClass = "com.tbread.MainKt"
 
-
-
-        buildTypes.release.proguard {
-            configurationFiles.from("proguard-rules.pro")
-            isEnabled = true
-            obfuscate = true
-            version = "7.5.0"
-        }
+        
 
         nativeDistributions {
             windows{
