@@ -5,7 +5,7 @@ import { SkillIcon } from "./SkillIcon";
 interface BuffRateBarProps {
   id: string;
   rate: number;
-  code?: string; 
+  code?: string;
 
   info?: BuffInfo;
 }
@@ -59,12 +59,13 @@ export const BuffRateBar = ({ id, rate, code, info }: BuffRateBarProps) => {
                   <p className="text-sm font-semibold text-white">{info?.name ?? id}</p>
                 </div>
               </div>
-
-              <div className="pt-2 border-t border-white/10">
-                <p className="text-xs text-white/60 whitespace-pre-line leading-relaxed">
-                  {info?.effect ? info?.effect : info?.summary ? info?.summary : ""}
-                </p>
-              </div>
+              {(info?.effect || info?.summary) && (
+                <div className="pt-2 border-t border-white/10">
+                  <p className="text-xs text-white/60 whitespace-pre-line leading-relaxed">
+                    {info?.effect ? info?.effect : info?.summary ? info?.summary : ""}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TooltipContent>

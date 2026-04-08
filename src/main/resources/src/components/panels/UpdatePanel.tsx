@@ -37,7 +37,7 @@ const CLS = {
   verCur: "text-slate-400 tabular-nums",
   verNew: "text-green-400 tabular-nums",
   dividerLine: "flex-1 h-px bg-white/[0.07]",
-  dividerText: "text-[10.5px] font-semibold tracking-[0.07em] uppercase whitespace-nowrap",
+  dividerText: "text-[10.5px] font-semibold tracking-[0.07em] uppercase ",
 } as const;
 
 const Divider = ({ label, labelCls }: { label: string; labelCls: string }) => (
@@ -94,7 +94,7 @@ export const UpdatePanel = ({
 
   return (
     <div
-      className="w-75 overflow-hidden font-semibold flex flex-col transition-opacity duration-150"
+      className="w-75 pb-2 px-2 overflow-hidden font-semibold flex flex-col transition-opacity duration-150"
       style={{ opacity: visible ? 1 : 0 }}>
       <div className="flex items-center gap-2.5 px-4 py-3 shrink-0">
         <div className={`w-2 h-2 rounded-full shrink-0 ${DOT_CLS[status]}`} />

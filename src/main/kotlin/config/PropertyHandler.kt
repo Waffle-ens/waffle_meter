@@ -10,9 +10,31 @@ object PropertyHandler {
     private const val VERSION_PROPERTY_FILE_NAME = "version.properties"
     private val logger = LoggerFactory.getLogger(PropertyHandler::class.java)
 
+    private val settingFile: File = run {
+        val appData = System.getenv("APPDATA") ?: System.getProperty("user.home")
+        val dir = File(appData, "Aion2DpsMeter")
+        dir.mkdirs()
+        File(dir, SETTING_PROPERTY_FILE_NAME)
+    }
+
     init {
-        loadProperties(SETTING_PROPERTY_FILE_NAME, true)
+        loadSettings()
         loadProperties(VERSION_PROPERTY_FILE_NAME, false)
+    }
+
+    private fun loadSettings() {
+        try {
+            if (settingFile.exists()) {
+                FileInputStream(settingFile).use { fis ->
+                    props.load(fis)
+                }
+            } else {
+                logger.info("설정파일이 존재하지 않아 파일을 생성합니다. 경로: ${settingFile.absolutePath}")
+                settingFile.createNewFile()
+            }
+        } catch (e: IOException) {
+            logger.error("설정파일 읽기에 실패했습니다.")
+        }
     }
 
     private fun loadProperties(fname: String, outerFlag: Boolean) {
@@ -44,7 +66,7 @@ object PropertyHandler {
     }
 
     private fun save() {
-        FileOutputStream(SETTING_PROPERTY_FILE_NAME).use { fos ->
+        FileOutputStream(settingFile).use { fos ->
             props.store(fos, "settings")
         }
     }

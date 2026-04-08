@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useMeter } from "./hooks/useMeter";
-import type { Player ,PanelType} from "@/types";
+import type { Player, PanelType } from "@/types";
 import { MeterList } from "./components/MeterList";
 import { useDragWindow } from "./hooks/useDragWindow";
 import { Header } from "@/components/Header.tsx";
@@ -11,6 +11,9 @@ import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { useResizable } from "@/hooks/useResizable";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 // import { TooltipProvider } from "@/components/ui/tooltip";
+import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
+import { JoinRequestPanel } from "@/components/joinPanel/JoinRequestPanel";
+import { cn } from "@/lib/utils";
 
 import { DebugConsole } from "./components/DebugConsole";
 export default function App() {
@@ -39,6 +42,7 @@ export default function App() {
     checkUpdate,
     checkStatus,
   } = useVersionCheck();
+  const { addRequest, removeRequest, clearAll, refuseRequest } = useJoinRequestStore();
 
   const headerPosition = useSettingsStore((s) => s.headerPosition);
   const { windowX, windowY } = useSettingsStore();
@@ -99,7 +103,7 @@ export default function App() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
-  
+
   useEffect(() => {
     if (!isLoaded) return;
     (window as any).javaBridge?.moveWindow(windowX, windowY);
@@ -124,40 +128,55 @@ export default function App() {
       setSelected(null);
     };
   }, [reset]);
+
   useEffect(() => {
     if (isInCombat) {
       setSelectedHistoryIdx(undefined);
     }
   }, [isInCombat]);
 
-  const meterCss = `
-  rounded-lg transition-all duration-300 text-[rgba(215,215,215)] p-4 
-  ${
+  useEffect(() => {
+    (window as any).onJoinRequest = (data: any) => {
+      addRequest(data);
+    };
+    (window as any).onJoinRequestRemove = (id: number) => {
+      removeRequest(id);
+    };
+    (window as any).onExitPartyUI = () => {
+      clearAll();
+    };
+    (window as any).onRefuseJoinRequest = () => {
+      refuseRequest();
+    };
+  }, [addRequest, removeRequest, clearAll, refuseRequest]);
+  const meterClass = cn(
+    "rounded-lg transition-all duration-300 text-[rgba(215,215,215)] p-4",
     isMinimal
-      ? "bg-transparent   hover:bg-[rgba(12,22,40,0.4)] "
-      : "bg-[rgba(12,22,40,0.4)] border-[rgba(209,213,219,0.3)]"
-  }
-`;
+      ? "bg-transparent group-hover/app:bg-[rgba(12,22,40,0.4)]"
+      : "bg-[rgba(12,22,40,0.4)]",
+  );
 
-  const headerCss = `transition-opacity duration-300 ${
-    isMinimal ? "opacity-0 group-hover:opacity-100" : " opacity-100"
-  }`;
+  const headerClass = cn(
+    "transition-opacity duration-300",
+    isMinimal && "opacity-0 group-hover/app:opacity-100",
+  );
 
+  const rootClass = cn(
+    "drag-area cursor-move select-none relative group/app",
+    isDragging && "pointer-events-none",
+  );
   return (
     // <TooltipProvider>
     <div
-      style={{
-        width: "fit-content",
-      }}
-      className={`drag-area cursor-move select-none
- relative  group ${isDragging ? "pointer-events-none" : ""}`}>
+      style={{ width: "fit-content" }}
+      className={rootClass}>
       <div
-        className={`${meterCss} `}
+        className={meterClass}
         style={{ width: meterWidth }}>
         {headerPosition === "top" && (
           <div className=" mb-4">
             <Header
-              className={`${headerCss} `}
+              className={headerClass}
               reset={handleReset}
               setSettings={handlePanelToggle}
               // isCollapse={isCollapse}
@@ -196,7 +215,7 @@ export default function App() {
         {headerPosition === "bottom" && (
           <div className=" mt-4">
             <Header
-              className={`${headerCss} `}
+              className={headerClass}
               reset={handleReset}
               setSettings={handlePanelToggle}
               // isCollapse={isCollapse}
@@ -204,6 +223,12 @@ export default function App() {
             />
           </div>
         )}
+      </div>
+      <div className="group/join">
+        <JoinRequestPanel
+          isMinimal={isMinimal}
+          maxWidth={meterWidth}
+        />
       </div>
       <DebugConsole></DebugConsole>
       <div>

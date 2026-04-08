@@ -2,23 +2,13 @@
 
 import { BuffRateBar } from "@/components/BuffRateBar";
 import type { BuffEntry } from "@/types";
-
+import { JOB_PREFIX_MAP } from "@/constants/codes";
 interface Props {
   buffOperatingRate: BuffEntry[] | null | undefined;
   columns?: number;
   playerJob?: string;
   playerId: number;
 }
-const JOB_PREFIX_MAP: Record<string, number> = {
-  검성: 11,
-  수호성: 12,
-  살성: 13,
-  궁성: 14,
-  마도성: 15,
-  정령성: 16,
-  치유성: 17,
-  호법성: 18,
-};
 
 interface SectionGridProps {
   label: string;

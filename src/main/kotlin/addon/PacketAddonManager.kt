@@ -1,5 +1,7 @@
 package com.tbread.addon
 
+import com.tbread.entity.JoinRequestUser
+
 object PacketAddonManager {
     private val addon: PacketAddon? by lazy { tryLoad() }
 
@@ -19,5 +21,9 @@ object PacketAddonManager {
 
     fun loggingServerTime(arrivedAt: Long, duration: Long, serverTime: Long) {
         addon?.loggingServerTime(arrivedAt, duration, serverTime)
+    }
+
+    fun processingUser(joinRequestUser: JoinRequestUser):JoinRequestUser {
+        return addon?.processingUser(joinRequestUser)?:joinRequestUser
     }
 }
