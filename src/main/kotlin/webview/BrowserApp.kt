@@ -110,7 +110,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun getDpsData(): String {
-            return Json.encodeToString(dpsData)
+            return cachedDpsJson
         }
 
         fun isDebuggingMode(): Boolean {
@@ -236,6 +236,9 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private var dpsData: DpsReport = dpsCalculator.getDps()
 
     @Volatile
+    private var cachedDpsJson: String = Json.encodeToString(dpsData)
+
+    @Volatile
     private var isVisible = true  // false = 사용자가 직접 숨긴 상태
 
     @Volatile
@@ -317,6 +320,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         
         Timeline(KeyFrame(Duration.millis(500.0), {
             dpsData = dpsCalculator.getDps()
+            cachedDpsJson = Json.encodeToString(dpsData)
         })).apply {
             cycleCount = Timeline.INDEFINITE
             play()
