@@ -74,13 +74,16 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         }
         data?.forEach {
             val actor = DataManager.summonerId(it.getActorId()) ?: it.getActorId()
-            val user = DataManager.user(actor) ?: User(actor, nickname = actor.toString())
+            var user = DataManager.user(actor)
+            if (user == null) {
+                user = User(actor, nickname = actor.toString())
+                DataManager.saveUser(user.id, user)
+            }
             report.contributors.remove(user)
             report.contributors.add(user)
             if (user.job == null) {
                 user.job = JobClass.convertFromSkill(it.getSkillCode1())
             }
-            DataManager.saveUser(user.id, user)
             report.information.getOrPut(user.id) { DpsInformation() }.addDamage(it.getDamage().toDouble())
             report.compareBattleTime(it.getTimeStamp())
         }
