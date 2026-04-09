@@ -317,11 +317,10 @@ object DataManager {
     }
 
     fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false,server:Int) {
-        if (!userRepository.exist(uid)) {
-            userRepository.save(uid, User(uid, nickname, server, null, isExecutor))
+        val user = userRepository.get(uid) ?: User(uid, nickname, server, null, isExecutor).also {
+            userRepository.save(uid, it)
         }
-        if (userRepository.get(uid)!!.equals(nickname)) return
-        userRepository.get(uid)!!.nickname = nickname
+        user.nickname = nickname
         if (isExecutor) {
             saveExecutorId(uid)
         }
