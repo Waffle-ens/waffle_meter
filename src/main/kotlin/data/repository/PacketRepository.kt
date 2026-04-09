@@ -6,8 +6,11 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 class PacketRepository {
     private val storage = ConcurrentHashMap<Int, CopyOnWriteArrayList<ParsedDamagePacket>>()
+    @Volatile
     private var currentTarget = 0
+    @Volatile
     private var currentBattleStart = 0L
+    @Volatile
     private var currentBattleEnd = 0L
 
     fun save(pdp: ParsedDamagePacket) {
