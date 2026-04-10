@@ -110,7 +110,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun getDpsData(): String {
-            return Json.encodeToString(dpsData)
+            return cachedDpsJson
         }
 
         fun isDebuggingMode(): Boolean {
@@ -236,6 +236,9 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private var dpsData: DpsReport = dpsCalculator.getDps()
 
     @Volatile
+    private var cachedDpsJson: String = Json.encodeToString(dpsData)
+
+    @Volatile
     private var isVisible = true  // false = 사용자가 직접 숨긴 상태
 
     @Volatile
@@ -317,6 +320,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         
         Timeline(KeyFrame(Duration.millis(500.0), {
             dpsData = dpsCalculator.getDps()
+            cachedDpsJson = Json.encodeToString(dpsData)
         })).apply {
             cycleCount = Timeline.INDEFINITE
             play()
@@ -367,14 +371,15 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     }
 
     private fun applyOverlayWindowStyle(title: String) {
-        val GWL_EXSTYLE = -20
-        val WS_EX_TOOLWINDOW = 0x00000080
-        val WS_EX_APPWINDOW = 0x00040000
+        val gwlExStyle = -20
+        val wsExToolWindow = 0x00000080
+        val wsExAppWindow = 0x00040000
+        val wsExNoActivate = 0x08000000
         val user32 = User32.INSTANCE
         val hwnd = user32.FindWindow(null, title) ?: return
-        val exStyle = user32.GetWindowLong(hwnd, GWL_EXSTYLE)
-        user32.SetWindowLong(hwnd, GWL_EXSTYLE,
-            (exStyle or WS_EX_TOOLWINDOW) and WS_EX_APPWINDOW.inv()
+        val exStyle = user32.GetWindowLong(hwnd, gwlExStyle)
+        user32.SetWindowLong(hwnd, gwlExStyle,
+            (exStyle or wsExToolWindow or wsExNoActivate) and wsExAppWindow.inv()
         )
     }
 

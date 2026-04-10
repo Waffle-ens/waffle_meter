@@ -4,6 +4,7 @@ import com.tbread.data.repository.*
 import com.tbread.entity.*
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
@@ -150,6 +151,7 @@ object DataManager {
 
     fun executorId(): Int = userRepository.executor()
 
+    @Volatile
     private var lastDummyHitTime: Long = 0
     private val DUMMY_TIMEOUT_MS = 5000L
 
@@ -173,7 +175,7 @@ object DataManager {
         }
     }
 
-    private val recentlyEndedMobs = HashMap<Int, Long>()
+    private val recentlyEndedMobs = ConcurrentHashMap<Int, Long>()
     private val BATTLE_END_COOLDOWN_MS = 1000L
 
     fun toggleBattle(mobId: Int) {
@@ -315,11 +317,10 @@ object DataManager {
     }
 
     fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false,server:Int) {
-        if (!userRepository.exist(uid)) {
-            userRepository.save(uid, User(uid, nickname, server, null, isExecutor))
+        val user = userRepository.get(uid) ?: User(uid, nickname, server, null, isExecutor).also {
+            userRepository.save(uid, it)
         }
-        if (userRepository.get(uid)!!.equals(nickname)) return
-        userRepository.get(uid)!!.nickname = nickname
+        user.nickname = nickname
         if (isExecutor) {
             saveExecutorId(uid)
         }

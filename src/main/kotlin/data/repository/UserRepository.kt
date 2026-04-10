@@ -5,24 +5,27 @@ import java.util.concurrent.ConcurrentHashMap
 
 class UserRepository {
     private val storage = ConcurrentHashMap<Int, User>()
+
+    // nickname:server 를 키로 사용 — find+remove 를 ConcurrentHashMap.remove() 한 번으로 원자적 처리
+    private val subStorage = ConcurrentHashMap<String, User>()
+
+    @Volatile
     private var executor: Int = 0
-    private val subStorage = mutableSetOf<User>()
 
     fun save(key: Int, value: User): User? {
-        val pendingUser = subStorage.find { it.nickname.equals(value.nickname) && it.server == value.server }
+        val pendingUser = subStorage.remove("${value.nickname}:${value.server}")
         if (pendingUser != null) {
             value.power = pendingUser.power
-            subStorage.remove(pendingUser)
         }
         return storage.put(key, value)
     }
 
-    fun savePending(user:User){
-        subStorage.add(user)
+    fun savePending(user: User) {
+        subStorage["${user.nickname}:${user.server}"] = user
     }
 
-    fun removePending(user:User){
-        subStorage.remove(user)
+    fun removePending(user: User) {
+        subStorage.remove("${user.nickname}:${user.server}")
     }
 
     fun get(id: Int): User? {
@@ -34,11 +37,12 @@ class UserRepository {
     }
 
     fun findByNicknameAndServer(nickname: String, server: Int): User? {
-        return storage.values.find { it.nickname.equals(nickname) && it.server == server }
+        return storage.values.find { it.nickname == nickname && it.server == server }
     }
 
     fun flush() {
         storage.clear()
+        subStorage.clear()
     }
 
     fun executor(): Int {
