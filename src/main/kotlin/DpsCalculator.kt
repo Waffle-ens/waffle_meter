@@ -107,7 +107,11 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         val dmEnd = DataManager.currentBattleEnd()
         val report = DpsReport(
             contributors = cachedContributors.toMutableSet(),
-            battleStart = if (dmStart != 0L) dmStart else cachedBattleStart,
+            battleStart = when {
+                dmStart != 0L && cachedBattleStart != 0L -> minOf(dmStart, cachedBattleStart)
+                dmStart != 0L -> dmStart
+                else -> cachedBattleStart
+            },
             battleEnd = maxOf(dmEnd, cachedBattleEnd),
             packets = data
         )
