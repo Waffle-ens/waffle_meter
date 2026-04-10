@@ -215,16 +215,8 @@ export default function App() {
             combatTime={formatBattleTime(battleTime)}
           />
         )}
-
-        {!isMinimal && (
-          <div
-            onMouseDown={onMouseDown}
-            className="resizeHandle absolute top-1/2 -translate-y-1/2 -right-3 w-1 h-16 cursor-e-resize flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity group">
-            <div className="w-1 h-10 rounded-full bg-white  transition-colors" />
-          </div>
-        )}
         {headerPosition === "bottom" && (
-          <div className=" mt-1">
+          <div className=" mt-2">
             <Header
               className={headerClass}
               reset={handleReset}
@@ -232,6 +224,13 @@ export default function App() {
               // isCollapse={isCollapse}
               // toggleCollapse={handleToggleCollapse}
             />
+          </div>
+        )}
+        {!isMinimal && (
+          <div
+            onMouseDown={onMouseDown}
+            className="resizeHandle absolute top-1/2 -translate-y-1/2 -right-3 w-1 h-16 cursor-e-resize flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity group">
+            <div className="w-1 h-10 rounded-full bg-white  transition-colors" />
           </div>
         )}
       </div>
