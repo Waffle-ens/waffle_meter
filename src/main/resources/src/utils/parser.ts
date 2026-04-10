@@ -123,5 +123,5 @@ export function parseCombatData(raw: unknown): {
 
   const targetName = data.target?.mob?.name ?? "";
   const remainHp = data.target?.remainHp ?? 0;
-  return { players: rows.sort((a, b) => b.dps - a.dps), targetName, remainHp };
+  return { players: rows, targetName, remainHp };
 }

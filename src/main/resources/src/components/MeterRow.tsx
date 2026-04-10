@@ -47,13 +47,13 @@ export const MeterRow = memo(
       warning: makeGradient(...theme.warningBar),
       error: makeGradient(...theme.errorBar),
     };
-
-    const getNameColor = (server?: number) => {
-      if (!server) return theme.serverDefaultColor;
-      if (server >= 1001 && server <= 1021) return theme.serverAColor;
-      if (server >= 2001 && server <= 2021) return theme.serverBColor;
-      return theme.serverDefaultColor;
-    };
+    const nameColor = !server
+      ? theme.serverDefaultColor
+      : server >= 1001 && server <= 1021
+        ? theme.serverAColor
+        : server >= 2001 && server <= 2021
+          ? theme.serverBColor
+          : theme.serverDefaultColor;
 
     const maskedName = (name: string) => `${name[0]}***`;
     const iconSize = Math.round(rowHeight * 0.7);
@@ -162,7 +162,6 @@ export const MeterRow = memo(
           );
       }
     };
-
     const displayName = (() => {
       switch (nameDisplay) {
         case "all":
@@ -202,7 +201,7 @@ export const MeterRow = memo(
           <div className="flex gap-1.5 flex-1 items-center">
             <span
               className="font-bold text-shadow-meter truncate "
-              style={{ color: getNameColor(server), fontSize }}>
+              style={{ color: nameColor, fontSize }}>
               {displayName}
             </span>
             {/* {showPower && power > 0 && (

@@ -77,28 +77,29 @@ export default function App() {
     setSelected(null);
   }, [reset]);
 
-  const handleSelect = useCallback(
-    (id: number) => {
-      if (wasDraggingRef.current) return;
+  const playersRef = useRef<Player[]>([]);
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
 
-      const player = players.find((p) => p.id === id);
-      if (!player) return;
-      if (activePanelRef.current === "details" && selectedRef.current?.id === player.id) {
-        setActivePanel(null);
-        return;
-      }
-      setSelected(player);
-      setActivePanel("details");
-    },
-    [players],
-  );
+  const handleSelect = useCallback((id: number) => {
+    if (wasDraggingRef.current) return;
+    const player = playersRef.current.find((p) => p.id === id);
+    if (!player) return;
+    if (activePanelRef.current === "details" && selectedRef.current?.id === player.id) {
+      setActivePanel(null);
+      return;
+    }
+    setSelected(player);
+    setActivePanel("details");
+  }, []);
   const handleClose = useCallback(() => {
     setActivePanel(null);
   }, []);
   const handleCheckUpdate = useCallback(() => {
     checkUpdate();
     handlePanelToggle("update");
-  }, []);
+  }, [checkUpdate, handlePanelToggle]);
 
   useEffect(() => {
     activePanelRef.current = activePanel;
@@ -151,7 +152,7 @@ export default function App() {
     (window as any).onRefuseJoinRequest = () => {
       refuseRequest();
     };
-  }, [addRequest, removeRequest, clearAll, refuseRequest]);
+  }, []);
   const meterClass = cn(
     "rounded-lg transition-all duration-300 text-[rgba(215,215,215)] py-3 px-4",
     isMinimal
@@ -167,6 +168,13 @@ export default function App() {
   const rootClass = cn(
     "drag-area cursor-move select-none relative group/app",
     isDragging && "pointer-events-none",
+  );
+  const handleSelectHistory = useCallback(
+    (idx: number, report: any) => {
+      setHistoryData(report);
+      setSelectedHistoryIdx(idx);
+    },
+    [setHistoryData],
   );
   return (
     // <TooltipProvider>
@@ -248,10 +256,7 @@ export default function App() {
           formatBattleTime={formatBattleTime}
           historyIdx={selectedHistoryIdx}
           onOpenReleasePage={openReleasePage}
-          onSelectHistory={(idx, report) => {
-            setHistoryData(report);
-            setSelectedHistoryIdx(idx);
-          }}
+          onSelectHistory={handleSelectHistory}
           currentVersion={currentVersion ?? undefined}
           onCheckUpdate={handleCheckUpdate}
         />
