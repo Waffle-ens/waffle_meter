@@ -52,6 +52,9 @@ export default function App() {
   const { meterWidth, onMouseDown, isDragging } = useResizable();
   const rowHeight = useSettingsStore((s) => s.rowHeight);
   const isMinimal = useSettingsStore((s) => s.isMinimal);
+  const showCombatTimerInMinimal = useSettingsStore((s) => s.showCombatTimerInMinimal);
+  const showTargetInfoInMinimal = useSettingsStore((s) => s.showTargetInfoInMinimal);
+
   const [selectedHistoryIdx, setSelectedHistoryIdx] = useState<number | undefined>(undefined);
 
   const handlePanelToggle = useCallback((panel: PanelType) => {
@@ -150,7 +153,7 @@ export default function App() {
     };
   }, [addRequest, removeRequest, clearAll, refuseRequest]);
   const meterClass = cn(
-    "rounded-lg transition-all duration-300 text-[rgba(215,215,215)] p-4",
+    "rounded-lg transition-all duration-300 text-[rgba(215,215,215)] py-3 px-4",
     isMinimal
       ? "bg-transparent group-hover/app:bg-[rgba(12,22,40,0.4)]"
       : "bg-[rgba(12,22,40,0.4)]",
@@ -174,7 +177,7 @@ export default function App() {
         className={meterClass}
         style={{ width: meterWidth }}>
         {headerPosition === "top" && (
-          <div className=" mb-4">
+          <div className=" mb-3">
             <Header
               className={headerClass}
               reset={handleReset}
@@ -184,7 +187,7 @@ export default function App() {
             />
           </div>
         )}
-        {players.length > 0 && !isMinimal && (
+        {players.length > 0 && (!isMinimal || showTargetInfoInMinimal) && (
           <TargetInfo
             targetName={targetName}
             rowHeight={rowHeight}
@@ -198,7 +201,7 @@ export default function App() {
           rowHeight={rowHeight}
         />
 
-        {battleTime && !isMinimal && (
+        {battleTime && (!isMinimal || showCombatTimerInMinimal) && (
           <CombatTimer
             isInCombat={isInCombat}
             combatTime={formatBattleTime(battleTime)}
@@ -213,7 +216,7 @@ export default function App() {
           </div>
         )}
         {headerPosition === "bottom" && (
-          <div className=" mt-4">
+          <div className=" mt-3">
             <Header
               className={headerClass}
               reset={handleReset}
