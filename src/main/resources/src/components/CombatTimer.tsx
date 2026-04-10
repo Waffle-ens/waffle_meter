@@ -5,7 +5,7 @@ interface Props {
 
 export const CombatTimer = ({ isInCombat, combatTime }: Props) => {
   return (
-    <div className="flex items-center gap-2 px-1 pt-3">
+    <div className="flex items-center gap-2 px-1 pt-2">
       <div
         className="w-2 h-2 rounded-full transition-colors duration-300"
         style={{

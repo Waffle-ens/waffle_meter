@@ -154,7 +154,7 @@ export default function App() {
     };
   }, []);
   const meterClass = cn(
-    "rounded-lg transition-all duration-300 text-[rgba(215,215,215)] py-3 px-4",
+    "rounded-lg transition-all duration-300 text-[rgba(215,215,215)] py-2 px-3",
     isMinimal
       ? "bg-transparent group-hover/app:bg-[rgba(12,22,40,0.4)]"
       : "bg-[rgba(12,22,40,0.4)]",
@@ -185,7 +185,7 @@ export default function App() {
         className={meterClass}
         style={{ width: meterWidth }}>
         {headerPosition === "top" && (
-          <div className=" mb-3">
+          <div className=" mb-2">
             <Header
               className={headerClass}
               reset={handleReset}
@@ -224,7 +224,7 @@ export default function App() {
           </div>
         )}
         {headerPosition === "bottom" && (
-          <div className=" mt-3">
+          <div className=" mt-1">
             <Header
               className={headerClass}
               reset={handleReset}

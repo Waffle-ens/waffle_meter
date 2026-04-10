@@ -95,7 +95,7 @@ export const JoinRequestPanel = ({
       className={rootClass}>
       <div>
         <div
-          className={`${headerClass} flex items-center  px-4 py-2.5 border-b border-white/10 rounded-t-lg`}>
+          className={`${headerClass} flex items-center  px-3 py-1.5 border-b border-white/10 rounded-t-lg`}>
           <span className={` flex-1 text-sm`}>파티 신청</span>
           <div className="flex items-center gap-2 h-8">
             <span className={` text-xs w-8 text-center`}>{requests.length}건</span>
@@ -133,7 +133,7 @@ export const JoinRequestPanel = ({
           <div
             className="overflow-y-auto scrollbar-gutter:stable "
             style={{ maxHeight: 320 }}>
-            {[...requests].reverse().map((r) => {
+            {[...requests].reverse().map((r, i) => {
               const badges = Object.entries(r.skill ?? {})
                 .filter(([code]) => visibleSkillCodes.includes(Number(code)))
                 .sort(
@@ -150,8 +150,8 @@ export const JoinRequestPanel = ({
               return (
                 <div
                   key={r.requester}
-                  className="px-4 py-2  ">
-                  <div className={`${getClassColor(r.job ?? undefined)} p-2 px-4 rounded-lg `}>
+                  className={`${i == 0 ? "py-0" : "py-2"} px-3`}>
+                  <div className={`${getClassColor(r.job ?? undefined)} p-2 px-3 rounded-lg `}>
                     <div className="flex items-center gap-1 ">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <img

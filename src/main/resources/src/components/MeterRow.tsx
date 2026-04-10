@@ -200,7 +200,7 @@ export const MeterRow = memo(
           </div>
           <div className="flex gap-1.5 flex-1 items-center">
             <span
-              className="font-bold text-shadow-meter truncate "
+              className="font-bold text-shadow-meter truncate pr-1"
               style={{ color: nameColor, fontSize }}>
               {displayName}
             </span>
