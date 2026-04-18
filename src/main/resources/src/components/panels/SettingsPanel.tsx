@@ -38,10 +38,10 @@ const DISPLAY_MODES: { value: DisplayMode; label: string; description: string }[
   { value: "dps_percent", label: "DPS / 기여도", description: "45,000/초 (35.5%)" },
   {
     value: "amount_dps_percent",
-    label: "누적 / DPS / 기여도",
+    label: "누적(축약) / DPS / 기여도",
     description: "1.2M 45,000/초 (35.5%)",
   },
-  { value: "amount_percent", label: "누적 / 기여도", description: "1.2M (35.5%)" },
+  { value: "amount_percent", label: "누적(축약) / 기여도", description: "1.2M (35.5%)" },
   {
     value: "amount_full_dps_percent",
     label: "누적(전체) / DPS / 기여도",
@@ -92,8 +92,12 @@ export const SettingsPanel = ({
     setThemeColor,
     setTheme,
     resetTheme,
-    showPower,
-    setShowPower,
+    showCombatTimerInMinimal,
+    setShowCombatTimerInMinimal,
+    showTargetInfoInMinimal,
+    setShowTargetInfoInMinimal,
+    // showPower,
+    // setShowPower,
   } = useSettingsStore();
 
   const { pending, start, stop, reset } = useHotkeyCapture(hotkey);
@@ -113,6 +117,9 @@ export const SettingsPanel = ({
     fontFamily,
     rowHeight,
     isMinimal,
+    showCombatTimerInMinimal,
+    showTargetInfoInMinimal,
+
     theme: { ...theme },
   }));
 
@@ -140,11 +147,14 @@ export const SettingsPanel = ({
     setFontFamily(snapshot.fontFamily);
     setRowHeight(snapshot.rowHeight);
     setIsMinimal(snapshot.isMinimal);
+    setShowCombatTimerInMinimal(snapshot.showCombatTimerInMinimal);
+    setShowTargetInfoInMinimal(snapshot.showTargetInfoInMinimal);
     setHotkey(snapshot.hotkey);
     reset(snapshot.hotkey);
     resetHide(snapshot.hideHotkey);
     setHeaderPosition(snapshot.headerPosition);
     setTheme(snapshot.theme as ThemeColors);
+
     onClose();
   };
 
@@ -177,18 +187,6 @@ export const SettingsPanel = ({
               }>
               {updateInfo ? `v${updateInfo.latestVersion} 업데이트` : "업데이트 확인"}
             </Button>
-          </SettingsRow>
-        </SettingsItem>
-
-        <SettingsItem>
-          <SettingsRow
-            title="컴팩트 모드"
-            description="DPS만 표시하고 나머지를 숨깁니다">
-            <Switch
-              checked={isMinimal}
-              onCheckedChange={(v) => setIsMinimal(v)}
-              className="data-[state=checked]:bg-purple-500"
-            />
           </SettingsRow>
         </SettingsItem>
 
@@ -243,6 +241,7 @@ export const SettingsPanel = ({
             </Select>
           </SettingsRow>
         </SettingsItem>
+
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">단축키 설정</span>
@@ -275,12 +274,44 @@ export const SettingsPanel = ({
             />
           </SettingsRow>
         </SettingsItem>
+
+        <div className="my-3 flex items-center gap-2">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-xs opacity-40 px-2 shrink-0">컴팩트 모드</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+        <SettingsItem>
+          <SettingsRow title="컴팩트 모드">
+            <Switch
+              checked={isMinimal}
+              onCheckedChange={(v) => setIsMinimal(v)}
+              className="data-[state=checked]:bg-purple-500"
+            />
+          </SettingsRow>
+
+          <SettingsRow title="컴팩트 모드 시 전투 시간 표시">
+            <Switch
+              checked={showCombatTimerInMinimal}
+              onCheckedChange={(v) => setShowCombatTimerInMinimal(v)}
+              className="data-[state=checked]:bg-purple-500 disabled:opacity-30"
+            />
+          </SettingsRow>
+
+          <SettingsRow title="컴팩트 모드 시 보스 표시">
+            <Switch
+              checked={showTargetInfoInMinimal}
+              onCheckedChange={(v) => setShowTargetInfoInMinimal(v)}
+              className="data-[state=checked]:bg-purple-500 disabled:opacity-30"
+            />
+          </SettingsRow>
+        </SettingsItem>
+
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">미터기 설정</span>
           <div className="flex-1 h-px bg-white/10" />
         </div>
-        <SettingsRow
+        {/* <SettingsRow
           title="전투력 표시"
           description="이름 옆에 전투력을 표시합니다">
           <Switch
@@ -288,7 +319,7 @@ export const SettingsPanel = ({
             onCheckedChange={(v) => setShowPower(v)}
             className="data-[state=checked]:bg-purple-500"
           />
-        </SettingsRow>
+        </SettingsRow> */}
         <SettingsItem>
           <SettingsRow
             title="표시 형식"
@@ -354,7 +385,6 @@ export const SettingsPanel = ({
           </SettingsRow>
         </SettingsItem>
 
-        {/* ── 테마 설정 ── */}
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">테마 설정</span>

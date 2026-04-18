@@ -16,7 +16,7 @@ interface Props {
   topDps: number;
   rowHeight: number;
   server: number;
-  power: number;
+  // power: number;
 }
 
 const makeGradient = (from: string, to: string) => `linear-gradient(to right, ${from}, ${to})`;
@@ -34,12 +34,12 @@ export const MeterRow = memo(
     topDps,
     amount,
     rowHeight,
-    power,
+    // power,
   }: Props) => {
     const displayMode = useSettingsStore((s) => s.displayMode);
     const nameDisplay = useSettingsStore((s) => s.nameDisplay);
     const theme = useSettingsStore((s) => s.theme);
-    const showPower = useSettingsStore((s) => s.showPower);
+    // const showPower = useSettingsStore((s) => s.showPower);
 
     const gradients = {
       user: makeGradient(...theme.userBar),
@@ -47,13 +47,13 @@ export const MeterRow = memo(
       warning: makeGradient(...theme.warningBar),
       error: makeGradient(...theme.errorBar),
     };
-
-    const getNameColor = (server?: number) => {
-      if (!server) return theme.serverDefaultColor;
-      if (server >= 1001 && server <= 1021) return theme.serverAColor;
-      if (server >= 2001 && server <= 2021) return theme.serverBColor;
-      return theme.serverDefaultColor;
-    };
+    const nameColor = !server
+      ? theme.serverDefaultColor
+      : server >= 1001 && server <= 1021
+        ? theme.serverAColor
+        : server >= 2001 && server <= 2021
+          ? theme.serverBColor
+          : theme.serverDefaultColor;
 
     const maskedName = (name: string) => `${name[0]}***`;
     const iconSize = Math.round(rowHeight * 0.7);
@@ -162,7 +162,6 @@ export const MeterRow = memo(
           );
       }
     };
-
     const displayName = (() => {
       switch (nameDisplay) {
         case "all":
@@ -201,11 +200,11 @@ export const MeterRow = memo(
           </div>
           <div className="flex gap-1.5 flex-1 items-center">
             <span
-              className="font-bold text-shadow-meter truncate "
-              style={{ color: getNameColor(server), fontSize }}>
+              className="font-bold text-shadow-meter truncate pr-1"
+              style={{ color: nameColor, fontSize }}>
               {displayName}
             </span>
-            {showPower && power > 0 && (
+            {/* {showPower && power > 0 && (
               <div
                 className={`bg-black/30 px-2     text-shadow-meter flex items-center rounded-xl `}>
                 <span
@@ -214,7 +213,7 @@ export const MeterRow = memo(
                     fontSize: `${parseInt(fontSize) - 2}px`,
                   }}>{`${(power / 1000).toFixed(1)}k`}</span>
               </div>
-            )}
+            )} */}
           </div>
           <div className="flex items-center gap-2 font-bold text-shadow-meter">{renderStats()}</div>
         </div>

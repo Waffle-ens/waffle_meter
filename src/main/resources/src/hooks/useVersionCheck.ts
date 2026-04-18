@@ -8,7 +8,9 @@ const RETRY_INTERVAL = 800;
 const RETRY_LIMIT = 5;
 
 const parseVersion = (value: string): Version | null => {
-  const raw = String(value || "").trim().replace(/^v/i, "");
+  const raw = String(value || "")
+    .trim()
+    .replace(/^v/i, "");
   const match = raw.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
   if (!match) return null;
   return {
@@ -52,7 +54,7 @@ export const useVersionCheck = () => {
   const [downloadState, setDownloadState] = useState<DownloadState>({ status: "idle" });
   const [checkStatus, setCheckStatus] = useState<CheckStatus>("idle");
   const retryCountRef = useRef(0);
-  const currentVersionRef = useRef<Version | null>(null);
+  const [currentVersion, setCurrentVersion] = useState<string | null>(null);
   const cancelledRef = useRef(false);
 
   const checkUpdate = useCallback(async () => {
@@ -73,12 +75,12 @@ export const useVersionCheck = () => {
           retryCountRef.current++;
           setTimeout(check, RETRY_INTERVAL);
         } else {
-          setCheckStatus("error"); 
+          setCheckStatus("error");
         }
         return;
       }
 
-      currentVersionRef.current = current;
+      setCurrentVersion(current.raw);
 
       try {
         const res = await fetch(API, {
@@ -173,7 +175,7 @@ export const useVersionCheck = () => {
 
   return {
     updateInfo,
-    currentVersion: currentVersionRef.current?.raw ?? null,
+    currentVersion,
     downloadState,
     checkStatus,
     startUpdate,

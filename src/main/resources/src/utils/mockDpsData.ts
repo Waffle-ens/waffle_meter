@@ -715,7 +715,7 @@ const MOCK_DATA = {
   contributors: [
     { id: 1, nickname: "나", server: 1001, power: 234123, job: "검성", isExecutor: true },
     { id: 2, nickname: "딜러A딜러A딜러A딜러A", power: 564123, server: 2002, job: "마도성" },
-    { id: 3, nickname: "딜러B", server: 2001, power: 113456, job: "정령성" },
+    { id: 3, nickname: "딜러B", power: 113456, job: "정령성" },
     { id: 4, nickname: "딜러C", server: 1003, power: 442123, job: "호법성" },
     { id: 5, nickname: "서폿A", server: 1004, job: "치유성" },
     { id: 6, nickname: "서폿B", server: 1005, job: "수호성" },

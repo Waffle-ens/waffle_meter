@@ -1,6 +1,14 @@
 import { useEffect, useRef } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 
+const throttle = <T extends (...args: any[]) => void>(fn: T, ms: number): T => {
+  let last = 0;
+  return ((...args) => {
+    const now = Date.now();
+    if (now - last >= ms) { last = now; fn(...args); }
+  }) as T;
+};
+
 type Direction = "both";
 
 export const useResizableDetail = () => {
@@ -21,15 +29,18 @@ export const useResizableDetail = () => {
   };
 
   useEffect(() => {
+    const throttledSet = throttle((h: number, w: number) => {
+      useSettingsStore.setState({ detailHeight: h, detailWidth: w });
+    }, 16);
+
     const onMouseMove = (e: MouseEvent) => {
       if (!isResizing.current) return;
-
       if (isResizing.current === "both") {
         const dy = e.clientY - startY.current;
         const dx = e.clientX - startX.current;
         const newH = Math.max(300, Math.min(1070, startHeight.current + dy));
         const newW = Math.max(480, Math.min(1600, startWidth.current + dx));
-        useSettingsStore.setState({ detailHeight: newH, detailWidth: newW });
+        throttledSet(newH, newW);
       }
     };
 
@@ -49,5 +60,5 @@ export const useResizableDetail = () => {
     };
   }, []);
 
-  return { detailHeight, detailWidth ,onMouseDownCorner };
+  return { detailHeight, detailWidth, onMouseDownCorner };
 };
