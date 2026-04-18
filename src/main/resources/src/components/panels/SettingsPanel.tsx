@@ -299,7 +299,7 @@ export const SettingsPanel = ({
             />
           </SettingsRow>
 
-          <SettingsRow title="컴팩트 모드 시 전투 시간 표시">
+          <SettingsRow title="컴팩트 모드 중 전투 시간 표시">
             <Switch
               checked={showCombatTimerInMinimal}
               onCheckedChange={(v) => setShowCombatTimerInMinimal(v)}
@@ -307,7 +307,7 @@ export const SettingsPanel = ({
             />
           </SettingsRow>
 
-          <SettingsRow title="컴팩트 모드 시 보스 표시">
+          <SettingsRow title="컴팩트 모드 중 보스 표시">
             <Switch
               checked={showTargetInfoInMinimal}
               onCheckedChange={(v) => setShowTargetInfoInMinimal(v)}
