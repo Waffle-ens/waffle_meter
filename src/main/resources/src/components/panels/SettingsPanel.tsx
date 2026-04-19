@@ -500,6 +500,11 @@ export const SettingsPanel = ({
               value={theme.meterStatPercent}
               onChange={(v) => setThemeColor("meterStatPercent", v)}
             />
+            <ColorSwatch
+              label="전투 시간"
+              value={theme.combatTimeColor}
+              onChange={(v) => setThemeColor("combatTimeColor", v)}
+            />
           </div>
         </SettingsItem>
 

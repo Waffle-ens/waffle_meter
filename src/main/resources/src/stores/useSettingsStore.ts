@@ -32,6 +32,7 @@ export interface ThemeColors {
   meterStatDps: string;
   meterStatPercent: string;
   bossRightValue: string;
+  combatTimeColor: string;
 }
 
 export const DEFAULT_THEME: ThemeColors = {
@@ -47,6 +48,7 @@ export const DEFAULT_THEME: ThemeColors = {
   meterStatDps: "#ffffff",
   meterStatPercent: "#ffe566",
   bossRightValue: "#e63333",
+  combatTimeColor: "#D0D0D0",
 };
 
 interface SettingsState {
