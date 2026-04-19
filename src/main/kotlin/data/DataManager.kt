@@ -44,6 +44,7 @@ object DataManager {
         loadMobJson()
         loadSkillJson()
         loadBuffJson()
+        loadCustomBuffJson()
     }
 
     private fun loadMobJson() {
@@ -65,6 +66,33 @@ object DataManager {
     private fun loadBuffJson() {
         try {
             val buffJson = object {}.javaClass.getResourceAsStream("/json/buff.json")
+                ?.bufferedReader()
+                ?.readText()!!
+
+            val json = Json { ignoreUnknownKeys = true }
+
+            json.decodeFromString<JsonObject>(buffJson).forEach { (code, element) ->
+                val obj = element.jsonObject
+                val buff = obj["effect"]?.jsonPrimitive?.contentOrNull?.let {
+                    obj["summary"]?.jsonPrimitive?.contentOrNull?.let { it1 ->
+                        Buff(
+                            code = code.toInt(),
+                            name = obj["name"]?.jsonPrimitive?.content ?: "",
+                            summary = it1,
+                            effect = it
+                        )
+                    }
+                }
+                buff?.let { saveBuff(it) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun loadCustomBuffJson() {
+        try {
+            val buffJson = object {}.javaClass.getResourceAsStream("/json/buff_custom.json")
                 ?.bufferedReader()
                 ?.readText()!!
 
