@@ -245,6 +245,7 @@ export default function App() {
         <SidePanel
           type={activePanel}
           player={selected}
+          players={players}
           onClose={handleClose}
           combatTime={formatBattleTime(battleTime)}
           updateInfo={updateInfo}

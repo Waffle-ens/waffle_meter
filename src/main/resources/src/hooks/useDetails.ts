@@ -17,8 +17,14 @@ export const useDetails = () => {
       historyIdx !== undefined
         ? await window.javaBridge?.getBuffOperatingRate?.(historyIdx, Number(row.id))
         : await window.javaBridge?.getLiveBuffOperatingRate?.(Number(row.id));
+    const debuffRaw =
+      historyIdx !== undefined
+        ? await window.javaBridge?.getBossBuffOperatingRate?.(historyIdx)
+        : await window.javaBridge?.getLiveBossBuffOperatingRate?.();
+
     // addLog(`${historyIdx ? `히스토리 디테일 ${raw}` : `일반 detail rowID${row.id} ${raw}`}`);
     // addLog(`${historyIdx ? ` ${buffRaw}` : `일반 detail rowID${row.id} ${buffRaw}`}`);
+    // addLog(`${historyIdx ? ` ${debuffRaw}` : `일반 detail rowID${row.id} ${debuffRaw}`}`);
     let detailObj = typeof raw === "string" ? JSON.parse(raw) : raw;
     if (!detailObj || typeof detailObj !== "object") detailObj = {};
 
@@ -120,6 +126,8 @@ export const useDetails = () => {
       }
     }
     const buffOperatingRate = typeof buffRaw === "string" ? JSON.parse(buffRaw) : (buffRaw ?? null);
+    const debuffOperatingRate =
+      typeof debuffRaw === "string" ? JSON.parse(debuffRaw) : (debuffRaw ?? []);
 
     return {
       totalDmg,
@@ -132,6 +140,7 @@ export const useDetails = () => {
       combatTime,
       skills: skills.sort((a, b) => b.dmg - a.dmg),
       buffOperatingRate,
+      debuffOperatingRate,
     };
   };
 

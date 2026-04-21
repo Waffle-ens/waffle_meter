@@ -604,12 +604,14 @@ const MOCK_BUFF_DATA = {
     summary: "이동 속도 증가",
     effect: "이동 속도가 증가합니다",
     operatingRate: 4.33,
+    actorId: 1,
   },
   "22101031": {
     code: "22101031",
     name: "버프2",
     summary: "공격력 증가",
     effect: "공격력이 증가합니다",
+    actorId: 1,
     operatingRate: 12.22,
   },
   "22101051": {
@@ -617,6 +619,7 @@ const MOCK_BUFF_DATA = {
     name: "버프3",
     summary: "방어력 증가",
     effect: "방어력이 증가합니다",
+    actorId: 1,
     operatingRate: 23.11,
   },
   "22104021": {
@@ -624,6 +627,7 @@ const MOCK_BUFF_DATA = {
     name: "버프4",
     summary: "치명타 증가",
     effect: "치명타 확률이 증가합니다",
+    actorId: 1,
     operatingRate: 45.33,
   },
   "120900001": {
@@ -631,6 +635,7 @@ const MOCK_BUFF_DATA = {
     name: "버프5",
     summary: "HP 회복",
     effect: "HP가 회복됩니다",
+    actorId: 2,
     operatingRate: 100,
   },
   "121100003": {
@@ -638,6 +643,7 @@ const MOCK_BUFF_DATA = {
     name: "버프6",
     summary: "MP 회복",
     effect: "MP가 회복됩니다",
+    actorId: 2,
     operatingRate: 100,
   },
   "121100401": {
@@ -645,6 +651,7 @@ const MOCK_BUFF_DATA = {
     name: "버프7",
     summary: "스킬 쿨다운 감소",
     effect: "스킬 쿨다운이 감소합니다",
+    actorId: 2,
     operatingRate: 65.77,
   },
   "121300381": {
@@ -652,6 +659,7 @@ const MOCK_BUFF_DATA = {
     name: "버프8",
     summary: "공격 속도 증가",
     effect: "공격 속도가 증가합니다",
+    actorId: 2,
     operatingRate: 43.21,
   },
   "122400001": {
@@ -659,6 +667,7 @@ const MOCK_BUFF_DATA = {
     name: "버프9",
     summary: "크리티컬 데미지 증가",
     effect: "크리티컬 데미지가 증가합니다",
+    actorId: 2,
     operatingRate: 76.55,
   },
   "123000001": {
@@ -666,6 +675,7 @@ const MOCK_BUFF_DATA = {
     name: "버프10",
     summary: "받는 피해 감소",
     effect: "받는 피해가 감소합니다",
+    actorId: 4,
     operatingRate: 45.66,
   },
   "123100371": {
@@ -673,6 +683,7 @@ const MOCK_BUFF_DATA = {
     name: "버프11",
     summary: "도발",
     effect: "적의 어그로를 끕니다",
+    actorId: 4,
     operatingRate: 99.54,
   },
   "123500001": {
@@ -680,6 +691,7 @@ const MOCK_BUFF_DATA = {
     name: "버프12",
     summary: "보스 저항 감소",
     effect: "보스의 저항이 감소합니다",
+    actorId: 4,
     operatingRate: 78.87,
   },
   "124500005": {
@@ -687,6 +699,7 @@ const MOCK_BUFF_DATA = {
     name: "버프13",
     summary: "출혈 데미지",
     effect: "출혈 데미지를 입힙니다",
+    actorId: 4,
     operatingRate: 22.34,
   },
   "127300021": {
@@ -694,6 +707,7 @@ const MOCK_BUFF_DATA = {
     name: "버프14",
     summary: "방어 관통",
     effect: "방어를 관통합니다",
+    actorId: 4,
     operatingRate: 12.34,
   },
   "127500011": {
@@ -701,6 +715,7 @@ const MOCK_BUFF_DATA = {
     name: "버프15",
     summary: "범위 공격력 증가",
     effect: "범위 공격력이 증가합니다",
+    actorId: 4,
     operatingRate: 23.423,
   },
   "128000012": {
@@ -708,9 +723,52 @@ const MOCK_BUFF_DATA = {
     name: "버프16",
     summary: "무적",
     effect: "잠시 무적 상태가 됩니다",
+    actorId: 3,
     operatingRate: 100,
   },
 };
+const MOCK_DEBUFF_DATA = [
+  {
+    code: "30110011",
+    name: "방어력 감소",
+    summary: "방어력 감소 디버프",
+    effect: "방어력이 감소합니다",
+    operatingRate: 85.5,
+    actorId: 1,
+  },
+  {
+    code: "30110012",
+    name: "이동속도 감소",
+    summary: "이동속도 감소 디버프",
+    effect: "이동속도가 감소합니다",
+    operatingRate: 72.3,
+    actorId: 1,
+  },
+  {
+    code: "30210021",
+    name: "공격력 감소",
+    summary: "공격력 감소 디버프",
+    effect: "공격력이 감소합니다",
+    operatingRate: 90.1,
+    actorId: 2,
+  },
+  {
+    code: "30210022",
+    name: "침묵",
+    summary: "스킬 사용 불가",
+    effect: "스킬을 사용할 수 없습니다",
+    operatingRate: 45.0,
+    actorId: 2,
+  },
+  {
+    code: "30310031",
+    name: "출혈",
+    summary: "지속 피해",
+    effect: "지속적으로 피해를 입습니다",
+    operatingRate: 60.7,
+    actorId: 3,
+  },
+];
 const MOCK_DATA = {
   contributors: [
     { id: 1, nickname: "나", server: 1001, power: 234123, job: "검성", isExecutor: true },
@@ -752,6 +810,9 @@ export const injectMockDpsData = () => {
     getVersion: () => "1.2.1",
     getLiveBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_BUFF_DATA),
     openBrowser: (url: string) => console.log("[mock] openBrowser:", url),
+    getLiveBossBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_DEBUFF_DATA),
+    getBossBuffOperatingRate: (_idx: number, _id: number) => JSON.stringify(MOCK_DEBUFF_DATA),
+
     exitApp: () => console.log("[mock] exitApp"),
     startUpdate: (url: string) => {
       console.log("[mock] startUpdate:", url);
