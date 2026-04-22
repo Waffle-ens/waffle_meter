@@ -12,6 +12,7 @@ export type DisplayMode =
 export type NameDisplay = "all" | "me_only" | "hidden";
 export type HeaderPosition = "top" | "bottom";
 export type FontFamily =
+  | "Malgun Gothic"
   | "Spoqa Han Sans Neo"
   | "Freesentation"
   | "Tmoney Round Wind"
@@ -31,6 +32,7 @@ export interface ThemeColors {
   meterStatDps: string;
   meterStatPercent: string;
   bossRightValue: string;
+  combatTimeColor: string;
 }
 
 export const DEFAULT_THEME: ThemeColors = {
@@ -46,6 +48,7 @@ export const DEFAULT_THEME: ThemeColors = {
   meterStatDps: "#ffffff",
   meterStatPercent: "#ffe566",
   bossRightValue: "#e63333",
+  combatTimeColor: "#D0D0D0",
 };
 
 interface SettingsState {
@@ -67,6 +70,11 @@ interface SettingsState {
   setDetailHeight: (h: number) => void;
   setHotkey: (h: Hotkey) => void;
   isMinimal: boolean;
+  showCombatTimerInMinimal: boolean;
+  setShowCombatTimerInMinimal: (v: boolean) => void;
+  showTargetInfoInMinimal: boolean;
+  setShowTargetInfoInMinimal: (v: boolean) => void;
+
   hideHotkey: Hotkey;
   setHideHotkey: (h: Hotkey) => void;
   isDebugMode: boolean;
@@ -83,8 +91,12 @@ interface SettingsState {
   setWindowPosition: (x: number, y: number) => void;
   visibleSkillCodes: number[];
   setVisibleSkillCodes: (codes: number[]) => void;
-  showPower: boolean;
-  setShowPower: (v: boolean) => void;
+  // showPower: boolean;
+  // setShowPower: (v: boolean) => void;
+  meterOpacity: number;
+  setMeterOpacity: (v: number) => void;
+  panelOpacity: number;
+  setPanelOpacity: (v: number) => void;
 }
 
 const jb = () => (window as any).javaBridge;
@@ -105,9 +117,14 @@ const defaultSettings = {
   fontFamily: "NEXON Lv2 Gothic" as FontFamily,
   headerPosition: "top" as HeaderPosition,
   isMinimal: false,
+  showCombatTimerInMinimal: true,
+  showTargetInfoInMinimal: true,
+
   theme: DEFAULT_THEME,
-  visibleSkillCodes: DEFAULT_VISIBLE_SKILL_CODES, 
-  showPower: true,
+  visibleSkillCodes: DEFAULT_VISIBLE_SKILL_CODES,
+  // showPower: true,
+  meterOpacity: 0.4,
+  panelOpacity: 0.8,
 };
 
 export const useSettingsStore = create<SettingsState>((set) => {
@@ -146,12 +163,17 @@ export const useSettingsStore = create<SettingsState>((set) => {
       nameDisplay: j.loadProps?.("nameDisplay") ?? defaultSettings.nameDisplay,
       fontFamily: (j.loadProps?.("fontFamily") as FontFamily) ?? defaultSettings.fontFamily,
       isMinimal: savedIsMinimal,
+      showCombatTimerInMinimal: j.loadProps?.("showCombatTimerInMinimal") === "true",
+      showTargetInfoInMinimal: j.loadProps?.("showTargetInfoInMinimal") === "true",
       headerPosition: j.loadProps?.("headerPosition") ?? defaultSettings.headerPosition,
       theme: savedTheme,
       visibleSkillCodes: savedSkillCodes,
       windowX: Number(j.loadProps?.("windowX")) || defaultSettings.windowX,
       windowY: Number(j.loadProps?.("windowY")) || defaultSettings.windowY,
-      showPower: j.loadProps?.("showPower") === "false" ? false : true,
+      // showPower: j.loadProps?.("showPower") === "false" ? false : true,
+      meterOpacity: Number(j.loadProps?.("meterOpacity")) || defaultSettings.meterOpacity,
+      panelOpacity: Number(j.loadProps?.("panelOpacity")) || defaultSettings.panelOpacity,
+
       isLoaded: true,
     });
     clearInterval(interval);
@@ -161,6 +183,9 @@ export const useSettingsStore = create<SettingsState>((set) => {
     hotkey: defaultSettings.hotkey,
     hideHotkey: defaultSettings.hideHotkey,
     isMinimal: defaultSettings.isMinimal,
+    showCombatTimerInMinimal: defaultSettings.showCombatTimerInMinimal,
+    showTargetInfoInMinimal: defaultSettings.showTargetInfoInMinimal,
+
     meterWidth: defaultSettings.meterWidth,
     rowHeight: defaultSettings.rowHeight,
     detailHeight: defaultSettings.detailHeight,
@@ -174,7 +199,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
     theme: defaultSettings.theme,
     windowX: defaultSettings.windowX,
     windowY: defaultSettings.windowY,
-    showPower: defaultSettings.showPower,
+    // showPower: defaultSettings.showPower,
+    meterOpacity: defaultSettings.meterOpacity,
+    panelOpacity: defaultSettings.panelOpacity,
+
     isLoaded: defaultSettings.isLoaded,
 
     setHotkey: (hotkey) => {
@@ -188,6 +216,14 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setIsMinimal: (isMinimal) => {
       set({ isMinimal });
       jb()?.saveProps?.("isMinimal", String(isMinimal));
+    },
+    setShowCombatTimerInMinimal: (v) => {
+      set({ showCombatTimerInMinimal: v });
+      jb()?.saveProps?.("showCombatTimerInMinimal", String(v));
+    },
+    setShowTargetInfoInMinimal: (v) => {
+      set({ showTargetInfoInMinimal: v });
+      jb()?.saveProps?.("showTargetInfoInMinimal", String(v));
     },
     toggleMinimal: () =>
       set((s) => {
@@ -250,9 +286,18 @@ export const useSettingsStore = create<SettingsState>((set) => {
       set({ visibleSkillCodes });
       jb()?.saveProps?.("visibleSkillCodes", JSON.stringify(visibleSkillCodes));
     },
-    setShowPower: (showPower) => {
-      set({ showPower });
-      jb()?.saveProps?.("showPower", String(showPower));
+    setMeterOpacity: (meterOpacity) => {
+      set({ meterOpacity });
+      jb()?.saveProps?.("meterOpacity", String(meterOpacity));
     },
+    setPanelOpacity: (panelOpacity) => {
+      set({ panelOpacity });
+      jb()?.saveProps?.("panelOpacity", String(panelOpacity));
+    },
+
+    // setShowPower: (showPower) => {
+    //   set({ showPower });
+    //   jb()?.saveProps?.("showPower", String(showPower));
+    // },
   };
 });

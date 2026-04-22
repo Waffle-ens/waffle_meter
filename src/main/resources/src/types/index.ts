@@ -24,7 +24,7 @@ export interface Player {
   damageContribution: number;
   isUser: boolean;
   server: number;
-  power: number;
+  // power: number;
 }
 export interface CombatRaw {
   combatants: Record<string, any>;
@@ -58,6 +58,7 @@ export interface Details {
   combatTime: string;
   buffOperatingRate: BuffEntry[];
   skills: Skill[];
+  debuffOperatingRate: BuffEntry[];
 }
 
 export interface Version {
@@ -95,4 +96,5 @@ export type BuffEntry = {
   effect: string;
   operatingRate: number;
   actorId: number;
+  actorName?: string;
 };

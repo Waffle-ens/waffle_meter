@@ -4,6 +4,7 @@ import com.tbread.data.repository.*
 import com.tbread.entity.*
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
@@ -39,10 +40,16 @@ object DataManager {
     private val useBuffRepository = UseBuffRepository()
     private val buffRepository = BuffRepository()
 
+    private val buffBlacklist = mutableSetOf<Int>()
+
+    fun isBuffBlacklisted(code: Int): Boolean = code in buffBlacklist
+
     fun load() {
         loadMobJson()
         loadSkillJson()
         loadBuffJson()
+        loadCustomBuffJson()
+        loadBuffBlacklistJson()
     }
 
     private fun loadMobJson() {
@@ -64,6 +71,45 @@ object DataManager {
     private fun loadBuffJson() {
         try {
             val buffJson = object {}.javaClass.getResourceAsStream("/json/buff.json")
+                ?.bufferedReader()
+                ?.readText()!!
+
+            val json = Json { ignoreUnknownKeys = true }
+
+            json.decodeFromString<JsonObject>(buffJson).forEach { (code, element) ->
+                val obj = element.jsonObject
+                val buff = obj["effect"]?.jsonPrimitive?.contentOrNull?.let {
+                    obj["summary"]?.jsonPrimitive?.contentOrNull?.let { it1 ->
+                        Buff(
+                            code = code.toInt(),
+                            name = obj["name"]?.jsonPrimitive?.content ?: "",
+                            summary = it1,
+                            effect = it
+                        )
+                    }
+                }
+                buff?.let { saveBuff(it) }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun loadBuffBlacklistJson() {
+        try {
+            val json = object {}.javaClass.getResourceAsStream("/json/buff_blacklist.json")
+                ?.bufferedReader()?.readText() ?: return
+            Json.decodeFromString<JsonObject>(json)["blacklist"]
+                ?.jsonArray
+                ?.forEach { buffBlacklist.add(it.jsonPrimitive.int) }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun loadCustomBuffJson() {
+        try {
+            val buffJson = object {}.javaClass.getResourceAsStream("/json/buff_custom.json")
                 ?.bufferedReader()
                 ?.readText()!!
 
@@ -150,6 +196,7 @@ object DataManager {
 
     fun executorId(): Int = userRepository.executor()
 
+    @Volatile
     private var lastDummyHitTime: Long = 0
     private val DUMMY_TIMEOUT_MS = 5000L
 
@@ -173,7 +220,7 @@ object DataManager {
         }
     }
 
-    private val recentlyEndedMobs = HashMap<Int, Long>()
+    private val recentlyEndedMobs = ConcurrentHashMap<Int, Long>()
     private val BATTLE_END_COOLDOWN_MS = 1000L
 
     fun toggleBattle(mobId: Int) {
@@ -315,11 +362,10 @@ object DataManager {
     }
 
     fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false,server:Int) {
-        if (!userRepository.exist(uid)) {
-            userRepository.save(uid, User(uid, nickname, server, null, isExecutor))
+        val user = userRepository.get(uid) ?: User(uid, nickname, server, null, isExecutor).also {
+            userRepository.save(uid, it)
         }
-        if (userRepository.get(uid)!!.equals(nickname)) return
-        userRepository.get(uid)!!.nickname = nickname
+        user.nickname = nickname
         if (isExecutor) {
             saveExecutorId(uid)
         }

@@ -117,11 +117,11 @@ export function parseCombatData(raw: unknown): {
       amount,
       damageContribution,
       isUser: contributor.isExecutor === true,
-      power: contributor.power ?? 0,
+      // power: contributor.power ?? 0,
     });
   }
 
   const targetName = data.target?.mob?.name ?? "";
   const remainHp = data.target?.remainHp ?? 0;
-  return { players: rows.sort((a, b) => b.dps - a.dps), targetName, remainHp };
+  return { players: rows, targetName, remainHp };
 }

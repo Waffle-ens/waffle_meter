@@ -110,7 +110,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun getDpsData(): String {
-            return Json.encodeToString(dpsData)
+            return cachedDpsJson
         }
 
         fun isDebuggingMode(): Boolean {
@@ -138,6 +138,19 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         fun getBuffOperatingRate(idx: Int, uid: Int): String {
             val report = DataManager.battleLog(idx)?.report ?: return ""
             return Json.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,report.battleEnd))
+        }
+
+        fun getLiveBossBuffOperatingRate(): String {
+            val report = dpsCalculator.getLiveReport()
+            val end = if (report.battleEnd == 0L) System.currentTimeMillis() else report.battleEnd
+            val targetId = report.target?.id ?: return ""
+            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(targetId,report.battleStart,end))
+        }
+
+        fun getBossBuffOperatingRate(idx: Int): String {
+            val report = DataManager.battleLog(idx)?.report ?: return ""
+            val targetId = report.target?.id ?: return ""
+            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(targetId,report.battleStart,report.battleEnd))
         }
 
         fun upload(idx: Int): Boolean {
@@ -179,31 +192,28 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
                     Platform.runLater { engine.executeScript("onDownloadComplete()") }
 
+                    val currentPid = ProcessHandle.current().pid()
                     val currentExe = ProcessHandle.current().info().command().orElse(null)
-                    val installDir = if (currentExe != null) java.io.File(currentExe).parentFile?.absolutePath else null
                     val relaunchLine = if (currentExe != null)
                         "Start-Process '${currentExe.replace("'", "''")}'"
                     else ""
-                    val installDirArg = if (installDir != null) ",'INSTALLDIR=${installDir.replace("'", "''")}'" else ""
 
                     val psFile = java.io.File(tempDir, "aion2meter_updater.ps1")
-                    psFile.writeText(
-                        """
-                        Start-Process msiexec -ArgumentList '/i','${
-                            msiFile.absolutePath.replace(
-                                "'",
-                                "''"
-                            )
-                        }','/qn','/norestart'$installDirArg -Wait
-                        $relaunchLine
-                        """.trimIndent()
-                    )
-
+                    val msiAbsPath = msiFile.absolutePath
+                    psFile.writeText("""
+    [System.IO.File]::WriteAllText("$tempDir\debug.txt", "started waiting for PID $currentPid`n")
+    Wait-Process -Id $currentPid -Timeout 30 -ErrorAction SilentlyContinue
+    [System.IO.File]::AppendAllText("$tempDir\debug.txt", "wait done`n")
+    Start-Process msiexec.exe -ArgumentList "/i `"$msiAbsPath`" /qn /norestart /l*v `"$tempDir\install.log`"" -Wait
+    [System.IO.File]::AppendAllText("$tempDir\debug.txt", "msiexec done`n")
+    $relaunchLine
+""".trimIndent())
                     ProcessBuilder(
-                        "powershell", "-ExecutionPolicy", "Bypass",
-                        "-WindowStyle", "Hidden",
-                        "-File", psFile.absolutePath
-                    ).start()
+                        "wmic", "process", "call", "create",
+                        "powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File \"${psFile.absolutePath}\""
+                    ).also {
+                        it.environment()["__COMPAT_LAYER"] = "RunAsInvoker"
+                    }.start()
 
                     Platform.exit()
                     exitProcess(0)
@@ -234,6 +244,9 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
     @Volatile
     private var dpsData: DpsReport = dpsCalculator.getDps()
+
+    @Volatile
+    private var cachedDpsJson: String = Json.encodeToString(dpsData)
 
     @Volatile
     private var isVisible = true  // false = 사용자가 직접 숨긴 상태
@@ -317,6 +330,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         
         Timeline(KeyFrame(Duration.millis(500.0), {
             dpsData = dpsCalculator.getDps()
+            cachedDpsJson = Json.encodeToString(dpsData)
         })).apply {
             cycleCount = Timeline.INDEFINITE
             play()
