@@ -30599,7 +30599,7 @@
   {
     "code": 2920908,
     "name": "유압 프레스",
-    "boss": true
+    "boss": false
   },
   {
     "code": 2920924,
