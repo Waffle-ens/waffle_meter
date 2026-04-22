@@ -60,6 +60,11 @@
     "boss": false
   },
   {
+    "code": 2000895,
+    "name": "깨어난 알투라돈",
+    "boss": true
+  },
+  {
     "code": 2000923,
     "name": "붉은 눈 거미",
     "boss": false
@@ -906,7 +911,7 @@
   },
   {
     "code": 2090188,
-    "name": "d�\f�",
+    "name": "Air",
     "boss": false
   },
   {
@@ -1733,6 +1738,12 @@
     "code": 2090693,
     "name": "샌드백",
     "boss": false
+  },
+  {
+    "code": 2090773,
+    "name": "훈련용 허수아비 (표본)",
+    "boss": true,
+    "isDummy": true
   },
   {
     "code": 2100000,
@@ -7855,6 +7866,61 @@
     "boss": false
   },
   {
+    "code": 2300188,
+    "name": "깨어난 알투라돈",
+    "boss": true
+  },
+  {
+    "code": 2300189,
+    "name": "현명한 바움누트",
+    "boss": true
+  },
+  {
+    "code": 2300190,
+    "name": "팽창하는 자이르페",
+    "boss": true
+  },
+  {
+    "code": 2300191,
+    "name": "푸른 숨의 우르서스",
+    "boss": false
+  },
+  {
+    "code": 2300192,
+    "name": "푸른 숨의 우르서스",
+    "boss": false
+  },
+  {
+    "code": 2300193,
+    "name": "크레스틀리치",
+    "boss": false
+  },
+  {
+    "code": 2300194,
+    "name": "자이프",
+    "boss": false
+  },
+  {
+    "code": 2300195,
+    "name": "푸른 크레스틀리치",
+    "boss": false
+  },
+  {
+    "code": 2300196,
+    "name": "푸른 숨의 우르서스",
+    "boss": false
+  },
+  {
+    "code": 2300198,
+    "name": "펑거스",
+    "boss": false
+  },
+  {
+    "code": 2300200,
+    "name": "깨어난 알투라돈",
+    "boss": true
+  },
+  {
     "code": 2300201,
     "name": "우루구구 병사",
     "boss": false
@@ -7945,6 +8011,11 @@
     "boss": true
   },
   {
+    "code": 2300219,
+    "name": "현명한 바움누트",
+    "boss": true
+  },
+  {
     "code": 2300220,
     "name": "감시형 치유의 토템",
     "boss": false
@@ -7994,6 +8065,136 @@
     "name": "훈련용 허수아비",
     "boss": false,
     "isDummy": true
+  },
+  {
+    "code": 2300230,
+    "name": "팽창하는 자이르페",
+    "boss": true
+  },
+  {
+    "code": 2300233,
+    "name": "크레스틀리치",
+    "boss": false
+  },
+  {
+    "code": 2300234,
+    "name": "자이프",
+    "boss": false
+  },
+  {
+    "code": 2300235,
+    "name": "푸른 크레스틀리치",
+    "boss": false
+  },
+  {
+    "code": 2300237,
+    "name": "펑기",
+    "boss": false
+  },
+  {
+    "code": 2300238,
+    "name": "펑거스",
+    "boss": false
+  },
+  {
+    "code": 2300243,
+    "name": "깨어난 알투라돈",
+    "boss": true
+  },
+  {
+    "code": 2300244,
+    "name": "현명한 바움누트",
+    "boss": true
+  },
+  {
+    "code": 2300245,
+    "name": "팽창하는 자이르페",
+    "boss": true
+  },
+  {
+    "code": 2300248,
+    "name": "크레스틀리치",
+    "boss": false
+  },
+  {
+    "code": 2300249,
+    "name": "자이프",
+    "boss": false
+  },
+  {
+    "code": 2300250,
+    "name": "푸른 크레스틀리치",
+    "boss": false
+  },
+  {
+    "code": 2300252,
+    "name": "펑기",
+    "boss": false
+  },
+  {
+    "code": 2300253,
+    "name": "펑거스",
+    "boss": false
+  },
+  {
+    "code": 2300262,
+    "name": "수면풀",
+    "boss": false
+  },
+  {
+    "code": 2300263,
+    "name": "수면풀",
+    "boss": false
+  },
+  {
+    "code": 2300264,
+    "name": "수면풀",
+    "boss": false
+  },
+  {
+    "code": 2300265,
+    "name": "케네이르",
+    "boss": false
+  },
+  {
+    "code": 2300266,
+    "name": "스파키",
+    "boss": false
+  },
+  {
+    "code": 2300267,
+    "name": "암흑 정령",
+    "boss": false
+  },
+  {
+    "code": 2300269,
+    "name": "케네이르",
+    "boss": false
+  },
+  {
+    "code": 2300270,
+    "name": "스파키",
+    "boss": false
+  },
+  {
+    "code": 2300271,
+    "name": "암흑 정령",
+    "boss": false
+  },
+  {
+    "code": 2300273,
+    "name": "케네이르",
+    "boss": false
+  },
+  {
+    "code": 2300274,
+    "name": "스파키",
+    "boss": false
+  },
+  {
+    "code": 2300275,
+    "name": "암흑 정령",
+    "boss": false
   },
   {
     "code": 2300301,
@@ -8063,6 +8264,46 @@
   {
     "code": 2300316,
     "name": "폭발하는 화염의 정령",
+    "boss": false
+  },
+  {
+    "code": 2300356,
+    "name": "우두머리 자이프",
+    "boss": false
+  },
+  {
+    "code": 2300357,
+    "name": "우두머리 자이프",
+    "boss": false
+  },
+  {
+    "code": 2300358,
+    "name": "우두머리 자이프",
+    "boss": false
+  },
+  {
+    "code": 2300359,
+    "name": "스타터틀",
+    "boss": false
+  },
+  {
+    "code": 2300360,
+    "name": "스타터틀",
+    "boss": false
+  },
+  {
+    "code": 2300361,
+    "name": "스타터틀",
+    "boss": false
+  },
+  {
+    "code": 2300362,
+    "name": "펑기",
+    "boss": false
+  },
+  {
+    "code": 2300363,
+    "name": "펑기",
     "boss": false
   },
   {
@@ -21631,7 +21872,7 @@
   },
   {
     "code": 2590119,
-    "name": "드라칸 척후병",
+    "name": "드라칸 클레릭 사념체",
     "boss": false
   },
   {
@@ -21697,7 +21938,7 @@
   {
     "code": 2590134,
     "name": "무무 감독관",
-    "boss": false
+    "boss": true
   },
   {
     "code": 2590135,
@@ -22263,6 +22504,21 @@
     "code": 2600095,
     "name": "영혼 깃든 갑주",
     "boss": false
+  },
+  {
+    "code": 2600096,
+    "name": "집행자 타마사",
+    "boss": true
+  },
+  {
+    "code": 2600097,
+    "name": "정령왕 아그로",
+    "boss": true
+  },
+  {
+    "code": 2600098,
+    "name": "감시자 카이라",
+    "boss": true
   },
   {
     "code": 2600101,
@@ -23893,6 +24149,21 @@
     "code": 2600519,
     "name": "고대 원혼 기사",
     "boss": false
+  },
+  {
+    "code": 2600520,
+    "name": "처형관 드라모스",
+    "boss": true
+  },
+  {
+    "code": 2600521,
+    "name": "반역자 듀칼",
+    "boss": true
+  },
+  {
+    "code": 2600522,
+    "name": "파멸자 마라카",
+    "boss": true
   },
   {
     "code": 2680000,
@@ -26532,7 +26803,8 @@
   {
     "code": 2701376,
     "name": "훈련용 허수아비 (표본)",
-    "boss": false
+    "boss": false,
+    "isDummy": true
   },
   {
     "code": 2701377,
@@ -26546,17 +26818,17 @@
   },
   {
     "code": 2701379,
-    "name": "생명의 샘 레파르단 전사",
+    "name": "수상한 샘 정찰꾼",
     "boss": false
   },
   {
     "code": 2701380,
-    "name": "생명의 샘 레파르단 격투가",
+    "name": "수상한 샘 징벌자",
     "boss": false
   },
   {
     "code": 2701381,
-    "name": "생명의 샘 레파르단 마법사",
+    "name": "수상한 샘 추격자",
     "boss": false
   },
   {
@@ -27126,12 +27398,12 @@
   },
   {
     "code": 2701526,
-    "name": "생명의 샘 레파르단 전사",
+    "name": "수상한 샘 정찰꾼",
     "boss": false
   },
   {
     "code": 2701527,
-    "name": "생명의 샘 레파르단 격투가",
+    "name": "수상한 샘 징벌자",
     "boss": false
   },
   {
@@ -30312,7 +30584,7 @@
   {
     "code": 2920710,
     "name": "카이시넬의 심복",
-    "boss": false
+    "boss": true
   },
   {
     "code": 2920733,
@@ -30327,7 +30599,7 @@
   {
     "code": 2920908,
     "name": "유압 프레스",
-    "boss": false
+    "boss": true
   },
   {
     "code": 2920924,
@@ -30342,11 +30614,6 @@
   {
     "code": 2920939,
     "name": "드라토나 덩치",
-    "boss": false
-  },
-  {
-    "code": 2920972,
-    "name": "시한 폭탄",
     "boss": false
   },
   {
@@ -30375,27 +30642,32 @@
     "boss": false
   },
   {
+    "code": 2921014,
+    "name": "펑기",
+    "boss": false
+  },
+  {
+    "code": 2921015,
+    "name": "작은 버섯 자란 펑기",
+    "boss": false
+  },
+  {
+    "code": 2921016,
+    "name": "달팽이 얹은 펑기",
+    "boss": false
+  },
+  {
+    "code": 2921031,
+    "name": "깨어난 알투라돈",
+    "boss": true
+  },
+  {
     "code": 2921044,
     "name": "배신",
     "boss": false
   },
   {
     "code": 2921069,
-    "name": "중합체 바고트",
-    "boss": false
-  },
-  {
-    "code": 2921072,
-    "name": "시한 폭탄",
-    "boss": false
-  },
-  {
-    "code": 2921097,
-    "name": "중합체 바고트",
-    "boss": false
-  },
-  {
-    "code": 2921098,
     "name": "중합체 바고트",
     "boss": false
   },
