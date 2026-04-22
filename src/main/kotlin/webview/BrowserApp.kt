@@ -192,31 +192,28 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
                     Platform.runLater { engine.executeScript("onDownloadComplete()") }
 
+                    val currentPid = ProcessHandle.current().pid()
                     val currentExe = ProcessHandle.current().info().command().orElse(null)
-                    val installDir = if (currentExe != null) java.io.File(currentExe).parentFile?.absolutePath else null
                     val relaunchLine = if (currentExe != null)
                         "Start-Process '${currentExe.replace("'", "''")}'"
                     else ""
-                    val installDirArg = if (installDir != null) ",'INSTALLDIR=${installDir.replace("'", "''")}'" else ""
 
                     val psFile = java.io.File(tempDir, "aion2meter_updater.ps1")
-                    psFile.writeText(
-                        """
-                        Start-Process msiexec -ArgumentList '/i','${
-                            msiFile.absolutePath.replace(
-                                "'",
-                                "''"
-                            )
-                        }','/qn','/norestart'$installDirArg -Wait
-                        $relaunchLine
-                        """.trimIndent()
-                    )
-
+                    val msiAbsPath = msiFile.absolutePath
+                    psFile.writeText("""
+    [System.IO.File]::WriteAllText("$tempDir\debug.txt", "started waiting for PID $currentPid`n")
+    Wait-Process -Id $currentPid -Timeout 30 -ErrorAction SilentlyContinue
+    [System.IO.File]::AppendAllText("$tempDir\debug.txt", "wait done`n")
+    Start-Process msiexec.exe -ArgumentList "/i `"$msiAbsPath`" /qn /norestart /l*v `"$tempDir\install.log`"" -Wait
+    [System.IO.File]::AppendAllText("$tempDir\debug.txt", "msiexec done`n")
+    $relaunchLine
+""".trimIndent())
                     ProcessBuilder(
-                        "powershell", "-ExecutionPolicy", "Bypass",
-                        "-WindowStyle", "Hidden",
-                        "-File", psFile.absolutePath
-                    ).start()
+                        "wmic", "process", "call", "create",
+                        "powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File \"${psFile.absolutePath}\""
+                    ).also {
+                        it.environment()["__COMPAT_LAYER"] = "RunAsInvoker"
+                    }.start()
 
                     Platform.exit()
                     exitProcess(0)
