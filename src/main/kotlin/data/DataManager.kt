@@ -50,17 +50,21 @@ object DataManager {
         loadBuffBlacklistJson()
     }
 
-    private fun loadMobJson() {
-        val mobJson = object {}.javaClass.getResourceAsStream("/json/mobs.json")
+    private fun requiredResourceText(path: String): String =
+        resourceText(path) ?: error("Missing required resource: $path")
+
+    private fun resourceText(path: String): String? =
+        DataManager::class.java.getResourceAsStream(path)
             ?.bufferedReader()
-            ?.readText()!!
+            ?.use { it.readText() }
+
+    private fun loadMobJson() {
+        val mobJson = requiredResourceText("/json/mobs.json")
         Json.decodeFromString<List<Mob>>(mobJson).forEach { saveMob(it) }
     }
 
     private fun loadSkillJson() {
-        val skillJson = object {}.javaClass.getResourceAsStream("/json/skills.json")
-            ?.bufferedReader()
-            ?.readText()!!
+        val skillJson = requiredResourceText("/json/skills.json")
         Json.decodeFromString<List<Skill>>(skillJson).forEach {
             saveSkill(it)
         }
@@ -68,9 +72,7 @@ object DataManager {
 
     private fun loadBuffJson() {
         try {
-            val buffJson = object {}.javaClass.getResourceAsStream("/json/buff.json")
-                ?.bufferedReader()
-                ?.readText()!!
+            val buffJson = resourceText("/json/buff.json") ?: return
 
             val json = Json { ignoreUnknownKeys = true }
 
@@ -95,8 +97,7 @@ object DataManager {
 
     private fun loadBuffBlacklistJson() {
         try {
-            val json = object {}.javaClass.getResourceAsStream("/json/buff_blacklist.json")
-                ?.bufferedReader()?.readText() ?: return
+            val json = resourceText("/json/buff_blacklist.json") ?: return
             Json.decodeFromString<JsonObject>(json)["blacklist"]
                 ?.jsonArray
                 ?.forEach { buffBlacklist.add(it.jsonPrimitive.int) }
@@ -107,9 +108,7 @@ object DataManager {
 
     private fun loadCustomBuffJson() {
         try {
-            val buffJson = object {}.javaClass.getResourceAsStream("/json/buff_custom.json")
-                ?.bufferedReader()
-                ?.readText()!!
+            val buffJson = resourceText("/json/buff_custom.json") ?: return
 
             val json = Json { ignoreUnknownKeys = true }
 

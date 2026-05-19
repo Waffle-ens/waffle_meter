@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-val resolvedAppVersion = providers.gradleProperty("appVersion").orElse("1.2.0").get().removePrefix("v")
+val resolvedAppVersion = providers.gradleProperty("appVersion").orElse("1.2.1").get().removePrefix("v")
 version = resolvedAppVersion
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
@@ -23,7 +23,23 @@ val frontendBuildInputs = fileTree(frontendDir) {
     include("eslint.config.js")
     include("components.json")
 }
+val requiredJsonResources = listOf(
+    "mobs.json",
+    "skills.json",
+    "buff_custom.json",
+    "buff_blacklist.json",
+).map { frontendDir.file("json/$it") }
 val npmCommand = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) "npm.cmd" else "npm"
+
+val validateJsonResources by tasks.registering {
+    inputs.files(requiredJsonResources)
+    doLast {
+        val missing = requiredJsonResources.filterNot { it.asFile.isFile }
+        check(missing.isEmpty()) {
+            "Missing required JSON resources: ${missing.joinToString { it.asFile.path }}"
+        }
+    }
+}
 
 val npmInstall by tasks.registering(Exec::class) {
     workingDir = frontendDir.asFile
@@ -42,7 +58,7 @@ val buildFrontend by tasks.registering(Exec::class) {
 }
 
 tasks.processResources {
-    dependsOn(buildFrontend)
+    dependsOn(buildFrontend, validateJsonResources)
     outputs.upToDateWhen { false }
     exclude("node_modules/**")
     exclude("src/**")

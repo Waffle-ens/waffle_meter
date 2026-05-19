@@ -27,5 +27,3 @@ dist-ssr
 **/constants/
 !src/constants/
 !src/constants/codes.ts
-json/*
-/json/
