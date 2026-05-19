@@ -176,7 +176,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         fun startUpdate(msiUrl: String) {
             Thread {
                 try {
-                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.1").also { it.mkdirs() }
+                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.2").also { it.mkdirs() }
                     val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
 
                     val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
@@ -292,7 +292,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.initStyle(StageStyle.TRANSPARENT)
         stage.scene = scene
         stage.isAlwaysOnTop = true
-        stage.title = "waffle_meter.v1.1"
+        stage.title = "waffle_meter.v1.2"
 
         stage.show()
         applyOverlayWindowStyle(stage.title)
@@ -329,7 +329,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         
         CoroutineScope(Dispatchers.IO).launch {
             while (true) {
-                kotlinx.coroutines.delay(500)
+                kotlinx.coroutines.delay(300)
                 val data = dpsCalculator.getDps()
                 cachedDpsJson = Json.encodeToString(data)
                 dpsData = data
@@ -448,7 +448,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 popup.addSeparator()
                 popup.add(exitItem)
 
-                trayIcon = TrayIcon(image, "waffle_meter.v1.1", popup).apply {
+                trayIcon = TrayIcon(image, "waffle_meter.v1.2", popup).apply {
                     isImageAutoSize = true
                     addMouseListener(object : MouseAdapter() {
                         override fun mouseClicked(e: MouseEvent) {

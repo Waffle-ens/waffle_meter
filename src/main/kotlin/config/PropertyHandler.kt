@@ -12,7 +12,7 @@ object PropertyHandler {
 
     private val settingFile: File = run {
         val appData = System.getenv("APPDATA") ?: System.getProperty("user.home")
-        val dir = File(appData, "waffle_meter.v1.1")
+        val dir = File(appData, "waffle_meter.v1.2")
         dir.mkdirs()
         File(dir, SETTING_PROPERTY_FILE_NAME)
     }

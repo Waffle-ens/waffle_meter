@@ -5,7 +5,6 @@ import com.tbread.entity.*
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentLinkedDeque
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
 
 object DataManager {
@@ -173,13 +172,27 @@ object DataManager {
     /*
     packet 영역
      */
-    fun battleData(targetId: Int): CopyOnWriteArrayList<ParsedDamagePacket>? {
+    fun battleData(targetId: Int): MutableList<ParsedDamagePacket>? {
         if (packetRepository.currentTarget() == 0) {
-            return CopyOnWriteArrayList(packetRepository.getAll().values.flatten().filter {
+            return packetRepository.getAll().values.flatten().filter {
                 !existMobId(it.getTargetId())
-            })
+            }.toMutableList()
         }
         return packetRepository.get(targetId)
+    }
+
+    fun battleDataSince(targetId: Int, sequence: Long): PacketRepository.PacketWindow {
+        if (targetId == 0) {
+            val data = battleData(targetId) ?: mutableListOf()
+            val fromIndex = sequence.toInt().coerceIn(0, data.size)
+            return PacketRepository.PacketWindow(
+                packets = data.subList(fromIndex, data.size).toList(),
+                nextSequence = data.size.toLong(),
+                droppedBeforeStart = sequence > data.size,
+                totalSize = data.size
+            )
+        }
+        return packetRepository.getWindow(targetId, sequence)
     }
 
     fun currentTarget(): Int {
@@ -278,7 +291,8 @@ object DataManager {
      */
     fun saveBattleLog(data: DpsReport) {
         val snapshot = data.copy(
-            contributors = data.contributors.mapTo(mutableSetOf()) { it.copy() }
+            contributors = data.contributors.mapTo(mutableSetOf()) { it.copy() },
+            packets = data.packets?.toMutableList()
         )
         val packets = rawPacketsInRange(data.battleStart - 5000L, data.battleEnd)
         battleLogRepository.save(DpsLog(snapshot, summonRepository.getAll(), packets))

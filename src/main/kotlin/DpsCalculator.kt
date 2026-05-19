@@ -5,7 +5,6 @@ import com.tbread.entity.*
 import com.tbread.entity.enums.JobClass
 import com.tbread.entity.enums.SpecialDamage
 import org.slf4j.LoggerFactory
-import java.util.concurrent.CopyOnWriteArrayList
 
 class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
     private val logger = LoggerFactory.getLogger(DpsCalculator::class.java)
@@ -16,7 +15,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
     private var recentData = DpsReport()
     private var recentDataSaved = false
 
-    private var lastProcessedCount = 0
+    private var lastProcessedSequence = 0L
     private val cachedInfo = HashMap<Int, DpsInformation>()
     private val cachedContributors = mutableSetOf<User>()
     private var cachedBattleEnd = 0L
@@ -24,7 +23,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
     private var isCachedBattleStartFake = false
 
     private fun resetCache() {
-        lastProcessedCount = 0
+        lastProcessedSequence = 0L
         cachedInfo.clear()
         cachedContributors.clear()
         cachedBattleEnd = 0L
@@ -32,12 +31,29 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         isCachedBattleStartFake = false
     }
 
-    private fun battleData(): CopyOnWriteArrayList<ParsedDamagePacket>? {
-        return DataManager.battleData(currentTarget)
-    }
-
     fun getRecentData(): DpsReport {
         return recentData
+    }
+
+    private fun accumulatePacket(packet: ParsedDamagePacket) {
+        val actor = DataManager.summonerId(packet.getActorId()) ?: packet.getActorId()
+        var user = DataManager.user(actor)
+        if (user == null) {
+            user = User(actor, nickname = actor.toString())
+            DataManager.saveUser(user.id, user)
+        }
+        cachedContributors.remove(user)
+        cachedContributors.add(user)
+        if (user.job == null) {
+            user.job = JobClass.convertFromSkill(packet.getSkillCode1())
+        }
+        cachedInfo.getOrPut(user.id) { DpsInformation() }.addDamage(packet.getDamage().toDouble())
+        val ts = packet.getTimeStamp()
+        if (cachedBattleStart == 0L) {
+            cachedBattleStart = ts; isCachedBattleStartFake = true
+        }
+        if (isCachedBattleStartFake && cachedBattleStart > ts) cachedBattleStart = ts
+        if (ts > cachedBattleEnd) cachedBattleEnd = ts
     }
 
     fun getLiveReport(): DpsReport {
@@ -52,26 +68,34 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
 
     fun getDps(): DpsReport {
         val storageTarget = DataManager.currentTarget()
-        val data = DataManager.battleData(storageTarget)
+        val previousTarget = currentTarget
         val prevTargetDummy = DataManager.isCurrentTargetDummy()
-        val isNewBattleEnd = storageTarget == -1 && storageTarget != currentTarget
-        if (storageTarget != currentTarget && !prevTargetDummy
-            && storageTarget != -1 && currentTarget != -1
+        val isNewBattleEnd = storageTarget == -1 && storageTarget != previousTarget
+        if (storageTarget != previousTarget && !prevTargetDummy
+            && storageTarget != -1 && previousTarget != -1
         ) {
+            DataManager.battleData(previousTarget)?.let {
+                recentData.packets = it
+            }
             DataManager.saveBattleLog(recentData)
             recentDataSaved = true
         }
-        if (storageTarget != currentTarget) {
+        if (storageTarget != previousTarget) {
             resetCache()
         }
         currentTarget = storageTarget
         recentTargetWasDummy = prevTargetDummy
         if (currentTarget == -1) {
             val battleEnd = DataManager.currentBattleEnd()
-            DataManager.flushPacket()
             if (isNewBattleEnd) {
                 recentData.battleEnd = battleEnd
+                if (previousTarget > 0) {
+                    DataManager.battleData(previousTarget)?.let {
+                        recentData.packets = it
+                    }
+                }
             }
+            DataManager.flushPacket()
             if (isNewBattleEnd && !recentData.isEmpty() && !recentTargetWasDummy) {
                 DataManager.saveBattleLog(recentData)
                 recentDataSaved = true
@@ -79,30 +103,33 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             return recentData
         }
 
-        val currentCount = data?.size ?: 0
-        if (currentCount > lastProcessedCount) {
-            for (i in lastProcessedCount until currentCount) {
-                val packet = data!![i]
-                val actor = DataManager.summonerId(packet.getActorId()) ?: packet.getActorId()
-                var user = DataManager.user(actor)
-                if (user == null) {
-                    user = User(actor, nickname = actor.toString())
-                    DataManager.saveUser(user.id, user)
-                }
-                cachedContributors.remove(user)
-                cachedContributors.add(user)
-                if (user.job == null) {
-                    user.job = JobClass.convertFromSkill(packet.getSkillCode1())
-                }
-                cachedInfo.getOrPut(user.id) { DpsInformation() }.addDamage(packet.getDamage().toDouble())
-                val ts = packet.getTimeStamp()
-                if (cachedBattleStart == 0L) {
-                    cachedBattleStart = ts; isCachedBattleStartFake = true
-                }
-                if (isCachedBattleStartFake && cachedBattleStart > ts) cachedBattleStart = ts
-                if (ts > cachedBattleEnd) cachedBattleEnd = ts
+        val reportPackets = if (currentTarget > 0) {
+            val window = DataManager.battleDataSince(currentTarget, lastProcessedSequence)
+            if (window.droppedBeforeStart) {
+                logger.warn(
+                    "패킷 ring buffer가 이전 처리 지점보다 앞서 덮어써졌습니다. target={}, retained={}",
+                    currentTarget,
+                    window.totalSize
+                )
+                resetCache()
             }
-            lastProcessedCount = currentCount
+            window.packets.forEach(::accumulatePacket)
+            lastProcessedSequence = window.nextSequence
+            null
+        } else {
+            val data = DataManager.battleData(currentTarget)
+            val currentCount = data?.size ?: 0
+            if (currentCount.toLong() < lastProcessedSequence) {
+                resetCache()
+            }
+            val fromIndex = lastProcessedSequence.toInt().coerceIn(0, currentCount)
+            if (data != null && currentCount > fromIndex) {
+                for (i in fromIndex until currentCount) {
+                    accumulatePacket(data[i])
+                }
+                lastProcessedSequence = currentCount.toLong()
+            }
+            data
         }
 
         val dmStart = DataManager.currentBattleStart()
@@ -115,7 +142,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 else -> cachedBattleStart
             },
             battleEnd = maxOf(dmEnd, cachedBattleEnd),
-            packets = data
+            packets = reportPackets
         )
 
         if (currentTarget > 0) {
