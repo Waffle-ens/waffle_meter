@@ -54,3 +54,6 @@ bin/
 ### Frontend build output ###
 /src/main/resources/dist/
 
+### Local Codex tools ###
+/.codex-tools/
+

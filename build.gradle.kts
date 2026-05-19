@@ -9,7 +9,8 @@ plugins {
 }
 
 group = "com.tbread"
-version = providers.gradleProperty("appVersion").orElse("1.0.0").get().removePrefix("v")
+val resolvedAppVersion = providers.gradleProperty("appVersion").orElse("1.0.0").get().removePrefix("v")
+version = resolvedAppVersion
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
 val frontendBuildInputs = fileTree(frontendDir) {
@@ -108,6 +109,8 @@ compose.desktop {
         nativeDistributions {
             windows{
                 upgradeUuid = "66D7E440-C8DB-47D8-A7AC-996796404049"
+                packageVersion = project.version.toString()
+                msiPackageVersion = project.version.toString()
                 includeAllModules = true
                 shortcut = true
                 menu = true
@@ -116,7 +119,7 @@ compose.desktop {
             }
             targetFormats(TargetFormat.Msi)
             packageName = "waffle_meter.v1.0"
-            packageVersion = version.toString()
+            packageVersion = project.version.toString()
             copyright = "Copyright 2026 TK open public Licensed under MIT License"
         }
 
