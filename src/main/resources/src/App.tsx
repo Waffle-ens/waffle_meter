@@ -52,8 +52,6 @@ export default function App() {
   const [activePanel, setActivePanel] = useState<PanelType>(null);
   const { meterWidth, onMouseDown, isDragging } = useResizable();
   const {
-    windowX,
-    windowY,
     isLoaded,
     rowHeight,
     isMinimal,
@@ -70,8 +68,6 @@ export default function App() {
     uiY,
   } = useSettingsStore(
     useShallow((s) => ({
-      windowX: s.windowX,
-      windowY: s.windowY,
       isLoaded: s.isLoaded,
       rowHeight: s.rowHeight,
       isMinimal: s.isMinimal,
@@ -141,7 +137,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    (window as any).javaBridge?.moveWindow(windowX, windowY);
+    window.javaBridge?.syncOverlayBounds?.();
   }, [isLoaded]);
 
   useEffect(() => {

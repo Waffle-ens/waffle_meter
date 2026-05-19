@@ -15,10 +15,12 @@ import javafx.application.Application
 import javafx.application.HostServices
 import javafx.application.Platform
 import javafx.concurrent.Worker
+import javafx.geometry.Rectangle2D
 import javafx.scene.Scene
 import javafx.scene.paint.Color
 import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
+import javafx.stage.Screen
 import javafx.stage.Stage
 import javafx.stage.StageStyle
 import kotlinx.coroutines.CoroutineScope
@@ -41,7 +43,11 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private lateinit var engine: WebEngine
     private var trayIcon: TrayIcon? = null
 
-    inner class JSBridge(private val stage: Stage, private val hostServices: HostServices) {
+    inner class JSBridge(
+        private val stage: Stage,
+        private val webView: WebView,
+        private val hostServices: HostServices
+    ) {
 
         fun saveProps(key: String, value: String) {
             PropertyHandler.setProperty(key, value)
@@ -52,8 +58,11 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun moveWindow(x: Double, y: Double) {
-            stage.x = x
-            stage.y = y
+            fitOverlayToScreen(stage, webView)
+        }
+
+        fun syncOverlayBounds() {
+            fitOverlayToScreen(stage, webView)
         }
 
         fun resetDps() {
@@ -264,7 +273,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         engine = webView.engine
         engine.load(javaClass.getResource("/dist/index.html")?.toExternalForm())
 
-        val bridge = JSBridge(stage, hostServices)
+        val screenBounds = primaryScreenBounds()
+        val bridge = JSBridge(stage, webView, hostServices)
         engine.loadWorker.stateProperty().addListener { _, _, newState ->
             if (newState == Worker.State.SUCCEEDED) {
                 val window = engine.executeScript("window") as JSObject
@@ -273,7 +283,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
 
-        val scene = Scene(webView, 1920.0, 1080.0)
+        val scene = Scene(webView, screenBounds.width, screenBounds.height)
         scene.fill = Color.TRANSPARENT
 
 
@@ -293,8 +303,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.scene = scene
         stage.isAlwaysOnTop = true
         stage.title = "waffle_meter.v1.2"
+        fitOverlayToScreen(stage, webView)
 
         stage.show()
+        fitOverlayToScreen(stage, webView)
         applyOverlayWindowStyle(stage.title)
 
         setupTray(stage)
@@ -357,6 +369,24 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 }
             }
         }
+    }
+
+    private fun primaryScreenBounds(): Rectangle2D {
+        return Screen.getPrimary()?.bounds ?: Rectangle2D(0.0, 0.0, 1920.0, 1080.0)
+    }
+
+    private fun fitOverlayToScreen(stage: Stage, webView: WebView) {
+        val bounds = primaryScreenBounds()
+        stage.x = bounds.minX
+        stage.y = bounds.minY
+        stage.width = bounds.width
+        stage.height = bounds.height
+        webView.minWidth = bounds.width
+        webView.minHeight = bounds.height
+        webView.prefWidth = bounds.width
+        webView.prefHeight = bounds.height
+        webView.maxWidth = bounds.width
+        webView.maxHeight = bounds.height
     }
 
     private fun isSelfFocused(): Boolean {

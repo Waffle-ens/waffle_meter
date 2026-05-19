@@ -837,7 +837,7 @@ export const injectMockDpsData = () => {
     getBattleDetail: (_id: string) => JSON.stringify(MOCK_DETAIL_DATA),
     getBattleDetailFromList: (_idx: number, _uid: number) => JSON.stringify(MOCK_DETAIL_DATA),
     getBattleList: () => JSON.stringify(MOCK_HISTORY_DATA),
-    getVersion: () => "1.2.1",
+    getVersion: () => "1.2.2",
     getLiveBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_BUFF_DATA),
     openBrowser: (url: string) => console.log("[mock] openBrowser:", url),
     getLiveBossBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_DEBUFF_DATA),

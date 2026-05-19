@@ -58,8 +58,8 @@ export const useDragUi = () => {
       rafId.current = requestAnimationFrame(() => {
         const panelWidth = rootEl.offsetWidth;
         const panelHeight = rootEl.offsetHeight;
-        const nextX = clamp(startUiX + deltaX, 0, window.innerWidth - panelWidth);
-        const nextY = clamp(startUiY + deltaY, 0, window.innerHeight - panelHeight);
+        const nextX = clamp(startUiX + deltaX, 0, Math.max(0, window.innerWidth - panelWidth));
+        const nextY = clamp(startUiY + deltaY, 0, Math.max(0, window.innerHeight - panelHeight));
 
         currentX = nextX;
         currentY = nextY;

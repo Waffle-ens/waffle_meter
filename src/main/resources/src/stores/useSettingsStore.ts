@@ -155,6 +155,14 @@ interface SettingsState {
 
 const jb = () => (window as any).javaBridge;
 const MAX_INIT_ATTEMPTS = 200;
+const readSavedNumber = (
+  value: string | null | undefined,
+  fallback: number,
+): number => {
+  if (value == null || value === "") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
 
 const defaultSettings = {
   hotkey: { modifiers: 2, vkCode: 0x52 },
@@ -255,6 +263,24 @@ export const useSettingsStore = create<SettingsState>((set) => {
     const savedMeterListOpacityRaw = j.loadProps?.("meterListOpacity");
     const savedOverlayTheme = j.loadProps?.("overlayTheme");
     const savedOverlayLayout = j.loadProps?.("overlayLayout");
+    const savedWindowXRaw = j.loadProps?.("windowX");
+    const savedWindowYRaw = j.loadProps?.("windowY");
+    const savedUiXRaw = j.loadProps?.("uiX");
+    const savedUiYRaw = j.loadProps?.("uiY");
+    const hasSavedWindowX = savedWindowXRaw != null && savedWindowXRaw !== "";
+    const hasSavedWindowY = savedWindowYRaw != null && savedWindowYRaw !== "";
+    const hasSavedUiX = savedUiXRaw != null && savedUiXRaw !== "";
+    const hasSavedUiY = savedUiYRaw != null && savedUiYRaw !== "";
+    const initialUiX = hasSavedUiX
+      ? readSavedNumber(savedUiXRaw, defaultSettings.uiX)
+      : hasSavedWindowX
+        ? readSavedNumber(savedWindowXRaw, defaultSettings.uiX)
+        : defaultSettings.uiX;
+    const initialUiY = hasSavedUiY
+      ? readSavedNumber(savedUiYRaw, defaultSettings.uiY)
+      : hasSavedWindowY
+        ? readSavedNumber(savedWindowYRaw, defaultSettings.uiY)
+        : defaultSettings.uiY;
 
     set({
       // hotkey: parsedHotkey ?? defaultSettings.hotkey,
@@ -276,8 +302,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
       overlayLayout: savedOverlayLayout === "bottom" ? "bottom" : defaultSettings.overlayLayout,
       theme: savedTheme,
       visibleSkillCodes: savedSkillCodes,
-      windowX: Number(j.loadProps?.("windowX")) || defaultSettings.windowX,
-      windowY: Number(j.loadProps?.("windowY")) || defaultSettings.windowY,
+      windowX: defaultSettings.windowX,
+      windowY: defaultSettings.windowY,
       // showPower: j.loadProps?.("showPower") === "false" ? false : true,
       meterOpacity:
         savedMeterOpacityRaw != null && savedMeterOpacityRaw !== ""
@@ -320,8 +346,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
         Number(j.loadProps?.("updatePanelWidth")) || defaultSettings.updatePanelWidth,
       updatePanelHeight:
         Number(j.loadProps?.("updatePanelHeight")) || defaultSettings.updatePanelHeight,
-      uiX: Number(j.loadProps?.("uiX")) || defaultSettings.uiX,
-      uiY: Number(j.loadProps?.("uiY")) || defaultSettings.uiY,
+      uiX: initialUiX,
+      uiY: initialUiY,
 
       isLoaded: true,
     });
@@ -573,12 +599,16 @@ export const useSettingsStore = create<SettingsState>((set) => {
     },
     resetMeterPosition: () => {
       set({
+        windowX: defaultSettings.windowX,
+        windowY: defaultSettings.windowY,
         uiX: defaultSettings.uiX,
         uiY: defaultSettings.uiY,
       });
+      jb()?.saveProps?.("windowX", "0");
+      jb()?.saveProps?.("windowY", "0");
       jb()?.saveProps?.("uiX", "0");
       jb()?.saveProps?.("uiY", "0");
-      jb()?.moveWindow?.(0, 0);
+      jb()?.syncOverlayBounds?.();
     },
     setSettingsPanelWidth: (settingsPanelWidth) => {
       set({ settingsPanelWidth });

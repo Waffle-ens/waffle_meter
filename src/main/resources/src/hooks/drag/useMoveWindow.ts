@@ -1,9 +1,11 @@
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useEffect, useRef, type RefObject } from "react";
 
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
 export const useMoveWindow = (target: string | RefObject<HTMLElement | null>) => {
   const wasDraggingRef = useRef(false);
-  const setWindowPosition = useSettingsStore((s) => s.setWindowPosition);
+  const setUiPosition = useSettingsStore((s) => s.setUiPosition);
 
   useEffect(() => {
     const el =
@@ -13,8 +15,11 @@ export const useMoveWindow = (target: string | RefObject<HTMLElement | null>) =>
     let isDragging = false;
     let startX = 0;
     let startY = 0;
-    let initialStageX = 0;
-    let initialStageY = 0;
+    let startUiX = 0;
+    let startUiY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    const rafId = { current: null as number | null };
 
     const handleMouseDown = (e: globalThis.MouseEvent) => {
       const ignoreTarget = (e.target as HTMLElement).closest(
@@ -22,38 +27,57 @@ export const useMoveWindow = (target: string | RefObject<HTMLElement | null>) =>
       );
       if (ignoreTarget) return;
 
+      const rootEl = el.closest<HTMLElement>(".drag-area");
+      if (!rootEl) return;
+      const rect = rootEl.getBoundingClientRect();
       isDragging = true;
-      startX = e.screenX;
-      startY = e.screenY;
-      initialStageX = window.screenX;
-      initialStageY = window.screenY;
-      // (window as any).javaBridge?.onDragStart(window.outerWidth, window.outerHeight);
+      startX = e.clientX;
+      startY = e.clientY;
+      startUiX = rect.left;
+      startUiY = rect.top;
+      currentX = startUiX;
+      currentY = startUiY;
     };
 
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       if (!isDragging) return;
-      if (!(window as any).javaBridge) return;
 
-      const deltaX = e.screenX - startX;
-      const deltaY = e.screenY - startY;
+      const rootEl = el.closest<HTMLElement>(".drag-area");
+      if (!rootEl) return;
+
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
 
       if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
         wasDraggingRef.current = true;
+        rootEl.style.willChange = "left, top";
       }
 
-      const newX = initialStageX + deltaX;
-      const newY = initialStageY + deltaY;
+      if (rafId.current !== null) cancelAnimationFrame(rafId.current);
+      rafId.current = requestAnimationFrame(() => {
+        const panelWidth = rootEl.offsetWidth;
+        const panelHeight = rootEl.offsetHeight;
+        const nextX = clamp(startUiX + deltaX, 0, Math.max(0, window.innerWidth - panelWidth));
+        const nextY = clamp(startUiY + deltaY, 0, Math.max(0, window.innerHeight - panelHeight));
 
-      (window as any).javaBridge.moveWindow(newX, newY);
-      // (window as any).javaBridge.onDragMove(newX, newY);
+        currentX = nextX;
+        currentY = nextY;
+        rootEl.style.left = `${nextX}px`;
+        rootEl.style.top = `${nextY}px`;
+      });
     };
 
     const handleMouseUp = () => {
+      const rootEl = el.closest<HTMLElement>(".drag-area");
       if (isDragging) {
         if (wasDraggingRef.current) {
-          setWindowPosition(window.screenX, window.screenY);
+          setUiPosition(currentX, currentY);
+          if (rootEl) rootEl.style.willChange = "auto";
         }
-        // (window as any).javaBridge?.onDragEnd();
+      }
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = null;
       }
       isDragging = false;
       setTimeout(() => {
@@ -70,7 +94,7 @@ export const useMoveWindow = (target: string | RefObject<HTMLElement | null>) =>
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [target, setWindowPosition]);
+  }, [target, setUiPosition]);
 
   return { wasDraggingRef };
 };
