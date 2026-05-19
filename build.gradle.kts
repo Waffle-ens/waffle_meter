@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-version = "1.0.0"
+version = providers.gradleProperty("appVersion").orElse("1.0.0").get().removePrefix("v")
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
 val frontendBuildInputs = fileTree(frontendDir) {
@@ -107,7 +107,7 @@ compose.desktop {
 
         nativeDistributions {
             windows{
-                // upgradeUuid = "B8A7C3D2-1F4E-4A8B-9C6D-E5F234567890"
+                upgradeUuid = "66D7E440-C8DB-47D8-A7AC-996796404049"
                 includeAllModules = true
                 shortcut = true
                 menu = true

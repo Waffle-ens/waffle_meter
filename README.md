@@ -16,6 +16,7 @@
 ## Table of Contents
 
 - [빌드하기](#빌드하기)
+- [배포하기](#배포하기)
 - [사용법](#사용법)
 - [FAQ](#FAQ)
 - [UI설명](#ui-설명)
@@ -37,6 +38,19 @@ cd waffle_meter
 # msi 빌드
 ./gradlew packageDistributionForCurrentOS
 ```
+
+## 배포하기
+
+원본과 동일하게 GitHub Releases에 MSI 설치 파일을 첨부하는 방식으로 배포합니다.
+
+```bash
+# 변경사항을 main에 푸시한 뒤
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+태그를 푸시하면 GitHub Actions가 Windows에서 MSI를 빌드하고, Releases에 `waffle_meter.v1.0-1.0.1.msi` 파일을 자동 업로드합니다.
+앱의 업데이트 알림은 `https://github.com/Waffle-ens/waffle_meter/releases`의 최신 릴리스를 기준으로 표시됩니다.
 
 ## 사용법
 
