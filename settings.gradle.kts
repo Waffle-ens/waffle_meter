@@ -13,7 +13,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = "waffle_meter.v1.0"
+rootProject.name = "waffle_meter.v1.1"
 
 if (file("addon").exists()) {
     include(":addon")

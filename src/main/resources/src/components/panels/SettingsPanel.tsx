@@ -8,7 +8,6 @@ import { RotateCcw } from "lucide-react";
 import type {
   DisplayMode,
   FontFamily,
-  HeaderPosition,
   NameDisplay,
   TargetInfoDisplayMode,
   ThemeColors,
@@ -113,7 +112,6 @@ export const SettingsPanel = ({
     fontFamily,
     rowHeight,
     isMinimal,
-    headerPosition,
     theme,
     showCombatTimerInMinimal,
     showTargetInfoInMinimal,
@@ -132,7 +130,6 @@ export const SettingsPanel = ({
       fontFamily: s.fontFamily,
       rowHeight: s.rowHeight,
       isMinimal: s.isMinimal,
-      headerPosition: s.headerPosition,
       theme: s.theme,
       showCombatTimerInMinimal: s.showCombatTimerInMinimal,
       showTargetInfoInMinimal: s.showTargetInfoInMinimal,
@@ -153,7 +150,6 @@ export const SettingsPanel = ({
     setFontFamily,
     setRowHeight,
     setIsMinimal,
-    setHeaderPosition,
     setThemeColor,
     setTheme,
     resetTheme,
@@ -185,7 +181,6 @@ export const SettingsPanel = ({
     hideHotkey,
     displayMode,
     targetInfoDisplayMode,
-    headerPosition,
     nameDisplay,
     fontFamily,
     rowHeight,
@@ -219,7 +214,6 @@ export const SettingsPanel = ({
     setShowCombatTimerInMinimal(snapshot.showCombatTimerInMinimal);
     setShowTargetInfoInMinimal(snapshot.showTargetInfoInMinimal);
     resetHide(snapshot.hideHotkey);
-    setHeaderPosition(snapshot.headerPosition);
     setTheme(snapshot.theme as ThemeColors);
     setMeterOpacity(snapshot.meterOpacity);
     setMeterListOpacity(snapshot.meterListOpacity);
@@ -233,7 +227,6 @@ export const SettingsPanel = ({
     setContributionMode,
     setDisplayMode,
     setFontFamily,
-    setHeaderPosition,
     setIsMinimal,
     setMeterListOpacity,
     setMeterOpacity,
@@ -308,32 +301,6 @@ export const SettingsPanel = ({
                     {label}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </SettingsRow>
-        </SettingsItem>
-
-        <SettingsItem>
-          <SettingsRow
-            title="버튼 위치"
-            description="헤더 버튼의 위치를 설정합니다">
-            <Select
-              value={headerPosition}
-              onValueChange={(v) => setHeaderPosition(v as HeaderPosition)}>
-              <SelectTrigger className="w-24 bg-white/5 border-white/10 ">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem
-                  value="top"
-                  className="px-4 py-2">
-                  상단
-                </SelectItem>
-                <SelectItem
-                  value="bottom"
-                  className="px-4 py-2">
-                  하단
-                </SelectItem>
               </SelectContent>
             </Select>
           </SettingsRow>

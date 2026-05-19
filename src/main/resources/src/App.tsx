@@ -52,7 +52,6 @@ export default function App() {
   const [activePanel, setActivePanel] = useState<PanelType>(null);
   const { meterWidth, onMouseDown, isDragging } = useResizable();
   const {
-    headerPosition,
     windowX,
     windowY,
     isLoaded,
@@ -71,7 +70,6 @@ export default function App() {
     uiY,
   } = useSettingsStore(
     useShallow((s) => ({
-      headerPosition: s.headerPosition,
       windowX: s.windowX,
       windowY: s.windowY,
       isLoaded: s.isLoaded,
@@ -192,7 +190,6 @@ export default function App() {
   }, []);
   const isLightOverlay = overlayTheme === "light";
   const isBottomLayout = overlayLayout === "bottom";
-  const effectiveHeaderPosition = isBottomLayout ? "bottom" : headerPosition;
 
   const meterClass = cn(
     "relative overflow-hidden rounded-md border px-2.5 py-2",
@@ -277,7 +274,7 @@ export default function App() {
         data-meter-root-anchor
         className={meterClass}
         style={{ width: meterWidth }}>
-        {effectiveHeaderPosition === "top" && (
+        {!isBottomLayout && (
           <div className="mb-2">
             <Header
               className={headerClass}
@@ -312,7 +309,7 @@ export default function App() {
             />
           )}
         </div>
-        {effectiveHeaderPosition === "bottom" && (
+        {isBottomLayout && (
           <div className="mt-2">
             <Header
               className={headerClass}

@@ -16,7 +16,6 @@ export type TargetInfoDisplayMode =
   | "remain_percent"
   | "percent";
 export type NameDisplay = "all" | "me_only" | "hidden";
-export type HeaderPosition = "top" | "bottom";
 export type OverlayTheme = "dark" | "light";
 export type OverlayLayout = "standard" | "bottom";
 export type FontFamily =
@@ -88,8 +87,6 @@ interface SettingsState {
   hideHotkey: Hotkey;
   setHideHotkey: (h: Hotkey) => void;
   isDebugMode: boolean;
-  headerPosition: HeaderPosition;
-  setHeaderPosition: (v: HeaderPosition) => void;
   overlayTheme: OverlayTheme;
   setOverlayTheme: (v: OverlayTheme) => void;
   toggleOverlayTheme: () => void;
@@ -174,7 +171,6 @@ const defaultSettings = {
   targetInfoDisplayMode: "hp_full_percent" as TargetInfoDisplayMode,
   nameDisplay: "all" as NameDisplay,
   fontFamily: "NEXON Lv2 Gothic" as FontFamily,
-  headerPosition: "top" as HeaderPosition,
   overlayTheme: "dark" as OverlayTheme,
   overlayLayout: "standard" as OverlayLayout,
   isMinimal: false,
@@ -276,7 +272,6 @@ export const useSettingsStore = create<SettingsState>((set) => {
       isMinimal: savedIsMinimal,
       showCombatTimerInMinimal: j.loadProps?.("showCombatTimerInMinimal") === "true",
       showTargetInfoInMinimal: j.loadProps?.("showTargetInfoInMinimal") === "true",
-      headerPosition: j.loadProps?.("headerPosition") ?? defaultSettings.headerPosition,
       overlayTheme: savedOverlayTheme === "light" ? "light" : defaultSettings.overlayTheme,
       overlayLayout: savedOverlayLayout === "bottom" ? "bottom" : defaultSettings.overlayLayout,
       theme: savedTheme,
@@ -350,7 +345,6 @@ export const useSettingsStore = create<SettingsState>((set) => {
     nameDisplay: defaultSettings.nameDisplay,
     fontFamily: defaultSettings.fontFamily,
     isDebugMode: defaultSettings.isDebugMode,
-    headerPosition: defaultSettings.headerPosition,
     overlayTheme: defaultSettings.overlayTheme,
     overlayLayout: defaultSettings.overlayLayout,
     theme: defaultSettings.theme,
@@ -441,10 +435,6 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setDetailWidth: (detailWidth) => {
       set({ detailWidth });
       jb()?.saveProps?.("detailWidth", detailWidth);
-    },
-    setHeaderPosition: (headerPosition) => {
-      set({ headerPosition });
-      jb()?.saveProps?.("headerPosition", headerPosition);
     },
     setOverlayTheme: (overlayTheme) => {
       set({ overlayTheme });

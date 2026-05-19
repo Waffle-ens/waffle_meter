@@ -1,4 +1,4 @@
-# waffle_meter.v1.0
+# waffle_meter.v1.1
 
 아이온2 전투분석을 위한 미터기 프로젝트
 
@@ -45,11 +45,11 @@ cd waffle_meter
 
 ```bash
 # 변경사항을 main에 푸시한 뒤
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
-태그를 푸시하면 GitHub Actions가 Windows에서 MSI를 빌드하고, Releases에 `waffle_meter.v1.0-1.0.1.msi` 파일을 자동 업로드합니다.
+태그를 푸시하면 GitHub Actions가 Windows에서 MSI를 빌드하고, Releases에 `waffle_meter.v1.1-1.1.0.msi` 파일을 자동 업로드합니다.
 앱의 업데이트 알림은 `https://github.com/Waffle-ens/waffle_meter/releases`의 최신 릴리스를 기준으로 표시됩니다.
 
 ## 사용법
@@ -57,11 +57,11 @@ git push origin v1.0.1
 
 1. npcap (https://npcap.com/#download) 를 설치합니다. (Install Npcap in WinPcap API-compatible Mode 필수 체크)
 
-2. [이동](https://github.com/Waffle-ens/waffle_meter/releases) 해당 링크에서 waffle_meter.v1.0-x.x.x.msi을 다운받아 설치합니다.
+2. [이동](https://github.com/Waffle-ens/waffle_meter/releases) 해당 링크에서 waffle_meter.v1.1-x.x.x.msi을 다운받아 설치합니다.
 
 3. **아이온이 켜져있는 상태라면 먼저 캐릭터 선택창으로 이동합니다**.
 
-4. 프로그램이 설치된 위치 (기본 설치 경로 C:\Program Files\waffle_meter.v1.0) 또는 시작 창의 바로가기에 waffle_meter.v1.0.exe 를 **반드시 관리자 권한으로 실행합니다.**
+4. 프로그램이 설치된 위치 (기본 설치 경로 C:\Program Files\waffle_meter.v1.1) 또는 시작 창의 바로가기에 waffle_meter.v1.1.exe 를 **반드시 관리자 권한으로 실행합니다.**
 
 ![image](./readme-asset/firstUI_new.png)
 
@@ -76,7 +76,7 @@ git push origin v1.0.1
   - # 관리자 권한으로 실행하세요.
 
 - 미터기가 처음 실행때 잠깐 보였다 이후 보이지 않아요.
-  - 미터기를 종료하고 win+r을 누른 뒤, %appdata%\waffle_meter.v1.0 를 입력합니다. 해당 폴더에 settings.properties를 열어 windowX와 windowY값을 0으로 변경한 다음 재실행합니다.
+  - 미터기를 종료하고 win+r을 누른 뒤, %appdata%\waffle_meter.v1.1 를 입력합니다. 해당 폴더에 settings.properties를 열어 windowX와 windowY값을 0으로 변경한 다음 재실행합니다.
 
 - 미터기에 표시되는 퍼센트는 보스의 체력을 기준으로 계산되나요?
   - 아닙니다. 보스의 전체 체력이 아닌, 파티원들이 가한 총 데미지 합계를 기준으로 퍼센트를 계산합니다.
@@ -180,7 +180,7 @@ git push origin v1.0.1
 
 <br />
 
-### 컴팩트 모드 + 버튼 위치 하단을 설정 했을 경우
+### 컴팩트 모드 + 하단 배치 설정을 사용했을 경우
 ![image](./readme-asset/compact.gif)
 
 
