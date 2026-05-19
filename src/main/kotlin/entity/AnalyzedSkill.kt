@@ -1,0 +1,33 @@
+package com.tbread.entity
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+
+@Serializable
+data class AnalyzedSkill(
+    @Transient val skillCode: Int = 0,
+    var damageAmount: Int = 0,
+    var dotDamageAmount: Int = 0,
+    var dotTimes: Int = 0,
+    var critTimes: Int = 0,
+    var times: Int = 0,
+    var backTimes: Int = 0,
+    var perfectTimes: Int = 0,
+    var doubleTimes: Int = 0,
+    var parryTimes: Int = 0,
+    var shardTimes: Int = 0,
+    var multiHitTimes: Int = 0,
+    var name: String? = null
+) {
+    constructor(pdp: ParsedDamagePacket) : this(
+        pdp.getSkillCode1(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
+}

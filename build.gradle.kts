@@ -1,0 +1,126 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
+plugins {
+    kotlin("jvm")
+    id("org.jetbrains.compose")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.0"
+
+}
+
+group = "com.tbread"
+version = "1.0.0"
+
+val frontendDir = layout.projectDirectory.dir("src/main/resources")
+val frontendBuildInputs = fileTree(frontendDir) {
+    include("src/**")
+    include("package.json")
+    include("package-lock.json")
+    include("index.html")
+    include("vite.config.ts")
+    include("tsconfig*.json")
+    include("eslint.config.js")
+    include("components.json")
+}
+val npmCommand = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) "npm.cmd" else "npm"
+
+val npmInstall by tasks.registering(Exec::class) {
+    workingDir = frontendDir.asFile
+    commandLine(npmCommand, "ci")
+    inputs.file(frontendDir.file("package.json"))
+    inputs.file(frontendDir.file("package-lock.json"))
+    outputs.dir(frontendDir.dir("node_modules"))
+}
+
+val buildFrontend by tasks.registering(Exec::class) {
+    dependsOn(npmInstall)
+    workingDir = frontendDir.asFile
+    commandLine(npmCommand, "run", "build")
+    inputs.files(frontendBuildInputs)
+    outputs.dir(frontendDir.dir("dist"))
+}
+
+tasks.processResources {
+    dependsOn(buildFrontend)
+    outputs.upToDateWhen { false }
+    exclude("node_modules/**")
+    exclude("src/**")
+    exclude(".gitignore")
+    exclude("README.md")
+    exclude("package.json")
+    exclude("package-lock.json")
+    exclude("tsconfig*.json")
+    exclude("vite.config.ts")
+    exclude("eslint.config.js")
+    exclude("components.json")
+    exclude("index.html")
+    filesMatching("version.properties") {
+        expand("version" to project.version)
+    }
+}
+
+repositories { 
+    mavenCentral()
+    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    maven("https://jogamp.org/deployment/maven")
+    maven("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
+    google()
+}
+
+dependencies {
+    // Note, if you develop a library, you should use compose.desktop.common.
+    // compose.desktop.currentOs should be used in launcher-sourceSet
+    // (in a separate module for demo project and in testMain).
+    // With compose.desktop.common you will also lose @Preview functionality
+    implementation(compose.desktop.currentOs)
+    implementation ("org.pcap4j:pcap4j-core:1.8.2")
+    implementation ("org.pcap4j:pcap4j-packetfactory-static:1.8.2")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+
+
+    implementation("org.openjfx:javafx-base:21.0.5:win")
+    implementation("org.openjfx:javafx-graphics:21.0.5:win")
+    implementation("org.openjfx:javafx-controls:21.0.5:win")
+    implementation("org.openjfx:javafx-swing:21.0.5:win")
+    implementation("org.openjfx:javafx-web:21.0.5:win")
+    implementation("org.openjfx:javafx-media:21.0.5:win")
+
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+    implementation("org.slf4j:slf4j-simple:1.7.26")
+
+    implementation("net.java.dev.jna:jna-platform:5.17.0")
+
+    implementation("at.yawk.lz4:lz4-java:1.10.4")
+
+    if (file("addon").exists()) {
+        runtimeOnly(project(":addon"))
+    }
+}
+
+compose.desktop {
+
+    application {
+        mainClass = "com.tbread.MainKt"
+
+        
+
+        nativeDistributions {
+            windows{
+                // upgradeUuid = "B8A7C3D2-1F4E-4A8B-9C6D-E5F234567890"
+                includeAllModules = true
+                shortcut = true
+                menu = true
+                menuGroup = "waffle_meter.v1.0"
+                dirChooser = true
+            }
+            targetFormats(TargetFormat.Msi)
+            packageName = "waffle_meter.v1.0"
+            packageVersion = version.toString()
+            copyright = "Copyright 2026 TK open public Licensed under MIT License"
+        }
+
+
+    }
+}
+
