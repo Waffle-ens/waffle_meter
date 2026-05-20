@@ -116,7 +116,6 @@ export const SettingsPanel = ({
     showCombatTimerInMinimal,
     showTargetInfoInMinimal,
     meterOpacity,
-    meterListOpacity,
     contributionMode,
     clickThroughHotkey,
     isClickThrough,
@@ -134,7 +133,6 @@ export const SettingsPanel = ({
       showCombatTimerInMinimal: s.showCombatTimerInMinimal,
       showTargetInfoInMinimal: s.showTargetInfoInMinimal,
       meterOpacity: s.meterOpacity,
-      meterListOpacity: s.meterListOpacity,
       contributionMode: s.contributionMode,
       clickThroughHotkey: s.clickThroughHotkey,
       isClickThrough: s.isClickThrough,
@@ -156,7 +154,6 @@ export const SettingsPanel = ({
     setShowCombatTimerInMinimal,
     setShowTargetInfoInMinimal,
     setMeterOpacity,
-    setMeterListOpacity,
     setContributionMode,
     setClickThroughHotkey,
     toggleAutoHide,
@@ -188,7 +185,6 @@ export const SettingsPanel = ({
     showCombatTimerInMinimal,
     showTargetInfoInMinimal,
     meterOpacity,
-    meterListOpacity,
     contributionMode,
     clickThroughHotkey,
     theme: structuredClone(theme),
@@ -216,7 +212,6 @@ export const SettingsPanel = ({
     resetHide(snapshot.hideHotkey);
     setTheme(snapshot.theme as ThemeColors);
     setMeterOpacity(snapshot.meterOpacity);
-    setMeterListOpacity(snapshot.meterListOpacity);
     setContributionMode(snapshot.contributionMode);
     resetClickThrough(snapshot.clickThroughHotkey);
     onClose();
@@ -228,7 +223,6 @@ export const SettingsPanel = ({
     setDisplayMode,
     setFontFamily,
     setIsMinimal,
-    setMeterListOpacity,
     setMeterOpacity,
     setNameDisplay,
     setRowHeight,
@@ -521,25 +515,7 @@ export const SettingsPanel = ({
         </div>
         <SettingsItem title="투명도 조정">
           <SettingsRow
-            title="미터 목록 투명도"
-            align="center"
-            rightClassName="w-44">
-            <div className="flex h-8 items-center gap-3">
-              <Slider
-                min={0.1}
-                max={1}
-                step={0.05}
-                className="cursor-pointer"
-                value={[meterListOpacity]}
-                onValueChange={(value) => setMeterListOpacity(value[0])}
-              />
-              <span className="text-xs opacity-60 w-12 text-right tabular-nums">
-                {Math.round(meterListOpacity * 100)}%
-              </span>
-            </div>
-          </SettingsRow>
-          <SettingsRow
-            title="미터 배경 투명도"
+            title="미터 투명도"
             align="center"
             rightClassName="w-44">
             <div className="flex h-8 items-center gap-3">

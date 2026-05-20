@@ -55,3 +55,7 @@ bin/
 ### Local Codex tools ###
 /.codex-tools/
 
+### Local installers and extraction workspaces ###
+/*.ico
+/.codex-msi-extract-original/
+

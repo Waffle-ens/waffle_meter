@@ -23,7 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-**/skill-icons/
 **/constants/
 !src/constants/
 !src/constants/codes.ts

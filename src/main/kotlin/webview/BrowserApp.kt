@@ -458,7 +458,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         EventQueue.invokeLater {
             try {
                 val tray = SystemTray.getSystemTray()
-                val iconUrl = javaClass.getResource("/src/assets/logo.png")
+                val iconUrl = javaClass.getResource("/icons/logo.png")
                 val image = if (iconUrl != null) {
                     ImageIO.read(iconUrl)
                 } else {

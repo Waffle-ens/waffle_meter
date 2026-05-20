@@ -58,9 +58,6 @@ export default function App() {
     showCombatTimerInMinimal,
     showTargetInfoInMinimal,
     meterOpacity,
-    panelOpacity,
-    joinPanelOpacity,
-    meterListOpacity,
     isClickThrough,
     overlayTheme,
     overlayLayout,
@@ -74,9 +71,6 @@ export default function App() {
       showCombatTimerInMinimal: s.showCombatTimerInMinimal,
       showTargetInfoInMinimal: s.showTargetInfoInMinimal,
       meterOpacity: s.meterOpacity,
-      panelOpacity: s.panelOpacity,
-      joinPanelOpacity: s.joinPanelOpacity,
-      meterListOpacity: s.meterListOpacity,
       isClickThrough: s.isClickThrough,
       overlayTheme: s.overlayTheme,
       overlayLayout: s.overlayLayout,
@@ -229,11 +223,11 @@ export default function App() {
             ? `rgba(248,250,252,${meterOpacity})`
             : `rgba(13,17,23,${meterOpacity})`,
           "--panel-bg": isLightOverlay
-            ? `rgba(248,250,252,${panelOpacity})`
-            : `rgba(15,18,24,${panelOpacity})`,
+            ? "rgba(248,250,252,0.96)"
+            : "rgba(15,18,24,0.96)",
           "--join-panel-bg": isLightOverlay
-            ? `rgba(248,250,252,${joinPanelOpacity})`
-            : `rgba(15,18,24,${joinPanelOpacity})`,
+            ? "rgba(248,250,252,0.96)"
+            : "rgba(15,18,24,0.96)",
           "--meter-fg": isLightOverlay ? "#172033" : "#f8fafc",
           "--meter-muted": isLightOverlay ? "rgba(51,65,85,0.72)" : "rgba(226,232,240,0.72)",
           "--meter-border": isLightOverlay ? "rgba(15,23,42,0.16)" : "rgba(255,255,255,0.1)",
@@ -250,6 +244,19 @@ export default function App() {
           "--meter-row-selected-border": isLightOverlay
             ? "rgba(14,116,144,0.35)"
             : "rgba(255,255,255,0.3)",
+          "--meter-section-bg": isLightOverlay
+            ? "rgba(15,23,42,0.14)"
+            : "rgba(255,255,255,0.075)",
+          "--meter-table-head-bg": isLightOverlay
+            ? "rgba(15,23,42,0.34)"
+            : "rgba(255,255,255,0.1)",
+          "--meter-table-head-fg": isLightOverlay ? "#ffffff" : "#f8fafc",
+          "--meter-table-row-bg": isLightOverlay
+            ? "rgba(15,23,42,0.045)"
+            : "rgba(0,0,0,0.22)",
+          "--meter-table-row-alt": isLightOverlay
+            ? "rgba(15,23,42,0.075)"
+            : "rgba(255,255,255,0.035)",
           "--meter-control-bg": isLightOverlay ? "rgba(15,23,42,0.06)" : "rgba(255,255,255,0.03)",
           "--meter-control-hover": isLightOverlay
             ? "rgba(15,23,42,0.12)"
@@ -282,7 +289,7 @@ export default function App() {
             />
           </div>
         )}
-        <div style={{ opacity: meterListOpacity }}>
+        <div>
           {players.length > 0 && (!isMinimal || showTargetInfoInMinimal) && (
             <TargetInfo
               targetName={targetName}

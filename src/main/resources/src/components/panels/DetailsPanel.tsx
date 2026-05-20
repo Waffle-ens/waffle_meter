@@ -60,6 +60,12 @@ export const DetailsPanel = ({
 
   const buffCount = (details.buffOperatingRate ?? []).length;
   const debuffCount = (details.debuffOperatingRate ?? []).length;
+  const sectionTriggerClass =
+    "cursor-pointer rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-section-bg)] px-4 py-2.5 text-sm text-[var(--meter-fg)] hover:bg-[var(--meter-row-hover)] hover:no-underline";
+  const tableHeadClass =
+    "bg-[var(--meter-table-head-bg)] py-2 font-bold text-[var(--meter-table-head-fg)]";
+  const skillNameClass = "truncate text-[var(--meter-fg)] text-shadow-meter";
+  const damageTextClass = "text-[#b7791f] text-shadow-meter";
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
@@ -83,8 +89,8 @@ export const DetailsPanel = ({
         ].map(({ label, value }) => (
           <div
             key={label}
-            className="bg-white/5 rounded-md px-3 py-3">
-            <p className="text-xs text-white/50 mb-1">{label}</p>
+            className="rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-table-row-bg)] px-3 py-3">
+            <p className="mb-1 text-xs text-[var(--meter-muted)]">{label}</p>
             <p className="text-sm font-bold">{value}</p>
           </div>
         ))}
@@ -102,7 +108,7 @@ export const DetailsPanel = ({
             value="buff"
             className="border-none ">
             <AccordionTrigger
-              className="px-4 py-2.5 bg-black/20 cursor-pointer text-sm"
+              className={sectionTriggerClass}
               disabled={buffCount === 0}>
               <div className="flex w-full items-center justify-between pr-2">
                 <span className="font-semibold">버프 가동률</span>
@@ -125,7 +131,7 @@ export const DetailsPanel = ({
             value="debuff"
             className="border-none">
             <AccordionTrigger
-              className="px-4 py-2.5 bg-black/20 cursor-pointer text-sm"
+              className={sectionTriggerClass}
               disabled={debuffCount === 0}>
               <div className="flex w-full items-center justify-between pr-2">
                 <span>디버프 가동률</span>
@@ -147,7 +153,7 @@ export const DetailsPanel = ({
           <AccordionItem
             value="skills"
             className="border-none">
-            <AccordionTrigger className="px-4 py-2.5 bg-black/20 cursor-pointer text-sm">
+            <AccordionTrigger className={sectionTriggerClass}>
               <span className="font-semibold">스킬 피해량</span>
             </AccordionTrigger>
             <AccordionContent key={buffColumns}>
@@ -173,17 +179,16 @@ export const DetailsPanel = ({
                       return (
                         <div
                           key={s.code}
-                          className="rounded-lg p-3"
-                          style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                          className="rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-table-row-bg)] p-3">
                           <div className="flex items-center gap-2 mb-2">
                             <SkillIcon
                               code={s.code}
                               size={26}
                             />
-                            <span className="text-sm truncate flex-1 text-row-fill text-shadow-meter">
+                            <span className={`flex-1 text-sm ${skillNameClass}`}>
                               {s.name}
                             </span>
-                            <span className=" text-row-fill text-sm text-shadow-meter shrink-0 ">
+                            <span className={`shrink-0 text-sm ${damageTextClass}`}>
                               {(ratio * 100).toFixed(1)}%
                             </span>
                           </div>
@@ -196,8 +201,8 @@ export const DetailsPanel = ({
                                 transform: `scaleX(${ratio})`,
                               }}
                             />
-                            <div className="absolute inset-0 bg-white/5 rounded-md" />
-                            <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-bold text-row-fill text-shadow-meter ">
+                            <div className="absolute inset-0 rounded-md bg-[var(--meter-tint)]" />
+                            <span className={`absolute inset-0 flex items-center justify-end pr-2 text-xs font-bold ${damageTextClass}`}>
                               {s.dmg.toLocaleString()}
                             </span>
                           </div>
@@ -206,8 +211,8 @@ export const DetailsPanel = ({
                             {stats.map(({ label, value }) => (
                               <div
                                 key={label}
-                                className="bg-gray-600 flex items-center gap-2 rounded-lg px-3 py-1">
-                                <span className="text-xs">{label}</span>
+                                className="flex items-center gap-2 rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-row-hover)] px-3 py-1">
+                                <span className="text-xs text-[var(--meter-muted)]">{label}</span>
                                 <span className="text-xs font-bold tabular-nums">{value}</span>
                               </div>
                             ))}
@@ -229,62 +234,56 @@ export const DetailsPanel = ({
                       <col style={{ width: "22%" }} />
                     </colgroup>
 
-                    <TableHeader className="sticky top-0 z-50 ">
-                      <TableRow className="text-center border-b border-white/10 ">
-                        <TableHead className="text-left  py-2 font-bold text-white">
+                    <TableHeader className="sticky top-0 z-50">
+                      <TableRow className="border-b border-[var(--meter-soft-border)] text-center hover:bg-transparent">
+                        <TableHead className={`${tableHeadClass} text-left`}>
                           스킬명
                         </TableHead>
-                        <TableHead className="py-2 font-bold text-center text-white">
+                        <TableHead className={`${tableHeadClass} text-center`}>
                           명중 횟수
                         </TableHead>
                         {/* <TableHead className="py-2 font-bold text-center text-white">
                           봉혼석
                         </TableHead> */}
-                        <TableHead className="py-2 text-center font-bold text-white">
+                        <TableHead className={`${tableHeadClass} text-center`}>
                           치명타
                         </TableHead>
-                        <TableHead className="py-2 text-center font-bold text-white">
+                        <TableHead className={`${tableHeadClass} text-center`}>
                           강타
                         </TableHead>
                         {/* <TableHead className="py-2 text-center font-bold text-white">
                           다단 히트
                         </TableHead> */}
-                        <TableHead className="py-2 text-center font-bold text-white">
+                        <TableHead className={`${tableHeadClass} text-center`}>
                           완벽
                         </TableHead>
-                        <TableHead className="py-2 text-center font-bold text-white">
+                        <TableHead className={`${tableHeadClass} text-center`}>
                           백어택
                         </TableHead>
-                        <TableHead className="py-2 text-center font-bold text-white">
+                        <TableHead className={`${tableHeadClass} text-center`}>
                           패리
                         </TableHead>
-                        <TableHead className="py-2 font-bold text-center text-white">
+                        <TableHead className={`${tableHeadClass} text-center`}>
                           누적 피해량
                         </TableHead>
                       </TableRow>
                     </TableHeader>
 
                     <TableBody>
-                      {details.skills.map((s, i) => {
+                      {details.skills.map((s) => {
                         const ratio = s.dmg / (details.totalDmg || 1);
 
                         return (
                           <TableRow
-                            className="cursor-auto"
-                            key={s.code}
-                            style={{
-                              borderBottom:
-                                i < details.skills.length - 1
-                                  ? "1px solid rgba(255,255,255,0.08)"
-                                  : "none",
-                            }}>
+                            className="cursor-auto border-b border-[var(--meter-soft-border)] bg-[var(--meter-table-row-bg)] even:bg-[var(--meter-table-row-alt)] hover:bg-[var(--meter-row-hover)]"
+                            key={s.code}>
                             <TableCell className="py-1.5">
                               <div className="flex items-center gap-2 overflow-hidden">
                                 <SkillIcon
                                   code={s.code}
                                   size={26}
                                 />
-                                <span className="truncate text-row-fill text-shadow-meter">
+                                <span className={skillNameClass}>
                                   {s.name}
                                 </span>
                               </div>
@@ -316,7 +315,7 @@ export const DetailsPanel = ({
                                     transform: `scaleX(${ratio})`,
                                   }}
                                 />
-                                <div className="relative z-10 h-full flex items-center justify-end gap-1.5 pr-2 text-row-fill text-shadow-meter">
+                                <div className={`relative z-10 flex h-full items-center justify-end gap-1.5 pr-2 ${damageTextClass}`}>
                                   <span>{s.dmg.toLocaleString()}</span>
                                   <span className="opacity-70">({(ratio * 100).toFixed(1)}%)</span>
                                 </div>

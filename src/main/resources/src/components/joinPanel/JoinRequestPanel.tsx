@@ -14,7 +14,6 @@ import { getClassColor } from "@/utils/classColor";
 import { useResizableJoinPanel } from "@/hooks/resize/useResizableJoinPanel";
 import { useDraggablePanel } from "@/hooks/drag/useDraggablePanel";
 import { ResizeHandle } from "../ResizeHandle";
-import { Slider } from "@/components/ui/slider";
 
 const TOTAL_SEC = 20;
 const DEFAULT_JOIN_PANEL_GAP = 8;
@@ -114,10 +113,8 @@ export const JoinRequestPanel = memo(() => {
     joinPanelX,
     joinPanelY,
     joinPanelPositioned,
-    joinPanelOpacity,
     overlayLayout,
     overlayTheme,
-    setJoinPanelOpacity,
     setJoinPanelPosition,
   } = useSettingsStore(
     useShallow((s) => ({
@@ -125,10 +122,8 @@ export const JoinRequestPanel = memo(() => {
       joinPanelX: s.joinPanelX,
       joinPanelY: s.joinPanelY,
       joinPanelPositioned: s.joinPanelPositioned,
-      joinPanelOpacity: s.joinPanelOpacity,
       overlayLayout: s.overlayLayout,
       overlayTheme: s.overlayTheme,
-      setJoinPanelOpacity: s.setJoinPanelOpacity,
       setJoinPanelPosition: s.setJoinPanelPosition,
     })),
   );
@@ -210,16 +205,6 @@ export const JoinRequestPanel = memo(() => {
           <div
             className="flex items-center gap-2 h-8"
             onMouseDown={(e) => e.stopPropagation()}>
-            <span className="text-[10px] opacity-50 shrink-0">투명도</span>
-            <Slider
-              min={0}
-              max={1}
-              step={0.05}
-              className="w-16 cursor-pointer"
-              value={[joinPanelOpacity]}
-              onValueChange={(value) => setJoinPanelOpacity(value[0])}
-            />
-
             <Button
               size="icon"
               variant="ghost"

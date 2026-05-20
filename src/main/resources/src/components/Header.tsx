@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import type { PanelType } from "@/types";
-import { memo, useRef } from "react";
+import { memo } from "react";
 import {
   Settings,
   //  RefreshCcw,
@@ -8,7 +9,6 @@ import {
   ClipboardClock,
   Bug,
   UserRoundPlus,
-  Grip,
   Moon,
   PanelBottom,
   PanelTop,
@@ -25,7 +25,6 @@ interface Props {
   className: string;
 }
 import { useSettingsStore } from "@/stores/useSettingsStore";
-import { useMoveWindow } from "@/hooks/drag/useMoveWindow";
 
 export const Header = memo(
   ({
@@ -36,6 +35,8 @@ export const Header = memo(
     const isDebugMode = useSettingsStore((s) => s.isDebugMode);
     const overlayTheme = useSettingsStore((s) => s.overlayTheme);
     const overlayLayout = useSettingsStore((s) => s.overlayLayout);
+    const meterOpacity = useSettingsStore((s) => s.meterOpacity);
+    const setMeterOpacity = useSettingsStore((s) => s.setMeterOpacity);
     const toggleOverlayTheme = useSettingsStore((s) => s.toggleOverlayTheme);
     const toggleOverlayLayout = useSettingsStore((s) => s.toggleOverlayLayout);
     const requestCount = useJoinRequestStore((s) => s.requests.length);
@@ -44,8 +45,6 @@ export const Header = memo(
     const exitApp = () => {
       window.javaBridge?.exitApp?.();
     };
-    const dragRef = useRef<HTMLDivElement>(null);
-    useMoveWindow(dragRef); // selector 대신 ref로 변경
 
     const toggleDebugConsole = () => {
       window.dispatchEvent(new CustomEvent("toggle-debug-console"));
@@ -60,9 +59,19 @@ export const Header = memo(
       <div className="flex items-center justify-between gap-3">
         <div className={`flex min-w-0 items-center gap-2 ${className}`}>
           <div
-            ref={dragRef}
-            className="meter-control window-drag-handle flex h-7 w-7 cursor-grab items-center justify-center rounded-md border transition-all active:cursor-grabbing">
-            <Grip className="size-4" />
+            data-no-drag
+            title="미터 투명도"
+            className="meter-control flex h-7 w-24 items-center gap-2 rounded-md border px-2 transition-all"
+            onMouseDown={(e) => e.stopPropagation()}>
+            <span className="shrink-0 text-[10px] opacity-60">투명도</span>
+            <Slider
+              min={0}
+              max={1}
+              step={0.05}
+              className="min-w-0 flex-1 cursor-pointer"
+              value={[meterOpacity]}
+              onValueChange={(value) => setMeterOpacity(value[0])}
+            />
           </div>
         </div>
 

@@ -29,7 +29,7 @@ export const useDragUi = () => {
       // button, input 등 인터랙티브 요소만 제외
       if (
         target.closest(
-          "input, button, .settingsPanel, .detailsPanel, .console, .resizeHandle, .drag-handle, .window-drag-handle",
+          "input, button, [role='slider'], [data-no-drag], .settingsPanel, .detailsPanel, .console, .resizeHandle, .drag-handle, .window-drag-handle",
         )
       )
         return;

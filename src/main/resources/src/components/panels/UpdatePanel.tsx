@@ -6,6 +6,7 @@ interface Props {
   updateInfo: UpdateInfo | null;
   downloadState: DownloadState;
   checkStatus: CheckStatus;
+  currentVersion?: string;
   onClose: () => void;
   onUpdate: () => void;
   onRetryDownload: () => void;
@@ -57,6 +58,7 @@ export const UpdatePanel = ({
   updateInfo,
   downloadState,
   checkStatus,
+  currentVersion,
   onClose,
   onUpdate,
   onOpenReleasePage,
@@ -94,7 +96,7 @@ export const UpdatePanel = ({
           <div className={CLS.scrollBody}>
             <div className={CLS.verRow}>
               <span className={CLS.verLabel}>현재</span>
-              <span className={CLS.verCur}>v{updateInfo?.currentVersion ?? "알 수 없음"}</span>
+              <span className={CLS.verCur}>v{currentVersion ?? updateInfo?.currentVersion ?? "알 수 없음"}</span>
             </div>
             <div className={CLS.verRow}>
               <span className={CLS.verLabel}>상태</span>

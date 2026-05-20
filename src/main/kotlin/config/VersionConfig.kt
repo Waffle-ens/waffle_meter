@@ -6,7 +6,7 @@ data class VersionConfig(val version:String) {
     companion object {
         private val logger = LoggerFactory.getLogger(javaClass.enclosingClass)
         fun loadFromProperties(): VersionConfig {
-            val version = PropertyHandler.getProperty("version") ?: "1.2.2"
+            val version = PropertyHandler.getProperty("version") ?: "1.3.0"
             logger.info("프로퍼티스 초기화 완료")
             return VersionConfig(version)
         }

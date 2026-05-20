@@ -108,12 +108,6 @@ interface SettingsState {
   // setShowPower: (v: boolean) => void;
   meterOpacity: number;
   setMeterOpacity: (v: number) => void;
-  panelOpacity: number;
-  setPanelOpacity: (v: number) => void;
-  joinPanelOpacity: number;
-  setJoinPanelOpacity: (v: number) => void;
-  meterListOpacity: number;
-  setMeterListOpacity: (v: number) => void;
   contributionMode: ContributionMode;
   setContributionMode: (v: ContributionMode) => void;
   clickThroughHotkey: Hotkey;
@@ -188,9 +182,6 @@ const defaultSettings = {
   visibleSkillCodes: DEFAULT_VISIBLE_SKILL_CODES,
   // showPower: true,
   meterOpacity: 0.4,
-  panelOpacity: 0.8,
-  joinPanelOpacity: 0.8,
-  meterListOpacity: 1,
   contributionMode: "contribution" as ContributionMode,
   clickThroughHotkey: { modifiers: 2, vkCode: 0x54 },
   isClickThrough: false,
@@ -240,8 +231,14 @@ export const useSettingsStore = create<SettingsState>((set) => {
     const savedSkillCodesRaw = j.loadProps?.("visibleSkillCodes");
     let savedSkillCodes = DEFAULT_VISIBLE_SKILL_CODES;
     try {
-      if (savedSkillCodesRaw) savedSkillCodes = JSON.parse(savedSkillCodesRaw);
+      if (savedSkillCodesRaw) {
+        const parsedSkillCodes = JSON.parse(savedSkillCodesRaw);
+        if (Array.isArray(parsedSkillCodes)) savedSkillCodes = parsedSkillCodes;
+      }
     } catch {}
+    if (DEFAULT_VISIBLE_SKILL_CODES.length > 100 && savedSkillCodes.length < 40) {
+      savedSkillCodes = DEFAULT_VISIBLE_SKILL_CODES;
+    }
 
     try {
       if (savedThemeRaw) savedTheme = { ...DEFAULT_THEME, ...JSON.parse(savedThemeRaw) };
@@ -258,9 +255,6 @@ export const useSettingsStore = create<SettingsState>((set) => {
     const hasSavedJoinPanelY = savedJoinPanelYRaw != null && savedJoinPanelYRaw !== "";
     const joinPanelPositioned = hasSavedJoinPanelX || hasSavedJoinPanelY;
     const savedMeterOpacityRaw = j.loadProps?.("meterOpacity");
-    const savedPanelOpacityRaw = j.loadProps?.("panelOpacity");
-    const savedJoinPanelOpacityRaw = j.loadProps?.("joinPanelOpacity");
-    const savedMeterListOpacityRaw = j.loadProps?.("meterListOpacity");
     const savedOverlayTheme = j.loadProps?.("overlayTheme");
     const savedOverlayLayout = j.loadProps?.("overlayLayout");
     const savedWindowXRaw = j.loadProps?.("windowX");
@@ -309,18 +303,6 @@ export const useSettingsStore = create<SettingsState>((set) => {
         savedMeterOpacityRaw != null && savedMeterOpacityRaw !== ""
           ? Number(savedMeterOpacityRaw)
           : defaultSettings.meterOpacity,
-      panelOpacity:
-        savedPanelOpacityRaw != null && savedPanelOpacityRaw !== ""
-          ? Number(savedPanelOpacityRaw)
-          : defaultSettings.panelOpacity,
-      joinPanelOpacity:
-        savedJoinPanelOpacityRaw != null && savedJoinPanelOpacityRaw !== ""
-          ? Number(savedJoinPanelOpacityRaw)
-          : defaultSettings.joinPanelOpacity,
-      meterListOpacity:
-        savedMeterListOpacityRaw != null && savedMeterListOpacityRaw !== ""
-          ? Number(savedMeterListOpacityRaw)
-          : defaultSettings.meterListOpacity,
       contributionMode:
         (j.loadProps?.("contributionMode") as ContributionMode) ?? defaultSettings.contributionMode,
       clickThroughHotkey: parsedClickThroughHotkey ?? defaultSettings.clickThroughHotkey,
@@ -378,9 +360,6 @@ export const useSettingsStore = create<SettingsState>((set) => {
     windowY: defaultSettings.windowY,
     // showPower: defaultSettings.showPower,
     meterOpacity: defaultSettings.meterOpacity,
-    panelOpacity: defaultSettings.panelOpacity,
-    joinPanelOpacity: defaultSettings.joinPanelOpacity,
-    meterListOpacity: defaultSettings.meterListOpacity,
     contributionMode: defaultSettings.contributionMode,
     clickThroughHotkey: defaultSettings.clickThroughHotkey,
     isClickThrough: defaultSettings.isClickThrough,
@@ -508,18 +487,6 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setMeterOpacity: (meterOpacity) => {
       set({ meterOpacity });
       jb()?.saveProps?.("meterOpacity", String(meterOpacity));
-    },
-    setPanelOpacity: (panelOpacity) => {
-      set({ panelOpacity });
-      jb()?.saveProps?.("panelOpacity", String(panelOpacity));
-    },
-    setJoinPanelOpacity: (joinPanelOpacity) => {
-      set({ joinPanelOpacity });
-      jb()?.saveProps?.("joinPanelOpacity", String(joinPanelOpacity));
-    },
-    setMeterListOpacity: (meterListOpacity) => {
-      set({ meterListOpacity });
-      jb()?.saveProps?.("meterListOpacity", String(meterListOpacity));
     },
     setContributionMode: (contributionMode) => {
       set({ contributionMode });

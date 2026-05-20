@@ -11,7 +11,6 @@ import { CircleX } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button";
 import { ResizeHandle } from "../ResizeHandle.tsx";
-import { Slider } from "@/components/ui/slider";
 
 const SIDE_BODY_VIEWPORT = "min-h-0 shrink-0 flex flex-col overflow-hidden";
 
@@ -103,8 +102,6 @@ const SidePanelComponent = ({
   const sidePanelPositioned = useSettingsStore((s) => s.sidePanelPositioned);
   const meterWidth = useSettingsStore((s) => s.meterWidth);
   const overlayLayout = useSettingsStore((s) => s.overlayLayout);
-  const panelOpacity = useSettingsStore((s) => s.panelOpacity);
-  const setPanelOpacity = useSettingsStore((s) => s.setPanelOpacity);
   const setSidePanelPosition = useSettingsStore((s) => s.setSidePanelPosition);
   const { panelWidth, panelHeight, onMouseDownCorner } = useSidePanelResize(currentType);
   const defaultSidePanelX = getDefaultSidePanelX(meterWidth);
@@ -218,19 +215,6 @@ const SidePanelComponent = ({
                   : null}
           </span>
         )}
-        <div
-          className="flex shrink-0 items-center gap-2"
-          onMouseDown={(e) => e.stopPropagation()}>
-          <span className="text-[10px] opacity-50">투명도</span>
-          <Slider
-            min={0}
-            max={1}
-            step={0.05}
-            className="w-16 cursor-pointer"
-            value={[panelOpacity]}
-            onValueChange={(value) => setPanelOpacity(value[0])}
-          />
-        </div>
         {!(currentType === "update" && !updateShowClose) && (
           <>
             <Button
@@ -276,6 +260,7 @@ const SidePanelComponent = ({
             <UpdatePanel
               updateInfo={updateInfo ?? null}
               checkStatus={checkStatus}
+              currentVersion={currentVersion}
               onClose={onClose}
               downloadState={downloadState}
               onRetryDownload={onRetryDownload}

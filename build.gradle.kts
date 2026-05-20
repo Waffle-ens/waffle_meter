@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-val resolvedAppVersion = providers.gradleProperty("appVersion").orElse("1.2.2").get().removePrefix("v")
+val resolvedAppVersion = providers.gradleProperty("appVersion").orElse("1.3.0").get().removePrefix("v")
 version = resolvedAppVersion
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
@@ -131,6 +131,7 @@ compose.desktop {
                 shortcut = true
                 menu = true
                 menuGroup = "waffle_meter.v1.2"
+                iconFile.set(project.file("src/main/resources/icons/logo.ico"))
                 dirChooser = true
             }
             targetFormats(TargetFormat.Msi)
