@@ -117,6 +117,8 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                     DataManager.battleData(previousTarget)?.let {
                         recentData.packets = it
                     }
+                    recentData.target?.remainHp = DataManager.mobHp(previousTarget) ?: recentData.target?.remainHp ?: 0
+                    recentData.target?.maxHp = DataManager.mobMaxHp(previousTarget) ?: recentData.target?.maxHp ?: 0
                 }
             }
             DataManager.flushPacket()

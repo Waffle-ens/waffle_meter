@@ -154,6 +154,9 @@ object DataManager {
 
     fun mobHp(mobId: Int, mobHp: Int) {
         mobHpRepository.set(mobId, mobHp)
+        if (mobHp > 0) {
+            saveMobMaxHp(mobId, mobHp)
+        }
     }
 
     /*

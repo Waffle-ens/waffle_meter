@@ -6,12 +6,16 @@ class MobIdRepository {
     private val storage = HashMap<Int, MobInstance>()
 
     fun save(key: Int, code: Int): MobInstance? {
-        return storage.put(key, MobInstance(code))
+        val existing = storage[key]
+        val maxHp = if (existing?.code == code) existing.maxHp else 0
+        return storage.put(key, MobInstance(code, maxHp))
     }
 
     fun saveMaxHp(key: Int, maxHp: Int): Boolean {
         val instance = storage[key] ?: return false
-        instance.maxHp = maxHp
+        if (maxHp > instance.maxHp) {
+            instance.maxHp = maxHp
+        }
         return true
     }
 
