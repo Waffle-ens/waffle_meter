@@ -29,7 +29,7 @@ declare global {
       onMonitorFit?: (monitorX: number, monitorY: number, width: number, height: number) => void;
       onMeterPositionChanged?: (x: number, y: number) => void;
       moveWindow?: (x: number, y: number) => void;
-      syncOverlayBounds?: () => void;
+      syncOverlayBounds?: () => string | undefined;
 
       isAutoHide?: () => boolean;
       toggleAutoHide?: () => void;

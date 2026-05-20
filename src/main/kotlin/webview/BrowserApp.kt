@@ -61,8 +61,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             fitOverlayToScreen(stage, webView)
         }
 
-        fun syncOverlayBounds() {
-            fitOverlayToScreen(stage, webView)
+        fun syncOverlayBounds(): String {
+            return fitOverlayToScreen(stage, webView)
         }
 
         fun resetDps() {
@@ -276,7 +276,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         engine = webView.engine
         engine.load(javaClass.getResource("/dist/index.html")?.toExternalForm())
 
-        val screenBounds = primaryScreenBounds()
+        val screenBounds = currentOverlayBounds()
         val bridge = JSBridge(stage, webView, hostServices)
         engine.loadWorker.stateProperty().addListener { _, _, newState ->
             if (newState == Worker.State.SUCCEEDED) {
@@ -405,8 +405,29 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         return Screen.getPrimary()?.bounds ?: Rectangle2D(0.0, 0.0, 1920.0, 1080.0)
     }
 
-    private fun fitOverlayToScreen(stage: Stage, webView: WebView) {
-        val bounds = primaryScreenBounds()
+    private fun virtualScreenBounds(): Rectangle2D {
+        val screens = Screen.getScreens()
+        if (screens.isNullOrEmpty()) return primaryScreenBounds()
+
+        val minX = screens.minOf { it.bounds.minX }
+        val minY = screens.minOf { it.bounds.minY }
+        val maxX = screens.maxOf { it.bounds.maxX }
+        val maxY = screens.maxOf { it.bounds.maxY }
+        return Rectangle2D(minX, minY, maxX - minX, maxY - minY)
+    }
+
+    private fun isMultiMonitorMode(): Boolean {
+        return PropertyHandler.getProperty("multiMonitorMode")?.toBooleanStrictOrNull() ?: false
+    }
+
+    private fun currentOverlayBounds(): Rectangle2D {
+        return if (isMultiMonitorMode()) virtualScreenBounds() else primaryScreenBounds()
+    }
+
+    private fun fitOverlayToScreen(stage: Stage, webView: WebView): String {
+        val previousX = stage.x
+        val previousY = stage.y
+        val bounds = currentOverlayBounds()
         stage.x = bounds.minX
         stage.y = bounds.minY
         stage.width = bounds.width
@@ -417,6 +438,9 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         webView.prefHeight = bounds.height
         webView.maxWidth = bounds.width
         webView.maxHeight = bounds.height
+        val safePreviousX = if (previousX.isFinite()) previousX else bounds.minX
+        val safePreviousY = if (previousY.isFinite()) previousY else bounds.minY
+        return """{"offsetX":${safePreviousX - bounds.minX},"offsetY":${safePreviousY - bounds.minY},"width":${bounds.width},"height":${bounds.height},"multiMonitor":${isMultiMonitorMode()}}"""
     }
 
     private fun isSelfFocused(): Boolean {

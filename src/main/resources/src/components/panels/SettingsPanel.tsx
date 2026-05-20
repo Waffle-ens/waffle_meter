@@ -120,6 +120,7 @@ export const SettingsPanel = ({
     clickThroughHotkey,
     isClickThrough,
     isAutoHide,
+    multiMonitorMode,
   } = useSettingsStore(
     useShallow((s) => ({
       hideHotkey: s.hideHotkey,
@@ -137,6 +138,7 @@ export const SettingsPanel = ({
       clickThroughHotkey: s.clickThroughHotkey,
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
+      multiMonitorMode: s.multiMonitorMode,
     })),
   );
 
@@ -157,6 +159,7 @@ export const SettingsPanel = ({
     setContributionMode,
     setClickThroughHotkey,
     toggleAutoHide,
+    setMultiMonitorMode,
     resetJoinPanelPosition,
     resetSidePanelPosition,
     resetMeterPosition,
@@ -187,6 +190,7 @@ export const SettingsPanel = ({
     meterOpacity,
     contributionMode,
     clickThroughHotkey,
+    multiMonitorMode,
     theme: structuredClone(theme),
   }));
 
@@ -214,6 +218,7 @@ export const SettingsPanel = ({
     setMeterOpacity(snapshot.meterOpacity);
     setContributionMode(snapshot.contributionMode);
     resetClickThrough(snapshot.clickThroughHotkey);
+    setMultiMonitorMode(snapshot.multiMonitorMode);
     onClose();
   }, [
     onClose,
@@ -224,6 +229,7 @@ export const SettingsPanel = ({
     setFontFamily,
     setIsMinimal,
     setMeterOpacity,
+    setMultiMonitorMode,
     setNameDisplay,
     setRowHeight,
     setShowCombatTimerInMinimal,
@@ -302,7 +308,7 @@ export const SettingsPanel = ({
 
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
-          <span className="text-xs opacity-40 px-2 shrink-0">최소화</span>
+          <span className="text-xs opacity-40 px-2 shrink-0">오버레이</span>
           <div className="flex-1 h-px bg-white/10" />
         </div>
         <SettingsItem>
@@ -312,6 +318,15 @@ export const SettingsPanel = ({
             <Switch
               checked={isAutoHide}
               onCheckedChange={toggleAutoHide}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="다중 모니터 이동"
+            description="미터기를 게임 화면 밖의 다른 모니터로 이동할 수 있게 합니다.">
+            <Switch
+              checked={multiMonitorMode}
+              onCheckedChange={setMultiMonitorMode}
               className="data-[state=checked]:bg-emerald-500"
             />
           </SettingsRow>

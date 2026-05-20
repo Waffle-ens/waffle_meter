@@ -115,6 +115,8 @@ interface SettingsState {
   isClickThrough: boolean;
   isAutoHide: boolean;
   toggleAutoHide: () => void;
+  multiMonitorMode: boolean;
+  setMultiMonitorMode: (v: boolean) => void;
   joinPanelWidth: number;
   setJoinPanelWidth: (w: number) => void;
   joinPanelHeight: number;
@@ -158,6 +160,41 @@ const readSavedNumber = (
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+interface OverlayBoundsSync {
+  offsetX?: number;
+  offsetY?: number;
+  width?: number;
+  height?: number;
+}
+
+const readOverlayBoundsSync = (): OverlayBoundsSync => {
+  const raw = jb()?.syncOverlayBounds?.();
+  if (!raw || typeof raw !== "string") return {};
+  try {
+    const parsed = JSON.parse(raw) as OverlayBoundsSync;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const finiteOr = (value: unknown, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const clampPanelPosition = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  viewportWidth: number,
+  viewportHeight: number,
+) => ({
+  x: Math.min(Math.max(0, x), Math.max(0, viewportWidth - width)),
+  y: Math.min(Math.max(0, y), Math.max(0, viewportHeight - height)),
+});
+
 const defaultSettings = {
   hotkey: { modifiers: 2, vkCode: 0x52 },
   hideHotkey: { modifiers: 2, vkCode: 0x48 },
@@ -186,6 +223,7 @@ const defaultSettings = {
   clickThroughHotkey: { modifiers: 2, vkCode: 0x54 },
   isClickThrough: false,
   isAutoHide: true,
+  multiMonitorMode: false,
   joinPanelWidth: 400,
   joinPanelHeight: 330,
   joinPanelX: 0,
@@ -257,6 +295,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     const savedMeterOpacityRaw = j.loadProps?.("meterOpacity");
     const savedOverlayTheme = j.loadProps?.("overlayTheme");
     const savedOverlayLayout = j.loadProps?.("overlayLayout");
+    const savedMultiMonitorMode = j.loadProps?.("multiMonitorMode") === "true";
     const savedWindowXRaw = j.loadProps?.("windowX");
     const savedWindowYRaw = j.loadProps?.("windowY");
     const savedUiXRaw = j.loadProps?.("uiX");
@@ -308,6 +347,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       clickThroughHotkey: parsedClickThroughHotkey ?? defaultSettings.clickThroughHotkey,
       isClickThrough: j.isClickThrough?.() ?? false,
       isAutoHide: j.isAutoHide?.() ?? false,
+      multiMonitorMode: savedMultiMonitorMode,
       joinPanelWidth: Number(j.loadProps?.("joinPanelWidth")) || defaultSettings.joinPanelWidth,
       joinPanelHeight: Number(j.loadProps?.("joinPanelHeight")) || defaultSettings.joinPanelHeight,
       joinPanelX: hasSavedJoinPanelX ? Number(savedJoinPanelXRaw) : defaultSettings.joinPanelX,
@@ -364,6 +404,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     clickThroughHotkey: defaultSettings.clickThroughHotkey,
     isClickThrough: defaultSettings.isClickThrough,
     isAutoHide: defaultSettings.isAutoHide,
+    multiMonitorMode: defaultSettings.multiMonitorMode,
     isLoaded: defaultSettings.isLoaded,
 
     joinPanelWidth: defaultSettings.joinPanelWidth,
@@ -501,6 +542,74 @@ export const useSettingsStore = create<SettingsState>((set) => {
         jb()?.toggleAutoHide?.();
         return { isAutoHide: !s.isAutoHide };
       }),
+    setMultiMonitorMode: (multiMonitorMode) => {
+      jb()?.saveProps?.("multiMonitorMode", String(multiMonitorMode));
+      const sync = readOverlayBoundsSync();
+      const offsetX = finiteOr(sync.offsetX, 0);
+      const offsetY = finiteOr(sync.offsetY, 0);
+      const viewportWidth = finiteOr(sync.width, window.innerWidth);
+      const viewportHeight = finiteOr(sync.height, window.innerHeight);
+
+      set((s) => {
+        const meterRoot = document
+          .querySelector<HTMLElement>("[data-meter-root-anchor]")
+          ?.closest<HTMLElement>(".drag-area");
+        const meter = clampPanelPosition(
+          s.uiX + offsetX,
+          s.uiY + offsetY,
+          meterRoot?.offsetWidth || s.meterWidth,
+          meterRoot?.offsetHeight || s.rowHeight,
+          viewportWidth,
+          viewportHeight,
+        );
+
+        jb()?.saveProps?.("uiX", String(meter.x));
+        jb()?.saveProps?.("uiY", String(meter.y));
+
+        const next: Partial<SettingsState> = {
+          multiMonitorMode,
+          uiX: meter.x,
+          uiY: meter.y,
+        };
+
+        if (s.joinPanelPositioned) {
+          const joinPanel = clampPanelPosition(
+            s.joinPanelX + offsetX,
+            s.joinPanelY + offsetY,
+            s.joinPanelWidth,
+            s.joinPanelHeight,
+            viewportWidth,
+            viewportHeight,
+          );
+          jb()?.saveProps?.("joinPanelX", String(joinPanel.x));
+          jb()?.saveProps?.("joinPanelY", String(joinPanel.y));
+          next.joinPanelX = joinPanel.x;
+          next.joinPanelY = joinPanel.y;
+        }
+
+        if (s.sidePanelPositioned) {
+          const sidePanel = clampPanelPosition(
+            s.sidePanelX + offsetX,
+            s.sidePanelY + offsetY,
+            Math.max(s.settingsPanelWidth, s.historyPanelWidth, s.updatePanelWidth, s.detailWidth),
+            Math.max(
+              s.settingsPanelHeight,
+              s.historyPanelHeight,
+              s.updatePanelHeight,
+              s.detailHeight,
+            ) + 44,
+            viewportWidth,
+            viewportHeight,
+          );
+          jb()?.saveProps?.("sidePanelX", String(sidePanel.x));
+          jb()?.saveProps?.("sidePanelY", String(sidePanel.y));
+          next.sidePanelX = sidePanel.x;
+          next.sidePanelY = sidePanel.y;
+        }
+
+        return next;
+      });
+    },
     // setShowPower: (showPower) => {
     //   set({ showPower });
     //   jb()?.saveProps?.("showPower", String(showPower));
