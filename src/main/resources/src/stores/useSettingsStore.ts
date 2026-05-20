@@ -117,6 +117,8 @@ interface SettingsState {
   toggleAutoHide: () => void;
   multiMonitorMode: boolean;
   setMultiMonitorMode: (v: boolean) => void;
+  packetLoggingMode: boolean;
+  setPacketLoggingMode: (v: boolean) => void;
   joinPanelWidth: number;
   setJoinPanelWidth: (w: number) => void;
   joinPanelHeight: number;
@@ -224,6 +226,7 @@ const defaultSettings = {
   isClickThrough: false,
   isAutoHide: true,
   multiMonitorMode: false,
+  packetLoggingMode: false,
   joinPanelWidth: 400,
   joinPanelHeight: 330,
   joinPanelX: 0,
@@ -296,6 +299,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
     const savedOverlayTheme = j.loadProps?.("overlayTheme");
     const savedOverlayLayout = j.loadProps?.("overlayLayout");
     const savedMultiMonitorMode = j.loadProps?.("multiMonitorMode") === "true";
+    const savedPacketLoggingMode =
+      j.isPacketLoggingEnabled?.() ?? j.loadProps?.("packetLoggingMode") === "true";
     const savedWindowXRaw = j.loadProps?.("windowX");
     const savedWindowYRaw = j.loadProps?.("windowY");
     const savedUiXRaw = j.loadProps?.("uiX");
@@ -348,6 +353,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       isClickThrough: j.isClickThrough?.() ?? false,
       isAutoHide: j.isAutoHide?.() ?? false,
       multiMonitorMode: savedMultiMonitorMode,
+      packetLoggingMode: savedPacketLoggingMode,
       joinPanelWidth: Number(j.loadProps?.("joinPanelWidth")) || defaultSettings.joinPanelWidth,
       joinPanelHeight: Number(j.loadProps?.("joinPanelHeight")) || defaultSettings.joinPanelHeight,
       joinPanelX: hasSavedJoinPanelX ? Number(savedJoinPanelXRaw) : defaultSettings.joinPanelX,
@@ -405,6 +411,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     isClickThrough: defaultSettings.isClickThrough,
     isAutoHide: defaultSettings.isAutoHide,
     multiMonitorMode: defaultSettings.multiMonitorMode,
+    packetLoggingMode: defaultSettings.packetLoggingMode,
     isLoaded: defaultSettings.isLoaded,
 
     joinPanelWidth: defaultSettings.joinPanelWidth,
@@ -609,6 +616,11 @@ export const useSettingsStore = create<SettingsState>((set) => {
 
         return next;
       });
+    },
+    setPacketLoggingMode: (packetLoggingMode) => {
+      set({ packetLoggingMode });
+      jb()?.setPacketLoggingEnabled?.(packetLoggingMode);
+      jb()?.saveProps?.("packetLoggingMode", String(packetLoggingMode));
     },
     // setShowPower: (showPower) => {
     //   set({ showPower });

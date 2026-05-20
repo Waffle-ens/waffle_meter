@@ -816,6 +816,7 @@ export const injectMockDpsData = () => {
     ["showCombatTimerInMinimal", "true"],
     ["showTargetInfoInMinimal", "true"],
     ["contributionMode", "contribution"],
+    ["packetLoggingMode", "false"],
   ]);
 
   (window as any).javaBridge = {
@@ -830,6 +831,10 @@ export const injectMockDpsData = () => {
     isClickThrough: () => false,
     isAutoHide: () => true,
     toggleAutoHide: () => undefined,
+    isPacketLoggingEnabled: () => props.get("packetLoggingMode") === "true",
+    setPacketLoggingEnabled: (enabled: boolean) =>
+      props.set("packetLoggingMode", String(enabled)),
+    exportPacketLog: () => "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.4\\packet-logs\\mock.log",
     getDpsData: () => JSON.stringify(MOCK_DATA),
     getBattleDetail: (_id: string) => JSON.stringify(MOCK_DETAIL_DATA),
     getBattleDetailFromList: (_idx: number, _uid: number) => JSON.stringify(MOCK_DETAIL_DATA),

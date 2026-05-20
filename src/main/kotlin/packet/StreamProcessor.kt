@@ -64,7 +64,7 @@ class StreamProcessor() {
     fun onPacketReceived(packet: ByteArray, arrivedAt: Long) {
         if (packet.size == 3) return
 
-//        DataManager.saveRawPacket(packet, arrivedAt)
+        DataManager.saveRawPacket(packet, arrivedAt)
 
         val epoch = DataManager.currentEpoch()
 
@@ -341,8 +341,9 @@ class StreamProcessor() {
             DataManager.saveDamage(pdp, epoch)
             val mobCode = DataManager.mobId(pdp.getTargetId()) ?: return true
             val mob = DataManager.mob(mobCode) ?: return true
-            if (mob.isDummy) {
-                DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
+            when {
+                mob.isDummy -> DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
+                mob.boss && DataManager.currentTarget() <= 0 -> DataManager.startBattle(pdp.getTargetId())
             }
         }
         return true
@@ -590,8 +591,12 @@ class StreamProcessor() {
 //                println("mobCode:${DataManager.mobId(pdp.getTargetId())}")
                 DataManager.saveDamage(pdp, epoch)
                 val mobCode = DataManager.mobId(pdp.getTargetId())
-                if (mobCode != null && DataManager.mob(mobCode)?.isDummy == true) {
-                    DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
+                if (mobCode != null) {
+                    val mob = DataManager.mob(mobCode)
+                    when {
+                        mob?.isDummy == true -> DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
+                        mob?.boss == true && DataManager.currentTarget() <= 0 -> DataManager.startBattle(pdp.getTargetId())
+                    }
                 }
             }
         }
@@ -746,7 +751,15 @@ class StreamProcessor() {
 
         val mobCode = DataManager.mobId(battleInfo.value) ?: return true
         val mob = DataManager.mob(mobCode) ?: return true
-        if (!mob.boss || mob.isDummy) return true
+        if (mob.isDummy) return true
+        if (!mob.boss) {
+            logger.debug(
+                "boss flag가 없는 전투 토글 대상을 전투 타겟으로 처리합니다. instance={}, code={}, name={}",
+                battleInfo.value,
+                mobCode,
+                mob.name
+            )
+        }
 
         when (toggleInfo.value) {
             1 -> DataManager.startBattle(battleInfo.value)

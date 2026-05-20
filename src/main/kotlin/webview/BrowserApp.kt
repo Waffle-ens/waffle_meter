@@ -137,6 +137,18 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return debugMode
         }
 
+        fun isPacketLoggingEnabled(): Boolean {
+            return DataManager.isPacketLoggingEnabled()
+        }
+
+        fun setPacketLoggingEnabled(enabled: Boolean) {
+            DataManager.setPacketLoggingEnabled(enabled)
+        }
+
+        fun exportPacketLog(): String {
+            return DataManager.exportRawPacketLog()
+        }
+
         fun getBattleDetail(uid: Int): String {
             return Json.encodeToString(dpsCalculator.battleDetails(dpsCalculator.getLiveReport(), uid))
         }

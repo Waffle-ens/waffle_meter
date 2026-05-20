@@ -33,6 +33,9 @@ declare global {
 
       isAutoHide?: () => boolean;
       toggleAutoHide?: () => void;
+      isPacketLoggingEnabled?: () => boolean;
+      setPacketLoggingEnabled?: (enabled: boolean) => void;
+      exportPacketLog?: () => string;
     };
   }
 }

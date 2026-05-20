@@ -87,6 +87,10 @@ object PropertyHandler {
         }
     }
 
+    fun appDirectory(): File {
+        return settingFile.parentFile
+    }
+
     fun getProperty(key: String): String? {
         return encodeToEucKr(props.getProperty(key))
     }

@@ -1,10 +1,16 @@
 package com.tbread.data
 
+import com.tbread.config.PropertyHandler
 import com.tbread.data.repository.*
 import com.tbread.entity.*
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
+import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 object DataManager {
@@ -17,14 +23,114 @@ object DataManager {
     /*
     rawPacket 버퍼 영역
      */
+    private const val RAW_PACKET_LIMIT = 200_000
+    private const val RAW_PACKET_RETENTION_MS = 15 * 60 * 1000L
+
     private val rawPacketBuffer = ConcurrentLinkedDeque<RawPacket>()
+    private val rawPacketCount = AtomicInteger(0)
+    private val packetLogFileFormatter = DateTimeFormatter
+        .ofPattern("yyyyMMdd-HHmmss")
+        .withZone(ZoneId.systemDefault())
+
+    @Volatile
+    private var packetLoggingEnabled =
+        PropertyHandler.getProperty("packetLoggingMode")?.toBooleanStrictOrNull() ?: false
+
+    fun isPacketLoggingEnabled(): Boolean {
+        return packetLoggingEnabled
+    }
+
+    fun setPacketLoggingEnabled(enabled: Boolean) {
+        packetLoggingEnabled = enabled
+        PropertyHandler.setProperty("packetLoggingMode", enabled.toString())
+        if (!enabled) clearRawPackets()
+    }
 
     fun saveRawPacket(data: ByteArray, timestamp: Long) {
-        rawPacketBuffer.add(RawPacket(data, timestamp))
+        if (!packetLoggingEnabled) return
+        rawPacketBuffer.add(RawPacket(data.copyOf(), timestamp))
+        rawPacketCount.incrementAndGet()
+        trimRawPackets(timestamp)
     }
 
     fun rawPacketsInRange(from: Long, to: Long): List<RawPacket> {
         return rawPacketBuffer.filter { it.timestamp in from..to }
+    }
+
+    fun exportRawPacketLog(label: String = "manual"): String {
+        val now = System.currentTimeMillis()
+        val first = rawPacketBuffer.peekFirst()
+        val packets = rawPacketsInRange(first?.timestamp ?: now, now)
+        return writeRawPacketLog(label, first?.timestamp ?: now, now, packets)
+    }
+
+    private fun trimRawPackets(now: Long) {
+        val cutoff = now - RAW_PACKET_RETENTION_MS
+        while (true) {
+            val first = rawPacketBuffer.peekFirst() ?: break
+            if (first.timestamp >= cutoff) break
+            pollRawPacket()
+        }
+        while (rawPacketCount.get() > RAW_PACKET_LIMIT) {
+            if (pollRawPacket() == null) break
+        }
+    }
+
+    private fun dropRawPacketsUntil(timestamp: Long) {
+        while (true) {
+            val first = rawPacketBuffer.peekFirst() ?: break
+            if (first.timestamp > timestamp) break
+            pollRawPacket()
+        }
+    }
+
+    private fun pollRawPacket(): RawPacket? {
+        val packet = rawPacketBuffer.pollFirst()
+        if (packet != null) rawPacketCount.decrementAndGet()
+        return packet
+    }
+
+    private fun clearRawPackets() {
+        rawPacketBuffer.clear()
+        rawPacketCount.set(0)
+    }
+
+    private fun writeRawPacketLog(label: String, from: Long, to: Long, packets: List<RawPacket>): String {
+        val dir = File(PropertyHandler.appDirectory(), "packet-logs").also { it.mkdirs() }
+        val createdAt = System.currentTimeMillis()
+        val fileName = "${packetLogFileFormatter.format(Instant.ofEpochMilli(createdAt))}-${safeFileToken(label)}-${packets.size}.log"
+        val file = File(dir, fileName)
+
+        file.bufferedWriter(Charsets.UTF_8).use { writer ->
+            writer.appendLine("# waffle_meter packet log")
+            writer.appendLine("# createdAt=$createdAt")
+            writer.appendLine("# from=$from")
+            writer.appendLine("# to=$to")
+            writer.appendLine("# packetCount=${packets.size}")
+            writer.appendLine("# format=timestamp\\tpacketSize\\thex")
+            packets.forEach { packet ->
+                writer.append(packet.timestamp.toString())
+                writer.append('\t')
+                writer.append(packet.data.size.toString())
+                writer.append('\t')
+                writer.appendLine(packet.data.toHexString())
+            }
+        }
+
+        logger.info("패킷 로그 저장 완료: {}", file.absolutePath)
+        return file.absolutePath
+    }
+
+    private fun safeFileToken(value: String): String {
+        return value
+            .replace(Regex("[^A-Za-z0-9가-힣._-]+"), "_")
+            .trim('_')
+            .take(60)
+            .ifBlank { "unknown" }
+    }
+
+    private fun ByteArray.toHexString(): String {
+        return joinToString(separator = "") { "%02X".format(it.toInt() and 0xff) }
     }
 
     private val mobIdRepository = MobIdRepository()
@@ -140,7 +246,7 @@ object DataManager {
         packetRepository.flush()
         summonRepository.flush()
         userRepository.flush()
-        rawPacketBuffer.clear()
+        clearRawPackets()
         lastDummyHitTime = 0
     }
 
@@ -172,25 +278,17 @@ object DataManager {
     packet 영역
      */
     fun battleData(targetId: Int): MutableList<ParsedDamagePacket>? {
-        if (packetRepository.currentTarget() == 0) {
-            return packetRepository.getAll().values.flatten().filter {
-                !existMobId(it.getTargetId())
-            }.toMutableList()
-        }
+        if (targetId <= 0) return null
         return packetRepository.get(targetId)
     }
 
     fun battleDataSince(targetId: Int, sequence: Long): PacketRepository.PacketWindow {
-        if (targetId == 0) {
-            val data = battleData(targetId) ?: mutableListOf()
-            val fromIndex = sequence.toInt().coerceIn(0, data.size)
-            return PacketRepository.PacketWindow(
-                packets = data.subList(fromIndex, data.size).toList(),
-                nextSequence = data.size.toLong(),
-                droppedBeforeStart = sequence > data.size,
-                totalSize = data.size
-            )
-        }
+        if (targetId <= 0) return PacketRepository.PacketWindow(
+            packets = emptyList(),
+            nextSequence = sequence,
+            droppedBeforeStart = false,
+            totalSize = 0
+        )
         return packetRepository.getWindow(targetId, sequence)
     }
 
@@ -295,7 +393,11 @@ object DataManager {
         )
         val packets = rawPacketsInRange(data.battleStart - 5000L, data.battleEnd)
         battleLogRepository.save(DpsLog(snapshot, summonRepository.getAll(), packets))
-        rawPacketBuffer.removeIf { it.timestamp <= data.battleEnd }
+        if (packetLoggingEnabled && packets.isNotEmpty()) {
+            val targetName = data.target?.mob?.name ?: data.target?.id?.toString() ?: "battle"
+            writeRawPacketLog("battle-$targetName", data.battleStart - 5000L, data.battleEnd, packets)
+        }
+        dropRawPacketsUntil(data.battleEnd)
     }
 
     fun recentBattleList(): List<Pair<Int, DpsReport>> {
@@ -347,6 +449,10 @@ object DataManager {
 
     private fun existMobId(mobId: Int): Boolean {
         return mobIdRepository.exist(mobId)
+    }
+
+    fun isMobInstance(id: Int): Boolean {
+        return existMobId(id)
     }
 
 

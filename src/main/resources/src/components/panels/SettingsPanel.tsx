@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useHotkeyCapture } from "@/hooks/useHotkeyCapture";
 import { formatHotkey } from "@/utils/hotKey";
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from "lucide-react";
+import { FileDown, RotateCcw } from "lucide-react";
 import type {
   DisplayMode,
   FontFamily,
@@ -121,6 +121,7 @@ export const SettingsPanel = ({
     isClickThrough,
     isAutoHide,
     multiMonitorMode,
+    packetLoggingMode,
   } = useSettingsStore(
     useShallow((s) => ({
       hideHotkey: s.hideHotkey,
@@ -139,6 +140,7 @@ export const SettingsPanel = ({
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
+      packetLoggingMode: s.packetLoggingMode,
     })),
   );
 
@@ -160,6 +162,7 @@ export const SettingsPanel = ({
     setClickThroughHotkey,
     toggleAutoHide,
     setMultiMonitorMode,
+    setPacketLoggingMode,
     resetJoinPanelPosition,
     resetSidePanelPosition,
     resetMeterPosition,
@@ -191,8 +194,10 @@ export const SettingsPanel = ({
     contributionMode,
     clickThroughHotkey,
     multiMonitorMode,
+    packetLoggingMode,
     theme: structuredClone(theme),
   }));
+  const [packetLogPath, setPacketLogPath] = useState("");
 
   useEffect(() => {
     onReady?.();
@@ -219,6 +224,7 @@ export const SettingsPanel = ({
     setContributionMode(snapshot.contributionMode);
     resetClickThrough(snapshot.clickThroughHotkey);
     setMultiMonitorMode(snapshot.multiMonitorMode);
+    setPacketLoggingMode(snapshot.packetLoggingMode);
     onClose();
   }, [
     onClose,
@@ -231,6 +237,7 @@ export const SettingsPanel = ({
     setMeterOpacity,
     setMultiMonitorMode,
     setNameDisplay,
+    setPacketLoggingMode,
     setRowHeight,
     setShowCombatTimerInMinimal,
     setShowTargetInfoInMinimal,
@@ -238,6 +245,11 @@ export const SettingsPanel = ({
     setTargetInfoDisplayMode,
     snapshot,
   ]);
+
+  const handleExportPacketLog = useCallback(() => {
+    const path = window.javaBridge?.exportPacketLog?.() ?? "";
+    setPacketLogPath(path || "저장된 패킷이 없습니다");
+  }, []);
 
   const handleCancelRef = useRef(handleCancel);
   useEffect(() => {
@@ -628,6 +640,47 @@ export const SettingsPanel = ({
               onChange={(v) => setThemeColor("bossRightValue", v)}
             />
           </div>
+        </SettingsItem>
+
+        <div className="my-3 flex items-center gap-2">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-xs opacity-40 px-2 shrink-0">진단</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+        <SettingsItem>
+          <SettingsRow
+            title="패킷 로깅"
+            description="문제 재현용입니다. 필요할 때만 켜두는 것을 권장합니다.">
+            <Switch
+              checked={packetLoggingMode}
+              onCheckedChange={setPacketLoggingMode}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="현재 패킷 로그 저장"
+            description={
+              packetLogPath ? (
+                <span
+                  className="block truncate"
+                  title={packetLogPath}>
+                  {packetLogPath}
+                </span>
+              ) : (
+                "전투 중이거나 문제를 재현한 직후 수동으로 저장합니다."
+              )
+            }
+            rightClassName="w-24">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!packetLoggingMode}
+              onClick={handleExportPacketLog}
+              className="w-full flex items-center gap-2 text-xs disabled:opacity-30">
+              <FileDown className="w-3 h-3" />
+              저장
+            </Button>
+          </SettingsRow>
         </SettingsItem>
 
         <SettingsItem className="pb-2">
