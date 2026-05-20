@@ -172,25 +172,17 @@ object DataManager {
     packet 영역
      */
     fun battleData(targetId: Int): MutableList<ParsedDamagePacket>? {
-        if (packetRepository.currentTarget() == 0) {
-            return packetRepository.getAll().values.flatten().filter {
-                !existMobId(it.getTargetId())
-            }.toMutableList()
-        }
+        if (targetId <= 0) return null
         return packetRepository.get(targetId)
     }
 
     fun battleDataSince(targetId: Int, sequence: Long): PacketRepository.PacketWindow {
-        if (targetId == 0) {
-            val data = battleData(targetId) ?: mutableListOf()
-            val fromIndex = sequence.toInt().coerceIn(0, data.size)
-            return PacketRepository.PacketWindow(
-                packets = data.subList(fromIndex, data.size).toList(),
-                nextSequence = data.size.toLong(),
-                droppedBeforeStart = sequence > data.size,
-                totalSize = data.size
-            )
-        }
+        if (targetId <= 0) return PacketRepository.PacketWindow(
+            packets = emptyList(),
+            nextSequence = sequence,
+            droppedBeforeStart = false,
+            totalSize = 0
+        )
         return packetRepository.getWindow(targetId, sequence)
     }
 
@@ -347,6 +339,10 @@ object DataManager {
 
     private fun existMobId(mobId: Int): Boolean {
         return mobIdRepository.exist(mobId)
+    }
+
+    fun isMobInstance(id: Int): Boolean {
+        return existMobId(id)
     }
 
 

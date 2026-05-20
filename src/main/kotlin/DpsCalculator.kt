@@ -22,6 +22,14 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
     private var cachedBattleStart = 0L
     private var isCachedBattleStartFake = false
 
+    private val summonDamageSkillPrefixes = listOf(
+        "불의 정령:",
+        "물의 정령:",
+        "바람의 정령:",
+        "땅의 정령:",
+        "고대의 정령:"
+    )
+
     private fun resetCache() {
         lastProcessedSequence = 0L
         cachedInfo.clear()
@@ -35,13 +43,29 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         return recentData
     }
 
-    private fun accumulatePacket(packet: ParsedDamagePacket) {
-        val actor = DataManager.summonerId(packet.getActorId()) ?: packet.getActorId()
-        var user = DataManager.user(actor)
-        if (user == null) {
-            user = User(actor, nickname = actor.toString())
-            DataManager.saveUser(user.id, user)
+    private fun isSummonDamageSkill(skillCode: Int): Boolean {
+        val skillName = DataManager.skill(skillCode.toLong())?.name ?: return false
+        return summonDamageSkillPrefixes.any { skillName.startsWith(it) }
+    }
+
+    private fun resolveActor(packet: ParsedDamagePacket, candidates: Collection<User>): Int? {
+        DataManager.summonerId(packet.getActorId())?.let { return it }
+
+        if (isSummonDamageSkill(packet.getSkillCode1())) {
+            val elementalists = candidates
+                .filter { it.job == JobClass.ELEMENTALIST }
+                .map { it.id }
+                .distinct()
+            return elementalists.singleOrNull()
         }
+
+        if (DataManager.isMobInstance(packet.getActorId())) return null
+        return packet.getActorId()
+    }
+
+    private fun accumulatePacket(packet: ParsedDamagePacket) {
+        val actor = resolveActor(packet, cachedContributors) ?: return
+        val user = DataManager.user(actor) ?: return
         cachedContributors.remove(user)
         cachedContributors.add(user)
         if (user.job == null) {
@@ -72,7 +96,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         val prevTargetDummy = DataManager.isCurrentTargetDummy()
         val isNewBattleEnd = storageTarget == -1 && storageTarget != previousTarget
         if (storageTarget != previousTarget && !prevTargetDummy
-            && storageTarget != -1 && previousTarget != -1
+            && storageTarget != -1 && previousTarget > 0 && !recentData.isEmpty()
         ) {
             DataManager.battleData(previousTarget)?.let {
                 recentData.packets = it
@@ -101,6 +125,10 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 recentDataSaved = true
             }
             return recentData
+        }
+
+        if (currentTarget == 0) {
+            return DpsReport()
         }
 
         val reportPackets = if (currentTarget > 0) {
@@ -186,7 +214,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         data.packets?.forEach {
             val skill = DataManager.skill(it.getSkillCode1().toLong())
             val skillName = it.getSkillCode1().toString()
-            val realActor = DataManager.summonerId(it.getActorId()) ?: it.getActorId()
+            val realActor = resolveActor(it, data.contributors) ?: return@forEach
             if (realActor == uid) {
                 if (!analyzedData.containsKey(skillName)) {
                     val analyzedSkill = AnalyzedSkill(it)
@@ -213,16 +241,65 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         return analyzedData
     }
 
+    private data class BuffDisplay(
+        val code: Int,
+        val name: String,
+        val summary: String?,
+        val effect: String?
+    )
+
+    private fun isPlaceholderBuff(buff: Buff): Boolean {
+        return buff.name.isBlank() || buff.name.equals("None", ignoreCase = true)
+    }
+
+    private fun normalizeBuffSkillCode(code: Int): Int? {
+        val candidates = linkedSetOf<Int>()
+
+        fun addCandidate(value: Int) {
+            if (value <= 0) return
+            candidates.add(value)
+            candidates.add((value / 10) * 10)
+        }
+
+        addCandidate(code)
+        if (code in 110_000_000..190_999_999) {
+            addCandidate((code / 100_000) * 10_000)
+            addCandidate((code / 10_000) * 1_000)
+        }
+        addCandidate(code / 10)
+        addCandidate(code / 100)
+
+        return candidates.firstOrNull { DataManager.skill(it.toLong()) != null }
+    }
+
+    private fun resolveBuffDisplay(code: Int): BuffDisplay? {
+        val buff = DataManager.buff(code)
+        if (buff != null) {
+            if (isPlaceholderBuff(buff)) return null
+            return BuffDisplay(code, buff.name, buff.summary, buff.effect)
+        }
+
+        val skillCode = normalizeBuffSkillCode(code) ?: return null
+        val skill = DataManager.skill(skillCode.toLong()) ?: return null
+        val name = skill.name?.takeIf { it.isNotBlank() && !it.equals("None", ignoreCase = true) }
+            ?: return null
+        return BuffDisplay(skillCode, name, null, null)
+    }
+
     fun getBuffOperatingRate(uid: Int, start: Long, end: Long): List<OperatingData> {
         val totalDuration = end - start
         if (totalDuration <= 0) return emptyList()
 
         return DataManager.battleBuff(uid, start, end)
             .filter { !DataManager.isBuffBlacklisted(it.skillCode) }
-            .groupBy { it.skillCode to it.actorId }
-            .map { (key, buffs) ->
-                val (skillCode, actorId) = key
-                val buff = DataManager.buff(skillCode)
+            .mapNotNull { useBuff ->
+                resolveBuffDisplay(useBuff.skillCode)?.let { display -> display to useBuff }
+            }
+            .groupBy { (display, useBuff) -> display.code to useBuff.actorId }
+            .map { (key, entries) ->
+                val (_, actorId) = key
+                val display = entries.first().first
+                val buffs = entries.map { it.second }
                 val clamped = buffs
                     .map { maxOf(it.buffStart, start) to minOf(it.buffEnd, end) }
                     .sortedBy { it.first }
@@ -238,7 +315,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
                 }
 
                 val rate = merged.sumOf { it.second - it.first }.toDouble() / totalDuration * 100.0
-                OperatingData(skillCode, buff, rate, actorId)
+                OperatingData(display.code, display.name, display.summary, display.effect, rate, actorId)
             }
     }
 

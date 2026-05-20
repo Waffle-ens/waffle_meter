@@ -266,6 +266,23 @@ class StreamProcessor() {
 
     }
 
+    private fun normalizeDamageSkillCode(rawCode: Int, fallback: Int): Int {
+        val candidates = linkedSetOf<Int>()
+
+        fun addCandidate(code: Int) {
+            if (code <= 0) return
+            candidates.add(code)
+            candidates.add((code / 10) * 10)
+        }
+
+        addCandidate(rawCode)
+        addCandidate(rawCode / 10)
+        addCandidate(rawCode / 100)
+
+        return candidates.firstOrNull { DataManager.skill(it.toLong()) != null }
+            ?: fallback
+    }
+
     private fun parseDoTPacket(packet: ByteArray, extraFlag: Boolean, epoch: Long, arrivedAt: Long): Boolean {
         var offset = 0
         val pdp = ParsedDamagePacket()
@@ -314,11 +331,7 @@ class StreamProcessor() {
         offset += unknownInfo.length
 
         val skillCodeCandidate = parseUInt32le(packet, offset)
-        val skillCode: Int = if (DataManager.skill((skillCodeCandidate / 10).toLong()) != null) {
-            skillCodeCandidate / 10
-        } else {
-            skillCodeCandidate / 100
-        }
+        val skillCode = normalizeDamageSkillCode(skillCodeCandidate, skillCodeCandidate / 100)
         offset += 4
         if (packet.size <= offset) return false
         pdp.setSkillCode(skillCode)
@@ -528,10 +541,8 @@ class StreamProcessor() {
 
         val temp = offset
 
-        var skillCode = parseUInt32le(packet, offset)
-        if (DataManager.skill(skillCode.toLong()) == null) {
-            skillCode = (skillCode / 10) * 10
-        }
+        val skillCodeCandidate = parseUInt32le(packet, offset)
+        val skillCode = normalizeDamageSkillCode(skillCodeCandidate, (skillCodeCandidate / 10) * 10)
         pdp.setSkillCode(skillCode)
 
         offset = temp + 5
