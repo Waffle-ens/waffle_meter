@@ -104,7 +104,7 @@ export const useDetails = () => {
       if (!value || typeof value !== "object") continue;
 
       const v = value as Record<string, unknown>;
-      const name = v.name as string;
+      const name = String(v.name ?? v.skillName ?? code);
 
       pushSkill({
         code,

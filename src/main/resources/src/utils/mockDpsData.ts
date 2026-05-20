@@ -434,8 +434,8 @@ const MOCK_HISTORY_DATA = [
 ];
 
 const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
-  "1001": {
-    skillName: "폭풍검",
+  "14310000": {
+    skillName: "바이젤의 권능",
     times: 45,
     damageAmount: 1200000,
     critTimes: 30,
@@ -447,8 +447,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 150000,
     dotTimes: 45,
   },
-  "1002": {
-    skillName: "대지의 응보 (1회 추가시전)",
+  "14050000": {
+    skillName: "송곳 화살",
     times: 38,
     damageAmount: 980000,
     critTimes: 22,
@@ -460,8 +460,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 0,
     dotTimes: 0,
   },
-  "1003": {
-    skillName: "대지가르기",
+  "14060000": {
+    skillName: "그리폰 화살",
     times: 20,
     damageAmount: 750000,
     critTimes: 12,
@@ -473,8 +473,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 0,
     dotTimes: 0,
   },
-  "1004": {
-    skillName: "번개일격",
+  "14360000": {
+    skillName: "폭발 화살",
     times: 60,
     damageAmount: 520000,
     critTimes: 40,
@@ -486,8 +486,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 80000,
     dotTimes: 60,
   },
-  "1005": {
-    skillName: "강철방어",
+  "14380000": {
+    skillName: "지원 사격",
     times: 10,
     damageAmount: 200000,
     critTimes: 3,
@@ -499,8 +499,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 0,
     dotTimes: 0,
   },
-  "1006": {
-    skillName: "대지의 응보 (1회 추가시전)",
+  "14270000": {
+    skillName: "화살 폭풍",
     times: 38,
     damageAmount: 980000,
     shardTimes: 222,
@@ -512,8 +512,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 0,
     dotTimes: 0,
   },
-  "1007": {
-    skillName: "대지가르기",
+  "14700000": {
+    skillName: "강습 강타",
     times: 20,
     damageAmount: 750000,
     critTimes: 12,
@@ -524,8 +524,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 0,
     dotTimes: 0,
   },
-  "1008": {
-    skillName: "번개일격",
+  "14340000": {
+    skillName: "속사",
     times: 60,
     damageAmount: 520000,
     critTimes: 40,
@@ -536,8 +536,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 80000,
     dotTimes: 60,
   },
-  "1009": {
-    skillName: "강철방어",
+  "14740000": {
+    skillName: "집중의 눈",
     times: 10,
     damageAmount: 200000,
     critTimes: 3,
@@ -548,8 +548,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 0,
     dotTimes: 0,
   },
-  "10010": {
-    skillName: "대지의 응보 (1회 추가시전)",
+  "14010000": {
+    skillName: "조준 화살",
     times: 38,
     damageAmount: 980000,
     critTimes: 22,
@@ -560,8 +560,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 0,
     dotTimes: 0,
   },
-  "10011": {
-    skillName: "대지가르기",
+  "14750000": {
+    skillName: "사냥꾼의 결의",
     times: 20,
     damageAmount: 750000,
     critTimes: 12,
@@ -572,8 +572,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 0,
     dotTimes: 0,
   },
-  "10012": {
-    skillName: "번개일격",
+  "14110000": {
+    skillName: "파열 화살",
     times: 60,
     damageAmount: 520000,
     critTimes: 40,
@@ -584,8 +584,8 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotDamageAmount: 80000,
     dotTimes: 60,
   },
-  "10013": {
-    skillName: "강철방어",
+  "14090000": {
+    skillName: "사냥꾼의 혼",
     times: 10,
     damageAmount: 200000,
     critTimes: 3,
