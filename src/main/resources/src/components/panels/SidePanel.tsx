@@ -174,9 +174,9 @@ const SidePanelComponent = ({
   };
 
   const rootClass = cn(
-    "rounded-md border border-[var(--meter-border)] text-[var(--meter-fg)] shadow-[0_18px_60px_rgba(0,0,0,0.38)] backdrop-blur-md",
+    "rounded-md border border-[var(--meter-border)] text-[var(--meter-fg)] shadow-[0_20px_48px_rgba(0,0,0,0.34)] backdrop-blur-md",
     "transition-opacity duration-200 ease-in-out",
-    "bg-(--panel-bg)",
+    "bg-[var(--panel-bg)]",
     visible ? "opacity-100" : "opacity-0 pointer-events-none",
   );
 
@@ -189,7 +189,7 @@ const SidePanelComponent = ({
       }}
       className={cn(rootClass, "fixed left-0 top-0 flex flex-col overflow-hidden")}
       onMouseDown={onMouseDownPanel}>
-      <div className="flex shrink-0 items-center gap-2 border-b border-[var(--meter-soft-border)] bg-[var(--meter-tint)] px-3 py-2 pl-5">
+      <div className="flex shrink-0 items-center gap-2 border-b border-[var(--meter-soft-border)] bg-[var(--meter-section-bg)] px-3 py-2 pl-5">
         {currentType === "update" ? (
           <>
             <div

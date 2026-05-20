@@ -183,11 +183,11 @@ export default function App() {
 
   const meterClass = cn(
     "relative overflow-hidden rounded-md border px-2.5 py-2",
-    "shadow-[0_18px_50px_rgba(0,0,0,0.36)] backdrop-blur-md transition-colors duration-300",
+    "shadow-[0_20px_44px_rgba(0,0,0,0.32)] backdrop-blur-md transition-colors duration-300",
     "border-[var(--meter-border)] text-[var(--meter-fg)]",
     isMinimal
-      ? "border-transparent bg-transparent group-hover/app:border-[var(--meter-border)] group-hover/app:bg-(--meter-bg)"
-      : "bg-(--meter-bg)",
+      ? "border-transparent bg-transparent group-hover/app:border-[var(--meter-border)] group-hover/app:bg-[var(--meter-bg)]"
+      : "bg-[var(--meter-bg)]",
   );
 
   const headerClass = cn(
@@ -220,55 +220,58 @@ export default function App() {
 
           width: "fit-content",
           "--meter-bg": isLightOverlay
-            ? `rgba(248,250,252,${meterOpacity})`
-            : `rgba(13,17,23,${meterOpacity})`,
+            ? `rgba(250,252,255,${meterOpacity})`
+            : `rgba(5,10,16,${meterOpacity})`,
           "--panel-bg": isLightOverlay
-            ? "rgba(248,250,252,0.96)"
-            : "rgba(15,18,24,0.96)",
+            ? "rgba(250,252,255,0.97)"
+            : "rgba(7,12,20,0.97)",
           "--join-panel-bg": isLightOverlay
-            ? "rgba(248,250,252,0.96)"
-            : "rgba(15,18,24,0.96)",
+            ? "rgba(250,252,255,0.97)"
+            : "rgba(7,12,20,0.97)",
           "--meter-fg": isLightOverlay ? "#172033" : "#f8fafc",
-          "--meter-muted": isLightOverlay ? "rgba(51,65,85,0.72)" : "rgba(226,232,240,0.72)",
-          "--meter-border": isLightOverlay ? "rgba(15,23,42,0.16)" : "rgba(255,255,255,0.1)",
+          "--meter-muted": isLightOverlay ? "rgba(51,65,85,0.7)" : "rgba(203,213,225,0.68)",
+          "--meter-border": isLightOverlay ? "rgba(15,23,42,0.18)" : "rgba(148,163,184,0.18)",
           "--meter-soft-border": isLightOverlay
-            ? "rgba(15,23,42,0.1)"
-            : "rgba(255,255,255,0.06)",
-          "--meter-row-bg": isLightOverlay ? "rgba(15,23,42,0.055)" : "rgba(0,0,0,0.25)",
+            ? "rgba(15,23,42,0.11)"
+            : "rgba(148,163,184,0.11)",
+          "--meter-row-bg": isLightOverlay ? "rgba(255,255,255,0.72)" : "rgba(15,23,42,0.64)",
           "--meter-row-hover": isLightOverlay
-            ? "rgba(15,23,42,0.095)"
-            : "rgba(255,255,255,0.055)",
+            ? "rgba(226,232,240,0.92)"
+            : "rgba(30,41,59,0.82)",
           "--meter-row-selected": isLightOverlay
-            ? "rgba(14,165,233,0.16)"
-            : "rgba(255,255,255,0.08)",
+            ? "rgba(16,185,129,0.16)"
+            : "rgba(20,184,166,0.13)",
           "--meter-row-selected-border": isLightOverlay
-            ? "rgba(14,116,144,0.35)"
-            : "rgba(255,255,255,0.3)",
+            ? "rgba(5,150,105,0.38)"
+            : "rgba(45,212,191,0.36)",
           "--meter-section-bg": isLightOverlay
-            ? "rgba(15,23,42,0.14)"
-            : "rgba(255,255,255,0.075)",
+            ? "rgba(226,232,240,0.88)"
+            : "rgba(15,23,42,0.84)",
           "--meter-table-head-bg": isLightOverlay
-            ? "rgba(15,23,42,0.34)"
-            : "rgba(255,255,255,0.1)",
-          "--meter-table-head-fg": isLightOverlay ? "#ffffff" : "#f8fafc",
+            ? "rgba(51,65,85,0.84)"
+            : "rgba(30,41,59,0.94)",
+          "--meter-table-head-fg": "#f8fafc",
           "--meter-table-row-bg": isLightOverlay
-            ? "rgba(15,23,42,0.045)"
-            : "rgba(0,0,0,0.22)",
+            ? "rgba(255,255,255,0.74)"
+            : "rgba(15,23,42,0.58)",
           "--meter-table-row-alt": isLightOverlay
-            ? "rgba(15,23,42,0.075)"
-            : "rgba(255,255,255,0.035)",
-          "--meter-control-bg": isLightOverlay ? "rgba(15,23,42,0.06)" : "rgba(255,255,255,0.03)",
+            ? "rgba(241,245,249,0.82)"
+            : "rgba(30,41,59,0.46)",
+          "--meter-control-bg": isLightOverlay ? "rgba(255,255,255,0.72)" : "rgba(15,23,42,0.7)",
           "--meter-control-hover": isLightOverlay
-            ? "rgba(15,23,42,0.12)"
-            : "rgba(255,255,255,0.1)",
+            ? "rgba(226,232,240,0.96)"
+            : "rgba(30,41,59,0.92)",
           "--meter-control-border": isLightOverlay
-            ? "rgba(15,23,42,0.12)"
-            : "rgba(255,255,255,0)",
-          "--meter-icon-ring": isLightOverlay ? "rgba(15,23,42,0.12)" : "rgba(255,255,255,0.1)",
-          "--meter-tint": isLightOverlay ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.035)",
+            ? "rgba(15,23,42,0.13)"
+            : "rgba(148,163,184,0.13)",
+          "--meter-icon-ring": isLightOverlay ? "rgba(15,23,42,0.16)" : "rgba(148,163,184,0.16)",
+          "--meter-tint": isLightOverlay ? "rgba(255,255,255,0.46)" : "rgba(255,255,255,0.035)",
+          "--meter-stat-bg": isLightOverlay ? "rgba(15,23,42,0.055)" : "rgba(2,6,23,0.34)",
+          "--meter-accent": isLightOverlay ? "#0f766e" : "#2dd4bf",
+          "--meter-accent-soft": isLightOverlay ? "rgba(15,118,110,0.12)" : "rgba(45,212,191,0.12)",
           "--meter-shine": isLightOverlay
-            ? "linear-gradient(90deg,rgba(255,255,255,0.3),rgba(255,255,255,0)_46%)"
-            : "linear-gradient(90deg,rgba(255,255,255,0.08),rgba(255,255,255,0)_46%)",
+            ? "linear-gradient(90deg,rgba(255,255,255,0.52),rgba(255,255,255,0)_44%)"
+            : "linear-gradient(90deg,rgba(255,255,255,0.06),rgba(255,255,255,0)_44%)",
           visibility: isLoaded ? "visible" : "hidden",
         } as React.CSSProperties
       }

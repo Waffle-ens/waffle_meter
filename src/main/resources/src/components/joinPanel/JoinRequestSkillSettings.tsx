@@ -57,7 +57,7 @@ export const JoinRequestSkillSettings = memo(({
 
   const panelClass = cn(
     "absolute top-0 left-full ml-2 z-50",
-    "bg-(--join-panel-bg) text-[var(--meter-fg)] rounded-lg border border-[var(--meter-border)]",
+    "bg-[var(--join-panel-bg)] text-[var(--meter-fg)] rounded-lg border border-[var(--meter-border)]",
     "transition-all duration-200 ease-in-out",
     visible ? "visible opacity-100 translate-x-0" : "invisible opacity-0 -translate-x-1",
   );

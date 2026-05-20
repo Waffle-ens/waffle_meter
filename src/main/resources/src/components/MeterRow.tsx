@@ -93,6 +93,7 @@ export const MeterRow = memo(
         : Number(contribution) < 5
           ? gradients.warning
           : gradients.normal;
+    const progressWidth = ratio > 0 ? `${Math.max(1.5, ratio * 100)}%` : "0%";
 
     const statItems = useMemo(() => {
       const amountColor = isLightOverlay ? "#8a5a00" : theme.meterStatAmount;
@@ -163,29 +164,35 @@ export const MeterRow = memo(
         onClick={() => onSelect(id)}
         data-selected={isSelected}
         style={{ height: rowHeight }}
-        className="meter-row group/row relative w-full cursor-pointer overflow-hidden rounded-md border px-2 transition-colors">
+        className="meter-row group/row relative w-full cursor-pointer overflow-hidden rounded-md border px-2.5 transition-colors">
         <div
-          className="absolute inset-y-0 left-0 origin-left transition-transform duration-150 ease-out"
+          className="absolute inset-y-1 left-1 w-1 rounded-full"
           style={{
             background: fillGradient,
-            width: "100%",
-            opacity: isUser ? 0.78 : 0.62,
-            transform: `scaleX(${ratio})`,
+            opacity: isUser ? 0.95 : 0.82,
           }}
         />
         <div
-          className="absolute inset-0 opacity-70"
+          className="absolute inset-x-0 bottom-0 h-[2px] transition-[width] duration-150 ease-out"
+          style={{
+            width: progressWidth,
+            background: fillGradient,
+            opacity: isUser ? 0.95 : 0.74,
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-80"
           style={{ background: "var(--meter-shine)" }}
         />
-        <div className="relative flex h-full items-center gap-2 overflow-hidden">
+        <div className="relative flex h-full items-center gap-2.5 overflow-hidden pl-1.5">
           <span
-            className="w-5 shrink-0 text-center font-semibold tabular-nums text-[var(--meter-muted)]"
+            className="flex h-5 w-6 shrink-0 items-center justify-center rounded bg-[var(--meter-stat-bg)] text-center font-semibold tabular-nums text-[var(--meter-muted)] ring-1 ring-[var(--meter-soft-border)]"
             style={{ fontSize: secondaryFontSize }}>
             {rank}
           </span>
           <div
             style={{ width: iconSize, height: iconSize }}
-            className="flex shrink-0 items-center justify-center rounded-full bg-[var(--meter-row-bg)] ring-1 ring-[var(--meter-icon-ring)]">
+            className="flex shrink-0 items-center justify-center rounded-md bg-[var(--meter-stat-bg)] ring-1 ring-[var(--meter-icon-ring)]">
             {iconSrc && (
               <img
                 src={iconSrc}
@@ -212,11 +219,11 @@ export const MeterRow = memo(
               </div>
             )} */}
           {/* </div> */}
-          <div className="text-shadow-meter flex shrink-0 items-center gap-2 font-semibold tabular-nums">
+          <div className="text-shadow-meter flex shrink-0 items-center gap-1.5 font-semibold tabular-nums">
             {statItems.map((item) => (
               <span
                 key={item.key}
-                className="whitespace-nowrap text-end"
+                className="rounded bg-[var(--meter-stat-bg)] px-1.5 py-0.5 text-end whitespace-nowrap ring-1 ring-[var(--meter-soft-border)]"
                 style={{ color: item.color, fontSize }}>
                 {item.value}
               </span>

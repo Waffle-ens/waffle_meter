@@ -18,9 +18,9 @@ export const SkillBadges = ({ badges, job }: { badges: SkillBadge[]; job?: strin
       {badges.map(({ code, name, lv }) => (
         <div
           key={code}
-          className={`${badgeClass} flex items-center text-xs px-2 py-1 gap-2 rounded-xl`}>
+          className={`${badgeClass} flex items-center gap-1.5 rounded-md px-2 py-1 text-xs`}>
           <SkillIcon code={code} size={14} />
-          <span className="text-shadow-meter">{name} Lv{lv}</span>
+          <span>{name} Lv{lv}</span>
         </div>
       ))}
     </div>

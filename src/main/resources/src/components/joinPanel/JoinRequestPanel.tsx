@@ -80,14 +80,14 @@ const TimerBar = ({ arrivedAt, now }: { arrivedAt: number; now: number }) => {
   const pct = (remaining / TOTAL_SEC) * 100;
   const color =
     pct > 50
-      ? "linear-gradient(to right, #55c42a, #3a9e20)"
+      ? "linear-gradient(to right, #2dd4bf, #0f766e)"
       : pct > 25
-        ? "linear-gradient(to right, #e6a817, #c98c0f)"
-        : "linear-gradient(to right, #e05252, #b83c3c)";
+        ? "linear-gradient(to right, #f59e0b, #b45309)"
+        : "linear-gradient(to right, #fb7185, #be123c)";
 
   return (
     <div className="flex items-center gap-2">
-      <div className="relative flex-1 h-1.5 rounded bg-white/10 overflow-hidden">
+      <div className="relative h-1.5 flex-1 overflow-hidden rounded bg-[var(--meter-stat-bg)] ring-1 ring-[var(--meter-soft-border)]">
         <div
           className="absolute inset-y-0 left-0 rounded transition-[width] duration-300"
           style={{ width: `${pct}%`, background: color }}
@@ -180,9 +180,9 @@ export const JoinRequestPanel = memo(() => {
   };
 
   const rootClass = cn(
-    "rounded-md border border-[var(--meter-border)] text-[var(--meter-fg)] font-semibold shadow-[0_18px_50px_rgba(0,0,0,0.34)] backdrop-blur-md",
+    "rounded-md border border-[var(--meter-border)] text-[var(--meter-fg)] font-semibold shadow-[0_20px_44px_rgba(0,0,0,0.32)] backdrop-blur-md",
     "transition-opacity duration-200 ease-in-out",
-    "bg-(--join-panel-bg) ",
+    "bg-[var(--join-panel-bg)]",
     visible ? "opacity-100" : "opacity-0 pointer-events-none",
   );
 
@@ -197,10 +197,12 @@ export const JoinRequestPanel = memo(() => {
       onMouseDown={onMouseDownPanel}>
       <div>
         <div
-          className={`${headerClass} flex items-center justify-between px-3 py-1.5 border-b border-[var(--meter-soft-border)] bg-[var(--meter-tint)] rounded-t-md`}>
+          className={`${headerClass} flex items-center justify-between border-b border-[var(--meter-soft-border)] bg-[var(--meter-section-bg)] px-3 py-1.5`}>
           <div className="flex items-center h-8">
             <span className={`mr-2 pl-2 flex-1 text-sm`}>파티 신청</span>
-            <span className={`text-sm text-center`}>{requests.length}건</span>
+            <span className="rounded bg-[var(--meter-stat-bg)] px-2 py-0.5 text-center text-xs ring-1 ring-[var(--meter-soft-border)]">
+              {requests.length}건
+            </span>
           </div>
           <div
             className="flex items-center gap-2 h-8"
@@ -228,7 +230,7 @@ export const JoinRequestPanel = memo(() => {
           onOpenChange={setSkillSettingsOpen}
         />
       </div>
-      <div className="pt-2 mb-4 flex-1 overflow-y-auto min-h-0 scrollbar-gutter:stable">
+      <div className="mb-4 min-h-0 flex-1 overflow-y-auto pt-2 scrollbar-gutter:stable">
         {requests.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <span className="text-sm">파티 신청이 없습니다</span>
@@ -256,9 +258,9 @@ export const JoinRequestPanel = memo(() => {
               return (
                 <div
                   key={r.requester}
-                  className={`${i == 0 ? "py-0" : "py-2"} px-3`}>
+                  className={`${i == 0 ? "py-0" : "py-1.5"} px-3`}>
                   <div
-                    className={`${getClassColor(r.job ?? undefined, isLightOverlay ? "light" : "dark")} p-2 px-3 rounded-lg`}>
+                    className={`${getClassColor(r.job ?? undefined, isLightOverlay ? "light" : "dark")} rounded-md px-3 py-2`}>
                     <div className="flex items-center gap-1">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <img
@@ -272,8 +274,8 @@ export const JoinRequestPanel = memo(() => {
                         </span>
                       </div>
                       <span
-                        className="text-shadow-meter shrink-0 text-sm tabular-nums"
-                        style={{ color: isLightOverlay ? "#0f766e" : "#10f1e2" }}>
+                        className="shrink-0 rounded bg-[var(--meter-stat-bg)] px-1.5 py-0.5 text-sm tabular-nums ring-1 ring-[var(--meter-soft-border)]"
+                        style={{ color: isLightOverlay ? "#0f766e" : "#2dd4bf" }}>
                         {`${(r.power / 1000).toFixed(1)}k`}
                       </span>
                     </div>

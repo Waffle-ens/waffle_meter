@@ -27,6 +27,7 @@ export const TargetInfo = memo(({ targetName, rowHeight, remainHp, maxHp }: Prop
   const fontSize = `${Math.max(10, Math.round(rowHeight * 0.4))}px`;
   const percent = maxHp > 0 ? `${((remainHp / maxHp) * 100).toFixed(1)}%` : "0%";
   const hpRatio = maxHp > 0 ? Math.max(0, Math.min(1, remainHp / maxHp)) : 0;
+  const hpWidth = isFailed ? "100%" : `${hpRatio * 100}%`;
 
   const renderHpValue = (value: string) => <span>{value}</span>;
 
@@ -72,27 +73,33 @@ export const TargetInfo = memo(({ targetName, rowHeight, remainHp, maxHp }: Prop
 
   return (
     <div
-      className="relative mb-2 w-full overflow-hidden rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-row-bg)] px-2"
+      className="relative mb-2 w-full overflow-hidden rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-row-bg)] px-2.5"
       style={{ height: rowHeight }}>
       <div
-        className="absolute inset-0 bg-[var(--meter-tint)]"
+        className="absolute inset-0 bg-[var(--meter-tint)] opacity-70"
       />
       <div
-        className="absolute inset-y-0 left-0 origin-left transition-transform duration-150 ease-out"
+        className="absolute inset-y-1 left-1 w-1 rounded-full"
         style={{
           background: `linear-gradient(to right, ${theme.bossBar[0]}, ${theme.bossBar[1]})`,
-          opacity: isFailed ? 0.22 : 0.78,
-          width: "100%",
-          transform: `scaleX(${isFailed ? 1 : hpRatio})`,
+          opacity: isFailed ? 0.36 : 0.92,
+        }}
+      />
+      <div
+        className="absolute inset-x-0 bottom-0 h-[2px] transition-[width] duration-150 ease-out"
+        style={{
+          width: hpWidth,
+          background: `linear-gradient(to right, ${theme.bossBar[0]}, ${theme.bossBar[1]})`,
+          opacity: isFailed ? 0.32 : 0.9,
         }}
       />
       <div
         className="absolute inset-0"
         style={{ background: "var(--meter-shine)" }}
       />
-      <div className="relative flex h-full items-center gap-2">
+      <div className="relative flex h-full items-center gap-2.5 pl-1.5">
         <div
-          className="flex shrink-0 items-center justify-center rounded-full bg-[var(--meter-row-bg)] ring-1 ring-[var(--meter-icon-ring)]"
+          className="flex shrink-0 items-center justify-center rounded-md bg-[var(--meter-stat-bg)] ring-1 ring-[var(--meter-icon-ring)]"
           style={{ width: iconSize, height: iconSize }}>
           <img
             src={bossIcon}

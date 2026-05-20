@@ -8,18 +8,19 @@ export const CombatTimer = ({ isInCombat, combatTime }: Props) => {
   const combatTimeColor = useSettingsStore((s) => s.theme.combatTimeColor);
   const overlayTheme = useSettingsStore((s) => s.overlayTheme);
   const standbyColor = overlayTheme === "light" ? "#334155" : combatTimeColor;
+  const activeColor = overlayTheme === "light" ? "#0f766e" : "#2dd4bf";
   return (
-    <div className="mt-2 flex items-center gap-2 rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-row-bg)] px-2 py-1.5">
+    <div className="mt-2 flex items-center gap-2 rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-row-bg)] px-2.5 py-1.5">
       <div
         className="h-2 w-2 rounded-full transition-colors duration-300"
         style={{
-          background: isInCombat ? "#55c42a" : standbyColor,
-          boxShadow: isInCombat ? "0 0 6px #55c42a" : "none",
+          background: isInCombat ? activeColor : standbyColor,
+          boxShadow: isInCombat ? `0 0 8px ${activeColor}` : "none",
         }}
       />
       <span
-        className="text-xs font-semibold"
-        style={{ color: isInCombat ? "#16a34a" : standbyColor }}>
+        className="rounded bg-[var(--meter-stat-bg)] px-1.5 py-0.5 text-xs font-semibold ring-1 ring-[var(--meter-soft-border)]"
+        style={{ color: isInCombat ? activeColor : standbyColor }}>
         {isInCombat ? "전투 중" : "대기 중"}
       </span>
       <span

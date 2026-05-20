@@ -132,14 +132,12 @@ body {
 
 .text-shadow-meter {
   text-shadow:
-    0px 1px 2px rgba(0, 0, 0, 0.75),
-    0px 0px 8px rgba(0, 0, 0, 0.28);
+    0px 1px 2px rgba(0, 0, 0, 0.64),
+    0px 0px 6px rgba(0, 0, 0, 0.18);
 }
 
 .overlay-light .text-shadow-meter {
-  text-shadow:
-    0px 1px 1px rgba(255, 255, 255, 0.55),
-    0px 0px 6px rgba(255, 255, 255, 0.22);
+  text-shadow: none;
 }
 
 .meter-control {
@@ -157,6 +155,9 @@ body {
 .meter-row {
   border-color: var(--meter-soft-border);
   background: var(--meter-row-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 1px 0 rgba(0, 0, 0, 0.16);
 }
 
 .meter-row:hover {
@@ -167,6 +168,10 @@ body {
 .meter-row[data-selected="true"] {
   border-color: var(--meter-row-selected-border);
   background: var(--meter-row-selected);
+  box-shadow:
+    inset 0 0 0 1px var(--meter-row-selected-border),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
 .overlay-light .text-white\/30 {
