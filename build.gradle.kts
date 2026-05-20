@@ -26,6 +26,7 @@ val frontendBuildInputs = fileTree(frontendDir) {
 val requiredJsonResources = listOf(
     "mobs.json",
     "skills.json",
+    "buff.json",
     "buff_custom.json",
     "buff_blacklist.json",
 ).map { frontendDir.file("json/$it") }
@@ -131,7 +132,7 @@ compose.desktop {
                 shortcut = true
                 menu = true
                 menuGroup = "waffle_meter.v1.3"
-                iconFile.set(project.file("src/main/resources/icons/logo.ico"))
+                iconFile.set(project.file("src/main/resources/icons/waffle.ico"))
                 dirChooser = true
             }
             targetFormats(TargetFormat.Msi)

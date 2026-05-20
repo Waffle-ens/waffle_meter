@@ -57,5 +57,6 @@ bin/
 
 ### Local installers and extraction workspaces ###
 /*.ico
+/waffle.png
 /.codex-msi-extract-original/
 
