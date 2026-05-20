@@ -256,6 +256,9 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     @Volatile
     private var isClickThrough = false
 
+    @Volatile
+    private var isOverlayParked = false
+
     private var overlayHwnd: WinDef.HWND? = null
 
     private val debugMode = false
@@ -353,7 +356,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 kotlinx.coroutines.delay(300)
                 if (!isVisible) continue
                 if (!isAutoHide) {
-                    Platform.runLater { stage.opacity = 1.0 }
+                    Platform.runLater { presentOverlay(stage) }
                     continue
                 }
 
@@ -365,9 +368,36 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
                 val shouldShow = aionFocused || isSelfFocused()
                 Platform.runLater {
-                    stage.opacity = if (shouldShow) 1.0 else 0.0
+                    if (shouldShow) {
+                        presentOverlay(stage)
+                    } else {
+                        parkOverlay(stage)
+                    }
                 }
             }
+        }
+    }
+
+    private fun presentOverlay(stage: Stage) {
+        if (!stage.isAlwaysOnTop) {
+            stage.isAlwaysOnTop = true
+        }
+        if (stage.opacity != 1.0) {
+            stage.opacity = 1.0
+        }
+        isOverlayParked = false
+    }
+
+    private fun parkOverlay(stage: Stage) {
+        if (stage.opacity != 0.0) {
+            stage.opacity = 0.0
+        }
+        if (stage.isAlwaysOnTop) {
+            stage.isAlwaysOnTop = false
+        }
+        if (!isOverlayParked) {
+            stage.toBack()
+            isOverlayParked = true
         }
     }
 
@@ -497,14 +527,14 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
     private fun hideToTray(stage: Stage) {
         isVisible = false
-        Platform.runLater { stage.opacity = 0.0 }
+        Platform.runLater { parkOverlay(stage) }
     }
 
     private fun showFromTray(stage: Stage) {
         isVisible = true
         aionEverFocused = false
         Platform.runLater {
-            stage.opacity = 1.0
+            presentOverlay(stage)
         }
     }
 
