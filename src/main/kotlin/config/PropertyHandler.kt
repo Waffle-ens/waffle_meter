@@ -6,15 +6,28 @@ import java.util.*
 
 object PropertyHandler {
     private val props = Properties()
+    private const val APP_NAME = "waffle_meter.v1.3"
+    private const val LEGACY_APP_NAME = "waffle_meter.v1.2"
     private const val SETTING_PROPERTY_FILE_NAME = "settings.properties"
     private const val VERSION_PROPERTY_FILE_NAME = "version.properties"
     private val logger = LoggerFactory.getLogger(PropertyHandler::class.java)
 
     private val settingFile: File = run {
         val appData = System.getenv("APPDATA") ?: System.getProperty("user.home")
-        val dir = File(appData, "waffle_meter.v1.2")
+        val dir = File(appData, APP_NAME)
         dir.mkdirs()
-        File(dir, SETTING_PROPERTY_FILE_NAME)
+        val nextSettingFile = File(dir, SETTING_PROPERTY_FILE_NAME)
+        if (!nextSettingFile.exists()) {
+            val legacySettingFile = File(File(appData, LEGACY_APP_NAME), SETTING_PROPERTY_FILE_NAME)
+            if (legacySettingFile.exists()) {
+                runCatching {
+                    legacySettingFile.copyTo(nextSettingFile, overwrite = false)
+                }.onFailure {
+                    logger.warn("이전 설정파일 복사에 실패했습니다.")
+                }
+            }
+        }
+        nextSettingFile
     }
 
     init {

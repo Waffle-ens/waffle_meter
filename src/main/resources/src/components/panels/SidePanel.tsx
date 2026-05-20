@@ -160,11 +160,6 @@ const SidePanelComponent = ({
   }, [type, player]);
   if (!rendered) return null;
 
-  const updateShowClose =
-    currentType === "update" &&
-    downloadState.status !== "downloading" &&
-    downloadState.status !== "complete";
-
   const detailsTitle =
     currentType === "details"
       ? currentPlayer
@@ -215,18 +210,15 @@ const SidePanelComponent = ({
                   : null}
           </span>
         )}
-        {!(currentType === "update" && !updateShowClose) && (
-          <>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="meter-control h-7 w-7 rounded-md"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={handleHeaderClose}>
-              <CircleX className="size-4.5" />
-            </Button>
-          </>
-        )}
+        <Button
+          size="icon"
+          variant="ghost"
+          title="닫기"
+          className="meter-control h-7 w-7 rounded-md"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={handleHeaderClose}>
+          <CircleX className="size-4.5" />
+        </Button>
       </div>
 
       <div
