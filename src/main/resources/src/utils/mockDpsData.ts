@@ -597,6 +597,83 @@ const MOCK_DETAIL_DATA: Record<string, Record<string, unknown>> = {
     dotTimes: 0,
   },
 };
+
+const makeMockSkill = (
+  skillName: string,
+  damageAmount: number,
+  times = 24,
+  critTimes = 14,
+  doubleTimes = 5,
+): Record<string, unknown> => ({
+  skillName,
+  times,
+  damageAmount,
+  shardTimes: Math.max(0, Math.floor(times / 4)),
+  critTimes,
+  parryTimes: Math.max(0, Math.floor(times / 10)),
+  backTimes: Math.max(0, Math.floor(times / 3)),
+  perfectTimes: Math.max(0, Math.floor(times / 5)),
+  doubleTimes,
+  dotDamageAmount: 0,
+  dotTimes: 0,
+});
+
+const detailFromSkills = (entries: [string, string, number, number?, number?, number?][]) =>
+  Object.fromEntries(entries.map(([code, name, dmg, times, crit, double]) => [code, makeMockSkill(name, dmg, times, crit, double)]));
+
+const MOCK_DETAIL_BY_PLAYER: Record<string, Record<string, unknown>> = {
+  "1": detailFromSkills([
+    ["11020000", "예리한 일격", 1200000, 45, 30, 8],
+    ["11030000", "파열의 일격", 980000, 38, 22, 5],
+    ["11040000", "분노의 일격", 760000, 28, 18, 4],
+    ["11280000", "검기 난무", 520000, 18, 11, 3],
+    ["11010047", "격파의 맹타", 340000, 12, 8, 2],
+  ]),
+  "2": detailFromSkills([
+    ["12010000", "맹렬한 일격", 1120000, 42, 26, 7],
+    ["12020000", "회심의 일격", 900000, 33, 19, 5],
+    ["12030000", "필사의 일격", 720000, 24, 16, 4],
+    ["12200000", "균형의 갑옷", 460000, 18, 9, 2],
+    ["12760000", "충격 적중", 320000, 14, 7, 2],
+    ["12790000", "생존 의지", 220000, 10, 5, 1],
+  ]),
+  "3": detailFromSkills([
+    ["13010000", "빠른 베기", 1180000, 44, 29, 9],
+    ["13030000", "절혼 베기", 940000, 36, 24, 7],
+    ["13040000", "쾌속 베기", 770000, 30, 19, 5],
+    ["13210000", "침투", 520000, 20, 12, 3],
+    ["13330000", "폭풍 베기", 310000, 13, 8, 2],
+  ]),
+  "4": MOCK_DETAIL_DATA,
+  "5": detailFromSkills([
+    ["15010000", "화염 난사", 1160000, 40, 27, 8],
+    ["15030000", "작렬", 960000, 35, 23, 6],
+    ["15250000", "열화", 780000, 28, 18, 5],
+    ["15340000", "저주: 고목", 540000, 18, 10, 3],
+    ["15730000", "냉기 소환", 300000, 12, 7, 2],
+  ]),
+  "6": detailFromSkills([
+    ["16010000", "냉기 충격", 1110000, 42, 24, 7],
+    ["16020000", "진공 폭발", 880000, 31, 18, 5],
+    ["16030000", "대지 진동", 730000, 24, 15, 4],
+    ["16210000", "절망의 저주", 460000, 16, 9, 2],
+    ["16170000", "카이시넬의 권능", 280000, 10, 5, 1],
+  ]),
+  "7": detailFromSkills([
+    ["17010000", "대지의 응보", 860000, 32, 20, 5],
+    ["17020000", "뇌전", 720000, 25, 15, 4],
+    ["17030000", "방전", 590000, 21, 12, 3],
+    ["17050000", "천벌", 420000, 14, 8, 2],
+    ["17760000", "충격 적중", 260000, 10, 5, 1],
+  ]),
+  "8": detailFromSkills([
+    ["18010000", "격파쇄", 940000, 35, 21, 5],
+    ["18020000", "공명쇄", 790000, 28, 17, 4],
+    ["18030000", "벽력쇄", 640000, 22, 13, 3],
+    ["18300000", "질풍 난무", 470000, 16, 9, 2],
+    ["18790000", "생존 의지", 250000, 10, 5, 1],
+  ]),
+};
 const MOCK_BUFF_DATA = [
   {
     code: "20111011",
@@ -771,26 +848,26 @@ const MOCK_DEBUFF_DATA = [
 ];
 const MOCK_DATA = {
   contributors: [
-    { id: 1, nickname: "나", server: 1001, power: 234123, job: "검성", isExecutor: true },
-    { id: 2, nickname: "딜러A딜러A", power: 564123, server: 2002, job: "마도성" },
-    { id: 3, nickname: "딜러B", power: 113456, job: "정령성" },
-    { id: 4, nickname: "딜러C", server: 1003, power: 442123, job: "호법성" },
-    { id: 5, nickname: "서폿A", server: 1004, power: 279000, job: "치유성" },
-    { id: 6, nickname: "서폿B", server: 1005, power: 139500, job: "수호성" },
-    { id: 7, nickname: "서2폿B", server: 1005, power: 139500, job: "수호성" },
-    { id: 8, nickname: "서3폿B", server: 1005, power: 139500, job: "수호성" },
+    { id: 1, nickname: "나[검성]", server: 1001, power: 234123, job: "검성", isExecutor: true },
+    { id: 2, nickname: "수호[테스트]", power: 564123, server: 2002, job: "수호성" },
+    { id: 3, nickname: "살성[테스트]", power: 413456, job: "살성" },
+    { id: 4, nickname: "궁성[테스트]", server: 1003, power: 442123, job: "궁성" },
+    { id: 5, nickname: "마도[테스트]", server: 1004, power: 379000, job: "마도성" },
+    { id: 6, nickname: "정령[테스트]", server: 1005, power: 339500, job: "정령성" },
+    { id: 7, nickname: "치유[테스트]", server: 1005, power: 239500, job: "치유성" },
+    { id: 8, nickname: "호법[테스트]", server: 1005, power: 239500, job: "호법성" },
   ],
   battleStart: Date.now() - 93000,
   battleEnd: Date.now(),
   information: {
-    "1": { amount: 4185000, dps: 995642, contribution: 35.5 },
-    "2": { amount: 4185000, dps: 995642, contribution: 35.5 },
-    "3": { amount: 2790000, dps: 72423, contribution: 20.1 },
-    "4": { amount: 1395000, dps: 18954, contribution: 4.2 },
-    "5": { amount: 279000, dps: 3000, contribution: 2.1 },
-    "6": { amount: 139500, dps: 1500, contribution: 1.5 },
-    "7": { amount: 139500, dps: 1500, contribution: 1.5 },
-    "8": { amount: 139500, dps: 1500, contribution: 1.5 },
+    "1": { amount: 4185000, dps: 995642, contribution: 20.4 },
+    "2": { amount: 3650000, dps: 870000, contribution: 17.8 },
+    "3": { amount: 3120000, dps: 743000, contribution: 15.2 },
+    "4": { amount: 2790000, dps: 724230, contribution: 13.6 },
+    "5": { amount: 2290000, dps: 545000, contribution: 11.2 },
+    "6": { amount: 1980000, dps: 471000, contribution: 9.7 },
+    "7": { amount: 1280000, dps: 304000, contribution: 6.3 },
+    "8": { amount: 1180000, dps: 281000, contribution: 5.8 },
   },
   target: {
     id: 25166,
@@ -831,10 +908,10 @@ export const injectMockDpsData = () => {
     isAutoHide: () => true,
     toggleAutoHide: () => undefined,
     getDpsData: () => JSON.stringify(MOCK_DATA),
-    getBattleDetail: (_id: string) => JSON.stringify(MOCK_DETAIL_DATA),
-    getBattleDetailFromList: (_idx: number, _uid: number) => JSON.stringify(MOCK_DETAIL_DATA),
+    getBattleDetail: (id: string) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(id)] ?? MOCK_DETAIL_DATA),
+    getBattleDetailFromList: (_idx: number, uid: number) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(uid)] ?? MOCK_DETAIL_DATA),
     getBattleList: () => JSON.stringify(MOCK_HISTORY_DATA),
-    getVersion: () => "1.4.6",
+    getVersion: () => "1.4.7",
     getLiveBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_BUFF_DATA),
     openBrowser: (url: string) => console.log("[mock] openBrowser:", url),
     getLiveBossBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_DEBUFF_DATA),

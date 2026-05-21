@@ -23,6 +23,9 @@ export const getSkillIconSrc = (code: string | number | undefined) => {
   const num = typeof code === "string" ? parseInt(code, 10) : code;
   if (isNaN(num) || num <= 0) return undefined;  // ← 빈 문자열 "" 방어 추가
 
+  const exactIcon = skillIconModules[`../assets/skill-icons/${num}.png`];
+  if (exactIcon) return exactIcon;
+
   let baseCode: number | undefined;
 
   if (isSkillCode(num)) {
