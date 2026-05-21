@@ -25,6 +25,7 @@ class StreamAssembler(private val processor: StreamProcessor) {
                 continue
             }
             if (lengthInfo.value == -1) {
+                PacketDebugLogger.parserError("assembler", "invalid_varint", header)
                 logger.error("패킷 길이 Varint 체크에서 오류발생 {}", processor.toHex(header))
                 buffer.flush()
                 break
@@ -32,6 +33,7 @@ class StreamAssembler(private val processor: StreamProcessor) {
 
             val realLength = lengthInfo.value + lengthInfo.length - 4
             if (realLength <= 0) {
+                PacketDebugLogger.parserError("assembler", "invalid_length", header)
                 logger.error("패킷 길이 체크에서 오류발생 {}", processor.toHex(header))
                 buffer.flush()
                 break
@@ -42,6 +44,7 @@ class StreamAssembler(private val processor: StreamProcessor) {
 
             // 정확히 패킷 크기만큼만 복사 (이전: 전체 버퍼 복사 후 슬라이스)
             val packet = buffer.slice(0, realLength)
+            PacketDebugLogger.assembled(packet, arrivedAt)
             processor.onPacketReceived(packet, arrivedAt)
             buffer.discardBytes(realLength)
         }

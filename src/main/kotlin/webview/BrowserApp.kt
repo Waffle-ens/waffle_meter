@@ -11,6 +11,7 @@ import com.tbread.entity.DpsReport
 import com.tbread.entity.JoinRequestUser
 import com.tbread.packet.PacketEvent
 import com.tbread.packet.PacketEventBus
+import com.tbread.packet.PacketDebugLogger
 import javafx.application.Application
 import javafx.application.HostServices
 import javafx.application.Platform
@@ -135,6 +136,23 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         fun isDebuggingMode(): Boolean {
             return debugMode
+        }
+
+        fun startPacketLogging(): String {
+            return PacketDebugLogger.start()
+        }
+
+        fun stopPacketLogging(): String {
+            return PacketDebugLogger.stop()
+        }
+
+        fun getPacketLoggingStatus(): String {
+            return PacketDebugLogger.status()
+        }
+
+        fun openPacketLogFolder() {
+            val target = PacketDebugLogger.logDirectory().also { it.mkdirs() }
+            Runtime.getRuntime().exec(arrayOf("explorer.exe", target.absolutePath))
         }
 
         fun getBattleDetail(uid: Int): String {

@@ -33,6 +33,11 @@ declare global {
 
       isAutoHide?: () => boolean;
       toggleAutoHide?: () => void;
+
+      startPacketLogging?: () => string;
+      stopPacketLogging?: () => string;
+      getPacketLoggingStatus?: () => string;
+      openPacketLogFolder?: () => void;
     };
   }
 }
