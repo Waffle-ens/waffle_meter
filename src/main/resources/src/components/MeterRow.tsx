@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { getJobIconSrc } from "@/utils/icons";
-import { formatAmount } from "@/utils/format";
+import { formatPower } from "@/utils/format";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
 
@@ -10,7 +10,6 @@ interface Props {
   name: string;
   job?: string;
   dps: number;
-  amount: number;
   contribution: number;
   entireContribution: number;
   isUser: boolean;
@@ -19,7 +18,7 @@ interface Props {
   topDps: number;
   rowHeight: number;
   server: number;
-  // power: number;
+  power: number;
 }
 
 const makeGradient = (from: string, to: string) => `linear-gradient(to right, ${from}, ${to})`;
@@ -38,9 +37,8 @@ export const MeterRow = memo(
     isSelected,
     onSelect,
     topDps,
-    amount,
     rowHeight,
-    // power,
+    power,
   }: Props) => {
     const { displayMode, nameDisplay, theme, contributionMode, overlayTheme } = useSettingsStore(
       useShallow((s) => ({
@@ -51,8 +49,6 @@ export const MeterRow = memo(
         overlayTheme: s.overlayTheme,
       })),
     );
-    // const showPower = useSettingsStore((s) => s.showPower);
-
     const gradients = useMemo(
       () => ({
         user: makeGradient(...theme.userBar),
@@ -96,36 +92,35 @@ export const MeterRow = memo(
     const progressWidth = ratio > 0 ? `${Math.max(1.5, ratio * 100)}%` : "0%";
 
     const statItems = useMemo(() => {
-      const amountColor = isLightOverlay ? "#8a5a00" : theme.meterStatAmount;
+      const powerColor = isLightOverlay ? "#8a5a00" : theme.meterStatAmount;
       const dpsColor = isLightOverlay ? "#102033" : theme.meterStatDps;
       const percentColor = isLightOverlay ? "#047857" : theme.meterStatPercent;
       const pct = contributionMode === "entireContribution" ? entireContribution : contribution;
-      const compactAmount = formatAmount(amount);
-      const fullAmount = amount.toLocaleString();
-      const dpsText = `${dps.toLocaleString()}/초`;
+      const powerText = formatPower(power);
+      const dpsText = `${dps.toLocaleString()}/s`;
       const pctText = `${pct.toFixed(1)}%`;
 
       switch (displayMode) {
         case "amount_dps_percent":
           return [
-            { key: "amount", color: amountColor, value: compactAmount },
+            { key: "power", color: powerColor, value: powerText },
             { key: "dps", color: dpsColor, value: dpsText },
             { key: "percent", color: percentColor, value: pctText },
           ];
         case "amount_percent":
           return [
-            { key: "amount", color: amountColor, value: compactAmount },
+            { key: "power", color: powerColor, value: powerText },
             { key: "percent", color: percentColor, value: pctText },
           ];
         case "amount_full_dps_percent":
           return [
-            { key: "amount", color: amountColor, value: fullAmount },
+            { key: "power", color: powerColor, value: powerText },
             { key: "dps", color: dpsColor, value: dpsText },
             { key: "percent", color: percentColor, value: pctText },
           ];
         case "amount_full_percent":
           return [
-            { key: "amount", color: amountColor, value: fullAmount },
+            { key: "power", color: powerColor, value: powerText },
             { key: "percent", color: percentColor, value: pctText },
           ];
         case "dps_percent":
@@ -136,12 +131,12 @@ export const MeterRow = memo(
           ];
       }
     }, [
-      amount,
       contribution,
       contributionMode,
       displayMode,
       dps,
       entireContribution,
+      power,
       theme.meterStatAmount,
       theme.meterStatDps,
       theme.meterStatPercent,
@@ -207,18 +202,6 @@ export const MeterRow = memo(
             style={{ color: nameColor, fontSize }}>
             {displayName}
           </span>
-          {/* <div className="flex gap-1.5 flex-1 items-center "> */}
-          {/* {showPower && power > 0 && (
-              <div
-                className={`bg-black/30 px-2     text-shadow-meter flex items-center rounded-xl `}>
-                <span
-                  className="text-[#10f1e2] font-semibold  py-1 leading-none"
-                  style={{
-                    fontSize: `${parseInt(fontSize) - 2}px`,
-                  }}>{`${(power / 1000).toFixed(1)}k`}</span>
-              </div>
-            )} */}
-          {/* </div> */}
           <div className="text-shadow-meter flex shrink-0 items-center gap-1.5 font-semibold tabular-nums">
             {statItems.map((item) => (
               <span
@@ -237,7 +220,7 @@ export const MeterRow = memo(
     return (
       prev.dps === next.dps &&
       prev.rank === next.rank &&
-      prev.amount === next.amount &&
+      prev.power === next.power &&
       prev.contribution === next.contribution &&
       prev.entireContribution === next.entireContribution &&
       prev.server === next.server &&

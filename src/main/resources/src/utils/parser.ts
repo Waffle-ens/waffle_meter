@@ -123,7 +123,7 @@ export function parseCombatData(raw: unknown): {
       damageContribution,
       entireContribution,
       isUser: contributor.isExecutor === true,
-      // power: contributor.power ?? 0,
+      power: Number(contributor.power ?? 0),
     });
   }
 

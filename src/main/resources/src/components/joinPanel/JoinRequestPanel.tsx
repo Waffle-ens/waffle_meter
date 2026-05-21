@@ -4,6 +4,7 @@ import { Settings, CircleX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getServerLabel } from "@/utils/parser";
 import { getJobIconSrc } from "@/utils/icons";
+import { formatPower } from "@/utils/format";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
 import { getSkillName, SKILL_MAP, SKILL_ORDER_MAP } from "@/constants/codes";
@@ -276,7 +277,7 @@ export const JoinRequestPanel = memo(() => {
                       <span
                         className="shrink-0 rounded bg-[var(--meter-stat-bg)] px-1.5 py-0.5 text-sm tabular-nums ring-1 ring-[var(--meter-soft-border)]"
                         style={{ color: isLightOverlay ? "#0f766e" : "#2dd4bf" }}>
-                        {`${(r.power / 1000).toFixed(1)}k`}
+                        {formatPower(r.power)}
                       </span>
                     </div>
 

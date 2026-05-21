@@ -38,19 +38,19 @@ interface Props {
 }
 
 const DISPLAY_MODES: { value: DisplayMode; label: string; description: string }[] = [
-  { value: "dps_percent", label: "DPS / 기여도", description: "45,000/초 (35.5%)" },
+  { value: "dps_percent", label: "DPS / 기여도", description: "45,000/s (35.5%)" },
   {
     value: "amount_dps_percent",
-    label: "누적(축약) / DPS / 기여도",
-    description: "1.2M 45,000/초 (35.5%)",
+    label: "전투력 / DPS / 기여도",
+    description: "143.0k 45,000/s (35.5%)",
   },
-  { value: "amount_percent", label: "누적(축약) / 기여도", description: "1.2M (35.5%)" },
+  { value: "amount_percent", label: "전투력 / 기여도", description: "143.0k (35.5%)" },
   {
     value: "amount_full_dps_percent",
-    label: "누적(전체) / DPS / 기여도",
-    description: "1,234,567 45,000/초 (35.5%)",
+    label: "전투력 / DPS / 기여도",
+    description: "143.0k 45,000/s (35.5%)",
   },
-  { value: "amount_full_percent", label: "누적(전체) / 기여도", description: "1,234,567 (35.5%)" },
+  { value: "amount_full_percent", label: "전투력 / 기여도", description: "143.0k (35.5%)" },
 ];
 
 const TARGET_INFO_DISPLAY_MODES: {
