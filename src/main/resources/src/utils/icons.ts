@@ -1,9 +1,6 @@
-const jobIconModules = import.meta.glob("../assets/*.png", {
-  eager: true,
-  import: "default",
-}) as Record<string, string>;
+import { SKILL_ICON_CODES } from "@/generated/skillIconManifest";
 
-const skillIconModules = import.meta.glob("../assets/skill-icons/*.png", {
+const jobIconModules = import.meta.glob("../assets/*.png", {
   eager: true,
   import: "default",
 }) as Record<string, string>;
@@ -16,15 +13,15 @@ export const getJobIconSrc = (job: string | undefined) => {
 
 const isSkillCode = (num: number) => num >= 11_000_000 && num <= 19_999_999;
 const isBuffCode = (num: number) => num >= 110_000_000 && num <= 190_999_999;
+const skillIconPath = (code: number) => `skill-icons/${code}.webp`;
 
 export const getSkillIconSrc = (code: string | number | undefined) => {
   if (code === undefined || code === null) return undefined;
 
   const num = typeof code === "string" ? parseInt(code, 10) : code;
-  if (isNaN(num) || num <= 0) return undefined;  // ← 빈 문자열 "" 방어 추가
+  if (isNaN(num) || num <= 0) return undefined;
 
-  const exactIcon = skillIconModules[`../assets/skill-icons/${num}.png`];
-  if (exactIcon) return exactIcon;
+  if (SKILL_ICON_CODES.has(num)) return skillIconPath(num);
 
   let baseCode: number | undefined;
 
@@ -36,5 +33,5 @@ export const getSkillIconSrc = (code: string | number | undefined) => {
 
   if (baseCode === undefined) return undefined;
 
-  return skillIconModules[`../assets/skill-icons/${baseCode}.png`];
+  return SKILL_ICON_CODES.has(baseCode) ? skillIconPath(baseCode) : undefined;
 };

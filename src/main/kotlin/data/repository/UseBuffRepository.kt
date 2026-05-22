@@ -16,4 +16,15 @@ class UseBuffRepository {
             buff.buffStart <= timestamp2 && buff.buffEnd >= timestamp1
         } ?: emptyList()
     }
+
+    fun pruneBefore(timestamp: Long) {
+        storage.entries.removeIf { (_, buffs) ->
+            buffs.removeIf { it.buffEnd < timestamp }
+            buffs.isEmpty()
+        }
+    }
+
+    fun flush() {
+        storage.clear()
+    }
 }

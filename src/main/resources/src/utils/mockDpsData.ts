@@ -674,177 +674,138 @@ const MOCK_DETAIL_BY_PLAYER: Record<string, Record<string, unknown>> = {
     ["18790000", "생존 의지", 250000, 10, 5, 1],
   ]),
 };
-const MOCK_BUFF_DATA = [
-  {
-    code: "20111011",
-    name: "버프1",
-    summary: "이동 속도 증가",
-    effect: "이동 속도가 증가합니다",
-    operatingRate: 4.33,
-    actorId: 1,
-  },
-  {
-    code: "22101031",
-    name: "버프2",
-    summary: "공격력 증가",
-    effect: "공격력이 증가합니다",
-    operatingRate: 12.22,
-    actorId: 1,
-  },
-  {
-    code: "22101051",
-    name: "버프3",
-    summary: "방어력 증가",
-    effect: "방어력이 증가합니다",
-    operatingRate: 23.11,
-    actorId: 2,
-  },
-  {
-    code: "22104021",
-    name: "버프4",
-    summary: "치명타 증가",
-    effect: "치명타 확률이 증가합니다",
-    operatingRate: 45.33,
-    actorId: 2,
-  },
-  {
-    code: "120900001",
-    name: "버프5",
-    summary: "HP 회복",
-    effect: "HP가 회복됩니다",
-    operatingRate: 100,
-    actorId: 1,
-  },
-  {
-    code: "121100003",
-    name: "버프6",
-    summary: "MP 회복",
-    effect: "MP가 회복됩니다",
-    operatingRate: 100,
-    actorId: 3,
-  },
-  {
-    code: "121100401",
-    name: "버프7",
-    summary: "스킬 쿨다운 감소",
-    effect: "스킬 쿨다운이 감소합니다",
-    operatingRate: 65.77,
-    actorId: 3,
-  },
-  {
-    code: "121300381",
-    name: "버프8",
-    summary: "공격 속도 증가",
-    effect: "공격 속도가 증가합니다",
-    operatingRate: 43.21,
-    actorId: 2,
-  },
-  {
-    code: "122400001",
-    name: "버프9",
-    summary: "크리티컬 데미지 증가",
-    effect: "크리티컬 데미지가 증가합니다",
-    operatingRate: 76.55,
-    actorId: 1,
-  },
-  {
-    code: "123000001",
-    name: "버프10",
-    summary: "받는 피해 감소",
-    effect: "받는 피해가 감소합니다",
-    operatingRate: 45.66,
-    actorId: 3,
-  },
-  {
-    code: "123100371",
-    name: "버프11",
-    summary: "도발",
-    effect: "적의 어그로를 끕니다",
-    operatingRate: 99.54,
-    actorId: 2,
-  },
-  {
-    code: "123500001",
-    name: "버프12",
-    summary: "보스 저항 감소",
-    effect: "보스의 저항이 감소합니다",
-    operatingRate: 78.87,
-    actorId: 1,
-  },
-  {
-    code: "124500005",
-    name: "버프13",
-    summary: "출혈 데미지",
-    effect: "출혈 데미지를 입힙니다",
-    operatingRate: 22.34,
-    actorId: 3,
-  },
-  {
-    code: "127300021",
-    name: "버프14",
-    summary: "방어 관통",
-    effect: "방어를 관통합니다",
-    operatingRate: 12.34,
-    actorId: 2,
-  },
-  {
-    code: "127500011",
-    name: "버프15",
-    summary: "범위 공격력 증가",
-    effect: "범위 공격력이 증가합니다",
-    operatingRate: 23.423,
-    actorId: 1,
-  },
-  {
-    code: "128000012",
-    name: "버프16",
-    summary: "무적",
-    effect: "잠시 무적 상태가 됩니다",
-    operatingRate: 100,
-    actorId: 3,
-  },
+type MockBuffEntry = {
+  code: string;
+  name: string;
+  summary: string;
+  effect: string;
+  operatingRate: number;
+  actorId: number;
+  actorName?: string;
+};
+
+const toBuffCode = (skillCode: number) => `${skillCode}1`;
+
+const mockBuff = (
+  skillCode: number,
+  name: string,
+  operatingRate: number,
+  actorId: number,
+  summary: string,
+  effect: string,
+  actorName?: string,
+): MockBuffEntry => ({
+  code: toBuffCode(skillCode),
+  name,
+  summary,
+  effect,
+  operatingRate,
+  actorId,
+  actorName,
+});
+
+const MOCK_PARTY_BUFFS: MockBuffEntry[] = [
+  mockBuff(
+    18190000,
+    "불패의 진언",
+    99.3,
+    8,
+    "파티 생존 보조",
+    "파티원의 방어 성능을 높여주는 진언입니다.",
+    "호법[테스트]",
+  ),
+  mockBuff(
+    18160000,
+    "질주의 진언",
+    92.8,
+    8,
+    "기동성 보조",
+    "파티원의 이동 관련 능력을 보조합니다.",
+    "호법[테스트]",
+  ),
+  mockBuff(
+    18420000,
+    "수호의 축복",
+    74.4,
+    8,
+    "피해 완화",
+    "짧은 시간 동안 받는 피해를 줄여줍니다.",
+    "호법[테스트]",
+  ),
+  mockBuff(
+    17410000,
+    "보호의 빛",
+    66.7,
+    7,
+    "보호막",
+    "대상에게 보호 효과를 부여합니다.",
+    "치유[테스트]",
+  ),
+  mockBuff(
+    17420000,
+    "유스티엘의 권능",
+    41.9,
+    7,
+    "회복 강화",
+    "회복과 생존을 보조하는 권능 효과입니다.",
+    "치유[테스트]",
+  ),
 ];
-const MOCK_DEBUFF_DATA = [
-  {
-    code: "30110011",
-    name: "방어력 감소",
-    summary: "방어력 감소 디버프",
-    effect: "방어력이 감소합니다",
-    operatingRate: 85.5,
-    actorId: 1,
-  },
-  {
-    code: "30110012",
-    name: "이동속도 감소",
-    summary: "이동속도 감소 디버프",
-    effect: "이동속도가 감소합니다",
-    operatingRate: 72.3,
-    actorId: 1,
-  },
-  {
-    code: "30210021",
-    name: "공격력 감소",
-    summary: "공격력 감소 디버프",
-    effect: "공격력이 감소합니다",
-    operatingRate: 90.1,
-    actorId: 2,
-  },
-  {
-    code: "30210022",
-    name: "침묵",
-    summary: "스킬 사용 불가",
-    effect: "스킬을 사용할 수 없습니다",
-    operatingRate: 45.0,
-    actorId: 2,
-  },
-  {
-    code: "30310031",
-    name: "출혈",
-    summary: "지속 피해",
-    effect: "지속적으로 피해를 입습니다",
-    operatingRate: 60.7,
-    actorId: 3,
-  },
+
+const MOCK_BUFF_BY_PLAYER: Record<string, MockBuffEntry[]> = {
+  "1": [
+    mockBuff(11250000, "지켈의 축복", 98.7, 1, "공격 강화", "검성의 순간 화력을 끌어올립니다.", "나[검성]"),
+    mockBuff(11750000, "공격 준비", 86.2, 1, "전투 준비", "공격 능력치를 끌어올리는 자기 강화입니다.", "나[검성]"),
+    mockBuff(11800000, "살기 파열", 51.4, 1, "연계 강화", "살기 파열 상태에서 일부 공격 흐름을 강화합니다.", "나[검성]"),
+    ...MOCK_PARTY_BUFFS,
+  ],
+  "2": [
+    mockBuff(12200000, "균형의 갑옷", 93.5, 2, "상태 이상 저항", "수호성의 안정성을 높이는 자기 강화입니다.", "수호[테스트]"),
+    mockBuff(12110000, "보호의 방패", 58.1, 2, "방어 강화", "방패로 받는 피해를 줄입니다.", "수호[테스트]"),
+    ...MOCK_PARTY_BUFFS,
+  ],
+  "3": [
+    mockBuff(13750000, "강습 자세", 88.4, 3, "공격 자세", "살성의 공격 흐름을 강화합니다.", "살성[테스트]"),
+    mockBuff(13390000, "신속의 계약", 63.8, 3, "신속 강화", "전투 중 기동성과 공격 템포를 끌어올립니다.", "살성[테스트]"),
+    ...MOCK_PARTY_BUFFS,
+  ],
+  "4": [
+    mockBuff(14740000, "집중의 눈", 96.1, 4, "명중 보조", "궁성의 정확도와 안정적인 딜링을 보조합니다.", "궁성[테스트]"),
+    mockBuff(14750000, "사냥꾼의 결의", 72.6, 4, "전투 집중", "사냥꾼의 전투 능력을 끌어올립니다.", "궁성[테스트]"),
+    ...MOCK_PARTY_BUFFS,
+  ],
+  "5": [
+    mockBuff(15740000, "불꽃의 로브", 97.5, 5, "마법 강화", "마도성의 화염 계열 운용을 보조합니다.", "마도[테스트]"),
+    mockBuff(15160000, "강철 보호막", 46.8, 5, "보호막", "일정 피해를 흡수합니다.", "마도[테스트]"),
+    ...MOCK_PARTY_BUFFS,
+  ],
+  "6": [
+    mockBuff(16370000, "불길의 축복", 89.2, 6, "정령 강화", "소환 정령과 시전자 전투를 보조합니다.", "정령[테스트]"),
+    mockBuff(16190000, "강화: 정령의 가호", 57.3, 6, "정령 보호", "정령성의 생존과 운용을 보조합니다.", "정령[테스트]"),
+    ...MOCK_PARTY_BUFFS,
+  ],
+  "7": [
+    mockBuff(17160000, "생명의 권능", 91.8, 7, "회복 권능", "회복 운용을 강화합니다.", "치유[테스트]"),
+    mockBuff(17410000, "보호의 빛", 69.1, 7, "보호막", "대상에게 보호 효과를 부여합니다.", "치유[테스트]"),
+    ...MOCK_PARTY_BUFFS,
+  ],
+  "8": [
+    mockBuff(18190000, "불패의 진언", 99.3, 8, "파티 생존 보조", "파티원의 방어 성능을 높여주는 진언입니다.", "호법[테스트]"),
+    mockBuff(18160000, "질주의 진언", 92.8, 8, "기동성 보조", "파티원의 이동 관련 능력을 보조합니다.", "호법[테스트]"),
+    mockBuff(18250000, "질풍의 권능", 62.2, 8, "공격 지원", "파티원의 전투 템포를 보조합니다.", "호법[테스트]"),
+    ...MOCK_PARTY_BUFFS,
+  ],
+};
+
+const getMockBuffData = (id: number | string): MockBuffEntry[] =>
+  MOCK_BUFF_BY_PLAYER[String(id)] ?? MOCK_BUFF_BY_PLAYER["1"];
+
+const MOCK_DEBUFF_DATA: MockBuffEntry[] = [
+  mockBuff(14180000, "결박의 덫", 76.8, 4, "이동 제한", "대상 이동을 제한하는 덫 효과입니다.", "궁성[테스트]"),
+  mockBuff(14160000, "봉인 화살", 48.4, 4, "스킬 방해", "대상 행동을 방해하는 화살 효과입니다.", "궁성[테스트]"),
+  mockBuff(16220000, "저주의 구름", 82.5, 6, "저주", "대상에게 지속적인 약화 효과를 남깁니다.", "정령[테스트]"),
+  mockBuff(15140000, "저주: 나무", 34.6, 5, "변이", "대상을 나무로 만드는 약화 효과입니다.", "마도[테스트]"),
+  mockBuff(12120000, "도발", 23.1, 2, "위협", "대상의 주의를 끌어 전투 흐름을 제어합니다.", "수호[테스트]"),
 ];
 const MOCK_DATA = {
   contributors: [
@@ -911,8 +872,9 @@ export const injectMockDpsData = () => {
     getBattleDetail: (id: string) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(id)] ?? MOCK_DETAIL_DATA),
     getBattleDetailFromList: (_idx: number, uid: number) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(uid)] ?? MOCK_DETAIL_DATA),
     getBattleList: () => JSON.stringify(MOCK_HISTORY_DATA),
-    getVersion: () => "1.4.7",
-    getLiveBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_BUFF_DATA),
+    getVersion: () => "1.4.8",
+    getLiveBuffOperatingRate: (id: number) => JSON.stringify(getMockBuffData(id)),
+    getBuffOperatingRate: (_idx: number, id: number) => JSON.stringify(getMockBuffData(id)),
     openBrowser: (url: string) => console.log("[mock] openBrowser:", url),
     getLiveBossBuffOperatingRate: (_id: number) => JSON.stringify(MOCK_DEBUFF_DATA),
     getBossBuffOperatingRate: (_idx: number, _id: number) => JSON.stringify(MOCK_DEBUFF_DATA),

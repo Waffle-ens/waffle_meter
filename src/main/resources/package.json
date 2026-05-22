@@ -1,11 +1,12 @@
 {
   "name": "waffle_meter.v1.4",
   "private": true,
-  "version": "1.4.7",
+  "version": "1.4.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "optimize:skill-icons": "node ./scripts/optimize-skill-icons.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -39,6 +40,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "sharp": "^0.34.5",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.0"

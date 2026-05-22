@@ -11,7 +11,6 @@ import com.tbread.entity.DpsReport
 import com.tbread.entity.JoinRequestUser
 import com.tbread.packet.PacketEvent
 import com.tbread.packet.PacketEventBus
-import com.tbread.packet.PacketDebugLogger
 import javafx.application.Application
 import javafx.application.HostServices
 import javafx.application.Platform
@@ -40,6 +39,8 @@ import kotlin.system.exitProcess
 class BrowserApp(private val config: VersionConfig, private val dpsCalculator: DpsCalculator) : Application() {
 
     private val logger = LoggerFactory.getLogger(BrowserApp::class.java)
+    private val dpsRefreshMs = 500L
+    private val overlayFocusCheckMs = 300L
 
     private lateinit var engine: WebEngine
     private var trayIcon: TrayIcon? = null
@@ -138,29 +139,12 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return debugMode
         }
 
-        fun startPacketLogging(): String {
-            return PacketDebugLogger.start()
-        }
-
-        fun stopPacketLogging(): String {
-            return PacketDebugLogger.stop()
-        }
-
-        fun getPacketLoggingStatus(): String {
-            return PacketDebugLogger.status()
-        }
-
-        fun openPacketLogFolder() {
-            val target = PacketDebugLogger.logDirectory().also { it.mkdirs() }
-            Runtime.getRuntime().exec(arrayOf("explorer.exe", target.absolutePath))
-        }
-
         fun getBattleDetail(uid: Int): String {
             return Json.encodeToString(dpsCalculator.battleDetails(dpsCalculator.getLiveReport(), uid))
         }
 
         fun getBattleDetailFromList(idx: Int, uid: Int): String {
-            return Json.encodeToString(dpsCalculator.battleDetails(DataManager.battleLog(idx)?.report, uid))
+            return Json.encodeToString(DataManager.battleLog(idx)?.skillDetails?.get(uid) ?: emptyMap())
         }
 
         fun getBattleList(): String {
@@ -168,27 +152,19 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun getLiveBuffOperatingRate(uid: Int): String {
-            val report = dpsCalculator.getLiveReport()
-            val end = if (report.battleEnd == 0L) System.currentTimeMillis() else report.battleEnd
-            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,end))
+            return Json.encodeToString(dpsCalculator.getLiveBuffOperatingRate(uid))
         }
 
         fun getBuffOperatingRate(idx: Int, uid: Int): String {
-            val report = DataManager.battleLog(idx)?.report ?: return ""
-            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(uid,report.battleStart,report.battleEnd))
+            return Json.encodeToString(DataManager.battleLog(idx)?.buffRates?.get(uid) ?: emptyList())
         }
 
         fun getLiveBossBuffOperatingRate(): String {
-            val report = dpsCalculator.getLiveReport()
-            val end = if (report.battleEnd == 0L) System.currentTimeMillis() else report.battleEnd
-            val targetId = report.target?.id ?: return ""
-            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(targetId,report.battleStart,end))
+            return Json.encodeToString(dpsCalculator.getLiveBossBuffOperatingRate())
         }
 
         fun getBossBuffOperatingRate(idx: Int): String {
-            val report = DataManager.battleLog(idx)?.report ?: return ""
-            val targetId = report.target?.id ?: return ""
-            return Json.encodeToString(dpsCalculator.getBuffOperatingRate(targetId,report.battleStart,report.battleEnd))
+            return Json.encodeToString(DataManager.battleLog(idx)?.bossBuffRates ?: emptyList())
         }
 
         fun upload(idx: Int): Boolean {
@@ -362,7 +338,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         
         CoroutineScope(Dispatchers.IO).launch {
             while (true) {
-                kotlinx.coroutines.delay(300)
+                kotlinx.coroutines.delay(dpsRefreshMs)
                 val data = dpsCalculator.getDps()
                 cachedDpsJson = Json.encodeToString(data)
                 dpsData = data
@@ -371,7 +347,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         CoroutineScope(Dispatchers.IO).launch {
             while (true) {
-                kotlinx.coroutines.delay(300)
+                kotlinx.coroutines.delay(overlayFocusCheckMs)
                 if (!isVisible) continue
                 if (!isAutoHide) {
                     Platform.runLater { presentOverlay(stage) }

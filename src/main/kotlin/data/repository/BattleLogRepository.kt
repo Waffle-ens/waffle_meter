@@ -3,7 +3,7 @@ package com.tbread.data.repository
 import com.tbread.entity.DpsLog
 
 class BattleLogRepository {
-    private val maxSize = 20
+    private val maxSize = 6
     private val storage = ArrayDeque<DpsLog>()
 
     fun save(data: DpsLog) {

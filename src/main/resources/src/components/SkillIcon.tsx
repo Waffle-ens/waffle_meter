@@ -38,6 +38,9 @@ export const SkillIcon = ({ code, size = 24 }: Props) => {
   return (
     <img
       src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
       style={{ width: size, height: size }}
       className="shrink-0 rounded-md object-contain"
       onError={() => setFailedSrc(src)}

@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useHotkeyCapture } from "@/hooks/useHotkeyCapture";
 import { formatHotkey } from "@/utils/hotKey";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, Play, RotateCcw, Square } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import type {
   DisplayMode,
   FontFamily,
@@ -96,55 +96,6 @@ const FONT_FAMILIES: { value: FontFamily; label: string }[] = [
   { value: "Pretendard", label: "Pretendard" },
 ];
 
-interface PacketLogStatus {
-  running: boolean;
-  path: string;
-  captureCount: number;
-  captureBytes: number;
-  assembledCount: number;
-  dispatchCount: number;
-  parsedDamageCount: number;
-  parsedBattleCount: number;
-  parsedMetaCount: number;
-  unknownOpcodeCount: number;
-  errorCount: number;
-}
-
-const emptyPacketLogStatus: PacketLogStatus = {
-  running: false,
-  path: "",
-  captureCount: 0,
-  captureBytes: 0,
-  assembledCount: 0,
-  dispatchCount: 0,
-  parsedDamageCount: 0,
-  parsedBattleCount: 0,
-  parsedMetaCount: 0,
-  unknownOpcodeCount: 0,
-  errorCount: 0,
-};
-
-const parsePacketLogStatus = (raw: string | undefined): PacketLogStatus => {
-  if (!raw) return emptyPacketLogStatus;
-  try {
-    return { ...emptyPacketLogStatus, ...JSON.parse(raw) };
-  } catch {
-    return emptyPacketLogStatus;
-  }
-};
-
-const formatBytes = (bytes: number) => {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
-};
-
 export const SettingsPanel = ({
   onClose,
   onReady,
@@ -225,25 +176,6 @@ export const SettingsPanel = ({
     stop: stopClickThrough,
     reset: resetClickThrough,
   } = useHotkeyCapture(clickThroughHotkey);
-  const [packetLogStatus, setPacketLogStatus] =
-    useState<PacketLogStatus>(emptyPacketLogStatus);
-
-  const refreshPacketLogStatus = useCallback(() => {
-    setPacketLogStatus(parsePacketLogStatus(window.javaBridge?.getPacketLoggingStatus?.()));
-  }, []);
-
-  const handleStartPacketLogging = useCallback(() => {
-    setPacketLogStatus(parsePacketLogStatus(window.javaBridge?.startPacketLogging?.()));
-  }, []);
-
-  const handleStopPacketLogging = useCallback(() => {
-    setPacketLogStatus(parsePacketLogStatus(window.javaBridge?.stopPacketLogging?.()));
-  }, []);
-
-  const handleOpenPacketLogFolder = useCallback(() => {
-    window.javaBridge?.openPacketLogFolder?.();
-  }, []);
-
   const [snapshot] = useState(() => ({
     hideHotkey,
     displayMode,
@@ -264,12 +196,6 @@ export const SettingsPanel = ({
   useEffect(() => {
     onReady?.();
   }, []);
-
-  useEffect(() => {
-    refreshPacketLogStatus();
-    const id = window.setInterval(refreshPacketLogStatus, 1000);
-    return () => window.clearInterval(id);
-  }, [refreshPacketLogStatus]);
 
   const handleSave = useCallback(() => {
     setHideHotkey(pendingHide);
@@ -351,64 +277,6 @@ export const SettingsPanel = ({
               {updateInfo ? `v${updateInfo.latestVersion} 업데이트` : "업데이트 확인"}
             </Button>
           </SettingsRow>
-        </SettingsItem>
-
-        <SettingsItem>
-          <SettingsRow
-            title="패킷 진단 로그"
-            description={
-              packetLogStatus.running
-                ? `${packetLogStatus.captureCount.toLocaleString()}개 / ${formatBytes(packetLogStatus.captureBytes)}`
-                : packetLogStatus.path
-                  ? "로깅 종료됨"
-                  : "문제 재현 구간만 짧게 기록합니다"
-            }
-            align="center"
-            rightClassName="w-44">
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                onClick={
-                  packetLogStatus.running ? handleStopPacketLogging : handleStartPacketLogging
-                }
-                variant="ghost"
-                size="icon"
-                className={
-                  packetLogStatus.running
-                    ? "h-8 w-8 text-red-300 border border-red-300/30 hover:bg-red-400/10"
-                    : "h-8 w-8 text-emerald-300 border border-emerald-300/30 hover:bg-emerald-400/10"
-                }
-                title={packetLogStatus.running ? "로깅 종료" : "로깅 시작"}>
-                {packetLogStatus.running ? (
-                  <Square className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                onClick={handleOpenPacketLogFolder}
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 opacity-70 hover:opacity-100"
-                title="로그 폴더 열기">
-                <FolderOpen className="h-4 w-4" />
-              </Button>
-            </div>
-          </SettingsRow>
-          {(packetLogStatus.running || packetLogStatus.path) && (
-            <div className="px-3 pb-2 text-[11px] leading-5 text-white/45">
-              <div className="truncate" title={packetLogStatus.path}>
-                {packetLogStatus.path || "로그 파일 준비 중"}
-              </div>
-              <div className="tabular-nums">
-                조립 {packetLogStatus.assembledCount.toLocaleString()} · 파서{" "}
-                {packetLogStatus.dispatchCount.toLocaleString()} · 데미지{" "}
-                {packetLogStatus.parsedDamageCount.toLocaleString()} · 전투{" "}
-                {packetLogStatus.parsedBattleCount.toLocaleString()} · 미확인 opcode{" "}
-                {packetLogStatus.unknownOpcodeCount.toLocaleString()} · 오류{" "}
-                {packetLogStatus.errorCount.toLocaleString()}
-              </div>
-            </div>
-          )}
         </SettingsItem>
 
         <SettingsItem>

@@ -80,13 +80,18 @@ export const MeterRow = memo(
     const fontSize = `${Math.max(10, Math.floor(rowHeight * 0.4))}px`;
     const secondaryFontSize = `${Math.max(9, Math.floor(rowHeight * 0.32))}px`;
 
-    const ratio = Math.max(0, Math.min(1, dps / topDps));
+    const safeDps = Number.isFinite(dps) ? dps : 0;
+    const safePower = Number.isFinite(power) ? power : 0;
+    const safeContribution = Number.isFinite(contribution) ? contribution : 0;
+    const safeEntireContribution = Number.isFinite(entireContribution) ? entireContribution : 0;
+    const safeTopDps = Number.isFinite(topDps) && topDps > 0 ? topDps : 1;
+    const ratio = Math.max(0, Math.min(1, safeDps / safeTopDps));
     const iconSrc = getJobIconSrc(job);
     const fillGradient = isUser
       ? gradients.user
-      : Number(contribution) < 3
+      : safeContribution < 3
         ? gradients.error
-        : Number(contribution) < 5
+        : safeContribution < 5
           ? gradients.warning
           : gradients.normal;
     const progressWidth = ratio > 0 ? `${Math.max(1.5, ratio * 100)}%` : "0%";
@@ -95,9 +100,10 @@ export const MeterRow = memo(
       const powerColor = isLightOverlay ? "#8a5a00" : theme.meterStatAmount;
       const dpsColor = isLightOverlay ? "#102033" : theme.meterStatDps;
       const percentColor = isLightOverlay ? "#047857" : theme.meterStatPercent;
-      const pct = contributionMode === "entireContribution" ? entireContribution : contribution;
-      const powerText = formatPower(power);
-      const dpsText = `${dps.toLocaleString()}/s`;
+      const pct =
+        contributionMode === "entireContribution" ? safeEntireContribution : safeContribution;
+      const powerText = formatPower(safePower);
+      const dpsText = `${safeDps.toLocaleString()}/s`;
       const pctText = `${pct.toFixed(1)}%`;
 
       switch (displayMode) {
@@ -131,12 +137,12 @@ export const MeterRow = memo(
           ];
       }
     }, [
-      contribution,
+      safeContribution,
       contributionMode,
       displayMode,
-      dps,
-      entireContribution,
-      power,
+      safeDps,
+      safeEntireContribution,
+      safePower,
       theme.meterStatAmount,
       theme.meterStatDps,
       theme.meterStatPercent,

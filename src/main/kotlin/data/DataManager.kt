@@ -140,6 +140,7 @@ object DataManager {
         packetRepository.flush()
         summonRepository.flush()
         userRepository.flush()
+        useBuffRepository.flush()
         rawPacketBuffer.clear()
         lastDummyHitTime = 0
     }
@@ -283,14 +284,29 @@ object DataManager {
     /*
     battleLog 영역
      */
-    fun saveBattleLog(data: DpsReport) {
+    fun saveBattleLog(
+        data: DpsReport,
+        skillDetails: Map<Int, HashMap<String, AnalyzedSkill>> = emptyMap(),
+        buffRates: Map<Int, List<OperatingData>> = emptyMap(),
+        bossBuffRates: List<OperatingData> = emptyList()
+    ) {
         val snapshot = data.copy(
             contributors = data.contributors.mapTo(mutableSetOf()) { it.copy() },
-            packets = data.packets?.toMutableList()
+            packets = null
         )
         val packets = rawPacketsInRange(data.battleStart - 5000L, data.battleEnd)
-        battleLogRepository.save(DpsLog(snapshot, summonRepository.getAll(), packets))
+        battleLogRepository.save(
+            DpsLog(
+                snapshot,
+                summonRepository.getAll(),
+                packets,
+                skillDetails,
+                buffRates,
+                bossBuffRates
+            )
+        )
         rawPacketBuffer.removeIf { it.timestamp <= data.battleEnd }
+        useBuffRepository.pruneBefore(data.battleEnd + 1)
     }
 
     fun recentBattleList(): List<Pair<Int, DpsReport>> {

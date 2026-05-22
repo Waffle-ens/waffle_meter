@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { Player, Details } from "@/types";
 import { useDetails } from "@/hooks/useDetails";
 import { BuffRateSection } from "@/components/BuffRateSection";
@@ -14,6 +14,8 @@ import { SkillIcon } from "../SkillIcon";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
+import { getChainMainCode, normalizeChainCode, SKILL_CHAIN_GROUPS } from "@/constants/skillChains";
+import { Minus, Plus } from "lucide-react";
 
 interface Props {
   player: Player | null;
@@ -23,6 +25,82 @@ interface Props {
   combatTime: string;
   historyIdx?: number;
 }
+
+interface SkillGroupRow {
+  key: string;
+  skill: Details["skills"][number];
+  detailRows: Details["skills"];
+}
+
+const pctInt = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : 0);
+
+const mergeSkills = (base: Details["skills"][number], rows: Details["skills"]) => {
+  const time = rows.reduce((sum, row) => sum + row.time, 0);
+  const crit = rows.reduce((sum, row) => sum + row.crit, 0);
+  const parry = rows.reduce((sum, row) => sum + row.parry, 0);
+  const back = rows.reduce((sum, row) => sum + row.back, 0);
+  const perfect = rows.reduce((sum, row) => sum + row.perfect, 0);
+  const double = rows.reduce((sum, row) => sum + row.double, 0);
+  const shardTimes = rows.reduce((sum, row) => sum + row.shardTimes, 0);
+
+  return {
+    ...base,
+    time,
+    crit,
+    parry,
+    back,
+    perfect,
+    double,
+    shardTimes,
+    dmg: rows.reduce((sum, row) => sum + row.dmg, 0),
+    critPct: pctInt(crit, time),
+    parryPct: pctInt(parry, time),
+    perfectPct: pctInt(perfect, time),
+    doublePct: pctInt(double, time),
+    backPct: pctInt(back, time),
+  };
+};
+
+const buildSkillGroups = (skills: Details["skills"]): SkillGroupRow[] => {
+  const byCode = new Map<string, Details["skills"]>();
+  const usedIndexes = new Set<number>();
+
+  skills.forEach((skill) => {
+    const code = normalizeChainCode(skill.code);
+    byCode.set(code, [...(byCode.get(code) ?? []), skill]);
+  });
+
+  const groups: SkillGroupRow[] = [];
+
+  for (const chain of SKILL_CHAIN_GROUPS) {
+    const orderedCodes = [chain.mainCode, ...chain.childCodes];
+    const rows = orderedCodes.flatMap((code) => byCode.get(code) ?? []);
+    if (rows.length < 2) continue;
+
+    const mainRows = byCode.get(chain.mainCode);
+    const base = mainRows?.[0] ?? rows[0];
+    groups.push({
+      key: chain.mainCode,
+      skill: mergeSkills(base, rows),
+      detailRows: rows,
+    });
+
+    skills.forEach((skill, index) => {
+      if (getChainMainCode(skill.code) === chain.mainCode) usedIndexes.add(index);
+    });
+  }
+
+  skills.forEach((skill, index) => {
+    if (usedIndexes.has(index)) return;
+    groups.push({
+      key: `${skill.code}-${index}`,
+      skill,
+      detailRows: [skill],
+    });
+  });
+
+  return groups.sort((a, b) => b.skill.dmg - a.skill.dmg);
+};
 
 export const DetailsPanel = ({
   player,
@@ -41,6 +119,7 @@ export const DetailsPanel = ({
   const buffColumns = detailWidth >= 1200 ? 4 : detailWidth >= 900 ? 3 : detailWidth >= 700 ? 2 : 1;
   const isCompact = detailWidth < 700;
   const [openPanel, setOpenPanel] = useState<string>("skills");
+  const [expandedSkillGroups, setExpandedSkillGroups] = useState<Set<string>>(() => new Set());
 
   const playerNameMap = useMemo(() => new Map(players.map((p) => [p.id, p.name])), [players]);
 
@@ -48,6 +127,7 @@ export const DetailsPanel = ({
     if (!player) return;
     let ignore = false;
     setDetails(null);
+    setExpandedSkillGroups(new Set());
     getDetails(player, combatTime, historyIdx).then((next) => {
       if (!ignore) setDetails(next);
     });
@@ -58,6 +138,7 @@ export const DetailsPanel = ({
 
   if (!player || !details) return null;
 
+  const skillGroups = buildSkillGroups(details.skills);
   const buffCount = (details.buffOperatingRate ?? []).length;
   const debuffCount = (details.debuffOperatingRate ?? []).length;
   const sectionTriggerClass =
@@ -66,6 +147,14 @@ export const DetailsPanel = ({
     "bg-[var(--meter-table-head-bg)] py-2 font-bold text-[var(--meter-table-head-fg)]";
   const skillNameClass = "truncate text-[var(--meter-fg)] text-shadow-meter";
   const damageTextClass = "text-[#b7791f] text-shadow-meter";
+  const toggleSkillGroup = (key: string) => {
+    setExpandedSkillGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
@@ -160,7 +249,10 @@ export const DetailsPanel = ({
               <div className="px-2.5 pt-2">
                 {isCompact ? (
                   <div className="space-y-1.5">
-                    {details.skills.map((s) => {
+                    {skillGroups.map((group) => {
+                      const s = group.skill;
+                      const hasChildren = group.detailRows.length > 1;
+                      const isExpanded = expandedSkillGroups.has(group.key);
                       const ratio = s.dmg / (details.totalDmg || 1);
                       const stats = [
                         { label: "명중", value: s.time },
@@ -178,9 +270,20 @@ export const DetailsPanel = ({
 
                       return (
                         <div
-                          key={s.code}
+                          key={group.key}
                           className="rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-table-row-bg)] p-3">
                           <div className="flex items-center gap-2 mb-2">
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-control-bg)] text-[var(--meter-accent)] transition hover:bg-[var(--meter-control-hover)]"
+                                title={isExpanded ? "연계기 접기" : "연계기 펼치기"}
+                                onClick={() => toggleSkillGroup(group.key)}>
+                                {isExpanded ? <Minus size={13} /> : <Plus size={13} />}
+                              </button>
+                            ) : (
+                              <span className="h-5 w-5 shrink-0" />
+                            )}
                             <SkillIcon
                               code={s.code}
                               size={26}
@@ -217,6 +320,30 @@ export const DetailsPanel = ({
                               </div>
                             ))}
                           </div>
+                          {hasChildren && isExpanded && (
+                            <div className="mt-3 space-y-1.5 border-t border-[var(--meter-soft-border)] pt-2">
+                              {group.detailRows.map((child, childIndex) => {
+                                const childRatio = child.dmg / (details.totalDmg || 1);
+                                return (
+                                  <div
+                                    key={`${group.key}-${child.code}-${childIndex}`}
+                                    className="relative ml-2 flex items-center gap-2 rounded-md bg-[var(--meter-row-hover)] px-2 py-1.5">
+                                    <span className="absolute -left-2 top-0 h-1/2 w-2 rounded-bl border-b border-l border-[var(--meter-accent)] opacity-70" />
+                                    <SkillIcon
+                                      code={child.code}
+                                      size={20}
+                                    />
+                                    <span className={`min-w-0 flex-1 truncate text-xs ${skillNameClass}`}>
+                                      {child.name}
+                                    </span>
+                                    <span className={`text-xs tabular-nums ${damageTextClass}`}>
+                                      {child.dmg.toLocaleString()} ({(childRatio * 100).toFixed(1)}%)
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -270,58 +397,125 @@ export const DetailsPanel = ({
                     </TableHeader>
 
                     <TableBody>
-                      {details.skills.map((s) => {
+                      {skillGroups.map((group) => {
+                        const s = group.skill;
+                        const hasChildren = group.detailRows.length > 1;
+                        const isExpanded = expandedSkillGroups.has(group.key);
                         const ratio = s.dmg / (details.totalDmg || 1);
 
                         return (
-                          <TableRow
-                            className="cursor-auto border-b border-[var(--meter-soft-border)] bg-[var(--meter-table-row-bg)] even:bg-[var(--meter-table-row-alt)] hover:bg-[var(--meter-row-hover)]"
-                            key={s.code}>
-                            <TableCell className="py-1.5">
-                              <div className="flex items-center gap-2 overflow-hidden">
-                                <SkillIcon
-                                  code={s.code}
-                                  size={26}
-                                />
-                                <span className={skillNameClass}>
-                                  {s.name}
-                                </span>
-                              </div>
-                            </TableCell>
-
-                            {[
-                              s.time,
-                              // s.shardTimes,
-                              s.critPct === "-" ? "-" : `${s.critPct}%`,
-                              s.doublePct === "-" ? "-" : `${s.doublePct}%`,
-                              // s.multiHitPct === "-" ? "-" : `${s.multiHitPct}%`,
-                              s.perfectPct === "-" ? "-" : `${s.perfectPct}%`,
-                              s.backPct === "-" ? "-" : `${s.backPct}%`,
-                              s.parryPct === "-" ? "-" : `${s.parryPct}%`,
-                            ].map((val, ci) => (
-                              <TableCell
-                                key={ci}
-                                className="py-1.5 text-center">
-                                {val}
-                              </TableCell>
-                            ))}
-
-                            <TableCell className="py-1.5">
-                              <div className="relative h-8 rounded-md overflow-hidden">
-                                <div
-                                  className="absolute inset-0 origin-left rounded-md"
-                                  style={{
-                                    background: "linear-gradient(to right, #55c42a, #3a9e20)",
-                                    transform: `scaleX(${ratio})`,
-                                  }}
-                                />
-                                <div className={`relative z-10 flex h-full items-center justify-end gap-1.5 pr-2 ${damageTextClass}`}>
-                                  <span>{s.dmg.toLocaleString()}</span>
-                                  <span className="opacity-70">({(ratio * 100).toFixed(1)}%)</span>
+                          <Fragment key={group.key}>
+                            <TableRow
+                              className="cursor-auto border-b border-[var(--meter-soft-border)] bg-[var(--meter-table-row-bg)] even:bg-[var(--meter-table-row-alt)] hover:bg-[var(--meter-row-hover)]"
+                            >
+                              <TableCell className="py-1.5">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  {hasChildren ? (
+                                    <button
+                                      type="button"
+                                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-control-bg)] text-[var(--meter-accent)] transition hover:bg-[var(--meter-control-hover)]"
+                                      title={isExpanded ? "연계기 접기" : "연계기 펼치기"}
+                                      onClick={() => toggleSkillGroup(group.key)}>
+                                      {isExpanded ? <Minus size={13} /> : <Plus size={13} />}
+                                    </button>
+                                  ) : (
+                                    <span className="h-5 w-5 shrink-0" />
+                                  )}
+                                  <SkillIcon
+                                    code={s.code}
+                                    size={26}
+                                  />
+                                  <span className={skillNameClass}>
+                                    {s.name}
+                                  </span>
                                 </div>
-                              </div>
-                            </TableCell>
-                          </TableRow>
+                              </TableCell>
+
+                              {[
+                                s.time,
+                                // s.shardTimes,
+                                s.critPct === "-" ? "-" : `${s.critPct}%`,
+                                s.doublePct === "-" ? "-" : `${s.doublePct}%`,
+                                // s.multiHitPct === "-" ? "-" : `${s.multiHitPct}%`,
+                                s.perfectPct === "-" ? "-" : `${s.perfectPct}%`,
+                                s.backPct === "-" ? "-" : `${s.backPct}%`,
+                                s.parryPct === "-" ? "-" : `${s.parryPct}%`,
+                              ].map((val, ci) => (
+                                <TableCell
+                                  key={ci}
+                                  className="py-1.5 text-center">
+                                  {val}
+                                </TableCell>
+                              ))}
+
+                              <TableCell className="py-1.5">
+                                <div className="relative h-8 rounded-md overflow-hidden">
+                                  <div
+                                    className="absolute inset-0 origin-left rounded-md"
+                                    style={{
+                                      background: "linear-gradient(to right, #55c42a, #3a9e20)",
+                                      transform: `scaleX(${ratio})`,
+                                    }}
+                                  />
+                                  <div className={`relative z-10 flex h-full items-center justify-end gap-1.5 pr-2 ${damageTextClass}`}>
+                                    <span>{s.dmg.toLocaleString()}</span>
+                                    <span className="opacity-70">({(ratio * 100).toFixed(1)}%)</span>
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {hasChildren && isExpanded &&
+                              group.detailRows.map((child, childIndex) => {
+                                const childRatio = child.dmg / (details.totalDmg || 1);
+                                return (
+                                  <TableRow
+                                    key={`${group.key}-${child.code}-${childIndex}`}
+                                    className="border-b border-[var(--meter-soft-border)] bg-[var(--meter-table-row-alt)] text-[var(--meter-fg)] hover:bg-[var(--meter-row-hover)]">
+                                    <TableCell className="py-1.5">
+                                      <div className="relative flex items-center gap-2 overflow-hidden pl-8">
+                                        <span className="absolute left-3 top-0 h-1/2 w-3 rounded-bl border-b border-l border-[var(--meter-accent)] opacity-70" />
+                                        <SkillIcon
+                                          code={child.code}
+                                          size={22}
+                                        />
+                                        <span className={`${skillNameClass} text-sm opacity-90`}>
+                                          {child.name}
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                    {[
+                                      child.time,
+                                      child.critPct === "-" ? "-" : `${child.critPct}%`,
+                                      child.doublePct === "-" ? "-" : `${child.doublePct}%`,
+                                      child.perfectPct === "-" ? "-" : `${child.perfectPct}%`,
+                                      child.backPct === "-" ? "-" : `${child.backPct}%`,
+                                      child.parryPct === "-" ? "-" : `${child.parryPct}%`,
+                                    ].map((val, ci) => (
+                                      <TableCell
+                                        key={ci}
+                                        className="py-1.5 text-center text-sm opacity-90">
+                                        {val}
+                                      </TableCell>
+                                    ))}
+                                    <TableCell className="py-1.5">
+                                      <div className="relative h-7 rounded-md overflow-hidden">
+                                        <div
+                                          className="absolute inset-0 origin-left rounded-md"
+                                          style={{
+                                            background: "linear-gradient(to right, #55c42a, #3a9e20)",
+                                            transform: `scaleX(${childRatio})`,
+                                          }}
+                                        />
+                                        <div className={`relative z-10 flex h-full items-center justify-end gap-1.5 pr-2 text-sm ${damageTextClass}`}>
+                                          <span>{child.dmg.toLocaleString()}</span>
+                                          <span className="opacity-70">({(childRatio * 100).toFixed(1)}%)</span>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                          </Fragment>
                         );
                       })}
                     </TableBody>

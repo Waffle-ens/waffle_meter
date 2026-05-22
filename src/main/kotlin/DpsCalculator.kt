@@ -14,6 +14,9 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
 
     private var recentData = DpsReport()
     private var recentDataSaved = false
+    private var recentSkillDetails: Map<Int, HashMap<String, AnalyzedSkill>> = emptyMap()
+    private var recentBuffRates: Map<Int, List<OperatingData>> = emptyMap()
+    private var recentBossBuffRates: List<OperatingData> = emptyList()
 
     private var lastProcessedSequence = 0L
     private val cachedInfo = HashMap<Int, DpsInformation>()
@@ -101,7 +104,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             DataManager.battleData(previousTarget)?.let {
                 recentData.packets = it
             }
-            DataManager.saveBattleLog(recentData)
+            saveRecentBattleLog()
             recentDataSaved = true
         }
         if (storageTarget != previousTarget) {
@@ -123,7 +126,7 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             }
             DataManager.flushPacket()
             if (isNewBattleEnd && !recentData.isEmpty() && !recentTargetWasDummy) {
-                DataManager.saveBattleLog(recentData)
+                saveRecentBattleLog()
                 recentDataSaved = true
             }
             return recentData
@@ -204,43 +207,54 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         }
 
         recentData = report
+        recentSkillDetails = emptyMap()
+        recentBuffRates = emptyMap()
+        recentBossBuffRates = emptyList()
         recentDataSaved = false
         return report
     }
 
-    fun battleDetails(data: DpsReport?, uid: Int): HashMap<String, AnalyzedSkill> {
-        val analyzedData: HashMap<String, AnalyzedSkill> = hashMapOf()
-        if (data == null) {
-            return analyzedData
-        }
+    private fun buildSkillDetails(data: DpsReport): Map<Int, HashMap<String, AnalyzedSkill>> {
+        val analyzedByActor = hashMapOf<Int, HashMap<String, AnalyzedSkill>>()
+        val contributorIds = data.contributors.mapTo(hashSetOf()) { it.id }
         data.packets?.forEach {
-            val skill = DataManager.skill(it.getSkillCode1().toLong())
-            val skillName = it.getSkillCode1().toString()
             val realActor = resolveActor(it, data.contributors) ?: return@forEach
-            if (realActor == uid) {
-                if (!analyzedData.containsKey(skillName)) {
-                    val analyzedSkill = AnalyzedSkill(it)
-                    analyzedSkill.name = skill?.name ?: it.getSkillCode1().toString()
-                    analyzedData[skillName] = analyzedSkill
-                }
-                val analyzedSkill = analyzedData[skillName]!!
-                if (it.isDoT()) {
-                    analyzedSkill.dotTimes++
-                    analyzedSkill.dotDamageAmount += it.getDamage()
-                } else {
-                    analyzedSkill.times++
-                    analyzedSkill.damageAmount += it.getDamage()
-                    if (it.isCrit()) analyzedSkill.critTimes++
-                    if (it.getSpecials().contains(SpecialDamage.BACK)) analyzedSkill.backTimes++
-                    if (it.getSpecials().contains(SpecialDamage.PARRY)) analyzedSkill.parryTimes++
-                    if (it.getSpecials().contains(SpecialDamage.DOUBLE)) analyzedSkill.doubleTimes++
-                    if (it.getSpecials().contains(SpecialDamage.PERFECT)) analyzedSkill.perfectTimes++
-                    if (it.getSpecials().contains(SpecialDamage.POWER_SHARD)) analyzedSkill.shardTimes++
-                    if (it.getLoop() != 0) analyzedSkill.multiHitTimes++
-                }
+            if (realActor !in contributorIds) return@forEach
+
+            val skillCode = it.getSkillCode1().toString()
+            val actorSkills = analyzedByActor.getOrPut(realActor) { hashMapOf() }
+            if (!actorSkills.containsKey(skillCode)) {
+                val skill = DataManager.skill(it.getSkillCode1().toLong())
+                val analyzedSkill = AnalyzedSkill(it)
+                analyzedSkill.name = skill?.name ?: skillCode
+                actorSkills[skillCode] = analyzedSkill
+            }
+
+            val analyzedSkill = actorSkills[skillCode]!!
+            if (it.isDoT()) {
+                analyzedSkill.dotTimes++
+                analyzedSkill.dotDamageAmount += it.getDamage()
+            } else {
+                analyzedSkill.times++
+                analyzedSkill.damageAmount += it.getDamage()
+                if (it.isCrit()) analyzedSkill.critTimes++
+                if (it.getSpecials().contains(SpecialDamage.BACK)) analyzedSkill.backTimes++
+                if (it.getSpecials().contains(SpecialDamage.PARRY)) analyzedSkill.parryTimes++
+                if (it.getSpecials().contains(SpecialDamage.DOUBLE)) analyzedSkill.doubleTimes++
+                if (it.getSpecials().contains(SpecialDamage.PERFECT)) analyzedSkill.perfectTimes++
+                if (it.getSpecials().contains(SpecialDamage.POWER_SHARD)) analyzedSkill.shardTimes++
+                if (it.getLoop() != 0) analyzedSkill.multiHitTimes++
             }
         }
-        return analyzedData
+        return analyzedByActor
+    }
+
+    fun battleDetails(data: DpsReport?, uid: Int): HashMap<String, AnalyzedSkill> {
+        if (data == null) return hashMapOf()
+        if (data === recentData && data.packets == null) {
+            return HashMap(recentSkillDetails[uid] ?: emptyMap())
+        }
+        return HashMap(buildSkillDetails(data)[uid] ?: emptyMap())
     }
 
     private data class BuffDisplay(
@@ -321,14 +335,62 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
             }
     }
 
+    private fun buildBuffRates(data: DpsReport): Map<Int, List<OperatingData>> {
+        if (data.battleEnd <= data.battleStart) return emptyMap()
+        return data.contributors.associate { user ->
+            user.id to getBuffOperatingRate(user.id, data.battleStart, data.battleEnd)
+        }
+    }
+
+    private fun buildBossBuffRates(data: DpsReport): List<OperatingData> {
+        val targetId = data.target?.id ?: return emptyList()
+        if (data.battleEnd <= data.battleStart) return emptyList()
+        return getBuffOperatingRate(targetId, data.battleStart, data.battleEnd)
+    }
+
+    private fun saveRecentBattleLog() {
+        val skillDetails = buildSkillDetails(recentData)
+        val buffRates = buildBuffRates(recentData)
+        val bossBuffRates = buildBossBuffRates(recentData)
+
+        recentSkillDetails = skillDetails
+        recentBuffRates = buffRates
+        recentBossBuffRates = bossBuffRates
+
+        DataManager.saveBattleLog(recentData, skillDetails, buffRates, bossBuffRates)
+        recentData.packets = null
+    }
+
+    fun getLiveBuffOperatingRate(uid: Int): List<OperatingData> {
+        val report = getLiveReport()
+        if (report === recentData && report.packets == null) {
+            return recentBuffRates[uid] ?: emptyList()
+        }
+        val end = if (report.battleEnd == 0L) System.currentTimeMillis() else report.battleEnd
+        return getBuffOperatingRate(uid, report.battleStart, end)
+    }
+
+    fun getLiveBossBuffOperatingRate(): List<OperatingData> {
+        val report = getLiveReport()
+        if (report === recentData && report.packets == null) {
+            return recentBossBuffRates
+        }
+        val targetId = report.target?.id ?: return emptyList()
+        val end = if (report.battleEnd == 0L) System.currentTimeMillis() else report.battleEnd
+        return getBuffOperatingRate(targetId, report.battleStart, end)
+    }
+
     fun resetDataStorage() {
         if (!recentData.isEmpty() && !recentDataSaved && !DataManager.isCurrentTargetDummy()) {
-            DataManager.saveBattleLog(recentData)
+            saveRecentBattleLog()
             recentDataSaved = true
         }
         DataManager.flushPacket()
         currentTarget = -1
         recentData = DpsReport()
+        recentSkillDetails = emptyMap()
+        recentBuffRates = emptyMap()
+        recentBossBuffRates = emptyList()
         recentDataSaved = false
         resetCache()
         logger.info("대상 데미지 누적 데이터 초기화 완료")
@@ -339,6 +401,9 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         streamResetCallback?.invoke()
         currentTarget = -1
         recentData = DpsReport()
+        recentSkillDetails = emptyMap()
+        recentBuffRates = emptyMap()
+        recentBossBuffRates = emptyList()
         recentDataSaved = false
         resetCache()
         logger.info("전체 강제 초기화 완료")
