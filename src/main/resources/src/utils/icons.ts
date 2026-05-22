@@ -13,7 +13,7 @@ export const getJobIconSrc = (job: string | undefined) => {
 
 const isSkillCode = (num: number) => num >= 11_000_000 && num <= 19_999_999;
 const isBuffCode = (num: number) => num >= 110_000_000 && num <= 190_999_999;
-const skillIconPath = (code: number) => `skill-icons/${code}.webp`;
+const skillIconPath = (code: number) => `skill-icons/${code}.png`;
 
 export const getSkillIconSrc = (code: string | number | undefined) => {
   if (code === undefined || code === null) return undefined;

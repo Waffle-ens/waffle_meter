@@ -1,4 +1,4 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 
@@ -10,6 +10,13 @@ const iconSize = 48;
 
 await mkdir(outputDir, { recursive: true });
 await mkdir(path.dirname(manifestPath), { recursive: true });
+
+const existingOutputs = await readdir(outputDir).catch(() => []);
+await Promise.all(
+  existingOutputs
+    .filter((file) => /\.(png|webp)$/i.test(file))
+    .map((file) => unlink(path.join(outputDir, file))),
+);
 
 const files = (await readdir(sourceDir))
   .filter((file) => file.toLowerCase().endsWith(".png"))
@@ -27,11 +34,12 @@ for (const file of files) {
       fit: "contain",
       withoutEnlargement: true,
     })
-    .webp({
-      quality: 82,
-      effort: 5,
+    .png({
+      compressionLevel: 9,
+      adaptiveFiltering: true,
+      palette: true,
     })
-    .toFile(path.join(outputDir, `${code}.webp`));
+    .toFile(path.join(outputDir, `${code}.png`));
 }
 
 const manifest = [
