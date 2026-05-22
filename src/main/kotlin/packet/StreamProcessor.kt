@@ -61,6 +61,24 @@ class StreamProcessor() {
         Opcode.ExitParty.key     to { packet, lengthInfo, extraFlag, _, _            -> parseExitParty(packet, lengthInfo, extraFlag) },
     )
 
+    private val opcodeNames: Map<Int, String> = mapOf(
+        Opcode.OwnNickname.key to "OwnNickname",
+        Opcode.OtherNickname.key to "OtherNickname",
+        Opcode.Summon.key to "Summon",
+        Opcode.Damage.key to "Damage",
+        Opcode.DoT.key to "DoT",
+        Opcode.BuffApply.key to "BuffApply",
+        Opcode.BuffApply2.key to "BuffApply2",
+        Opcode.BattleToggle.key to "BattleToggle",
+        Opcode.RemainHp.key to "RemainHp",
+        Opcode.JoinRequest.key to "JoinRequest",
+        Opcode.CancelJoin.key to "CancelJoin",
+        Opcode.AdmitJoin.key to "AdmitJoin",
+        Opcode.RefuseJoin.key to "RefuseJoin",
+        Opcode.InstanceStart.key to "InstanceStart",
+        Opcode.ExitParty.key to "ExitParty",
+    )
+
     fun onPacketReceived(packet: ByteArray, arrivedAt: Long) {
         if (packet.size == 3) return
 
@@ -69,14 +87,20 @@ class StreamProcessor() {
         val epoch = DataManager.currentEpoch()
 
         val lengthInfo = readVarInt(packet)
+        if (lengthInfo.length < 0 || lengthInfo.length >= packet.size) {
+            PacketDebugLogger.parserError("processor", "invalid_packet_length_varint", packet)
+            return
+        }
         val extraFlag = (packet[lengthInfo.length] >= 0xf0.toByte() && packet[lengthInfo.length] < 0xff.toByte())
         if (extraFlag) {
-            if (packet[lengthInfo.length + 1] == 0xff.toByte() && packet[lengthInfo.length + 2] == 0xff.toByte()) {
+            if (lengthInfo.length + 2 < packet.size && packet[lengthInfo.length + 1] == 0xff.toByte() && packet[lengthInfo.length + 2] == 0xff.toByte()) {
+                PacketDebugLogger.meta("compressed_packet", mapOf("len" to packet.size, "extraFlag" to true))
                 decompressPacket(packet, lengthInfo.length, true, epoch, arrivedAt)
                 return
             }
         } else {
-            if (packet[lengthInfo.length] == 0xff.toByte() && packet[lengthInfo.length + 1] == 0xff.toByte()) {
+            if (lengthInfo.length + 1 < packet.size && packet[lengthInfo.length] == 0xff.toByte() && packet[lengthInfo.length + 1] == 0xff.toByte()) {
+                PacketDebugLogger.meta("compressed_packet", mapOf("len" to packet.size, "extraFlag" to false))
                 decompressPacket(packet, lengthInfo.length, false, epoch, arrivedAt)
                 return
             }
@@ -86,7 +110,13 @@ class StreamProcessor() {
         if (opcodeOffset + 1 >= packet.size) return
 
         val opcodeKey = (packet[opcodeOffset].toInt() and 0xFF) or ((packet[opcodeOffset + 1].toInt() and 0xFF) shl 8)
-        handlers[opcodeKey]?.invoke(packet, lengthInfo, extraFlag, epoch, arrivedAt)
+        PacketDebugLogger.dispatch(opcodeKey, opcodeNames[opcodeKey], extraFlag, packet.size, arrivedAt)
+        val handler = handlers[opcodeKey]
+        if (handler == null) {
+            PacketDebugLogger.unknownOpcode(opcodeKey, extraFlag, packet.size, arrivedAt, packet)
+            return
+        }
+        handler.invoke(packet, lengthInfo, extraFlag, epoch, arrivedAt)
     }
 
     private fun decompressPacket(
@@ -117,6 +147,7 @@ class StreamProcessor() {
 
                 val realLength = lengthInfo.value + lengthInfo.length - 4
                 if (realLength <= 0) {
+                    PacketDebugLogger.parserError("decompress", "invalid_inner_length", packet, innerOffset)
                     logger.error("패킷 길이 체크에서 오류발생 {}, 오프셋 {}", toHex(packet), innerOffset)
                     break
                 }
@@ -125,6 +156,7 @@ class StreamProcessor() {
                 innerOffset += realLength
             }
         } catch (e: Exception) {
+            PacketDebugLogger.parserError("decompress", e.javaClass.simpleName, packet)
             logger.error("패킷 압축 해제중 에러", e)
         }
         logger.trace("압축 패킷 해제 종료")
@@ -174,6 +206,10 @@ class StreamProcessor() {
             }
         }
         DataManager.saveNickname(userInfo.value, nickname, true, server)
+        PacketDebugLogger.meta(
+            "nickname",
+            mapOf("own" to true, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job)
+        )
         PacketAddonManager.parse(packet, arrivedAt)
     }
 
@@ -263,7 +299,28 @@ class StreamProcessor() {
         }
 
         DataManager.saveNickname(userInfo.value, nickname, false, server)
+        PacketDebugLogger.meta(
+            "nickname",
+            mapOf("own" to false, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job)
+        )
 
+    }
+
+    private fun normalizeDamageSkillCode(rawCode: Int, fallback: Int): Int {
+        val candidates = linkedSetOf<Int>()
+
+        fun addCandidate(code: Int) {
+            if (code <= 0) return
+            candidates.add(code)
+            candidates.add((code / 10) * 10)
+        }
+
+        addCandidate(rawCode)
+        addCandidate(rawCode / 10)
+        addCandidate(rawCode / 100)
+
+        return candidates.firstOrNull { DataManager.skill(it.toLong()) != null }
+            ?: fallback
     }
 
     private fun parseDoTPacket(packet: ByteArray, extraFlag: Boolean, epoch: Long, arrivedAt: Long): Boolean {
@@ -314,11 +371,7 @@ class StreamProcessor() {
         offset += unknownInfo.length
 
         val skillCodeCandidate = parseUInt32le(packet, offset)
-        val skillCode: Int = if (DataManager.skill((skillCodeCandidate / 10).toLong()) != null) {
-            skillCodeCandidate / 10
-        } else {
-            skillCodeCandidate / 100
-        }
+        val skillCode = normalizeDamageSkillCode(skillCodeCandidate, skillCodeCandidate / 100)
         offset += 4
         if (packet.size <= offset) return false
         pdp.setSkillCode(skillCode)
@@ -338,13 +391,17 @@ class StreamProcessor() {
         logger.debug("----------------------------------")
         if (pdp.getActorId() != pdp.getTargetId()) {
             pdp.setTimestamp(arrivedAt)
+            val mobCode = DataManager.mobId(pdp.getTargetId())
+            PacketDebugLogger.damage("dot", pdp, true, mobCode = mobCode)
             DataManager.saveDamage(pdp, epoch)
-            val mobCode = DataManager.mobId(pdp.getTargetId()) ?: return true
+            mobCode ?: return true
             val mob = DataManager.mob(mobCode) ?: return true
             when {
                 mob.isDummy -> DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
                 mob.boss && DataManager.currentTarget() <= 0 -> DataManager.startBattle(pdp.getTargetId())
             }
+        } else {
+            PacketDebugLogger.damage("dot", pdp, false, "actor_equals_target")
         }
         return true
 
@@ -428,6 +485,15 @@ class StreamProcessor() {
                     (packet[codeMarkerIdx - 2].toInt() and 0xFF shl 8) or
                     (packet[codeMarkerIdx - 3].toInt() and 0xFF)
             DataManager.saveMobId(summonInfo.value, mobCode)
+            PacketDebugLogger.meta(
+                "mob_spawn",
+                mapOf(
+                    "instanceId" to summonInfo.value,
+                    "mobCode" to mobCode,
+                    "mobName" to DataManager.mob(mobCode)?.name,
+                    "boss" to (DataManager.mob(mobCode)?.boss ?: false)
+                )
+            )
             if (DataManager.mob(mobCode)?.boss == true) {
                 PacketAddonManager.parsingMobSpawnAddon(packet,codeMarkerIdx,summonInfo.value,mobCode)
 //                println("${summonInfo.value} 스폰, 몬스터명 ${DataManager.mob(mobCode)?.name}")
@@ -448,6 +514,7 @@ class StreamProcessor() {
 
         logger.debug("소환몹 맵핑 성공 {},{}", realActorId, summonInfo.value)
         DataManager.saveSummon(summonInfo.value, realActorId)
+        PacketDebugLogger.meta("summon_map", mapOf("summonId" to summonInfo.value, "ownerId" to realActorId))
         return true
     }
 
@@ -529,10 +596,8 @@ class StreamProcessor() {
 
         val temp = offset
 
-        var skillCode = parseUInt32le(packet, offset)
-        if (DataManager.skill(skillCode.toLong()) == null) {
-            skillCode = (skillCode / 10) * 10
-        }
+        val skillCodeCandidate = parseUInt32le(packet, offset)
+        val skillCode = normalizeDamageSkillCode(skillCodeCandidate, (skillCodeCandidate / 10) * 10)
         pdp.setSkillCode(skillCode)
 
         offset = temp + 5
@@ -582,21 +647,30 @@ class StreamProcessor() {
         pdp.setLoop(multiHitCount)
         offset = multiHitInfo.newOffset + 2
 
-        if (pdp.getActorId() != pdp.getTargetId()) {
-            //추후 hps 를 넣는다면 수정하기
-            //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
-            if (pdp.getDamage() < 10000000) {
-                //무의요람 버그수정을 위해 일단 천만이상의 데미지 무시
-                pdp.setTimestamp(arrivedAt)
+        pdp.setTimestamp(arrivedAt)
+        if (pdp.getActorId() == pdp.getTargetId()) {
+            PacketDebugLogger.damage("direct", pdp, false, "actor_equals_target")
+            return true
+        }
+        //추후 hps 를 넣는다면 수정하기
+        //혹시 나중에 자기자신에게 데미지주는 보스 기믹이 나오면..
+        if (pdp.getDamage() >= 10000000) {
+            //무의요람 버그수정을 위해 일단 천만이상의 데미지 무시
+            PacketDebugLogger.damage("direct", pdp, false, "damage_guard")
+            return true
+        }
+
+        val mobCode = DataManager.mobId(pdp.getTargetId())
 //                println("mobCode:${DataManager.mobId(pdp.getTargetId())}")
-                DataManager.saveDamage(pdp, epoch)
-                val mobCode = DataManager.mobId(pdp.getTargetId())
-                if (mobCode != null) {
-                    val mob = DataManager.mob(mobCode)
-                    when {
-                        mob?.isDummy == true -> DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
-                        mob?.boss == true && DataManager.currentTarget() <= 0 -> DataManager.startBattle(pdp.getTargetId())
-                    }
+        DataManager.saveDamage(pdp, epoch)
+        PacketDebugLogger.damage("direct", pdp, true, mobCode = mobCode)
+        if (mobCode != null) {
+            val mob = DataManager.mob(mobCode)
+            when {
+                mob?.isDummy == true -> DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
+                mob?.boss == true && DataManager.currentTarget() <= 0 -> {
+                    DataManager.startBattle(pdp.getTargetId())
+                    PacketDebugLogger.battle(pdp.getTargetId(), 1, mobCode, mob.name, true, "damage_fallback_start")
                 }
             }
         }
@@ -749,9 +823,20 @@ class StreamProcessor() {
         val toggleInfo = readVarInt(packet,offset)
 
 
-        val mobCode = DataManager.mobId(battleInfo.value) ?: return true
-        val mob = DataManager.mob(mobCode) ?: return true
-        if (mob.isDummy) return true
+        val mobCode = DataManager.mobId(battleInfo.value)
+        if (mobCode == null) {
+            PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, null, null, false, "mob_code_missing")
+            return true
+        }
+        val mob = DataManager.mob(mobCode)
+        if (mob == null) {
+            PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, null, false, "mob_missing")
+            return true
+        }
+        if (mob.isDummy) {
+            PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, mob.name, false, "dummy")
+            return true
+        }
         if (!mob.boss) {
             logger.debug(
                 "boss flag가 없는 전투 토글 대상을 전투 타겟으로 처리합니다. instance={}, code={}, name={}",
@@ -759,11 +844,19 @@ class StreamProcessor() {
                 mobCode,
                 mob.name
             )
+            PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, mob.name, true, "accepted_non_boss_toggle")
         }
 
         when (toggleInfo.value) {
-            1 -> DataManager.startBattle(battleInfo.value)
-            0 -> DataManager.endBattle(battleInfo.value)
+            1 -> {
+                DataManager.startBattle(battleInfo.value)
+                PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, mob.name, true, "start")
+            }
+            0 -> {
+                DataManager.endBattle(battleInfo.value)
+                PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, mob.name, true, "end")
+            }
+            else -> PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, mob.name, false, "unknown_toggle")
         }
         return true
     }
@@ -811,9 +904,10 @@ class StreamProcessor() {
 
         val power = parseUInt32le(packet, offset)
         val realClass = JobClass.convertFromCode(job)
+        val nickname = String(np, Charsets.UTF_8)
         val request = PacketAddonManager.processingUser(
             JoinRequestUser(
-                String(np, Charsets.UTF_8),
+                nickname,
                 power,
                 realClass?.className,
                 server,
@@ -821,11 +915,15 @@ class StreamProcessor() {
                 arrivedAt
             )
         )
-        println("닉네임: ${String(np, Charsets.UTF_8)} 전투력: $power 직업:${realClass?.className} 코드:$job 서버:$server")
+        println("닉네임: $nickname 전투력: $power 직업:${realClass?.className} 코드:$job 서버:$server")
+        PacketDebugLogger.meta(
+            "join_request",
+            mapOf("requester" to requester, "nickname" to nickname, "server" to server, "job" to job, "power" to power)
+        )
         PacketEventBus.events.tryEmit(PacketEvent.JoinRequest(request))
-        val user = DataManager.findUserByNicknameAndServer(String(np, Charsets.UTF_8), server)
+        val user = DataManager.findUserByNicknameAndServer(nickname, server)
         if (user == null) {
-            DataManager.saveUser(User(-1, String(np, Charsets.UTF_8), server, power = power))
+            DataManager.saveUser(User(-1, nickname, server, power = power))
             return true
         }
         user.power = power
@@ -887,6 +985,10 @@ class StreamProcessor() {
 
         val mobHp = parseUInt32le(packet, offset)
         DataManager.mobHp(mobIdInfo.value, mobHp)
+        PacketDebugLogger.meta(
+            "remain_hp",
+            mapOf("target" to mobIdInfo.value, "mobCode" to mobCode, "mobName" to mob.name, "hp" to mobHp)
+        )
         return true
 
     }
@@ -935,6 +1037,16 @@ class StreamProcessor() {
             }
             PacketAddonManager.loggingServerTime(arrivedAt, duration, serverTime)
             DataManager.saveUseBuff(targetInfo.value, buff)
+            PacketDebugLogger.meta(
+                "buff",
+                mapOf(
+                    "target" to targetInfo.value,
+                    "actor" to actorInfo.value,
+                    "skill" to skillCode,
+                    "duration" to duration,
+                    "serverTime" to serverTime
+                )
+            )
 //            println("대상자: ${targetInfo.value}, 사용자: ${actorInfo.value}, 버프코드: ${skillCode},버프이름: ${DataManager.buff(skillCode)?.name} 길이: $duration")
             return true
         } catch (_: Exception) {

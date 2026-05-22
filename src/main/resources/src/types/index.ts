@@ -25,7 +25,7 @@ export interface Player {
   entireContribution: number;
   isUser: boolean;
   server: number;
-  // power: number;
+  power: number;
 }
 
 export type ContributionMode = "contribution" | "entireContribution";

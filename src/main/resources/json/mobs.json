@@ -8267,6 +8267,21 @@
     "boss": false
   },
   {
+    "code": 2300353,
+    "name": "로타르",
+    "boss": true
+  },
+  {
+    "code": 2300354,
+    "name": "롭스티노",
+    "boss": true
+  },
+  {
+    "code": 2300355,
+    "name": "크로메데의 심연",
+    "boss": true
+  },
+  {
     "code": 2300356,
     "name": "우두머리 자이프",
     "boss": false
@@ -31929,21 +31944,6 @@
   {
     "code": 2980259,
     "name": "망령 지젤",
-    "boss": true
-  },
-  {
-    "code": 2300353,
-    "name": "로타르",
-    "boss": true
-  },
-  {
-    "code": 2300354,
-    "name": "롭스티노",
-    "boss": true
-  },
-  {
-    "code": 2300355,
-    "name": "크로메데의 심연",
     "boss": true
   }
 ]

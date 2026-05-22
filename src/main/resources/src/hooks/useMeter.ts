@@ -3,7 +3,7 @@ import type { Player } from "@/types";
 import { parseCombatData } from "../utils/parser";
 // import { useDebugStore } from "../stores/debugStore";
 
-const POLL_MS = 300;
+const POLL_MS = 500;
 
 interface MeterSnapshot {
   players: Player[];

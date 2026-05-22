@@ -69,7 +69,9 @@ class PcapCapturer(private val config: PcapCapturerConfig, private val channel: 
                     if (data.isNotEmpty()) {
                         val srcIp = packet.get(IpV4Packet::class.java).header.srcAddr.hostAddress
                         val seq = tcpPacket.header.sequenceNumber.toLong() and 0xffffffffL
-                        channel.trySend(CapturedPacket(srcIp, seq, data, System.currentTimeMillis()))
+                        val arrivedAt = System.currentTimeMillis()
+                        PacketDebugLogger.capture(srcIp, seq, data, arrivedAt)
+                        channel.trySend(CapturedPacket(srcIp, seq, data, arrivedAt))
                     }
                 }
             }

@@ -246,6 +246,7 @@ object DataManager {
         packetRepository.flush()
         summonRepository.flush()
         userRepository.flush()
+        useBuffRepository.flush()
         clearRawPackets()
         lastDummyHitTime = 0
     }
@@ -260,6 +261,9 @@ object DataManager {
 
     fun mobHp(mobId: Int, mobHp: Int) {
         mobHpRepository.set(mobId, mobHp)
+        if (mobHp > 0) {
+            saveMobMaxHp(mobId, mobHp)
+        }
     }
 
     /*
@@ -386,18 +390,33 @@ object DataManager {
     /*
     battleLog 영역
      */
-    fun saveBattleLog(data: DpsReport) {
+    fun saveBattleLog(
+        data: DpsReport,
+        skillDetails: Map<Int, HashMap<String, AnalyzedSkill>> = emptyMap(),
+        buffRates: Map<Int, List<OperatingData>> = emptyMap(),
+        bossBuffRates: List<OperatingData> = emptyList()
+    ) {
         val snapshot = data.copy(
             contributors = data.contributors.mapTo(mutableSetOf()) { it.copy() },
-            packets = data.packets?.toMutableList()
+            packets = null
         )
         val packets = rawPacketsInRange(data.battleStart - 5000L, data.battleEnd)
-        battleLogRepository.save(DpsLog(snapshot, summonRepository.getAll(), packets))
+        battleLogRepository.save(
+            DpsLog(
+                snapshot,
+                summonRepository.getAll(),
+                packets,
+                skillDetails,
+                buffRates,
+                bossBuffRates
+            )
+        )
         if (packetLoggingEnabled && packets.isNotEmpty()) {
             val targetName = data.target?.mob?.name ?: data.target?.id?.toString() ?: "battle"
             writeRawPacketLog("battle-$targetName", data.battleStart - 5000L, data.battleEnd, packets)
         }
         dropRawPacketsUntil(data.battleEnd)
+        useBuffRepository.pruneBefore(data.battleEnd + 1)
     }
 
     fun recentBattleList(): List<Pair<Int, DpsReport>> {
