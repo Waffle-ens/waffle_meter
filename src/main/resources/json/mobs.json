@@ -8282,6 +8282,51 @@
     "boss": true
   },
   {
+    "code": 2310353,
+    "name": "로타르",
+    "boss": true
+  },
+  {
+    "code": 2310354,
+    "name": "롭스티노",
+    "boss": true
+  },
+  {
+    "code": 2310355,
+    "name": "크로메데의 심연",
+    "boss": true
+  },
+  {
+    "code": 2320353,
+    "name": "로타르",
+    "boss": true
+  },
+  {
+    "code": 2320354,
+    "name": "롭스티노",
+    "boss": true
+  },
+  {
+    "code": 2320355,
+    "name": "크로메데의 심연",
+    "boss": true
+  },
+  {
+    "code": 2330353,
+    "name": "로타르",
+    "boss": true
+  },
+  {
+    "code": 2330354,
+    "name": "롭스티노",
+    "boss": true
+  },
+  {
+    "code": 2330355,
+    "name": "크로메데의 심연",
+    "boss": true
+  },
+  {
     "code": 2300356,
     "name": "우두머리 자이프",
     "boss": false
