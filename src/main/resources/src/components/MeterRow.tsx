@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { getJobIconSrc } from "@/utils/icons";
-import { formatPower } from "@/utils/format";
+import { formatAmount, formatPower } from "@/utils/format";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
 
@@ -10,12 +10,13 @@ interface Props {
   name: string;
   job?: string;
   dps: number;
+  amount: number;
   contribution: number;
   entireContribution: number;
   isUser: boolean;
   isSelected: boolean;
   onSelect: (id: number) => void;
-  topDps: number;
+  topMetric: number;
   rowHeight: number;
   server: number;
   power: number;
@@ -30,19 +31,21 @@ export const MeterRow = memo(
     name,
     job,
     dps,
+    amount,
     server,
     contribution,
     entireContribution,
     isUser,
     isSelected,
     onSelect,
-    topDps,
+    topMetric,
     rowHeight,
     power,
   }: Props) => {
-    const { displayMode, nameDisplay, theme, contributionMode, overlayTheme } = useSettingsStore(
+    const { displayMode, damageValueMode, nameDisplay, theme, contributionMode, overlayTheme } = useSettingsStore(
       useShallow((s) => ({
         displayMode: s.displayMode,
+        damageValueMode: s.damageValueMode,
         nameDisplay: s.nameDisplay,
         theme: s.theme,
         contributionMode: s.contributionMode,
@@ -81,11 +84,13 @@ export const MeterRow = memo(
     const secondaryFontSize = `${Math.max(9, Math.floor(rowHeight * 0.32))}px`;
 
     const safeDps = Number.isFinite(dps) ? dps : 0;
+    const safeAmount = Number.isFinite(amount) ? amount : 0;
     const safePower = Number.isFinite(power) ? power : 0;
     const safeContribution = Number.isFinite(contribution) ? contribution : 0;
     const safeEntireContribution = Number.isFinite(entireContribution) ? entireContribution : 0;
-    const safeTopDps = Number.isFinite(topDps) && topDps > 0 ? topDps : 1;
-    const ratio = Math.max(0, Math.min(1, safeDps / safeTopDps));
+    const safeTopMetric = Number.isFinite(topMetric) && topMetric > 0 ? topMetric : 1;
+    const primaryMetric = damageValueMode === "total" ? safeAmount : safeDps;
+    const ratio = Math.max(0, Math.min(1, primaryMetric / safeTopMetric));
     const iconSrc = getJobIconSrc(job);
     const fillGradient = isUser
       ? gradients.user
@@ -103,14 +108,17 @@ export const MeterRow = memo(
       const pct =
         contributionMode === "entireContribution" ? safeEntireContribution : safeContribution;
       const powerText = formatPower(safePower);
-      const dpsText = `${safeDps.toLocaleString()}/s`;
+      const damageText =
+        damageValueMode === "total"
+          ? formatAmount(Math.trunc(safeAmount))
+          : `${safeDps.toLocaleString()}/s`;
       const pctText = `${pct.toFixed(1)}%`;
 
       switch (displayMode) {
         case "amount_dps_percent":
           return [
             { key: "power", color: powerColor, value: powerText },
-            { key: "dps", color: dpsColor, value: dpsText },
+            { key: "damage", color: dpsColor, value: damageText },
             { key: "percent", color: percentColor, value: pctText },
           ];
         case "amount_percent":
@@ -121,7 +129,7 @@ export const MeterRow = memo(
         case "amount_full_dps_percent":
           return [
             { key: "power", color: powerColor, value: powerText },
-            { key: "dps", color: dpsColor, value: dpsText },
+            { key: "damage", color: dpsColor, value: damageText },
             { key: "percent", color: percentColor, value: pctText },
           ];
         case "amount_full_percent":
@@ -132,16 +140,18 @@ export const MeterRow = memo(
         case "dps_percent":
         default:
           return [
-            { key: "dps", color: dpsColor, value: dpsText },
+            { key: "damage", color: dpsColor, value: damageText },
             { key: "percent", color: percentColor, value: pctText },
           ];
       }
     }, [
       safeContribution,
       contributionMode,
+      damageValueMode,
       displayMode,
-      safeDps,
+      safeAmount,
       safeEntireContribution,
+      safeDps,
       safePower,
       theme.meterStatAmount,
       theme.meterStatDps,
@@ -203,11 +213,23 @@ export const MeterRow = memo(
               />
             )}
           </div>
-          <span
-            className="text-shadow-meter min-w-0 flex-1 truncate font-semibold"
-            style={{ color: nameColor, fontSize }}>
-            {displayName}
-          </span>
+          <div className="min-w-0 flex flex-1 items-center gap-1.5">
+            <span
+              className="text-shadow-meter min-w-0 truncate font-semibold"
+              style={{ color: nameColor, fontSize }}>
+              {displayName}
+            </span>
+            {safePower > 0 && (
+              <span
+                className="text-shadow-meter shrink-0 rounded bg-[var(--meter-stat-bg)] px-1.5 py-0.5 font-semibold tabular-nums ring-1 ring-[var(--meter-soft-border)]"
+                style={{
+                  color: isLightOverlay ? "#8a5a00" : theme.meterStatAmount,
+                  fontSize: secondaryFontSize,
+                }}>
+                {formatPower(safePower)}
+              </span>
+            )}
+          </div>
           <div className="text-shadow-meter flex shrink-0 items-center gap-1.5 font-semibold tabular-nums">
             {statItems.map((item) => (
               <span
@@ -225,6 +247,7 @@ export const MeterRow = memo(
   (prev, next) => {
     return (
       prev.dps === next.dps &&
+      prev.amount === next.amount &&
       prev.rank === next.rank &&
       prev.power === next.power &&
       prev.contribution === next.contribution &&
@@ -232,7 +255,7 @@ export const MeterRow = memo(
       prev.server === next.server &&
       prev.isUser === next.isUser &&
       prev.isSelected === next.isSelected &&
-      prev.topDps === next.topDps &&
+      prev.topMetric === next.topMetric &&
       prev.name === next.name &&
       prev.job === next.job &&
       prev.rowHeight === next.rowHeight

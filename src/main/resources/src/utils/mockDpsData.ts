@@ -846,6 +846,7 @@ export const injectMockDpsData = () => {
     ["rowHeight", "38"],
     ["meterOpacity", "0.82"],
     ["displayMode", "amount_dps_percent"],
+    ["damageValueMode", "dps"],
     ["targetInfoDisplayMode", "hp_percent"],
     ["nameDisplay", "all"],
     ["fontFamily", "NEXON Lv2 Gothic"],

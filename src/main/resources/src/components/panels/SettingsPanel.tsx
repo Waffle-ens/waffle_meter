@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FolderOpen, Play, RotateCcw, Square } from "lucide-react";
 import type {
   DisplayMode,
+  DamageValueMode,
   FontFamily,
   NameDisplay,
   TargetInfoDisplayMode,
@@ -38,19 +39,24 @@ interface Props {
 }
 
 const DISPLAY_MODES: { value: DisplayMode; label: string; description: string }[] = [
-  { value: "dps_percent", label: "DPS / 기여도", description: "45,000/s (35.5%)" },
+  { value: "dps_percent", label: "딜량 / 기여도", description: "45,000/s 또는 1.20M (35.5%)" },
   {
     value: "amount_dps_percent",
-    label: "전투력 / DPS / 기여도",
-    description: "143.0k 45,000/s (35.5%)",
+    label: "전투력 / 딜량 / 기여도",
+    description: "143.0k 45,000/s 또는 1.20M (35.5%)",
   },
   { value: "amount_percent", label: "전투력 / 기여도", description: "143.0k (35.5%)" },
   {
     value: "amount_full_dps_percent",
-    label: "전투력 / DPS / 기여도",
-    description: "143.0k 45,000/s (35.5%)",
+    label: "전투력 / 딜량 / 기여도",
+    description: "143.0k 45,000/s 또는 1.20M (35.5%)",
   },
   { value: "amount_full_percent", label: "전투력 / 기여도", description: "143.0k (35.5%)" },
+];
+
+const DAMAGE_VALUE_MODES: { value: DamageValueMode; label: string }[] = [
+  { value: "dps", label: "DPS" },
+  { value: "total", label: "총딜량" },
 ];
 
 const TARGET_INFO_DISPLAY_MODES: {
@@ -127,6 +133,7 @@ export const SettingsPanel = ({
   const {
     hideHotkey,
     displayMode,
+    damageValueMode,
     targetInfoDisplayMode,
     nameDisplay,
     fontFamily,
@@ -145,6 +152,7 @@ export const SettingsPanel = ({
     useShallow((s) => ({
       hideHotkey: s.hideHotkey,
       displayMode: s.displayMode,
+      damageValueMode: s.damageValueMode,
       targetInfoDisplayMode: s.targetInfoDisplayMode,
       nameDisplay: s.nameDisplay,
       fontFamily: s.fontFamily,
@@ -165,6 +173,7 @@ export const SettingsPanel = ({
   const {
     setHideHotkey,
     setDisplayMode,
+    setDamageValueMode,
     setTargetInfoDisplayMode,
     setNameDisplay,
     setFontFamily,
@@ -199,6 +208,7 @@ export const SettingsPanel = ({
   const [snapshot] = useState(() => ({
     hideHotkey,
     displayMode,
+    damageValueMode,
     targetInfoDisplayMode,
     nameDisplay,
     fontFamily,
@@ -228,6 +238,7 @@ export const SettingsPanel = ({
 
   const handleCancel = useCallback(() => {
     setDisplayMode(snapshot.displayMode);
+    setDamageValueMode(snapshot.damageValueMode);
     setTargetInfoDisplayMode(snapshot.targetInfoDisplayMode);
     setNameDisplay(snapshot.nameDisplay);
     setFontFamily(snapshot.fontFamily);
@@ -248,6 +259,7 @@ export const SettingsPanel = ({
     resetHide,
     setContributionMode,
     setDisplayMode,
+    setDamageValueMode,
     setFontFamily,
     setIsMinimal,
     setMeterOpacity,
@@ -483,6 +495,29 @@ export const SettingsPanel = ({
               </SelectTrigger>
               <SelectContent>
                 {DISPLAY_MODES.map(({ value, label }) => (
+                  <SelectItem
+                    key={value}
+                    value={value}
+                    className="px-4 py-2">
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+
+          <SettingsRow
+            title="딜량 기준"
+            align="center"
+            rightClassName="w-44">
+            <Select
+              value={damageValueMode}
+              onValueChange={(v) => setDamageValueMode(v as DamageValueMode)}>
+              <SelectTrigger className="text-xs w-44 bg-white/5 border-white/10 ">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DAMAGE_VALUE_MODES.map(({ value, label }) => (
                   <SelectItem
                     key={value}
                     value={value}

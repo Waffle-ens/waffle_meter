@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import type { Player } from "@/types";
 import { MeterRow } from "./MeterRow";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 
 interface Props {
   players: Player[];
@@ -9,8 +10,15 @@ interface Props {
   rowHeight: number;
 }
 
-const getDisplayRows = (players: Player[]): Player[] => {
-  const sorted = [...players].sort((a, b) => b.dps - a.dps);
+const getMetric = (player: Player, mode: "dps" | "total") =>
+  Number.isFinite(mode === "total" ? player.amount : player.dps)
+    ? mode === "total"
+      ? player.amount
+      : player.dps
+    : 0;
+
+const getDisplayRows = (players: Player[], mode: "dps" | "total"): Player[] => {
+  const sorted = [...players].sort((a, b) => getMetric(b, mode) - getMetric(a, mode));
   const top8 = sorted.slice(0, 8);
   const user = sorted.find((p) => p.isUser);
   if (!user) return top8;
@@ -19,8 +27,12 @@ const getDisplayRows = (players: Player[]): Player[] => {
 };
 
 export const MeterList = memo(({ players, selectedId, onSelect, rowHeight }: Props) => {
-  const rows = useMemo(() => getDisplayRows(players), [players]);
-  const topDps = useMemo(() => Math.max(...rows.map((p) => p.dps), 1), [rows]);
+  const damageValueMode = useSettingsStore((s) => s.damageValueMode);
+  const rows = useMemo(() => getDisplayRows(players, damageValueMode), [players, damageValueMode]);
+  const topMetric = useMemo(
+    () => Math.max(...rows.map((p) => getMetric(p, damageValueMode)), 1),
+    [rows, damageValueMode],
+  );
 
   if (rows.length === 0) {
     return (
@@ -61,12 +73,13 @@ export const MeterList = memo(({ players, selectedId, onSelect, rowHeight }: Pro
               server={current.server}
               rowHeight={rowHeight}
               dps={current.dps}
+              amount={current.amount}
               contribution={current.damageContribution}
               entireContribution={current.entireContribution}
               isUser={current.isUser}
               isSelected={selectedId === current.id}
               onSelect={onSelect}
-              topDps={topDps}
+              topMetric={topMetric}
               power={current.power}
             />
           </div>
