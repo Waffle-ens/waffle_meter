@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useHotkeyCapture } from "@/hooks/useHotkeyCapture";
 import { formatHotkey } from "@/utils/hotKey";
 import { Button } from "@/components/ui/button";
-import { Play, RotateCcw, Square } from "lucide-react";
+import { FolderOpen, Play, RotateCcw, Square } from "lucide-react";
 import type {
   DisplayMode,
   FontFamily,
@@ -261,13 +261,16 @@ export const SettingsPanel = ({
     snapshot,
   ]);
 
-  const handleStartPacketLogging = useCallback(() => {
-    const raw = window.javaBridge?.startPacketLogging?.();
+  const handleTogglePacketLogging = useCallback(() => {
+    const raw = packetLoggingStatus.running
+      ? window.javaBridge?.stopPacketLogging?.()
+      : window.javaBridge?.startPacketLogging?.();
     setPacketLoggingStatus(parsePacketLoggingStatus(raw));
-  }, []);
+  }, [packetLoggingStatus.running]);
 
-  const handleStopPacketLogging = useCallback(() => {
-    const raw = window.javaBridge?.stopPacketLogging?.();
+  const handleOpenPacketLogFolder = useCallback(() => {
+    window.javaBridge?.openPacketLogFolder?.();
+    const raw = window.javaBridge?.getPacketLoggingStatus?.();
     setPacketLoggingStatus(parsePacketLoggingStatus(raw));
   }, []);
 
@@ -686,20 +689,22 @@ export const SettingsPanel = ({
               <Button
                 variant="ghost"
                 size="sm"
-                disabled={packetLoggingStatus.running === true}
-                onClick={handleStartPacketLogging}
-                className="flex-1 flex items-center gap-2 text-xs disabled:opacity-30">
-                <Play className="w-3 h-3" />
-                로깅 시작
+                onClick={handleTogglePacketLogging}
+                className="flex-1 flex items-center gap-2 text-xs">
+                {packetLoggingStatus.running ? (
+                  <Square className="w-3 h-3" />
+                ) : (
+                  <Play className="w-3 h-3" />
+                )}
+                {packetLoggingStatus.running ? "로깅 멈춤" : "로깅 시작"}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                disabled={packetLoggingStatus.running !== true}
-                onClick={handleStopPacketLogging}
-                className="flex-1 flex items-center gap-2 text-xs disabled:opacity-30">
-                <Square className="w-3 h-3" />
-                로깅 멈춤
+                onClick={handleOpenPacketLogFolder}
+                className="flex-1 flex items-center gap-2 text-xs">
+                <FolderOpen className="w-3 h-3" />
+                경로 열기
               </Button>
             </div>
           </SettingsRow>

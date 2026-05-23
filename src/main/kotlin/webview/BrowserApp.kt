@@ -167,6 +167,21 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return PacketDebugLogger.status()
         }
 
+        fun openPacketLogFolder(): String {
+            val dir = PacketDebugLogger.logDirectory().also { it.mkdirs() }
+            return try {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(dir)
+                } else {
+                    Runtime.getRuntime().exec(arrayOf("explorer.exe", dir.absolutePath))
+                }
+                dir.absolutePath
+            } catch (e: Exception) {
+                logger.warn("패킷 로그 폴더 열기 실패: {}", dir.absolutePath, e)
+                dir.absolutePath
+            }
+        }
+
         fun getBattleDetail(uid: Int): String {
             return Json.encodeToString(dpsCalculator.battleDetails(dpsCalculator.getLiveReport(), uid))
         }

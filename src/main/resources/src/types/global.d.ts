@@ -39,6 +39,7 @@ declare global {
       startPacketLogging?: () => string;
       stopPacketLogging?: () => string;
       getPacketLoggingStatus?: () => string;
+      openPacketLogFolder?: () => string;
     };
   }
 }
