@@ -396,9 +396,8 @@ class StreamProcessor() {
             DataManager.saveDamage(pdp, epoch)
             mobCode ?: return true
             val mob = DataManager.mob(mobCode) ?: return true
-            when {
-                mob.isDummy -> DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
-                mob.boss && DataManager.currentTarget() <= 0 -> DataManager.startBattle(pdp.getTargetId())
+            if (mob.isDummy) {
+                DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
             }
         } else {
             PacketDebugLogger.damage("dot", pdp, false, "actor_equals_target")
@@ -664,15 +663,8 @@ class StreamProcessor() {
 //                println("mobCode:${DataManager.mobId(pdp.getTargetId())}")
         DataManager.saveDamage(pdp, epoch)
         PacketDebugLogger.damage("direct", pdp, true, mobCode = mobCode)
-        if (mobCode != null) {
-            val mob = DataManager.mob(mobCode)
-            when {
-                mob?.isDummy == true -> DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
-                mob?.boss == true && DataManager.currentTarget() <= 0 -> {
-                    DataManager.startBattle(pdp.getTargetId())
-                    PacketDebugLogger.battle(pdp.getTargetId(), 1, mobCode, mob.name, true, "damage_fallback_start")
-                }
-            }
+        if (mobCode != null && DataManager.mob(mobCode)?.isDummy == true) {
+            DataManager.touchDummyBattle(pdp.getTargetId(), epoch)
         }
         return true
 
@@ -833,18 +825,9 @@ class StreamProcessor() {
             PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, null, false, "mob_missing")
             return true
         }
-        if (mob.isDummy) {
-            PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, mob.name, false, "dummy")
+        if (!mob.boss || mob.isDummy) {
+            PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, mob.name, false, "not_boss_or_dummy")
             return true
-        }
-        if (!mob.boss) {
-            logger.debug(
-                "boss flag가 없는 전투 토글 대상을 전투 타겟으로 처리합니다. instance={}, code={}, name={}",
-                battleInfo.value,
-                mobCode,
-                mob.name
-            )
-            PacketDebugLogger.battle(battleInfo.value, toggleInfo.value, mobCode, mob.name, true, "accepted_non_boss_toggle")
         }
 
         when (toggleInfo.value) {

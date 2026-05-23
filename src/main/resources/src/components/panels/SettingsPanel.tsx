@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useHotkeyCapture } from "@/hooks/useHotkeyCapture";
 import { formatHotkey } from "@/utils/hotKey";
 import { Button } from "@/components/ui/button";
-import { FileDown, RotateCcw } from "lucide-react";
+import { Play, RotateCcw, Square } from "lucide-react";
 import type {
   DisplayMode,
   FontFamily,
@@ -96,6 +96,26 @@ const FONT_FAMILIES: { value: FontFamily; label: string }[] = [
   { value: "Pretendard", label: "Pretendard" },
 ];
 
+interface PacketLoggingStatus {
+  running?: boolean;
+  path?: string;
+  lines?: number;
+  captureCount?: number;
+  parsedDamageCount?: number;
+  parsedBattleCount?: number;
+  errorCount?: number;
+}
+
+const parsePacketLoggingStatus = (raw?: string): PacketLoggingStatus => {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as PacketLoggingStatus;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return { path: raw };
+  }
+};
+
 export const SettingsPanel = ({
   onClose,
   onReady,
@@ -121,7 +141,6 @@ export const SettingsPanel = ({
     isClickThrough,
     isAutoHide,
     multiMonitorMode,
-    packetLoggingMode,
   } = useSettingsStore(
     useShallow((s) => ({
       hideHotkey: s.hideHotkey,
@@ -140,7 +159,6 @@ export const SettingsPanel = ({
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
-      packetLoggingMode: s.packetLoggingMode,
     })),
   );
 
@@ -162,7 +180,6 @@ export const SettingsPanel = ({
     setClickThroughHotkey,
     toggleAutoHide,
     setMultiMonitorMode,
-    setPacketLoggingMode,
     resetJoinPanelPosition,
     resetSidePanelPosition,
     resetMeterPosition,
@@ -193,10 +210,11 @@ export const SettingsPanel = ({
     contributionMode,
     clickThroughHotkey,
     multiMonitorMode,
-    packetLoggingMode,
     theme: structuredClone(theme),
   }));
-  const [packetLogPath, setPacketLogPath] = useState("");
+  const [packetLoggingStatus, setPacketLoggingStatus] = useState<PacketLoggingStatus>(() =>
+    parsePacketLoggingStatus(window.javaBridge?.getPacketLoggingStatus?.()),
+  );
 
   useEffect(() => {
     onReady?.();
@@ -223,7 +241,6 @@ export const SettingsPanel = ({
     setContributionMode(snapshot.contributionMode);
     resetClickThrough(snapshot.clickThroughHotkey);
     setMultiMonitorMode(snapshot.multiMonitorMode);
-    setPacketLoggingMode(snapshot.packetLoggingMode);
     onClose();
   }, [
     onClose,
@@ -236,7 +253,6 @@ export const SettingsPanel = ({
     setMeterOpacity,
     setMultiMonitorMode,
     setNameDisplay,
-    setPacketLoggingMode,
     setRowHeight,
     setShowCombatTimerInMinimal,
     setShowTargetInfoInMinimal,
@@ -245,9 +261,14 @@ export const SettingsPanel = ({
     snapshot,
   ]);
 
-  const handleExportPacketLog = useCallback(() => {
-    const path = window.javaBridge?.exportPacketLog?.() ?? "";
-    setPacketLogPath(path || "저장된 패킷이 없습니다");
+  const handleStartPacketLogging = useCallback(() => {
+    const raw = window.javaBridge?.startPacketLogging?.();
+    setPacketLoggingStatus(parsePacketLoggingStatus(raw));
+  }, []);
+
+  const handleStopPacketLogging = useCallback(() => {
+    const raw = window.javaBridge?.stopPacketLogging?.();
+    setPacketLoggingStatus(parsePacketLoggingStatus(raw));
   }, []);
 
   const handleCancelRef = useRef(handleCancel);
@@ -649,35 +670,55 @@ export const SettingsPanel = ({
         <SettingsItem>
           <SettingsRow
             title="패킷 로깅"
-            description="문제 재현용입니다. 필요할 때만 켜두는 것을 권장합니다.">
-            <Switch
-              checked={packetLoggingMode}
-              onCheckedChange={setPacketLoggingMode}
-              className="data-[state=checked]:bg-emerald-500"
-            />
-          </SettingsRow>
-          <SettingsRow
-            title="현재 패킷 로그 저장"
             description={
-              packetLogPath ? (
+              packetLoggingStatus.path ? (
                 <span
                   className="block truncate"
-                  title={packetLogPath}>
-                  {packetLogPath}
+                  title={packetLoggingStatus.path}>
+                  {packetLoggingStatus.path}
                 </span>
               ) : (
-                "전투 중이거나 문제를 재현한 직후 수동으로 저장합니다."
+                "문제 재현 직전에 시작하고, 재현이 끝나면 멈춰서 파일을 확정합니다."
               )
+            }
+            rightClassName="w-56">
+            <div className="flex w-full gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={packetLoggingStatus.running === true}
+                onClick={handleStartPacketLogging}
+                className="flex-1 flex items-center gap-2 text-xs disabled:opacity-30">
+                <Play className="w-3 h-3" />
+                로깅 시작
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={packetLoggingStatus.running !== true}
+                onClick={handleStopPacketLogging}
+                className="flex-1 flex items-center gap-2 text-xs disabled:opacity-30">
+                <Square className="w-3 h-3" />
+                로깅 멈춤
+              </Button>
+            </div>
+          </SettingsRow>
+          <SettingsRow
+            title="로깅 상태"
+            description={
+              packetLoggingStatus.running
+                ? `기록 중 · ${packetLoggingStatus.lines ?? 0}줄`
+                : packetLoggingStatus.path
+                  ? `정지됨 · ${packetLoggingStatus.lines ?? 0}줄`
+                  : "대기 중"
             }
             rightClassName="w-24">
             <Button
               variant="ghost"
               size="sm"
-              disabled={!packetLoggingMode}
-              onClick={handleExportPacketLog}
+              disabled
               className="w-full flex items-center gap-2 text-xs disabled:opacity-30">
-              <FileDown className="w-3 h-3" />
-              저장
+              {packetLoggingStatus.running ? "기록 중" : "대기"}
             </Button>
           </SettingsRow>
         </SettingsItem>

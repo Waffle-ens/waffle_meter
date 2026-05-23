@@ -36,6 +36,9 @@ declare global {
       isPacketLoggingEnabled?: () => boolean;
       setPacketLoggingEnabled?: (enabled: boolean) => void;
       exportPacketLog?: () => string;
+      startPacketLogging?: () => string;
+      stopPacketLogging?: () => string;
+      getPacketLoggingStatus?: () => string;
     };
   }
 }

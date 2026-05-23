@@ -873,6 +873,30 @@ export const injectMockDpsData = () => {
     setPacketLoggingEnabled: (enabled: boolean) =>
       props.set("packetLoggingMode", String(enabled)),
     exportPacketLog: () => "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.4\\packet-logs\\mock.log",
+    startPacketLogging: () => {
+      props.set("packetLoggingMode", "true");
+      return JSON.stringify({
+        running: true,
+        path: "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.4\\packet-debug-logs\\mock-packet-debug.jsonl",
+        lines: 0,
+      });
+    },
+    stopPacketLogging: () => {
+      props.set("packetLoggingMode", "false");
+      return JSON.stringify({
+        running: false,
+        path: "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.4\\packet-debug-logs\\mock-packet-debug.jsonl",
+        lines: 128,
+      });
+    },
+    getPacketLoggingStatus: () =>
+      JSON.stringify({
+        running: props.get("packetLoggingMode") === "true",
+        path: props.get("packetLoggingMode") === "true"
+          ? "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.4\\packet-debug-logs\\mock-packet-debug.jsonl"
+          : "",
+        lines: props.get("packetLoggingMode") === "true" ? 12 : 0,
+      }),
     getDpsData: () => JSON.stringify(MOCK_DATA),
     getBattleDetail: (id: string) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(id)] ?? MOCK_DETAIL_DATA),
     getBattleDetailFromList: (_idx: number, uid: number) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(uid)] ?? MOCK_DETAIL_DATA),
