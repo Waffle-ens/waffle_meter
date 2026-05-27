@@ -1,4 +1,4 @@
-# waffle_meter.v1.4
+# waffle_meter.v1.5
 
 아이온2 전투분석을 위한 미터기 프로젝트
 
@@ -16,21 +16,29 @@
 1. [Npcap](https://npcap.com/#download)을 설치합니다.
    설치 중 `Install Npcap in WinPcap API-compatible Mode` 옵션을 반드시 체크합니다.
 
-2. [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 `waffle_meter.v1.4-x.x.x.msi` 파일을 다운로드해 설치합니다.
+2. [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 `waffle_meter.v1.5-x.x.x.msi` 파일을 다운로드해 설치합니다.
 
 3. 아이온2가 실행 중이라면 먼저 캐릭터 선택창으로 이동합니다.
 
-4. 시작 메뉴 또는 설치 폴더의 `waffle_meter.v1.4.exe`를 관리자 권한으로 실행합니다.
-   기본 설치 경로는 `C:\Program Files\waffle_meter.v1.4`입니다.
+4. 시작 메뉴 또는 설치 폴더의 `waffle_meter.v1.5.exe`를 관리자 권한으로 실행합니다.
+   기본 설치 경로는 `C:\Program Files\waffle_meter.v1.5`입니다.
 
 5. 미터기가 보이면 아이온2에 접속해 전투를 시작합니다.
    데미지 기록, 전투 기록, 파티 신청 패널은 인게임 오버레이 형태로 표시됩니다.
 
-6. 미터기가 보이지 않거나 위치가 이상하면 앱을 종료한 뒤 `%APPDATA%\waffle_meter.v1.4\settings.properties`에서 `windowX`, `windowY`, `uiX`, `uiY` 값을 `0`으로 수정한 다음 다시 실행합니다.
+6. 미터기가 보이지 않거나 위치가 이상하면 앱을 종료한 뒤 `%APPDATA%\waffle_meter.v1.5\settings.properties`에서 `windowX`, `windowY`, `uiX`, `uiY` 값을 `0`으로 수정한 다음 다시 실행합니다.
 
 7. 업데이트 알림이 표시되면 앱 안에서 업데이트 파일을 다운로드하거나, [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 MSI를 직접 설치합니다.
 
 ## 업데이트 기록
+
+- v1.5.0
+  - 개발 브랜치에서 검증된 전투 계산 안정화 변경을 배포용 main에 반영했습니다.
+  - 같은 타겟 ID에서 보스 전투가 다시 시작될 때 이전 전투 기록이 섞이지 않도록 전투 revision 기준을 추가했습니다.
+  - 전투 종료 시 상세내역/버프 가동률은 요약만 저장하고 원본 패킷 목록은 배포용 기록에 보관하지 않도록 정리했습니다.
+  - 메인 미터기에서 DPS/총딜량 기준을 선택할 수 있도록 설정을 추가하고, 닉네임 옆 전투력 표기를 보강했습니다.
+  - 미터기를 화면 가장자리까지 붙여 배치할 수 있도록 드래그 경계 계산을 개선했습니다.
+  - 배포용 빌드에서는 패킷 로깅 UI와 로깅 제어 API를 포함하지 않습니다.
 
 - v1.4.10
   - 초월 단계별 크로메데 던전 보스 코드 누락을 보강했습니다.

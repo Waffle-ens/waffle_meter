@@ -10,7 +10,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Base64
 
 object PacketDebugLogger {
-    private const val APP_NAME = "waffle_meter.v1.4"
+    private const val APP_NAME = "waffle_meter.v1.5"
     private val timestampFormat = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
 
     private data class Session(

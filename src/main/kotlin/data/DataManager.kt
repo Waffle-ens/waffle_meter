@@ -11,8 +11,10 @@ object DataManager {
     private val logger = LoggerFactory.getLogger(DataManager::class.java)
 
     private val resetEpoch = AtomicLong(0)
+    private val battleRevision = AtomicLong(0)
 
     fun currentEpoch(): Long = resetEpoch.get()
+    fun currentBattleRevision(): Long = battleRevision.get()
 
     /*
     rawPacket 버퍼 영역
@@ -134,6 +136,7 @@ object DataManager {
     @Synchronized
     fun hardReset() {
         resetEpoch.incrementAndGet()
+        battleRevision.set(0)
         battleLogRepository.flush()
         mobHpRepository.flush()
         mobIdRepository.flush()
@@ -228,14 +231,7 @@ object DataManager {
 
     @Synchronized
     fun startBattle(mobId: Int) {
-        if (currentTarget() == mobId) {
-            val now = System.currentTimeMillis()
-            val preemptivePackets = packetRepository.get(mobId)
-                ?.filter { it.getTimeStamp() >= now - 1000L }
-                ?.toList()
-            flushPacket()
-            preemptivePackets?.forEach { packetRepository.save(it) }
-        }
+        battleRevision.incrementAndGet()
         saveCurrentBattleStart()
         saveCurrentTarget(mobId)
     }
@@ -290,22 +286,24 @@ object DataManager {
         buffRates: Map<Int, List<OperatingData>> = emptyMap(),
         bossBuffRates: List<OperatingData> = emptyList()
     ) {
-        val snapshot = data.copy(
+        val snapshot = DpsReport(
             contributors = data.contributors.mapTo(mutableSetOf()) { it.copy() },
+            battleStart = data.battleStart,
+            battleEnd = data.battleEnd,
+            information = HashMap(data.information.mapValues { it.value.copy() }),
+            target = data.target?.copy(mob = data.target!!.mob.copy()),
             packets = null
         )
-        val packets = rawPacketsInRange(data.battleStart - 5000L, data.battleEnd)
         battleLogRepository.save(
             DpsLog(
                 snapshot,
-                summonRepository.getAll(),
-                packets,
+                HashMap(summonRepository.getAll()),
+                emptyList(),
                 skillDetails,
                 buffRates,
                 bossBuffRates
             )
         )
-        rawPacketBuffer.removeIf { it.timestamp <= data.battleEnd }
         useBuffRepository.pruneBefore(data.battleEnd + 1)
     }
 

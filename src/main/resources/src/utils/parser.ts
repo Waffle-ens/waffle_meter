@@ -119,9 +119,9 @@ export function parseCombatData(raw: unknown): {
       job: contributor.job ?? "",
       server: contributor.server,
       dps,
-      amount,
-      damageContribution,
-      entireContribution,
+      amount: Number.isFinite(amount) ? amount : 0,
+      damageContribution: Number.isFinite(damageContribution) ? damageContribution : 0,
+      entireContribution: Number.isFinite(entireContribution) ? entireContribution : 0,
       isUser: contributor.isExecutor === true,
       power: Number(contributor.power ?? 0),
     });

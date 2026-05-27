@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-val resolvedAppVersion = providers.gradleProperty("appVersion").orElse("1.4.11").get().removePrefix("v")
+val resolvedAppVersion = providers.gradleProperty("appVersion").orElse("1.5.0").get().removePrefix("v")
 version = resolvedAppVersion
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
@@ -131,12 +131,12 @@ compose.desktop {
                 includeAllModules = true
                 shortcut = true
                 menu = true
-                menuGroup = "waffle_meter.v1.4"
+                menuGroup = "waffle_meter.v1.5"
                 iconFile.set(project.file("src/main/resources/icons/waffle.ico"))
                 dirChooser = true
             }
             targetFormats(TargetFormat.Msi)
-            packageName = "waffle_meter.v1.4"
+            packageName = "waffle_meter.v1.5"
             packageVersion = project.version.toString()
             copyright = "Copyright 2026 TK open public Licensed under MIT License"
         }

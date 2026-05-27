@@ -179,7 +179,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         fun startUpdate(msiUrl: String) {
             Thread {
                 try {
-                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.4").also { it.mkdirs() }
+                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.5").also { it.mkdirs() }
                     val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
 
                     val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
@@ -299,7 +299,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.initStyle(StageStyle.TRANSPARENT)
         stage.scene = scene
         stage.isAlwaysOnTop = true
-        stage.title = "waffle_meter.v1.4"
+        stage.title = "waffle_meter.v1.5"
         fitOverlayToScreen(stage, webView)
 
         stage.show()
@@ -526,7 +526,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 popup.addSeparator()
                 popup.add(exitItem)
 
-                trayIcon = TrayIcon(image, "waffle_meter.v1.4", popup).apply {
+                trayIcon = TrayIcon(image, "waffle_meter.v1.5", popup).apply {
                     isImageAutoSize = true
                     addMouseListener(object : MouseAdapter() {
                         override fun mouseClicked(e: MouseEvent) {

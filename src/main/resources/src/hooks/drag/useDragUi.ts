@@ -1,8 +1,7 @@
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { clampMeterRootPosition } from "@/utils/meterBounds";
 import { useEffect, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
-
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 export const useDragUi = () => {
   const wasDraggingRef = useRef(false);
@@ -56,15 +55,15 @@ export const useDragUi = () => {
 
       if (rafId.current !== null) cancelAnimationFrame(rafId.current);
       rafId.current = requestAnimationFrame(() => {
-        const panelWidth = rootEl.offsetWidth;
-        const panelHeight = rootEl.offsetHeight;
-        const nextX = clamp(startUiX + deltaX, 0, Math.max(0, window.innerWidth - panelWidth));
-        const nextY = clamp(startUiY + deltaY, 0, Math.max(0, window.innerHeight - panelHeight));
+        const next = clampMeterRootPosition(startUiX + deltaX, startUiY + deltaY, {
+          rootEl,
+          anchorEl: anchor,
+        });
 
-        currentX = nextX;
-        currentY = nextY;
-        rootEl.style.left = `${nextX}px`;
-        rootEl.style.top = `${nextY}px`;
+        currentX = next.x;
+        currentY = next.y;
+        rootEl.style.left = `${next.x}px`;
+        rootEl.style.top = `${next.y}px`;
       });
     };
 

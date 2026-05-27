@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Hotkey, ContributionMode } from "@/types";
 import { parseHotkeyString } from "@/utils/hotKey";
 import { DEFAULT_VISIBLE_SKILL_CODES } from "@/constants/codes";
+import { clampMeterRootPosition } from "@/utils/meterBounds";
 
 export type DisplayMode =
   | "dps_percent"
@@ -9,6 +10,7 @@ export type DisplayMode =
   | "amount_percent"
   | "amount_full_dps_percent"
   | "amount_full_percent";
+export type DamageValueMode = "dps" | "total";
 export type TargetInfoDisplayMode =
   | "hp_full_percent"
   | "hp_percent"
@@ -62,6 +64,8 @@ interface SettingsState {
   // hotkey: Hotkey;
   displayMode: DisplayMode;
   setDisplayMode: (mode: DisplayMode) => void;
+  damageValueMode: DamageValueMode;
+  setDamageValueMode: (mode: DamageValueMode) => void;
   targetInfoDisplayMode: TargetInfoDisplayMode;
   setTargetInfoDisplayMode: (mode: TargetInfoDisplayMode) => void;
   nameDisplay: NameDisplay;
@@ -207,6 +211,7 @@ const defaultSettings = {
   windowY: 0,
   isLoaded: false,
   displayMode: "dps_percent" as DisplayMode,
+  damageValueMode: "dps" as DamageValueMode,
   targetInfoDisplayMode: "hp_full_percent" as TargetInfoDisplayMode,
   nameDisplay: "all" as NameDisplay,
   fontFamily: "NEXON Lv2 Gothic" as FontFamily,
@@ -323,6 +328,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
       detailHeight: Number(j.loadProps?.("detailHeight")) || defaultSettings.detailHeight,
       detailWidth: Number(j.loadProps?.("detailWidth")) || defaultSettings.detailWidth,
       displayMode: j.loadProps?.("displayMode") ?? defaultSettings.displayMode,
+      damageValueMode:
+        j.loadProps?.("damageValueMode") === "total"
+          ? "total"
+          : defaultSettings.damageValueMode,
       targetInfoDisplayMode:
         j.loadProps?.("targetInfoDisplayMode") ?? defaultSettings.targetInfoDisplayMode,
       isDebugMode: j.isDebuggingMode?.() ?? false,
@@ -389,6 +398,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     detailWidth: defaultSettings.detailWidth,
     visibleSkillCodes: defaultSettings.visibleSkillCodes,
     displayMode: defaultSettings.displayMode,
+    damageValueMode: defaultSettings.damageValueMode,
     targetInfoDisplayMode: defaultSettings.targetInfoDisplayMode,
     nameDisplay: defaultSettings.nameDisplay,
     fontFamily: defaultSettings.fontFamily,
@@ -453,6 +463,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setDisplayMode: (displayMode) => {
       set({ displayMode });
       jb()?.saveProps?.("displayMode", displayMode);
+    },
+    setDamageValueMode: (damageValueMode) => {
+      set({ damageValueMode });
+      jb()?.saveProps?.("damageValueMode", damageValueMode);
     },
     setTargetInfoDisplayMode: (targetInfoDisplayMode) => {
       set({ targetInfoDisplayMode });
@@ -551,17 +565,16 @@ export const useSettingsStore = create<SettingsState>((set) => {
       const viewportHeight = finiteOr(sync.height, window.innerHeight);
 
       set((s) => {
-        const meterRoot = document
-          .querySelector<HTMLElement>("[data-meter-root-anchor]")
-          ?.closest<HTMLElement>(".drag-area");
-        const meter = clampPanelPosition(
-          s.uiX + offsetX,
-          s.uiY + offsetY,
-          meterRoot?.offsetWidth || s.meterWidth,
-          meterRoot?.offsetHeight || s.rowHeight,
+        const meterAnchor = document.querySelector<HTMLElement>("[data-meter-root-anchor]");
+        const meterRoot = meterAnchor?.closest<HTMLElement>(".drag-area");
+        const meter = clampMeterRootPosition(s.uiX + offsetX, s.uiY + offsetY, {
+          rootEl: meterRoot,
+          anchorEl: meterAnchor,
+          fallbackWidth: s.meterWidth,
+          fallbackHeight: s.rowHeight,
           viewportWidth,
           viewportHeight,
-        );
+        });
 
         jb()?.saveProps?.("uiX", String(meter.x));
         jb()?.saveProps?.("uiY", String(meter.y));
