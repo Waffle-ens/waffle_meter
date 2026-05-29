@@ -9018,6 +9018,16 @@
     "boss": false
   },
   {
+    "code": 2301059,
+    "name": "이스카리엘",
+    "boss": true
+  },
+  {
+    "code": 2301060,
+    "name": "칼드릭스",
+    "boss": true
+  },
+  {
     "code": 2301201,
     "name": "오염된 수라 마도사",
     "boss": false

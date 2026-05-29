@@ -154,12 +154,9 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
     }
 
     private fun refreshRecentReportFromCache(targetId: Int, fixedTarget: MobInfo? = recentData.target) {
-        val battleStart = when {
-            recentData.battleStart != 0L && cachedBattleStart != 0L -> minOf(recentData.battleStart, cachedBattleStart)
-            recentData.battleStart != 0L -> recentData.battleStart
-            else -> cachedBattleStart
-        }
-        val battleEnd = maxOf(recentData.battleEnd, cachedBattleEnd)
+        val battleStart = cachedBattleStart.takeIf { it > 0L } ?: recentData.battleStart
+        val battleEnd = (cachedBattleEnd.takeIf { it > 0L } ?: recentData.battleEnd)
+            .coerceAtLeast(battleStart)
         val targetInfo = fixedTarget?.copy(mob = fixedTarget.mob.copy()) ?: run {
             val mobCode = DataManager.mobId(targetId) ?: return@run null
             val mob = DataManager.mob(mobCode) ?: return@run null

@@ -1,5 +1,6 @@
 package com.tbread.webview
 
+import com.sun.jna.Pointer
 import com.sun.jna.platform.win32.*
 import com.tbread.DpsCalculator
 import com.tbread.addon.UploadManager
@@ -41,6 +42,25 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private val logger = LoggerFactory.getLogger(BrowserApp::class.java)
     private val dpsRefreshMs = 500L
     private val overlayFocusCheckMs = 300L
+
+    companion object {
+        private const val GWL_EXSTYLE = -20
+        private const val WS_EX_TOOLWINDOW = 0x00000080
+        private const val WS_EX_APPWINDOW = 0x00040000
+        private const val WS_EX_LAYERED = 0x00080000
+        private const val WS_EX_TRANSPARENT = 0x00000020
+
+        private const val SWP_NOSIZE = 0x0001
+        private const val SWP_NOMOVE = 0x0002
+        private const val SWP_NOZORDER = 0x0004
+        private const val SWP_NOACTIVATE = 0x0010
+        private const val SWP_FRAMECHANGED = 0x0020
+        private const val SWP_SHOWWINDOW = 0x0040
+
+        private val HWND_TOPMOST = WinDef.HWND(Pointer.createConstant(-1))
+        private val HWND_NOTOPMOST = WinDef.HWND(Pointer.createConstant(-2))
+        private val HWND_BOTTOM = WinDef.HWND(Pointer.createConstant(1))
+    }
 
     private lateinit var engine: WebEngine
     private var trayIcon: TrayIcon? = null
@@ -379,6 +399,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         if (stage.opacity != 1.0) {
             stage.opacity = 1.0
         }
+        syncOverlayInputStyle("present")
+        restoreOverlayTopMost(stage)
         isOverlayParked = false
     }
 
@@ -390,7 +412,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             stage.isAlwaysOnTop = false
         }
         if (!isOverlayParked) {
-            stage.toBack()
+            parkOverlayNative(stage)
             isOverlayParked = true
         }
     }
@@ -464,41 +486,85 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
 
     private fun applyOverlayWindowStyle(title: String) {
-        val GWL_EXSTYLE = -20
-        val WS_EX_TOOLWINDOW = 0x00000080
-        val WS_EX_APPWINDOW = 0x00040000
-        val SWP_NOMOVE = 0x0002
-        val SWP_NOSIZE = 0x0001
-        val SWP_NOZORDER = 0x0004
-        val SWP_FRAMECHANGED = 0x0020
         val user32 = User32.INSTANCE
         val hwnd = user32.FindWindow(null, title) ?: return
         overlayHwnd = hwnd
-        val exStyle = user32.GetWindowLong(hwnd, GWL_EXSTYLE)
-        user32.SetWindowLong(hwnd, GWL_EXSTYLE,
-            (exStyle or WS_EX_TOOLWINDOW) and WS_EX_APPWINDOW.inv()
-        )
+        syncOverlayInputStyle("apply")
         user32.SetWindowPos(hwnd, null, 0, 0, 0, 0,
-            SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER or SWP_FRAMECHANGED)
+            SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER or SWP_NOACTIVATE or SWP_FRAMECHANGED)
     }
 
     private fun setClickThrough(enable: Boolean) {
-        val hwnd = overlayHwnd ?: return
-        val GWL_EXSTYLE = -20
-        val WS_EX_LAYERED = 0x00080000
-        val WS_EX_TRANSPARENT = 0x00000020
-        val user32 = User32.INSTANCE
-        val exStyle = user32.GetWindowLong(hwnd, GWL_EXSTYLE)
-        val newStyle = if (enable) {
-            exStyle or WS_EX_LAYERED or WS_EX_TRANSPARENT
-        } else {
-            (exStyle or WS_EX_LAYERED) and WS_EX_TRANSPARENT.inv()
-        }
-        user32.SetWindowLong(hwnd, GWL_EXSTYLE, newStyle)
         isClickThrough = enable
+        syncOverlayInputStyle("toggle")
         Platform.runLater {
             engine.executeScript("onClickThroughChanged($enable)")
         }
+    }
+
+    private fun syncOverlayInputStyle(reason: String) {
+        val hwnd = overlayHwnd ?: return
+        val user32 = User32.INSTANCE
+        val exStyle = user32.GetWindowLong(hwnd, GWL_EXSTYLE)
+        val baseStyle = (exStyle or WS_EX_TOOLWINDOW or WS_EX_LAYERED) and WS_EX_APPWINDOW.inv()
+        val newStyle = if (isClickThrough) {
+            baseStyle or WS_EX_TRANSPARENT
+        } else {
+            baseStyle and WS_EX_TRANSPARENT.inv()
+        }
+        if (newStyle == exStyle) return
+
+        user32.SetWindowLong(hwnd, GWL_EXSTYLE, newStyle)
+        user32.SetWindowPos(
+            hwnd,
+            null,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER or SWP_NOACTIVATE or SWP_FRAMECHANGED
+        )
+        logger.info(
+            "오버레이 입력 스타일 동기화: reason={}, clickThrough={}, transparent={}",
+            reason,
+            isClickThrough,
+            (newStyle and WS_EX_TRANSPARENT) != 0
+        )
+    }
+
+    private fun restoreOverlayTopMost(stage: Stage) {
+        val hwnd = overlayHwnd ?: User32.INSTANCE.FindWindow(null, stage.title)?.also { overlayHwnd = it } ?: return
+        User32.INSTANCE.SetWindowPos(
+            hwnd,
+            HWND_TOPMOST,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE or SWP_SHOWWINDOW
+        )
+    }
+
+    private fun parkOverlayNative(stage: Stage) {
+        val hwnd = overlayHwnd ?: User32.INSTANCE.FindWindow(null, stage.title)?.also { overlayHwnd = it } ?: return
+        User32.INSTANCE.SetWindowPos(
+            hwnd,
+            HWND_NOTOPMOST,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE
+        )
+        User32.INSTANCE.SetWindowPos(
+            hwnd,
+            HWND_BOTTOM,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE
+        )
     }
 
     private fun setupTray(stage: Stage) {
@@ -516,6 +582,13 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 val popup = PopupMenu()
                 val showItem = MenuItem("보이기/숨기기")
                 showItem.addActionListener { if (isVisible) hideToTray(stage) else showFromTray(stage) }
+                val recoverInputItem = MenuItem("오버레이 입력 복구")
+                recoverInputItem.addActionListener {
+                    Platform.runLater {
+                        setClickThrough(false)
+                        presentOverlay(stage)
+                    }
+                }
                 val exitItem = MenuItem("종료")
                 exitItem.addActionListener {
                     tray.remove(trayIcon)
@@ -523,6 +596,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     exitProcess(0)
                 }
                 popup.add(showItem)
+                popup.add(recoverInputItem)
                 popup.addSeparator()
                 popup.add(exitItem)
 

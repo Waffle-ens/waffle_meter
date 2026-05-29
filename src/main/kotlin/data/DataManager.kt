@@ -4,14 +4,22 @@ import com.tbread.data.repository.*
 import com.tbread.entity.*
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicLong
 
 object DataManager {
     private val logger = LoggerFactory.getLogger(DataManager::class.java)
 
+    private data class EndedBattle(val mobCode: Int?, val endedAt: Long)
+
+    private const val ENDED_BATTLE_START_IGNORE_MS = 30 * 60 * 1000L
+
     private val resetEpoch = AtomicLong(0)
     private val battleRevision = AtomicLong(0)
+    private val recentlyEndedBattles = ConcurrentHashMap<Int, EndedBattle>()
+    @Volatile
+    private var activeBattleMobCode: Int? = null
 
     fun currentEpoch(): Long = resetEpoch.get()
     fun currentBattleRevision(): Long = battleRevision.get()
@@ -145,6 +153,8 @@ object DataManager {
         userRepository.flush()
         useBuffRepository.flush()
         rawPacketBuffer.clear()
+        recentlyEndedBattles.clear()
+        activeBattleMobCode = null
         lastDummyHitTime = 0
     }
 
@@ -159,6 +169,7 @@ object DataManager {
     fun mobHp(mobId: Int, mobHp: Int) {
         mobHpRepository.set(mobId, mobHp)
         if (mobHp > 0) {
+            recentlyEndedBattles.remove(mobId)
             saveMobMaxHp(mobId, mobHp)
         }
     }
@@ -231,15 +242,40 @@ object DataManager {
 
     @Synchronized
     fun startBattle(mobId: Int) {
+        val mobCode = DataManager.mobId(mobId)
+        val now = System.currentTimeMillis()
+        val endedBattle = recentlyEndedBattles[mobId]
+        if (
+            currentTarget() <= 0 &&
+            endedBattle != null &&
+            endedBattle.mobCode == mobCode &&
+            mobHp(mobId) == 0 &&
+            now - endedBattle.endedAt <= ENDED_BATTLE_START_IGNORE_MS
+        ) {
+            return
+        }
+        if (
+            currentTarget() == mobId &&
+            currentBattleStart() > 0L &&
+            currentBattleEnd() == 0L &&
+            activeBattleMobCode == mobCode
+        ) {
+            return
+        }
+        recentlyEndedBattles.remove(mobId)
         battleRevision.incrementAndGet()
         saveCurrentBattleStart()
         saveCurrentTarget(mobId)
+        activeBattleMobCode = mobCode
     }
 
     fun endBattle(mobId: Int) {
         if (currentTarget() != mobId) return
+        val mobCode = activeBattleMobCode ?: DataManager.mobId(mobId)
         saveCurrentBattleEnd()
         saveCurrentTarget(-1)
+        recentlyEndedBattles[mobId] = EndedBattle(mobCode, System.currentTimeMillis())
+        activeBattleMobCode = null
     }
 
     fun currentBattleStart(): Long {
@@ -267,6 +303,7 @@ object DataManager {
         packetRepository.flush()
         packetRepository.currentTarget(-1)
         packetRepository.flushBattleTime()
+        activeBattleMobCode = null
         lastDummyHitTime = 0
     }
 
@@ -347,6 +384,10 @@ object DataManager {
     }
 
     fun saveMobId(mid: Int, code: Int) {
+        val previous = DataManager.mobId(mid)
+        if (previous != null && previous != code) {
+            recentlyEndedBattles.remove(mid)
+        }
         mobIdRepository.save(mid, code)
     }
 
