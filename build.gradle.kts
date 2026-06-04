@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-val resolvedAppVersion = providers.gradleProperty("appVersion").orElse("1.5.1").get().removePrefix("v")
+val resolvedAppVersion = providers.gradleProperty("appVersion").orElse("1.5.2").get().removePrefix("v")
 version = resolvedAppVersion
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
