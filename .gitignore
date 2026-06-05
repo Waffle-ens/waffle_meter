@@ -60,3 +60,12 @@ bin/
 /waffle.png
 /.codex-msi-extract-original/
 
+### waffle_meter_statistics local planning and seed assets ###
+/docs/stats-web-prd.md
+/docs/encounters-seed.json
+/docs/encounter-variant-map.md
+/docs/server-code-map.json
+/docs/server-code-map.md
+/waffle_meter_statistics/
+/waffle_meter_statistics_skill_icons/
+

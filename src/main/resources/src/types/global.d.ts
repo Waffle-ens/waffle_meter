@@ -3,11 +3,13 @@ export {};
 declare global {
   interface Window {
     javaBridge?: {
-      // resetDps?: () => void;
+      resetDps?: () => void;
+      hardResetDps?: () => void;
       startUpdate: (msiUrl: string) => void;
       getDpsData?: () => void;
 
       getVersion?: () => string;
+      isDevBuild?: () => boolean;
       upload?: (idx: number) => Promise<any>;
 
       getBattleList?: () => void;
@@ -21,6 +23,7 @@ declare global {
 
       openBrowser?: (url: string) => void;
       exitApp?: () => void;
+      hideToTray?: () => void;
 
       isClickThrough?: () => boolean;
       getClickThroughHotkey?: () => string;
@@ -33,6 +36,15 @@ declare global {
 
       isAutoHide?: () => boolean;
       toggleAutoHide?: () => void;
+      getStatsConsent?: () => string;
+      setStatsConsent?: (
+        state: "unknown" | "accepted" | "declined" | "revoked",
+        uploadEnabled: boolean,
+        publicCharacter: boolean,
+      ) => string;
+      getStatsOwnCharacter?: () => string;
+      getStatsUploadStatus?: () => string;
+      openStatsUploadFolder?: () => string;
     };
   }
 }

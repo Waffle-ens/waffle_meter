@@ -20,6 +20,8 @@ export type TargetInfoDisplayMode =
 export type NameDisplay = "all" | "me_only" | "hidden";
 export type OverlayTheme = "dark" | "light";
 export type OverlayLayout = "standard" | "bottom";
+export type StatsConsentState = "unknown" | "accepted" | "declined" | "revoked";
+export type CloseAction = "ask" | "tray" | "exit";
 export type FontFamily =
   | "Malgun Gothic"
   | "Spoqa Han Sans Neo"
@@ -42,6 +44,14 @@ export interface ThemeColors {
   meterStatPercent: string;
   bossRightValue: string;
   combatTimeColor: string;
+}
+
+export interface StatsConsentInfo {
+  state: StatsConsentState;
+  uploadEnabled: boolean;
+  publicCharacter: boolean;
+  consentVersion: string;
+  updatedAt: number;
 }
 
 export const DEFAULT_THEME: ThemeColors = {
@@ -121,6 +131,11 @@ interface SettingsState {
   toggleAutoHide: () => void;
   multiMonitorMode: boolean;
   setMultiMonitorMode: (v: boolean) => void;
+  closeAction: CloseAction;
+  setCloseAction: (v: CloseAction) => void;
+  statsConsent: StatsConsentInfo;
+  setStatsConsent: (v: StatsConsentInfo) => void;
+  refreshStatsConsent: () => void;
   joinPanelWidth: number;
   setJoinPanelWidth: (w: number) => void;
   joinPanelHeight: number;
@@ -162,6 +177,39 @@ const readSavedNumber = (
   if (value == null || value === "") return fallback;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+export const DEFAULT_STATS_CONSENT: StatsConsentInfo = {
+  state: "unknown",
+  uploadEnabled: false,
+  publicCharacter: true,
+  consentVersion: "2026-06-04",
+  updatedAt: 0,
+};
+
+const parseStatsConsent = (raw?: string | null): StatsConsentInfo => {
+  if (!raw) return DEFAULT_STATS_CONSENT;
+  try {
+    const parsed = JSON.parse(raw) as Partial<StatsConsentInfo>;
+    const state =
+      parsed.state === "accepted" ||
+      parsed.state === "declined" ||
+      parsed.state === "revoked"
+        ? parsed.state
+        : "unknown";
+    return {
+      state,
+      uploadEnabled: parsed.uploadEnabled === true,
+      publicCharacter: parsed.publicCharacter !== false,
+      consentVersion:
+        typeof parsed.consentVersion === "string"
+          ? parsed.consentVersion
+          : DEFAULT_STATS_CONSENT.consentVersion,
+      updatedAt: Number.isFinite(Number(parsed.updatedAt)) ? Number(parsed.updatedAt) : 0,
+    };
+  } catch {
+    return DEFAULT_STATS_CONSENT;
+  }
 };
 
 interface OverlayBoundsSync {
@@ -229,6 +277,8 @@ const defaultSettings = {
   isClickThrough: false,
   isAutoHide: true,
   multiMonitorMode: false,
+  closeAction: "ask" as CloseAction,
+  statsConsent: DEFAULT_STATS_CONSENT,
   joinPanelWidth: 400,
   joinPanelHeight: 330,
   joinPanelX: 0,
@@ -276,7 +326,11 @@ export const useSettingsStore = create<SettingsState>((set) => {
     try {
       if (savedSkillCodesRaw) {
         const parsedSkillCodes = JSON.parse(savedSkillCodesRaw);
-        if (Array.isArray(parsedSkillCodes)) savedSkillCodes = parsedSkillCodes;
+        if (Array.isArray(parsedSkillCodes)) {
+          savedSkillCodes = parsedSkillCodes
+            .map((code) => Number(code))
+            .filter((code) => Number.isFinite(code));
+        }
       }
     } catch {}
     if (DEFAULT_VISIBLE_SKILL_CODES.length > 100 && savedSkillCodes.length < 40) {
@@ -301,6 +355,14 @@ export const useSettingsStore = create<SettingsState>((set) => {
     const savedOverlayTheme = j.loadProps?.("overlayTheme");
     const savedOverlayLayout = j.loadProps?.("overlayLayout");
     const savedMultiMonitorMode = j.loadProps?.("multiMonitorMode") === "true";
+    const savedCloseActionRaw = j.loadProps?.("closeAction");
+    const savedCloseAction: CloseAction =
+      savedCloseActionRaw === "tray" || savedCloseActionRaw === "exit"
+        ? savedCloseActionRaw
+        : defaultSettings.closeAction;
+    const savedStatsConsent = parseStatsConsent(
+      j.getStatsConsent?.() ?? j.loadProps?.("statsConsent"),
+    );
     const savedWindowXRaw = j.loadProps?.("windowX");
     const savedWindowYRaw = j.loadProps?.("windowY");
     const savedUiXRaw = j.loadProps?.("uiX");
@@ -357,6 +419,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
       isClickThrough: j.isClickThrough?.() ?? false,
       isAutoHide: j.isAutoHide?.() ?? false,
       multiMonitorMode: savedMultiMonitorMode,
+      closeAction: savedCloseAction,
+      statsConsent: savedStatsConsent,
       joinPanelWidth: Number(j.loadProps?.("joinPanelWidth")) || defaultSettings.joinPanelWidth,
       joinPanelHeight: Number(j.loadProps?.("joinPanelHeight")) || defaultSettings.joinPanelHeight,
       joinPanelX: hasSavedJoinPanelX ? Number(savedJoinPanelXRaw) : defaultSettings.joinPanelX,
@@ -415,6 +479,8 @@ export const useSettingsStore = create<SettingsState>((set) => {
     isClickThrough: defaultSettings.isClickThrough,
     isAutoHide: defaultSettings.isAutoHide,
     multiMonitorMode: defaultSettings.multiMonitorMode,
+    closeAction: defaultSettings.closeAction,
+    statsConsent: defaultSettings.statsConsent,
     isLoaded: defaultSettings.isLoaded,
 
     joinPanelWidth: defaultSettings.joinPanelWidth,
@@ -622,6 +688,25 @@ export const useSettingsStore = create<SettingsState>((set) => {
 
         return next;
       });
+    },
+    setCloseAction: (closeAction) => {
+      set({ closeAction });
+      jb()?.saveProps?.("closeAction", closeAction);
+    },
+    setStatsConsent: (statsConsent) => {
+      const raw = jb()?.setStatsConsent?.(
+        statsConsent.state,
+        statsConsent.uploadEnabled,
+        statsConsent.publicCharacter,
+      );
+      const next = raw ? parseStatsConsent(raw) : statsConsent;
+      set({ statsConsent: next });
+      jb()?.saveProps?.("statsConsent", JSON.stringify(next));
+    },
+    refreshStatsConsent: () => {
+      const next = parseStatsConsent(jb()?.getStatsConsent?.());
+      set({ statsConsent: next });
+      jb()?.saveProps?.("statsConsent", JSON.stringify(next));
     },
     // setShowPower: (showPower) => {
     //   set({ showPower });

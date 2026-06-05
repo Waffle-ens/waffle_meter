@@ -170,27 +170,21 @@ export const useMeter = () => {
     });
   }, [setSnapshotIfChanged]);
 
-  // const reset = () => {
-  //   resetPendingRef.current = true;
-  //   resetTimestampRef.current = Date.now();
+  const reset = useCallback(() => {
+    resetPendingRef.current = false;
+    resetTimestampRef.current = Date.now();
+    snapshotRef.current = null;
+    lastJsonRef.current = null;
+    lastBattleTimeRef.current = null;
+    isInCombatRef.current = false;
 
-  //   snapshotRef.current = null;
-  //   lastJsonRef.current = null;
-  //   lastBattleTimeRef.current = null;
+    if (combatTimerRef.current) {
+      clearTimeout(combatTimerRef.current);
+      combatTimerRef.current = null;
+    }
 
-  //   setPlayers([]);
-  //   setTargetName("");
-  //   setRemainHp(0);
-  //   setIsInCombat(false);
-  //   setBattleTime(null);
-
-  //   if (combatTimerRef.current) {
-  //     clearTimeout(combatTimerRef.current);
-  //     combatTimerRef.current = null;
-  //   }
-
-  //   // addLog("---------리셋------------");
-  // };
+    setSnapshot(initialSnapshot);
+  }, []);
 
   // const toggleCollapse = () => {
   //   const next = !isCollapseRef.current;
@@ -248,7 +242,7 @@ export const useMeter = () => {
     remainHp: snapshot.remainHp,
     maxHp: snapshot.maxHp,
     formatBattleTime,
-    // reset,
+    reset,
     // toggleCollapse,
     setHistoryData,
   };

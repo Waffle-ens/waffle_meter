@@ -855,7 +855,20 @@ export const injectMockDpsData = () => {
     ["showCombatTimerInMinimal", "true"],
     ["showTargetInfoInMinimal", "true"],
     ["contributionMode", "contribution"],
+    ["statsConsentState", "unknown"],
+    ["statsUploadEnabled", "false"],
+    ["statsPublicCharacter", "true"],
+    ["statsConsentUpdatedAt", "0"],
   ]);
+
+  const readStatsConsent = () =>
+    JSON.stringify({
+      state: props.get("statsConsentState") ?? "unknown",
+      uploadEnabled: props.get("statsUploadEnabled") === "true",
+      publicCharacter: props.get("statsPublicCharacter") !== "false",
+      consentVersion: "2026-06-04",
+      updatedAt: Number(props.get("statsConsentUpdatedAt") ?? 0),
+    });
 
   (window as any).javaBridge = {
     loadProps: (key: string) => props.get(key) ?? "",
@@ -869,11 +882,47 @@ export const injectMockDpsData = () => {
     isClickThrough: () => false,
     isAutoHide: () => true,
     toggleAutoHide: () => undefined,
+    getStatsConsent: readStatsConsent,
+    setStatsConsent: (state: string, uploadEnabled: boolean, publicCharacter: boolean) => {
+      props.set("statsConsentState", state);
+      props.set("statsUploadEnabled", String(uploadEnabled));
+      props.set("statsPublicCharacter", String(publicCharacter));
+      props.set("statsConsentUpdatedAt", String(Date.now()));
+      return readStatsConsent();
+    },
+    getStatsOwnCharacter: () =>
+      JSON.stringify({
+        detected: true,
+        id: 1,
+        nickname: "큰팡",
+        server: 1001,
+        job: "궁성",
+        power: 4180000,
+      }),
+    getStatsUploadStatus: () =>
+      JSON.stringify({
+        enabled: props.get("statsUploadEnabled") === "true",
+        pending: 0,
+        uploaded: props.get("statsUploadEnabled") === "true" ? 1 : 0,
+        skipped: 2,
+        failed: 0,
+        lastPath:
+          props.get("statsUploadEnabled") === "true"
+            ? "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.6\\stats-upload-mock\\mock-upload.json"
+            : "",
+        lastReason:
+          props.get("statsUploadEnabled") === "true"
+            ? "mock_saved"
+            : "동의 후 보스 처치 전투만 업로드 후보로 저장됩니다.",
+        lastUpdatedAt: Date.now(),
+      }),
+    openStatsUploadFolder: () =>
+      "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.6\\stats-upload-mock",
     getDpsData: () => JSON.stringify(MOCK_DATA),
     getBattleDetail: (id: string) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(id)] ?? MOCK_DETAIL_DATA),
     getBattleDetailFromList: (_idx: number, uid: number) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(uid)] ?? MOCK_DETAIL_DATA),
     getBattleList: () => JSON.stringify(MOCK_HISTORY_DATA),
-    getVersion: () => "1.5.0",
+    getVersion: () => "1.6.0",
     getLiveBuffOperatingRate: (id: number) => JSON.stringify(getMockBuffData(id)),
     getBuffOperatingRate: (_idx: number, id: number) => JSON.stringify(getMockBuffData(id)),
     openBrowser: (url: string) => console.log("[mock] openBrowser:", url),
@@ -881,6 +930,8 @@ export const injectMockDpsData = () => {
     getBossBuffOperatingRate: (_idx: number, _id: number) => JSON.stringify(MOCK_DEBUFF_DATA),
 
     exitApp: () => console.log("[mock] exitApp"),
+    hideToTray: () => console.log("[mock] hideToTray"),
+    hardResetDps: () => console.log("[mock] hardResetDps"),
     startUpdate: (url: string) => {
       console.log("[mock] startUpdate:", url);
       let percent = 0;

@@ -4,12 +4,14 @@ import { useShallow } from "zustand/react/shallow";
 import { useHotkeyCapture } from "@/hooks/useHotkeyCapture";
 import { formatHotkey } from "@/utils/hotKey";
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from "lucide-react";
+import { FolderOpen, RotateCcw } from "lucide-react";
 import type {
-  DamageValueMode,
   DisplayMode,
+  DamageValueMode,
+  CloseAction,
   FontFamily,
   NameDisplay,
+  StatsConsentInfo,
   TargetInfoDisplayMode,
   ThemeColors,
 } from "@/stores/useSettingsStore";
@@ -93,6 +95,12 @@ const NAME_DISPLAY_MODES: { value: NameDisplay; label: string }[] = [
   { value: "hidden", label: "모두 숨김" },
 ];
 
+const CLOSE_ACTION_MODES: { value: CloseAction; label: string }[] = [
+  { value: "ask", label: "처음 한 번 묻기" },
+  { value: "tray", label: "트레이로 보내기" },
+  { value: "exit", label: "완전히 종료" },
+];
+
 const FONT_FAMILIES: { value: FontFamily; label: string }[] = [
   { value: "Malgun Gothic", label: "맑은 고딕 (윈도우 기본 폰트)" },
   { value: "NEXON Lv2 Gothic", label: "NEXON Lv2 Gothic" },
@@ -101,6 +109,34 @@ const FONT_FAMILIES: { value: FontFamily; label: string }[] = [
   { value: "Tmoney Round Wind", label: "Tmoney Round Wind" },
   { value: "Pretendard", label: "Pretendard" },
 ];
+
+interface StatsUploadStatus {
+  enabled?: boolean;
+  pending?: number;
+  uploaded?: number;
+  skipped?: number;
+  failed?: number;
+  lastPath?: string;
+  lastReason?: string;
+  lastUpdatedAt?: number;
+}
+
+const parseStatsUploadStatus = (raw?: string): StatsUploadStatus => {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as StatsUploadStatus;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return { lastReason: raw };
+  }
+};
+
+const STATS_CONSENT_LABEL: Record<StatsConsentInfo["state"], string> = {
+  unknown: "미선택",
+  accepted: "동의됨",
+  declined: "거절됨",
+  revoked: "철회됨",
+};
 
 export const SettingsPanel = ({
   onClose,
@@ -128,6 +164,8 @@ export const SettingsPanel = ({
     isClickThrough,
     isAutoHide,
     multiMonitorMode,
+    closeAction,
+    statsConsent,
   } = useSettingsStore(
     useShallow((s) => ({
       hideHotkey: s.hideHotkey,
@@ -147,6 +185,8 @@ export const SettingsPanel = ({
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
+      closeAction: s.closeAction,
+      statsConsent: s.statsConsent,
     })),
   );
 
@@ -169,6 +209,9 @@ export const SettingsPanel = ({
     setClickThroughHotkey,
     toggleAutoHide,
     setMultiMonitorMode,
+    setCloseAction,
+    setStatsConsent,
+    refreshStatsConsent,
     resetJoinPanelPosition,
     resetSidePanelPosition,
     resetMeterPosition,
@@ -200,11 +243,25 @@ export const SettingsPanel = ({
     contributionMode,
     clickThroughHotkey,
     multiMonitorMode,
+    closeAction,
+    statsConsent,
     theme: structuredClone(theme),
   }));
+  const [statsUploadStatus, setStatsUploadStatus] = useState<StatsUploadStatus>(() =>
+    parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()),
+  );
 
   useEffect(() => {
     onReady?.();
+    refreshStatsConsent();
+    setStatsUploadStatus(parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()));
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setStatsUploadStatus(parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()));
+    }, 2500);
+    return () => window.clearInterval(timer);
   }, []);
 
   const handleSave = useCallback(() => {
@@ -229,26 +286,86 @@ export const SettingsPanel = ({
     setContributionMode(snapshot.contributionMode);
     resetClickThrough(snapshot.clickThroughHotkey);
     setMultiMonitorMode(snapshot.multiMonitorMode);
+    setCloseAction(snapshot.closeAction);
+    setStatsConsent(snapshot.statsConsent);
     onClose();
   }, [
     onClose,
     resetClickThrough,
     resetHide,
     setContributionMode,
-    setDamageValueMode,
     setDisplayMode,
+    setDamageValueMode,
     setFontFamily,
     setIsMinimal,
     setMeterOpacity,
     setMultiMonitorMode,
+    setCloseAction,
     setNameDisplay,
     setRowHeight,
     setShowCombatTimerInMinimal,
     setShowTargetInfoInMinimal,
+    setStatsConsent,
     setTheme,
     setTargetInfoDisplayMode,
     snapshot,
   ]);
+
+  const handleAcceptStats = useCallback(() => {
+    setStatsConsent({
+      ...statsConsent,
+      state: "accepted",
+      uploadEnabled: true,
+      publicCharacter: statsConsent.publicCharacter,
+      updatedAt: Date.now(),
+    });
+  }, [setStatsConsent, statsConsent]);
+
+  const handleRevokeStats = useCallback(() => {
+    setStatsConsent({
+      ...statsConsent,
+      state: "revoked",
+      uploadEnabled: false,
+      updatedAt: Date.now(),
+    });
+  }, [setStatsConsent, statsConsent]);
+
+  const handleDeclineStats = useCallback(() => {
+    setStatsConsent({
+      ...statsConsent,
+      state: "declined",
+      uploadEnabled: false,
+      updatedAt: Date.now(),
+    });
+  }, [setStatsConsent, statsConsent]);
+
+  const handleToggleStatsUpload = useCallback(
+    (uploadEnabled: boolean) => {
+      setStatsConsent({
+        ...statsConsent,
+        state: uploadEnabled ? "accepted" : statsConsent.state,
+        uploadEnabled,
+        updatedAt: Date.now(),
+      });
+    },
+    [setStatsConsent, statsConsent],
+  );
+
+  const handleToggleStatsPublic = useCallback(
+    (publicCharacter: boolean) => {
+      setStatsConsent({
+        ...statsConsent,
+        publicCharacter,
+        updatedAt: Date.now(),
+      });
+    },
+    [setStatsConsent, statsConsent],
+  );
+
+  const handleOpenStatsUploadFolder = useCallback(() => {
+    window.javaBridge?.openStatsUploadFolder?.();
+    setStatsUploadStatus(parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()));
+  }, []);
 
   const handleCancelRef = useRef(handleCancel);
   useEffect(() => {
@@ -263,6 +380,14 @@ export const SettingsPanel = ({
     registerHeaderClose?.(stableHandleCancel);
     return () => registerHeaderClose?.(null);
   }, [registerHeaderClose, stableHandleCancel]);
+
+  const statsAccepted = statsConsent.state === "accepted";
+  const statsUploadDescription =
+    statsUploadStatus.lastReason || statsUploadStatus.lastPath
+      ? statsUploadStatus.lastReason ?? statsUploadStatus.lastPath
+      : `완료 ${statsUploadStatus.uploaded ?? 0} · 제외 ${statsUploadStatus.skipped ?? 0} · 실패 ${
+          statsUploadStatus.failed ?? 0
+        }`;
 
   return (
     <div
@@ -340,6 +465,29 @@ export const SettingsPanel = ({
               onCheckedChange={setMultiMonitorMode}
               className="data-[state=checked]:bg-emerald-500"
             />
+          </SettingsRow>
+          <SettingsRow
+            title="종료 버튼 동작"
+            description="메인 전원 버튼을 눌렀을 때의 동작입니다."
+            align="center"
+            rightClassName="w-44">
+            <Select
+              value={closeAction}
+              onValueChange={(v) => setCloseAction(v as CloseAction)}>
+              <SelectTrigger className="w-44 bg-white/5 border-white/10 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CLOSE_ACTION_MODES.map(({ value, label }) => (
+                  <SelectItem
+                    key={value}
+                    value={value}
+                    className="px-4 py-2">
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </SettingsRow>
           <SettingsRow
             title="최소화 단축키 설정"
@@ -662,6 +810,84 @@ export const SettingsPanel = ({
               onChange={(v) => setThemeColor("bossRightValue", v)}
             />
           </div>
+        </SettingsItem>
+
+        <div className="my-3 flex items-center gap-2">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-xs opacity-40 px-2 shrink-0">웹 통계</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+        <SettingsItem>
+          <SettingsRow
+            title="통계 수집 동의"
+            description={`상태: ${STATS_CONSENT_LABEL[statsConsent.state]}`}
+            rightClassName="w-44">
+            {statsAccepted ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRevokeStats}
+                className="w-full text-xs text-rose-200 hover:bg-rose-500/10 hover:text-rose-100">
+                동의 철회
+              </Button>
+            ) : (
+              <div className="flex w-full gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAcceptStats}
+                  className="flex-1 text-xs text-emerald-200 hover:bg-emerald-500/10 hover:text-emerald-100">
+                  동의
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeclineStats}
+                  className="flex-1 text-xs opacity-70 hover:opacity-100">
+                  거절
+                </Button>
+              </div>
+            )}
+          </SettingsRow>
+          <SettingsRow
+            title="자동 업로드"
+            description="보스를 처치해 종료된 내 전투 요약만 전송합니다.">
+            <Switch
+              checked={statsAccepted && statsConsent.uploadEnabled}
+              disabled={!statsAccepted}
+              onCheckedChange={handleToggleStatsUpload}
+              className="data-[state=checked]:bg-emerald-500 disabled:opacity-30"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="내 캐릭터 공개"
+            description="끄면 비공개 지표로만 집계됩니다.">
+            <Switch
+              checked={statsConsent.publicCharacter}
+              disabled={!statsAccepted}
+              onCheckedChange={handleToggleStatsPublic}
+              className="data-[state=checked]:bg-emerald-500 disabled:opacity-30"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="업로드 상태"
+            description={
+              <span
+                className="block truncate"
+                title={statsUploadDescription}>
+                {statsUploadDescription}
+              </span>
+            }
+            rightClassName="w-44">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenStatsUploadFolder}
+              className="w-full flex items-center gap-2 text-xs">
+              <FolderOpen className="w-3 h-3" />
+              mock 폴더
+            </Button>
+          </SettingsRow>
         </SettingsItem>
 
         <SettingsItem className="pb-2">

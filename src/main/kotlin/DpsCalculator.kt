@@ -4,6 +4,7 @@ import com.tbread.data.DataManager
 import com.tbread.entity.*
 import com.tbread.entity.enums.JobClass
 import com.tbread.entity.enums.SpecialDamage
+import com.tbread.stats.StatsUploadQueue
 import org.slf4j.LoggerFactory
 
 class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
@@ -455,7 +456,8 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         recentBuffRates = buffRates
         recentBossBuffRates = bossBuffRates
 
-        DataManager.saveBattleLog(recentData, skillDetails, buffRates, bossBuffRates)
+        val log = DataManager.saveBattleLog(recentData, skillDetails, buffRates, bossBuffRates)
+        StatsUploadQueue.offerIfEligible(log)
         recentData.packets = null
     }
 

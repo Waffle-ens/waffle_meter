@@ -6,8 +6,8 @@ import java.util.*
 
 object PropertyHandler {
     private val props = Properties()
-    private const val APP_NAME = "waffle_meter.v1.5"
-    private val LEGACY_APP_NAMES = listOf("waffle_meter.v1.4", "waffle_meter.v1.3", "waffle_meter.v1.2")
+    private const val APP_NAME = "waffle_meter.v1.6"
+    private val LEGACY_APP_NAMES = listOf("waffle_meter.v1.5", "waffle_meter.v1.4", "waffle_meter.v1.3", "waffle_meter.v1.2")
     private const val SETTING_PROPERTY_FILE_NAME = "settings.properties"
     private const val VERSION_PROPERTY_FILE_NAME = "version.properties"
     private val logger = LoggerFactory.getLogger(PropertyHandler::class.java)
@@ -85,6 +85,10 @@ object PropertyHandler {
         FileOutputStream(settingFile).use { fos ->
             props.store(fos, "settings")
         }
+    }
+
+    fun appDirectory(): File {
+        return settingFile.parentFile
     }
 
     fun getProperty(key: String): String? {

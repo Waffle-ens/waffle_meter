@@ -11,12 +11,34 @@ interface BuffRateBarProps {
 }
 export interface BuffInfo {
   name: string;
-  summary: string;
-  effect: string;
+  summary?: string | null;
+  effect?: string | null;
 }
+
+const cleanBuffText = (value?: string | null): string => {
+  if (!value) return "";
+
+  return value
+    .replace(/<desc_point>\{[^{}]+\}%?<\/>/g, "")
+    .replace(/<desc_point>(.*?)<\/>/g, "$1")
+    .replace(/<\/>/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\{[^{}]+\}%?/g, "")
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/\s+%/g, "")
+        .replace(/\s{2,}/g, " ")
+        .replace(/\s+([,.])/g, "$1")
+        .trim(),
+    )
+    .filter(Boolean)
+    .join("\n");
+};
 
 export const BuffRateBar = ({ id, rate, code, info }: BuffRateBarProps) => {
   const pct = Math.min(100, Math.max(0, rate));
+  const description = cleanBuffText(info?.effect) || cleanBuffText(info?.summary);
 
   const color =
     pct >= 80
@@ -58,10 +80,10 @@ export const BuffRateBar = ({ id, rate, code, info }: BuffRateBarProps) => {
                 <p className="text-sm font-semibold text-white">{info?.name ?? id}</p>
               </div>
             </div>
-            {(info?.effect || info?.summary) && (
+            {description && (
               <div className="pt-2 border-t border-white/10">
                 <p className="text-xs text-white/60 whitespace-pre-line leading-relaxed">
-                  {info?.effect ? info?.effect : info?.summary ? info?.summary : ""}
+                  {description}
                 </p>
               </div>
             )}

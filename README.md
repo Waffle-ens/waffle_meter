@@ -1,4 +1,4 @@
-# waffle_meter.v1.5
+# waffle_meter.v1.6
 
 아이온2 전투분석을 위한 미터기 프로젝트
 
@@ -16,21 +16,32 @@
 1. [Npcap](https://npcap.com/#download)을 설치합니다.
    설치 중 `Install Npcap in WinPcap API-compatible Mode` 옵션을 반드시 체크합니다.
 
-2. [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 `waffle_meter.v1.5-x.x.x.msi` 파일을 다운로드해 설치합니다.
+2. [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 `waffle_meter.v1.6-x.x.x.msi` 파일을 다운로드해 설치합니다.
 
 3. 아이온2가 실행 중이라면 먼저 캐릭터 선택창으로 이동합니다.
 
-4. 시작 메뉴 또는 설치 폴더의 `waffle_meter.v1.5.exe`를 관리자 권한으로 실행합니다.
-   기본 설치 경로는 `C:\Program Files\waffle_meter.v1.5`입니다.
+4. 시작 메뉴 또는 설치 폴더의 `waffle_meter.v1.6.0.exe`를 관리자 권한으로 실행합니다.
+   기본 설치 경로는 `C:\Program Files\waffle_meter.v1.6.0`입니다.
 
 5. 미터기가 보이면 아이온2에 접속해 전투를 시작합니다.
    데미지 기록, 전투 기록, 파티 신청 패널은 인게임 오버레이 형태로 표시됩니다.
 
-6. 미터기가 보이지 않거나 위치가 이상하면 앱을 종료한 뒤 `%APPDATA%\waffle_meter.v1.5\settings.properties`에서 `windowX`, `windowY`, `uiX`, `uiY` 값을 `0`으로 수정한 다음 다시 실행합니다.
+6. 미터기가 보이지 않거나 위치가 이상하면 앱을 종료한 뒤 `%APPDATA%\waffle_meter.v1.6\settings.properties`에서 `windowX`, `windowY`, `uiX`, `uiY` 값을 `0`으로 수정한 다음 다시 실행합니다.
 
 7. 업데이트 알림이 표시되면 앱 안에서 업데이트 파일을 다운로드하거나, [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 MSI를 직접 설치합니다.
 
 ## 업데이트 기록
+
+- v1.6.0
+  - 개발 브랜치에서 검증된 파티 신청/상세내역/오버레이 보정 변경을 배포용 main에 반영했습니다.
+  - 파티 신청창에서 선택한 일반 스킬/스티그마가 카드에 표시되지 않던 문제를 수정했습니다.
+  - 상세내역 버프/디버프 가동률 툴팁에 원문 템플릿이 노출되던 문제를 정리했습니다.
+  - 메인 미터기에 전투 정보 초기화 버튼을 추가하고, 전투 기록/요약 정보를 즉시 비울 수 있도록 했습니다.
+  - 업데이트 알림을 팝업 대신 우측 하단 토스트로 표시하도록 바꿨습니다.
+  - 종료 버튼 동작을 트레이 유지/완전 종료 중 선택할 수 있도록 설정을 추가했습니다.
+  - 아이온2 포커스 상태에 따라 오버레이 우선순위를 조정해 알트탭 후 작업표시줄과 클릭 상태가 꼬이는 문제를 보강했습니다.
+  - 통계 웹 연동 준비용 동의 관리와 보스 처치 전투 요약 업로드 기반을 추가했습니다.
+  - 배포용 main에는 패킷 로깅 설정 UI와 제어 API를 포함하지 않습니다.
 
 - v1.5.2
   - 패킷 로그 기준으로 `붉은 연심의 거울` 2단계 `크로메데의 심연` 보스 코드를 `2300317`로 수정했습니다.

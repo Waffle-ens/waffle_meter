@@ -5,7 +5,6 @@ import com.tbread.entity.*
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicLong
 
 object DataManager {
@@ -23,19 +22,6 @@ object DataManager {
 
     fun currentEpoch(): Long = resetEpoch.get()
     fun currentBattleRevision(): Long = battleRevision.get()
-
-    /*
-    rawPacket 버퍼 영역
-     */
-    private val rawPacketBuffer = ConcurrentLinkedDeque<RawPacket>()
-
-    fun saveRawPacket(data: ByteArray, timestamp: Long) {
-        rawPacketBuffer.add(RawPacket(data, timestamp))
-    }
-
-    fun rawPacketsInRange(from: Long, to: Long): List<RawPacket> {
-        return rawPacketBuffer.filter { it.timestamp in from..to }
-    }
 
     private val mobIdRepository = MobIdRepository()
     private val mobRepository = MobRepository()
@@ -152,7 +138,6 @@ object DataManager {
         summonRepository.flush()
         userRepository.flush()
         useBuffRepository.flush()
-        rawPacketBuffer.clear()
         recentlyEndedBattles.clear()
         activeBattleMobCode = null
         lastDummyHitTime = 0
@@ -322,7 +307,7 @@ object DataManager {
         skillDetails: Map<Int, HashMap<String, AnalyzedSkill>> = emptyMap(),
         buffRates: Map<Int, List<OperatingData>> = emptyMap(),
         bossBuffRates: List<OperatingData> = emptyList()
-    ) {
+    ): DpsLog {
         val snapshot = DpsReport(
             contributors = data.contributors.mapTo(mutableSetOf()) { it.copy() },
             battleStart = data.battleStart,
@@ -331,17 +316,16 @@ object DataManager {
             target = data.target?.copy(mob = data.target!!.mob.copy()),
             packets = null
         )
-        battleLogRepository.save(
-            DpsLog(
-                snapshot,
-                HashMap(summonRepository.getAll()),
-                emptyList(),
-                skillDetails,
-                buffRates,
-                bossBuffRates
-            )
+        val log = DpsLog(
+            snapshot,
+            HashMap(summonRepository.getAll()),
+            skillDetails,
+            buffRates,
+            bossBuffRates
         )
+        battleLogRepository.save(log)
         useBuffRepository.pruneBefore(data.battleEnd + 1)
+        return log
     }
 
     fun recentBattleList(): List<Pair<Int, DpsReport>> {

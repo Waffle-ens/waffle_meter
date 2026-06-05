@@ -12,6 +12,9 @@ import com.tbread.entity.DpsReport
 import com.tbread.entity.JoinRequestUser
 import com.tbread.packet.PacketEvent
 import com.tbread.packet.PacketEventBus
+import com.tbread.stats.StatsConsentManager
+import com.tbread.stats.StatsPayloadBuilder
+import com.tbread.stats.StatsUploadQueue
 import javafx.application.Application
 import javafx.application.HostServices
 import javafx.application.Platform
@@ -58,6 +61,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         private const val SWP_SHOWWINDOW = 0x0040
 
         private val HWND_TOPMOST = WinDef.HWND(Pointer.createConstant(-1))
+        private val HWND_TOP = WinDef.HWND(Pointer.createConstant(0))
         private val HWND_NOTOPMOST = WinDef.HWND(Pointer.createConstant(-2))
         private val HWND_BOTTOM = WinDef.HWND(Pointer.createConstant(1))
     }
@@ -93,8 +97,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun hardResetDps() {
-            // dpsCalculator.hardReset()
-            // engine.executeScript("strongReset()")
+            dpsCalculator.hardReset()
         }
 
         fun updateHotkey(modifiers: Int, vkCode: Int) {
@@ -116,6 +119,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         fun exitApp() {
             Platform.exit()
             exitProcess(0)
+        }
+
+        fun hideToTray() {
+            hideToTray(stage)
         }
 
         fun toggleVisibility() {
@@ -151,12 +158,36 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             HotkeyHandler.updateClickThroughHotkey(modifiers, vkCode)
         }
 
+        fun isDevBuild(): Boolean {
+            return version.contains("dev", ignoreCase = true)
+        }
+
         fun getDpsData(): String {
             return cachedDpsJson
         }
 
         fun isDebuggingMode(): Boolean {
             return debugMode
+        }
+
+        fun getStatsConsent(): String {
+            return Json.encodeToString(StatsConsentManager.info())
+        }
+
+        fun setStatsConsent(state: String, uploadEnabled: Boolean, publicCharacter: Boolean): String {
+            return Json.encodeToString(StatsConsentManager.set(state, uploadEnabled, publicCharacter))
+        }
+
+        fun getStatsOwnCharacter(): String {
+            return Json.encodeToString(StatsPayloadBuilder.ownCharacter())
+        }
+
+        fun getStatsUploadStatus(): String {
+            return Json.encodeToString(StatsUploadQueue.status())
+        }
+
+        fun openStatsUploadFolder(): String {
+            return StatsUploadQueue.openFolder()
         }
 
         fun getBattleDetail(uid: Int): String {
@@ -199,7 +230,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         fun startUpdate(msiUrl: String) {
             Thread {
                 try {
-                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.5").also { it.mkdirs() }
+                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.6.0").also { it.mkdirs() }
                     val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
 
                     val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
@@ -281,6 +312,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
 
     override fun start(stage: Stage) {
+        StatsUploadQueue.configure(version)
         Platform.setImplicitExit(false)
         stage.setOnCloseRequest {
             HotkeyHandler.stop()
@@ -318,13 +350,14 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         stage.initStyle(StageStyle.TRANSPARENT)
         stage.scene = scene
-        stage.isAlwaysOnTop = true
-        stage.title = "waffle_meter.v1.5"
+        stage.isAlwaysOnTop = false
+        stage.title = "waffle_meter.v1.6.0"
         fitOverlayToScreen(stage, webView)
 
         stage.show()
         fitOverlayToScreen(stage, webView)
         applyOverlayWindowStyle(stage.title)
+        ensureUserDesktopShortcut(stage.title)
 
         setupTray(stage)
 
@@ -369,21 +402,22 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             while (true) {
                 kotlinx.coroutines.delay(overlayFocusCheckMs)
                 if (!isVisible) continue
+                val aionFocused = isAion2Focused()
+                val selfFocused = isSelfFocused()
                 if (!isAutoHide) {
-                    Platform.runLater { presentOverlay(stage) }
+                    Platform.runLater { presentOverlay(stage, aionFocused || selfFocused) }
                     continue
                 }
 
-                val aionFocused = isAion2Focused()
                 if (!aionEverFocused) {
                     if (aionFocused) aionEverFocused = true
                     else continue
                 }
 
-                val shouldShow = aionFocused || isSelfFocused()
+                val shouldShow = aionFocused || selfFocused
                 Platform.runLater {
                     if (shouldShow) {
-                        presentOverlay(stage)
+                        presentOverlay(stage, true)
                     } else {
                         parkOverlay(stage)
                     }
@@ -392,15 +426,15 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
     }
 
-    private fun presentOverlay(stage: Stage) {
-        if (!stage.isAlwaysOnTop) {
-            stage.isAlwaysOnTop = true
+    private fun presentOverlay(stage: Stage, topMost: Boolean = true) {
+        if (stage.isAlwaysOnTop != topMost) {
+            stage.isAlwaysOnTop = topMost
         }
         if (stage.opacity != 1.0) {
             stage.opacity = 1.0
         }
         syncOverlayInputStyle("present")
-        restoreOverlayTopMost(stage)
+        restoreOverlayPriority(stage, topMost)
         isOverlayParked = false
     }
 
@@ -532,17 +566,56 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         )
     }
 
-    private fun restoreOverlayTopMost(stage: Stage) {
+    private fun restoreOverlayPriority(stage: Stage, topMost: Boolean) {
         val hwnd = overlayHwnd ?: User32.INSTANCE.FindWindow(null, stage.title)?.also { overlayHwnd = it } ?: return
         User32.INSTANCE.SetWindowPos(
             hwnd,
-            HWND_TOPMOST,
+            if (topMost) HWND_TOPMOST else HWND_TOP,
             0,
             0,
             0,
             0,
             SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE or SWP_SHOWWINDOW
         )
+    }
+
+    private fun ensureUserDesktopShortcut(title: String) {
+        val exePath = ProcessHandle.current().info().command().orElse(null) ?: return
+        if (!exePath.endsWith(".exe", ignoreCase = true)) return
+
+        val target = exePath.replace("'", "''")
+        val shortcutName = "${title.replace("'", "''")}.lnk"
+        val script = """
+            ${'$'}desktop = [Environment]::GetFolderPath('Desktop')
+            if (![string]::IsNullOrWhiteSpace(${'$'}desktop)) {
+              ${'$'}shortcutPath = Join-Path ${'$'}desktop '$shortcutName'
+              ${'$'}targetPath = '$target'
+              ${'$'}workingDirectory = Split-Path -Parent ${'$'}targetPath
+              ${'$'}shell = New-Object -ComObject WScript.Shell
+              ${'$'}shortcut = ${'$'}shell.CreateShortcut(${'$'}shortcutPath)
+              ${'$'}shortcut.TargetPath = ${'$'}targetPath
+              ${'$'}shortcut.WorkingDirectory = ${'$'}workingDirectory
+              ${'$'}shortcut.IconLocation = "${'$'}targetPath,0"
+              ${'$'}shortcut.Save()
+            }
+        """.trimIndent()
+
+        runCatching {
+            val encoded = java.util.Base64.getEncoder()
+                .encodeToString(script.toByteArray(Charsets.UTF_16LE))
+            ProcessBuilder(
+                "powershell.exe",
+                "-NoProfile",
+                "-WindowStyle",
+                "Hidden",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-EncodedCommand",
+                encoded
+            ).start()
+        }.onFailure {
+            logger.warn("사용자 바탕화면 바로가기 보강 실패", it)
+        }
     }
 
     private fun parkOverlayNative(stage: Stage) {
@@ -600,7 +673,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 popup.addSeparator()
                 popup.add(exitItem)
 
-                trayIcon = TrayIcon(image, "waffle_meter.v1.5", popup).apply {
+                trayIcon = TrayIcon(image, "waffle_meter.v1.6.0", popup).apply {
                     isImageAutoSize = true
                     addMouseListener(object : MouseAdapter() {
                         override fun mouseClicked(e: MouseEvent) {

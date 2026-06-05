@@ -82,6 +82,12 @@ export const useVersionCheck = () => {
 
       setCurrentVersion(current.raw);
 
+      if ((window as any).javaBridge?.isDevBuild?.() || current.pre?.toLowerCase().includes("dev")) {
+        setUpdateInfo(null);
+        setCheckStatus("idle");
+        return;
+      }
+
       try {
         const res = await fetch(API, {
           headers: { Accept: "application/vnd.github+json" },
