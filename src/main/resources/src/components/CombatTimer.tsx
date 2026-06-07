@@ -10,7 +10,9 @@ export const CombatTimer = ({ isInCombat, combatTime }: Props) => {
   const standbyColor = overlayTheme === "light" ? "#334155" : combatTimeColor;
   const activeColor = overlayTheme === "light" ? "#0f766e" : "#2dd4bf";
   return (
-    <div className="mt-2 flex items-center gap-2 rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-row-bg)] px-2.5 py-1.5">
+    <div
+      data-meter-timer="true"
+      className="mt-2 flex items-center gap-2 rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-row-bg)] px-2.5 py-1.5">
       <div
         className="h-2 w-2 rounded-full transition-colors duration-300"
         style={{

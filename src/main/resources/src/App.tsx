@@ -8,7 +8,7 @@ import { TargetInfo } from "@/components/TargetInfo";
 import { SidePanel } from "@/components/panels/SidePanel.tsx";
 import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
-import { useResizable } from "@/hooks/resize/useResizable";
+import { useResizable, type MeterResizeDirection } from "@/hooks/resize/useResizable";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
 // import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,7 +16,67 @@ import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
 import { JoinRequestPanel } from "@/components/joinPanel/JoinRequestPanel";
 import { cn } from "@/lib/utils";
 import { DebugConsole } from "./components/DebugConsole";
+import { StatsConsentModal, type StatsOwnCharacter } from "@/components/StatsConsentModal";
+import { UpdateToast } from "@/components/UpdateToast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Power, SendToBack } from "lucide-react";
 import lock from "@/assets/lock.png";
+
+const METER_RESIZE_HANDLES: {
+  direction: MeterResizeDirection;
+  className: string;
+  indicatorClassName: string;
+}[] = [
+  {
+    direction: "n",
+    className: "left-8 right-8 -top-1 h-3 cursor-n-resize",
+    indicatorClassName: "mx-auto mt-1 h-0.5 w-12 rounded-full",
+  },
+  {
+    direction: "s",
+    className: "left-8 right-8 -bottom-1 h-3 cursor-s-resize",
+    indicatorClassName: "mx-auto mt-1.5 h-0.5 w-12 rounded-full",
+  },
+  {
+    direction: "e",
+    className: "-right-1 top-8 bottom-8 w-3 cursor-e-resize",
+    indicatorClassName: "ml-1 mt-8 h-12 w-0.5 rounded-full",
+  },
+  {
+    direction: "w",
+    className: "-left-1 top-8 bottom-8 w-3 cursor-w-resize",
+    indicatorClassName: "ml-1.5 mt-8 h-12 w-0.5 rounded-full",
+  },
+  {
+    direction: "ne",
+    className: "-right-1 -top-1 h-5 w-5 cursor-ne-resize",
+    indicatorClassName: "ml-2 mt-2 h-2 w-2 rounded-sm",
+  },
+  {
+    direction: "nw",
+    className: "-left-1 -top-1 h-5 w-5 cursor-nw-resize",
+    indicatorClassName: "ml-1 mt-2 h-2 w-2 rounded-sm",
+  },
+  {
+    direction: "se",
+    className: "-right-1 -bottom-1 h-5 w-5 cursor-se-resize",
+    indicatorClassName: "ml-2 mt-1 h-2 w-2 rounded-sm",
+  },
+  {
+    direction: "sw",
+    className: "-left-1 -bottom-1 h-5 w-5 cursor-sw-resize",
+    indicatorClassName: "ml-1 mt-1 h-2 w-2 rounded-sm",
+  },
+];
+
 export default function App() {
   const {
     players,
@@ -25,7 +85,7 @@ export default function App() {
     isInCombat,
     remainHp,
     maxHp,
-    // reset,
+    reset,
     // toggleCollapse,
     battleTime,
     formatBattleTime,
@@ -34,6 +94,7 @@ export default function App() {
 
   const activePanelRef = useRef<PanelType>(null);
   const selectedRef = useRef<Player | null>(null);
+  const statsOwnCharacterKeyRef = useRef<string>("");
   const {
     updateInfo,
     currentVersion,
@@ -61,8 +122,13 @@ export default function App() {
     isClickThrough,
     overlayTheme,
     overlayLayout,
+    closeAction,
     uiX,
     uiY,
+    statsConsent,
+    setCloseAction,
+    setStatsConsent,
+    refreshStatsConsent,
   } = useSettingsStore(
     useShallow((s) => ({
       isLoaded: s.isLoaded,
@@ -74,12 +140,21 @@ export default function App() {
       isClickThrough: s.isClickThrough,
       overlayTheme: s.overlayTheme,
       overlayLayout: s.overlayLayout,
+      closeAction: s.closeAction,
       uiX: s.uiX,
       uiY: s.uiY,
+      statsConsent: s.statsConsent,
+      setCloseAction: s.setCloseAction,
+      setStatsConsent: s.setStatsConsent,
+      refreshStatsConsent: s.refreshStatsConsent,
     })),
   );
 
   const [selectedHistoryIdx, setSelectedHistoryIdx] = useState<number | undefined>(undefined);
+  const [statsConsentOpen, setStatsConsentOpen] = useState(false);
+  const [statsOwnCharacter, setStatsOwnCharacter] = useState<StatsOwnCharacter | null>(null);
+  const [closeActionDialogOpen, setCloseActionDialogOpen] = useState(false);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
 
   const handlePanelToggle = useCallback((panel: PanelType) => {
     setActivePanel((prev) => (prev === panel ? null : panel));
@@ -92,12 +167,38 @@ export default function App() {
   //   setSelected(null);
   // }, [toggleCollapse]);
 
-  // const handleReset = useCallback(() => {
-  //   reset();
-  //   setSelectedHistoryIdx(undefined);
-  //   setActivePanel(null);
-  //   setSelected(null);
-  // }, [reset]);
+  const handleReset = useCallback(() => {
+    window.javaBridge?.hardResetDps?.();
+    reset();
+    setSelectedHistoryIdx(undefined);
+    setActivePanel(null);
+    setSelected(null);
+  }, [reset]);
+
+  const handleExitRequest = useCallback(() => {
+    if (closeAction === "tray") {
+      window.javaBridge?.hideToTray?.();
+      return;
+    }
+    if (closeAction === "exit") {
+      window.javaBridge?.exitApp?.();
+      return;
+    }
+    setCloseActionDialogOpen(true);
+  }, [closeAction]);
+
+  const chooseCloseAction = useCallback(
+    (action: "tray" | "exit") => {
+      setCloseAction(action);
+      setCloseActionDialogOpen(false);
+      if (action === "tray") {
+        window.javaBridge?.hideToTray?.();
+      } else {
+        window.javaBridge?.exitApp?.();
+      }
+    },
+    [setCloseAction],
+  );
   const playersRef = useRef<Player[]>([]);
   useEffect(() => {
     playersRef.current = players;
@@ -118,9 +219,21 @@ export default function App() {
     setActivePanel(null);
   }, []);
   const handleCheckUpdate = useCallback(() => {
+    if (updateInfo) {
+      handlePanelToggle("update");
+      return;
+    }
     checkUpdate();
-    handlePanelToggle("update");
-  }, [checkUpdate, handlePanelToggle]);
+  }, [checkUpdate, handlePanelToggle, updateInfo]);
+
+  const handleOpenUpdatePanel = useCallback(() => {
+    setDismissedUpdateVersion(updateInfo?.latestVersion ?? null);
+    setActivePanel("update");
+  }, [updateInfo?.latestVersion]);
+
+  const handleDismissUpdateToast = useCallback(() => {
+    setDismissedUpdateVersion(updateInfo?.latestVersion ?? "__download__");
+  }, [updateInfo?.latestVersion]);
 
   useEffect(() => {
     activePanelRef.current = activePanel;
@@ -135,8 +248,37 @@ export default function App() {
   }, [isLoaded]);
 
   useEffect(() => {
-    if (updateInfo) setActivePanel("update");
-  }, [updateInfo]);
+    if (!isLoaded) return;
+    refreshStatsConsent();
+
+    const detectOwnCharacter = () => {
+      const raw = window.javaBridge?.getStatsOwnCharacter?.();
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw) as StatsOwnCharacter;
+        if (!parsed?.detected) return;
+        setStatsOwnCharacter(parsed);
+        const characterKey = `${parsed.server}:${parsed.nickname ?? ""}`;
+        if (characterKey !== statsOwnCharacterKeyRef.current) {
+          statsOwnCharacterKeyRef.current = characterKey;
+          refreshStatsConsent();
+        }
+        if (useSettingsStore.getState().statsConsent.state === "unknown") {
+          setStatsConsentOpen(true);
+        }
+      } catch {}
+    };
+
+    detectOwnCharacter();
+    const timer = window.setInterval(detectOwnCharacter, 2000);
+    return () => window.clearInterval(timer);
+  }, [isLoaded, refreshStatsConsent]);
+
+  useEffect(() => {
+    if (downloadState.status !== "idle") {
+      setDismissedUpdateVersion(null);
+    }
+  }, [downloadState.status]);
 
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
@@ -209,6 +351,28 @@ export default function App() {
     },
     [setHistoryData],
   );
+  const handleAcceptStatsConsent = useCallback(
+    (publicCharacter: boolean) => {
+      setStatsConsent({
+        ...statsConsent,
+        state: "accepted",
+        uploadEnabled: true,
+        publicCharacter,
+        updatedAt: Date.now(),
+      });
+      setStatsConsentOpen(false);
+    },
+    [setStatsConsent, statsConsent],
+  );
+  const handleDeclineStatsConsent = useCallback(() => {
+    setStatsConsent({
+      ...statsConsent,
+      state: "declined",
+      uploadEnabled: false,
+      updatedAt: Date.now(),
+    });
+    setStatsConsentOpen(false);
+  }, [setStatsConsent, statsConsent]);
   return (
     // <TooltipProvider>
     <div
@@ -284,7 +448,8 @@ export default function App() {
           <div className="mb-2">
             <Header
               className={headerClass}
-              // reset={handleReset}
+              reset={handleReset}
+              onExitRequest={handleExitRequest}
               setSettings={handlePanelToggle}
 
               // isCollapse={isCollapse}
@@ -319,20 +484,32 @@ export default function App() {
           <div className="mt-2">
             <Header
               className={headerClass}
-              // reset={handleReset}
+              reset={handleReset}
+              onExitRequest={handleExitRequest}
               setSettings={handlePanelToggle}
               // isCollapse={isCollapse}
               // toggleCollapse={handleToggleCollapse}
             />
           </div>
         )}
-        {!isMinimal && (
-          <div
-            onMouseDown={onMouseDown}
-            className="resizeHandle absolute top-1/2 -right-3 flex h-16 w-3 -translate-y-1/2 cursor-e-resize items-center justify-center opacity-45 transition-opacity hover:opacity-100">
-            <div className="h-10 w-1 rounded-full bg-[var(--meter-muted)] shadow-[0_0_12px_rgba(255,255,255,0.2)] transition-colors" />
-          </div>
-        )}
+        {!isMinimal &&
+          METER_RESIZE_HANDLES.map((handle) => (
+            <div
+              key={handle.direction}
+              data-no-drag
+              onMouseDown={(e) => onMouseDown(e, handle.direction)}
+              className={cn(
+                "resizeHandle absolute z-20 opacity-0 transition-opacity hover:opacity-80 group-hover/app:opacity-45",
+                handle.className,
+              )}>
+              <div
+                className={cn(
+                  "bg-[var(--meter-muted)] shadow-[0_0_10px_rgba(255,255,255,0.18)]",
+                  handle.indicatorClassName,
+                )}
+              />
+            </div>
+          ))}
         {isClickThrough && (
           <div
             className="absolute -top-2  z-50 pointer-events-none"
@@ -369,6 +546,75 @@ export default function App() {
           onCheckUpdate={handleCheckUpdate}
         />
       </div>
+      <StatsConsentModal
+        open={statsConsentOpen}
+        character={statsOwnCharacter}
+        onAccept={handleAcceptStatsConsent}
+        onDecline={handleDeclineStatsConsent}
+      />
+      {updateInfo &&
+        activePanel !== "update" &&
+        (downloadState.status !== "idle" ||
+          dismissedUpdateVersion !== updateInfo.latestVersion) && (
+          <UpdateToast
+            updateInfo={updateInfo}
+            downloadState={downloadState}
+            onUpdate={startUpdate}
+            onOpenPanel={handleOpenUpdatePanel}
+            onDismiss={handleDismissUpdateToast}
+          />
+        )}
+      <Dialog
+        open={closeActionDialogOpen}
+        onOpenChange={setCloseActionDialogOpen}>
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-[420px] overflow-hidden border border-slate-500/30 !bg-[#08111f]/95 p-0 text-slate-50 shadow-[0_24px_72px_rgba(0,0,0,0.58)] backdrop-blur-md">
+          <DialogHeader className="border-b border-white/10 px-5 pb-4 pt-5">
+            <div className="mb-1 flex size-10 items-center justify-center rounded-md border border-cyan-300/20 bg-cyan-300/10 text-cyan-200">
+              <Power className="size-5" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-slate-50">종료 버튼 동작 선택</DialogTitle>
+            <DialogDescription className="text-sm leading-6 text-slate-300">
+              선택한 방식은 설정에 저장되고, 다음부터 전원 버튼에 바로 적용됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2.5 px-5 py-4 text-sm">
+            <button
+              type="button"
+              onClick={() => chooseCloseAction("tray")}
+              className="flex w-full cursor-pointer items-center gap-3 rounded-md border border-emerald-300/25 bg-emerald-300/8 p-3 text-left transition-colors hover:bg-emerald-300/14">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-300/12 text-emerald-200">
+                <SendToBack className="size-4.5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-bold text-emerald-100">트레이에서 계속 실행</span>
+                <span className="text-xs text-slate-400">창만 숨기고 패킷 캡처와 미터기 동작은 유지합니다.</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => chooseCloseAction("exit")}
+              className="flex w-full cursor-pointer items-center gap-3 rounded-md border border-rose-300/25 bg-rose-300/8 p-3 text-left transition-colors hover:bg-rose-300/14">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-rose-300/12 text-rose-200">
+                <Power className="size-4.5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-bold text-rose-100">완전히 종료</span>
+                <span className="text-xs text-slate-400">미터기와 백그라운드 동작을 모두 종료합니다.</span>
+              </span>
+            </button>
+          </div>
+          <DialogFooter className="-mx-0 -mb-0 border-t border-white/10 !bg-white/[0.03] px-5 py-3">
+            <Button
+              variant="ghost"
+              onClick={() => setCloseActionDialogOpen(false)}
+              className="text-slate-300 opacity-80 hover:bg-white/10 hover:text-white hover:opacity-100">
+              취소
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     // </TooltipProvider>
   );

@@ -120,9 +120,9 @@ object HotkeyHandler {
         listenerThread = Thread({
             val user32 = User32.INSTANCE
 
-            // val registeredReset = user32.RegisterHotKey(null, RESET_HOTKEY_ID, currentHotkey.modifiers, currentHotkey.vkCode)
-            // if (!registeredReset) logger.error("단축키 등록 실패: $currentHotkey")
-            // else logger.info("단축키 등록 성공: $currentHotkey")
+            val registeredReset = user32.RegisterHotKey(null, RESET_HOTKEY_ID, currentHotkey.modifiers, currentHotkey.vkCode)
+            if (!registeredReset) logger.error("전투 초기화 단축키 등록 실패: $currentHotkey")
+            else logger.info("전투 초기화 단축키 등록 성공: $currentHotkey")
 
             val registeredVisibility = user32.RegisterHotKey(null, VISIBILITY_HOTKEY_ID, visibilityHotkey.modifiers, visibilityHotkey.vkCode)
             if (!registeredVisibility) logger.error("숨기기 단축키 등록 실패: $visibilityHotkey")
@@ -132,9 +132,7 @@ object HotkeyHandler {
             if (!registeredClickThrough) logger.error("클릭 통과 단축키 등록 실패: $clickThroughHotkey")
             else logger.info("클릭 통과 단축키 등록 성공: $clickThroughHotkey")
 
-            if (
-              // !registeredReset && 
-              !registeredVisibility && !registeredClickThrough) {
+            if (!registeredReset && !registeredVisibility && !registeredClickThrough) {
                 running = false
                 return@Thread
             }
@@ -158,7 +156,7 @@ object HotkeyHandler {
                 }
             }
 
-            // user32.UnregisterHotKey(null, RESET_HOTKEY_ID)
+            user32.UnregisterHotKey(null, RESET_HOTKEY_ID)
             user32.UnregisterHotKey(null, VISIBILITY_HOTKEY_ID)
             user32.UnregisterHotKey(null, CLICK_THROUGH_HOTKEY_ID)
             logger.info("단축키 해제")

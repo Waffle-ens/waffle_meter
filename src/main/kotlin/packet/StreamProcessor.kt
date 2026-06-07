@@ -20,6 +20,10 @@ class StreamProcessor() {
 
     private val mask = 0x0f
 
+    // 캐릭터 정보 스냅샷(OwnNickname/OtherNickname) 패킷 꼬리에 들어있는 전투력 필드 마커.
+    // 구조: [21 F4 CB 1F][u32][u32][전투력 u32 LE][00 00 ...]  → 전투력 = 마커offset + 12
+    private val powerMarker = byteArrayOf(0x21, 0xF4.toByte(), 0xCB.toByte(), 0x1F)
+
     private val decompressFactory = LZ4Factory.fastestInstance()
     private val decompressor = decompressFactory.fastDecompressor()
 
@@ -205,7 +209,9 @@ class StreamProcessor() {
                 job = packet[offset].toInt() and 0xff
             }
         }
-        DataManager.saveNickname(userInfo.value, nickname, true, server)
+        val realClass = JobClass.convertFromCode(job)
+        DataManager.saveNickname(userInfo.value, nickname, true, server, realClass)
+        parseSnapshotPower(packet)?.let { DataManager.saveUserPower(userInfo.value, it) }
         PacketDebugLogger.meta(
             "nickname",
             mapOf("own" to true, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job)
@@ -298,10 +304,15 @@ class StreamProcessor() {
             PacketAddonManager.parse(packet, arrivedAt)
         }
 
-        DataManager.saveNickname(userInfo.value, nickname, false, server)
+        val realClass = JobClass.convertFromCode(job)
+        DataManager.saveNickname(userInfo.value, nickname, false, server, realClass)
+        val power = parseSnapshotPower(packet)
+        if (power != null) {
+            DataManager.saveUserPower(userInfo.value, power)
+        }
         PacketDebugLogger.meta(
             "nickname",
-            mapOf("own" to false, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job)
+            mapOf("own" to false, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job, "power" to (power ?: 0))
         )
 
     }
@@ -742,6 +753,37 @@ class StreamProcessor() {
         }
     }
 
+    private fun lastIndexOf(data: ByteArray, pattern: ByteArray): Int {
+        if (pattern.isEmpty() || data.size < pattern.size) return -1
+        for (i in data.size - pattern.size downTo 0) {
+            var matched = true
+            for (j in pattern.indices) {
+                if (data[i + j] != pattern[j]) {
+                    matched = false
+                    break
+                }
+            }
+            if (matched) return i
+        }
+        return -1
+    }
+
+    /**
+     * 캐릭터 스냅샷 패킷(OwnNickname/OtherNickname)에서 전투력을 추출한다.
+     * 전투력은 패킷 꼬리쪽 [21 F4 CB 1F] 마커 + 12 위치의 u32 LE 이다.
+     * 본인(OwnNickname) 패킷은 같은 마커가 다른 의미로 쓰여 비정상적으로 큰 값이 나오므로
+     * 범위 검증(0 < power <= 10_000_000)으로 걸러진다. 그 경우 null 을 반환하고 공식 API fallback 을 탄다.
+     */
+    private fun parseSnapshotPower(packet: ByteArray): Int? {
+        val markerIdx = lastIndexOf(packet, powerMarker)
+        if (markerIdx < 0) return null
+        val offset = markerIdx + 12
+        if (offset + 4 > packet.size) return null
+        val power = parseUInt32le(packet, offset)
+        if (power <= 0 || power > 10_000_000) return null
+        return power
+    }
+
     private fun parseSpecialDamageFlags(packet: ByteArray): List<SpecialDamage> {
         val flags = mutableListOf<SpecialDamage>()
 
@@ -904,12 +946,29 @@ class StreamProcessor() {
             mapOf("requester" to requester, "nickname" to nickname, "server" to server, "job" to job, "power" to power)
         )
         PacketEventBus.events.tryEmit(PacketEvent.JoinRequest(request))
-        val user = DataManager.findUserByNicknameAndServer(nickname, server)
-        if (user == null) {
-            DataManager.saveUser(User(-1, nickname, server, power = power))
-            return true
+        DataManager.rememberUserPower(requester, nickname, server, realClass, power)
+        DataManager.requestOfficialCharacterLookup(requester, nickname, server, realClass) { info ->
+            if (info.skills.isEmpty()) return@requestOfficialCharacterLookup
+            if (System.currentTimeMillis() - arrivedAt > 20_000L) return@requestOfficialCharacterLookup
+
+            val enriched = PacketAddonManager.processingUser(
+                request.copy(
+                    power = if (request.power > 0) request.power else info.power,
+                    job = request.job ?: info.job?.className,
+                    skill = HashMap(info.skills)
+                )
+            )
+            PacketEventBus.events.tryEmit(PacketEvent.JoinRequest(enriched))
+            PacketDebugLogger.meta(
+                "join_request_skills",
+                mapOf(
+                    "requester" to requester,
+                    "nickname" to nickname,
+                    "server" to server,
+                    "skillCount" to info.skills.size
+                )
+            )
         }
-        user.power = power
         return true
     }
 

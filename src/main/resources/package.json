@@ -1,7 +1,7 @@
 {
-  "name": "waffle_meter.v1.4",
+  "name": "waffle_meter.v1.6",
   "private": true,
-  "version": "1.4.11",
+  "version": "1.6.9-dev",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -4,7 +4,7 @@ import type { PanelType } from "@/types";
 import { memo } from "react";
 import {
   Settings,
-  //  RefreshCcw,
+  RotateCcw,
   Power,
   ClipboardClock,
   Bug,
@@ -19,7 +19,8 @@ import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
 
 interface Props {
   // isCollapse: boolean;
-  // reset: () => void;
+  reset: () => void;
+  onExitRequest: () => void;
   setSettings: (value: PanelType) => void;
   // toggleCollapse: () => void;
   className: string;
@@ -29,7 +30,8 @@ import { useSettingsStore } from "@/stores/useSettingsStore";
 export const Header = memo(
   ({
     className,
-    //  reset,
+    reset,
+    onExitRequest,
     setSettings,
   }: Props) => {
     const isDebugMode = useSettingsStore((s) => s.isDebugMode);
@@ -42,10 +44,6 @@ export const Header = memo(
     const requestCount = useJoinRequestStore((s) => s.requests.length);
     const isOpen = useJoinRequestStore((s) => s.isOpen);
     const setOpen = useJoinRequestStore((s) => s.setOpen);
-    const exitApp = () => {
-      window.javaBridge?.exitApp?.();
-    };
-
     const toggleDebugConsole = () => {
       window.dispatchEvent(new CustomEvent("toggle-debug-console"));
     };
@@ -104,7 +102,19 @@ export const Header = memo(
 
           <Button
             variant="ghost"
-            onClick={exitApp}
+            title="전투 정보 초기화"
+            aria-label="전투 정보 초기화"
+            onClick={reset}
+            size="icon"
+            className={iconButtonClass}>
+            <RotateCcw className="size-4.5" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            title="종료"
+            aria-label="종료"
+            onClick={onExitRequest}
             size="icon"
             className={iconButtonClass}>
             <Power className="size-4.5" />

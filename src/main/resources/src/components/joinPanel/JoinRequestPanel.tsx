@@ -7,7 +7,12 @@ import { getJobIconSrc } from "@/utils/icons";
 import { formatPower } from "@/utils/format";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
-import { getSkillName, SKILL_MAP, SKILL_ORDER_MAP } from "@/constants/codes";
+import {
+  getSkillName,
+  normalizeTrackedSkillCode,
+  SKILL_MAP,
+  SKILL_ORDER_MAP,
+} from "@/constants/codes";
 import { JoinRequestSkillSettings } from "./JoinRequestSkillSettings";
 import { SkillBadges } from "./SkillBadges";
 import { cn } from "@/lib/utils";
@@ -239,19 +244,29 @@ export const JoinRequestPanel = memo(() => {
         ) : (
           <div className="py-1">
             {orderedRequests.map((r, i) => {
-              const allBadges = Object.entries(r.skill ?? {})
-                .filter(([code]) => visibleSkillCodes.includes(Number(code)))
-                .sort(
-                  ([a], [b]) =>
-                    (SKILL_ORDER_MAP.get(Number(a)) ?? 999) -
-                    (SKILL_ORDER_MAP.get(Number(b)) ?? 999),
-                )
-                .map(([code, lv]) => ({
-                  code,
-                  name: getSkillName(Number(code)) ?? code,
-                  lv,
-                  isStigma: SKILL_MAP.get(Number(code))?.isStigma ?? false,
-                }));
+              const badgeMap = new Map<
+                number,
+                { code: string; name: string; lv: number; isStigma: boolean }
+              >();
+              for (const [rawCode, rawLv] of Object.entries(r.skill ?? {})) {
+                const normalizedCode = normalizeTrackedSkillCode(Number(rawCode));
+                if (!visibleSkillCodes.includes(normalizedCode)) continue;
+
+                const meta = SKILL_MAP.get(normalizedCode);
+                const previous = badgeMap.get(normalizedCode);
+                badgeMap.set(normalizedCode, {
+                  code: String(normalizedCode),
+                  name: meta?.name ?? getSkillName(Number(rawCode)) ?? rawCode,
+                  lv: Math.max(Number(rawLv) || 0, previous?.lv ?? 0),
+                  isStigma: meta?.isStigma ?? false,
+                });
+              }
+
+              const allBadges = [...badgeMap.values()].sort(
+                (a, b) =>
+                  (SKILL_ORDER_MAP.get(Number(a.code)) ?? 999) -
+                  (SKILL_ORDER_MAP.get(Number(b.code)) ?? 999),
+              );
 
               const normalBadges = allBadges.filter((b) => !b.isStigma);
               const stigmaBadges = allBadges.filter((b) => b.isStigma);

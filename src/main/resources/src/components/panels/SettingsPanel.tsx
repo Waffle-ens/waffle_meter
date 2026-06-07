@@ -4,12 +4,14 @@ import { useShallow } from "zustand/react/shallow";
 import { useHotkeyCapture } from "@/hooks/useHotkeyCapture";
 import { formatHotkey } from "@/utils/hotKey";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, Play, RotateCcw, Square } from "lucide-react";
+import { Download, FolderOpen, Play, RotateCcw, Square } from "lucide-react";
 import type {
   DisplayMode,
   DamageValueMode,
+  CloseAction,
   FontFamily,
   NameDisplay,
+  StatsConsentInfo,
   TargetInfoDisplayMode,
   ThemeColors,
 } from "@/stores/useSettingsStore";
@@ -42,16 +44,16 @@ const DISPLAY_MODES: { value: DisplayMode; label: string; description: string }[
   { value: "dps_percent", label: "딜량 / 기여도", description: "45,000/s 또는 1.20M (35.5%)" },
   {
     value: "amount_dps_percent",
-    label: "전투력 / 딜량 / 기여도",
-    description: "143.0k 45,000/s 또는 1.20M (35.5%)",
+    label: "딜량 / 기여도",
+    description: "전투력은 닉네임 옆 배지로 표시",
   },
-  { value: "amount_percent", label: "전투력 / 기여도", description: "143.0k (35.5%)" },
+  { value: "amount_percent", label: "기여도", description: "전투력은 닉네임 옆 배지로 표시" },
   {
     value: "amount_full_dps_percent",
-    label: "전투력 / 딜량 / 기여도",
-    description: "143.0k 45,000/s 또는 1.20M (35.5%)",
+    label: "딜량 / 기여도",
+    description: "전투력은 닉네임 옆 배지로 표시",
   },
-  { value: "amount_full_percent", label: "전투력 / 기여도", description: "143.0k (35.5%)" },
+  { value: "amount_full_percent", label: "기여도", description: "전투력은 닉네임 옆 배지로 표시" },
 ];
 
 const DAMAGE_VALUE_MODES: { value: DamageValueMode; label: string }[] = [
@@ -93,6 +95,12 @@ const NAME_DISPLAY_MODES: { value: NameDisplay; label: string }[] = [
   { value: "hidden", label: "모두 숨김" },
 ];
 
+const CLOSE_ACTION_MODES: { value: CloseAction; label: string }[] = [
+  { value: "ask", label: "처음 한 번 묻기" },
+  { value: "tray", label: "트레이로 보내기" },
+  { value: "exit", label: "완전히 종료" },
+];
+
 const FONT_FAMILIES: { value: FontFamily; label: string }[] = [
   { value: "Malgun Gothic", label: "맑은 고딕 (윈도우 기본 폰트)" },
   { value: "NEXON Lv2 Gothic", label: "NEXON Lv2 Gothic" },
@@ -112,6 +120,17 @@ interface PacketLoggingStatus {
   errorCount?: number;
 }
 
+interface StatsUploadStatus {
+  enabled?: boolean;
+  pending?: number;
+  uploaded?: number;
+  skipped?: number;
+  failed?: number;
+  lastPath?: string;
+  lastReason?: string;
+  lastUpdatedAt?: number;
+}
+
 const parsePacketLoggingStatus = (raw?: string): PacketLoggingStatus => {
   if (!raw) return {};
   try {
@@ -122,6 +141,33 @@ const parsePacketLoggingStatus = (raw?: string): PacketLoggingStatus => {
   }
 };
 
+const parseStatsUploadStatus = (raw?: string): StatsUploadStatus => {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as StatsUploadStatus;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return { lastReason: raw };
+  }
+};
+
+const STATS_CONSENT_LABEL: Record<StatsConsentInfo["state"], string> = {
+  unknown: "미선택",
+  accepted: "동의됨",
+  declined: "거절됨",
+  revoked: "철회됨",
+};
+
+type SettingsTab = "display" | "overlay" | "theme" | "stats" | "diagnostics";
+
+const SETTINGS_TABS: { value: SettingsTab; label: string }[] = [
+  { value: "display", label: "표시" },
+  { value: "overlay", label: "오버레이" },
+  { value: "theme", label: "테마" },
+  { value: "stats", label: "통계" },
+  { value: "diagnostics", label: "진단" },
+];
+
 export const SettingsPanel = ({
   onClose,
   onReady,
@@ -131,6 +177,7 @@ export const SettingsPanel = ({
   registerHeaderClose,
 }: Props) => {
   const {
+    hotkey,
     hideHotkey,
     displayMode,
     damageValueMode,
@@ -148,8 +195,12 @@ export const SettingsPanel = ({
     isClickThrough,
     isAutoHide,
     multiMonitorMode,
+    closeAction,
+    gpuAcceleration,
+    statsConsent,
   } = useSettingsStore(
     useShallow((s) => ({
+      hotkey: s.hotkey,
       hideHotkey: s.hideHotkey,
       displayMode: s.displayMode,
       damageValueMode: s.damageValueMode,
@@ -167,10 +218,14 @@ export const SettingsPanel = ({
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
+      closeAction: s.closeAction,
+      gpuAcceleration: s.gpuAcceleration,
+      statsConsent: s.statsConsent,
     })),
   );
 
   const {
+    setHotkey,
     setHideHotkey,
     setDisplayMode,
     setDamageValueMode,
@@ -189,10 +244,20 @@ export const SettingsPanel = ({
     setClickThroughHotkey,
     toggleAutoHide,
     setMultiMonitorMode,
+    setCloseAction,
+    setGpuAcceleration,
+    setStatsConsent,
+    refreshStatsConsent,
     resetJoinPanelPosition,
     resetSidePanelPosition,
     resetMeterPosition,
   } = useSettingsStore.getState();
+  const {
+    pending: pendingReset,
+    start: startReset,
+    stop: stopReset,
+    reset: resetReset,
+  } = useHotkeyCapture(hotkey);
   const {
     pending: pendingHide,
     start: startHide,
@@ -206,6 +271,7 @@ export const SettingsPanel = ({
     reset: resetClickThrough,
   } = useHotkeyCapture(clickThroughHotkey);
   const [snapshot] = useState(() => ({
+    hotkey,
     hideHotkey,
     displayMode,
     damageValueMode,
@@ -220,21 +286,45 @@ export const SettingsPanel = ({
     contributionMode,
     clickThroughHotkey,
     multiMonitorMode,
+    closeAction,
+    gpuAcceleration,
+    statsConsent,
     theme: structuredClone(theme),
   }));
   const [packetLoggingStatus, setPacketLoggingStatus] = useState<PacketLoggingStatus>(() =>
     parsePacketLoggingStatus(window.javaBridge?.getPacketLoggingStatus?.()),
   );
+  const [statsUploadStatus, setStatsUploadStatus] = useState<StatsUploadStatus>(() =>
+    parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()),
+  );
 
   useEffect(() => {
     onReady?.();
+    refreshStatsConsent();
+    setStatsUploadStatus(parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()));
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setStatsUploadStatus(parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()));
+    }, 2500);
+    return () => window.clearInterval(timer);
   }, []);
 
   const handleSave = useCallback(() => {
+    setHotkey(pendingReset);
     setHideHotkey(pendingHide);
     setClickThroughHotkey(pendingClickThrough);
     onClose();
-  }, [setHideHotkey, pendingHide, setClickThroughHotkey, pendingClickThrough, onClose]);
+  }, [
+    setHotkey,
+    pendingReset,
+    setHideHotkey,
+    pendingHide,
+    setClickThroughHotkey,
+    pendingClickThrough,
+    onClose,
+  ]);
 
   const handleCancel = useCallback(() => {
     setDisplayMode(snapshot.displayMode);
@@ -250,12 +340,17 @@ export const SettingsPanel = ({
     setTheme(snapshot.theme as ThemeColors);
     setMeterOpacity(snapshot.meterOpacity);
     setContributionMode(snapshot.contributionMode);
+    resetReset(snapshot.hotkey);
     resetClickThrough(snapshot.clickThroughHotkey);
     setMultiMonitorMode(snapshot.multiMonitorMode);
+    setCloseAction(snapshot.closeAction);
+    setGpuAcceleration(snapshot.gpuAcceleration);
+    setStatsConsent(snapshot.statsConsent);
     onClose();
   }, [
     onClose,
     resetClickThrough,
+    resetReset,
     resetHide,
     setContributionMode,
     setDisplayMode,
@@ -264,10 +359,13 @@ export const SettingsPanel = ({
     setIsMinimal,
     setMeterOpacity,
     setMultiMonitorMode,
+    setCloseAction,
+    setGpuAcceleration,
     setNameDisplay,
     setRowHeight,
     setShowCombatTimerInMinimal,
     setShowTargetInfoInMinimal,
+    setStatsConsent,
     setTheme,
     setTargetInfoDisplayMode,
     snapshot,
@@ -286,6 +384,68 @@ export const SettingsPanel = ({
     setPacketLoggingStatus(parsePacketLoggingStatus(raw));
   }, []);
 
+  const [exportedLogPath, setExportedLogPath] = useState<string | null>(null);
+  const handleExportPacketLog = useCallback(() => {
+    const path = window.javaBridge?.exportPacketLog?.();
+    if (path) setExportedLogPath(path);
+  }, []);
+
+  const handleAcceptStats = useCallback(() => {
+    setStatsConsent({
+      ...statsConsent,
+      state: "accepted",
+      uploadEnabled: true,
+      publicCharacter: statsConsent.publicCharacter,
+      updatedAt: Date.now(),
+    });
+  }, [setStatsConsent, statsConsent]);
+
+  const handleRevokeStats = useCallback(() => {
+    setStatsConsent({
+      ...statsConsent,
+      state: "revoked",
+      uploadEnabled: false,
+      updatedAt: Date.now(),
+    });
+  }, [setStatsConsent, statsConsent]);
+
+  const handleDeclineStats = useCallback(() => {
+    setStatsConsent({
+      ...statsConsent,
+      state: "declined",
+      uploadEnabled: false,
+      updatedAt: Date.now(),
+    });
+  }, [setStatsConsent, statsConsent]);
+
+  const handleToggleStatsUpload = useCallback(
+    (uploadEnabled: boolean) => {
+      setStatsConsent({
+        ...statsConsent,
+        state: uploadEnabled ? "accepted" : statsConsent.state,
+        uploadEnabled,
+        updatedAt: Date.now(),
+      });
+    },
+    [setStatsConsent, statsConsent],
+  );
+
+  const handleToggleStatsPublic = useCallback(
+    (publicCharacter: boolean) => {
+      setStatsConsent({
+        ...statsConsent,
+        publicCharacter,
+        updatedAt: Date.now(),
+      });
+    },
+    [setStatsConsent, statsConsent],
+  );
+
+  const handleOpenStatsUploadFolder = useCallback(() => {
+    window.javaBridge?.openStatsUploadFolder?.();
+    setStatsUploadStatus(parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()));
+  }, []);
+
   const handleCancelRef = useRef(handleCancel);
   useEffect(() => {
     handleCancelRef.current = handleCancel;
@@ -300,6 +460,23 @@ export const SettingsPanel = ({
     return () => registerHeaderClose?.(null);
   }, [registerHeaderClose, stableHandleCancel]);
 
+  const statsAccepted = statsConsent.state === "accepted";
+  const statsConsentDescription = `상태: ${STATS_CONSENT_LABEL[statsConsent.state]}${
+    statsConsent.syncStatus === "synced"
+      ? " · 서버 동기화됨"
+      : statsConsent.syncStatus === "sync_failed"
+        ? " · 서버 동기화 실패"
+        : ""
+  }`;
+  const statsUploadDescription =
+    statsUploadStatus.lastReason || statsUploadStatus.lastPath
+      ? statsUploadStatus.lastReason ?? statsUploadStatus.lastPath
+      : `완료 ${statsUploadStatus.uploaded ?? 0} · 제외 ${statsUploadStatus.skipped ?? 0} · 실패 ${
+          statsUploadStatus.failed ?? 0
+        }`;
+  const [activeTab, setActiveTab] = useState<SettingsTab>("display");
+  const sectionClass = (tab: SettingsTab) => (activeTab === tab ? "contents" : "hidden");
+
   return (
     <div
       className="flex pr-3 min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden py-2"
@@ -308,6 +485,23 @@ export const SettingsPanel = ({
       }}
       >
       <div className="flex pr-3 min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden scrollbar-gutter:stable py-2">
+        <div className="sticky top-0 z-10 mb-3 grid grid-cols-5 gap-1 rounded-md border border-white/10 bg-[#08111f]/95 p-1 backdrop-blur-md">
+          {SETTINGS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveTab(tab.value)}
+              className={
+                activeTab === tab.value
+                  ? "rounded px-2 py-2 text-xs font-bold text-cyan-100 bg-cyan-400/15 ring-1 ring-cyan-300/20"
+                  : "rounded px-2 py-2 text-xs text-slate-400 transition-colors hover:bg-white/8 hover:text-slate-100"
+              }>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className={sectionClass("display")}>
         <SettingsItem>
           <SettingsRow
             title="버전 정보"
@@ -352,7 +546,9 @@ export const SettingsPanel = ({
             </Select>
           </SettingsRow>
         </SettingsItem>
+        </div>
 
+        <div className={sectionClass("overlay")}>
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">오버레이</span>
@@ -375,6 +571,50 @@ export const SettingsPanel = ({
               checked={multiMonitorMode}
               onCheckedChange={setMultiMonitorMode}
               className="data-[state=checked]:bg-emerald-500"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="종료 버튼 동작"
+            description="메인 전원 버튼을 눌렀을 때의 동작입니다."
+            align="center"
+            rightClassName="w-44">
+            <Select
+              value={closeAction}
+              onValueChange={(v) => setCloseAction(v as CloseAction)}>
+              <SelectTrigger className="w-44 bg-white/5 border-white/10 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CLOSE_ACTION_MODES.map(({ value, label }) => (
+                  <SelectItem
+                    key={value}
+                    value={value}
+                    className="px-4 py-2">
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+          <SettingsRow
+            title="GPU 가속"
+            description="끄면 다음 실행부터 소프트웨어 렌더링으로 동작합니다.">
+            <Switch
+              checked={gpuAcceleration}
+              onCheckedChange={setGpuAcceleration}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="전투 초기화 단축키 설정"
+            align="center"
+            rightClassName="w-44">
+            <SettingsControlInput
+              readOnly
+              onFocus={startReset}
+              onBlur={stopReset}
+              value={formatHotkey(pendingReset.modifiers, pendingReset.vkCode)}
+              className="cursor-pointer"
             />
           </SettingsRow>
           <SettingsRow
@@ -420,7 +660,9 @@ export const SettingsPanel = ({
             />
           </SettingsRow>
         </SettingsItem>
+        </div>
 
+        <div className={sectionClass("display")}>
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">컴팩트 모드</span>
@@ -592,7 +834,9 @@ export const SettingsPanel = ({
             </div>
           </SettingsRow>
         </SettingsItem>
+        </div>
 
+        <div className={sectionClass("theme")}>
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">테마 설정</span>
@@ -699,7 +943,89 @@ export const SettingsPanel = ({
             />
           </div>
         </SettingsItem>
+        </div>
 
+        <div className={sectionClass("stats")}>
+        <div className="my-3 flex items-center gap-2">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-xs opacity-40 px-2 shrink-0">웹 통계</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+        <SettingsItem>
+          <SettingsRow
+            title="통계 수집 동의"
+            description={statsConsentDescription}
+            rightClassName="w-44">
+            {statsAccepted ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRevokeStats}
+                className="w-full text-xs text-rose-200 hover:bg-rose-500/10 hover:text-rose-100">
+                동의 철회
+              </Button>
+            ) : (
+              <div className="flex w-full gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAcceptStats}
+                  className="flex-1 text-xs text-emerald-200 hover:bg-emerald-500/10 hover:text-emerald-100">
+                  동의
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeclineStats}
+                  className="flex-1 text-xs opacity-70 hover:opacity-100">
+                  거절
+                </Button>
+              </div>
+            )}
+          </SettingsRow>
+          <SettingsRow
+            title="자동 업로드"
+            description="보스를 처치해 종료된 내 전투 요약만 전송합니다.">
+            <Switch
+              checked={statsAccepted && statsConsent.uploadEnabled}
+              disabled={!statsAccepted}
+              onCheckedChange={handleToggleStatsUpload}
+              className="data-[state=checked]:bg-emerald-500 disabled:opacity-30"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="내 캐릭터 공개"
+            description="끄면 비공개 지표로만 집계됩니다.">
+            <Switch
+              checked={statsConsent.publicCharacter}
+              disabled={!statsAccepted}
+              onCheckedChange={handleToggleStatsPublic}
+              className="data-[state=checked]:bg-emerald-500 disabled:opacity-30"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="업로드 상태"
+            description={
+              <span
+                className="block truncate"
+                title={statsUploadDescription}>
+                {statsUploadDescription}
+              </span>
+            }
+            rightClassName="w-44">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenStatsUploadFolder}
+              className="w-full flex items-center gap-2 text-xs">
+              <FolderOpen className="w-3 h-3" />
+              기록 폴더
+            </Button>
+          </SettingsRow>
+        </SettingsItem>
+        </div>
+
+        <div className={sectionClass("diagnostics")}>
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">진단</span>
@@ -709,37 +1035,52 @@ export const SettingsPanel = ({
           <SettingsRow
             title="패킷 로깅"
             description={
-              packetLoggingStatus.path ? (
+              exportedLogPath ? (
+                <span className="block truncate text-emerald-400" title={exportedLogPath}>
+                  내보냄: {exportedLogPath}
+                </span>
+              ) : packetLoggingStatus.path ? (
                 <span
                   className="block truncate"
                   title={packetLoggingStatus.path}>
                   {packetLoggingStatus.path}
                 </span>
               ) : (
-                "문제 재현 직전에 시작하고, 재현이 끝나면 멈춰서 파일을 확정합니다."
+                "재현 직전에 시작 → 던전 입장 등 재현 후 '내보내기'로 전체 버퍼를 파일로 저장합니다."
               )
             }
             rightClassName="w-56">
-            <div className="flex w-full gap-2">
+            <div className="flex w-full flex-col gap-2">
+              <div className="flex w-full gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleTogglePacketLogging}
+                  className="flex-1 flex items-center gap-2 text-xs">
+                  {packetLoggingStatus.running ? (
+                    <Square className="w-3 h-3" />
+                  ) : (
+                    <Play className="w-3 h-3" />
+                  )}
+                  {packetLoggingStatus.running ? "로깅 멈춤" : "로깅 시작"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleOpenPacketLogFolder}
+                  className="flex-1 flex items-center gap-2 text-xs">
+                  <FolderOpen className="w-3 h-3" />
+                  경로 열기
+                </Button>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleTogglePacketLogging}
-                className="flex-1 flex items-center gap-2 text-xs">
-                {packetLoggingStatus.running ? (
-                  <Square className="w-3 h-3" />
-                ) : (
-                  <Play className="w-3 h-3" />
-                )}
-                {packetLoggingStatus.running ? "로깅 멈춤" : "로깅 시작"}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleOpenPacketLogFolder}
-                className="flex-1 flex items-center gap-2 text-xs">
-                <FolderOpen className="w-3 h-3" />
-                경로 열기
+                disabled={!packetLoggingStatus.running}
+                onClick={handleExportPacketLog}
+                className="w-full flex items-center gap-2 text-xs disabled:opacity-30">
+                <Download className="w-3 h-3" />
+                전체 버퍼 내보내기
               </Button>
             </div>
           </SettingsRow>
@@ -797,6 +1138,7 @@ export const SettingsPanel = ({
             사이드 패널 위치 초기화
           </Button>
         </SettingsItem>
+        </div>
       </div>
       <div className="flex w-full min-w-0 shrink-0 justify-end gap-2 border-t border-white/10 pt-4">
         <Button

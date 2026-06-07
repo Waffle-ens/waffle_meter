@@ -3,11 +3,13 @@ export {};
 declare global {
   interface Window {
     javaBridge?: {
-      // resetDps?: () => void;
+      resetDps?: () => void;
+      hardResetDps?: () => void;
       startUpdate: (msiUrl: string) => void;
       getDpsData?: () => void;
 
       getVersion?: () => string;
+      isDevBuild?: () => boolean;
       upload?: (idx: number) => Promise<any>;
 
       getBattleList?: () => void;
@@ -21,6 +23,13 @@ declare global {
 
       openBrowser?: (url: string) => void;
       exitApp?: () => void;
+      hideToTray?: () => void;
+      saveProps?: (key: string, value: string) => void;
+      loadProps?: (key: string) => string | null | undefined;
+      getHotkey?: () => string;
+      updateHotkey?: (modifiers: number, vkCode: number) => void;
+      getHideHotkey?: () => string;
+      updateHideHotkey?: (modifiers: number, vkCode: number) => void;
 
       isClickThrough?: () => boolean;
       getClickThroughHotkey?: () => string;
@@ -40,6 +49,15 @@ declare global {
       stopPacketLogging?: () => string;
       getPacketLoggingStatus?: () => string;
       openPacketLogFolder?: () => string;
+      getStatsConsent?: () => string;
+      setStatsConsent?: (
+        state: "unknown" | "accepted" | "declined" | "revoked",
+        uploadEnabled: boolean,
+        publicCharacter: boolean,
+      ) => string;
+      getStatsOwnCharacter?: () => string;
+      getStatsUploadStatus?: () => string;
+      openStatsUploadFolder?: () => string;
     };
   }
 }

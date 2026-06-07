@@ -102,12 +102,10 @@ export const MeterRow = memo(
     const progressWidth = ratio > 0 ? `${Math.max(1.5, ratio * 100)}%` : "0%";
 
     const statItems = useMemo(() => {
-      const powerColor = isLightOverlay ? "#8a5a00" : theme.meterStatAmount;
       const dpsColor = isLightOverlay ? "#102033" : theme.meterStatDps;
       const percentColor = isLightOverlay ? "#047857" : theme.meterStatPercent;
       const pct =
         contributionMode === "entireContribution" ? safeEntireContribution : safeContribution;
-      const powerText = formatPower(safePower);
       const damageText =
         damageValueMode === "total"
           ? formatAmount(Math.trunc(safeAmount))
@@ -115,28 +113,13 @@ export const MeterRow = memo(
       const pctText = `${pct.toFixed(1)}%`;
 
       switch (displayMode) {
-        case "amount_dps_percent":
-          return [
-            { key: "power", color: powerColor, value: powerText },
-            { key: "damage", color: dpsColor, value: damageText },
-            { key: "percent", color: percentColor, value: pctText },
-          ];
         case "amount_percent":
-          return [
-            { key: "power", color: powerColor, value: powerText },
-            { key: "percent", color: percentColor, value: pctText },
-          ];
-        case "amount_full_dps_percent":
-          return [
-            { key: "power", color: powerColor, value: powerText },
-            { key: "damage", color: dpsColor, value: damageText },
-            { key: "percent", color: percentColor, value: pctText },
-          ];
         case "amount_full_percent":
           return [
-            { key: "power", color: powerColor, value: powerText },
             { key: "percent", color: percentColor, value: pctText },
           ];
+        case "amount_dps_percent":
+        case "amount_full_dps_percent":
         case "dps_percent":
         default:
           return [
@@ -152,8 +135,6 @@ export const MeterRow = memo(
       safeAmount,
       safeEntireContribution,
       safeDps,
-      safePower,
-      theme.meterStatAmount,
       theme.meterStatDps,
       theme.meterStatPercent,
       isLightOverlay,

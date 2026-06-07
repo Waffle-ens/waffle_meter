@@ -145,6 +145,7 @@ class PacketRepository(private val maxPacketsPerTarget: Int = MAX_PACKETS_PER_TA
 
     fun saveCurrentBattleStart() {
         currentBattleStart = System.currentTimeMillis()
+        currentBattleEnd = 0
     }
 
     fun saveCurrentBattleEnd(time: Long = System.currentTimeMillis()) {

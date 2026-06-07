@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Hotkey, ContributionMode } from "@/types";
 import { parseHotkeyString } from "@/utils/hotKey";
 import { DEFAULT_VISIBLE_SKILL_CODES } from "@/constants/codes";
+import { clampMeterRootPosition } from "@/utils/meterBounds";
 
 export type DisplayMode =
   | "dps_percent"
@@ -19,6 +20,8 @@ export type TargetInfoDisplayMode =
 export type NameDisplay = "all" | "me_only" | "hidden";
 export type OverlayTheme = "dark" | "light";
 export type OverlayLayout = "standard" | "bottom";
+export type StatsConsentState = "unknown" | "accepted" | "declined" | "revoked";
+export type CloseAction = "ask" | "tray" | "exit";
 export type FontFamily =
   | "Malgun Gothic"
   | "Spoqa Han Sans Neo"
@@ -43,6 +46,20 @@ export interface ThemeColors {
   combatTimeColor: string;
 }
 
+export interface StatsConsentInfo {
+  state: StatsConsentState;
+  uploadEnabled: boolean;
+  publicCharacter: boolean;
+  consentVersion: string;
+  updatedAt: number;
+  identityHash?: string | null;
+  remoteExists?: boolean;
+  syncStatus?: string;
+  syncError?: string | null;
+  serverUpdatedAt?: string | null;
+  lastSeenAt?: string | null;
+}
+
 export const DEFAULT_THEME: ThemeColors = {
   userBar: ["#15c98f", "#0b8f72"],
   normalBar: ["#f6c65b", "#d68a21"],
@@ -60,7 +77,7 @@ export const DEFAULT_THEME: ThemeColors = {
 };
 
 interface SettingsState {
-  // hotkey: Hotkey;
+  hotkey: Hotkey;
   displayMode: DisplayMode;
   setDisplayMode: (mode: DisplayMode) => void;
   damageValueMode: DamageValueMode;
@@ -80,7 +97,7 @@ interface SettingsState {
   isLoaded: boolean;
   detailHeight: number;
   setDetailHeight: (h: number) => void;
-  // setHotkey: (h: Hotkey) => void;
+  setHotkey: (h: Hotkey) => void;
   isMinimal: boolean;
   showCombatTimerInMinimal: boolean;
   setShowCombatTimerInMinimal: (v: boolean) => void;
@@ -120,8 +137,15 @@ interface SettingsState {
   toggleAutoHide: () => void;
   multiMonitorMode: boolean;
   setMultiMonitorMode: (v: boolean) => void;
+  closeAction: CloseAction;
+  setCloseAction: (v: CloseAction) => void;
+  gpuAcceleration: boolean;
+  setGpuAcceleration: (v: boolean) => void;
   packetLoggingMode: boolean;
   setPacketLoggingMode: (v: boolean) => void;
+  statsConsent: StatsConsentInfo;
+  setStatsConsent: (v: StatsConsentInfo) => void;
+  refreshStatsConsent: () => void;
   joinPanelWidth: number;
   setJoinPanelWidth: (w: number) => void;
   joinPanelHeight: number;
@@ -163,6 +187,46 @@ const readSavedNumber = (
   if (value == null || value === "") return fallback;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+export const DEFAULT_STATS_CONSENT: StatsConsentInfo = {
+  state: "unknown",
+  uploadEnabled: false,
+  publicCharacter: true,
+  consentVersion: "2026-06-04",
+  updatedAt: 0,
+};
+
+const parseStatsConsent = (raw?: string | null): StatsConsentInfo => {
+  if (!raw) return DEFAULT_STATS_CONSENT;
+  try {
+    const parsed = JSON.parse(raw) as Partial<StatsConsentInfo>;
+    const state =
+      parsed.state === "accepted" ||
+      parsed.state === "declined" ||
+      parsed.state === "revoked"
+        ? parsed.state
+        : "unknown";
+    return {
+      state,
+      uploadEnabled: parsed.uploadEnabled === true,
+      publicCharacter: parsed.publicCharacter !== false,
+      consentVersion:
+        typeof parsed.consentVersion === "string"
+          ? parsed.consentVersion
+          : DEFAULT_STATS_CONSENT.consentVersion,
+      updatedAt: Number.isFinite(Number(parsed.updatedAt)) ? Number(parsed.updatedAt) : 0,
+      identityHash: typeof parsed.identityHash === "string" ? parsed.identityHash : null,
+      remoteExists: parsed.remoteExists === true,
+      syncStatus: typeof parsed.syncStatus === "string" ? parsed.syncStatus : undefined,
+      syncError: typeof parsed.syncError === "string" ? parsed.syncError : null,
+      serverUpdatedAt:
+        typeof parsed.serverUpdatedAt === "string" ? parsed.serverUpdatedAt : null,
+      lastSeenAt: typeof parsed.lastSeenAt === "string" ? parsed.lastSeenAt : null,
+    };
+  } catch {
+    return DEFAULT_STATS_CONSENT;
+  }
 };
 
 interface OverlayBoundsSync {
@@ -230,7 +294,10 @@ const defaultSettings = {
   isClickThrough: false,
   isAutoHide: true,
   multiMonitorMode: false,
+  closeAction: "ask" as CloseAction,
+  gpuAcceleration: true,
   packetLoggingMode: false,
+  statsConsent: DEFAULT_STATS_CONSENT,
   joinPanelWidth: 400,
   joinPanelHeight: 330,
   joinPanelX: 0,
@@ -262,10 +329,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
       return;
     }
 
-    // const raw = j.getHotkey?.();
+    const raw = j.getHotkey?.();
     const rawHide = j.getHideHotkey?.();
     const rawClickThrough = j.getClickThroughHotkey?.();
-    // const parsedHotkey = raw ? parseHotkeyString(raw) : null;
+    const parsedHotkey = raw ? parseHotkeyString(raw) : null;
     const parsedHideHotkey = rawHide ? parseHotkeyString(rawHide) : null;
     const parsedClickThroughHotkey = rawClickThrough ? parseHotkeyString(rawClickThrough) : null;
     const savedIsMinimal = j.loadProps("isMinimal") === "true";
@@ -278,7 +345,11 @@ export const useSettingsStore = create<SettingsState>((set) => {
     try {
       if (savedSkillCodesRaw) {
         const parsedSkillCodes = JSON.parse(savedSkillCodesRaw);
-        if (Array.isArray(parsedSkillCodes)) savedSkillCodes = parsedSkillCodes;
+        if (Array.isArray(parsedSkillCodes)) {
+          savedSkillCodes = parsedSkillCodes
+            .map((code) => Number(code))
+            .filter((code) => Number.isFinite(code));
+        }
       }
     } catch {}
     if (DEFAULT_VISIBLE_SKILL_CODES.length > 100 && savedSkillCodes.length < 40) {
@@ -303,8 +374,17 @@ export const useSettingsStore = create<SettingsState>((set) => {
     const savedOverlayTheme = j.loadProps?.("overlayTheme");
     const savedOverlayLayout = j.loadProps?.("overlayLayout");
     const savedMultiMonitorMode = j.loadProps?.("multiMonitorMode") === "true";
+    const savedCloseActionRaw = j.loadProps?.("closeAction");
+    const savedCloseAction: CloseAction =
+      savedCloseActionRaw === "tray" || savedCloseActionRaw === "exit"
+        ? savedCloseActionRaw
+        : defaultSettings.closeAction;
+    const savedGpuAcceleration = j.loadProps?.("gpuAcceleration") !== "false";
     const savedPacketLoggingMode =
       j.isPacketLoggingEnabled?.() ?? j.loadProps?.("packetLoggingMode") === "true";
+    const savedStatsConsent = parseStatsConsent(
+      j.getStatsConsent?.() ?? j.loadProps?.("statsConsent"),
+    );
     const savedWindowXRaw = j.loadProps?.("windowX");
     const savedWindowYRaw = j.loadProps?.("windowY");
     const savedUiXRaw = j.loadProps?.("uiX");
@@ -325,7 +405,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
         : defaultSettings.uiY;
 
     set({
-      // hotkey: parsedHotkey ?? defaultSettings.hotkey,
+      hotkey: parsedHotkey ?? defaultSettings.hotkey,
       hideHotkey: parsedHideHotkey ?? defaultSettings.hideHotkey,
       meterWidth: Number(j.loadProps?.("meterWidth")) || defaultSettings.meterWidth,
       rowHeight: Number(j.loadProps?.("rowHeight")) || defaultSettings.rowHeight,
@@ -361,7 +441,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
       isClickThrough: j.isClickThrough?.() ?? false,
       isAutoHide: j.isAutoHide?.() ?? false,
       multiMonitorMode: savedMultiMonitorMode,
+      closeAction: savedCloseAction,
+      gpuAcceleration: savedGpuAcceleration,
       packetLoggingMode: savedPacketLoggingMode,
+      statsConsent: savedStatsConsent,
       joinPanelWidth: Number(j.loadProps?.("joinPanelWidth")) || defaultSettings.joinPanelWidth,
       joinPanelHeight: Number(j.loadProps?.("joinPanelHeight")) || defaultSettings.joinPanelHeight,
       joinPanelX: hasSavedJoinPanelX ? Number(savedJoinPanelXRaw) : defaultSettings.joinPanelX,
@@ -420,7 +503,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
     isClickThrough: defaultSettings.isClickThrough,
     isAutoHide: defaultSettings.isAutoHide,
     multiMonitorMode: defaultSettings.multiMonitorMode,
+    closeAction: defaultSettings.closeAction,
+    gpuAcceleration: defaultSettings.gpuAcceleration,
     packetLoggingMode: defaultSettings.packetLoggingMode,
+    statsConsent: defaultSettings.statsConsent,
     isLoaded: defaultSettings.isLoaded,
 
     joinPanelWidth: defaultSettings.joinPanelWidth,
@@ -440,10 +526,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
     uiX: defaultSettings.uiX,
     uiY: defaultSettings.uiY,
 
-    // setHotkey: (hotkey) => {
-    //   set({ hotkey });
-    //   jb()?.updateHotkey?.(hotkey.modifiers, hotkey.vkCode);
-    // },
+    setHotkey: (hotkey) => {
+      set({ hotkey });
+      jb()?.updateHotkey?.(hotkey.modifiers, hotkey.vkCode);
+    },
     setHideHotkey: (hideHotkey) => {
       set({ hideHotkey });
       jb()?.updateHideHotkey?.(hideHotkey.modifiers, hideHotkey.vkCode);
@@ -571,17 +657,16 @@ export const useSettingsStore = create<SettingsState>((set) => {
       const viewportHeight = finiteOr(sync.height, window.innerHeight);
 
       set((s) => {
-        const meterRoot = document
-          .querySelector<HTMLElement>("[data-meter-root-anchor]")
-          ?.closest<HTMLElement>(".drag-area");
-        const meter = clampPanelPosition(
-          s.uiX + offsetX,
-          s.uiY + offsetY,
-          meterRoot?.offsetWidth || s.meterWidth,
-          meterRoot?.offsetHeight || s.rowHeight,
+        const meterAnchor = document.querySelector<HTMLElement>("[data-meter-root-anchor]");
+        const meterRoot = meterAnchor?.closest<HTMLElement>(".drag-area");
+        const meter = clampMeterRootPosition(s.uiX + offsetX, s.uiY + offsetY, {
+          rootEl: meterRoot,
+          anchorEl: meterAnchor,
+          fallbackWidth: s.meterWidth,
+          fallbackHeight: s.rowHeight,
           viewportWidth,
           viewportHeight,
-        );
+        });
 
         jb()?.saveProps?.("uiX", String(meter.x));
         jb()?.saveProps?.("uiY", String(meter.y));
@@ -630,10 +715,33 @@ export const useSettingsStore = create<SettingsState>((set) => {
         return next;
       });
     },
+    setCloseAction: (closeAction) => {
+      set({ closeAction });
+      jb()?.saveProps?.("closeAction", closeAction);
+    },
+    setGpuAcceleration: (gpuAcceleration) => {
+      set({ gpuAcceleration });
+      jb()?.saveProps?.("gpuAcceleration", String(gpuAcceleration));
+    },
     setPacketLoggingMode: (packetLoggingMode) => {
       set({ packetLoggingMode });
       jb()?.setPacketLoggingEnabled?.(packetLoggingMode);
       jb()?.saveProps?.("packetLoggingMode", String(packetLoggingMode));
+    },
+    setStatsConsent: (statsConsent) => {
+      const raw = jb()?.setStatsConsent?.(
+        statsConsent.state,
+        statsConsent.uploadEnabled,
+        statsConsent.publicCharacter,
+      );
+      const next = raw ? parseStatsConsent(raw) : statsConsent;
+      set({ statsConsent: next });
+      jb()?.saveProps?.("statsConsent", JSON.stringify(next));
+    },
+    refreshStatsConsent: () => {
+      const next = parseStatsConsent(jb()?.getStatsConsent?.());
+      set({ statsConsent: next });
+      jb()?.saveProps?.("statsConsent", JSON.stringify(next));
     },
     // setShowPower: (showPower) => {
     //   set({ showPower });

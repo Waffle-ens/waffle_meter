@@ -191,3 +191,12 @@ export const SKILL_ORDER_MAP = new Map<number, number>(
 export const DEFAULT_VISIBLE_SKILL_CODES = SKILLS.map((skill) => skill.code);
 
 export const getSkillName = (code: number) => SKILL_MAP.get(code)?.name;
+
+export const normalizeTrackedSkillCode = (code: number): number => {
+  if (SKILL_MAP.has(code)) return code;
+
+  const baseCode = Math.floor(code / 10_000) * 10_000;
+  if (SKILL_MAP.has(baseCode)) return baseCode;
+
+  return code;
+};

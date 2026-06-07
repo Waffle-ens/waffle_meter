@@ -3,12 +3,16 @@ package com.tbread.data
 import com.tbread.config.PropertyHandler
 import com.tbread.data.repository.*
 import com.tbread.entity.*
+import com.tbread.entity.enums.JobClass
+import com.tbread.official.OfficialCharacterInfo
+import com.tbread.official.OfficialCharacterLookup
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -16,9 +20,18 @@ import java.util.concurrent.atomic.AtomicLong
 object DataManager {
     private val logger = LoggerFactory.getLogger(DataManager::class.java)
 
+    private data class EndedBattle(val mobCode: Int?, val endedAt: Long)
+
+    private const val ENDED_BATTLE_START_IGNORE_MS = 30 * 60 * 1000L
+
     private val resetEpoch = AtomicLong(0)
+    private val battleRevision = AtomicLong(0)
+    private val recentlyEndedBattles = ConcurrentHashMap<Int, EndedBattle>()
+    @Volatile
+    private var activeBattleMobCode: Int? = null
 
     fun currentEpoch(): Long = resetEpoch.get()
+    fun currentBattleRevision(): Long = battleRevision.get()
 
     /*
     rawPacket 버퍼 영역
@@ -143,6 +156,7 @@ object DataManager {
     private val mobHpRepository = MobHpRepository()
     private val useBuffRepository = UseBuffRepository()
     private val buffRepository = BuffRepository()
+    private val officialLookupAttempts = ConcurrentHashMap<Int, Long>()
 
     private val buffBlacklist = mutableSetOf<Int>()
 
@@ -240,6 +254,7 @@ object DataManager {
     @Synchronized
     fun hardReset() {
         resetEpoch.incrementAndGet()
+        battleRevision.set(0)
         battleLogRepository.flush()
         mobHpRepository.flush()
         mobIdRepository.flush()
@@ -248,6 +263,8 @@ object DataManager {
         userRepository.flush()
         useBuffRepository.flush()
         clearRawPackets()
+        recentlyEndedBattles.clear()
+        activeBattleMobCode = null
         lastDummyHitTime = 0
     }
 
@@ -262,6 +279,7 @@ object DataManager {
     fun mobHp(mobId: Int, mobHp: Int) {
         mobHpRepository.set(mobId, mobHp)
         if (mobHp > 0) {
+            recentlyEndedBattles.remove(mobId)
             saveMobMaxHp(mobId, mobHp)
         }
     }
@@ -334,22 +352,40 @@ object DataManager {
 
     @Synchronized
     fun startBattle(mobId: Int) {
-        if (currentTarget() == mobId) {
-            val now = System.currentTimeMillis()
-            val preemptivePackets = packetRepository.get(mobId)
-                ?.filter { it.getTimeStamp() >= now - 1000L }
-                ?.toList()
-            flushPacket()
-            preemptivePackets?.forEach { packetRepository.save(it) }
+        val mobCode = DataManager.mobId(mobId)
+        val now = System.currentTimeMillis()
+        val endedBattle = recentlyEndedBattles[mobId]
+        if (
+            currentTarget() <= 0 &&
+            endedBattle != null &&
+            endedBattle.mobCode == mobCode &&
+            mobHp(mobId) == 0 &&
+            now - endedBattle.endedAt <= ENDED_BATTLE_START_IGNORE_MS
+        ) {
+            return
         }
+        if (
+            currentTarget() == mobId &&
+            currentBattleStart() > 0L &&
+            currentBattleEnd() == 0L &&
+            activeBattleMobCode == mobCode
+        ) {
+            return
+        }
+        recentlyEndedBattles.remove(mobId)
+        battleRevision.incrementAndGet()
         saveCurrentBattleStart()
         saveCurrentTarget(mobId)
+        activeBattleMobCode = mobCode
     }
 
     fun endBattle(mobId: Int) {
         if (currentTarget() != mobId) return
+        val mobCode = activeBattleMobCode ?: DataManager.mobId(mobId)
         saveCurrentBattleEnd()
         saveCurrentTarget(-1)
+        recentlyEndedBattles[mobId] = EndedBattle(mobCode, System.currentTimeMillis())
+        activeBattleMobCode = null
     }
 
     fun currentBattleStart(): Long {
@@ -377,6 +413,7 @@ object DataManager {
         packetRepository.flush()
         packetRepository.currentTarget(-1)
         packetRepository.flushBattleTime()
+        activeBattleMobCode = null
         lastDummyHitTime = 0
     }
 
@@ -395,28 +432,32 @@ object DataManager {
         skillDetails: Map<Int, HashMap<String, AnalyzedSkill>> = emptyMap(),
         buffRates: Map<Int, List<OperatingData>> = emptyMap(),
         bossBuffRates: List<OperatingData> = emptyList()
-    ) {
-        val snapshot = data.copy(
+    ): DpsLog {
+        val snapshot = DpsReport(
             contributors = data.contributors.mapTo(mutableSetOf()) { it.copy() },
+            battleStart = data.battleStart,
+            battleEnd = data.battleEnd,
+            information = HashMap(data.information.mapValues { it.value.copy() }),
+            target = data.target?.copy(mob = data.target!!.mob.copy()),
             packets = null
         )
         val packets = rawPacketsInRange(data.battleStart - 5000L, data.battleEnd)
-        battleLogRepository.save(
-            DpsLog(
-                snapshot,
-                summonRepository.getAll(),
-                packets,
-                skillDetails,
-                buffRates,
-                bossBuffRates
-            )
+        val log = DpsLog(
+            snapshot,
+            HashMap(summonRepository.getAll()),
+            emptyList(),
+            skillDetails,
+            buffRates,
+            bossBuffRates
         )
+        battleLogRepository.save(log)
         if (packetLoggingEnabled && packets.isNotEmpty()) {
             val targetName = data.target?.mob?.name ?: data.target?.id?.toString() ?: "battle"
             writeRawPacketLog("battle-$targetName", data.battleStart - 5000L, data.battleEnd, packets)
         }
         dropRawPacketsUntil(data.battleEnd)
         useBuffRepository.pruneBefore(data.battleEnd + 1)
+        return log
     }
 
     fun recentBattleList(): List<Pair<Int, DpsReport>> {
@@ -459,6 +500,10 @@ object DataManager {
     }
 
     fun saveMobId(mid: Int, code: Int) {
+        val previous = DataManager.mobId(mid)
+        if (previous != null && previous != code) {
+            recentlyEndedBattles.remove(mid)
+        }
         mobIdRepository.save(mid, code)
     }
 
@@ -502,15 +547,96 @@ object DataManager {
         userRepository.savePending(user)
     }
 
+    fun rememberUserPower(uid: Int, nickname: String?, server: Int, job: JobClass?, power: Int) {
+        userRepository.rememberPower(uid, nickname, server, job, power)
+    }
+
+    /**
+     * 캐릭터 스냅샷 패킷에서 파싱한 전투력을 해당 uid 의 User 에 직접 반영한다.
+     * 닉네임 패킷에서 이미 uid 로 User 가 저장된 직후에 호출되므로 항상 존재한다.
+     */
+    fun saveUserPower(uid: Int, power: Int) {
+        if (power <= 0) return
+        val user = userRepository.get(uid) ?: return
+        if (user.power != power) {
+            user.power = power
+            userRepository.save(uid, user)
+        }
+    }
+
+    fun requestOfficialCharacterLookup(uid: Int) {
+        val user = user(uid) ?: return
+        requestOfficialCharacterLookup(uid, user.nickname, user.server, user.job)
+    }
+
+    fun requestOfficialCharacterLookup(
+        uid: Int,
+        nickname: String?,
+        server: Int,
+        job: JobClass?,
+        onResult: ((OfficialCharacterInfo) -> Unit)? = null
+    ) {
+        if (nickname.isNullOrBlank() || server <= 0) return
+        val now = System.currentTimeMillis()
+        val previous = officialLookupAttempts[uid]
+        if (previous != null && now - previous < 10 * 60 * 1000L) return
+        if (uid > 0) officialLookupAttempts[uid] = now
+
+        OfficialCharacterLookup.lookupAsync(nickname, server, job) { info ->
+            applyOfficialCharacterInfo(uid, info)
+            onResult?.invoke(info)
+        }
+    }
+
+    fun resolveOfficialCharacterInfo(
+        uid: Int,
+        nickname: String?,
+        server: Int,
+        job: JobClass?
+    ): OfficialCharacterInfo? {
+        val info = OfficialCharacterLookup.lookupBlocking(nickname, server, job) ?: return null
+        applyOfficialCharacterInfo(uid, info)
+        return info
+    }
+
+    private fun applyOfficialCharacterInfo(uid: Int, info: OfficialCharacterInfo) {
+        val existing = if (uid > 0) userRepository.get(uid) else null
+        if (existing != null) {
+            if (existing.nickname.isNullOrBlank()) existing.nickname = info.nickname
+            if (existing.server <= 0) existing.server = info.server
+            if (existing.job == null && info.job != null) existing.job = info.job
+            if (existing.power <= 0 && info.power > 0) existing.power = info.power
+            userRepository.save(uid, existing)
+            return
+        }
+
+        userRepository.savePending(
+            User(
+                id = uid,
+                nickname = info.nickname,
+                server = info.server,
+                job = info.job,
+                power = info.power
+            )
+        )
+    }
+
     fun findUserByNicknameAndServer(nickname: String, server: Int): User? {
         return userRepository.findByNicknameAndServer(nickname, server)
     }
 
-    fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false,server:Int) {
+    fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false,server:Int, job: JobClass? = null) {
         val user = userRepository.get(uid) ?: User(uid, nickname, server, null, isExecutor).also {
             userRepository.save(uid, it)
         }
         user.nickname = nickname
+        if (server > 0) {
+            user.server = server
+        }
+        if (user.job == null && job != null) {
+            user.job = job
+        }
+        userRepository.save(uid, user)
         if (isExecutor) {
             saveExecutorId(uid)
         }

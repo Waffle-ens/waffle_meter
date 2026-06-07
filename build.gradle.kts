@@ -9,13 +9,13 @@ plugins {
 }
 
 group = "com.tbread"
-val rawAppVersion = providers.gradleProperty("appVersion").orElse("1.4.11").get().removePrefix("v")
+val rawAppVersion = providers.gradleProperty("appVersion").orElse("1.6.9-dev").get().removePrefix("v")
 val installerVersion = rawAppVersion.substringBefore("-")
 val displayAppVersion = providers.gradleProperty("displayVersion")
     .orElse(if (rawAppVersion.endsWith("-dev")) rawAppVersion else "$installerVersion-dev")
     .get()
     .removePrefix("v")
-val devPackageName = "waffle_meter.v1.4-dev"
+val devPackageName = "waffle_meter.v1.6.9-dev"
 version = installerVersion
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
