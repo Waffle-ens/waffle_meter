@@ -16,6 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
 import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
@@ -134,7 +135,8 @@ object OfficialCharacterLookup {
                 val serverId = obj["serverId"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
                 if (name != nickname || serverId != server) return@mapNotNull null
                 CharacterSearchResult(
-                    characterId = obj["characterId"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null,
+                    characterId = obj["characterId"]?.jsonPrimitive?.contentOrNull
+                        ?.let { URLDecoder.decode(it, Charsets.UTF_8) } ?: return@mapNotNull null,
                     serverId = serverId,
                     level = obj["level"]?.jsonPrimitive?.intOrNull ?: 0,
                     job = obj["pcId"]?.jsonPrimitive?.intOrNull?.let(JobClass::convertFromCode)

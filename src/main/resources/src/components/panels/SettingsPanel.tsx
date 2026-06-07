@@ -131,6 +131,15 @@ const parseStatsUploadStatus = (raw?: string): StatsUploadStatus => {
   }
 };
 
+const parseStatsCharacterDetected = (raw?: string): boolean => {
+  if (!raw) return false;
+  try {
+    return Boolean((JSON.parse(raw) as { detected?: boolean }).detected);
+  } catch {
+    return false;
+  }
+};
+
 const STATS_CONSENT_LABEL: Record<StatsConsentInfo["state"], string> = {
   unknown: "미선택",
   accepted: "동의됨",
@@ -274,16 +283,21 @@ export const SettingsPanel = ({
   const [statsUploadStatus, setStatsUploadStatus] = useState<StatsUploadStatus>(() =>
     parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()),
   );
+  const [statsCharacterDetected, setStatsCharacterDetected] = useState<boolean>(() =>
+    parseStatsCharacterDetected(window.javaBridge?.getStatsOwnCharacter?.()),
+  );
 
   useEffect(() => {
     onReady?.();
     refreshStatsConsent();
     setStatsUploadStatus(parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()));
+    setStatsCharacterDetected(parseStatsCharacterDetected(window.javaBridge?.getStatsOwnCharacter?.()));
   }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       setStatsUploadStatus(parseStatsUploadStatus(window.javaBridge?.getStatsUploadStatus?.()));
+      setStatsCharacterDetected(parseStatsCharacterDetected(window.javaBridge?.getStatsOwnCharacter?.()));
     }, 2500);
     return () => window.clearInterval(timer);
   }, []);
@@ -928,7 +942,9 @@ export const SettingsPanel = ({
                   variant="ghost"
                   size="sm"
                   onClick={handleAcceptStats}
-                  className="flex-1 text-xs text-emerald-200 hover:bg-emerald-500/10 hover:text-emerald-100">
+                  disabled={!statsCharacterDetected}
+                  title={!statsCharacterDetected ? "캐릭터 접속 후 동의할 수 있어요" : undefined}
+                  className="flex-1 text-xs text-emerald-200 hover:bg-emerald-500/10 hover:text-emerald-100 disabled:opacity-40">
                   동의
                 </Button>
                 <Button
@@ -941,12 +957,17 @@ export const SettingsPanel = ({
               </div>
             )}
           </SettingsRow>
+          {!statsCharacterDetected && (
+            <p className="px-1 pb-1 text-[11px] leading-4 text-amber-300/80">
+              캐릭터가 감지되면 설정할 수 있어요. 게임에 접속해 캐릭터를 불러온 뒤 다시 시도하세요.
+            </p>
+          )}
           <SettingsRow
             title="자동 업로드"
             description="보스를 처치해 종료된 내 전투 요약만 전송합니다.">
             <Switch
               checked={statsAccepted && statsConsent.uploadEnabled}
-              disabled={!statsAccepted}
+              disabled={!statsAccepted || !statsCharacterDetected}
               onCheckedChange={handleToggleStatsUpload}
               className="data-[state=checked]:bg-emerald-500 disabled:opacity-30"
             />
@@ -956,7 +977,7 @@ export const SettingsPanel = ({
             description="끄면 비공개 지표로만 집계됩니다.">
             <Switch
               checked={statsConsent.publicCharacter}
-              disabled={!statsAccepted}
+              disabled={!statsAccepted || !statsCharacterDetected}
               onCheckedChange={handleToggleStatsPublic}
               className="data-[state=checked]:bg-emerald-500 disabled:opacity-30"
             />

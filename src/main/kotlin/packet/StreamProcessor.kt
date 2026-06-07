@@ -20,6 +20,11 @@ class StreamProcessor() {
 
     private val mask = 0x0f
 
+    // Character snapshot packets carry combat power near the tail as:
+    // [XX F4 CB 1F][u32][u32][power u32 LE][00 00 ...].
+    // The leading XX varies by character, so match the stable 3-byte marker.
+    private val powerMarker = byteArrayOf(0xF4.toByte(), 0xCB.toByte(), 0x1F)
+
     private val decompressFactory = LZ4Factory.fastestInstance()
     private val decompressor = decompressFactory.fastDecompressor()
 
@@ -205,6 +210,10 @@ class StreamProcessor() {
         }
         val realClass = JobClass.convertFromCode(job)
         DataManager.saveNickname(userInfo.value, nickname, true, server, realClass)
+        parseSnapshotPower(packet)?.let { DataManager.saveUserPower(userInfo.value, it) }
+        if (server > 0) {
+            DataManager.requestOfficialCharacterLookup(userInfo.value)
+        }
         PacketDebugLogger.meta(
             "nickname",
             mapOf("own" to true, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job)
@@ -299,9 +308,13 @@ class StreamProcessor() {
 
         val realClass = JobClass.convertFromCode(job)
         DataManager.saveNickname(userInfo.value, nickname, false, server, realClass)
+        val power = parseSnapshotPower(packet)
+        if (power != null) {
+            DataManager.saveUserPower(userInfo.value, power)
+        }
         PacketDebugLogger.meta(
             "nickname",
-            mapOf("own" to false, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job)
+            mapOf("own" to false, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job, "power" to (power ?: 0))
         )
 
     }
@@ -740,6 +753,31 @@ class StreamProcessor() {
                 return VarIntOutput(-1, -1)
             }
         }
+    }
+
+    private fun lastIndexOf(data: ByteArray, pattern: ByteArray): Int {
+        if (pattern.isEmpty() || data.size < pattern.size) return -1
+        for (i in data.size - pattern.size downTo 0) {
+            var matched = true
+            for (j in pattern.indices) {
+                if (data[i + j] != pattern[j]) {
+                    matched = false
+                    break
+                }
+            }
+            if (matched) return i
+        }
+        return -1
+    }
+
+    private fun parseSnapshotPower(packet: ByteArray): Int? {
+        val markerIdx = lastIndexOf(packet, powerMarker)
+        if (markerIdx < 0) return null
+        val offset = markerIdx + 11
+        if (offset + 4 > packet.size) return null
+        val power = parseUInt32le(packet, offset)
+        if (power <= 0 || power > 10_000_000) return null
+        return power
     }
 
     private fun parseSpecialDamageFlags(packet: ByteArray): List<SpecialDamage> {

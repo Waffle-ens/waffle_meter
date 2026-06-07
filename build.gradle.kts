@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "com.tbread"
-val rawAppVersion = providers.gradleProperty("appVersion").orElse("1.7.0").get().removePrefix("v")
+val rawAppVersion = providers.gradleProperty("appVersion").orElse("1.7.1").get().removePrefix("v")
 val installerVersion = rawAppVersion.substringBefore("-")
 val displayAppVersion = providers.gradleProperty("displayVersion")
     .orElse(rawAppVersion)

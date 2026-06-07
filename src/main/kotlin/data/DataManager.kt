@@ -424,6 +424,15 @@ object DataManager {
         userRepository.rememberPower(uid, nickname, server, job, power)
     }
 
+    fun saveUserPower(uid: Int, power: Int) {
+        if (power <= 0) return
+        val user = userRepository.get(uid) ?: return
+        if (user.power != power) {
+            user.power = power
+            userRepository.save(uid, user)
+        }
+    }
+
     fun requestOfficialCharacterLookup(uid: Int) {
         val user = user(uid) ?: return
         requestOfficialCharacterLookup(uid, user.nickname, user.server, user.job)

@@ -9,7 +9,7 @@ import java.net.URI
 import java.net.URLEncoder
 
 object StatsApiClient {
-    private const val BASE_URL = "http://34.64.49.225"
+    private const val BASE_URL = "https://xn--ok0b896b9wh.kr"
     private const val REPORT_ENDPOINT = "$BASE_URL/api/v1/reports"
     private const val CONSENT_STATUS_ENDPOINT = "$BASE_URL/api/v1/consent/status"
     private const val CONSENT_EVENTS_ENDPOINT = "$BASE_URL/api/v1/consent/events"
