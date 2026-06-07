@@ -276,7 +276,8 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                     val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.6.9-dev").also { it.mkdirs() }
                     val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
 
-                    val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
+                    // HttpURLConnection 캐스트 제거: http(s) 외 file:// 등도 받을 수 있고(로컬 테스트), 사용하는 API는 모두 URLConnection 기본 메서드라 안전.
+                    val connection = java.net.URI(msiUrl).toURL().openConnection()
                     connection.connect()
                     val totalBytes = connection.contentLengthLong
 
@@ -442,7 +443,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.show()
         fitOverlayToScreen(stage, webView)
         applyOverlayWindowStyle(stage.title)
-        ensureUserDesktopShortcut(stage.title)
 
         setupTray(stage)
 
@@ -662,112 +662,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             0,
             SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE or SWP_SHOWWINDOW
         )
-    }
-
-    private fun ensureUserDesktopShortcut(title: String) {
-        val exePath = findLauncherExe(title) ?: return
-        val targetPath = psSingleQuoted(exePath)
-        val shortcutName = psSingleQuoted("$title.lnk")
-        val script = """
-            ${'$'}ErrorActionPreference = 'Stop'
-            ${'$'}targetPath = $targetPath
-            ${'$'}shortcutName = $shortcutName
-            ${'$'}paths = New-Object System.Collections.Generic.List[string]
-            function Add-DesktopPath([string]${'$'}path) {
-              if (![string]::IsNullOrWhiteSpace(${'$'}path)) { ${'$'}paths.Add(${'$'}path) }
-            }
-            ${'$'}knownDesktop = [Environment]::GetFolderPath('Desktop')
-            Add-DesktopPath ${'$'}knownDesktop
-            ${'$'}profile = [Environment]::GetFolderPath('UserProfile')
-            if (![string]::IsNullOrWhiteSpace(${'$'}profile)) {
-              Add-DesktopPath (Join-Path ${'$'}profile 'Desktop')
-              Add-DesktopPath (Join-Path ${'$'}profile '바탕 화면')
-              Add-DesktopPath (Join-Path ${'$'}profile 'OneDrive\Desktop')
-              Add-DesktopPath (Join-Path ${'$'}profile 'OneDrive\바탕 화면')
-            }
-            try {
-              ${'$'}registryDesktop = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' -ErrorAction Stop).Desktop
-              Add-DesktopPath ([Environment]::ExpandEnvironmentVariables(${'$'}registryDesktop))
-            } catch {
-            }
-            ${'$'}shell = New-Object -ComObject WScript.Shell
-            ${'$'}workingDirectory = Split-Path -Parent ${'$'}targetPath
-            ${'$'}paths |
-              Where-Object { ![string]::IsNullOrWhiteSpace(${'$'}_) } |
-              Select-Object -Unique |
-              ForEach-Object {
-                ${'$'}desktop = ${'$'}_
-                if (Test-Path -LiteralPath ${'$'}desktop) {
-                  ${'$'}shortcutPath = Join-Path ${'$'}desktop ${'$'}shortcutName
-                  ${'$'}shortcut = ${'$'}shell.CreateShortcut(${'$'}shortcutPath)
-                  ${'$'}shortcut.TargetPath = ${'$'}targetPath
-                  ${'$'}shortcut.WorkingDirectory = ${'$'}workingDirectory
-                  ${'$'}shortcut.IconLocation = "${'$'}targetPath,0"
-                  ${'$'}shortcut.Save()
-                }
-              }
-        """.trimIndent()
-
-        runCatching {
-            val encoded = java.util.Base64.getEncoder()
-                .encodeToString(script.toByteArray(Charsets.UTF_16LE))
-            val process = ProcessBuilder(
-                "powershell.exe",
-                "-NoProfile",
-                "-WindowStyle",
-                "Hidden",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-EncodedCommand",
-                encoded
-            ).start()
-            if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                logger.warn("사용자 바탕화면 바로가기 보강 PowerShell 시간이 초과되었습니다.")
-            } else if (process.exitValue() != 0) {
-                val error = process.errorStream.bufferedReader().readText().trim()
-                logger.warn("사용자 바탕화면 바로가기 보강 PowerShell 실패: exitCode={}, error={}", process.exitValue(), error)
-            }
-        }.onFailure {
-            logger.warn("사용자 바탕화면 바로가기 보강 실패", it)
-        }
-    }
-
-    private fun psSingleQuoted(value: String): String = "'${value.replace("'", "''")}'"
-
-    private fun findLauncherExe(title: String): String? {
-        val currentCommand = ProcessHandle.current().info().command().orElse(null)
-        if (currentCommand?.endsWith(".exe", ignoreCase = true) == true) {
-            val fileName = java.io.File(currentCommand).name
-            if (!fileName.equals("java.exe", ignoreCase = true) && !fileName.equals("javaw.exe", ignoreCase = true)) {
-                return currentCommand
-            }
-        }
-
-        val javaHome = java.io.File(System.getProperty("java.home") ?: "")
-        val userDir = java.io.File(System.getProperty("user.dir") ?: "")
-        val searchDirs = listOfNotNull(
-            currentCommand?.let { java.io.File(it).parentFile },
-            userDir,
-            userDir.parentFile,
-            javaHome.parentFile,
-            javaHome.parentFile?.parentFile
-        ).filter { it.isDirectory }
-            .distinctBy { it.absolutePath.lowercase() }
-
-        val exactName = "$title.exe"
-        for (dir in searchDirs) {
-            val exact = java.io.File(dir, exactName)
-            if (exact.isFile) return exact.absolutePath
-            dir.listFiles { file ->
-                file.isFile &&
-                    file.extension.equals("exe", ignoreCase = true) &&
-                    file.name.startsWith("waffle_meter", ignoreCase = true)
-            }?.firstOrNull()?.let { return it.absolutePath }
-        }
-
-        logger.warn("사용자 바탕화면 바로가기 대상 실행 파일을 찾지 못했습니다. command={}, javaHome={}", currentCommand, javaHome.absolutePath)
-        return null
     }
 
     private fun parkOverlayNative(stage: Stage) {
