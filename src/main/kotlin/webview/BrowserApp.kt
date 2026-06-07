@@ -298,10 +298,52 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                         }
                     }
 
-                    Runtime.getRuntime().exec(arrayOf("explorer.exe", tempDir.absolutePath))
                     Platform.runLater { engine.executeScript("onDownloadComplete()") }
                 } catch (e: Exception) {
                     logger.error("업데이트 실패", e)
+                    Platform.runLater { engine.executeScript("onDownloadError()") }
+                }
+            }.start()
+        }
+
+        // 다운로드된 MSI를 무인 설치(per-user, /qb, UAC 불필요)하고 앱을 재시작한다.
+        // 실행 중인 JVM이 파일을 잠그므로, 외부 PowerShell이 현재 PID 종료를 기다린 뒤 msiexec를 돌리고 재실행한다.
+        fun applyUpdate() {
+            Thread {
+                try {
+                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.6.9-dev")
+                    val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
+                    if (!msiFile.isFile) {
+                        logger.warn("적용할 업데이트 MSI를 찾을 수 없습니다: {}", msiFile.absolutePath)
+                        Platform.runLater { engine.executeScript("onDownloadError()") }
+                        return@Thread
+                    }
+                    val pid = ProcessHandle.current().pid()
+                    val appExe = (System.getProperty("jpackage.app-path")
+                        ?: ProcessHandle.current().info().command().orElse(null))
+                        ?.takeIf { it.isNotBlank() && java.io.File(it).exists() }
+                    val msiArg = "'" + msiFile.absolutePath.replace("'", "''") + "'"
+
+                    val script = buildString {
+                        appendLine("try { Wait-Process -Id $pid -Timeout 120 -ErrorAction SilentlyContinue } catch {}")
+                        appendLine("Start-Sleep -Milliseconds 1000")
+                        appendLine("\$p = Start-Process 'msiexec.exe' -ArgumentList @('/i', $msiArg, '/qb', '/norestart') -PassThru -Wait")
+                        if (appExe != null) {
+                            val relArg = "'" + appExe.replace("'", "''") + "'"
+                            appendLine("if (\$p.ExitCode -eq 0 -or \$p.ExitCode -eq 3010) { Start-Process -FilePath $relArg }")
+                        }
+                    }
+                    val encoded = java.util.Base64.getEncoder().encodeToString(script.toByteArray(Charsets.UTF_16LE))
+                    ProcessBuilder(
+                        "powershell.exe", "-NoProfile", "-WindowStyle", "Hidden",
+                        "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
+                    ).start()
+
+                    // 인스톨러가 파일을 교체하도록 앱 종료(위 업데이터가 종료를 감지해 업그레이드 진행).
+                    Thread.sleep(600)
+                    exitProcess(0)
+                } catch (e: Exception) {
+                    logger.error("업데이트 적용 실패", e)
                     Platform.runLater { engine.executeScript("onDownloadError()") }
                 }
             }.start()

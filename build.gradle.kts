@@ -15,7 +15,10 @@ val displayAppVersion = providers.gradleProperty("displayVersion")
     .orElse(if (rawAppVersion.endsWith("-dev")) rawAppVersion else "$installerVersion-dev")
     .get()
     .removePrefix("v")
-val devPackageName = "waffle_meter.v1.6.9-dev"
+val isDevBuild = rawAppVersion.endsWith("-dev")
+// 버전 무관 고정 패키지명: 업그레이드 체인/시작메뉴를 일관되게 유지(버전이 이름에 박히면 매 릴리스가 별도 제품이 됨).
+// dev/release 만 구분한다.
+val appPackageName = if (isDevBuild) "waffle_meter-dev" else "waffle_meter"
 version = installerVersion
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
@@ -132,17 +135,19 @@ compose.desktop {
         nativeDistributions {
             windows{
                 upgradeUuid = "66D7E440-C8DB-47D8-A7AC-996796404049"
+                // per-user 설치(%LocalAppData%): 관리자 권한(UAC) 불필요 → 무인 자동 업데이트 가능.
+                perUserInstall = true
                 packageVersion = project.version.toString()
                 msiPackageVersion = project.version.toString()
                 includeAllModules = true
                 shortcut = true
                 menu = true
-                menuGroup = devPackageName
+                menuGroup = appPackageName
                 iconFile.set(project.file("src/main/resources/icons/waffle.ico"))
                 dirChooser = true
             }
             targetFormats(TargetFormat.Msi)
-            packageName = devPackageName
+            packageName = appPackageName
             packageVersion = project.version.toString()
             copyright = "Copyright 2026 TK open public Licensed under MIT License"
         }

@@ -975,6 +975,7 @@ export const injectMockDpsData = () => {
         (window as any).onDownloadProgress?.(percent);
       }, 400);
     },
+    applyUpdate: () => console.log("[mock] applyUpdate"),
   };
   const MOCK_JOIN_REQUESTS = [
     {
