@@ -21,8 +21,10 @@ class StreamProcessor() {
     private val mask = 0x0f
 
     // 캐릭터 정보 스냅샷(OwnNickname/OtherNickname) 패킷 꼬리에 들어있는 전투력 필드 마커.
-    // 구조: [21 F4 CB 1F][u32][u32][전투력 u32 LE][00 00 ...]  → 전투력 = 마커offset + 12
-    private val powerMarker = byteArrayOf(0x21, 0xF4.toByte(), 0xCB.toByte(), 0x1F)
+    // 구조: [XX F4 CB 1F][u32][u32][전투력 u32 LE][00 00 ...]
+    // 선행 바이트 XX 는 캐릭터마다 0x21/0x24 등으로 달라지므로(고정 아님) 안정적인 [F4 CB 1F] 3바이트로 매칭한다.
+    // 전투력 = ([F4 CB 1F] offset) + 11  (기존 [XX F4 CB 1F] offset + 12 과 동일 위치)
+    private val powerMarker = byteArrayOf(0xF4.toByte(), 0xCB.toByte(), 0x1F)
 
     private val decompressFactory = LZ4Factory.fastestInstance()
     private val decompressor = decompressFactory.fastDecompressor()
@@ -211,7 +213,13 @@ class StreamProcessor() {
         }
         val realClass = JobClass.convertFromCode(job)
         DataManager.saveNickname(userInfo.value, nickname, true, server, realClass)
+        // 본인 전투력: OwnNickname 스냅샷의 F4 CB 1F 블록은 센티넬(~268500997)이라 packet 추출이 불가(아래는 사실상 null).
+        // 대신 본인은 서버가 항상 깔끔히 파싱되므로(방금 server 확보), 캐릭터 인식 '즉시' 공식 API 로 전투력을 확정한다.
+        // DpsCalculator 는 본인이 데미지를 넣어야 트리거되므로(서포터/입장 직후엔 누락), 여기서 직접 호출해 입장 시점에 잡는다.
         parseSnapshotPower(packet)?.let { DataManager.saveUserPower(userInfo.value, it) }
+        if (server > 0) {
+            DataManager.requestOfficialCharacterLookup(userInfo.value)
+        }
         PacketDebugLogger.meta(
             "nickname",
             mapOf("own" to true, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job)
@@ -770,14 +778,14 @@ class StreamProcessor() {
 
     /**
      * 캐릭터 스냅샷 패킷(OwnNickname/OtherNickname)에서 전투력을 추출한다.
-     * 전투력은 패킷 꼬리쪽 [21 F4 CB 1F] 마커 + 12 위치의 u32 LE 이다.
+     * 전투력은 패킷 꼬리쪽 [XX F4 CB 1F] 마커(XX=0x21/0x24 등 가변) 뒤, [F4 CB 1F] offset + 11 위치의 u32 LE 이다.
      * 본인(OwnNickname) 패킷은 같은 마커가 다른 의미로 쓰여 비정상적으로 큰 값이 나오므로
      * 범위 검증(0 < power <= 10_000_000)으로 걸러진다. 그 경우 null 을 반환하고 공식 API fallback 을 탄다.
      */
     private fun parseSnapshotPower(packet: ByteArray): Int? {
         val markerIdx = lastIndexOf(packet, powerMarker)
         if (markerIdx < 0) return null
-        val offset = markerIdx + 12
+        val offset = markerIdx + 11
         if (offset + 4 > packet.size) return null
         val power = parseUInt32le(packet, offset)
         if (power <= 0 || power > 10_000_000) return null

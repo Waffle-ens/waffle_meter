@@ -16,6 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.slf4j.LoggerFactory
 import java.net.HttpURLConnection
 import java.net.URI
+import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 
@@ -134,7 +135,11 @@ object OfficialCharacterLookup {
                 val serverId = obj["serverId"]?.jsonPrimitive?.intOrNull ?: return@mapNotNull null
                 if (name != nickname || serverId != server) return@mapNotNull null
                 CharacterSearchResult(
-                    characterId = obj["characterId"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null,
+                    // 검색 API 가 characterId 를 이미 URL 인코딩(예: '=' → '%3D')해서 내려주므로,
+                    // 여기서 한 번 디코딩해 둔다. 안 그러면 query() 의 URLEncoder 가 다시 인코딩(%3D → %253D)해서
+                    // info/equipment 조회가 HTTP 500 으로 실패 → 전투력이 0 으로 남는다(특히 본인/JoinRequest 경로).
+                    characterId = obj["characterId"]?.jsonPrimitive?.contentOrNull
+                        ?.let { URLDecoder.decode(it, Charsets.UTF_8) } ?: return@mapNotNull null,
                     serverId = serverId,
                     level = obj["level"]?.jsonPrimitive?.intOrNull ?: 0,
                     job = obj["pcId"]?.jsonPrimitive?.intOrNull?.let(JobClass::convertFromCode)
