@@ -52,6 +52,12 @@ export interface StatsConsentInfo {
   publicCharacter: boolean;
   consentVersion: string;
   updatedAt: number;
+  identityHash?: string | null;
+  remoteExists?: boolean;
+  syncStatus?: string;
+  syncError?: string | null;
+  serverUpdatedAt?: string | null;
+  lastSeenAt?: string | null;
 }
 
 export const DEFAULT_THEME: ThemeColors = {
@@ -71,7 +77,7 @@ export const DEFAULT_THEME: ThemeColors = {
 };
 
 interface SettingsState {
-  // hotkey: Hotkey;
+  hotkey: Hotkey;
   displayMode: DisplayMode;
   setDisplayMode: (mode: DisplayMode) => void;
   damageValueMode: DamageValueMode;
@@ -91,7 +97,7 @@ interface SettingsState {
   isLoaded: boolean;
   detailHeight: number;
   setDetailHeight: (h: number) => void;
-  // setHotkey: (h: Hotkey) => void;
+  setHotkey: (h: Hotkey) => void;
   isMinimal: boolean;
   showCombatTimerInMinimal: boolean;
   setShowCombatTimerInMinimal: (v: boolean) => void;
@@ -133,6 +139,8 @@ interface SettingsState {
   setMultiMonitorMode: (v: boolean) => void;
   closeAction: CloseAction;
   setCloseAction: (v: CloseAction) => void;
+  gpuAcceleration: boolean;
+  setGpuAcceleration: (v: boolean) => void;
   statsConsent: StatsConsentInfo;
   setStatsConsent: (v: StatsConsentInfo) => void;
   refreshStatsConsent: () => void;
@@ -206,6 +214,13 @@ const parseStatsConsent = (raw?: string | null): StatsConsentInfo => {
           ? parsed.consentVersion
           : DEFAULT_STATS_CONSENT.consentVersion,
       updatedAt: Number.isFinite(Number(parsed.updatedAt)) ? Number(parsed.updatedAt) : 0,
+      identityHash: typeof parsed.identityHash === "string" ? parsed.identityHash : null,
+      remoteExists: parsed.remoteExists === true,
+      syncStatus: typeof parsed.syncStatus === "string" ? parsed.syncStatus : undefined,
+      syncError: typeof parsed.syncError === "string" ? parsed.syncError : null,
+      serverUpdatedAt:
+        typeof parsed.serverUpdatedAt === "string" ? parsed.serverUpdatedAt : null,
+      lastSeenAt: typeof parsed.lastSeenAt === "string" ? parsed.lastSeenAt : null,
     };
   } catch {
     return DEFAULT_STATS_CONSENT;
@@ -278,6 +293,7 @@ const defaultSettings = {
   isAutoHide: true,
   multiMonitorMode: false,
   closeAction: "ask" as CloseAction,
+  gpuAcceleration: true,
   statsConsent: DEFAULT_STATS_CONSENT,
   joinPanelWidth: 400,
   joinPanelHeight: 330,
@@ -310,10 +326,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
       return;
     }
 
-    // const raw = j.getHotkey?.();
+    const raw = j.getHotkey?.();
     const rawHide = j.getHideHotkey?.();
     const rawClickThrough = j.getClickThroughHotkey?.();
-    // const parsedHotkey = raw ? parseHotkeyString(raw) : null;
+    const parsedHotkey = raw ? parseHotkeyString(raw) : null;
     const parsedHideHotkey = rawHide ? parseHotkeyString(rawHide) : null;
     const parsedClickThroughHotkey = rawClickThrough ? parseHotkeyString(rawClickThrough) : null;
     const savedIsMinimal = j.loadProps("isMinimal") === "true";
@@ -360,6 +376,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       savedCloseActionRaw === "tray" || savedCloseActionRaw === "exit"
         ? savedCloseActionRaw
         : defaultSettings.closeAction;
+    const savedGpuAcceleration = j.loadProps?.("gpuAcceleration") !== "false";
     const savedStatsConsent = parseStatsConsent(
       j.getStatsConsent?.() ?? j.loadProps?.("statsConsent"),
     );
@@ -383,7 +400,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
         : defaultSettings.uiY;
 
     set({
-      // hotkey: parsedHotkey ?? defaultSettings.hotkey,
+      hotkey: parsedHotkey ?? defaultSettings.hotkey,
       hideHotkey: parsedHideHotkey ?? defaultSettings.hideHotkey,
       meterWidth: Number(j.loadProps?.("meterWidth")) || defaultSettings.meterWidth,
       rowHeight: Number(j.loadProps?.("rowHeight")) || defaultSettings.rowHeight,
@@ -420,6 +437,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       isAutoHide: j.isAutoHide?.() ?? false,
       multiMonitorMode: savedMultiMonitorMode,
       closeAction: savedCloseAction,
+      gpuAcceleration: savedGpuAcceleration,
       statsConsent: savedStatsConsent,
       joinPanelWidth: Number(j.loadProps?.("joinPanelWidth")) || defaultSettings.joinPanelWidth,
       joinPanelHeight: Number(j.loadProps?.("joinPanelHeight")) || defaultSettings.joinPanelHeight,
@@ -480,6 +498,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     isAutoHide: defaultSettings.isAutoHide,
     multiMonitorMode: defaultSettings.multiMonitorMode,
     closeAction: defaultSettings.closeAction,
+    gpuAcceleration: defaultSettings.gpuAcceleration,
     statsConsent: defaultSettings.statsConsent,
     isLoaded: defaultSettings.isLoaded,
 
@@ -500,10 +519,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
     uiX: defaultSettings.uiX,
     uiY: defaultSettings.uiY,
 
-    // setHotkey: (hotkey) => {
-    //   set({ hotkey });
-    //   jb()?.updateHotkey?.(hotkey.modifiers, hotkey.vkCode);
-    // },
+    setHotkey: (hotkey) => {
+      set({ hotkey });
+      jb()?.updateHotkey?.(hotkey.modifiers, hotkey.vkCode);
+    },
     setHideHotkey: (hideHotkey) => {
       set({ hideHotkey });
       jb()?.updateHideHotkey?.(hideHotkey.modifiers, hideHotkey.vkCode);
@@ -692,6 +711,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setCloseAction: (closeAction) => {
       set({ closeAction });
       jb()?.saveProps?.("closeAction", closeAction);
+    },
+    setGpuAcceleration: (gpuAcceleration) => {
+      set({ gpuAcceleration });
+      jb()?.saveProps?.("gpuAcceleration", String(gpuAcceleration));
     },
     setStatsConsent: (statsConsent) => {
       const raw = jb()?.setStatsConsent?.(

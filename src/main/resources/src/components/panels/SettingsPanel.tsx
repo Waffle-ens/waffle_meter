@@ -44,16 +44,16 @@ const DISPLAY_MODES: { value: DisplayMode; label: string; description: string }[
   { value: "dps_percent", label: "딜량 / 기여도", description: "45,000/s 또는 1.20M (35.5%)" },
   {
     value: "amount_dps_percent",
-    label: "전투력 / 딜량 / 기여도",
-    description: "143.0k 45,000/s 또는 1.20M (35.5%)",
+    label: "딜량 / 기여도",
+    description: "전투력은 닉네임 옆 배지로 표시",
   },
-  { value: "amount_percent", label: "전투력 / 기여도", description: "143.0k (35.5%)" },
+  { value: "amount_percent", label: "기여도", description: "전투력은 닉네임 옆 배지로 표시" },
   {
     value: "amount_full_dps_percent",
-    label: "전투력 / 딜량 / 기여도",
-    description: "143.0k 45,000/s 또는 1.20M (35.5%)",
+    label: "딜량 / 기여도",
+    description: "전투력은 닉네임 옆 배지로 표시",
   },
-  { value: "amount_full_percent", label: "전투력 / 기여도", description: "143.0k (35.5%)" },
+  { value: "amount_full_percent", label: "기여도", description: "전투력은 닉네임 옆 배지로 표시" },
 ];
 
 const DAMAGE_VALUE_MODES: { value: DamageValueMode; label: string }[] = [
@@ -138,6 +138,16 @@ const STATS_CONSENT_LABEL: Record<StatsConsentInfo["state"], string> = {
   revoked: "철회됨",
 };
 
+type SettingsTab = "display" | "overlay" | "theme" | "stats" | "reset";
+
+const SETTINGS_TABS: { value: SettingsTab; label: string }[] = [
+  { value: "display", label: "표시" },
+  { value: "overlay", label: "오버레이" },
+  { value: "theme", label: "테마" },
+  { value: "stats", label: "통계" },
+  { value: "reset", label: "초기화" },
+];
+
 export const SettingsPanel = ({
   onClose,
   onReady,
@@ -147,6 +157,7 @@ export const SettingsPanel = ({
   registerHeaderClose,
 }: Props) => {
   const {
+    hotkey,
     hideHotkey,
     displayMode,
     damageValueMode,
@@ -165,9 +176,11 @@ export const SettingsPanel = ({
     isAutoHide,
     multiMonitorMode,
     closeAction,
+    gpuAcceleration,
     statsConsent,
   } = useSettingsStore(
     useShallow((s) => ({
+      hotkey: s.hotkey,
       hideHotkey: s.hideHotkey,
       displayMode: s.displayMode,
       damageValueMode: s.damageValueMode,
@@ -186,11 +199,13 @@ export const SettingsPanel = ({
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
       closeAction: s.closeAction,
+      gpuAcceleration: s.gpuAcceleration,
       statsConsent: s.statsConsent,
     })),
   );
 
   const {
+    setHotkey,
     setHideHotkey,
     setDisplayMode,
     setDamageValueMode,
@@ -210,12 +225,19 @@ export const SettingsPanel = ({
     toggleAutoHide,
     setMultiMonitorMode,
     setCloseAction,
+    setGpuAcceleration,
     setStatsConsent,
     refreshStatsConsent,
     resetJoinPanelPosition,
     resetSidePanelPosition,
     resetMeterPosition,
   } = useSettingsStore.getState();
+  const {
+    pending: pendingReset,
+    start: startReset,
+    stop: stopReset,
+    reset: resetReset,
+  } = useHotkeyCapture(hotkey);
   const {
     pending: pendingHide,
     start: startHide,
@@ -229,6 +251,7 @@ export const SettingsPanel = ({
     reset: resetClickThrough,
   } = useHotkeyCapture(clickThroughHotkey);
   const [snapshot] = useState(() => ({
+    hotkey,
     hideHotkey,
     displayMode,
     damageValueMode,
@@ -244,6 +267,7 @@ export const SettingsPanel = ({
     clickThroughHotkey,
     multiMonitorMode,
     closeAction,
+    gpuAcceleration,
     statsConsent,
     theme: structuredClone(theme),
   }));
@@ -265,10 +289,19 @@ export const SettingsPanel = ({
   }, []);
 
   const handleSave = useCallback(() => {
+    setHotkey(pendingReset);
     setHideHotkey(pendingHide);
     setClickThroughHotkey(pendingClickThrough);
     onClose();
-  }, [setHideHotkey, pendingHide, setClickThroughHotkey, pendingClickThrough, onClose]);
+  }, [
+    setHotkey,
+    pendingReset,
+    setHideHotkey,
+    pendingHide,
+    setClickThroughHotkey,
+    pendingClickThrough,
+    onClose,
+  ]);
 
   const handleCancel = useCallback(() => {
     setDisplayMode(snapshot.displayMode);
@@ -284,14 +317,17 @@ export const SettingsPanel = ({
     setTheme(snapshot.theme as ThemeColors);
     setMeterOpacity(snapshot.meterOpacity);
     setContributionMode(snapshot.contributionMode);
+    resetReset(snapshot.hotkey);
     resetClickThrough(snapshot.clickThroughHotkey);
     setMultiMonitorMode(snapshot.multiMonitorMode);
     setCloseAction(snapshot.closeAction);
+    setGpuAcceleration(snapshot.gpuAcceleration);
     setStatsConsent(snapshot.statsConsent);
     onClose();
   }, [
     onClose,
     resetClickThrough,
+    resetReset,
     resetHide,
     setContributionMode,
     setDisplayMode,
@@ -301,6 +337,7 @@ export const SettingsPanel = ({
     setMeterOpacity,
     setMultiMonitorMode,
     setCloseAction,
+    setGpuAcceleration,
     setNameDisplay,
     setRowHeight,
     setShowCombatTimerInMinimal,
@@ -382,12 +419,21 @@ export const SettingsPanel = ({
   }, [registerHeaderClose, stableHandleCancel]);
 
   const statsAccepted = statsConsent.state === "accepted";
+  const statsConsentDescription = `상태: ${STATS_CONSENT_LABEL[statsConsent.state]}${
+    statsConsent.syncStatus === "synced"
+      ? " · 서버 동기화됨"
+      : statsConsent.syncStatus === "sync_failed"
+        ? " · 서버 동기화 실패"
+        : ""
+  }`;
   const statsUploadDescription =
     statsUploadStatus.lastReason || statsUploadStatus.lastPath
       ? statsUploadStatus.lastReason ?? statsUploadStatus.lastPath
       : `완료 ${statsUploadStatus.uploaded ?? 0} · 제외 ${statsUploadStatus.skipped ?? 0} · 실패 ${
           statsUploadStatus.failed ?? 0
         }`;
+  const [activeTab, setActiveTab] = useState<SettingsTab>("display");
+  const sectionClass = (tab: SettingsTab) => (activeTab === tab ? "contents" : "hidden");
 
   return (
     <div
@@ -397,6 +443,23 @@ export const SettingsPanel = ({
       }}
       >
       <div className="flex pr-3 min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden scrollbar-gutter:stable py-2">
+        <div className="sticky top-0 z-10 mb-3 grid grid-cols-5 gap-1 rounded-md border border-white/10 bg-[#08111f]/95 p-1 backdrop-blur-md">
+          {SETTINGS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveTab(tab.value)}
+              className={
+                activeTab === tab.value
+                  ? "rounded px-2 py-2 text-xs font-bold text-cyan-100 bg-cyan-400/15 ring-1 ring-cyan-300/20"
+                  : "rounded px-2 py-2 text-xs text-slate-400 transition-colors hover:bg-white/8 hover:text-slate-100"
+              }>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className={sectionClass("display")}>
         <SettingsItem>
           <SettingsRow
             title="버전 정보"
@@ -441,7 +504,9 @@ export const SettingsPanel = ({
             </Select>
           </SettingsRow>
         </SettingsItem>
+        </div>
 
+        <div className={sectionClass("overlay")}>
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">오버레이</span>
@@ -490,6 +555,27 @@ export const SettingsPanel = ({
             </Select>
           </SettingsRow>
           <SettingsRow
+            title="GPU 가속"
+            description="끄면 다음 실행부터 소프트웨어 렌더링으로 동작합니다.">
+            <Switch
+              checked={gpuAcceleration}
+              onCheckedChange={setGpuAcceleration}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="전투 초기화 단축키 설정"
+            align="center"
+            rightClassName="w-44">
+            <SettingsControlInput
+              readOnly
+              onFocus={startReset}
+              onBlur={stopReset}
+              value={formatHotkey(pendingReset.modifiers, pendingReset.vkCode)}
+              className="cursor-pointer"
+            />
+          </SettingsRow>
+          <SettingsRow
             title="최소화 단축키 설정"
             align="center"
             rightClassName="w-44">
@@ -532,7 +618,9 @@ export const SettingsPanel = ({
             />
           </SettingsRow>
         </SettingsItem>
+        </div>
 
+        <div className={sectionClass("display")}>
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">컴팩트 모드</span>
@@ -704,7 +792,9 @@ export const SettingsPanel = ({
             </div>
           </SettingsRow>
         </SettingsItem>
+        </div>
 
+        <div className={sectionClass("theme")}>
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">테마 설정</span>
@@ -811,7 +901,9 @@ export const SettingsPanel = ({
             />
           </div>
         </SettingsItem>
+        </div>
 
+        <div className={sectionClass("stats")}>
         <div className="my-3 flex items-center gap-2">
           <div className="flex-1 h-px bg-white/10" />
           <span className="text-xs opacity-40 px-2 shrink-0">웹 통계</span>
@@ -820,7 +912,7 @@ export const SettingsPanel = ({
         <SettingsItem>
           <SettingsRow
             title="통계 수집 동의"
-            description={`상태: ${STATS_CONSENT_LABEL[statsConsent.state]}`}
+            description={statsConsentDescription}
             rightClassName="w-44">
             {statsAccepted ? (
               <Button
@@ -885,11 +977,18 @@ export const SettingsPanel = ({
               onClick={handleOpenStatsUploadFolder}
               className="w-full flex items-center gap-2 text-xs">
               <FolderOpen className="w-3 h-3" />
-              mock 폴더
+              기록 폴더
             </Button>
           </SettingsRow>
         </SettingsItem>
+        </div>
 
+        <div className={sectionClass("reset")}>
+        <div className="my-3 flex items-center gap-2">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-xs opacity-40 px-2 shrink-0">설정 초기화</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
         <SettingsItem className="pb-2">
           <Button
             variant="ghost"
@@ -924,6 +1023,7 @@ export const SettingsPanel = ({
             사이드 패널 위치 초기화
           </Button>
         </SettingsItem>
+        </div>
       </div>
       <div className="flex w-full min-w-0 shrink-0 justify-end gap-2 border-t border-white/10 pt-4">
         <Button

@@ -1,6 +1,7 @@
 package com.tbread
 
 import com.tbread.config.PcapCapturerConfig
+import com.tbread.config.PropertyHandler
 import com.tbread.config.VersionConfig
 import com.tbread.data.DataManager
 import com.tbread.packet.*
@@ -14,6 +15,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
+    val gpuAcceleration = PropertyHandler.getProperty("gpuAcceleration", "true")?.toBooleanStrictOrNull() ?: true
+    if (gpuAcceleration) {
+        System.setProperty("prism.order", "d3d,sw")
+        System.setProperty("prism.lcdtext", "true")
+    } else {
+        System.setProperty("prism.order", "sw")
+    }
+
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         println("thread dead ${t.name}")
         e.printStackTrace()

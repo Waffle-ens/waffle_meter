@@ -171,11 +171,11 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun getStatsConsent(): String {
-            return Json.encodeToString(StatsConsentManager.info())
+            return Json.encodeToString(StatsConsentManager.info(syncRemote = true, clientVersion = version))
         }
 
         fun setStatsConsent(state: String, uploadEnabled: Boolean, publicCharacter: Boolean): String {
-            return Json.encodeToString(StatsConsentManager.set(state, uploadEnabled, publicCharacter))
+            return Json.encodeToString(StatsConsentManager.set(state, uploadEnabled, publicCharacter, version))
         }
 
         fun getStatsOwnCharacter(): String {
@@ -230,7 +230,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         fun startUpdate(msiUrl: String) {
             Thread {
                 try {
-                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.6.0").also { it.mkdirs() }
+                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.6").also { it.mkdirs() }
                     val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
 
                     val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
@@ -351,7 +351,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.initStyle(StageStyle.TRANSPARENT)
         stage.scene = scene
         stage.isAlwaysOnTop = false
-        stage.title = "waffle_meter.v1.6.0"
+        stage.title = "waffle_meter.v1.6"
         fitOverlayToScreen(stage, webView)
 
         stage.show()
@@ -405,7 +405,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 val aionFocused = isAion2Focused()
                 val selfFocused = isSelfFocused()
                 if (!isAutoHide) {
-                    Platform.runLater { presentOverlay(stage, aionFocused || selfFocused) }
+                    Platform.runLater { presentOverlay(stage, aionFocused) }
                     continue
                 }
 
@@ -417,7 +417,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 val shouldShow = aionFocused || selfFocused
                 Platform.runLater {
                     if (shouldShow) {
-                        presentOverlay(stage, true)
+                        presentOverlay(stage, aionFocused)
                     } else {
                         parkOverlay(stage)
                     }
@@ -580,30 +580,53 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     }
 
     private fun ensureUserDesktopShortcut(title: String) {
-        val exePath = ProcessHandle.current().info().command().orElse(null) ?: return
-        if (!exePath.endsWith(".exe", ignoreCase = true)) return
-
-        val target = exePath.replace("'", "''")
-        val shortcutName = "${title.replace("'", "''")}.lnk"
+        val exePath = findLauncherExe(title) ?: return
+        val targetPath = psSingleQuoted(exePath)
+        val shortcutName = psSingleQuoted("$title.lnk")
         val script = """
-            ${'$'}desktop = [Environment]::GetFolderPath('Desktop')
-            if (![string]::IsNullOrWhiteSpace(${'$'}desktop)) {
-              ${'$'}shortcutPath = Join-Path ${'$'}desktop '$shortcutName'
-              ${'$'}targetPath = '$target'
-              ${'$'}workingDirectory = Split-Path -Parent ${'$'}targetPath
-              ${'$'}shell = New-Object -ComObject WScript.Shell
-              ${'$'}shortcut = ${'$'}shell.CreateShortcut(${'$'}shortcutPath)
-              ${'$'}shortcut.TargetPath = ${'$'}targetPath
-              ${'$'}shortcut.WorkingDirectory = ${'$'}workingDirectory
-              ${'$'}shortcut.IconLocation = "${'$'}targetPath,0"
-              ${'$'}shortcut.Save()
+            ${'$'}ErrorActionPreference = 'Stop'
+            ${'$'}targetPath = $targetPath
+            ${'$'}shortcutName = $shortcutName
+            ${'$'}paths = New-Object System.Collections.Generic.List[string]
+            function Add-DesktopPath([string]${'$'}path) {
+              if (![string]::IsNullOrWhiteSpace(${'$'}path)) { ${'$'}paths.Add(${'$'}path) }
             }
+            ${'$'}knownDesktop = [Environment]::GetFolderPath('Desktop')
+            Add-DesktopPath ${'$'}knownDesktop
+            ${'$'}profile = [Environment]::GetFolderPath('UserProfile')
+            if (![string]::IsNullOrWhiteSpace(${'$'}profile)) {
+              Add-DesktopPath (Join-Path ${'$'}profile 'Desktop')
+              Add-DesktopPath (Join-Path ${'$'}profile '바탕 화면')
+              Add-DesktopPath (Join-Path ${'$'}profile 'OneDrive\Desktop')
+              Add-DesktopPath (Join-Path ${'$'}profile 'OneDrive\바탕 화면')
+            }
+            try {
+              ${'$'}registryDesktop = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' -ErrorAction Stop).Desktop
+              Add-DesktopPath ([Environment]::ExpandEnvironmentVariables(${'$'}registryDesktop))
+            } catch {
+            }
+            ${'$'}shell = New-Object -ComObject WScript.Shell
+            ${'$'}workingDirectory = Split-Path -Parent ${'$'}targetPath
+            ${'$'}paths |
+              Where-Object { ![string]::IsNullOrWhiteSpace(${'$'}_) } |
+              Select-Object -Unique |
+              ForEach-Object {
+                ${'$'}desktop = ${'$'}_
+                if (Test-Path -LiteralPath ${'$'}desktop) {
+                  ${'$'}shortcutPath = Join-Path ${'$'}desktop ${'$'}shortcutName
+                  ${'$'}shortcut = ${'$'}shell.CreateShortcut(${'$'}shortcutPath)
+                  ${'$'}shortcut.TargetPath = ${'$'}targetPath
+                  ${'$'}shortcut.WorkingDirectory = ${'$'}workingDirectory
+                  ${'$'}shortcut.IconLocation = "${'$'}targetPath,0"
+                  ${'$'}shortcut.Save()
+                }
+              }
         """.trimIndent()
 
         runCatching {
             val encoded = java.util.Base64.getEncoder()
                 .encodeToString(script.toByteArray(Charsets.UTF_16LE))
-            ProcessBuilder(
+            val process = ProcessBuilder(
                 "powershell.exe",
                 "-NoProfile",
                 "-WindowStyle",
@@ -613,9 +636,53 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 "-EncodedCommand",
                 encoded
             ).start()
+            if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                logger.warn("사용자 바탕화면 바로가기 보강 PowerShell 시간이 초과되었습니다.")
+            } else if (process.exitValue() != 0) {
+                val error = process.errorStream.bufferedReader().readText().trim()
+                logger.warn("사용자 바탕화면 바로가기 보강 PowerShell 실패: exitCode={}, error={}", process.exitValue(), error)
+            }
         }.onFailure {
             logger.warn("사용자 바탕화면 바로가기 보강 실패", it)
         }
+    }
+
+    private fun psSingleQuoted(value: String): String = "'${value.replace("'", "''")}'"
+
+    private fun findLauncherExe(title: String): String? {
+        val currentCommand = ProcessHandle.current().info().command().orElse(null)
+        if (currentCommand?.endsWith(".exe", ignoreCase = true) == true) {
+            val fileName = java.io.File(currentCommand).name
+            if (!fileName.equals("java.exe", ignoreCase = true) && !fileName.equals("javaw.exe", ignoreCase = true)) {
+                return currentCommand
+            }
+        }
+
+        val javaHome = java.io.File(System.getProperty("java.home") ?: "")
+        val userDir = java.io.File(System.getProperty("user.dir") ?: "")
+        val searchDirs = listOfNotNull(
+            currentCommand?.let { java.io.File(it).parentFile },
+            userDir,
+            userDir.parentFile,
+            javaHome.parentFile,
+            javaHome.parentFile?.parentFile
+        ).filter { it.isDirectory }
+            .distinctBy { it.absolutePath.lowercase() }
+
+        val exactName = "$title.exe"
+        for (dir in searchDirs) {
+            val exact = java.io.File(dir, exactName)
+            if (exact.isFile) return exact.absolutePath
+            dir.listFiles { file ->
+                file.isFile &&
+                    file.extension.equals("exe", ignoreCase = true) &&
+                    file.name.startsWith("waffle_meter", ignoreCase = true)
+            }?.firstOrNull()?.let { return it.absolutePath }
+        }
+
+        logger.warn("사용자 바탕화면 바로가기 대상 실행 파일을 찾지 못했습니다. command={}, javaHome={}", currentCommand, javaHome.absolutePath)
+        return null
     }
 
     private fun parkOverlayNative(stage: Stage) {
@@ -673,7 +740,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 popup.addSeparator()
                 popup.add(exitItem)
 
-                trayIcon = TrayIcon(image, "waffle_meter.v1.6.0", popup).apply {
+                trayIcon = TrayIcon(image, "waffle_meter.v1.6", popup).apply {
                     isImageAutoSize = true
                     addMouseListener(object : MouseAdapter() {
                         override fun mouseClicked(e: MouseEvent) {

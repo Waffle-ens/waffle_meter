@@ -3,14 +3,9 @@ package com.tbread.stats
 import com.tbread.config.PropertyHandler
 import com.tbread.data.DataManager
 import com.tbread.entity.DpsLog
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 import java.awt.Desktop
 import java.io.File
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Collections
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -25,10 +20,6 @@ object StatsUploadQueue {
     private val uploaded = AtomicInteger(0)
     private val skipped = AtomicInteger(0)
     private val failed = AtomicInteger(0)
-    private val json = Json { prettyPrint = true; encodeDefaults = true }
-    private val formatter = DateTimeFormatter
-        .ofPattern("yyyyMMdd-HHmmss")
-        .withZone(ZoneId.systemDefault())
 
     @Volatile
     private var clientVersion = "dev"
@@ -65,7 +56,7 @@ object StatsUploadQueue {
             try {
                 Thread.sleep(4_000L)
                 if (isKillConfirmed(log)) {
-                    writeMockPayload(log, true)
+                    uploadPayload(log, true)
                 } else {
                     markSkipped("not_kill")
                 }
@@ -81,8 +72,8 @@ object StatsUploadQueue {
             pending = pending.get(),
             uploaded = uploaded.get(),
             skipped = skipped.get(),
-            failed = failed.get(),
-            lastPath = lastPath,
+                failed = failed.get(),
+                lastPath = lastPath,
             lastReason = lastReason,
             lastUpdatedAt = lastUpdatedAt
         )
@@ -97,7 +88,7 @@ object StatsUploadQueue {
                 Runtime.getRuntime().exec(arrayOf("explorer.exe", dir.absolutePath))
             }
         }.onFailure {
-            logger.warn("통계 mock 업로드 폴더 열기 실패: {}", dir.absolutePath, it)
+            logger.warn("통계 업로드 폴더 열기 실패: {}", dir.absolutePath, it)
         }
         return dir.absolutePath
     }
@@ -106,39 +97,42 @@ object StatsUploadQueue {
         executor.execute {
             pending.incrementAndGet()
             try {
-                writeMockPayload(log, killConfirmed)
+            uploadPayload(log, killConfirmed)
             } finally {
                 pending.decrementAndGet()
             }
         }
     }
 
-    private fun writeMockPayload(log: DpsLog, killConfirmed: Boolean) {
+    private fun uploadPayload(log: DpsLog, killConfirmed: Boolean) {
         when (val result = StatsPayloadBuilder.build(log, clientVersion, killConfirmed)) {
             is StatsPayloadBuilder.BuildResult.Skip -> {
                 markSkipped(result.reason)
             }
             is StatsPayloadBuilder.BuildResult.Payload -> {
                 val payload = result.payload
-                if (!uploadedHashes.add(payload.battleHash)) {
+                if (uploadedHashes.contains(payload.battleHash)) {
                     markSkipped("duplicate")
                     return
                 }
 
                 try {
-                    val dir = outputDir().also { it.mkdirs() }
-                    val file = File(
-                        dir,
-                        "${formatter.format(Instant.ofEpochMilli(payload.uploadedAt))}-${payload.battleHash.take(12)}.json"
-                    )
-                    file.writeText(json.encodeToString(payload), Charsets.UTF_8)
+                    val response = StatsApiClient.postReport(payload, clientVersion)
+                    uploadedHashes.add(payload.battleHash)
                     uploaded.incrementAndGet()
-                    updateLast(file.absolutePath, "mock_saved")
-                    logger.info("통계 mock payload 저장 완료: {}", file.absolutePath)
+                    val reason = if (response.duplicate) "uploaded_duplicate" else "uploaded"
+                    updateLast(StatsApiClient.reportEndpoint(), "$reason:${response.reportId ?: "no_report_id"}")
+                    logger.info(
+                        "통계 payload 전송 완료: duplicate={}, reportId={}, endpoint={}",
+                        response.duplicate,
+                        response.reportId,
+                        StatsApiClient.reportEndpoint()
+                    )
                 } catch (e: Exception) {
                     failed.incrementAndGet()
-                    updateLast(null, "write_failed:${e.javaClass.simpleName}")
-                    logger.warn("통계 mock payload 저장 실패", e)
+                    val reason = e.message?.take(160)?.ifBlank { null } ?: e.javaClass.simpleName
+                    updateLast(StatsApiClient.reportEndpoint(), "upload_failed:$reason")
+                    logger.warn("통계 payload 전송 실패: endpoint={}", StatsApiClient.reportEndpoint(), e)
                 }
             }
         }
@@ -165,6 +159,7 @@ object StatsUploadQueue {
     }
 
     private fun outputDir(): File {
-        return File(PropertyHandler.appDirectory(), "stats-upload-mock")
+        return File(PropertyHandler.appDirectory(), "stats-upload")
     }
+
 }

@@ -8,7 +8,7 @@ class BattleLogRepository {
         private const val IDLE_EXTENSION_GRACE_MS = 30_000L
     }
 
-    private val maxSize = 6
+    private val maxSize = 12
     private val storage = ArrayDeque<DpsLog>()
 
     fun save(data: DpsLog) {

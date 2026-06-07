@@ -121,6 +121,9 @@ class DpsCalculator(private val streamResetCallback: (() -> Unit)? = null) {
         if (user.job == null) {
             user.job = JobClass.convertFromSkill(packet.getSkillCode1())
         }
+        if (!user.nickname.isNullOrBlank() && user.server > 0 && user.power <= 0) {
+            DataManager.requestOfficialCharacterLookup(user.id)
+        }
         cachedInfo.getOrPut(user.id) { DpsInformation() }.addDamage(packet.getDamage().toDouble())
         accumulateSkillDetail(cachedSkillDetails, packet, user.id)
         val ts = packet.getTimeStamp()

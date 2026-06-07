@@ -8,7 +8,7 @@ import { TargetInfo } from "@/components/TargetInfo";
 import { SidePanel } from "@/components/panels/SidePanel.tsx";
 import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
-import { useResizable } from "@/hooks/resize/useResizable";
+import { useResizable, type MeterResizeDirection } from "@/hooks/resize/useResizable";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
 // import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,6 +29,54 @@ import {
 import { Button } from "@/components/ui/button";
 import { Power, SendToBack } from "lucide-react";
 import lock from "@/assets/lock.png";
+
+const METER_RESIZE_HANDLES: {
+  direction: MeterResizeDirection;
+  className: string;
+  indicatorClassName: string;
+}[] = [
+  {
+    direction: "n",
+    className: "left-8 right-8 -top-1 h-3 cursor-n-resize",
+    indicatorClassName: "mx-auto mt-1 h-0.5 w-12 rounded-full",
+  },
+  {
+    direction: "s",
+    className: "left-8 right-8 -bottom-1 h-3 cursor-s-resize",
+    indicatorClassName: "mx-auto mt-1.5 h-0.5 w-12 rounded-full",
+  },
+  {
+    direction: "e",
+    className: "-right-1 top-8 bottom-8 w-3 cursor-e-resize",
+    indicatorClassName: "ml-1 mt-8 h-12 w-0.5 rounded-full",
+  },
+  {
+    direction: "w",
+    className: "-left-1 top-8 bottom-8 w-3 cursor-w-resize",
+    indicatorClassName: "ml-1.5 mt-8 h-12 w-0.5 rounded-full",
+  },
+  {
+    direction: "ne",
+    className: "-right-1 -top-1 h-5 w-5 cursor-ne-resize",
+    indicatorClassName: "ml-2 mt-2 h-2 w-2 rounded-sm",
+  },
+  {
+    direction: "nw",
+    className: "-left-1 -top-1 h-5 w-5 cursor-nw-resize",
+    indicatorClassName: "ml-1 mt-2 h-2 w-2 rounded-sm",
+  },
+  {
+    direction: "se",
+    className: "-right-1 -bottom-1 h-5 w-5 cursor-se-resize",
+    indicatorClassName: "ml-2 mt-1 h-2 w-2 rounded-sm",
+  },
+  {
+    direction: "sw",
+    className: "-left-1 -bottom-1 h-5 w-5 cursor-sw-resize",
+    indicatorClassName: "ml-1 mt-1 h-2 w-2 rounded-sm",
+  },
+];
+
 export default function App() {
   const {
     players,
@@ -46,6 +94,7 @@ export default function App() {
 
   const activePanelRef = useRef<PanelType>(null);
   const selectedRef = useRef<Player | null>(null);
+  const statsOwnCharacterKeyRef = useRef<string>("");
   const {
     updateInfo,
     currentVersion,
@@ -209,6 +258,11 @@ export default function App() {
         const parsed = JSON.parse(raw) as StatsOwnCharacter;
         if (!parsed?.detected) return;
         setStatsOwnCharacter(parsed);
+        const characterKey = `${parsed.server}:${parsed.nickname ?? ""}`;
+        if (characterKey !== statsOwnCharacterKeyRef.current) {
+          statsOwnCharacterKeyRef.current = characterKey;
+          refreshStatsConsent();
+        }
         if (useSettingsStore.getState().statsConsent.state === "unknown") {
           setStatsConsentOpen(true);
         }
@@ -438,13 +492,24 @@ export default function App() {
             />
           </div>
         )}
-        {!isMinimal && (
-          <div
-            onMouseDown={onMouseDown}
-            className="resizeHandle absolute top-1/2 -right-3 flex h-16 w-3 -translate-y-1/2 cursor-e-resize items-center justify-center opacity-45 transition-opacity hover:opacity-100">
-            <div className="h-10 w-1 rounded-full bg-[var(--meter-muted)] shadow-[0_0_12px_rgba(255,255,255,0.2)] transition-colors" />
-          </div>
-        )}
+        {!isMinimal &&
+          METER_RESIZE_HANDLES.map((handle) => (
+            <div
+              key={handle.direction}
+              data-no-drag
+              onMouseDown={(e) => onMouseDown(e, handle.direction)}
+              className={cn(
+                "resizeHandle absolute z-20 opacity-0 transition-opacity hover:opacity-80 group-hover/app:opacity-45",
+                handle.className,
+              )}>
+              <div
+                className={cn(
+                  "bg-[var(--meter-muted)] shadow-[0_0_10px_rgba(255,255,255,0.18)]",
+                  handle.indicatorClassName,
+                )}
+              />
+            </div>
+          ))}
         {isClickThrough && (
           <div
             className="absolute -top-2  z-50 pointer-events-none"

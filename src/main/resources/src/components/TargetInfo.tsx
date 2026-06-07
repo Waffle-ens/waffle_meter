@@ -73,6 +73,7 @@ export const TargetInfo = memo(({ targetName, rowHeight, remainHp, maxHp }: Prop
 
   return (
     <div
+      data-meter-target="true"
       className="relative mb-2 w-full overflow-hidden rounded-md border border-[var(--meter-soft-border)] bg-[var(--meter-row-bg)] px-2.5"
       style={{ height: rowHeight }}>
       <div

@@ -2,6 +2,9 @@ package com.tbread.data
 
 import com.tbread.data.repository.*
 import com.tbread.entity.*
+import com.tbread.entity.enums.JobClass
+import com.tbread.official.OfficialCharacterInfo
+import com.tbread.official.OfficialCharacterLookup
 import kotlinx.serialization.json.*
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
@@ -33,6 +36,7 @@ object DataManager {
     private val mobHpRepository = MobHpRepository()
     private val useBuffRepository = UseBuffRepository()
     private val buffRepository = BuffRepository()
+    private val officialLookupAttempts = ConcurrentHashMap<Int, Long>()
 
     private val buffBlacklist = mutableSetOf<Int>()
 
@@ -319,6 +323,7 @@ object DataManager {
         val log = DpsLog(
             snapshot,
             HashMap(summonRepository.getAll()),
+            emptyList(),
             skillDetails,
             buffRates,
             bossBuffRates
@@ -415,15 +420,83 @@ object DataManager {
         userRepository.savePending(user)
     }
 
+    fun rememberUserPower(uid: Int, nickname: String?, server: Int, job: JobClass?, power: Int) {
+        userRepository.rememberPower(uid, nickname, server, job, power)
+    }
+
+    fun requestOfficialCharacterLookup(uid: Int) {
+        val user = user(uid) ?: return
+        requestOfficialCharacterLookup(uid, user.nickname, user.server, user.job)
+    }
+
+    fun requestOfficialCharacterLookup(
+        uid: Int,
+        nickname: String?,
+        server: Int,
+        job: JobClass?,
+        onResult: ((OfficialCharacterInfo) -> Unit)? = null
+    ) {
+        if (nickname.isNullOrBlank() || server <= 0) return
+        val now = System.currentTimeMillis()
+        val previous = officialLookupAttempts[uid]
+        if (previous != null && now - previous < 10 * 60 * 1000L) return
+        if (uid > 0) officialLookupAttempts[uid] = now
+
+        OfficialCharacterLookup.lookupAsync(nickname, server, job) { info ->
+            applyOfficialCharacterInfo(uid, info)
+            onResult?.invoke(info)
+        }
+    }
+
+    fun resolveOfficialCharacterInfo(
+        uid: Int,
+        nickname: String?,
+        server: Int,
+        job: JobClass?
+    ): OfficialCharacterInfo? {
+        val info = OfficialCharacterLookup.lookupBlocking(nickname, server, job) ?: return null
+        applyOfficialCharacterInfo(uid, info)
+        return info
+    }
+
+    private fun applyOfficialCharacterInfo(uid: Int, info: OfficialCharacterInfo) {
+        val existing = if (uid > 0) userRepository.get(uid) else null
+        if (existing != null) {
+            if (existing.nickname.isNullOrBlank()) existing.nickname = info.nickname
+            if (existing.server <= 0) existing.server = info.server
+            if (existing.job == null && info.job != null) existing.job = info.job
+            if (existing.power <= 0 && info.power > 0) existing.power = info.power
+            userRepository.save(uid, existing)
+            return
+        }
+
+        userRepository.savePending(
+            User(
+                id = uid,
+                nickname = info.nickname,
+                server = info.server,
+                job = info.job,
+                power = info.power
+            )
+        )
+    }
+
     fun findUserByNicknameAndServer(nickname: String, server: Int): User? {
         return userRepository.findByNicknameAndServer(nickname, server)
     }
 
-    fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false,server:Int) {
+    fun saveNickname(uid: Int, nickname: String, isExecutor: Boolean = false,server:Int, job: JobClass? = null) {
         val user = userRepository.get(uid) ?: User(uid, nickname, server, null, isExecutor).also {
             userRepository.save(uid, it)
         }
         user.nickname = nickname
+        if (server > 0) {
+            user.server = server
+        }
+        if (user.job == null && job != null) {
+            user.job = job
+        }
+        userRepository.save(uid, user)
         if (isExecutor) {
             saveExecutorId(uid)
         }

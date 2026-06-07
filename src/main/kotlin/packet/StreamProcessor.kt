@@ -203,7 +203,8 @@ class StreamProcessor() {
                 job = packet[offset].toInt() and 0xff
             }
         }
-        DataManager.saveNickname(userInfo.value, nickname, true, server)
+        val realClass = JobClass.convertFromCode(job)
+        DataManager.saveNickname(userInfo.value, nickname, true, server, realClass)
         PacketDebugLogger.meta(
             "nickname",
             mapOf("own" to true, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job)
@@ -296,7 +297,8 @@ class StreamProcessor() {
             PacketAddonManager.parse(packet, arrivedAt)
         }
 
-        DataManager.saveNickname(userInfo.value, nickname, false, server)
+        val realClass = JobClass.convertFromCode(job)
+        DataManager.saveNickname(userInfo.value, nickname, false, server, realClass)
         PacketDebugLogger.meta(
             "nickname",
             mapOf("own" to false, "uid" to userInfo.value, "nickname" to nickname, "server" to server, "job" to job)
@@ -902,12 +904,29 @@ class StreamProcessor() {
             mapOf("requester" to requester, "nickname" to nickname, "server" to server, "job" to job, "power" to power)
         )
         PacketEventBus.events.tryEmit(PacketEvent.JoinRequest(request))
-        val user = DataManager.findUserByNicknameAndServer(nickname, server)
-        if (user == null) {
-            DataManager.saveUser(User(-1, nickname, server, power = power))
-            return true
+        DataManager.rememberUserPower(requester, nickname, server, realClass, power)
+        DataManager.requestOfficialCharacterLookup(requester, nickname, server, realClass) { info ->
+            if (info.skills.isEmpty()) return@requestOfficialCharacterLookup
+            if (System.currentTimeMillis() - arrivedAt > 20_000L) return@requestOfficialCharacterLookup
+
+            val enriched = PacketAddonManager.processingUser(
+                request.copy(
+                    power = if (request.power > 0) request.power else info.power,
+                    job = request.job ?: info.job?.className,
+                    skill = HashMap(info.skills)
+                )
+            )
+            PacketEventBus.events.tryEmit(PacketEvent.JoinRequest(enriched))
+            PacketDebugLogger.meta(
+                "join_request_skills",
+                mapOf(
+                    "requester" to requester,
+                    "nickname" to nickname,
+                    "server" to server,
+                    "skillCount" to info.skills.size
+                )
+            )
         }
-        user.power = power
         return true
     }
 

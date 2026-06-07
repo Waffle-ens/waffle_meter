@@ -6,11 +6,11 @@ import com.tbread.entity.DpsLog
 import com.tbread.entity.OperatingData
 import com.tbread.entity.User
 import com.tbread.entity.enums.JobClass
-import java.security.MessageDigest
+import org.slf4j.LoggerFactory
 import kotlin.math.roundToLong
 
 object StatsPayloadBuilder {
-    private const val IDENTITY_HASH_VERSION = "sha256:aion2-character:v1"
+    private val logger = LoggerFactory.getLogger(StatsPayloadBuilder::class.java)
 
     private val synergyJobs = setOf(
         JobClass.TEMPLAR,
@@ -22,13 +22,14 @@ object StatsPayloadBuilder {
     fun ownCharacter(): StatsOwnCharacter {
         val id = DataManager.executorId()
         val user = DataManager.user(id) ?: return StatsOwnCharacter(false)
+        val resolved = resolveUserSnapshot(user)
         return StatsOwnCharacter(
-            detected = !user.nickname.isNullOrBlank(),
-            id = user.id,
-            nickname = user.nickname,
-            server = user.server,
-            job = user.job?.className,
-            power = user.power
+            detected = !resolved.nickname.isNullOrBlank(),
+            id = resolved.id,
+            nickname = resolved.nickname,
+            server = resolved.server,
+            job = resolved.job?.className,
+            power = resolved.power
         )
     }
 
@@ -51,18 +52,26 @@ object StatsPayloadBuilder {
 
         val duration = (report.battleEnd - report.battleStart).takeIf { it > 0 }
             ?: return BuildResult.Skip("invalid_duration")
+        val contributors = resolveContributors(report.contributors)
+        val resolvedOwn = contributors.firstOrNull { it.id == own.id } ?: own
         val totalDamage = ownInfo.amount.roundToLong()
         val ownSkills = log.skillDetails[own.id].orEmpty()
         val skillPayloads = buildSkillPayloads(ownSkills, totalDamage)
         val resultRates = summarizeRates(ownSkills.values)
-        val participantPayloads = buildParticipantPayloads(log, own.id)
-        val ownIdentityHash = characterIdentityHash(own.server, ownNickname)
+        val participantUsers = sortedParticipantUsers(log, contributors)
+        val participantIndexById = participantUsers
+            .mapIndexed { index, user -> user.id to index }
+            .toMap()
+        val participantPayloads = buildParticipantPayloads(log, own.id, participantUsers, participantIndexById)
+        if (resolvedOwn.power <= 0) return BuildResult.Skip("own_power_unresolved")
+        if (participantPayloads.any { it.power <= 0 }) return BuildResult.Skip("participant_power_unresolved")
+        val ownIdentityHash = StatsIdentity.characterIdentityHash(own.server, ownNickname)
             ?: return BuildResult.Skip("own_identity_missing")
-        val jobCounts = report.contributors
+        val jobCounts = contributors
             .mapNotNull { it.job?.className }
             .groupingBy { it }
             .eachCount()
-        val synergy = buildSynergy(report.contributors)
+        val synergy = buildSynergy(contributors)
         val battleHash = battleHash(
             own.server,
             ownNickname,
@@ -78,15 +87,15 @@ object StatsPayloadBuilder {
                 schemaVersion = 3,
                 clientVersion = clientVersion,
                 battleHash = battleHash,
-                identityHashVersion = IDENTITY_HASH_VERSION,
+                identityHashVersion = StatsIdentity.IDENTITY_HASH_VERSION,
                 consentVersion = StatsConsentManager.CONSENT_VERSION,
                 uploadedAt = System.currentTimeMillis(),
                 character = StatsCharacterPayload(
                     identityHash = ownIdentityHash,
                     nickname = ownNickname,
                     server = own.server,
-                    job = own.job?.className,
-                    power = own.power,
+                    job = resolvedOwn.job?.className,
+                    power = resolvedOwn.power,
                     public = StatsConsentManager.info().publicCharacter
                 ),
                 encounter = StatsEncounterPayload(
@@ -106,16 +115,42 @@ object StatsPayloadBuilder {
                 participants = participantPayloads,
                 result = buildResultPayload(ownInfo, resultRates),
                 skills = skillPayloads,
-                buffs = log.buffRates[own.id].orEmpty().map(::toBuffPayload),
-                bossDebuffs = log.bossBuffRates.map(::toBuffPayload)
+                buffs = log.buffRates[own.id].orEmpty().map {
+                    toBuffPayload(
+                        value = it,
+                        scope = "participant",
+                        category = "buff",
+                        ownerParticipantIndex = participantIndexById[own.id],
+                        actorParticipantIndex = participantIndexById[it.actorId]
+                    )
+                },
+                bossDebuffs = log.bossBuffRates.map {
+                    toBuffPayload(
+                        value = it,
+                        scope = "boss",
+                        category = "debuff",
+                        ownerParticipantIndex = null,
+                        actorParticipantIndex = participantIndexById[it.actorId]
+                    )
+                }
             )
         )
     }
 
-    private fun buildParticipantPayloads(log: DpsLog, ownId: Int): List<StatsParticipantPayload> {
-        return log.report.contributors.mapNotNull { user ->
+    private fun sortedParticipantUsers(log: DpsLog, contributors: Collection<User>): List<User> {
+        return contributors
+            .filter { user -> (log.report.information[user.id]?.amount ?: 0.0) > 0.0 }
+            .sortedByDescending { user -> log.report.information[user.id]?.amount ?: 0.0 }
+    }
+
+    private fun buildParticipantPayloads(
+        log: DpsLog,
+        ownId: Int,
+        participants: List<User>,
+        participantIndexById: Map<Int, Int>
+    ): List<StatsParticipantPayload> {
+        return participants.mapNotNull { user ->
             val info = log.report.information[user.id] ?: return@mapNotNull null
-            if (info.amount <= 0.0) return@mapNotNull null
 
             val totalDamage = info.amount.roundToLong()
             val skills = log.skillDetails[user.id].orEmpty()
@@ -123,15 +158,75 @@ object StatsPayloadBuilder {
             StatsParticipantPayload(
                 identityHash = user.nickname
                     ?.takeIf { it.isNotBlank() }
-                    ?.let { characterIdentityHash(user.server, it) },
+                    ?.let { StatsIdentity.characterIdentityHash(user.server, it) },
                 isUploader = user.id == ownId,
                 job = user.job?.className,
                 power = user.power,
                 result = buildResultPayload(info, rates),
                 skills = buildSkillPayloads(skills, totalDamage),
-                buffs = log.buffRates[user.id].orEmpty().map(::toBuffPayload)
+                buffs = log.buffRates[user.id].orEmpty().map {
+                    toBuffPayload(
+                        value = it,
+                        scope = "participant",
+                        category = "buff",
+                        ownerParticipantIndex = participantIndexById[user.id],
+                        actorParticipantIndex = participantIndexById[it.actorId]
+                    )
+                }
             )
-        }.sortedByDescending { it.result.totalDamage }
+        }
+    }
+
+    private fun resolveContributors(contributors: Collection<User>): List<User> {
+        return contributors.map(::resolveUserSnapshot)
+    }
+
+    private fun resolveUserSnapshot(user: User): User {
+        val resolved = user.copy()
+        mergeUserInfo(resolved, DataManager.user(user.id))
+        val nickname = resolved.nickname?.takeIf { it.isNotBlank() }
+        val server = resolved.server
+
+        if (resolved.power <= 0 && nickname != null && server > 0) {
+            mergeUserInfo(resolved, DataManager.findUserByNicknameAndServer(nickname, server))
+        }
+
+        if (resolved.power <= 0 && nickname != null && server > 0) {
+            DataManager.resolveOfficialCharacterInfo(resolved.id, nickname, server, resolved.job)?.let { info ->
+                if (resolved.nickname.isNullOrBlank()) resolved.nickname = info.nickname
+                if (resolved.server <= 0) resolved.server = info.server
+                if (resolved.job == null && info.job != null) resolved.job = info.job
+                if (info.power > 0) resolved.power = info.power
+            }
+        }
+
+        if (resolved.power <= 0) {
+            logger.warn(
+                "통계 payload 전투력 미해결: uid={}, nickname={}, server={}, job={}",
+                resolved.id,
+                resolved.nickname,
+                resolved.server,
+                resolved.job?.className
+            )
+        }
+
+        return resolved
+    }
+
+    private fun mergeUserInfo(target: User, source: User?) {
+        if (source == null) return
+        if (target.nickname.isNullOrBlank() && !source.nickname.isNullOrBlank()) {
+            target.nickname = source.nickname
+        }
+        if (target.server <= 0 && source.server > 0) {
+            target.server = source.server
+        }
+        if (target.job == null && source.job != null) {
+            target.job = source.job
+        }
+        if (target.power <= 0 && source.power > 0) {
+            target.power = source.power
+        }
     }
 
     private fun buildSynergy(contributors: Collection<User>): StatsSynergyPayload {
@@ -184,11 +279,21 @@ object StatsPayloadBuilder {
         )
     }
 
-    private fun toBuffPayload(value: OperatingData): StatsBuffPayload {
+    private fun toBuffPayload(
+        value: OperatingData,
+        scope: String,
+        category: String,
+        ownerParticipantIndex: Int?,
+        actorParticipantIndex: Int?
+    ): StatsBuffPayload {
         return StatsBuffPayload(
             buffCode = value.code,
             buffName = value.name,
-            operatingRate = oneDecimal(value.operatingRate)
+            operatingRate = oneDecimal(value.operatingRate),
+            scope = scope,
+            category = category,
+            ownerParticipantIndex = ownerParticipantIndex,
+            actorParticipantIndex = actorParticipantIndex
         )
     }
 
@@ -230,19 +335,7 @@ object StatsPayloadBuilder {
         val roundedEnd = endedAt / 10_000L * 10_000L
         val raw = listOf(server, nickname, mobCode, roundedStart, roundedEnd, totalDamage, durationMs)
             .joinToString("|")
-        return sha256(raw)
-    }
-
-    private fun characterIdentityHash(server: Int, nickname: String): String? {
-        if (server <= 0) return null
-        val normalizedName = nickname.trim().lowercase()
-        if (normalizedName.isBlank()) return null
-        return sha256("$IDENTITY_HASH_VERSION|$server|$normalizedName")
-    }
-
-    private fun sha256(raw: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8))
-        return digest.joinToString("") { "%02x".format(it) }
+        return StatsIdentity.sha256(raw)
     }
 
     private fun oneDecimal(value: Double): Double = kotlin.math.round(value * 10.0) / 10.0

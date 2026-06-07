@@ -117,7 +117,11 @@ data class StatsSkillPayload(
 data class StatsBuffPayload(
     val buffCode: Int,
     val buffName: String,
-    val operatingRate: Double
+    val operatingRate: Double,
+    val scope: String,
+    val category: String,
+    val ownerParticipantIndex: Int? = null,
+    val actorParticipantIndex: Int? = null
 )
 
 @Serializable

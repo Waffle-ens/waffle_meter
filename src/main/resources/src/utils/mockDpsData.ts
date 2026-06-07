@@ -908,21 +908,21 @@ export const injectMockDpsData = () => {
         failed: 0,
         lastPath:
           props.get("statsUploadEnabled") === "true"
-            ? "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.6\\stats-upload-mock\\mock-upload.json"
+            ? "http://34.64.49.225/api/v1/reports"
             : "",
         lastReason:
           props.get("statsUploadEnabled") === "true"
-            ? "mock_saved"
+            ? "uploaded:200"
             : "동의 후 보스 처치 전투만 업로드 후보로 저장됩니다.",
         lastUpdatedAt: Date.now(),
       }),
     openStatsUploadFolder: () =>
-      "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.6\\stats-upload-mock",
+      "C:\\Users\\Waffle\\AppData\\Roaming\\waffle_meter.v1.6\\stats-upload",
     getDpsData: () => JSON.stringify(MOCK_DATA),
     getBattleDetail: (id: string) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(id)] ?? MOCK_DETAIL_DATA),
     getBattleDetailFromList: (_idx: number, uid: number) => JSON.stringify(MOCK_DETAIL_BY_PLAYER[String(uid)] ?? MOCK_DETAIL_DATA),
     getBattleList: () => JSON.stringify(MOCK_HISTORY_DATA),
-    getVersion: () => "1.6.0",
+    getVersion: () => "1.6.9",
     getLiveBuffOperatingRate: (id: number) => JSON.stringify(getMockBuffData(id)),
     getBuffOperatingRate: (_idx: number, id: number) => JSON.stringify(getMockBuffData(id)),
     openBrowser: (url: string) => console.log("[mock] openBrowser:", url),
