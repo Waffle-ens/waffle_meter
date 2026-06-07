@@ -9,7 +9,9 @@ import java.net.URI
 import java.net.URLEncoder
 
 object StatsApiClient {
-    private const val BASE_URL = "http://34.64.49.225"
+    // 와터기.kr (퓨니코드). 백엔드는 HTTPS 전용(http→https 301) + 도메인 인증서라 http://IP 로는
+    // Java HttpURLConnection 이 cross-protocol 리다이렉트를 안 따라가 sync_failed → 업로드 전체가 막힘.
+    private const val BASE_URL = "https://xn--ok0b896b9wh.kr"
     private const val REPORT_ENDPOINT = "$BASE_URL/api/v1/reports"
     private const val CONSENT_STATUS_ENDPOINT = "$BASE_URL/api/v1/consent/status"
     private const val CONSENT_EVENTS_ENDPOINT = "$BASE_URL/api/v1/consent/events"
