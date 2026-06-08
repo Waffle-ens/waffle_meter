@@ -105,6 +105,7 @@ data class StatsResultPayload(
 data class StatsSkillPayload(
     val skillCode: Int,
     val skillName: String,
+    val damageType: String,
     val damage: Long,
     val hitCount: Int,
     val critRate: Double,
@@ -120,6 +121,8 @@ data class StatsBuffPayload(
     val operatingRate: Double,
     val scope: String,
     val category: String,
+    val source: String? = null,
+    val actorIdentityHash: String? = null,
     val ownerParticipantIndex: Int? = null,
     val actorParticipantIndex: Int? = null
 )

@@ -54,6 +54,17 @@ object StatsPayloadBuilder {
             ?: return BuildResult.Skip("invalid_duration")
         val contributors = resolveContributors(report.contributors)
         val resolvedOwn = contributors.firstOrNull { it.id == own.id } ?: own
+        val identityHashCache = HashMap<Int, String?>()
+        val actorIdentityResolver: (Int) -> String? = { actorId ->
+            identityHashCache.getOrPut(actorId) {
+                val actor = contributors.firstOrNull { it.id == actorId }
+                    ?: DataManager.user(actorId)
+                val nickname = actor?.nickname?.takeIf { it.isNotBlank() }
+                if (actor != null && nickname != null)
+                    StatsIdentity.characterIdentityHash(actor.server, nickname)
+                else null
+            }
+        }
         val totalDamage = ownInfo.amount.roundToLong()
         val ownSkills = log.skillDetails[own.id].orEmpty()
         val skillPayloads = buildSkillPayloads(ownSkills, totalDamage)
@@ -62,7 +73,7 @@ object StatsPayloadBuilder {
         val participantIndexById = participantUsers
             .mapIndexed { index, user -> user.id to index }
             .toMap()
-        val participantPayloads = buildParticipantPayloads(log, own.id, participantUsers, participantIndexById)
+        val participantPayloads = buildParticipantPayloads(log, own.id, participantUsers, participantIndexById, actorIdentityResolver)
         if (resolvedOwn.power <= 0) return BuildResult.Skip("own_power_unresolved")
         if (participantPayloads.any { it.power <= 0 }) return BuildResult.Skip("participant_power_unresolved")
         val ownIdentityHash = StatsIdentity.characterIdentityHash(own.server, ownNickname)
@@ -84,7 +95,7 @@ object StatsPayloadBuilder {
 
         return BuildResult.Payload(
             StatsUploadPayload(
-                schemaVersion = 3,
+                schemaVersion = 4,
                 clientVersion = clientVersion,
                 battleHash = battleHash,
                 identityHashVersion = StatsIdentity.IDENTITY_HASH_VERSION,
@@ -120,8 +131,11 @@ object StatsPayloadBuilder {
                         value = it,
                         scope = "participant",
                         category = "buff",
+                        ownerId = own.id,
+                        ownerJob = resolvedOwn.job,
                         ownerParticipantIndex = participantIndexById[own.id],
-                        actorParticipantIndex = participantIndexById[it.actorId]
+                        actorParticipantIndex = participantIndexById[it.actorId],
+                        actorIdentityHash = actorIdentityResolver(it.actorId)
                     )
                 },
                 bossDebuffs = log.bossBuffRates.map {
@@ -129,8 +143,11 @@ object StatsPayloadBuilder {
                         value = it,
                         scope = "boss",
                         category = "debuff",
+                        ownerId = null,
+                        ownerJob = null,
                         ownerParticipantIndex = null,
-                        actorParticipantIndex = participantIndexById[it.actorId]
+                        actorParticipantIndex = participantIndexById[it.actorId],
+                        actorIdentityHash = actorIdentityResolver(it.actorId)
                     )
                 }
             )
@@ -147,7 +164,8 @@ object StatsPayloadBuilder {
         log: DpsLog,
         ownId: Int,
         participants: List<User>,
-        participantIndexById: Map<Int, Int>
+        participantIndexById: Map<Int, Int>,
+        actorIdentityResolver: (Int) -> String?
     ): List<StatsParticipantPayload> {
         return participants.mapNotNull { user ->
             val info = log.report.information[user.id] ?: return@mapNotNull null
@@ -169,8 +187,11 @@ object StatsPayloadBuilder {
                         value = it,
                         scope = "participant",
                         category = "buff",
+                        ownerId = user.id,
+                        ownerJob = user.job,
                         ownerParticipantIndex = participantIndexById[user.id],
-                        actorParticipantIndex = participantIndexById[it.actorId]
+                        actorParticipantIndex = participantIndexById[it.actorId],
+                        actorIdentityHash = actorIdentityResolver(it.actorId)
                     )
                 }
             )
@@ -245,21 +266,52 @@ object StatsPayloadBuilder {
         skills: Map<String, AnalyzedSkill>,
         totalDamage: Long
     ): List<StatsSkillPayload> {
-        return skills.mapNotNull { (key, skill) ->
-            val code = key.toIntOrNull() ?: return@mapNotNull null
-            val damage = (skill.damageAmount.toLong() + skill.dotDamageAmount.toLong()).coerceAtLeast(0)
-            if (damage <= 0L) return@mapNotNull null
-            val rate = summarizeRates(listOf(skill))
-            StatsSkillPayload(
-                skillCode = code,
-                skillName = skill.name?.takeIf { it.isNotBlank() } ?: code.toString(),
-                damage = damage,
-                hitCount = rate.hitCount,
-                critRate = rate.critRate,
-                strongRate = rate.strongRate,
-                perfectRate = rate.perfectRate,
-                share = if (totalDamage > 0) oneDecimal(damage.toDouble() / totalDamage * 100.0) else 0.0
-            )
+        fun share(amount: Long): Double =
+            if (totalDamage > 0) oneDecimal(amount.toDouble() / totalDamage * 100.0) else 0.0
+
+        return skills.flatMap { (key, skill) ->
+            val code = key.toIntOrNull() ?: return@flatMap emptyList<StatsSkillPayload>()
+            val name = skill.name?.takeIf { it.isNotBlank() } ?: code.toString()
+            val entries = mutableListOf<StatsSkillPayload>()
+
+            // 직접피해 (명중/치명타 등 비율은 직접타 기준)
+            val directDamage = skill.damageAmount.toLong().coerceAtLeast(0)
+            if (directDamage > 0L) {
+                val rate = summarizeRates(listOf(skill))
+                entries.add(
+                    StatsSkillPayload(
+                        skillCode = code,
+                        skillName = name,
+                        damageType = "direct",
+                        damage = directDamage,
+                        hitCount = skill.times,
+                        critRate = rate.critRate,
+                        strongRate = rate.strongRate,
+                        perfectRate = rate.perfectRate,
+                        share = share(directDamage)
+                    )
+                )
+            }
+
+            // 해당 스킬로 인한 지속피해(DoT) — 비율 항목은 적용 불가(0)
+            val dotDamage = skill.dotDamageAmount.toLong().coerceAtLeast(0)
+            if (dotDamage > 0L) {
+                entries.add(
+                    StatsSkillPayload(
+                        skillCode = code,
+                        skillName = name,
+                        damageType = "dot",
+                        damage = dotDamage,
+                        hitCount = skill.dotTimes,
+                        critRate = 0.0,
+                        strongRate = 0.0,
+                        perfectRate = 0.0,
+                        share = share(dotDamage)
+                    )
+                )
+            }
+
+            entries
         }.sortedByDescending { it.damage }
     }
 
@@ -283,18 +335,41 @@ object StatsPayloadBuilder {
         value: OperatingData,
         scope: String,
         category: String,
+        ownerId: Int?,
+        ownerJob: JobClass?,
         ownerParticipantIndex: Int?,
-        actorParticipantIndex: Int?
+        actorParticipantIndex: Int?,
+        actorIdentityHash: String?
     ): StatsBuffPayload {
+        val source = if (scope == "participant" && ownerId != null) {
+            buffSource(ownerId, ownerJob, value.actorId, value.code)
+        } else {
+            null
+        }
         return StatsBuffPayload(
             buffCode = value.code,
             buffName = value.name,
             operatingRate = oneDecimal(value.operatingRate),
             scope = scope,
             category = category,
+            source = source,
+            actorIdentityHash = actorIdentityHash,
             ownerParticipantIndex = ownerParticipantIndex,
             actorParticipantIndex = actorParticipantIndex
         )
+    }
+
+    /**
+     * 로컬 미터기 BuffRateSection.categorize() 와 동일한 분류.
+     * self  = 시전자==소유자 & 버프코드 직업 prefix == 소유자 직업
+     * other = 시전자==소유자 & prefix 불일치(소모품/주문서/타직업 자가버프)
+     * party = 시전자 != 소유자 (다른 플레이어가 건 버프; 동일 직업 다수는 actorIdentityHash로 구분)
+     */
+    private fun buffSource(ownerId: Int, ownerJob: JobClass?, actorId: Int, buffCode: Int): String {
+        if (actorId != ownerId) return "party"
+        val ownerPrefix = ownerJob?.let { it.basicSkillCode / 1_000_000 }
+        val codePrefix = buffCode / 10_000_000
+        return if (ownerPrefix != null && codePrefix == ownerPrefix) "self" else "other"
     }
 
     private data class RateSummary(
