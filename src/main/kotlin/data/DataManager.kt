@@ -41,6 +41,12 @@ object DataManager {
 
     private val rawPacketBuffer = ConcurrentLinkedDeque<RawPacket>()
     private val rawPacketCount = AtomicInteger(0)
+
+    // 무손실 연속 패킷 캡처(분석용): 롤링 버퍼 eviction과 무관하게 세션 전체를 파일에 append 한다.
+    @Volatile
+    private var continuousPacketWriter: java.io.BufferedWriter? = null
+    private val continuousLogLock = Any()
+    private var continuousLogLines = 0L
     private val packetLogFileFormatter = DateTimeFormatter
         .ofPattern("yyyyMMdd-HHmmss")
         .withZone(ZoneId.systemDefault())
@@ -56,7 +62,10 @@ object DataManager {
     fun setPacketLoggingEnabled(enabled: Boolean) {
         packetLoggingEnabled = enabled
         PropertyHandler.setProperty("packetLoggingMode", enabled.toString())
-        if (!enabled) clearRawPackets()
+        if (!enabled) {
+            closeContinuousPacketLog()
+            clearRawPackets()
+        }
     }
 
     fun saveRawPacket(data: ByteArray, timestamp: Long) {
@@ -64,6 +73,7 @@ object DataManager {
         rawPacketBuffer.add(RawPacket(data.copyOf(), timestamp))
         rawPacketCount.incrementAndGet()
         trimRawPackets(timestamp)
+        appendContinuousPacketLog(timestamp, data)
     }
 
     fun rawPacketsInRange(from: Long, to: Long): List<RawPacket> {
@@ -144,6 +154,47 @@ object DataManager {
 
     private fun ByteArray.toHexString(): String {
         return joinToString(separator = "") { "%02X".format(it.toInt() and 0xff) }
+    }
+
+    private fun appendContinuousPacketLog(timestamp: Long, data: ByteArray) {
+        synchronized(continuousLogLock) {
+            if (continuousPacketWriter == null) openContinuousPacketLogLocked()
+            val writer = continuousPacketWriter ?: return
+            runCatching {
+                writer.append(timestamp.toString())
+                writer.append('\t')
+                writer.append(data.size.toString())
+                writer.append('\t')
+                writer.appendLine(data.toHexString())
+                if (++continuousLogLines % 512L == 0L) writer.flush()
+            }.onFailure {
+                logger.warn("연속 패킷 로그 기록 실패", it)
+                runCatching { writer.close() }
+                continuousPacketWriter = null
+            }
+        }
+    }
+
+    private fun openContinuousPacketLogLocked() {
+        runCatching {
+            val dir = File(PropertyHandler.appDirectory(), "packet-logs").also { it.mkdirs() }
+            val createdAt = System.currentTimeMillis()
+            val file = File(dir, "${packetLogFileFormatter.format(Instant.ofEpochMilli(createdAt))}-session.log")
+            val writer = file.bufferedWriter(Charsets.UTF_8, 1 shl 20)
+            writer.appendLine("# waffle_meter packet log (continuous session)")
+            writer.appendLine("# createdAt=$createdAt")
+            writer.appendLine("# format=timestamp\\tpacketSize\\thex")
+            continuousPacketWriter = writer
+            continuousLogLines = 0L
+            logger.info("연속 패킷 로그 시작: {}", file.absolutePath)
+        }.onFailure { logger.warn("연속 패킷 로그 시작 실패", it) }
+    }
+
+    private fun closeContinuousPacketLog() {
+        synchronized(continuousLogLock) {
+            continuousPacketWriter?.let { w -> runCatching { w.flush(); w.close() } }
+            continuousPacketWriter = null
+        }
     }
 
     private val mobIdRepository = MobIdRepository()
