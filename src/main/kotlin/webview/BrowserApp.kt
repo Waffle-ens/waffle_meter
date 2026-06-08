@@ -53,6 +53,9 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         private const val WS_EX_APPWINDOW = 0x00040000
         private const val WS_EX_LAYERED = 0x00080000
         private const val WS_EX_TRANSPARENT = 0x00000020
+        // 오버레이가 포커스(foreground)를 절대 뺏지 않게 한다. 보더리스 전체창 게임은 자기가 foreground일 때만
+        // 고FPS(독립 flip/풀스크린 최적화)를 유지하는데, 활성화되는 오버레이는 alt-tab과 동일하게 게임 FPS를 떨군다.
+        private const val WS_EX_NOACTIVATE = 0x08000000
 
         private const val SWP_NOSIZE = 0x0001
         private const val SWP_NOMOVE = 0x0002
@@ -598,7 +601,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         val hwnd = overlayHwnd ?: return
         val user32 = User32.INSTANCE
         val exStyle = user32.GetWindowLong(hwnd, GWL_EXSTYLE)
-        val baseStyle = (exStyle or WS_EX_TOOLWINDOW or WS_EX_LAYERED) and WS_EX_APPWINDOW.inv()
+        val baseStyle = (exStyle or WS_EX_TOOLWINDOW or WS_EX_LAYERED or WS_EX_NOACTIVATE) and WS_EX_APPWINDOW.inv()
         val newStyle = if (isClickThrough) {
             baseStyle or WS_EX_TRANSPARENT
         } else {
