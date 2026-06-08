@@ -6,6 +6,8 @@ declare global {
       resetDps?: () => void;
       hardResetDps?: () => void;
       startUpdate: (msiUrl: string) => void;
+      applyUpdate?: () => void;
+      armUpdateOnExit?: () => void;
       getDpsData?: () => void;
 
       getVersion?: () => string;

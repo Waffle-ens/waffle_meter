@@ -9,13 +9,14 @@ plugins {
 }
 
 group = "com.tbread"
-val rawAppVersion = providers.gradleProperty("appVersion").orElse("1.7.1").get().removePrefix("v")
+val rawAppVersion = providers.gradleProperty("appVersion").orElse("1.7.2").get().removePrefix("v")
 val installerVersion = rawAppVersion.substringBefore("-")
 val displayAppVersion = providers.gradleProperty("displayVersion")
     .orElse(rawAppVersion)
     .get()
     .removePrefix("v")
-val appPackageName = "waffle_meter.v1.6"
+val isDevBuild = rawAppVersion.endsWith("-dev")
+val appPackageName = if (isDevBuild) "waffle_meter-dev" else "waffle_meter"
 version = installerVersion
 
 val frontendDir = layout.projectDirectory.dir("src/main/resources")
@@ -37,7 +38,6 @@ val requiredJsonResources = listOf(
     "buff_blacklist.json",
 ).map { frontendDir.file("json/$it") }
 val npmCommand = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) "npm.cmd" else "npm"
-val patchUserDesktopShortcutScript = layout.projectDirectory.file("packaging/windows/patch-user-desktop-shortcut.ps1")
 
 val validateJsonResources by tasks.registering {
     inputs.files(requiredJsonResources)
@@ -82,28 +82,6 @@ tasks.processResources {
     filesMatching("version.properties") {
         expand("version" to displayAppVersion)
     }
-}
-
-tasks.matching { it.name == "packageMsi" }.configureEach {
-    finalizedBy("patchMsiUserDesktopShortcut")
-}
-
-val patchMsiUserDesktopShortcut by tasks.registering(Exec::class) {
-    mustRunAfter("packageMsi")
-    inputs.file(patchUserDesktopShortcutScript)
-    inputs.dir(layout.buildDirectory.dir("compose/binaries/main/msi"))
-    commandLine(
-        "powershell.exe",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        patchUserDesktopShortcutScript.asFile.absolutePath,
-        "-MsiDirectory",
-        layout.buildDirectory.dir("compose/binaries/main/msi").get().asFile.absolutePath,
-        "-AppName",
-        appPackageName
-    )
 }
 
 repositories { 
@@ -155,10 +133,11 @@ compose.desktop {
         nativeDistributions {
             windows{
                 upgradeUuid = "66D7E440-C8DB-47D8-A7AC-996796404049"
+                perUserInstall = true
                 packageVersion = project.version.toString()
                 msiPackageVersion = project.version.toString()
                 includeAllModules = true
-                shortcut = false
+                shortcut = true
                 menu = true
                 menuGroup = appPackageName
                 iconFile.set(project.file("src/main/resources/icons/waffle.ico"))

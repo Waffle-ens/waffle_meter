@@ -191,15 +191,19 @@ export const UpdatePanel = ({
       )}
 
       {status === "complete" && (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.25 px-6 py-10">
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center mb-1
-                          bg-green-400/10 border border-green-400/20 text-green-400 text-[15px]">
-            ✓
+        <>
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.25 px-6 py-6">
+            <p className="text-sm text-slate-200">다운로드가 완료되었습니다</p>
+            <p className="text-sm text-white/45">적용하면 미터기가 자동으로 재시작됩니다.</p>
           </div>
-          <p className="text-sm text-slate-200">다운로드가 완료되었습니다</p>
-          <p className="text-sm text-white/45">미터기를 종료한 뒤 재설치 해주세요.</p>
-        </div>
+          <div className={CLS.footerBar}>
+            <Button
+              onClick={() => window.javaBridge?.applyUpdate?.()}
+              className="flex-1 bg-cyan-600 p-4 w-20 transition-colors hover:bg-cyan-500">
+              지금 재시작하여 적용
+            </Button>
+          </div>
+        </>
       )}
 
       {status === "error" && (

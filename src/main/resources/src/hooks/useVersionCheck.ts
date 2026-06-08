@@ -153,6 +153,7 @@ export const useVersionCheck = () => {
     };
     (window as any).onDownloadComplete = () => {
       setDownloadState({ status: "complete" });
+      (window as any).javaBridge?.armUpdateOnExit?.();
     };
     (window as any).onDownloadError = () => {
       setDownloadState({ status: "error" });
@@ -178,6 +179,19 @@ export const useVersionCheck = () => {
     (window as any).javaBridge.openBrowser(RELEASE_URL);
     (window as any).javaBridge.exitApp();
   };
+
+  const autoDownloadedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      checkStatus === "updateAvailable" &&
+      updateInfo &&
+      downloadState.status === "idle" &&
+      autoDownloadedRef.current !== updateInfo.latestVersion
+    ) {
+      autoDownloadedRef.current = updateInfo.latestVersion;
+      startUpdate();
+    }
+  }, [checkStatus, updateInfo, downloadState.status]);
 
   return {
     updateInfo,

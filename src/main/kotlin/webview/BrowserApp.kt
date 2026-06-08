@@ -60,6 +60,9 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         private const val SWP_FRAMECHANGED = 0x0020
         private const val SWP_SHOWWINDOW = 0x0040
 
+        private const val APP_TITLE = "waffle_meter"
+        private const val UPDATE_TEMP_DIR = "waffle_meter"
+
         private val HWND_TOPMOST = WinDef.HWND(Pointer.createConstant(-1))
         private val HWND_TOP = WinDef.HWND(Pointer.createConstant(0))
         private val HWND_NOTOPMOST = WinDef.HWND(Pointer.createConstant(-2))
@@ -117,8 +120,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun exitApp() {
-            Platform.exit()
-            exitProcess(0)
+            shutdown()
         }
 
         fun hideToTray() {
@@ -230,10 +232,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         fun startUpdate(msiUrl: String) {
             Thread {
                 try {
-                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.6").also { it.mkdirs() }
+                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), UPDATE_TEMP_DIR).also { it.mkdirs() }
                     val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
 
-                    val connection = java.net.URI(msiUrl).toURL().openConnection() as java.net.HttpURLConnection
+                    val connection = java.net.URI(msiUrl).toURL().openConnection()
                     connection.connect()
                     val totalBytes = connection.contentLengthLong
 
@@ -255,13 +257,27 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                         }
                     }
 
-                    Runtime.getRuntime().exec(arrayOf("explorer.exe", tempDir.absolutePath))
                     Platform.runLater { engine.executeScript("onDownloadComplete()") }
                 } catch (e: Exception) {
                     logger.error("업데이트 실패", e)
                     Platform.runLater { engine.executeScript("onDownloadError()") }
                 }
             }.start()
+        }
+
+        fun applyUpdate() {
+            Thread {
+                if (launchUpdaterProcess(relaunch = true)) {
+                    Thread.sleep(600)
+                    exitProcess(0)
+                } else {
+                    Platform.runLater { engine.executeScript("onDownloadError()") }
+                }
+            }.start()
+        }
+
+        fun armUpdateOnExit() {
+            updateReadyForExit = true
         }
 
         fun pushJoinRequest(data: JoinRequestUser) {
@@ -315,8 +331,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         StatsUploadQueue.configure(version)
         Platform.setImplicitExit(false)
         stage.setOnCloseRequest {
-            HotkeyHandler.stop()
-            exitProcess(0)
+            shutdown()
         }
         val webView = WebView()
         engine = webView.engine
@@ -351,13 +366,12 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         stage.initStyle(StageStyle.TRANSPARENT)
         stage.scene = scene
         stage.isAlwaysOnTop = false
-        stage.title = "waffle_meter.v1.6"
+        stage.title = APP_TITLE
         fitOverlayToScreen(stage, webView)
 
         stage.show()
         fitOverlayToScreen(stage, webView)
         applyOverlayWindowStyle(stage.title)
-        ensureUserDesktopShortcut(stage.title)
 
         setupTray(stage)
 
@@ -579,110 +593,49 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         )
     }
 
-    private fun ensureUserDesktopShortcut(title: String) {
-        val exePath = findLauncherExe(title) ?: return
-        val targetPath = psSingleQuoted(exePath)
-        val shortcutName = psSingleQuoted("$title.lnk")
-        val script = """
-            ${'$'}ErrorActionPreference = 'Stop'
-            ${'$'}targetPath = $targetPath
-            ${'$'}shortcutName = $shortcutName
-            ${'$'}paths = New-Object System.Collections.Generic.List[string]
-            function Add-DesktopPath([string]${'$'}path) {
-              if (![string]::IsNullOrWhiteSpace(${'$'}path)) { ${'$'}paths.Add(${'$'}path) }
-            }
-            ${'$'}knownDesktop = [Environment]::GetFolderPath('Desktop')
-            Add-DesktopPath ${'$'}knownDesktop
-            ${'$'}profile = [Environment]::GetFolderPath('UserProfile')
-            if (![string]::IsNullOrWhiteSpace(${'$'}profile)) {
-              Add-DesktopPath (Join-Path ${'$'}profile 'Desktop')
-              Add-DesktopPath (Join-Path ${'$'}profile '바탕 화면')
-              Add-DesktopPath (Join-Path ${'$'}profile 'OneDrive\Desktop')
-              Add-DesktopPath (Join-Path ${'$'}profile 'OneDrive\바탕 화면')
-            }
-            try {
-              ${'$'}registryDesktop = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' -ErrorAction Stop).Desktop
-              Add-DesktopPath ([Environment]::ExpandEnvironmentVariables(${'$'}registryDesktop))
-            } catch {
-            }
-            ${'$'}shell = New-Object -ComObject WScript.Shell
-            ${'$'}workingDirectory = Split-Path -Parent ${'$'}targetPath
-            ${'$'}paths |
-              Where-Object { ![string]::IsNullOrWhiteSpace(${'$'}_) } |
-              Select-Object -Unique |
-              ForEach-Object {
-                ${'$'}desktop = ${'$'}_
-                if (Test-Path -LiteralPath ${'$'}desktop) {
-                  ${'$'}shortcutPath = Join-Path ${'$'}desktop ${'$'}shortcutName
-                  ${'$'}shortcut = ${'$'}shell.CreateShortcut(${'$'}shortcutPath)
-                  ${'$'}shortcut.TargetPath = ${'$'}targetPath
-                  ${'$'}shortcut.WorkingDirectory = ${'$'}workingDirectory
-                  ${'$'}shortcut.IconLocation = "${'$'}targetPath,0"
-                  ${'$'}shortcut.Save()
-                }
-              }
-        """.trimIndent()
+    @Volatile
+    private var updateReadyForExit = false
 
-        runCatching {
-            val encoded = java.util.Base64.getEncoder()
-                .encodeToString(script.toByteArray(Charsets.UTF_16LE))
-            val process = ProcessBuilder(
-                "powershell.exe",
-                "-NoProfile",
-                "-WindowStyle",
-                "Hidden",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-EncodedCommand",
-                encoded
-            ).start()
-            if (!process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                logger.warn("사용자 바탕화면 바로가기 보강 PowerShell 시간이 초과되었습니다.")
-            } else if (process.exitValue() != 0) {
-                val error = process.errorStream.bufferedReader().readText().trim()
-                logger.warn("사용자 바탕화면 바로가기 보강 PowerShell 실패: exitCode={}, error={}", process.exitValue(), error)
-            }
-        }.onFailure {
-            logger.warn("사용자 바탕화면 바로가기 보강 실패", it)
+    private fun launchUpdaterProcess(relaunch: Boolean): Boolean {
+        val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), UPDATE_TEMP_DIR)
+        val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
+        if (!msiFile.isFile) {
+            logger.warn("적용할 업데이트 MSI를 찾을 수 없습니다: {}", msiFile.absolutePath)
+            return false
         }
+
+        val pid = ProcessHandle.current().pid()
+        val msiArg = "'" + msiFile.absolutePath.replace("'", "''") + "'"
+        val appExe = (System.getProperty("jpackage.app-path")
+            ?: ProcessHandle.current().info().command().orElse(null))
+            ?.takeIf { it.isNotBlank() && java.io.File(it).exists() }
+
+        val script = buildString {
+            appendLine("try { Wait-Process -Id $pid -Timeout 120 -ErrorAction SilentlyContinue } catch {}")
+            appendLine("Start-Sleep -Milliseconds 1000")
+            appendLine("\$p = Start-Process 'msiexec.exe' -ArgumentList @('/i', $msiArg, '/qb', '/norestart') -PassThru -Wait")
+            if (relaunch && appExe != null) {
+                val relArg = "'" + appExe.replace("'", "''") + "'"
+                appendLine("if (\$p.ExitCode -eq 0 -or \$p.ExitCode -eq 3010) { Start-Process -FilePath $relArg }")
+            }
+        }
+        val encoded = java.util.Base64.getEncoder().encodeToString(script.toByteArray(Charsets.UTF_16LE))
+        ProcessBuilder(
+            "powershell.exe", "-NoProfile", "-WindowStyle", "Hidden",
+            "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
+        ).start()
+        return true
     }
 
-    private fun psSingleQuoted(value: String): String = "'${value.replace("'", "''")}'"
-
-    private fun findLauncherExe(title: String): String? {
-        val currentCommand = ProcessHandle.current().info().command().orElse(null)
-        if (currentCommand?.endsWith(".exe", ignoreCase = true) == true) {
-            val fileName = java.io.File(currentCommand).name
-            if (!fileName.equals("java.exe", ignoreCase = true) && !fileName.equals("javaw.exe", ignoreCase = true)) {
-                return currentCommand
-            }
+    private fun shutdown() {
+        try {
+            if (updateReadyForExit) launchUpdaterProcess(relaunch = false)
+        } catch (e: Exception) {
+            logger.warn("종료 시 업데이트 적용 실패", e)
         }
-
-        val javaHome = java.io.File(System.getProperty("java.home") ?: "")
-        val userDir = java.io.File(System.getProperty("user.dir") ?: "")
-        val searchDirs = listOfNotNull(
-            currentCommand?.let { java.io.File(it).parentFile },
-            userDir,
-            userDir.parentFile,
-            javaHome.parentFile,
-            javaHome.parentFile?.parentFile
-        ).filter { it.isDirectory }
-            .distinctBy { it.absolutePath.lowercase() }
-
-        val exactName = "$title.exe"
-        for (dir in searchDirs) {
-            val exact = java.io.File(dir, exactName)
-            if (exact.isFile) return exact.absolutePath
-            dir.listFiles { file ->
-                file.isFile &&
-                    file.extension.equals("exe", ignoreCase = true) &&
-                    file.name.startsWith("waffle_meter", ignoreCase = true)
-            }?.firstOrNull()?.let { return it.absolutePath }
-        }
-
-        logger.warn("사용자 바탕화면 바로가기 대상 실행 파일을 찾지 못했습니다. command={}, javaHome={}", currentCommand, javaHome.absolutePath)
-        return null
+        HotkeyHandler.stop()
+        Platform.exit()
+        exitProcess(0)
     }
 
     private fun parkOverlayNative(stage: Stage) {
@@ -732,15 +685,14 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 val exitItem = MenuItem("종료")
                 exitItem.addActionListener {
                     tray.remove(trayIcon)
-                    Platform.exit()
-                    exitProcess(0)
+                    shutdown()
                 }
                 popup.add(showItem)
                 popup.add(recoverInputItem)
                 popup.addSeparator()
                 popup.add(exitItem)
 
-                trayIcon = TrayIcon(image, "waffle_meter.v1.6", popup).apply {
+                trayIcon = TrayIcon(image, APP_TITLE, popup).apply {
                     isImageAutoSize = true
                     addMouseListener(object : MouseAdapter() {
                         override fun mouseClicked(e: MouseEvent) {
