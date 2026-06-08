@@ -50,6 +50,8 @@ export const useResizable = () => {
         verticalUnits: estimateVerticalUnits(),
       };
       setIsDragging(true);
+      // 리사이즈 시작: 프레임 캡 일시 해제(풀프레임)로 끊김 제거
+      (window as any).javaBridge?.setInteracting?.(true);
     },
     [],
   );
@@ -100,6 +102,8 @@ export const useResizable = () => {
 
     const onMouseUp = () => {
       if (!resizeRef.current) return;
+      // 리사이즈 종료: 프레임 캡 복원
+      (window as any).javaBridge?.setInteracting?.(false);
       if (rafId.current !== null) {
         cancelAnimationFrame(rafId.current);
         rafId.current = null;

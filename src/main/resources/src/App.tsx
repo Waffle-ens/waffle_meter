@@ -325,7 +325,7 @@ export default function App() {
 
   const meterClass = cn(
     "relative overflow-hidden rounded-md border px-2.5 py-2",
-    "shadow-[0_20px_44px_rgba(0,0,0,0.32)] backdrop-blur-md transition-colors duration-300",
+    "shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition-colors duration-300",
     "border-[var(--meter-border)] text-[var(--meter-fg)]",
     isMinimal
       ? "border-transparent bg-transparent group-hover/app:border-[var(--meter-border)] group-hover/app:bg-[var(--meter-bg)]"
