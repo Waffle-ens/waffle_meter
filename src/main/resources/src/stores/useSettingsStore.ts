@@ -141,6 +141,8 @@ interface SettingsState {
   setCloseAction: (v: CloseAction) => void;
   gpuAcceleration: boolean;
   setGpuAcceleration: (v: boolean) => void;
+  meterFrameRate: number;
+  setMeterFrameRate: (v: number) => void;
   statsConsent: StatsConsentInfo;
   setStatsConsent: (v: StatsConsentInfo) => void;
   refreshStatsConsent: () => void;
@@ -294,6 +296,7 @@ const defaultSettings = {
   multiMonitorMode: false,
   closeAction: "ask" as CloseAction,
   gpuAcceleration: true,
+  meterFrameRate: 40,
   statsConsent: DEFAULT_STATS_CONSENT,
   joinPanelWidth: 400,
   joinPanelHeight: 330,
@@ -377,6 +380,12 @@ export const useSettingsStore = create<SettingsState>((set) => {
         ? savedCloseActionRaw
         : defaultSettings.closeAction;
     const savedGpuAcceleration = j.loadProps?.("gpuAcceleration") !== "false";
+    const savedMeterFrameRate = Math.round(
+      Math.min(
+        60,
+        Math.max(30, readSavedNumber(j.loadProps?.("meterFrameRate"), defaultSettings.meterFrameRate)),
+      ),
+    );
     const savedStatsConsent = parseStatsConsent(
       j.getStatsConsent?.() ?? j.loadProps?.("statsConsent"),
     );
@@ -438,6 +447,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       multiMonitorMode: savedMultiMonitorMode,
       closeAction: savedCloseAction,
       gpuAcceleration: savedGpuAcceleration,
+      meterFrameRate: savedMeterFrameRate,
       statsConsent: savedStatsConsent,
       joinPanelWidth: Number(j.loadProps?.("joinPanelWidth")) || defaultSettings.joinPanelWidth,
       joinPanelHeight: Number(j.loadProps?.("joinPanelHeight")) || defaultSettings.joinPanelHeight,
@@ -499,6 +509,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     multiMonitorMode: defaultSettings.multiMonitorMode,
     closeAction: defaultSettings.closeAction,
     gpuAcceleration: defaultSettings.gpuAcceleration,
+    meterFrameRate: defaultSettings.meterFrameRate,
     statsConsent: defaultSettings.statsConsent,
     isLoaded: defaultSettings.isLoaded,
 
@@ -715,6 +726,11 @@ export const useSettingsStore = create<SettingsState>((set) => {
     setGpuAcceleration: (gpuAcceleration) => {
       set({ gpuAcceleration });
       jb()?.saveProps?.("gpuAcceleration", String(gpuAcceleration));
+    },
+    setMeterFrameRate: (meterFrameRate) => {
+      const clamped = Math.round(Math.min(60, Math.max(30, meterFrameRate)));
+      set({ meterFrameRate: clamped });
+      jb()?.saveProps?.("meterFrameRate", String(clamped));
     },
     setStatsConsent: (statsConsent) => {
       const raw = jb()?.setStatsConsent?.(
