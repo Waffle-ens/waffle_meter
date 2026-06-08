@@ -33,6 +33,7 @@ class StreamProcessor() {
         val key: Int = b1 or (b2 shl 8)
 
         object OwnNickname   : Opcode(0x33, 0x36)
+        object OwnCombatPower : Opcode(0x55, 0x36)
         object OtherNickname : Opcode(0x44, 0x36)
         object Summon        : Opcode(0x40, 0x36)
         object Damage        : Opcode(0x04, 0x38)
@@ -51,6 +52,7 @@ class StreamProcessor() {
 
     private val handlers: Map<Int, (ByteArray, VarIntOutput, Boolean, Long, Long) -> Unit> = mapOf(
         Opcode.OwnNickname.key   to { packet, lengthInfo, _, _, arrivedAt            -> searchOwnNickname(packet, lengthInfo, arrivedAt) },
+        Opcode.OwnCombatPower.key to { packet, lengthInfo, extraFlag, _, arrivedAt   -> parseOwnCombatPower(packet, lengthInfo, extraFlag, arrivedAt) },
         Opcode.OtherNickname.key to { packet, lengthInfo, _, _, arrivedAt            -> searchOtherNickname(packet, lengthInfo, arrivedAt) },
         Opcode.Summon.key        to { packet, _, extraFlag, _, _                     -> parseSummonPacket(packet, extraFlag) },
         Opcode.Damage.key        to { packet, _, extraFlag, epoch, arrivedAt         -> parsingDamage(packet, extraFlag, epoch, arrivedAt) },
@@ -69,6 +71,7 @@ class StreamProcessor() {
 
     private val opcodeNames: Map<Int, String> = mapOf(
         Opcode.OwnNickname.key to "OwnNickname",
+        Opcode.OwnCombatPower.key to "OwnCombatPower",
         Opcode.OtherNickname.key to "OtherNickname",
         Opcode.Summon.key to "Summon",
         Opcode.Damage.key to "Damage",
@@ -166,6 +169,24 @@ class StreamProcessor() {
             logger.error("패킷 압축 해제중 에러", e)
         }
         logger.trace("압축 패킷 해제 종료")
+    }
+
+    // 본인 전투력 전용 패킷(0x3655): [len][55 36][전투력 u32 LE][00 00 00 00].
+    // 엔티티 ID 없이 본인 전투력만 실려오고, 전투력이 '바뀔 때' 송신된다(장비/아르카나/프리셋 변경 등).
+    // 본인 전투력은 캐릭터 스냅샷에선 센티넬이라 패킷 추출이 안 돼 공식 API 에 의존했는데, 이 패킷으로 라이브 갱신한다.
+    private fun parseOwnCombatPower(packet: ByteArray, lengthInfo: VarIntOutput, extraFlag: Boolean, arrivedAt: Long) {
+        try {
+            val opcodeOffset = lengthInfo.length + if (extraFlag) 1 else 0
+            val valueOffset = opcodeOffset + 2
+            if (valueOffset + 4 > packet.size) return
+            val power = parseUInt32le(packet, valueOffset)
+            if (power <= 0 || power > 10_000_000) return
+            val executor = DataManager.executorId()
+            if (executor <= 0) return
+            DataManager.saveUserPower(executor, power)
+            PacketDebugLogger.meta("own_combat_power", mapOf("uid" to executor, "power" to power))
+        } catch (_: Exception) {
+        }
     }
 
     private fun searchOwnNickname(packet: ByteArray, lengthInfo: VarIntOutput, arrivedAt: Long) {
