@@ -157,6 +157,9 @@ object DataManager {
     private val useBuffRepository = UseBuffRepository()
     private val buffRepository = BuffRepository()
     private val officialLookupAttempts = ConcurrentHashMap<Int, Long>()
+    // 본인 전투력 강제 재검증(캐시 우회) 전용 throttle. 장비 교체 반영용, 호출량 억제.
+    private val forceVerifyAttempts = ConcurrentHashMap<Int, Long>()
+    private const val SELF_VERIFY_THROTTLE_MS = 60_000L
 
     private val buffBlacklist = mutableSetOf<Int>()
 
@@ -377,6 +380,10 @@ object DataManager {
         saveCurrentBattleStart()
         saveCurrentTarget(mobId)
         activeBattleMobCode = mobCode
+        // 새 전투 시작마다 본인 전투력을 공식 API로 재검증(캐시 우회 + 덮어쓰기). 세션 중 장비 교체 반영용.
+        // 타인은 스냅샷/조인 패킷의 saveUserPower 로 이미 변동 반영되므로 본인만 트리거한다.
+        val exec = executorId()
+        if (exec > 0) requestOfficialCharacterLookup(exec, forceRefresh = true)
     }
 
     fun endBattle(mobId: Int) {
@@ -564,9 +571,9 @@ object DataManager {
         }
     }
 
-    fun requestOfficialCharacterLookup(uid: Int) {
+    fun requestOfficialCharacterLookup(uid: Int, forceRefresh: Boolean = false) {
         val user = user(uid) ?: return
-        requestOfficialCharacterLookup(uid, user.nickname, user.server, user.job)
+        requestOfficialCharacterLookup(uid, user.nickname, user.server, user.job, forceRefresh = forceRefresh)
     }
 
     fun requestOfficialCharacterLookup(
@@ -574,16 +581,20 @@ object DataManager {
         nickname: String?,
         server: Int,
         job: JobClass?,
+        forceRefresh: Boolean = false,
         onResult: ((OfficialCharacterInfo) -> Unit)? = null
     ) {
         if (nickname.isNullOrBlank() || server <= 0) return
         val now = System.currentTimeMillis()
-        val previous = officialLookupAttempts[uid]
-        if (previous != null && now - previous < 10 * 60 * 1000L) return
-        if (uid > 0) officialLookupAttempts[uid] = now
+        // 강제 재검증은 캐시 우회로 호출량이 늘 수 있어 짧은 전용 throttle(본인 전용 경로)로 묶는다.
+        val attempts = if (forceRefresh) forceVerifyAttempts else officialLookupAttempts
+        val throttleMs = if (forceRefresh) SELF_VERIFY_THROTTLE_MS else 10 * 60 * 1000L
+        val previous = attempts[uid]
+        if (previous != null && now - previous < throttleMs) return
+        if (uid > 0) attempts[uid] = now
 
-        OfficialCharacterLookup.lookupAsync(nickname, server, job) { info ->
-            applyOfficialCharacterInfo(uid, info)
+        OfficialCharacterLookup.lookupAsync(nickname, server, job, forceRefresh = forceRefresh) { info ->
+            applyOfficialCharacterInfo(uid, info, overwrite = forceRefresh)
             onResult?.invoke(info)
         }
     }
@@ -599,13 +610,13 @@ object DataManager {
         return info
     }
 
-    private fun applyOfficialCharacterInfo(uid: Int, info: OfficialCharacterInfo) {
+    private fun applyOfficialCharacterInfo(uid: Int, info: OfficialCharacterInfo, overwrite: Boolean = false) {
         val existing = if (uid > 0) userRepository.get(uid) else null
         if (existing != null) {
             if (existing.nickname.isNullOrBlank()) existing.nickname = info.nickname
             if (existing.server <= 0) existing.server = info.server
             if (existing.job == null && info.job != null) existing.job = info.job
-            if (existing.power <= 0 && info.power > 0) existing.power = info.power
+            if (info.power > 0 && (overwrite || existing.power <= 0)) existing.power = info.power
             userRepository.save(uid, existing)
             return
         }

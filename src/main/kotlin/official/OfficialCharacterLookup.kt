@@ -45,6 +45,7 @@ object OfficialCharacterLookup {
         nickname: String?,
         server: Int,
         fallbackJob: JobClass?,
+        forceRefresh: Boolean = false,
         callback: (OfficialCharacterInfo) -> Unit
     ) {
         val normalized = normalizeNickname(nickname) ?: return
@@ -52,12 +53,14 @@ object OfficialCharacterLookup {
 
         val key = cacheKey(normalized, server)
         val now = System.currentTimeMillis()
-        cache[key]?.let { cached ->
-            if (cached.expiresAt > now) {
-                cached.info?.let(callback)
-                return
+        if (!forceRefresh) {
+            cache[key]?.let { cached ->
+                if (cached.expiresAt > now) {
+                    cached.info?.let(callback)
+                    return
+                }
+                cache.remove(key, cached)
             }
-            cache.remove(key, cached)
         }
 
         if (!inFlight.add(key)) return
