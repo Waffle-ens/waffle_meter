@@ -118,8 +118,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun exitApp() {
-            Platform.exit()
-            exitProcess(0)
+            shutdown()
         }
 
         fun hideToTray() {
@@ -307,47 +306,21 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             }.start()
         }
 
-        // 다운로드된 MSI를 무인 설치(per-user, /qb, UAC 불필요)하고 앱을 재시작한다.
-        // 실행 중인 JVM이 파일을 잠그므로, 외부 PowerShell이 현재 PID 종료를 기다린 뒤 msiexec를 돌리고 재실행한다.
+        // 다운로드된 MSI를 즉시 무인 설치하고 앱을 재시작한다("지금 재시작하여 적용").
         fun applyUpdate() {
             Thread {
-                try {
-                    val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.6.9-dev")
-                    val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
-                    if (!msiFile.isFile) {
-                        logger.warn("적용할 업데이트 MSI를 찾을 수 없습니다: {}", msiFile.absolutePath)
-                        Platform.runLater { engine.executeScript("onDownloadError()") }
-                        return@Thread
-                    }
-                    val pid = ProcessHandle.current().pid()
-                    val appExe = (System.getProperty("jpackage.app-path")
-                        ?: ProcessHandle.current().info().command().orElse(null))
-                        ?.takeIf { it.isNotBlank() && java.io.File(it).exists() }
-                    val msiArg = "'" + msiFile.absolutePath.replace("'", "''") + "'"
-
-                    val script = buildString {
-                        appendLine("try { Wait-Process -Id $pid -Timeout 120 -ErrorAction SilentlyContinue } catch {}")
-                        appendLine("Start-Sleep -Milliseconds 1000")
-                        appendLine("\$p = Start-Process 'msiexec.exe' -ArgumentList @('/i', $msiArg, '/qb', '/norestart') -PassThru -Wait")
-                        if (appExe != null) {
-                            val relArg = "'" + appExe.replace("'", "''") + "'"
-                            appendLine("if (\$p.ExitCode -eq 0 -or \$p.ExitCode -eq 3010) { Start-Process -FilePath $relArg }")
-                        }
-                    }
-                    val encoded = java.util.Base64.getEncoder().encodeToString(script.toByteArray(Charsets.UTF_16LE))
-                    ProcessBuilder(
-                        "powershell.exe", "-NoProfile", "-WindowStyle", "Hidden",
-                        "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
-                    ).start()
-
-                    // 인스톨러가 파일을 교체하도록 앱 종료(위 업데이터가 종료를 감지해 업그레이드 진행).
+                if (launchUpdaterProcess(relaunch = true)) {
                     Thread.sleep(600)
                     exitProcess(0)
-                } catch (e: Exception) {
-                    logger.error("업데이트 적용 실패", e)
+                } else {
                     Platform.runLater { engine.executeScript("onDownloadError()") }
                 }
             }.start()
+        }
+
+        // 백그라운드 다운로드 완료 시 호출: 다음 앱 종료 때 무인 설치되도록 예약한다.
+        fun armUpdateOnExit() {
+            updateReadyForExit = true
         }
 
         fun pushJoinRequest(data: JoinRequestUser) {
@@ -402,7 +375,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         Platform.setImplicitExit(false)
         stage.setOnCloseRequest {
             HotkeyHandler.stop()
-            exitProcess(0)
+            shutdown()
         }
         val webView = WebView()
         engine = webView.engine
@@ -664,6 +637,52 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         )
     }
 
+    @Volatile
+    private var updateReadyForExit = false
+
+    // 다운로드된 업데이트 MSI를 외부 PowerShell로 무인 설치(per-user, /qb, UAC 불필요)한다.
+    // 실행 중인 JVM이 파일을 잠그므로 현재 PID 종료를 기다린 뒤 msiexec를 돌린다. relaunch=true면 설치 후 앱 재실행.
+    // 적용할 MSI가 없으면 false.
+    private fun launchUpdaterProcess(relaunch: Boolean): Boolean {
+        val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "waffle_meter.v1.6.9-dev")
+        val msiFile = java.io.File(tempDir, "waffle_meter_update.msi")
+        if (!msiFile.isFile) {
+            logger.warn("적용할 업데이트 MSI를 찾을 수 없습니다: {}", msiFile.absolutePath)
+            return false
+        }
+        val pid = ProcessHandle.current().pid()
+        val msiArg = "'" + msiFile.absolutePath.replace("'", "''") + "'"
+        val appExe = (System.getProperty("jpackage.app-path")
+            ?: ProcessHandle.current().info().command().orElse(null))
+            ?.takeIf { it.isNotBlank() && java.io.File(it).exists() }
+        val script = buildString {
+            appendLine("try { Wait-Process -Id $pid -Timeout 120 -ErrorAction SilentlyContinue } catch {}")
+            appendLine("Start-Sleep -Milliseconds 1000")
+            appendLine("\$p = Start-Process 'msiexec.exe' -ArgumentList @('/i', $msiArg, '/qb', '/norestart') -PassThru -Wait")
+            if (relaunch && appExe != null) {
+                val relArg = "'" + appExe.replace("'", "''") + "'"
+                appendLine("if (\$p.ExitCode -eq 0 -or \$p.ExitCode -eq 3010) { Start-Process -FilePath $relArg }")
+            }
+        }
+        val encoded = java.util.Base64.getEncoder().encodeToString(script.toByteArray(Charsets.UTF_16LE))
+        ProcessBuilder(
+            "powershell.exe", "-NoProfile", "-WindowStyle", "Hidden",
+            "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
+        ).start()
+        return true
+    }
+
+    // 모든 종료 경로의 단일 출구: 대기 중인 업데이트가 있으면 설치(재실행 없음)를 띄운 뒤 종료한다.
+    private fun shutdown() {
+        try {
+            if (updateReadyForExit) launchUpdaterProcess(relaunch = false)
+        } catch (e: Exception) {
+            logger.warn("종료 시 업데이트 적용 실패", e)
+        }
+        Platform.exit()
+        exitProcess(0)
+    }
+
     private fun parkOverlayNative(stage: Stage) {
         val hwnd = overlayHwnd ?: User32.INSTANCE.FindWindow(null, stage.title)?.also { overlayHwnd = it } ?: return
         User32.INSTANCE.SetWindowPos(
@@ -711,8 +730,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
                 val exitItem = MenuItem("종료")
                 exitItem.addActionListener {
                     tray.remove(trayIcon)
-                    Platform.exit()
-                    exitProcess(0)
+                    shutdown()
                 }
                 popup.add(showItem)
                 popup.add(recoverInputItem)

@@ -193,11 +193,6 @@ export const UpdatePanel = ({
       {status === "complete" && (
         <>
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.25 px-6 py-6">
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center mb-1
-                          bg-green-400/10 border border-green-400/20 text-green-400 text-[15px]">
-              ✓
-            </div>
             <p className="text-sm text-slate-200">다운로드가 완료되었습니다</p>
             <p className="text-sm text-white/45">적용하면 미터기가 자동으로 재시작됩니다.</p>
           </div>

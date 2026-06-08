@@ -976,6 +976,7 @@ export const injectMockDpsData = () => {
       }, 400);
     },
     applyUpdate: () => console.log("[mock] applyUpdate"),
+    armUpdateOnExit: () => console.log("[mock] armUpdateOnExit"),
   };
   const MOCK_JOIN_REQUESTS = [
     {

@@ -153,6 +153,8 @@ export const useVersionCheck = () => {
     };
     (window as any).onDownloadComplete = () => {
       setDownloadState({ status: "complete" });
+      // 백그라운드 다운로드 완료 → 앱 종료 시 자동 설치되도록 예약(사용자는 "지금 재시작"으로 즉시 적용도 가능).
+      (window as any).javaBridge?.armUpdateOnExit?.();
     };
     (window as any).onDownloadError = () => {
       setDownloadState({ status: "error" });
@@ -178,6 +180,20 @@ export const useVersionCheck = () => {
     (window as any).javaBridge.openBrowser(RELEASE_URL);
     (window as any).javaBridge.exitApp();
   };
+
+  // 업데이트 발견 시 백그라운드 자동 다운로드(버전당 1회). 완료되면 종료 시 적용되도록 예약된다.
+  const autoDownloadedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      checkStatus === "updateAvailable" &&
+      updateInfo &&
+      downloadState.status === "idle" &&
+      autoDownloadedRef.current !== updateInfo.latestVersion
+    ) {
+      autoDownloadedRef.current = updateInfo.latestVersion;
+      startUpdate();
+    }
+  }, [checkStatus, updateInfo, downloadState.status]);
 
   return {
     updateInfo,
