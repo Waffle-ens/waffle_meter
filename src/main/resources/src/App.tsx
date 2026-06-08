@@ -37,42 +37,42 @@ const METER_RESIZE_HANDLES: {
 }[] = [
   {
     direction: "n",
-    className: "left-8 right-8 -top-1 h-3 cursor-n-resize",
+    className: "left-8 right-8 top-0 h-2 cursor-n-resize",
     indicatorClassName: "mx-auto mt-1 h-0.5 w-12 rounded-full",
   },
   {
     direction: "s",
-    className: "left-8 right-8 -bottom-1 h-3 cursor-s-resize",
+    className: "left-8 right-8 bottom-0 h-2 cursor-s-resize",
     indicatorClassName: "mx-auto mt-1.5 h-0.5 w-12 rounded-full",
   },
   {
     direction: "e",
-    className: "-right-1 top-8 bottom-8 w-3 cursor-e-resize",
+    className: "right-0 top-8 bottom-8 w-2 cursor-e-resize",
     indicatorClassName: "ml-1 mt-8 h-12 w-0.5 rounded-full",
   },
   {
     direction: "w",
-    className: "-left-1 top-8 bottom-8 w-3 cursor-w-resize",
+    className: "left-0 top-8 bottom-8 w-2 cursor-w-resize",
     indicatorClassName: "ml-1.5 mt-8 h-12 w-0.5 rounded-full",
   },
   {
     direction: "ne",
-    className: "-right-1 -top-1 h-5 w-5 cursor-ne-resize",
+    className: "right-0 top-0 h-4 w-4 cursor-ne-resize",
     indicatorClassName: "ml-2 mt-2 h-2 w-2 rounded-sm",
   },
   {
     direction: "nw",
-    className: "-left-1 -top-1 h-5 w-5 cursor-nw-resize",
+    className: "left-0 top-0 h-4 w-4 cursor-nw-resize",
     indicatorClassName: "ml-1 mt-2 h-2 w-2 rounded-sm",
   },
   {
     direction: "se",
-    className: "-right-1 -bottom-1 h-5 w-5 cursor-se-resize",
+    className: "right-0 bottom-0 h-4 w-4 cursor-se-resize",
     indicatorClassName: "ml-2 mt-1 h-2 w-2 rounded-sm",
   },
   {
     direction: "sw",
-    className: "-left-1 -bottom-1 h-5 w-5 cursor-sw-resize",
+    className: "left-0 bottom-0 h-4 w-4 cursor-sw-resize",
     indicatorClassName: "ml-1 mt-1 h-2 w-2 rounded-sm",
   },
 ];
@@ -339,7 +339,6 @@ export default function App() {
 
   const rootClass = cn(
     "overlay-shell drag-area cursor-move select-none relative group/app antialiased",
-    isBottomLayout ? "pb-2" : "pt-2",
     isLightOverlay && "overlay-light",
     isBottomLayout && "overlay-bottom-layout",
     isDragging && "pointer-events-none",

@@ -23,6 +23,12 @@ fun main() = runBlocking {
         System.setProperty("prism.order", "sw")
     }
 
+    // 오버레이 렌더링 프레임 제한 (JavaFX 마스터 펄스 캡). 30~60fps 범위로 클램프하며 settings.properties 의
+    // meterFrameRate 로 조정 가능. 펄스를 낮추면 씬 그래프(WebView 포함) 재렌더 주기가 줄어 오버레이 GPU 부하가 감소.
+    val meterFrameRate = (PropertyHandler.getProperty("meterFrameRate", "40")?.toIntOrNull() ?: 40)
+        .coerceIn(30, 60)
+    System.setProperty("javafx.animation.framerate", meterFrameRate.toString())
+
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         println("thread dead ${t.name}")
         e.printStackTrace()

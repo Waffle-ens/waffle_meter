@@ -209,6 +209,7 @@ export const SettingsPanel = ({
     multiMonitorMode,
     closeAction,
     gpuAcceleration,
+    meterFrameRate,
     statsConsent,
   } = useSettingsStore(
     useShallow((s) => ({
@@ -232,6 +233,7 @@ export const SettingsPanel = ({
       multiMonitorMode: s.multiMonitorMode,
       closeAction: s.closeAction,
       gpuAcceleration: s.gpuAcceleration,
+      meterFrameRate: s.meterFrameRate,
       statsConsent: s.statsConsent,
     })),
   );
@@ -258,6 +260,7 @@ export const SettingsPanel = ({
     setMultiMonitorMode,
     setCloseAction,
     setGpuAcceleration,
+    setMeterFrameRate,
     setStatsConsent,
     refreshStatsConsent,
     resetJoinPanelPosition,
@@ -300,6 +303,7 @@ export const SettingsPanel = ({
     multiMonitorMode,
     closeAction,
     gpuAcceleration,
+    meterFrameRate,
     statsConsent,
     theme: structuredClone(theme),
   }));
@@ -362,6 +366,7 @@ export const SettingsPanel = ({
     setMultiMonitorMode(snapshot.multiMonitorMode);
     setCloseAction(snapshot.closeAction);
     setGpuAcceleration(snapshot.gpuAcceleration);
+    setMeterFrameRate(snapshot.meterFrameRate);
     setStatsConsent(snapshot.statsConsent);
     onClose();
   }, [
@@ -378,6 +383,7 @@ export const SettingsPanel = ({
     setMultiMonitorMode,
     setCloseAction,
     setGpuAcceleration,
+    setMeterFrameRate,
     setNameDisplay,
     setRowHeight,
     setShowCombatTimerInMinimal,
@@ -621,6 +627,25 @@ export const SettingsPanel = ({
               onCheckedChange={setGpuAcceleration}
               className="data-[state=checked]:bg-emerald-500"
             />
+          </SettingsRow>
+          <SettingsRow
+            title="렌더링 프레임 제한"
+            description="낮출수록 GPU 부하가 줄어듭니다. 다음 실행부터 적용됩니다."
+            align="center"
+            rightClassName="w-44">
+            <div className="flex h-8 items-center gap-3">
+              <Slider
+                min={30}
+                max={60}
+                step={5}
+                className="cursor-pointer"
+                value={[meterFrameRate]}
+                onValueChange={(value) => setMeterFrameRate(value[0])}
+              />
+              <span className="text-xs opacity-60 w-12 text-right tabular-nums">
+                {meterFrameRate}fps
+              </span>
+            </div>
           </SettingsRow>
           <SettingsRow
             title="전투 초기화 단축키 설정"
