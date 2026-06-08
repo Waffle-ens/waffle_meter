@@ -1,7 +1,6 @@
 package com.tbread
 
 import com.tbread.config.PcapCapturerConfig
-import com.tbread.config.PropertyHandler
 import com.tbread.config.VersionConfig
 import com.tbread.data.DataManager
 import com.tbread.packet.*
@@ -15,13 +14,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
-    val gpuAcceleration = PropertyHandler.getProperty("gpuAcceleration", "true")?.toBooleanStrictOrNull() ?: true
-    if (gpuAcceleration) {
-        System.setProperty("prism.order", "d3d,sw")
-        System.setProperty("prism.lcdtext", "true")
-    } else {
-        System.setProperty("prism.order", "sw")
-    }
+    // 오버레이는 소프트웨어 렌더(prism sw)로 고정한다. d3d(GPU) 렌더는 전체화면 게임(AION2)의 GPU present 와
+    // 경합해 오버레이 드래그/입력이 심하게 끊겼다. sw 는 GPU 경합이 없어 게임 위에서도 부드럽다.
+    System.setProperty("prism.order", "sw")
 
     Thread.setDefaultUncaughtExceptionHandler { t, e ->
         println("thread dead ${t.name}")

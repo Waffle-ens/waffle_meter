@@ -208,7 +208,6 @@ export const SettingsPanel = ({
     isAutoHide,
     multiMonitorMode,
     closeAction,
-    gpuAcceleration,
     statsConsent,
   } = useSettingsStore(
     useShallow((s) => ({
@@ -231,7 +230,6 @@ export const SettingsPanel = ({
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
       closeAction: s.closeAction,
-      gpuAcceleration: s.gpuAcceleration,
       statsConsent: s.statsConsent,
     })),
   );
@@ -257,7 +255,6 @@ export const SettingsPanel = ({
     toggleAutoHide,
     setMultiMonitorMode,
     setCloseAction,
-    setGpuAcceleration,
     setStatsConsent,
     refreshStatsConsent,
     resetJoinPanelPosition,
@@ -299,7 +296,6 @@ export const SettingsPanel = ({
     clickThroughHotkey,
     multiMonitorMode,
     closeAction,
-    gpuAcceleration,
     statsConsent,
     theme: structuredClone(theme),
   }));
@@ -361,7 +357,6 @@ export const SettingsPanel = ({
     resetClickThrough(snapshot.clickThroughHotkey);
     setMultiMonitorMode(snapshot.multiMonitorMode);
     setCloseAction(snapshot.closeAction);
-    setGpuAcceleration(snapshot.gpuAcceleration);
     setStatsConsent(snapshot.statsConsent);
     onClose();
   }, [
@@ -377,7 +372,6 @@ export const SettingsPanel = ({
     setMeterOpacity,
     setMultiMonitorMode,
     setCloseAction,
-    setGpuAcceleration,
     setNameDisplay,
     setRowHeight,
     setShowCombatTimerInMinimal,
@@ -612,15 +606,6 @@ export const SettingsPanel = ({
                 ))}
               </SelectContent>
             </Select>
-          </SettingsRow>
-          <SettingsRow
-            title="GPU 가속"
-            description="끄면 다음 실행부터 소프트웨어 렌더링으로 동작합니다.">
-            <Switch
-              checked={gpuAcceleration}
-              onCheckedChange={setGpuAcceleration}
-              className="data-[state=checked]:bg-emerald-500"
-            />
           </SettingsRow>
           <SettingsRow
             title="전투 초기화 단축키 설정"
