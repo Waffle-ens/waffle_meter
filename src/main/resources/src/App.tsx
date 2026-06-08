@@ -554,8 +554,7 @@ export default function App() {
       />
       {updateInfo &&
         activePanel !== "update" &&
-        (downloadState.status !== "idle" ||
-          dismissedUpdateVersion !== updateInfo.latestVersion) && (
+        dismissedUpdateVersion !== updateInfo.latestVersion && (
           <UpdateToast
             updateInfo={updateInfo}
             downloadState={downloadState}
