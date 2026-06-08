@@ -49,12 +49,8 @@ export const useMoveWindow = (target: string | RefObject<HTMLElement | null>) =>
       const deltaY = e.clientY - startY;
 
       if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
-        if (!wasDraggingRef.current) {
-          wasDraggingRef.current = true;
-          rootEl.style.willChange = "left, top";
-          // 드래그 시작: 프레임 캡 일시 해제(풀프레임)로 끊김 제거
-          (window as any).javaBridge?.setInteracting?.(true);
-        }
+        wasDraggingRef.current = true;
+        rootEl.style.willChange = "left, top";
       }
 
       if (rafId.current !== null) cancelAnimationFrame(rafId.current);
@@ -74,8 +70,6 @@ export const useMoveWindow = (target: string | RefObject<HTMLElement | null>) =>
     const handleMouseUp = () => {
       const rootEl = el.closest<HTMLElement>(".drag-area");
       if (isDragging) {
-        // 드래그 종료: 프레임 캡 복원
-        (window as any).javaBridge?.setInteracting?.(false);
         if (wasDraggingRef.current) {
           setUiPosition(currentX, currentY);
           if (rootEl) rootEl.style.willChange = "auto";

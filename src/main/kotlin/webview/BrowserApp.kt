@@ -73,29 +73,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
     private lateinit var engine: WebEngine
     private var trayIcon: TrayIcon? = null
 
-    // JavaFX 마스터 펄스의 fullspeed 플래그(static, 매 펄스 재평가됨)에 리플렉션으로 접근한다.
-    // 드래그/리사이즈 동안에만 true 로 켜서 meterFrameRate 캡을 일시 해제(풀프레임) → 끊김 제거.
-    // 끝나면 false 로 되돌려 평상시 프레임 캡을 유지한다. 접근 실패 시 그냥 캡 유지(무해).
-    private val renderFullspeedField: java.lang.reflect.Field? by lazy {
-        try {
-            Class.forName("com.sun.scenario.animation.AbstractPrimaryTimer")
-                .getDeclaredField("fullspeed")
-                .apply { isAccessible = true }
-        } catch (e: Throwable) {
-            logger.warn("렌더 fullspeed 필드 접근 실패 (프레임 캡 동적 해제 비활성화)", e)
-            null
-        }
-    }
-
-    private fun setRenderFullspeed(enable: Boolean) {
-        val field = renderFullspeedField ?: return
-        try {
-            field.setBoolean(null, enable)
-        } catch (e: Throwable) {
-            logger.warn("렌더 fullspeed 토글 실패", e)
-        }
-    }
-
     inner class JSBridge(
         private val stage: Stage,
         private val webView: WebView,
@@ -168,11 +145,6 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
         }
 
         fun isClickThrough(): Boolean = isClickThrough
-
-        // 드래그/리사이즈 시작 시 active=true, 종료 시 false. 상호작용 중에는 프레임 캡을 풀어 부드럽게.
-        fun setInteracting(active: Boolean) {
-            setRenderFullspeed(active)
-        }
 
         fun toggleAutoHide() {
             isAutoHide = !isAutoHide
