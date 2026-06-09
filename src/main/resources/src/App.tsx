@@ -170,14 +170,13 @@ export default function App() {
     updateInfo && activePanel !== "update" && dismissedUpdateVersion !== updateInfo.latestVersion,
   );
   const modalOpen = statsConsentOpen || closeActionDialogOpen;
-  // Phase 2a: SidePanel 만 union 창에 참여. join/toast/모달은 아직 전체화면 폴백.
-  const nonUnionExpand = joinRequestCount > 0 || updateToastVisible;
+  // union(패널 작은 창)은 네이티브 창 이동↔WebView 리페인트가 프레임 비동기라 전환마다 깜빡여서 보류.
+  // 패널/토스트/모달이 열리면 전체화면 폴백(검증된 Phase 1 동작), 아무것도 없을 때만 미터기 작은 창(meterOnly).
+  // (union 경로 코드는 useOverlayWindow/useDragUi/SidePanel 에 휴면 상태로 보존 — 렌더러 교체 시 재활성.)
+  const anyOverlayExpand =
+    activePanel !== null || joinRequestCount > 0 || updateToastVisible || modalOpen;
   const overlayMode: OverlayMode =
-    !smallWindowOverlay || !isLoaded || modalOpen || nonUnionExpand
-      ? "fullscreen"
-      : activePanel !== null
-        ? "union"
-        : "meterOnly";
+    !smallWindowOverlay || !isLoaded || anyOverlayExpand ? "fullscreen" : "meterOnly";
   useOverlayWindow(overlayMode);
 
   const { wasDraggingRef } = useDragUi(overlayMode);
@@ -545,7 +544,7 @@ export default function App() {
       <div>
         <SidePanel
           type={activePanel}
-          smallWindow={overlayMode === "union"}
+          smallWindow={false /* union 보류 — 패널은 전체화면 폴백 */}
           player={selected}
           players={players}
           onClose={handleClose}
