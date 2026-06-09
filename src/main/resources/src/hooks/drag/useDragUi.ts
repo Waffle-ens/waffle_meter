@@ -1,18 +1,21 @@
+import type { OverlayMode } from "@/hooks/overlay/useOverlayWindow";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { clampMeterRootPosition } from "@/utils/meterBounds";
 import { useEffect, useRef } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 /**
- * 미터기 드래그.
- * - 일반(전체화면) 모드: DOM .drag-area 의 left/top 을 옮기고 뷰포트 안으로 clamp.
- * - compact(작은 창) 모드: 미터기는 창 (0,0) 고정이므로 네이티브 Stage 를 직접 이동(moveWindowTo).
- *   창이 마우스를 따라 움직여 client 좌표는 피드백이 생기므로, screen 좌표 델타로 위치를 계산한다.
+ * 미터기 드래그. 모드별로:
+ * - `fullscreen`: DOM .drag-area 의 left/top 을 옮기고 뷰포트 안으로 clamp(기존 동작).
+ * - `meterOnly`: 미터기는 창 (0,0) 고정 → 네이티브 Stage 를 직접 이동(moveWindowTo). screen 좌표 델타.
+ * - `union`: 미터기 화면좌표(uiX/uiY)를 갱신 → useOverlayWindow 가 측정해 창을 따라 움직인다. screen 델타.
+ *
+ * meterOnly/union 모두 창이 마우스를 따라가며 생기는 client 좌표 피드백을 피하려고 screen 좌표 델타를 쓴다.
  */
-export const useDragUi = (compact: boolean) => {
+export const useDragUi = (mode: OverlayMode) => {
   const wasDraggingRef = useRef(false);
-  const compactRef = useRef(compact);
-  compactRef.current = compact;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const { setUiPosition } = useSettingsStore(
     useShallow((s) => ({ setUiPosition: s.setUiPosition })),
   );
@@ -42,19 +45,19 @@ export const useDragUi = (compact: boolean) => {
         return;
 
       isDragging = true;
-      if (compactRef.current) {
-        // 네이티브 창 이동: screen 좌표 기준, 시작 창 위치 = 저장된 uiX/uiY.
-        const { uiX, uiY } = useSettingsStore.getState();
-        startMouseX = e.screenX;
-        startMouseY = e.screenY;
-        startUiX = uiX;
-        startUiY = uiY;
-      } else {
+      if (modeRef.current === "fullscreen") {
         const rect = rootEl.getBoundingClientRect();
         startMouseX = e.clientX;
         startMouseY = e.clientY;
         startUiX = rect.left;
         startUiY = rect.top;
+      } else {
+        // meterOnly / union: 화면좌표 기준, 시작 창/미터 위치 = 저장된 uiX/uiY.
+        const { uiX, uiY } = useSettingsStore.getState();
+        startMouseX = e.screenX;
+        startMouseY = e.screenY;
+        startUiX = uiX;
+        startUiY = uiY;
       }
       currentX = startUiX;
       currentY = startUiY;
@@ -62,8 +65,9 @@ export const useDragUi = (compact: boolean) => {
 
     const handleMouseMove = (e: globalThis.MouseEvent) => {
       if (!isDragging) return;
+      const m = modeRef.current;
 
-      if (compactRef.current) {
+      if (m !== "fullscreen") {
         const deltaX = e.screenX - startMouseX;
         const deltaY = e.screenY - startMouseY;
         if (!wasDraggingRef.current && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
@@ -73,7 +77,13 @@ export const useDragUi = (compact: boolean) => {
         rafId.current = requestAnimationFrame(() => {
           currentX = startUiX + deltaX;
           currentY = startUiY + deltaY;
-          window.javaBridge?.moveWindowTo?.(currentX, currentY);
+          if (m === "meterOnly") {
+            // 네이티브 창만 이동(빠른 경로). 미터 DOM 은 창 (0,0) 그대로.
+            window.javaBridge?.moveWindowTo?.(currentX, currentY);
+          } else {
+            // union: 화면좌표 갱신(미저장) → useOverlayWindow 가 측정해 창 추종. mouseup 에 영구 저장.
+            useSettingsStore.setState({ uiX: currentX, uiY: currentY });
+          }
         });
         return;
       }
@@ -102,7 +112,7 @@ export const useDragUi = (compact: boolean) => {
     const handleMouseUp = () => {
       if (isDragging && wasDraggingRef.current) {
         setUiPosition(currentX, currentY);
-        if (!compactRef.current) rootEl.style.willChange = "auto";
+        if (modeRef.current === "fullscreen") rootEl.style.willChange = "auto";
       }
       if (rafId.current !== null) {
         cancelAnimationFrame(rafId.current);

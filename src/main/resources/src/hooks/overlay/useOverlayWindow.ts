@@ -1,55 +1,141 @@
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useEffect } from "react";
-import { useShallow } from "zustand/react/shallow";
 
 /**
- * small-window 방식 작은 창 오버레이(Phase 1).
- *
- * `smallWindowOverlay` 플래그가 켜지고 패널/토스트 등 확장 콘텐츠가 없을 때(=compact),
- * 네이티브 Stage 를 미터기 bbox 크기로 (uiX,uiY) 위치에 직접 잡는다(setWindowBounds).
- * 그 외(플래그 off, 또는 패널이 열린 expanded 상태)에는 기존 전체화면 경로(syncOverlayBounds)로 돌아간다.
- *
- * compact 일 때 미터기는 창 (0,0) 에 놓이므로(App 에서 left/top=0), 드래그는 네이티브 창 이동으로 처리한다.
- *
- * @param expanded 패널·토스트·다이얼로그 등 미터기 밖 콘텐츠가 보이는 상태(전체화면 폴백 필요)
- * @returns compact 여부 — App 이 미터기 root 위치(0 vs uiX)와 드래그 모드를 결정하는 데 사용
+ * 오버레이 창 모드.
+ * - `fullscreen`: 전체화면 투명창(기존 fitOverlayToScreen). 플래그 off / 모달 / (Phase 2a) join·toast 열림.
+ * - `meterOnly`: 미터기 bbox 작은 창(Phase 1). 드래그=네이티브 창 이동. 미터 root는 창 (0,0).
+ * - `union`: 미터기+패널의 union bbox 작은 창(Phase 2). 콘텐츠는 화면좌표를 `--ovx/--ovy` 만큼 당겨 배치.
  */
-export const useOverlayWindow = (expanded: boolean): boolean => {
-  const { smallWindowOverlay, isLoaded } = useSettingsStore(
-    useShallow((s) => ({
-      smallWindowOverlay: s.smallWindowOverlay,
-      isLoaded: s.isLoaded,
-    })),
-  );
+export type OverlayMode = "fullscreen" | "meterOnly" | "union";
 
-  const compact = isLoaded && smallWindowOverlay && !expanded;
+const setOriginVars = (x: number, y: number) => {
+  const root = document.documentElement;
+  root.style.setProperty("--ovx", `${x}px`);
+  root.style.setProperty("--ovy", `${y}px`);
+};
 
+/**
+ * small-window 작은 창 오버레이의 네이티브 창 bounds + 콘텐츠 origin(`--ovx/--ovy`) 단일 소유자.
+ *
+ * `union` 모드는 **측정 기반**: 보이는 `[data-overlay-content]` 요소의 `getBoundingClientRect()`(창-상대)에
+ * 현재 적용 origin 을 더해 화면좌표를 복원하고, 그 union 으로 새 origin/크기를 구해 `--ovx` 와
+ * `setWindowBounds` 를 갱신한다. 화면좌표가 불변이면 결과도 불변(±1px 가드)이라 루프가 없다.
+ */
+export const useOverlayWindow = (mode: OverlayMode): void => {
   useEffect(() => {
-    if (!isLoaded) return;
     const jb = window.javaBridge;
 
-    if (!compact) {
-      // 전체화면 폴백: 플래그 off 또는 패널 열림. 기존 fitOverlayToScreen 경로.
+    if (mode === "fullscreen") {
+      setOriginVars(0, 0);
       jb?.syncOverlayBounds?.();
       return;
     }
 
-    const anchor = document.querySelector<HTMLElement>("[data-meter-root-anchor]");
-    if (!anchor || !jb?.setWindowBounds) return;
+    if (mode === "meterOnly") {
+      // Phase 1 경로: 미터기 bbox = 창. 위치 = 화면좌표 uiX/uiY. 미터 root 는 창 (0,0)(App 에서 left:0).
+      const anchor = document.querySelector<HTMLElement>("[data-meter-root-anchor]");
+      if (!anchor || !jb?.setWindowBounds) return;
+      const apply = () => {
+        const rect = anchor.getBoundingClientRect();
+        const { uiX, uiY } = useSettingsStore.getState();
+        setOriginVars(uiX, uiY);
+        jb.setWindowBounds!(uiX, uiY, Math.ceil(rect.width), Math.ceil(rect.height));
+      };
+      apply();
+      const observer = new ResizeObserver(apply);
+      observer.observe(anchor);
+      const unsub = useSettingsStore.subscribe((s, prev) => {
+        if (s.uiX !== prev.uiX || s.uiY !== prev.uiY) apply();
+      });
+      return () => {
+        observer.disconnect();
+        unsub();
+      };
+    }
 
-    // 미터기 bbox(논리 px) 만큼 창을 잡는다. 위치는 화면 절대좌표 uiX/uiY.
-    const apply = () => {
-      const rect = anchor.getBoundingClientRect();
-      const { uiX, uiY } = useSettingsStore.getState();
-      jb.setWindowBounds!(uiX, uiY, Math.ceil(rect.width), Math.ceil(rect.height));
+    // union 모드.
+    if (!jb?.setWindowBounds) return;
+    // 진입 시점의 적용 origin = 현재 --ovx/--ovy (meterOnly 에서 왔으면 uiX/uiY, fullscreen 에서 왔으면 0).
+    const cs = getComputedStyle(document.documentElement);
+    const applied = {
+      x: parseFloat(cs.getPropertyValue("--ovx")) || 0,
+      y: parseFloat(cs.getPropertyValue("--ovy")) || 0,
+      w: 0,
+      h: 0,
     };
 
-    apply();
-    // 콘텐츠 크기 변화(플레이어 수, 리사이즈, minimal 토글, 레이아웃)에 창 크기 추종.
-    const observer = new ResizeObserver(apply);
-    observer.observe(anchor);
-    return () => observer.disconnect();
-  }, [compact, isLoaded]);
+    let rafId: number | null = null;
 
-  return compact;
+    const measure = () => {
+      rafId = null;
+      const els = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-overlay-content]"),
+      );
+      if (!els.length) return;
+
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const el of els) {
+        if (el.getClientRects().length === 0) continue; // display:none 등 미렌더
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        // 창-상대 rect + 현재 적용 origin → 화면좌표 복원.
+        minX = Math.min(minX, r.left + applied.x);
+        minY = Math.min(minY, r.top + applied.y);
+        maxX = Math.max(maxX, r.right + applied.x);
+        maxY = Math.max(maxY, r.bottom + applied.y);
+      }
+      if (!Number.isFinite(minX)) return;
+
+      const nx = Math.round(minX);
+      const ny = Math.round(minY);
+      const w = Math.ceil(maxX - minX);
+      const h = Math.ceil(maxY - minY);
+      // 멱등 가드(±1px): 화면좌표 불변이면 재적용 안 함 → MutationObserver 자기루프 방지.
+      if (
+        Math.abs(nx - applied.x) <= 1 &&
+        Math.abs(ny - applied.y) <= 1 &&
+        Math.abs(w - applied.w) <= 1 &&
+        Math.abs(h - applied.h) <= 1
+      ) {
+        return;
+      }
+      applied.x = nx;
+      applied.y = ny;
+      applied.w = w;
+      applied.h = h;
+      setOriginVars(nx, ny);
+      jb.setWindowBounds!(nx, ny, w, h);
+    };
+
+    const schedule = () => {
+      // 새로 나타난 콘텐츠도 크기 추종하도록 매번 observe(중복 observe 는 무시됨).
+      document
+        .querySelectorAll<HTMLElement>("[data-overlay-content]")
+        .forEach((el) => resizeObserver.observe(el));
+      if (rafId === null) rafId = requestAnimationFrame(measure);
+    };
+
+    const resizeObserver = new ResizeObserver(schedule);
+    const mutationObserver = new MutationObserver(schedule);
+    const dragArea = document.querySelector(".drag-area");
+    if (dragArea) {
+      mutationObserver.observe(dragArea, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["style", "class"],
+      });
+    }
+    schedule();
+
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
+  }, [mode]);
 };

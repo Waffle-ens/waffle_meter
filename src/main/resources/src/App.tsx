@@ -9,7 +9,7 @@ import { SidePanel } from "@/components/panels/SidePanel.tsx";
 import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { useResizable, type MeterResizeDirection } from "@/hooks/resize/useResizable";
-import { useOverlayWindow } from "@/hooks/overlay/useOverlayWindow";
+import { useOverlayWindow, type OverlayMode } from "@/hooks/overlay/useOverlayWindow";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
 // import { TooltipProvider } from "@/components/ui/tooltip";
@@ -127,6 +127,7 @@ export default function App() {
     closeAction,
     uiX,
     uiY,
+    smallWindowOverlay,
     statsConsent,
     setCloseAction,
     setStatsConsent,
@@ -145,6 +146,7 @@ export default function App() {
       closeAction: s.closeAction,
       uiX: s.uiX,
       uiY: s.uiY,
+      smallWindowOverlay: s.smallWindowOverlay,
       statsConsent: s.statsConsent,
       setCloseAction: s.setCloseAction,
       setStatsConsent: s.setStatsConsent,
@@ -163,19 +165,22 @@ export default function App() {
   }, []);
   const [selected, setSelected] = useState<Player | null>(null);
 
-  // small-window 작은 창 오버레이(Phase 1): 미터기 밖 콘텐츠(패널/토스트/다이얼로그)가 있으면 전체화면 폴백.
+  // small-window 작은 창 오버레이. 모드: fullscreen / meterOnly / union.
   const updateToastVisible = Boolean(
     updateInfo && activePanel !== "update" && dismissedUpdateVersion !== updateInfo.latestVersion,
   );
-  const overlayExpanded =
-    activePanel !== null ||
-    joinRequestCount > 0 ||
-    statsConsentOpen ||
-    closeActionDialogOpen ||
-    updateToastVisible;
-  const compact = useOverlayWindow(overlayExpanded);
+  const modalOpen = statsConsentOpen || closeActionDialogOpen;
+  // Phase 2a: SidePanel 만 union 창에 참여. join/toast/모달은 아직 전체화면 폴백.
+  const nonUnionExpand = joinRequestCount > 0 || updateToastVisible;
+  const overlayMode: OverlayMode =
+    !smallWindowOverlay || !isLoaded || modalOpen || nonUnionExpand
+      ? "fullscreen"
+      : activePanel !== null
+        ? "union"
+        : "meterOnly";
+  useOverlayWindow(overlayMode);
 
-  const { wasDraggingRef } = useDragUi(compact);
+  const { wasDraggingRef } = useDragUi(overlayMode);
   // const handleToggleCollapse = useCallback(() => {
   //   toggleCollapse();
   //   setActivePanel(null);
@@ -388,9 +393,9 @@ export default function App() {
       style={
         {
           position: "fixed",
-          // compact(작은 창): 미터기는 창 (0,0). 그 외: 화면 좌표 uiX/uiY.
-          left: compact ? 0 : uiX,
-          top: compact ? 0 : uiY,
+          // meterOnly: 미터기는 창 (0,0). union/fullscreen: 화면좌표 - 창 origin(--ovx; fullscreen 0).
+          left: overlayMode === "meterOnly" ? 0 : `calc(${uiX}px - var(--ovx, 0px))`,
+          top: overlayMode === "meterOnly" ? 0 : `calc(${uiY}px - var(--ovy, 0px))`,
 
           width: "fit-content",
           "--meter-bg": isLightOverlay
@@ -452,6 +457,7 @@ export default function App() {
       className={rootClass}>
       <div
         data-meter-root-anchor
+        data-overlay-content
         className={meterClass}
         style={{ width: meterWidth }}>
         {!isBottomLayout && (
@@ -539,6 +545,7 @@ export default function App() {
       <div>
         <SidePanel
           type={activePanel}
+          smallWindow={overlayMode === "union"}
           player={selected}
           players={players}
           onClose={handleClose}
