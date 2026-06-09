@@ -67,6 +67,7 @@ export const useOverlayWindow = (mode: OverlayMode): void => {
     };
 
     let rafId: number | null = null;
+    let shrinkTimer: ReturnType<typeof setTimeout> | null = null;
 
     const measure = () => {
       rafId = null;
@@ -134,26 +135,51 @@ export const useOverlayWindow = (mode: OverlayMode): void => {
       });
     }
 
-    // 드래그 시작 → 전체화면 + origin 0(절대 화면좌표 배치). 드래그 끝 → union 재적합.
+    // origin 변경(전체화면↔union)은 네이티브 창 이동과 WebView --ovx 리페인트가 ~1프레임 어긋나 깜빡인다.
+    // → 전체화면 전환은 rAF 타이밍(클린한 축소와 동일)으로, union 축소는 콘텐츠가 정착한 뒤 수행한다.
+    const goFullscreen = () => {
+      setOriginVars(0, 0);
+      applied.x = 0;
+      applied.y = 0;
+      applied.w = 0;
+      applied.h = 0;
+      jb.syncOverlayBounds?.();
+    };
+
+    // 드래그 시작 → 전체화면(rAF). 드래그 끝 → union 즉시 축소(클린한 방향).
     const onDraggingChange = (d: boolean) => {
+      if (shrinkTimer !== null) {
+        clearTimeout(shrinkTimer);
+        shrinkTimer = null;
+      }
       if (d) {
-        setOriginVars(0, 0);
-        applied.x = 0;
-        applied.y = 0;
-        applied.w = 0;
-        applied.h = 0;
-        jb.syncOverlayBounds?.();
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          if (isOverlayDragging()) goFullscreen();
+        });
       } else {
         schedule();
       }
     };
     const unsubscribeDrag = subscribeOverlayDragging(onDraggingChange);
 
-    if (isOverlayDragging()) onDraggingChange(true);
-    else schedule();
+    if (isOverlayDragging()) {
+      onDraggingChange(true);
+    } else {
+      // 진입: 먼저 전체화면(rAF)으로 펴서 패널이 미터기 좌/상단에 있어도 클립·origin 점프 깜빡임을 막고,
+      // 패널이 페이드인되어 정착하면 union 작은 창으로 축소(축소는 콘텐츠가 안 움직여 깔끔).
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        goFullscreen();
+        shrinkTimer = setTimeout(schedule, 220);
+      });
+    }
 
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
+      if (shrinkTimer !== null) clearTimeout(shrinkTimer);
       resizeObserver.disconnect();
       mutationObserver.disconnect();
       unsubscribeDrag();
