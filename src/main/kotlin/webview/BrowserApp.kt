@@ -95,6 +95,29 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return fitOverlayToScreen(stage, webView)
         }
 
+        // small-window 방식 작은 창: Stage 를 화면 절대좌표(x,y) + 크기(w,h)로 직접 배치한다(논리 px).
+        // 전체화면 fitOverlayToScreen 대신, 보이는 콘텐츠 bbox 만큼만 창을 잡아 게임 위 합성 부담을 줄인다.
+        fun setWindowBounds(x: Double, y: Double, w: Double, h: Double) {
+            val width = w.coerceAtLeast(1.0)
+            val height = h.coerceAtLeast(1.0)
+            stage.x = x
+            stage.y = y
+            stage.width = width
+            stage.height = height
+            webView.minWidth = width
+            webView.minHeight = height
+            webView.prefWidth = width
+            webView.prefHeight = height
+            webView.maxWidth = width
+            webView.maxHeight = height
+        }
+
+        // 네이티브 창 이동(드래그용). 크기 유지, 위치만 갱신.
+        fun moveWindowTo(x: Double, y: Double) {
+            stage.x = x
+            stage.y = y
+        }
+
         fun resetDps() {
             dpsCalculator.resetDataStorage()
             engine.executeScript("resetDpsUI()")
