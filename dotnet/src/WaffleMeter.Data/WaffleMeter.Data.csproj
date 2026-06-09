@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Reference data (mobs/skills/buff catalogs) + runtime maps implementing the capture parser's
+       ICaptureGameData. Depends on Capture for the interface + Mob type. -->
+  <PropertyGroup>
+    <RootNamespace>WaffleMeter.Data</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
+  </ItemGroup>
+
+</Project>

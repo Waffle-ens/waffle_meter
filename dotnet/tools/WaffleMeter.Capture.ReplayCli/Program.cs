@@ -1,16 +1,17 @@
 using System.Text;
 using System.Text.Json;
 using WaffleMeter.Capture;
+using WaffleMeter.Data;
 
-// Phase 0 real-data parity check (Layers 0/1/2/3a/3b/3c-partial):
+// Phase 0 real-data parity check (Layers 0/1/2/3a/3b/3c):
 //   capture -> CapturedSegment -> srcIp-aware PacketAlignmenter -> StreamAssembler -> StreamProcessor
 // diffed against the Kotlin records in the SAME corpus:
 //   L1/L2: emitted frames vs 'assembled'
 //   L3a:   dispatched opcode sequence vs 'dispatch'; compressed/unknown/parser-error counts
 //   L3b:   parsed damage events vs 'damage'
-//   L3c:   byte-derived meta vs 'nickname' + 'own_combat_power' (catalog/runtime-state-dependent
-//          meta types — summon/mob_spawn/remain_hp/battle/buff — are validated with the data layer)
+//   L3c:   meta events vs nickname/own_combat_power/summon_map/mob_spawn/remain_hp/buff + battle
 // Usage: dotnet run --project <ReplayCli> -c Release -- <corpus.jsonl> [skills.json]
+//   (mobs.json is loaded from the same directory as skills.json)
 
 if (args.Length < 1)
 {
@@ -25,20 +26,20 @@ if (!File.Exists(path))
     return 1;
 }
 
-var skillSet = new HashSet<long>();
-bool skillsLoaded = false;
+// Build the game-data context from skills.json (+ sibling mobs.json) when supplied.
+ICaptureGameData gameData = NullCaptureGameData.Instance;
+bool dataLoaded = false;
+int skillCount = 0, mobCount = 0;
 if (args.Length >= 2 && File.Exists(args[1]))
 {
-    using JsonDocument skillsDoc = JsonDocument.Parse(File.ReadAllText(args[1]));
-    foreach (JsonElement el in skillsDoc.RootElement.EnumerateArray())
-    {
-        if (el.TryGetProperty("code", out JsonElement codeEl))
-        {
-            skillSet.Add(codeEl.GetInt64());
-        }
-    }
-
-    skillsLoaded = true;
+    string skillsPath = args[1];
+    string mobsPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(skillsPath)) ?? ".", "mobs.json");
+    HashSet<long> skills = ReferenceJson.LoadSkillCodes(skillsPath);
+    Dictionary<int, Mob> mobs = File.Exists(mobsPath) ? ReferenceJson.LoadMobs(mobsPath) : new Dictionary<int, Mob>();
+    gameData = new GameData(mobs, skills);
+    dataLoaded = true;
+    skillCount = skills.Count;
+    mobCount = mobs.Count;
 }
 
 var typeCounts = new Dictionary<string, int>();
@@ -48,6 +49,9 @@ var dispatchExpected = new List<int>();
 var damageExpected = new List<DmgRec>();
 var metaExpected = new List<(string Type, string Norm)>();
 int compressedExpected = 0, unknownExpected = 0, parserErrorExpected = 0;
+
+// Meta types validated by replay (battle is folded in as type "battle").
+HashSet<string> metaTypes = ["nickname", "own_combat_power", "summon_map", "mob_spawn", "remain_hp", "buff", "battle"];
 
 long lineNo = 0;
 foreach (string line in File.ReadLines(path))
@@ -70,6 +74,12 @@ foreach (string line in File.ReadLines(path))
         string type = typeEl.GetString() ?? "";
         typeCounts[type] = typeCounts.GetValueOrDefault(type) + 1;
 
+        if (metaTypes.Contains(type))
+        {
+            metaExpected.Add((type, NormalizeJsonMeta(root)));
+            continue;
+        }
+
         switch (type)
         {
             case "capture":
@@ -89,10 +99,6 @@ foreach (string line in File.ReadLines(path))
                 break;
             case "damage":
                 damageExpected.Add(ReadDamage(root));
-                break;
-            case "nickname":
-            case "own_combat_power":
-                metaExpected.Add((type, NormalizeJsonMeta(root)));
                 break;
             case "compressed_packet":
                 compressedExpected++;
@@ -114,8 +120,7 @@ foreach (string line in File.ReadLines(path))
 // Replay (Main.kt:42-54): srcIp change resets the aligner; each aligned chunk -> assembler -> processor.
 var emitted = new List<(int Len, string Head)>();
 var sink = new CollectingSink();
-Func<long, bool> skillExists = skillsLoaded ? (c => skillSet.Contains(c)) : (_ => false);
-var processor = new StreamProcessor(sink, skillExists);
+var processor = new StreamProcessor(sink, gameData);
 var aligner = new PacketAlignmenter();
 var assembler = new StreamAssembler((packet, at) =>
 {
@@ -139,7 +144,7 @@ foreach (CapturedSegment seg in captures)
 }
 
 Console.WriteLine($"=== corpus: {Path.GetFileName(path)} ===");
-Console.WriteLine($"skills.json: {(skillsLoaded ? $"loaded ({skillSet.Count} codes) — skill field compared" : "not supplied — skill field NOT compared")}");
+Console.WriteLine($"game data: {(dataLoaded ? $"loaded ({skillCount} skills, {mobCount} mobs)" : "NOT supplied — skill/mob-dependent meta will not match")}");
 Console.WriteLine("--- record coverage ---");
 foreach (KeyValuePair<string, int> kv in typeCounts.OrderByDescending(k => k.Value))
 {
@@ -164,10 +169,10 @@ rc |= ReportCount("parser_error", sink.ParserErrors, parserErrorExpected);
 Console.WriteLine();
 Console.WriteLine("--- L3b: parsed damage events vs Kotlin 'damage' ---");
 Console.WriteLine($"  .NET {sink.Damages.Count}   Kotlin {damageExpected.Count}");
-rc |= ReportDamageSeq(sink.Damages, damageExpected, skillsLoaded);
+rc |= ReportDamageSeq(sink.Damages, damageExpected, dataLoaded);
 
 Console.WriteLine();
-Console.WriteLine("--- L3c (byte-derived): nickname + own_combat_power vs Kotlin meta ---");
+Console.WriteLine("--- L3c: meta events (nickname/power/summon/mob_spawn/remain_hp/buff/battle) ---");
 Console.WriteLine($"  .NET {sink.Metas.Count}   Kotlin {metaExpected.Count}");
 rc |= ReportMetaSeq(sink.Metas, metaExpected);
 
@@ -196,7 +201,6 @@ DmgRec ReadDamage(JsonElement root)
         root.GetProperty("loop").GetInt32());
 }
 
-// Canonical "k=v|k=v" (sorted by key) of a Kotlin meta record, excluding type/at.
 string NormalizeJsonMeta(JsonElement root)
 {
     var kv = new SortedDictionary<string, string>(StringComparer.Ordinal);
@@ -282,7 +286,7 @@ int ReportMetaSeq(List<(string Type, string Norm)> got, List<(string Type, strin
         }
     }
 
-    return ReportTail("meta(nickname+own_combat_power)", got.Count, exp.Count, n);
+    return ReportTail("meta", got.Count, exp.Count, n);
 }
 
 int ReportTail(string label, int gotCount, int expCount, int matched)
@@ -334,24 +338,35 @@ sealed class CollectingSink : IStreamProcessorSink
 
     public void Meta(string type, params (string Key, object? Value)[] fields)
     {
-        if (type is not ("nickname" or "own_combat_power"))
-        {
-            return; // only the byte-derived meta types are validated at this phase
-        }
-
         var kv = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach ((string Key, object? Value) f in fields)
         {
-            kv[f.Key] = f.Value switch
-            {
-                null => "null",
-                bool b => b ? "true" : "false",
-                _ => f.Value.ToString() ?? "null",
-            };
+            kv[f.Key] = Format(f.Value);
         }
 
         Metas.Add((type, string.Join("|", kv.Select(p => $"{p.Key}={p.Value}"))));
     }
+
+    public void Battle(int target, int toggle, int? mobCode, string? mobName, bool accepted, string? reason)
+    {
+        var kv = new SortedDictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["target"] = target.ToString(),
+            ["toggle"] = toggle.ToString(),
+            ["mobCode"] = mobCode?.ToString() ?? "null",
+            ["mobName"] = mobName ?? "null",
+            ["accepted"] = accepted ? "true" : "false",
+            ["reason"] = reason ?? "null",
+        };
+        Metas.Add(("battle", string.Join("|", kv.Select(p => $"{p.Key}={p.Value}"))));
+    }
+
+    private static string Format(object? value) => value switch
+    {
+        null => "null",
+        bool b => b ? "true" : "false",
+        _ => value.ToString() ?? "null",
+    };
 }
 
 static class Hex

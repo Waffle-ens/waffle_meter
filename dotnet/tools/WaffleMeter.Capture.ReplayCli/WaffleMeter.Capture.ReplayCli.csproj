@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
+    <ProjectReference Include="..\..\src\WaffleMeter.Data\WaffleMeter.Data.csproj" />
   </ItemGroup>
 
 </Project>
