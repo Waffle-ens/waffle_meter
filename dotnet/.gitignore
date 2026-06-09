@@ -1,0 +1,18 @@
+## .NET build output
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/
+
+## test/coverage
+TestResults/
+*.trx
+coverage*.xml
+coverage*.json
+
+## local corpus (do not commit captured game traffic)
+corpus/
+*.jsonl
+*.pcap

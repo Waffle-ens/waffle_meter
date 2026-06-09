@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Pure capture/reassembly/framing/parse logic. NO platform (WinDivert/Npcap/WPF) deps here so
+    it stays cross-platform unit-testable and parity-testable against the Kotlin pipeline.
+    Live capture backends (WinDivert default, Npcap optional) + the elevated capture helper will
+    live in a separate net8.0-windows project and feed CapturedSegment into this library.
+  -->
+  <PropertyGroup>
+    <RootNamespace>WaffleMeter.Capture</RootNamespace>
+  </PropertyGroup>
+
+</Project>
