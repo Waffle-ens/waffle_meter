@@ -1,4 +1,5 @@
 import { useRef, useCallback } from "react";
+import { setOverlayDragging } from "@/hooks/overlay/overlayDrag";
 
 interface UseDraggablePanelOptions {
   initialX: number;
@@ -87,6 +88,8 @@ export const useDraggablePanel = ({
             if (Math.abs(deltaX) <= DRAG_THRESHOLD && Math.abs(deltaY) <= DRAG_THRESHOLD) return;
             isDragging = true;
             panel.style.willChange = "left, top";
+            // 드래그 동안 전체화면 고정(창 origin 변동에 의한 미터기 떨림 방지).
+            setOverlayDragging(true);
           }
 
           if (rafId.current !== null) cancelAnimationFrame(rafId.current);
@@ -94,7 +97,7 @@ export const useDraggablePanel = ({
             const nextX = startPanelScreenX + deltaX;
             const nextY = startPanelScreenY + deltaY;
             posRef.current = { x: nextX, y: nextY };
-            // 화면좌표를 store 에 반영 → React 가 left:calc(screen - --ovx) 로 렌더, useOverlayWindow 가 창 추종.
+            // 화면좌표를 store 에 반영 → React 가 left:calc(screen - --ovx) 로 렌더.
             onDragMove?.(nextX, nextY);
           });
         };
@@ -108,6 +111,7 @@ export const useDraggablePanel = ({
             panel.style.willChange = "auto";
             onPositionChange(posRef.current.x, posRef.current.y);
           }
+          setOverlayDragging(false); // union 재적합 트리거
           document.removeEventListener("mousemove", handleMouseMove);
           document.removeEventListener("mouseup", handleMouseUp);
         };

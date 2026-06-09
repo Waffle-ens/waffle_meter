@@ -1,4 +1,5 @@
 import type { OverlayMode } from "@/hooks/overlay/useOverlayWindow";
+import { setOverlayDragging } from "@/hooks/overlay/overlayDrag";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { clampMeterRootPosition } from "@/utils/meterBounds";
 import { useEffect, useRef } from "react";
@@ -81,7 +82,8 @@ export const useDragUi = (mode: OverlayMode) => {
             // 네이티브 창만 이동(빠른 경로). 미터 DOM 은 창 (0,0) 그대로.
             window.javaBridge?.moveWindowTo?.(currentX, currentY);
           } else {
-            // union: 화면좌표 갱신(미저장) → useOverlayWindow 가 측정해 창 추종. mouseup 에 영구 저장.
+            // union: 드래그 중엔 전체화면 고정(떨림 방지) 후 화면좌표 갱신. mouseup 에 union 재적합+영구 저장.
+            setOverlayDragging(true);
             useSettingsStore.setState({ uiX: currentX, uiY: currentY });
           }
         });
@@ -119,6 +121,7 @@ export const useDragUi = (mode: OverlayMode) => {
         rafId.current = null;
       }
       isDragging = false;
+      setOverlayDragging(false); // union 재적합 트리거(다른 모드면 no-op)
 
       setTimeout(() => {
         wasDraggingRef.current = false;

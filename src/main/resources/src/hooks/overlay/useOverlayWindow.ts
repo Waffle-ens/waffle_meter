@@ -1,4 +1,5 @@
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { isOverlayDragging, subscribeOverlayDragging } from "@/hooks/overlay/overlayDrag";
 import { useEffect } from "react";
 
 /**
@@ -69,6 +70,8 @@ export const useOverlayWindow = (mode: OverlayMode): void => {
 
     const measure = () => {
       rafId = null;
+      // 드래그 중에는 union 재적합을 멈춘다(전체화면 + origin 0 유지 → 비드래그 콘텐츠 떨림 방지).
+      if (isOverlayDragging()) return;
       const els = Array.from(
         document.querySelectorAll<HTMLElement>("[data-overlay-content]"),
       );
@@ -130,12 +133,30 @@ export const useOverlayWindow = (mode: OverlayMode): void => {
         attributeFilter: ["style", "class"],
       });
     }
-    schedule();
+
+    // 드래그 시작 → 전체화면 + origin 0(절대 화면좌표 배치). 드래그 끝 → union 재적합.
+    const onDraggingChange = (d: boolean) => {
+      if (d) {
+        setOriginVars(0, 0);
+        applied.x = 0;
+        applied.y = 0;
+        applied.w = 0;
+        applied.h = 0;
+        jb.syncOverlayBounds?.();
+      } else {
+        schedule();
+      }
+    };
+    const unsubscribeDrag = subscribeOverlayDragging(onDraggingChange);
+
+    if (isOverlayDragging()) onDraggingChange(true);
+    else schedule();
 
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
       mutationObserver.disconnect();
+      unsubscribeDrag();
     };
   }, [mode]);
 };
