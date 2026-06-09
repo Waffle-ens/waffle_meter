@@ -41,8 +41,10 @@ export const useResizable = () => {
       const state = useSettingsStore.getState();
       resizeRef.current = {
         direction,
-        startX: e.clientX,
-        startY: e.clientY,
+        // screen 좌표 사용: 작은 창 모드에서 리사이즈 중 창이 움직이거나 커져도 델타가 흔들리지 않게.
+        // (전체화면 모드는 창 원점이 고정이라 client 와 델타 동일 → 동작 변화 없음)
+        startX: e.screenX,
+        startY: e.screenY,
         startWidth: state.meterWidth,
         startRowHeight: state.rowHeight,
         startUiX: state.uiX,
@@ -60,12 +62,12 @@ export const useResizable = () => {
       if (!current) return;
       if (rafId.current !== null) cancelAnimationFrame(rafId.current);
 
-      const clientX = e.clientX;
-      const clientY = e.clientY;
+      const pointerX = e.screenX;
+      const pointerY = e.screenY;
 
       rafId.current = requestAnimationFrame(() => {
-        const dx = clientX - current.startX;
-        const dy = clientY - current.startY;
+        const dx = pointerX - current.startX;
+        const dy = pointerY - current.startY;
         const horizontalSign = current.direction.includes("w") ? -1 : current.direction.includes("e") ? 1 : 0;
         const verticalSign = current.direction.includes("n") ? -1 : current.direction.includes("s") ? 1 : 0;
 
