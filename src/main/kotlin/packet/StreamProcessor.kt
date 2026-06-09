@@ -799,18 +799,25 @@ class StreamProcessor() {
 
     /**
      * 캐릭터 스냅샷 패킷(OwnNickname/OtherNickname)에서 전투력을 추출한다.
-     * 전투력은 패킷 꼬리쪽 [XX F4 CB 1F] 마커(XX=0x21/0x24 등 가변) 뒤, [F4 CB 1F] offset + 11 위치의 u32 LE 이다.
-     * 본인(OwnNickname) 패킷은 같은 마커가 다른 의미로 쓰여 비정상적으로 큰 값이 나오므로
-     * 범위 검증(0 < power <= 10_000_000)으로 걸러진다. 그 경우 null 을 반환하고 공식 API fallback 을 탄다.
+     * 전투력은 [XX F4 CB 1F] 마커(XX 가변) 뒤 가변 위치의 u32 LE 이다. 평상시엔 marker+11 이지만,
+     * 전투 중 스냅샷엔 전투력 앞에 필드가 하나(가끔 +플래그 바이트) 더 끼어들어 marker+15/+16 으로 밀린다.
+     * 고정 offset(+11)으로 읽으면 끼어든 작은 값(78/105/4540 등)을 전투력으로 오인해 비정상 저전투력이
+     * 저장됐다(패킷 로그 분석으로 확인 — 보스전 스냅샷에서 다수 발생). 진짜 전투력 뒤엔 항상 0 패딩이 오므로,
+     * 마커 뒤부터 "바로 뒤에 0 u32 가 따라오는 첫 u32"를 전투력으로 잡는다(끼어든 필드는 뒤에 전투력=non-zero
+     * 가 와서 자동 스킵). 본인(OwnNickname)은 같은 마커가 센티넬이라 범위 밖이 되어 걸러진다 → null → API fallback.
      */
     private fun parseSnapshotPower(packet: ByteArray): Int? {
         val markerIdx = lastIndexOf(packet, powerMarker)
         if (markerIdx < 0) return null
-        val offset = markerIdx + 11
-        if (offset + 4 > packet.size) return null
-        val power = parseUInt32le(packet, offset)
-        if (power <= 0 || power > 10_000_000) return null
-        return power
+        var offset = markerIdx + 11
+        while (offset + 8 <= packet.size) {
+            val power = parseUInt32le(packet, offset)
+            if (power in 1..10_000_000 && parseUInt32le(packet, offset + 4) == 0) {
+                return power
+            }
+            offset += 1
+        }
+        return null
     }
 
     private fun parseSpecialDamageFlags(packet: ByteArray): List<SpecialDamage> {
