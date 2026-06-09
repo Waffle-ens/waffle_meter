@@ -174,6 +174,12 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         fun isClickThrough(): Boolean = isClickThrough
 
+        // 설정 패널 토글용: 네이티브 클릭스루(WS_EX_TRANSPARENT)를 실제로 적용한다.
+        // (단축키와 동일한 setClickThrough 경로 → onClickThroughChanged 로 JS store 도 동기화됨.)
+        fun setClickThrough(enable: Boolean) {
+            this@BrowserApp.setClickThrough(enable)
+        }
+
         fun toggleAutoHide() {
             isAutoHide = !isAutoHide
             PropertyHandler.setProperty("isAutoHide", isAutoHide.toString())

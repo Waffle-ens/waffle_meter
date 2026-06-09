@@ -34,6 +34,7 @@ declare global {
       updateHideHotkey?: (modifiers: number, vkCode: number) => void;
 
       isClickThrough?: () => boolean;
+      setClickThrough?: (enable: boolean) => void;
       getClickThroughHotkey?: () => string;
       updateClickThroughHotkey?: (modifiers: number, vkCode: number) => void;
       fitToCurrentMonitor?: () => void;

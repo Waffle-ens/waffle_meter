@@ -133,6 +133,7 @@ interface SettingsState {
   clickThroughHotkey: Hotkey;
   setClickThroughHotkey: (h: Hotkey) => void;
   isClickThrough: boolean;
+  setClickThrough: (enable: boolean) => void;
   isAutoHide: boolean;
   toggleAutoHide: () => void;
   multiMonitorMode: boolean;
@@ -648,6 +649,12 @@ export const useSettingsStore = create<SettingsState>((set) => {
         jb()?.toggleAutoHide?.();
         return { isAutoHide: !s.isAutoHide };
       }),
+    setClickThrough: (enable) => {
+      // 네이티브 클릭스루를 실제로 토글(단축키와 동일). onClickThroughChanged 가 다시 동기화하지만
+      // 즉각 반영 위해 낙관적으로 store 도 갱신.
+      set({ isClickThrough: enable });
+      jb()?.setClickThrough?.(enable);
+    },
     setMultiMonitorMode: (multiMonitorMode) => {
       jb()?.saveProps?.("multiMonitorMode", String(multiMonitorMode));
       const sync = readOverlayBoundsSync();

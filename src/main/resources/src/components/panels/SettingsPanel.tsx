@@ -255,6 +255,7 @@ export const SettingsPanel = ({
     setContributionMode,
     setClickThroughHotkey,
     toggleAutoHide,
+    setClickThrough,
     setMultiMonitorMode,
     setOverlayTheme,
     setCloseAction,
@@ -658,7 +659,7 @@ export const SettingsPanel = ({
             description="클릭이 미터기를 통과해 게임으로 전달됩니다.">
             <Switch
               checked={isClickThrough}
-              disabled
+              onCheckedChange={setClickThrough}
               className="data-[state=checked]:bg-emerald-500"
             />
           </SettingsRow>
