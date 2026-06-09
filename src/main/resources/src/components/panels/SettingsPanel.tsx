@@ -207,6 +207,7 @@ export const SettingsPanel = ({
     isClickThrough,
     isAutoHide,
     multiMonitorMode,
+    smallWindowOverlay,
     closeAction,
     statsConsent,
   } = useSettingsStore(
@@ -229,6 +230,7 @@ export const SettingsPanel = ({
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
+      smallWindowOverlay: s.smallWindowOverlay,
       closeAction: s.closeAction,
       statsConsent: s.statsConsent,
     })),
@@ -254,6 +256,7 @@ export const SettingsPanel = ({
     setClickThroughHotkey,
     toggleAutoHide,
     setMultiMonitorMode,
+    setSmallWindowOverlay,
     setCloseAction,
     setStatsConsent,
     refreshStatsConsent,
@@ -295,6 +298,7 @@ export const SettingsPanel = ({
     contributionMode,
     clickThroughHotkey,
     multiMonitorMode,
+    smallWindowOverlay,
     closeAction,
     statsConsent,
     theme: structuredClone(theme),
@@ -356,6 +360,7 @@ export const SettingsPanel = ({
     resetReset(snapshot.hotkey);
     resetClickThrough(snapshot.clickThroughHotkey);
     setMultiMonitorMode(snapshot.multiMonitorMode);
+    setSmallWindowOverlay(snapshot.smallWindowOverlay);
     setCloseAction(snapshot.closeAction);
     setStatsConsent(snapshot.statsConsent);
     onClose();
@@ -581,6 +586,15 @@ export const SettingsPanel = ({
             <Switch
               checked={multiMonitorMode}
               onCheckedChange={setMultiMonitorMode}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="작은 창 오버레이 (실험)"
+            description="오버레이를 전체화면 투명창 대신 미터기 크기의 작은 창으로 띄워 게임 위 부담을 줄입니다. 패널을 열면 일시적으로 전체화면으로 전환됩니다.">
+            <Switch
+              checked={smallWindowOverlay}
+              onCheckedChange={setSmallWindowOverlay}
               className="data-[state=checked]:bg-emerald-500"
             />
           </SettingsRow>

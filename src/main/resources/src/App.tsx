@@ -9,6 +9,7 @@ import { SidePanel } from "@/components/panels/SidePanel.tsx";
 import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { useResizable, type MeterResizeDirection } from "@/hooks/resize/useResizable";
+import { useOverlayWindow } from "@/hooks/overlay/useOverlayWindow";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
 // import { TooltipProvider } from "@/components/ui/tooltip";
@@ -106,6 +107,7 @@ export default function App() {
     checkStatus,
   } = useVersionCheck();
   const addRequest = useJoinRequestStore((s) => s.addRequest);
+  const joinRequestCount = useJoinRequestStore((s) => s.requests.length);
   const removeRequest = useJoinRequestStore((s) => s.removeRequest);
   const clearAll = useJoinRequestStore((s) => s.clearAll);
   const refuseRequest = useJoinRequestStore((s) => s.refuseRequest);
@@ -160,7 +162,20 @@ export default function App() {
     setActivePanel((prev) => (prev === panel ? null : panel));
   }, []);
   const [selected, setSelected] = useState<Player | null>(null);
-  const { wasDraggingRef } = useDragUi();
+
+  // small-window 작은 창 오버레이(Phase 1): 미터기 밖 콘텐츠(패널/토스트/다이얼로그)가 있으면 전체화면 폴백.
+  const updateToastVisible = Boolean(
+    updateInfo && activePanel !== "update" && dismissedUpdateVersion !== updateInfo.latestVersion,
+  );
+  const overlayExpanded =
+    activePanel !== null ||
+    joinRequestCount > 0 ||
+    statsConsentOpen ||
+    closeActionDialogOpen ||
+    updateToastVisible;
+  const compact = useOverlayWindow(overlayExpanded);
+
+  const { wasDraggingRef } = useDragUi(compact);
   // const handleToggleCollapse = useCallback(() => {
   //   toggleCollapse();
   //   setActivePanel(null);
@@ -241,11 +256,6 @@ export default function App() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    window.javaBridge?.syncOverlayBounds?.();
-  }, [isLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -378,8 +388,9 @@ export default function App() {
       style={
         {
           position: "fixed",
-          left: uiX,
-          top: uiY,
+          // compact(작은 창): 미터기는 창 (0,0). 그 외: 화면 좌표 uiX/uiY.
+          left: compact ? 0 : uiX,
+          top: compact ? 0 : uiY,
 
           width: "fit-content",
           "--meter-bg": isLightOverlay
