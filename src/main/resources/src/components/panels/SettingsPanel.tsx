@@ -207,6 +207,7 @@ export const SettingsPanel = ({
     isClickThrough,
     isAutoHide,
     multiMonitorMode,
+    overlayTheme,
     closeAction,
     statsConsent,
   } = useSettingsStore(
@@ -229,6 +230,7 @@ export const SettingsPanel = ({
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
+      overlayTheme: s.overlayTheme,
       closeAction: s.closeAction,
       statsConsent: s.statsConsent,
     })),
@@ -254,6 +256,7 @@ export const SettingsPanel = ({
     setClickThroughHotkey,
     toggleAutoHide,
     setMultiMonitorMode,
+    setOverlayTheme,
     setCloseAction,
     setStatsConsent,
     refreshStatsConsent,
@@ -295,6 +298,7 @@ export const SettingsPanel = ({
     contributionMode,
     clickThroughHotkey,
     multiMonitorMode,
+    overlayTheme,
     closeAction,
     statsConsent,
     theme: structuredClone(theme),
@@ -356,6 +360,7 @@ export const SettingsPanel = ({
     resetReset(snapshot.hotkey);
     resetClickThrough(snapshot.clickThroughHotkey);
     setMultiMonitorMode(snapshot.multiMonitorMode);
+    setOverlayTheme(snapshot.overlayTheme);
     setCloseAction(snapshot.closeAction);
     setStatsConsent(snapshot.statsConsent);
     onClose();
@@ -581,6 +586,15 @@ export const SettingsPanel = ({
             <Switch
               checked={multiMonitorMode}
               onCheckedChange={setMultiMonitorMode}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="라이트 모드"
+            description="오버레이를 밝은(라이트) 테마로 표시합니다.">
+            <Switch
+              checked={overlayTheme === "light"}
+              onCheckedChange={(v) => setOverlayTheme(v ? "light" : "dark")}
               className="data-[state=checked]:bg-emerald-500"
             />
           </SettingsRow>
