@@ -231,7 +231,9 @@ class StreamProcessor() {
         }
         val realClass = JobClass.convertFromCode(job)
         DataManager.saveNickname(userInfo.value, nickname, true, server, realClass)
-        parseSnapshotPower(packet)?.let { DataManager.saveUserPower(userInfo.value, it) }
+        // 본인 스냅샷엔 진짜 전투력이 없다(F4 CB 1F 블록은 자기 자신 센티넬 ~268500997 뿐). parseSnapshotPower 는
+        // 가변오프셋 스캔이라 센티넬 뒤 무관한 u32(+0 패딩)를 전투력으로 오인하므로 본인엔 쓰지 않는다(접속 시 본인
+        // 전투력이 실제보다 낮게 잡히던 원인). 본인 전투력은 초기=공식 API(아래) + 라이브=0x3655(parseOwnCombatPower).
         if (server > 0) {
             DataManager.requestOfficialCharacterLookup(userInfo.value)
         }
