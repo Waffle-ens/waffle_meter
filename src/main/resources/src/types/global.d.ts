@@ -34,6 +34,7 @@ declare global {
       updateHideHotkey?: (modifiers: number, vkCode: number) => void;
 
       isClickThrough?: () => boolean;
+      setClickThrough?: (enable: boolean) => void;
       getClickThroughHotkey?: () => string;
       updateClickThroughHotkey?: (modifiers: number, vkCode: number) => void;
       fitToCurrentMonitor?: () => void;
@@ -41,6 +42,10 @@ declare global {
       onMeterPositionChanged?: (x: number, y: number) => void;
       moveWindow?: (x: number, y: number) => void;
       syncOverlayBounds?: () => string | undefined;
+      // small-window 작은 창 오버레이(Phase 1): Stage 를 콘텐츠 bbox 로 직접 배치/이동.
+      // moveWindowTo 는 화면 안으로 clamp 된 실제 위치를 "x,y" 로 반환.
+      setWindowBounds?: (x: number, y: number, w: number, h: number) => void;
+      moveWindowTo?: (x: number, y: number) => string | undefined;
 
       isAutoHide?: () => boolean;
       toggleAutoHide?: () => void;

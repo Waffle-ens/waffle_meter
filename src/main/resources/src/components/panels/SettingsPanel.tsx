@@ -184,6 +184,7 @@ export const SettingsPanel = ({
     isClickThrough,
     isAutoHide,
     multiMonitorMode,
+    overlayTheme,
     closeAction,
     statsConsent,
   } = useSettingsStore(
@@ -206,6 +207,7 @@ export const SettingsPanel = ({
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
+      overlayTheme: s.overlayTheme,
       closeAction: s.closeAction,
       statsConsent: s.statsConsent,
     })),
@@ -230,7 +232,9 @@ export const SettingsPanel = ({
     setContributionMode,
     setClickThroughHotkey,
     toggleAutoHide,
+    setClickThrough,
     setMultiMonitorMode,
+    setOverlayTheme,
     setCloseAction,
     setStatsConsent,
     refreshStatsConsent,
@@ -272,6 +276,7 @@ export const SettingsPanel = ({
     contributionMode,
     clickThroughHotkey,
     multiMonitorMode,
+    overlayTheme,
     closeAction,
     statsConsent,
     theme: structuredClone(theme),
@@ -330,6 +335,7 @@ export const SettingsPanel = ({
     resetReset(snapshot.hotkey);
     resetClickThrough(snapshot.clickThroughHotkey);
     setMultiMonitorMode(snapshot.multiMonitorMode);
+    setOverlayTheme(snapshot.overlayTheme);
     setCloseAction(snapshot.closeAction);
     setStatsConsent(snapshot.statsConsent);
     onClose();
@@ -540,6 +546,15 @@ export const SettingsPanel = ({
             />
           </SettingsRow>
           <SettingsRow
+            title="라이트 모드"
+            description="오버레이를 밝은(라이트) 테마로 표시합니다.">
+            <Switch
+              checked={overlayTheme === "light"}
+              onCheckedChange={(v) => setOverlayTheme(v ? "light" : "dark")}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </SettingsRow>
+          <SettingsRow
             title="종료 버튼 동작"
             description="메인 전원 버튼을 눌렀을 때의 동작입니다."
             align="center"
@@ -599,7 +614,7 @@ export const SettingsPanel = ({
             description="클릭이 미터기를 통과해 게임으로 전달됩니다.">
             <Switch
               checked={isClickThrough}
-              disabled
+              onCheckedChange={setClickThrough}
               className="data-[state=checked]:bg-emerald-500"
             />
           </SettingsRow>

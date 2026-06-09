@@ -9,10 +9,9 @@ import {
   ClipboardClock,
   Bug,
   UserRoundPlus,
-  Moon,
+  LockKeyhole,
   PanelBottom,
   PanelTop,
-  Sun,
 } from "lucide-react";
 // import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useJoinRequestStore } from "@/stores/useJoinRequestStore";
@@ -35,12 +34,11 @@ export const Header = memo(
     setSettings,
   }: Props) => {
     const isDebugMode = useSettingsStore((s) => s.isDebugMode);
-    const overlayTheme = useSettingsStore((s) => s.overlayTheme);
     const overlayLayout = useSettingsStore((s) => s.overlayLayout);
     const meterOpacity = useSettingsStore((s) => s.meterOpacity);
     const setMeterOpacity = useSettingsStore((s) => s.setMeterOpacity);
-    const toggleOverlayTheme = useSettingsStore((s) => s.toggleOverlayTheme);
     const toggleOverlayLayout = useSettingsStore((s) => s.toggleOverlayLayout);
+    const isClickThrough = useSettingsStore((s) => s.isClickThrough);
     const requestCount = useJoinRequestStore((s) => s.requests.length);
     const isOpen = useJoinRequestStore((s) => s.isOpen);
     const setOpen = useJoinRequestStore((s) => s.setOpen);
@@ -50,7 +48,6 @@ export const Header = memo(
 
     const iconButtonClass =
       "meter-control h-7 w-7 rounded-md border transition-all";
-    const isLightMode = overlayTheme === "light";
     const isBottomLayout = overlayLayout === "bottom";
 
     return (
@@ -74,17 +71,15 @@ export const Header = memo(
         </div>
 
         <div className={`${className} flex shrink-0 items-center gap-1`}>
-          {/* <Tooltip>
-            <TooltipTrigger asChild> */}
-          <Button
-            variant="ghost"
-            title={isLightMode ? "다크 모드" : "화이트 모드"}
-            aria-label={isLightMode ? "다크 모드로 변경" : "화이트 모드로 변경"}
-            onClick={toggleOverlayTheme}
-            size="icon"
-            className={iconButtonClass}>
-            {isLightMode ? <Moon className="size-4.5" /> : <Sun className="size-4.5" />}
-          </Button>
+          {isClickThrough && (
+            // 클릭스루(입력 통과) 상태 표시. 상호작용 불가(실수로 토글 방지) — 라이트/다크 토글은 설정으로 이동.
+            <div
+              title="클릭스루 잠금 — 입력이 게임으로 통과 중"
+              aria-label="클릭스루 잠금 표시"
+              className={`${iconButtonClass} pointer-events-none flex items-center justify-center text-[var(--meter-accent)]`}>
+              <LockKeyhole className="size-4.5" />
+            </div>
+          )}
 
           <Button
             variant="ghost"
