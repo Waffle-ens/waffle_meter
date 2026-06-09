@@ -1,0 +1,142 @@
+namespace WaffleMeter.Capture;
+
+/// <summary>Result of <see cref="DamageParsing.TryParseMultiHit"/> (Kotlin MultiHitOutput).</summary>
+public readonly record struct MultiHitOutput(int Time, int Damage, int NewOffset);
+
+/// <summary>
+/// Pure helpers used by the damage parser, ported verbatim from Kotlin <c>StreamProcessor</c>
+/// (tryParseMultiHit 716-746, parseSpecialDamageFlags 824-865, normalizeDamageSkillCode 350-365).
+/// CORRECTNESS-CRITICAL: a divergence here mis-counts damage / mis-attributes skills silently.
+/// </summary>
+public static class DamageParsing
+{
+    /// <summary>
+    /// Reads a multi-hit run: a count byte then that many identical damage varints. If validation
+    /// fails at any point, returns the offset UNCHANGED with time/damage 0 (Kotlin behavior).
+    /// </summary>
+    public static MultiHitOutput TryParseMultiHit(byte[] data, int offset)
+    {
+        int currentOffset = offset;
+        int count = data[currentOffset] & 0xFF;
+        currentOffset++;
+
+        if (count == 0)
+        {
+            return new MultiHitOutput(0, 0, offset);
+        }
+
+        if (currentOffset >= data.Length)
+        {
+            return new MultiHitOutput(0, 0, offset);
+        }
+
+        VarIntOutput damageInfo = PacketPrimitives.ReadVarInt(data, currentOffset);
+        if (damageInfo.Value == -1)
+        {
+            return new MultiHitOutput(0, 0, offset);
+        }
+
+        currentOffset += damageInfo.Length;
+
+        if (damageInfo.Value == 0)
+        {
+            return new MultiHitOutput(0, 0, offset);
+        }
+
+        // The remaining (count - 1) varints must all equal the first.
+        for (int k = 0; k < count - 1; k++)
+        {
+            if (currentOffset >= data.Length)
+            {
+                return new MultiHitOutput(0, 0, offset);
+            }
+
+            VarIntOutput next = PacketPrimitives.ReadVarInt(data, currentOffset);
+            if (next.Value == -1)
+            {
+                return new MultiHitOutput(0, 0, offset);
+            }
+
+            currentOffset += next.Length;
+            if (next.Value != damageInfo.Value)
+            {
+                return new MultiHitOutput(0, 0, offset);
+            }
+        }
+
+        return new MultiHitOutput(count, damageInfo.Value, currentOffset);
+    }
+
+    /// <summary>
+    /// Decodes the special-damage flag byte. size == 8 -> none; size >= 10 -> bit flags;
+    /// any other size (e.g. 9) -> none. 0x80 (POWER_SHARD) is intentionally NOT decoded (commented
+    /// out in Kotlin).
+    /// </summary>
+    public static List<SpecialDamage> ParseSpecialDamageFlags(byte[] packet)
+    {
+        var flags = new List<SpecialDamage>();
+
+        if (packet.Length == 8)
+        {
+            return flags;
+        }
+
+        if (packet.Length >= 10)
+        {
+            int flagByte = packet[0] & 0xFF;
+            if ((flagByte & 0x01) != 0) flags.Add(SpecialDamage.BACK);
+            if ((flagByte & 0x02) != 0) flags.Add(SpecialDamage.UNKNOWN);
+            if ((flagByte & 0x04) != 0) flags.Add(SpecialDamage.PARRY);
+            if ((flagByte & 0x08) != 0) flags.Add(SpecialDamage.PERFECT);
+            if ((flagByte & 0x10) != 0) flags.Add(SpecialDamage.DOUBLE);
+            if ((flagByte & 0x20) != 0) flags.Add(SpecialDamage.ENDURE);
+            if ((flagByte & 0x40) != 0) flags.Add(SpecialDamage.Restoration);
+            // if ((flagByte & 0x80) != 0) flags.Add(SpecialDamage.POWER_SHARD);  // commented out in Kotlin
+        }
+
+        return flags;
+    }
+
+    /// <summary>
+    /// Picks the first skill-code candidate that exists in the catalog, else the fallback.
+    /// Candidates (insertion-ordered, deduped — Kotlin linkedSetOf): for rawCode, rawCode/10,
+    /// rawCode/100, each adds the code itself and its tens-rounded form; codes &lt;= 0 are skipped.
+    /// </summary>
+    public static int NormalizeDamageSkillCode(int rawCode, int fallback, Func<long, bool> skillExists)
+    {
+        var candidates = new List<int>();
+
+        void Add(int code)
+        {
+            if (code <= 0)
+            {
+                return;
+            }
+
+            if (!candidates.Contains(code))
+            {
+                candidates.Add(code);
+            }
+
+            int rounded = (code / 10) * 10;
+            if (!candidates.Contains(rounded))
+            {
+                candidates.Add(rounded);
+            }
+        }
+
+        Add(rawCode);
+        Add(rawCode / 10);
+        Add(rawCode / 100);
+
+        foreach (int c in candidates)
+        {
+            if (skillExists(c))
+            {
+                return c;
+            }
+        }
+
+        return fallback;
+    }
+}
