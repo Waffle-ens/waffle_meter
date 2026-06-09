@@ -791,14 +791,24 @@ class StreamProcessor() {
         return -1
     }
 
+    /**
+     * 캐릭터 스냅샷(OtherNickname)에서 전투력을 추출한다. 전투력은 [F4 CB 1F] 마커 뒤 가변 위치의 u32 LE 이며,
+     * 전투 중 스냅샷엔 전투력 앞에 필드가 하나(가끔 +플래그 바이트) 더 끼어들어 marker+11 이 아니라 +15/+16 으로 밀린다.
+     * 고정 +11 로 읽으면 끼어든 작은 값을 전투력으로 오인하므로(비정상 저전투력), 진짜 전투력 뒤엔 항상 0 패딩이
+     * 오는 점을 이용해 "바로 뒤에 0 u32 가 따라오는 첫 u32"를 전투력으로 잡는다(끼어든 필드는 뒤가 non-zero 라 스킵).
+     */
     private fun parseSnapshotPower(packet: ByteArray): Int? {
         val markerIdx = lastIndexOf(packet, powerMarker)
         if (markerIdx < 0) return null
-        val offset = markerIdx + 11
-        if (offset + 4 > packet.size) return null
-        val power = parseUInt32le(packet, offset)
-        if (power <= 0 || power > 10_000_000) return null
-        return power
+        var offset = markerIdx + 11
+        while (offset + 8 <= packet.size) {
+            val power = parseUInt32le(packet, offset)
+            if (power in 1..10_000_000 && parseUInt32le(packet, offset + 4) == 0) {
+                return power
+            }
+            offset += 1
+        }
+        return null
     }
 
     private fun parseSpecialDamageFlags(packet: ByteArray): List<SpecialDamage> {
