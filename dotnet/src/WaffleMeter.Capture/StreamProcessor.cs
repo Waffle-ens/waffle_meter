@@ -1,3 +1,4 @@
+using System.Text;
 using K4os.Compression.LZ4;
 
 namespace WaffleMeter.Capture;
@@ -5,7 +6,7 @@ namespace WaffleMeter.Capture;
 /// <summary>
 /// Diagnostics/observation hooks mirroring the Kotlin <c>PacketDebugLogger</c> calls inside
 /// <c>StreamProcessor</c>. The host (live app, replay CLI, tests) supplies a sink to observe
-/// dispatch/decompression/damage decisions; the parser logic itself stays pure.
+/// dispatch/decompression/damage/meta decisions; the parser logic itself stays pure.
 /// </summary>
 public interface IStreamProcessorSink
 {
@@ -17,6 +18,10 @@ public interface IStreamProcessorSink
     /// <summary>A parsed direct/DoT damage event (Kotlin PacketDebugLogger.damage). reason is set
     /// only when saved == false; mobCode requires runtime mob state (deferred — null for now).</summary>
     void Damage(string kind, ParsedDamagePacket packet, bool saved, string? reason, int? mobCode);
+
+    /// <summary>A non-damage state event (Kotlin PacketDebugLogger.meta). The fields mirror the
+    /// exact key/value set Kotlin logs for that meta type.</summary>
+    void Meta(string type, params (string Key, object? Value)[] fields);
 }
 
 /// <summary>No-op sink (default).</summary>
@@ -28,40 +33,47 @@ public sealed class NullStreamProcessorSink : IStreamProcessorSink
     public void CompressedPacket(int len, bool extraFlag) { }
     public void ParserError(string stage, string reason) { }
     public void Damage(string kind, ParsedDamagePacket packet, bool saved, string? reason, int? mobCode) { }
+    public void Meta(string type, params (string Key, object? Value)[] fields) { }
 }
 
 /// <summary>
-/// Verbatim port of the dispatch + decompression + damage core of Kotlin <c>StreamProcessor</c>
+/// Verbatim port of the dispatch + decompression + parsing core of Kotlin <c>StreamProcessor</c>
 /// (src/main/kotlin/packet/StreamProcessor.kt).
 ///
 /// Ported so far:
 ///  - onPacketReceived (91-129): opcode routing + FF FF LZ4 (K4os BLOCK) decompression (L3a).
-///  - parsingDamage (593-712), parseDoTPacket (367-448): direct/DoT damage parsing (L3b).
-///  - via <see cref="DamageParsing"/>: tryParseMultiHit, parseSpecialDamageFlags, normalizeDamageSkillCode.
+///  - parsingDamage / parseDoTPacket (L3b): direct/DoT damage.
+///  - searchOwnNickname / searchOtherNickname / parseOwnCombatPower (L3c, byte-derived): the
+///    nickname snapshots (uid/nickname/server/job[/power], Hangul validation, snapshot-power marker
+///    scan) and the own combat-power packet (0x3655).
 ///
-/// Deferred to later phases (no-ops here): the non-damage handlers (nickname/buff/summon/battle/...
-/// L3c), and the data-layer side effects DataManager.saveRawPacket / saveDamage / mobId(target) /
-/// touchDummyBattle (Phase 3). Consequently the damage event's mobCode is reported as null.
+/// Deferred: the catalog/runtime-state-dependent handlers (summon/mob_spawn, remain_hp, battle,
+/// buff) which need mobs.json + the runtime mobId map + buff blacklist (Phase 3 data layer), and
+/// the data-layer side effects (saveNickname/saveDamage/saveUserPower/mobId/touchDummyBattle). The
+/// own combat-power packet needs the executor id; we track it locally from the own-nickname
+/// snapshot (mirroring DataManager.executorId()).
 ///
-/// CORRECTNESS-CRITICAL: offsets, the signed-byte extraFlag range, FF FF detection, the
-/// switch&amp;0x0F -> field-width map, the Restoration +2 shift, and all bounds guards must match
-/// Kotlin exactly — a divergence silently mis-counts or drops damage.
+/// CORRECTNESS-CRITICAL: offsets, the signed-byte extraFlag range, FF FF detection, the heuristic
+/// nickname probing (Hangul ranges, server-code ranges, marker bytes), and all bounds guards must
+/// match Kotlin exactly — a divergence silently mis-parses or drops events.
 /// </summary>
 public sealed class StreamProcessor
 {
     private const int Mask = 0x0F;
 
-    // Opcode key = b1 | (b2 << 8). Kotlin Opcode sealed class (StreamProcessor.kt:32-51).
     private static int Key(int b1, int b2) => b1 | (b2 << 8);
 
-    private const int DamageKey = 0x04 | (0x38 << 8); // 0x3804
-    private const int DoTKey = 0x05 | (0x38 << 8);    // 0x3805
+    private const int DamageKey = 0x04 | (0x38 << 8);          // 0x3804
+    private const int DoTKey = 0x05 | (0x38 << 8);             // 0x3805
+    private const int OwnNicknameKey = 0x33 | (0x36 << 8);     // 0x3633
+    private const int OtherNicknameKey = 0x44 | (0x36 << 8);   // 0x3644
+    private const int OwnCombatPowerKey = 0x55 | (0x36 << 8);  // 0x3655
 
     private static readonly Dictionary<int, string> OpcodeNames = new()
     {
-        [Key(0x33, 0x36)] = "OwnNickname",
-        [Key(0x55, 0x36)] = "OwnCombatPower",
-        [Key(0x44, 0x36)] = "OtherNickname",
+        [OwnNicknameKey] = "OwnNickname",
+        [OwnCombatPowerKey] = "OwnCombatPower",
+        [OtherNicknameKey] = "OtherNickname",
         [Key(0x40, 0x36)] = "Summon",
         [DamageKey] = "Damage",
         [DoTKey] = "DoT",
@@ -77,13 +89,16 @@ public sealed class StreamProcessor
         [Key(0x1D, 0x97)] = "ExitParty",
     };
 
+    // Combat-power marker [F4 CB 1F] in nickname snapshots (Kotlin powerMarker).
+    private static readonly byte[] PowerMarker = { 0xF4, 0xCB, 0x1F };
+
     private readonly IStreamProcessorSink _sink;
     private readonly Func<long, bool> _skillExists;
 
-    /// <param name="sink">Observation hooks (default no-op).</param>
-    /// <param name="skillExists">Skill-code catalog membership for normalizeDamageSkillCode
-    /// (skills.json). Default always-false makes normalization fall back, matching a meter with no
-    /// skill table loaded.</param>
+    // Mirrors DataManager.executorId(): set from the own-nickname snapshot, read by the own
+    // combat-power packet. Single-threaded replay, so a plain field is sufficient.
+    private int _executorId;
+
     public StreamProcessor(IStreamProcessorSink? sink = null, Func<long, bool>? skillExists = null)
     {
         _sink = sink ?? NullStreamProcessorSink.Instance;
@@ -104,8 +119,7 @@ public sealed class StreamProcessor
             return;
         }
 
-        // Kotlin: packet[len] >= 0xf0.toByte() && packet[len] < 0xff.toByte() (signed byte). The
-        // signed range [-16,-2] equals the unsigned range [0xF0,0xFE], so this unsigned test matches.
+        // Kotlin signed-byte range [0xF0,0xFE]; unsigned test is identical.
         int flagByte = packet[lengthInfo.Length];
         bool extraFlag = flagByte >= 0xF0 && flagByte < 0xFF;
 
@@ -156,7 +170,16 @@ public sealed class StreamProcessor
             case DoTKey:
                 ParseDoTPacket(packet, extraFlag, arrivedAt);
                 break;
-            // Other known opcodes (nickname/buff/summon/battle/join/...) are ported in L3c.
+            case OwnNicknameKey:
+                SearchOwnNickname(packet, lengthInfo, arrivedAt);
+                break;
+            case OtherNicknameKey:
+                SearchOtherNickname(packet, lengthInfo, arrivedAt);
+                break;
+            case OwnCombatPowerKey:
+                ParseOwnCombatPower(packet, lengthInfo, extraFlag, arrivedAt);
+                break;
+            // summon/buff/battle/remain-hp/join handlers are ported with the data layer (Phase 3).
         }
     }
 
@@ -269,8 +292,6 @@ public sealed class StreamProcessor
         offset += typeInfo.Length;
         if (offset >= packet.Length) return;
 
-        // Kotlin reads packet[offset] into an unused 'damageType' local here — no effect, skipped.
-
         int andResult = switchInfo.Value & Mask;
         int start = offset;
         int tempV = andResult switch
@@ -307,7 +328,6 @@ public sealed class StreamProcessor
 
         MultiHitOutput multiHitInfo = DamageParsing.TryParseMultiHit(packet, offset);
         pdp.Loop = multiHitInfo.Time;
-        offset = multiHitInfo.NewOffset + 2; // vestigial; offset unused afterwards
 
         pdp.Timestamp = arrivedAt;
         if (pdp.ActorId == pdp.TargetId)
@@ -322,8 +342,7 @@ public sealed class StreamProcessor
             return;
         }
 
-        // Kotlin here: mobCode = DataManager.mobId(target); saveDamage(...); touchDummyBattle(...)
-        // — runtime data-layer side effects deferred to Phase 3, so mobCode is null for now.
+        // Kotlin: mobCode = DataManager.mobId(target); saveDamage(...); touchDummyBattle(...) — deferred (Phase 3).
         _sink.Damage("direct", pdp, true, null, null);
     }
 
@@ -376,8 +395,252 @@ public sealed class StreamProcessor
         if (damageInfo.Length < 0) return;
         pdp.Damage = damageInfo.Value;
 
-        // actor != target is guaranteed above; the Kotlin else branch is dead code.
         pdp.Timestamp = arrivedAt;
         _sink.Damage("dot", pdp, true, null, null);
+    }
+
+    /// <summary>Own combat-power packet 0x3655. Verbatim port of Kotlin parseOwnCombatPower (177-190).</summary>
+    private void ParseOwnCombatPower(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, long arrivedAt)
+    {
+        try
+        {
+            int opcodeOffset = lengthInfo.Length + (extraFlag ? 1 : 0);
+            int valueOffset = opcodeOffset + 2;
+            if (valueOffset + 4 > packet.Length) return;
+            int power = PacketPrimitives.ParseUInt32Le(packet, valueOffset);
+            if (power <= 0 || power > 10_000_000) return;
+            int executor = _executorId;
+            if (executor <= 0) return;
+            // DataManager.saveUserPower deferred.
+            _sink.Meta("own_combat_power", ("uid", executor), ("power", power));
+        }
+        catch
+        {
+            // swallowed (matches Kotlin)
+        }
+    }
+
+    /// <summary>Own nickname snapshot 0x3633. Verbatim port of Kotlin searchOwnNickname (192-250).</summary>
+    private void SearchOwnNickname(byte[] packet, VarIntOutput lengthInfo, long arrivedAt)
+    {
+        int offset = lengthInfo.Length;
+        if (packet[offset] != 0x33) return;
+        if (packet[offset + 1] != 0x36) return;
+        offset += 2;
+        if (packet.Length < offset) return;
+
+        VarIntOutput userInfo = PacketPrimitives.ReadVarInt(packet, offset);
+        if (userInfo.Length < 0) return;
+        offset += userInfo.Length;
+        if (offset >= packet.Length) return;
+
+        if (packet.Length < offset + 10) return;
+        int spliterIdx = FindArrayIndex(packet[offset..(offset + 10)], 0x07);
+        if (spliterIdx == -1) return;
+        offset += spliterIdx + 1;
+
+        VarIntOutput nameLengthInfo = PacketPrimitives.ReadVarInt(packet, offset);
+        offset += nameLengthInfo.Length;
+        if (nameLengthInfo.Length > 71) return;
+        if (offset >= packet.Length) return;
+
+        int server = -1;
+        int job = -1;
+        byte[] np = packet[offset..(offset + nameLengthInfo.Value)];
+        string nickname = Encoding.UTF8.GetString(np);
+        if (!IsValidNickname(nickname)) return;
+
+        offset += nameLengthInfo.Value;
+        if (packet.Length >= offset + 2)
+        {
+            server = PacketPrimitives.ParseUInt16Le(packet, offset);
+            offset += 2;
+            if (packet.Length >= offset + 1)
+            {
+                job = packet[offset] & 0xFF;
+            }
+        }
+
+        // DataManager.saveNickname / requestOfficialCharacterLookup deferred. Track executor for 0x3655.
+        _executorId = userInfo.Value;
+        _sink.Meta("nickname", ("own", true), ("uid", userInfo.Value), ("nickname", nickname), ("server", server), ("job", job));
+    }
+
+    /// <summary>Other-player nickname snapshot 0x3644. Verbatim port of Kotlin searchOtherNickname (252-348).</summary>
+    private void SearchOtherNickname(byte[] packet, VarIntOutput lengthInfo, long arrivedAt)
+    {
+        int offset = lengthInfo.Length;
+        if (packet[offset] != 0x44) return;
+        if (packet[offset + 1] != 0x36) return;
+        offset += 2;
+        if (packet.Length < offset) return;
+
+        VarIntOutput userInfo = PacketPrimitives.ReadVarInt(packet, offset);
+        offset += userInfo.Length;
+        if (packet.Length < offset) return;
+
+        VarIntOutput unknownInfo1 = PacketPrimitives.ReadVarInt(packet, offset);
+        offset += unknownInfo1.Length;
+        if (packet.Length < offset) return;
+
+        VarIntOutput unknownInfo2 = PacketPrimitives.ReadVarInt(packet, offset);
+        offset += unknownInfo2.Length;
+        if (packet.Length < offset) return;
+
+        if (packet.Length - offset <= 2) return;
+        offset += 1;
+        int probeBase = offset;
+
+        string? nickname = null;
+        int nickEndOffset = -1;
+        for (int i = 0; i < 5; i++)
+        {
+            offset = probeBase + i;
+            if (packet.Length < offset) continue;
+            VarIntOutput nicknameLengthInfo = PacketPrimitives.ReadVarInt(packet, offset);
+            if (nicknameLengthInfo.Length <= 0) continue;
+            offset += nicknameLengthInfo.Length;
+            if (nicknameLengthInfo.Value < 1 || nicknameLengthInfo.Value > 71) continue;
+            if (packet.Length < offset) continue;
+            if (packet.Length < offset + nicknameLengthInfo.Value) continue;
+            byte[] np = packet[offset..(offset + nicknameLengthInfo.Value)];
+            string candidate = Encoding.UTF8.GetString(np);
+            offset += nicknameLengthInfo.Value;
+            if (!IsValidNickname(candidate)) continue;
+            nickname = candidate;
+            nickEndOffset = offset;
+            break;
+        }
+
+        if (nickname is null || nickEndOffset == -1) return;
+        offset = nickEndOffset;
+
+        int job = packet[offset] & 0xFF;
+        offset += 1;
+        if (packet.Length < offset) return;
+        int serverBase = offset;
+
+        int server = -1;
+        int i2 = 0;
+        while (true)
+        {
+            offset = serverBase + i2;
+            i2++;
+            if (packet.Length < offset + 2) break;
+            int serverCandidate = PacketPrimitives.ParseUInt16Le(packet, offset);
+            if (!((serverCandidate is >= 1001 and <= 1021) || (serverCandidate is >= 2001 and <= 2021))) continue;
+            offset += 2;
+            if (packet.Length < offset) continue;
+            VarIntOutput legionNameLengthInfo = PacketPrimitives.ReadVarInt(packet, offset);
+            if (legionNameLengthInfo.Value < 2 || legionNameLengthInfo.Value > 24) continue;
+            offset += legionNameLengthInfo.Length;
+            if (packet.Length < offset + legionNameLengthInfo.Value) continue;
+            byte[] lnp = packet[offset..(offset + legionNameLengthInfo.Value)];
+            string legionNameCandidate = Encoding.UTF8.GetString(lnp);
+            if (legionNameCandidate.Any(c => !char.IsDigit(c)))
+            {
+                server = serverCandidate;
+            }
+
+            // legion-name break and PacketAddonManager.parse are commented out / deferred in Kotlin.
+        }
+
+        // DataManager.saveNickname deferred.
+        int? power = ParseSnapshotPower(packet);
+        _sink.Meta("nickname", ("own", false), ("uid", userInfo.Value), ("nickname", nickname), ("server", server), ("job", job), ("power", power ?? 0));
+    }
+
+    /// <summary>Snapshot combat-power scan. Verbatim port of Kotlin parseSnapshotPower (810-822).</summary>
+    private static int? ParseSnapshotPower(byte[] packet)
+    {
+        int markerIdx = LastIndexOf(packet, PowerMarker);
+        if (markerIdx < 0) return null;
+        int offset = markerIdx + 11;
+        while (offset + 8 <= packet.Length)
+        {
+            int power = PacketPrimitives.ParseUInt32Le(packet, offset);
+            if (power is >= 1 and <= 10_000_000 && PacketPrimitives.ParseUInt32Le(packet, offset + 4) == 0)
+            {
+                return power;
+            }
+
+            offset += 1;
+        }
+
+        return null;
+    }
+
+    /// <summary>Kotlin isValidNickname (867-876): has Hangul/letter and all chars are Hangul/letter/digit.</summary>
+    private static bool IsValidNickname(string str)
+    {
+        bool hasKoreanOrEnglish = str.Any(c =>
+            (c >= '가' && c <= '힣') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
+        bool allValid = str.All(c =>
+            (c >= '가' && c <= '힣') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || char.IsDigit(c));
+        return hasKoreanOrEnglish && allValid;
+    }
+
+    /// <summary>KMP first-occurrence index of a byte pattern (Kotlin findArrayIndex varargs, 450-476).</summary>
+    private static int FindArrayIndex(byte[] data, params int[] pattern)
+    {
+        if (pattern.Length == 0) return 0;
+
+        var p = new byte[pattern.Length];
+        for (int i = 0; i < pattern.Length; i++)
+        {
+            p[i] = (byte)pattern[i];
+        }
+
+        var lps = new int[p.Length];
+        int len = 0;
+        for (int i = 1; i < p.Length; i++)
+        {
+            while (len > 0 && p[i] != p[len]) len = lps[len - 1];
+            if (p[i] == p[len]) len++;
+            lps[i] = len;
+        }
+
+        int ii = 0, j = 0;
+        while (ii < data.Length)
+        {
+            if (data[ii] == p[j])
+            {
+                ii++;
+                j++;
+                if (j == p.Length) return ii - j;
+            }
+            else if (j > 0)
+            {
+                j = lps[j - 1];
+            }
+            else
+            {
+                ii++;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Last-occurrence index of a byte pattern (Kotlin lastIndexOf, 786-799).</summary>
+    private static int LastIndexOf(byte[] data, byte[] pattern)
+    {
+        if (pattern.Length == 0 || data.Length < pattern.Length) return -1;
+        for (int i = data.Length - pattern.Length; i >= 0; i--)
+        {
+            bool matched = true;
+            for (int j = 0; j < pattern.Length; j++)
+            {
+                if (data[i + j] != pattern[j])
+                {
+                    matched = false;
+                    break;
+                }
+            }
+
+            if (matched) return i;
+        }
+
+        return -1;
     }
 }

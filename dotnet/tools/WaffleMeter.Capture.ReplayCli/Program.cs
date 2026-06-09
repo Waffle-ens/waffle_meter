@@ -2,13 +2,14 @@ using System.Text;
 using System.Text.Json;
 using WaffleMeter.Capture;
 
-// Phase 0 real-data parity check (Layers 0/1/2/3a/3b):
+// Phase 0 real-data parity check (Layers 0/1/2/3a/3b/3c-partial):
 //   capture -> CapturedSegment -> srcIp-aware PacketAlignmenter -> StreamAssembler -> StreamProcessor
-// then diff against the Kotlin records in the SAME corpus:
-//   L1/L2: emitted frames vs 'assembled' (len + first-24-byte head)
+// diffed against the Kotlin records in the SAME corpus:
+//   L1/L2: emitted frames vs 'assembled'
 //   L3a:   dispatched opcode sequence vs 'dispatch'; compressed/unknown/parser-error counts
-//   L3b:   parsed damage events vs 'damage' (kind/saved/reason/actor/target/damage/crit/dot/loop;
-//          skill compared too when a skills.json is supplied). mobCode is deferred (runtime state).
+//   L3b:   parsed damage events vs 'damage'
+//   L3c:   byte-derived meta vs 'nickname' + 'own_combat_power' (catalog/runtime-state-dependent
+//          meta types — summon/mob_spawn/remain_hp/battle/buff — are validated with the data layer)
 // Usage: dotnet run --project <ReplayCli> -c Release -- <corpus.jsonl> [skills.json]
 
 if (args.Length < 1)
@@ -24,7 +25,6 @@ if (!File.Exists(path))
     return 1;
 }
 
-// Optional skills.json (array of { "code": int, "name": string }) for skill-code normalization.
 var skillSet = new HashSet<long>();
 bool skillsLoaded = false;
 if (args.Length >= 2 && File.Exists(args[1]))
@@ -46,6 +46,7 @@ var captures = new List<CapturedSegment>();
 var assembledExpected = new List<(int Len, string Head)>();
 var dispatchExpected = new List<int>();
 var damageExpected = new List<DmgRec>();
+var metaExpected = new List<(string Type, string Norm)>();
 int compressedExpected = 0, unknownExpected = 0, parserErrorExpected = 0;
 
 long lineNo = 0;
@@ -88,6 +89,10 @@ foreach (string line in File.ReadLines(path))
                 break;
             case "damage":
                 damageExpected.Add(ReadDamage(root));
+                break;
+            case "nickname":
+            case "own_combat_power":
+                metaExpected.Add((type, NormalizeJsonMeta(root)));
                 break;
             case "compressed_packet":
                 compressedExpected++;
@@ -162,6 +167,11 @@ Console.WriteLine($"  .NET {sink.Damages.Count}   Kotlin {damageExpected.Count}"
 rc |= ReportDamageSeq(sink.Damages, damageExpected, skillsLoaded);
 
 Console.WriteLine();
+Console.WriteLine("--- L3c (byte-derived): nickname + own_combat_power vs Kotlin meta ---");
+Console.WriteLine($"  .NET {sink.Metas.Count}   Kotlin {metaExpected.Count}");
+rc |= ReportMetaSeq(sink.Metas, metaExpected);
+
+Console.WriteLine();
 Console.WriteLine(rc == 0 ? "RESULT: ALL PARITY OK" : "RESULT: DIVERGENCE (see above)");
 return rc;
 
@@ -184,6 +194,31 @@ DmgRec ReadDamage(JsonElement root)
         root.GetProperty("crit").GetBoolean(),
         root.GetProperty("dot").GetBoolean(),
         root.GetProperty("loop").GetInt32());
+}
+
+// Canonical "k=v|k=v" (sorted by key) of a Kotlin meta record, excluding type/at.
+string NormalizeJsonMeta(JsonElement root)
+{
+    var kv = new SortedDictionary<string, string>(StringComparer.Ordinal);
+    foreach (JsonProperty prop in root.EnumerateObject())
+    {
+        if (prop.Name is "type" or "at")
+        {
+            continue;
+        }
+
+        kv[prop.Name] = prop.Value.ValueKind switch
+        {
+            JsonValueKind.String => prop.Value.GetString() ?? "null",
+            JsonValueKind.Number => prop.Value.GetInt64().ToString(),
+            JsonValueKind.True => "true",
+            JsonValueKind.False => "false",
+            JsonValueKind.Null => "null",
+            _ => prop.Value.ToString(),
+        };
+    }
+
+    return string.Join("|", kv.Select(p => $"{p.Key}={p.Value}"));
 }
 
 int ReportPairSeq(string label, List<(int Len, string Head)> got, List<(int Len, string Head)> exp)
@@ -233,6 +268,23 @@ int ReportDamageSeq(List<DmgRec> got, List<DmgRec> exp, bool compareSkill)
     return ReportTail("damage", got.Count, exp.Count, n);
 }
 
+int ReportMetaSeq(List<(string Type, string Norm)> got, List<(string Type, string Norm)> exp)
+{
+    int n = Math.Min(got.Count, exp.Count);
+    for (int i = 0; i < n; i++)
+    {
+        if (got[i] != exp[i])
+        {
+            Console.WriteLine($"  DIVERGE meta #{i}:");
+            Console.WriteLine($"    .NET   {got[i].Type}: {got[i].Norm}");
+            Console.WriteLine($"    Kotlin {exp[i].Type}: {exp[i].Norm}");
+            return 2;
+        }
+    }
+
+    return ReportTail("meta(nickname+own_combat_power)", got.Count, exp.Count, n);
+}
+
 int ReportTail(string label, int gotCount, int expCount, int matched)
 {
     if (gotCount != expCount)
@@ -266,6 +318,7 @@ sealed class CollectingSink : IStreamProcessorSink
 {
     public readonly List<int> Dispatched = [];
     public readonly List<DmgRec> Damages = [];
+    public readonly List<(string Type, string Norm)> Metas = [];
     public int Unknown;
     public int Compressed;
     public int ParserErrors;
@@ -278,6 +331,27 @@ sealed class CollectingSink : IStreamProcessorSink
     public void Damage(string kind, ParsedDamagePacket packet, bool saved, string? reason, int? mobCode)
         => Damages.Add(new DmgRec(kind, saved, reason, packet.ActorId, packet.TargetId, packet.SkillCode,
             packet.Damage, packet.IsCrit, packet.Dot, packet.Loop));
+
+    public void Meta(string type, params (string Key, object? Value)[] fields)
+    {
+        if (type is not ("nickname" or "own_combat_power"))
+        {
+            return; // only the byte-derived meta types are validated at this phase
+        }
+
+        var kv = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        foreach ((string Key, object? Value) f in fields)
+        {
+            kv[f.Key] = f.Value switch
+            {
+                null => "null",
+                bool b => b ? "true" : "false",
+                _ => f.Value.ToString() ?? "null",
+            };
+        }
+
+        Metas.Add((type, string.Join("|", kv.Select(p => $"{p.Key}={p.Value}"))));
+    }
 }
 
 static class Hex

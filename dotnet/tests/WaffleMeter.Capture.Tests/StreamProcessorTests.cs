@@ -23,6 +23,7 @@ public class StreamProcessorTests
         public void CompressedPacket(int len, bool extraFlag) => Compressed++;
         public void ParserError(string stage, string reason) => ParserErrors++;
         public void Damage(string kind, ParsedDamagePacket packet, bool saved, string? reason, int? mobCode) { }
+        public void Meta(string type, params (string Key, object? Value)[] fields) { }
     }
 
     private const int DamageKey = 0x04 | (0x38 << 8); // 0x3804 = "Damage" (known)
