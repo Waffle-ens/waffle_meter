@@ -127,7 +127,6 @@ export default function App() {
     closeAction,
     uiX,
     uiY,
-    smallWindowOverlay,
     statsConsent,
     setCloseAction,
     setStatsConsent,
@@ -146,7 +145,6 @@ export default function App() {
       closeAction: s.closeAction,
       uiX: s.uiX,
       uiY: s.uiY,
-      smallWindowOverlay: s.smallWindowOverlay,
       statsConsent: s.statsConsent,
       setCloseAction: s.setCloseAction,
       setStatsConsent: s.setStatsConsent,
@@ -170,13 +168,12 @@ export default function App() {
     updateInfo && activePanel !== "update" && dismissedUpdateVersion !== updateInfo.latestVersion,
   );
   const modalOpen = statsConsentOpen || closeActionDialogOpen;
-  // union(패널 작은 창)은 네이티브 창 이동↔WebView 리페인트가 프레임 비동기라 전환마다 깜빡여서 보류.
-  // 패널/토스트/모달이 열리면 전체화면 폴백(검증된 Phase 1 동작), 아무것도 없을 때만 미터기 작은 창(meterOnly).
-  // (union 경로 코드는 useOverlayWindow/useDragUi/SidePanel 에 휴면 상태로 보존 — 렌더러 교체 시 재활성.)
+  // 작은 창 오버레이는 기본 동작(토글 없음). 미터기만 있을 때만 작은 창(meterOnly),
+  // 패널/토스트/모달이 열리면 전체화면 폴백(검증된 동작). union(패널 작은 창)은 네이티브 창 이동↔
+  // WebView 리페인트 프레임 비동기로 전환 깜빡임이 구조적이라 보류 — 경로는 휴면 보존(렌더러 교체 시 재활성).
   const anyOverlayExpand =
     activePanel !== null || joinRequestCount > 0 || updateToastVisible || modalOpen;
-  const overlayMode: OverlayMode =
-    !smallWindowOverlay || !isLoaded || anyOverlayExpand ? "fullscreen" : "meterOnly";
+  const overlayMode: OverlayMode = !isLoaded || anyOverlayExpand ? "fullscreen" : "meterOnly";
   useOverlayWindow(overlayMode);
 
   const { wasDraggingRef } = useDragUi(overlayMode);

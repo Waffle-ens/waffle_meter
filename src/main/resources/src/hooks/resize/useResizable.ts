@@ -117,9 +117,8 @@ export const useResizable = () => {
       bridge?.saveProps?.("rowHeight", String(state.rowHeight));
       bridge?.saveProps?.("uiX", String(state.uiX));
       bridge?.saveProps?.("uiY", String(state.uiY));
-      // 작은 창 모드에선 useOverlayWindow 가 ResizeObserver 로 창 크기를 추종한다 → 전체화면 fit 호출 금지.
-      if (!state.smallWindowOverlay) bridge?.syncOverlayBounds?.();
-      setOverlayDragging(false); // union 재적합 트리거
+      // 작은 창이 기본 동작 — useOverlayWindow 가 창 크기를 추종하므로 전체화면 fit 을 직접 호출하지 않는다.
+      setOverlayDragging(false); // union 재적합 트리거(휴면)
     };
 
     window.addEventListener("mousemove", onMouseMove);
