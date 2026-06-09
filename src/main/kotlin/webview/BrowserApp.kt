@@ -544,6 +544,10 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             parkOverlayNative(stage)
             isOverlayParked = true
         }
+        // alt-tab/포커스 변경 등으로 JavaFX 가 네이티브 ex-style 을 리셋하면 WS_EX_TOOLWINDOW 가 빠져
+        // 간헐적으로 작업표시줄에 뜬다. present 만 스타일을 재적용했고 park 경로는 안 했던 게 원인 →
+        // park(자동 숨김)에서도 매 사이클 재적용해 항상 작업표시줄에서 제외(스타일 불변이면 no-op).
+        syncOverlayInputStyle("park")
     }
 
     private fun primaryScreenBounds(): Rectangle2D {
