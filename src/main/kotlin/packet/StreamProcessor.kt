@@ -234,10 +234,11 @@ class StreamProcessor() {
         }
         val realClass = JobClass.convertFromCode(job)
         DataManager.saveNickname(userInfo.value, nickname, true, server, realClass)
-        // 본인 전투력: OwnNickname 스냅샷의 F4 CB 1F 블록은 센티넬(~268500997)이라 packet 추출이 불가(아래는 사실상 null).
-        // 대신 본인은 서버가 항상 깔끔히 파싱되므로(방금 server 확보), 캐릭터 인식 '즉시' 공식 API 로 전투력을 확정한다.
-        // DpsCalculator 는 본인이 데미지를 넣어야 트리거되므로(서포터/입장 직후엔 누락), 여기서 직접 호출해 입장 시점에 잡는다.
-        parseSnapshotPower(packet)?.let { DataManager.saveUserPower(userInfo.value, it) }
+        // 본인 전투력은 OwnNickname 스냅샷에서 뽑지 않는다: 스냅샷의 F4 CB 1F 블록은 센티넬(~268500997)뿐이고,
+        // parseSnapshotPower 는 가변오프셋 스캔이라(ee46642) 센티넬을 건너뛰고 그 뒤 무관한 u32(+0 패딩)를 전투력으로
+        // 오인한다(접속 시 본인 전투력이 실제보다 낮은 garbage 로 잡히던 원인). 본인은 server 가 항상 깔끔히 파싱되므로
+        // 캐릭터 인식 '즉시' 공식 API 로 초기 전투력을 확정하고(아래; DpsCalculator 는 본인이 데미지를 넣어야 트리거돼
+        // 서포터/입장 직후엔 누락), 이후 변동분은 0x3655(parseOwnCombatPower) 가 라이브로 갱신한다.
         if (server > 0) {
             DataManager.requestOfficialCharacterLookup(userInfo.value)
         }
