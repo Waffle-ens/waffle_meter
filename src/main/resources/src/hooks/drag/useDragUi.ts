@@ -80,7 +80,15 @@ export const useDragUi = (mode: OverlayMode) => {
           currentY = startUiY + deltaY;
           if (m === "meterOnly") {
             // 네이티브 창만 이동(빠른 경로). 미터 DOM 은 창 (0,0) 그대로.
-            window.javaBridge?.moveWindowTo?.(currentX, currentY);
+            // 반환된 clamp 위치로 currentX/Y 보정 → mouseup 에 저장되는 uiX/uiY 도 화면 안 값.
+            const applied = window.javaBridge?.moveWindowTo?.(currentX, currentY);
+            if (typeof applied === "string") {
+              const [ax, ay] = applied.split(",").map(Number);
+              if (Number.isFinite(ax) && Number.isFinite(ay)) {
+                currentX = ax;
+                currentY = ay;
+              }
+            }
           } else {
             // union: 드래그 중엔 전체화면 고정(떨림 방지) 후 화면좌표 갱신. mouseup 에 union 재적합+영구 저장.
             setOverlayDragging(true);

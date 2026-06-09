@@ -97,11 +97,13 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
         // small-window 방식 작은 창: Stage 를 화면 절대좌표(x,y) + 크기(w,h)로 직접 배치한다(논리 px).
         // 전체화면 fitOverlayToScreen 대신, 보이는 콘텐츠 bbox 만큼만 창을 잡아 게임 위 합성 부담을 줄인다.
+        // 창 전체가 화면 안에 남도록 clamp(다중 모니터 모드면 가상 화면, 아니면 주 화면 기준).
         fun setWindowBounds(x: Double, y: Double, w: Double, h: Double) {
             val width = w.coerceAtLeast(1.0)
             val height = h.coerceAtLeast(1.0)
-            stage.x = x
-            stage.y = y
+            val (cx, cy) = clampToOverlayBounds(x, y, width, height)
+            stage.x = cx
+            stage.y = cy
             stage.width = width
             stage.height = height
             webView.minWidth = width
@@ -112,10 +114,13 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             webView.maxHeight = height
         }
 
-        // 네이티브 창 이동(드래그용). 크기 유지, 위치만 갱신.
-        fun moveWindowTo(x: Double, y: Double) {
-            stage.x = x
-            stage.y = y
+        // 네이티브 창 이동(드래그용). 크기 유지, 위치만 화면 안으로 clamp 해 갱신. 적용된 위치를 "x,y" 로 반환
+        // → JS 가 저장하는 uiX/uiY 도 clamp 값과 일치(드래그가 화면 밖으로 안 빠짐).
+        fun moveWindowTo(x: Double, y: Double): String {
+            val (cx, cy) = clampToOverlayBounds(x, y, stage.width, stage.height)
+            stage.x = cx
+            stage.y = cy
+            return "$cx,$cy"
         }
 
         fun resetDps() {
@@ -556,6 +561,15 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
 
     private fun currentOverlayBounds(): Rectangle2D {
         return if (isMultiMonitorMode()) virtualScreenBounds() else primaryScreenBounds()
+    }
+
+    // 작은 창(meterOnly) 위치를 화면 안으로 clamp. 창 전체가 보이도록 x∈[minX, maxX-w], y∈[minY, maxY-h].
+    // 다중 모니터 모드면 가상 화면 전체 기준(다른 모니터로 이동 가능), 아니면 주 화면 기준(주 화면 밖으로 못 나감).
+    private fun clampToOverlayBounds(x: Double, y: Double, w: Double, h: Double): Pair<Double, Double> {
+        val b = currentOverlayBounds()
+        val cx = x.coerceIn(b.minX, (b.maxX - w).coerceAtLeast(b.minX))
+        val cy = y.coerceIn(b.minY, (b.maxY - h).coerceAtLeast(b.minY))
+        return cx to cy
     }
 
     private fun fitOverlayToScreen(stage: Stage, webView: WebView): String {

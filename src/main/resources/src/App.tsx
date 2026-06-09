@@ -523,13 +523,11 @@ export default function App() {
             </div>
           ))}
         {isClickThrough && (
-          <div
-            className="absolute -top-2  z-50 pointer-events-none"
-            style={{ right: "-7.5px" }}>
+          // 미터 박스 안 우상단(작은 창에 잘리지 않도록 음수 오프셋 → 내부로). 클릭스루 상태 표시.
+          <div className="absolute top-1 right-1 z-50 pointer-events-none">
             <img
               src={lock}
-              className="w-4 h-4"></img>
-            {/* <LockKeyhole className="size-4 opacity-60 text-white " /> */}
+              className="w-4 h-4" />
           </div>
         )}
       </div>
