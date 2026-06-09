@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Phase 0 replay/diff tool. Reads a PacketDebugLogger .jsonl corpus, replays the 'capture'
+    records through the ported aligner+assembler (mirroring Main.kt's consume loop), and diffs
+    the emitted frames against the Kotlin 'assembled' records (len + first-24-byte head).
+    Run via: dotnet run (project), Release config, passing the .jsonl path after a bare argument separator.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>WaffleMeter.Capture.ReplayCli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
+  </ItemGroup>
+
+</Project>
