@@ -9,6 +9,7 @@ import { SidePanel } from "@/components/panels/SidePanel.tsx";
 import { CombatTimer } from "@/components/CombatTimer.tsx";
 import { useVersionCheck } from "@/hooks/useVersionCheck";
 import { useResizable, type MeterResizeDirection } from "@/hooks/resize/useResizable";
+import { useOverlayWindow, type OverlayMode } from "@/hooks/overlay/useOverlayWindow";
 import { useSettingsStore } from "@/stores/useSettingsStore";
 import { useShallow } from "zustand/react/shallow";
 // import { TooltipProvider } from "@/components/ui/tooltip";
@@ -106,6 +107,7 @@ export default function App() {
     checkStatus,
   } = useVersionCheck();
   const addRequest = useJoinRequestStore((s) => s.addRequest);
+  const joinRequestCount = useJoinRequestStore((s) => s.requests.length);
   const removeRequest = useJoinRequestStore((s) => s.removeRequest);
   const clearAll = useJoinRequestStore((s) => s.clearAll);
   const refuseRequest = useJoinRequestStore((s) => s.refuseRequest);
@@ -160,7 +162,21 @@ export default function App() {
     setActivePanel((prev) => (prev === panel ? null : panel));
   }, []);
   const [selected, setSelected] = useState<Player | null>(null);
-  const { wasDraggingRef } = useDragUi();
+
+  // small-window 작은 창 오버레이. 모드: fullscreen / meterOnly / union.
+  const updateToastVisible = Boolean(
+    updateInfo && activePanel !== "update" && dismissedUpdateVersion !== updateInfo.latestVersion,
+  );
+  const modalOpen = statsConsentOpen || closeActionDialogOpen;
+  // 작은 창 오버레이는 기본 동작(토글 없음). 미터기만 있을 때만 작은 창(meterOnly),
+  // 패널/토스트/모달이 열리면 전체화면 폴백(검증된 동작). union(패널 작은 창)은 네이티브 창 이동↔
+  // WebView 리페인트 프레임 비동기로 전환 깜빡임이 구조적이라 보류 — 경로는 휴면 보존(렌더러 교체 시 재활성).
+  const anyOverlayExpand =
+    activePanel !== null || joinRequestCount > 0 || updateToastVisible || modalOpen;
+  const overlayMode: OverlayMode = !isLoaded || anyOverlayExpand ? "fullscreen" : "meterOnly";
+  useOverlayWindow(overlayMode);
+
+  const { wasDraggingRef } = useDragUi(overlayMode);
   // const handleToggleCollapse = useCallback(() => {
   //   toggleCollapse();
   //   setActivePanel(null);
@@ -241,11 +257,6 @@ export default function App() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    window.javaBridge?.syncOverlayBounds?.();
-  }, [isLoaded]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -378,8 +389,9 @@ export default function App() {
       style={
         {
           position: "fixed",
-          left: uiX,
-          top: uiY,
+          // meterOnly: 미터기는 창 (0,0). union/fullscreen: 화면좌표 - 창 origin(--ovx; fullscreen 0).
+          left: overlayMode === "meterOnly" ? 0 : `calc(${uiX}px - var(--ovx, 0px))`,
+          top: overlayMode === "meterOnly" ? 0 : `calc(${uiY}px - var(--ovy, 0px))`,
 
           width: "fit-content",
           "--meter-bg": isLightOverlay
@@ -441,6 +453,7 @@ export default function App() {
       className={rootClass}>
       <div
         data-meter-root-anchor
+        data-overlay-content
         className={meterClass}
         style={{ width: meterWidth }}>
         {!isBottomLayout && (
@@ -528,6 +541,7 @@ export default function App() {
       <div>
         <SidePanel
           type={activePanel}
+          smallWindow={false /* union 보류 — 패널은 전체화면 폴백 */}
           player={selected}
           players={players}
           onClose={handleClose}

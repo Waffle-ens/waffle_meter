@@ -19,23 +19,21 @@ const DEFAULT_SIDE_PANEL_GAP = 8;
 const DEFAULT_SIDE_PANEL_Y = 8;
 const SIDE_PANEL_HEADER_HEIGHT = 44;
 
+// 화면좌표 기준 기본 위치. 미터기 width/top 은 창 origin 과 무관(전체화면=screen, 작은 창=동일 화면좌표)
+// 하므로 store uiX/uiY + 미터기 크기로 계산해 두 모드에서 일관되게 동작한다.
 const getDefaultSidePanelX = (fallbackWidth: number) => {
+  const { uiX } = useSettingsStore.getState();
   const meterRoot = document.querySelector("[data-meter-root-anchor]");
-  if (!meterRoot) return fallbackWidth + DEFAULT_SIDE_PANEL_GAP;
-
-  return meterRoot.getBoundingClientRect().right + DEFAULT_SIDE_PANEL_GAP;
+  const meterWidth = meterRoot?.getBoundingClientRect().width ?? fallbackWidth;
+  return uiX + meterWidth + DEFAULT_SIDE_PANEL_GAP;
 };
 
 const getDefaultSidePanelY = (layout: "standard" | "bottom", panelOuterHeight: number) => {
-  const meterRoot = document.querySelector("[data-meter-root-anchor]");
-  if (!meterRoot) return DEFAULT_SIDE_PANEL_Y;
-
-  const rect = meterRoot.getBoundingClientRect();
+  const { uiY } = useSettingsStore.getState();
   if (layout === "bottom") {
-    return Math.max(DEFAULT_SIDE_PANEL_Y, rect.top - panelOuterHeight - DEFAULT_SIDE_PANEL_GAP);
+    return Math.max(DEFAULT_SIDE_PANEL_Y, uiY - panelOuterHeight - DEFAULT_SIDE_PANEL_GAP);
   }
-
-  return rect.top;
+  return uiY;
 };
 
 const clampPanelPosition = (x: number, y: number, width: number, height: number) => {
@@ -57,6 +55,7 @@ const SIDE_SHELL = {
 
 interface SidePanelProps {
   type: PanelType;
+  smallWindow?: boolean;
   player: Player | null;
   onClose: () => void;
   combatTime: string;
@@ -76,6 +75,7 @@ interface SidePanelProps {
 
 const SidePanelComponent = ({
   type,
+  smallWindow = false,
   player,
   players,
   onClose,
@@ -114,14 +114,21 @@ const SidePanelComponent = ({
     initialX: sidePanelPositioned ? sidePanelX : defaultSidePanelX,
     initialY: sidePanelPositioned ? sidePanelY : defaultSidePanelY,
     onPositionChange: setSidePanelPosition,
+    smallWindow,
+    // 작은 창: 드래그 중 화면좌표를 store 에 반영(미저장) → useOverlayWindow 가 측정해 창 추종.
+    onDragMove: smallWindow
+      ? (x, y) =>
+          useSettingsStore.setState({ sidePanelX: x, sidePanelY: y, sidePanelPositioned: true })
+      : undefined,
+    constrainToViewport: !smallWindow,
   });
 
-  const { x: panelX, y: panelY } = clampPanelPosition(
-    sidePanelPositioned ? sidePanelX : defaultSidePanelX,
-    sidePanelPositioned ? sidePanelY : defaultSidePanelY,
-    panelWidth,
-    panelHeight + SIDE_PANEL_HEADER_HEIGHT,
-  );
+  const rawX = sidePanelPositioned ? sidePanelX : defaultSidePanelX;
+  const rawY = sidePanelPositioned ? sidePanelY : defaultSidePanelY;
+  // 작은 창(union): 뷰포트가 작은 창이라 clamp 하면 안 됨(창이 콘텐츠 따라 커짐). 전체화면만 clamp.
+  const { x: panelX, y: panelY } = smallWindow
+    ? { x: rawX, y: rawY }
+    : clampPanelPosition(rawX, rawY, panelWidth, panelHeight + SIDE_PANEL_HEADER_HEIGHT);
 
   const settingsHeaderCloseRef = useRef<(() => void) | null>(null);
   const registerSettingsHeaderClose = useCallback((handler: (() => void) | null) => {
@@ -168,8 +175,9 @@ const SidePanelComponent = ({
       : "";
 
   const positionStyle: React.CSSProperties = {
-    left: panelX,
-    top: panelY,
+    // 화면좌표 - 창 origin(--ovx; 전체화면=0). 작은 창에선 창-상대 위치로 당겨진다.
+    left: `calc(${panelX}px - var(--ovx, 0px))`,
+    top: `calc(${panelY}px - var(--ovy, 0px))`,
     width: panelWidth,
   };
 
@@ -183,6 +191,7 @@ const SidePanelComponent = ({
   return (
     <div
       ref={panelRef}
+      data-overlay-content
       style={{
         ...positionStyle,
         contain: "layout style paint",
@@ -279,6 +288,7 @@ const SidePanelComponent = ({
 
 const areSidePanelPropsEqual = (prev: SidePanelProps, next: SidePanelProps) => {
   if (prev.type !== next.type) return false;
+  if (prev.smallWindow !== next.smallWindow) return false;
   if (prev.player !== next.player) return false;
   if (prev.onClose !== next.onClose) return false;
 

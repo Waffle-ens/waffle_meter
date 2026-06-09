@@ -41,6 +41,9 @@ declare global {
       onMeterPositionChanged?: (x: number, y: number) => void;
       moveWindow?: (x: number, y: number) => void;
       syncOverlayBounds?: () => string | undefined;
+      // small-window 작은 창 오버레이(Phase 1): Stage 를 콘텐츠 bbox 로 직접 배치/이동.
+      setWindowBounds?: (x: number, y: number, w: number, h: number) => void;
+      moveWindowTo?: (x: number, y: number) => void;
 
       isAutoHide?: () => boolean;
       toggleAutoHide?: () => void;
