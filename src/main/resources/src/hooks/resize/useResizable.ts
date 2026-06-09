@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSettingsStore } from "@/stores/useSettingsStore";
+import { setOverlayDragging } from "@/hooks/overlay/overlayDrag";
 
 export type MeterResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
@@ -52,6 +53,8 @@ export const useResizable = () => {
         verticalUnits: estimateVerticalUnits(),
       };
       setIsDragging(true);
+      // union 모드: 리사이즈 중에도 창 origin 고정(전체화면) → 미터 w/n 리사이즈 시 패널 떨림 방지.
+      setOverlayDragging(true);
     },
     [],
   );
@@ -116,6 +119,7 @@ export const useResizable = () => {
       bridge?.saveProps?.("uiY", String(state.uiY));
       // 작은 창 모드에선 useOverlayWindow 가 ResizeObserver 로 창 크기를 추종한다 → 전체화면 fit 호출 금지.
       if (!state.smallWindowOverlay) bridge?.syncOverlayBounds?.();
+      setOverlayDragging(false); // union 재적합 트리거
     };
 
     window.addEventListener("mousemove", onMouseMove);
