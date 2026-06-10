@@ -11,6 +11,9 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>WaffleMeter.App.Wpf</RootNamespace>
+    <!-- Explicit entry point (Program.Main) so Velopack hooks run before WPF starts. App.xaml is built
+         as a Page (below) instead of ApplicationDefinition so the SDK does NOT generate its own Main. -->
+    <StartupObject>WaffleMeter.App.Wpf.Program</StartupObject>
     <!-- WPF binding/formatting needs real cultures (StringFormat -> XmlLanguage.GetSpecificCulture);
          the shared InvariantGlobalization=true breaks it. Code formatting uses InvariantCulture explicitly. -->
     <InvariantGlobalization>false</InvariantGlobalization>
@@ -30,6 +33,14 @@
          System.Windows.Media (Brush/Color). Drop them globally; TrayIconController uses aliases. -->
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Build App.xaml as a Page (not the implicit ApplicationDefinition) so WPF does not auto-generate
+         a Main(); Program.Main is the entry point and runs Velopack hooks first. InitializeComponent is
+         still generated for the App partial class and is called explicitly from Program.Main. -->
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
   </ItemGroup>
 
   <ItemGroup>

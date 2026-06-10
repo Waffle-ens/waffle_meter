@@ -3,7 +3,6 @@ using System.IO;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
-using Velopack;
 using WaffleMeter.App.Core;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
@@ -56,12 +55,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        // MUST be first: handles Velopack install/update/uninstall hooks and exits for those runs.
-        // On the first launch after install, supersede the legacy Kotlin MSI.
-        VelopackApp.Build()
-            .OnFirstRun(_ => LegacyMsiCleanup.Run())
-            .Run();
-
+        // Velopack lifecycle hooks run earlier, in Program.Main (before this App is constructed).
         base.OnStartup(e);
 
         // Decided overlay render mode: software rendering (no GPU compositing) keeps the overlay off
