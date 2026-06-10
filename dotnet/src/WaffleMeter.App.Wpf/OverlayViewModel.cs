@@ -16,25 +16,57 @@ namespace WaffleMeter.App.Wpf;
 /// </summary>
 public sealed class OverlayViewModel : INotifyPropertyChanged
 {
-    private static readonly Brush UserBar = Gradient("#15c98f", "#0b8f72");
-    private static readonly Brush NormalBar = Gradient("#f6c65b", "#d68a21");
-    private static readonly Brush WarningBar = Gradient("#ff9f45", "#d96d19");
-    private static readonly Brush ErrorBar = Gradient("#ef4444", "#991b1b");
-    private static readonly Brush NameDefault = Solid("#ffffff");
-    private static readonly Brush NameServerA = Solid("#7dd3fc");
-    private static readonly Brush NameServerB = Solid("#f0abfc");
-
     private readonly MeterSettings _settings;
+    private readonly MeterColorTheme _theme;
 
-    public OverlayViewModel(string version, MeterSettings settings)
+    // Rebuilt from the theme whenever a color changes (MeterColorTheme.Changed); rows are records that
+    // bake in the brush references, so a theme change re-runs Update on the last report.
+    private Brush _userBar = null!, _normalBar = null!, _warningBar = null!, _errorBar = null!;
+    private Brush _nameDefault = null!, _nameServerA = null!, _nameServerB = null!;
+    private Brush _amountBrush = null!, _dpsBrush = null!, _percentBrush = null!;
+    private DpsReport? _lastReport;
+
+    public OverlayViewModel(string version, MeterSettings settings, MeterColorTheme theme)
     {
         _settings = settings;
         Settings = settings;
+        _theme = theme;
+        Theme = theme;
+        RebuildBrushes();
+        theme.Changed += (_, _) =>
+        {
+            RebuildBrushes();
+            if (_lastReport is { } report)
+            {
+                Update(report); // repaint rows with the new colors
+            }
+        };
         _status = $"waffle_meter {version}";
     }
 
     /// <summary>Exposed for the overlay to bind opacity/font/etc. directly.</summary>
     public MeterSettings Settings { get; }
+
+    /// <summary>Exposed so XAML can bind theme-driven chrome (e.g. combat-time color) directly.</summary>
+    public MeterColorTheme Theme { get; }
+
+    private Brush _combatTimeBrush = null!;
+    public Brush CombatTimeBrush { get => _combatTimeBrush; private set => Set(ref _combatTimeBrush, value); }
+
+    private void RebuildBrushes()
+    {
+        _userBar = ThemeGradient(_theme.UserBarFrom, _theme.UserBarTo);
+        _normalBar = ThemeGradient(_theme.NormalBarFrom, _theme.NormalBarTo);
+        _warningBar = ThemeGradient(_theme.WarningBarFrom, _theme.WarningBarTo);
+        _errorBar = ThemeGradient(_theme.ErrorBarFrom, _theme.ErrorBarTo);
+        _nameDefault = ThemeSolid(_theme.ServerDefaultColor);
+        _nameServerA = ThemeSolid(_theme.ServerAColor);
+        _nameServerB = ThemeSolid(_theme.ServerBColor);
+        _amountBrush = ThemeSolid(_theme.MeterStatAmount);  // power badge (React MeterRow.tsx:207)
+        _dpsBrush = ThemeSolid(_theme.MeterStatDps);        // damage value (MeterRow.tsx:126)
+        _percentBrush = ThemeSolid(_theme.MeterStatPercent); // percent (MeterRow.tsx:119/127)
+        CombatTimeBrush = ThemeSolid(_theme.CombatTimeColor);
+    }
 
     public ObservableCollection<RowViewModel> Rows { get; } = new();
 
@@ -57,6 +89,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
     public void Update(DpsReport report)
     {
+        _lastReport = report;
         TargetName = report.Target?.Mob.Name ?? "-";
         long durationMs = Math.Max(report.BattleEnd - report.BattleStart, 0);
         Duration = $"{durationMs / 1000.0:F1}s";
@@ -101,13 +134,16 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 PercentText: MeterFormat.FormatPercent(entire ? e.Info.EntireContribution : contribution),
                 BarRatio: ratio,
                 BarRest: 1.0 - ratio,
-                FillBrush: isUser ? UserBar : contribution < 3 ? ErrorBar : contribution < 5 ? WarningBar : NormalBar,
+                FillBrush: isUser ? _userBar : contribution < 3 ? _errorBar : contribution < 5 ? _warningBar : _normalBar,
                 NameBrush: MeterFormat.ServerTier(server) switch
                 {
-                    ServerColorTier.A => NameServerA,
-                    ServerColorTier.B => NameServerB,
-                    _ => NameDefault,
+                    ServerColorTier.A => _nameServerA,
+                    ServerColorTier.B => _nameServerB,
+                    _ => _nameDefault,
                 },
+                PowerBrush: _amountBrush,
+                DamageBrush: _dpsBrush,
+                PercentBrush: _percentBrush,
                 IsUser: isUser,
                 RowHeight: rowHeight);
 
@@ -131,21 +167,24 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
     private readonly record struct Entry(int Uid, DpsInformation Info, User? User);
 
-    private static Brush Gradient(string from, string to)
+    // angle 0 = left->right, matching the React `linear-gradient(to right, ...)` bars.
+    private static Brush ThemeGradient(string from, string to)
     {
-        var brush = new LinearGradientBrush(ParseColor(from), ParseColor(to), 0.0);
+        var brush = new LinearGradientBrush(ToColor(from), ToColor(to), 0.0);
         brush.Freeze();
         return brush;
     }
 
-    private static Brush Solid(string hex)
+    private static Brush ThemeSolid(string value)
     {
-        var brush = new SolidColorBrush(ParseColor(hex));
+        var brush = new SolidColorBrush(ToColor(value));
         brush.Freeze();
         return brush;
     }
 
-    private static Color ParseColor(string hex) => (Color)ColorConverter.ConvertFromString(hex)!;
+    // ColorString handles hex AND rgba(...) (ColorConverter.ConvertFromString cannot parse rgba()).
+    private static Color ToColor(string value) =>
+        ColorString.TryParse(value, out ColorRgba c) ? Color.FromArgb(c.A, c.R, c.G, c.B) : Colors.White;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -173,5 +212,8 @@ public sealed record RowViewModel(
     double BarRest,
     Brush FillBrush,
     Brush NameBrush,
+    Brush PowerBrush,
+    Brush DamageBrush,
+    Brush PercentBrush,
     bool IsUser,
     double RowHeight);

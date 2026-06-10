@@ -39,6 +39,8 @@ public partial class SettingsWindow : Window
 
     private void OnSaveServer(object sender, RoutedEventArgs e) => _viewModel.SaveServer();
 
+    private void OnResetTheme(object sender, RoutedEventArgs e) => _viewModel.ResetTheme();
+
     private void OnToggleLogging(object sender, RoutedEventArgs e) => _viewModel.ToggleLogging();
 
     private void OnOpenLogFolder(object sender, RoutedEventArgs e) => _viewModel.OpenLogFolder();

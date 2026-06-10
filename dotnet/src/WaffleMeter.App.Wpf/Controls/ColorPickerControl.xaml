@@ -1,0 +1,140 @@
+<UserControl x:Class="WaffleMeter.App.Wpf.Controls.ColorPickerControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="Segoe UI">
+    <UserControl.Resources>
+        <!-- 10px checkerboard behind translucent colors (matches buildCheckerboardCss). -->
+        <DrawingBrush x:Key="Checker" TileMode="Tile" Viewport="0,0,10,10" ViewportUnits="Absolute" Stretch="None">
+            <DrawingBrush.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="#2B2B2B"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,10,10"/></GeometryDrawing.Geometry></GeometryDrawing>
+                    <GeometryDrawing Brush="#3C3C3C"><GeometryDrawing.Geometry><GeometryGroup><RectangleGeometry Rect="0,0,5,5"/><RectangleGeometry Rect="5,5,5,5"/></GeometryGroup></GeometryDrawing.Geometry></GeometryDrawing>
+                </DrawingGroup>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+    </UserControl.Resources>
+
+    <StackPanel Width="224">
+        <!-- Saturation / Value square -->
+        <Border x:Name="SvSquare" Height="140" CornerRadius="8" ClipToBounds="True" Cursor="Cross"
+                MouseLeftButtonDown="OnSvDown" MouseMove="OnSvMove" MouseLeftButtonUp="OnSvUp"
+                SizeChanged="OnSquareSizeChanged">
+            <Grid>
+                <Rectangle x:Name="HueRect"/>
+                <Rectangle>
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                            <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                            <GradientStop Color="#00FFFFFF" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <Rectangle>
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                            <GradientStop Color="#00000000" Offset="0"/>
+                            <GradientStop Color="#FF000000" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <Canvas x:Name="SvCanvas">
+                    <Border x:Name="SvCursor" Width="14" Height="14" CornerRadius="7"
+                            BorderBrush="White" BorderThickness="2" IsHitTestVisible="False">
+                        <Border.Effect><DropShadowEffect BlurRadius="3" ShadowDepth="1" Opacity="0.5"/></Border.Effect>
+                    </Border>
+                </Canvas>
+            </Grid>
+        </Border>
+
+        <!-- current color chip + HEX/RGBA toggle -->
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Width="28" Height="28" CornerRadius="6" Background="{StaticResource Checker}"
+                    ClipToBounds="True" BorderBrush="#22FFFFFF" BorderThickness="1">
+                <Border x:Name="CurrentChip"/>
+            </Border>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <ToggleButton x:Name="HexToggle" Content="HEX" Width="44" Height="22" Click="OnHexFormat"
+                              Foreground="#FFDDDDDD" Background="#16FFFFFF" FontSize="10"/>
+                <ToggleButton x:Name="RgbaToggle" Content="RGBA" Width="44" Height="22" Click="OnRgbaFormat" Margin="4,0,0,0"
+                              Foreground="#FFDDDDDD" Background="#16FFFFFF" FontSize="10"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Hue -->
+        <DockPanel Margin="0,12,0,0">
+            <TextBlock Text="Hue" Foreground="#FF888888" FontSize="10"/>
+            <TextBlock x:Name="HueLabel" DockPanel.Dock="Right" Foreground="#FF888888" FontSize="10" TextAlignment="Right"/>
+        </DockPanel>
+        <Border x:Name="HueTrack" Height="12" CornerRadius="6" Margin="0,4,0,0" Cursor="Hand"
+                MouseLeftButtonDown="OnHueDown" MouseMove="OnHueMove" MouseLeftButtonUp="OnTrackUp" SizeChanged="OnTrackSizeChanged">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                    <GradientStop Color="#FFFF0000" Offset="0"/>
+                    <GradientStop Color="#FFFFFF00" Offset="0.1667"/>
+                    <GradientStop Color="#FF00FF00" Offset="0.3333"/>
+                    <GradientStop Color="#FF00FFFF" Offset="0.5"/>
+                    <GradientStop Color="#FF0000FF" Offset="0.6667"/>
+                    <GradientStop Color="#FFFF00FF" Offset="0.8333"/>
+                    <GradientStop Color="#FFFF0000" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <Canvas>
+                <Border x:Name="HueThumb" Width="12" Height="12" CornerRadius="6" BorderBrush="White" BorderThickness="2"
+                        Background="#80000000" IsHitTestVisible="False"/>
+            </Canvas>
+        </Border>
+
+        <!-- Alpha -->
+        <DockPanel Margin="0,12,0,0">
+            <TextBlock Text="Alpha" Foreground="#FF888888" FontSize="10"/>
+            <TextBlock x:Name="AlphaLabel" DockPanel.Dock="Right" Foreground="#FF888888" FontSize="10" TextAlignment="Right"/>
+        </DockPanel>
+        <Border Height="12" CornerRadius="6" Margin="0,4,0,0" Background="{StaticResource Checker}" ClipToBounds="True">
+            <Border x:Name="AlphaTrack" Cursor="Hand"
+                    MouseLeftButtonDown="OnAlphaDown" MouseMove="OnAlphaMove" MouseLeftButtonUp="OnTrackUp" SizeChanged="OnTrackSizeChanged">
+                <Grid>
+                    <Border x:Name="AlphaGradient"/>
+                    <Canvas>
+                        <Border x:Name="AlphaThumb" Width="12" Height="12" CornerRadius="6" BorderBrush="White" BorderThickness="2"
+                                Background="#80000000" IsHitTestVisible="False"/>
+                    </Canvas>
+                </Grid>
+            </Border>
+        </Border>
+
+        <!-- text input + chip -->
+        <Border Margin="0,12,0,0" CornerRadius="6" Background="#10FFFFFF" BorderBrush="#16FFFFFF" BorderThickness="1" Padding="8,4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="ColorInput" Grid.Column="0" Background="Transparent" BorderThickness="0"
+                         Foreground="#D9FFFFFF" FontSize="12" VerticalAlignment="Center"
+                         TextChanged="OnTextInputChanged"/>
+                <Ellipse x:Name="TextChip" Grid.Column="1" Width="8" Height="8" VerticalAlignment="Center" Margin="6,0,0,0"/>
+            </Grid>
+        </Border>
+
+        <!-- presets (8 columns) -->
+        <ItemsControl x:Name="Presets" Margin="0,12,0,0">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><UniformGrid Columns="8"/></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Height="20" Margin="1.5" Click="OnPreset" Tag="{Binding}" Cursor="Hand"
+                            BorderBrush="#22FFFFFF" BorderThickness="1">
+                        <Button.Background>
+                            <SolidColorBrush Color="{Binding}"/>
+                        </Button.Background>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

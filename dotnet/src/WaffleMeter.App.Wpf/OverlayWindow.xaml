@@ -33,7 +33,7 @@
                 </Grid.ColumnDefinitions>
                 <DockPanel Grid.Column="0" LastChildFill="False" MouseLeftButtonDown="OnDragHandle" Background="Transparent">
                     <TextBlock Text="{Binding TargetName}" Foreground="#FFEEEEEE" FontWeight="Bold" FontSize="13"/>
-                    <TextBlock Text="{Binding Duration}" Foreground="#FFBBBBBB" DockPanel.Dock="Right" Margin="8,0"/>
+                    <TextBlock Text="{Binding Duration}" Foreground="{Binding CombatTimeBrush}" DockPanel.Dock="Right" Margin="8,0"/>
                 </DockPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="⚙" Click="OnSettingsButton" ToolTip="설정" Width="22" Height="20" Padding="0"
@@ -68,11 +68,11 @@
                                                TextTrimming="CharacterEllipsis" MaxWidth="150"/>
                                     <Border Background="#22FFFFFF" CornerRadius="3" Padding="4,0" Margin="6,0,0,0"
                                             VerticalAlignment="Center" Visibility="{Binding PowerVisible}">
-                                        <TextBlock Text="{Binding PowerText}" Foreground="#FFD7BA7D" FontSize="10"/>
+                                        <TextBlock Text="{Binding PowerText}" Foreground="{Binding PowerBrush}" FontSize="10"/>
                                     </Border>
                                 </StackPanel>
-                                <TextBlock Grid.Column="2" Text="{Binding DamageText}" Foreground="#FFF8FAFC" Margin="8,0,8,0"/>
-                                <TextBlock Grid.Column="3" Text="{Binding PercentText}" Foreground="#FF8EE6CF"
+                                <TextBlock Grid.Column="2" Text="{Binding DamageText}" Foreground="{Binding DamageBrush}" Margin="8,0,8,0"/>
+                                <TextBlock Grid.Column="3" Text="{Binding PercentText}" Foreground="{Binding PercentBrush}"
                                            MinWidth="46" TextAlignment="Right"/>
                             </Grid>
                             <Grid Grid.Row="1" Margin="0,2,0,0">

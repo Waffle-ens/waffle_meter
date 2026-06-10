@@ -25,10 +25,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly HotkeyHandler _hotkeys;
     private readonly Snapshot _snapshot;
 
-    public SettingsViewModel(MeterServices services, MeterSettings settings, OverlayController controller, HotkeyHandler hotkeys)
+    public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, OverlayController controller, HotkeyHandler hotkeys)
     {
         _services = services;
         _settings = settings;
+        Theme = theme;
         _controller = controller;
         _hotkeys = hotkeys;
         _snapshot = Snapshot.Capture(settings, controller);
@@ -154,6 +155,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _services.Props.SetProperty("server.ip", ServerIp);
         _services.Props.SetProperty("server.port", ServerPort);
     }
+
+    // ---- theme (color picker) ----
+    /// <summary>The live color theme; the 테마 tab binds swatches/gradient rows directly to its
+    /// properties (colors apply + persist immediately, like the React panel).</summary>
+    public MeterColorTheme Theme { get; }
+
+    /// <summary>Restore the default palette (writes DEFAULT_THEME back to the "theme" key).</summary>
+    public void ResetTheme() => Theme.Reset();
 
     // ---- diagnostics (packet logging) ----
     public bool IsLoggingActive => _services.DebugLogger.IsRunning;
