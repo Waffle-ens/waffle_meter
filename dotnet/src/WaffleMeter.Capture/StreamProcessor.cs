@@ -102,6 +102,11 @@ public sealed class StreamProcessor
     // Mirrors DataManager.executorId(): set from the own-nickname snapshot, read by 0x3655.
     private int _executorId;
 
+    // Last own combat power seen from 0x3656 + the nickname it belonged to; carried onto a new executor
+    // uid only on re-entry of the SAME character (req 3), so a different character never inherits it.
+    private int _lastOwnPower;
+    private string _lastOwnNickname = string.Empty;
+
     public StreamProcessor(IStreamProcessorSink? sink = null, ICaptureGameData? data = null)
     {
         _sink = sink ?? NullStreamProcessorSink.Instance;
@@ -437,6 +442,7 @@ public sealed class StreamProcessor
             if (power <= 0 || power > 10_000_000) return;
             int executor = _executorId;
             if (executor <= 0) return;
+            _lastOwnPower = power; // remember for carry-forward onto re-entry uids (req 3)
             _data.SaveUserPower(executor, power);
             _sink.Meta("own_combat_power", ("uid", executor), ("power", power));
         }
@@ -487,6 +493,15 @@ public sealed class StreamProcessor
             }
         }
 
+        // req 3 fix: own power comes from the live 0x3656 packet, which is keyed to the executor uid. On
+        // re-entry the executor gets a NEW uid and 0x3656 often does not arrive again in-session, leaving
+        // own power at 0 (the reported "my power shows wrong/0" bug). The own-nickname snapshot's marker
+        // points at a different field (not the real power — verified ~106k vs the true ~380k), so it is
+        // NOT a usable source. Instead carry the last known own power forward onto the new executor uid —
+        // but only for a re-entry of the SAME character, so switching characters never inherits a stale
+        // value. A fresh 0x3656 still refines it.
+        bool sameCharacter = nickname == _lastOwnNickname;
+        _lastOwnNickname = nickname;
         _executorId = userInfo.Value;
         _data.SaveNickname(userInfo.Value, nickname, true, server, job);
         if (server > 0)
@@ -494,7 +509,16 @@ public sealed class StreamProcessor
             _data.RequestOfficialCharacterLookup(userInfo.Value);
         }
 
-        _sink.Meta("nickname", ("own", true), ("uid", userInfo.Value), ("nickname", nickname), ("server", server), ("job", job));
+        if (sameCharacter && _lastOwnPower > 0)
+        {
+            _data.SaveUserPower(userInfo.Value, _lastOwnPower);
+        }
+        else if (!sameCharacter)
+        {
+            _lastOwnPower = 0; // a different character: forget the old power; its own 0x3656/API sets it
+        }
+
+        _sink.Meta("nickname", ("own", true), ("uid", userInfo.Value), ("nickname", nickname), ("server", server), ("job", job), ("power", sameCharacter ? _lastOwnPower : 0));
     }
 
     /// <summary>Other-player nickname snapshot 0x3644. Kotlin searchOtherNickname (252-348).</summary>
