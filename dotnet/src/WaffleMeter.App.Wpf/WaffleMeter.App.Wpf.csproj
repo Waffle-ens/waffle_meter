@@ -9,9 +9,20 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>WaffleMeter.App.Wpf</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF-primary app (WinForms only for the tray NotifyIcon); the manifest owns DPI, so silence the
+         WinForms "configure DPI via API" advisory. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- UseWindowsForms adds System.Drawing/System.Windows.Forms to implicit usings, which clash with
+         System.Windows.Media (Brush/Color). Drop them globally; TrayIconController uses aliases. -->
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Reference catalogs the overlay needs for mob/skill/buff names; copied next to the exe. -->
