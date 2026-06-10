@@ -28,6 +28,7 @@ public class StreamProcessorTests
     }
 
     private const int DamageKey = 0x04 | (0x38 << 8); // 0x3804 = "Damage" (known)
+    private const int DoTKey = 0x05 | (0x38 << 8);    // 0x3805 = "DoT" (known)
     private const int UnknownKey = 0x03 | (0x36 << 8); // 0x3603 (seen as unknown in real corpus)
 
     [Fact]
@@ -95,5 +96,28 @@ public class StreamProcessorTests
         Assert.Equal(new[] { DamageKey, DamageKey }, sink.Dispatched); // both inner frames dispatched
         Assert.Equal(0, sink.Unknown);
         Assert.Equal(0, sink.ParserErrors);
+    }
+
+    [Fact]
+    public void Truncated_dot_packet_is_swallowed_not_thrown()
+    {
+        // Regression for the consumer-thread crash: content-based capture lets non-game / TCP-truncated
+        // data frame as a known opcode. A DoT packet ending before its 4-byte skill code made
+        // ParseDoTPacket -> ParseUInt32Le throw ("패킷 길이가 필요길이보다 짧음"); that propagated out of
+        // the opcode dispatch, through StreamAssembler -> MeterServices.Feed -> MeterEngine.ConsumeLoop,
+        // and killed the single consumer thread (the whole app terminated). The dispatch must now
+        // swallow it as a parser error instead of throwing.
+        //
+        // Layout: [varint len=6][0x05][0x38]=DoT [target=1][bitflag 0x02][actor=3][unk=4][skillcode truncated]
+        byte[] truncated = { 0x06, 0x05, 0x38, 0x01, 0x02, 0x03, 0x04, 0x00 };
+
+        var sink = new RecordingSink();
+        var processor = new StreamProcessor(sink);
+
+        Exception? ex = Record.Exception(() => processor.OnPacketReceived(truncated, 0));
+
+        Assert.Null(ex);                            // must NOT throw (this is the crash)
+        Assert.Contains(DoTKey, sink.Dispatched);   // it WAS routed to the DoT handler
+        Assert.Equal(1, sink.ParserErrors);         // and the parse failure was recorded, not fatal
     }
 }
