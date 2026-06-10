@@ -4,6 +4,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using WaffleMeter.App.Core;
 using WaffleMeter.Capture.Live;
+using WaffleMeter.Data;
 using WaffleMeter.Services;
 
 namespace WaffleMeter.App.Wpf;
@@ -12,6 +13,10 @@ public partial class App : Application
 {
     private MeterEngine? _engine;
     private HotkeyHandler? _hotkeys;
+    private DpsReport? _lastReport;
+    private DetailWindow? _detailWindow;
+    private DetailsViewModel? _detailViewModel;
+    private int _detailUid;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -49,10 +54,18 @@ public partial class App : Application
         };
         window.ExitRequested += Shutdown;
 
+        // Row click -> open/close the detail window for that player.
+        viewModel.SelectionToggled += uid => ToggleDetail(uid, services, window);
+
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
         // The connect timeout is generous so it tolerates the user answering the UAC prompt.
         _engine = new MeterEngine(services, new NamedPipeCaptureClient("windivert", connectTimeoutMs: 30_000));
-        _engine.ReportUpdated += report => Dispatcher.Invoke(() => viewModel.Update(report));
+        _engine.ReportUpdated += report => Dispatcher.Invoke(() =>
+        {
+            _lastReport = report;
+            viewModel.Update(report);
+            _detailViewModel?.Refresh(report); // live-refresh the open detail window
+        });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = message);
 
         CaptureHostLaunch launch = CaptureHostLauncher.EnsureRunning();
@@ -76,6 +89,39 @@ public partial class App : Application
                 Dispatcher.Invoke(() => viewModel.Status = $"캡처 시작 실패 ({ex.Message})");
             }
         });
+    }
+
+    private void ToggleDetail(int uid, MeterServices services, Window owner)
+    {
+        if (_lastReport == null)
+        {
+            return;
+        }
+
+        if (_detailWindow != null && _detailUid == uid)
+        {
+            _detailWindow.Close(); // re-click same row -> close (toggle)
+            return;
+        }
+
+        _detailWindow?.Close();
+
+        string name = _lastReport.Contributors.FirstOrDefault(c => c.Id == uid)?.Nickname ?? uid.ToString();
+        _detailViewModel = new DetailsViewModel(_lastReport, uid, services.Calculator, name);
+        _detailUid = uid;
+        _detailWindow = new DetailWindow
+        {
+            DataContext = _detailViewModel,
+            Left = owner.Left + owner.ActualWidth + 8,
+            Top = owner.Top,
+        };
+        _detailWindow.Closed += (_, _) =>
+        {
+            _detailWindow = null;
+            _detailViewModel = null;
+            _detailUid = 0;
+        };
+        _detailWindow.Show();
     }
 
     private static void TryLoadCatalogs(MeterServices services)

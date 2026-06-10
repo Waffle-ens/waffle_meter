@@ -1,0 +1,223 @@
+<Window x:Class="WaffleMeter.App.Wpf.DetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:WaffleMeter.App.Wpf"
+        Title="상세내역"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
+        Width="820" Height="600" Left="460" Top="40" FontFamily="Segoe UI">
+    <Window.Resources>
+        <local:RatioToStarConverter x:Key="RatioToStar"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="Stat" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#FFCFCFCF"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+        <Style x:Key="Head" TargetType="TextBlock" BasedOn="{StaticResource Stat}">
+            <Setter Property="Foreground" Value="#FF888888"/>
+        </Style>
+    </Window.Resources>
+    <Border Background="#F21B1B1B" CornerRadius="8" Padding="12">
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" MouseLeftButtonDown="OnDragHandle" Background="Transparent" Margin="0,0,0,8">
+                <TextBlock Text="{Binding Title}" Foreground="#FFEEEEEE" FontWeight="Bold" FontSize="14"/>
+                <Button Content="✕" Click="OnClose" HorizontalAlignment="Right" Width="24" Height="24"
+                        Background="Transparent" Foreground="#FFAAAAAA" BorderThickness="0" FontSize="12"/>
+            </Grid>
+
+            <!-- 8-cell summary grid -->
+            <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="0,0,0,10">
+                <UniformGrid.Resources>
+                    <Style TargetType="StackPanel"><Setter Property="Margin" Value="2"/></Style>
+                </UniformGrid.Resources>
+                <StackPanel><TextBlock Text="누적 피해량" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding TotalDamageText}" Foreground="#FFF8D66D" FontWeight="Bold"/></StackPanel>
+                <StackPanel><TextBlock Text="피해량 기여도" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding ContributionText}" Foreground="#FF8EE6CF"/></StackPanel>
+                <StackPanel><TextBlock Text="치명타 비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding CritText}" Foreground="#FFEEEEEE"/></StackPanel>
+                <StackPanel><TextBlock Text="강타 비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding StrongText}" Foreground="#FFEEEEEE"/></StackPanel>
+                <StackPanel><TextBlock Text="완벽 비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding PerfectText}" Foreground="#FFEEEEEE"/></StackPanel>
+                <StackPanel><TextBlock Text="백어택 비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding BackText}" Foreground="#FFEEEEEE"/></StackPanel>
+                <StackPanel><TextBlock Text="보스 막기비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="0.0%" Foreground="#FFEEEEEE"/></StackPanel>
+                <StackPanel><TextBlock Text="전투시간" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding CombatTimeText}" Foreground="#FFCBD5E1"/></StackPanel>
+            </UniformGrid>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <Expander Header="버프 가동률" IsEnabled="{Binding HasBuffs}" Foreground="#FFDDDDDD" Margin="0,2">
+                        <ItemsControl ItemsSource="{Binding Buffs}" Margin="8,4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,2">
+                                        <TextBlock Text="{Binding Label}" Foreground="#FF9CDCFE" FontSize="11" Margin="0,2"/>
+                                        <ItemsControl ItemsSource="{Binding Rows}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,1" ToolTip="{Binding Description}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="150"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="52"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="#FFDDDDDD" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                        <Grid Grid.Column="1" Height="8" VerticalAlignment="Center">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
+                                                                <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.Column="0" Background="{Binding Brush}" CornerRadius="2"/>
+                                                        </Grid>
+                                                        <TextBlock Grid.Column="2" Text="{Binding RateText}" Style="{StaticResource Stat}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+
+                    <Expander Header="디버프 가동률" IsEnabled="{Binding HasDebuffs}" Foreground="#FFDDDDDD" Margin="0,2">
+                        <ItemsControl ItemsSource="{Binding Debuffs}" Margin="8,4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,2">
+                                        <TextBlock Text="{Binding Label}" Foreground="#FFF0ABFC" FontSize="11" Margin="0,2"/>
+                                        <ItemsControl ItemsSource="{Binding Rows}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,1" ToolTip="{Binding Description}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="150"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="52"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="#FFDDDDDD" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                        <Grid Grid.Column="1" Height="8" VerticalAlignment="Center">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
+                                                                <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.Column="0" Background="{Binding Brush}" CornerRadius="2"/>
+                                                        </Grid>
+                                                        <TextBlock Grid.Column="2" Text="{Binding RateText}" Style="{StaticResource Stat}"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+
+                    <Expander Header="스킬 피해량" IsExpanded="True" Foreground="#FFDDDDDD" Margin="0,2">
+                        <StackPanel Margin="4,4">
+                            <Grid Margin="0,0,0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="56"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="56"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="120"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="1" Text="스킬명" Style="{StaticResource Head}" TextAlignment="Left"/>
+                                <TextBlock Grid.Column="2" Text="명중 횟수" Style="{StaticResource Head}"/>
+                                <TextBlock Grid.Column="3" Text="치명타" Style="{StaticResource Head}"/>
+                                <TextBlock Grid.Column="4" Text="강타" Style="{StaticResource Head}"/>
+                                <TextBlock Grid.Column="5" Text="완벽" Style="{StaticResource Head}"/>
+                                <TextBlock Grid.Column="6" Text="백어택" Style="{StaticResource Head}"/>
+                                <TextBlock Grid.Column="7" Text="패리" Style="{StaticResource Head}"/>
+                                <TextBlock Grid.Column="8" Text="누적 피해량" Style="{StaticResource Head}"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding Skills}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="18"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="56"/>
+                                                    <ColumnDefinition Width="50"/>
+                                                    <ColumnDefinition Width="50"/>
+                                                    <ColumnDefinition Width="50"/>
+                                                    <ColumnDefinition Width="56"/>
+                                                    <ColumnDefinition Width="50"/>
+                                                    <ColumnDefinition Width="120"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ToggleButton Grid.Column="0" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                                              Visibility="{Binding HasChildren, Converter={StaticResource BoolToVis}}"
+                                                              Width="16" Height="16" Padding="0" FontSize="10">
+                                                    <ToggleButton.Style>
+                                                        <Style TargetType="ToggleButton">
+                                                            <Setter Property="Content" Value="+"/>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsChecked" Value="True">
+                                                                    <Setter Property="Content" Value="−"/>
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ToggleButton.Style>
+                                                </ToggleButton>
+                                                <TextBlock Grid.Column="1" Text="{Binding Merged.Name}" Foreground="#FFEEEEEE" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Merged.HitsText}" Style="{StaticResource Stat}"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding Merged.CritText}" Style="{StaticResource Stat}"/>
+                                                <TextBlock Grid.Column="4" Text="{Binding Merged.StrongText}" Style="{StaticResource Stat}"/>
+                                                <TextBlock Grid.Column="5" Text="{Binding Merged.PerfectText}" Style="{StaticResource Stat}"/>
+                                                <TextBlock Grid.Column="6" Text="{Binding Merged.BackText}" Style="{StaticResource Stat}"/>
+                                                <TextBlock Grid.Column="7" Text="{Binding Merged.ParryText}" Style="{StaticResource Stat}"/>
+                                                <StackPanel Grid.Column="8" Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <TextBlock Text="{Binding Merged.DamageText}" Foreground="#FFB7791F"/>
+                                                    <TextBlock Text="{Binding Merged.PercentText}" Foreground="#FF888888" FontSize="10" Margin="6,0,0,0"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <Grid Height="3" Margin="20,1,0,2">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="{Binding Merged.BarRatio, Converter={StaticResource RatioToStar}}"/>
+                                                    <ColumnDefinition Width="{Binding Merged.BarRest, Converter={StaticResource RatioToStar}}"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Background="{Binding Merged.BarBrush}" CornerRadius="1.5"/>
+                                            </Grid>
+                                            <ItemsControl ItemsSource="{Binding Children}" Margin="22,0,0,2"
+                                                          Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,1">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="56"/>
+                                                                <ColumnDefinition Width="50"/>
+                                                                <ColumnDefinition Width="50"/>
+                                                                <ColumnDefinition Width="50"/>
+                                                                <ColumnDefinition Width="56"/>
+                                                                <ColumnDefinition Width="50"/>
+                                                                <ColumnDefinition Width="120"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="#FFAAAAAA" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding HitsText}" Style="{StaticResource Stat}"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding CritText}" Style="{StaticResource Stat}"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding StrongText}" Style="{StaticResource Stat}"/>
+                                                            <TextBlock Grid.Column="4" Text="{Binding PerfectText}" Style="{StaticResource Stat}"/>
+                                                            <TextBlock Grid.Column="5" Text="{Binding BackText}" Style="{StaticResource Stat}"/>
+                                                            <TextBlock Grid.Column="6" Text="{Binding ParryText}" Style="{StaticResource Stat}"/>
+                                                            <TextBlock Grid.Column="7" Text="{Binding DamageText}" Foreground="#FFB7791F" TextAlignment="Right" FontSize="11"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</Window>
