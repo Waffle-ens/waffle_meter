@@ -1,5 +1,4 @@
-using System.Net;
-using System.Net.Sockets;
+using System.Collections.Concurrent;
 using PacketDotNet;
 using SharpPcap;
 using SharpPcap.LibPcap;
@@ -8,104 +7,190 @@ using WaffleMeter.Capture;
 namespace WaffleMeter.Capture.Live;
 
 /// <summary>
-/// Optional Npcap/SharpPcap capture backend — verbatim port of Kotlin PcapCapturer: resolve the
-/// routed local IP via a UDP-connect, pick the matching device, open promiscuous with the BPF
-/// filter, and emit each non-empty TCP segment. Requires Npcap installed (admin to capture).
+/// Optional Npcap/SharpPcap capture backend — port of the reworked Kotlin PcapCapturer (dev commit
+/// d00c850). No IP/port/interface assumptions: opens EVERY device (incl. the Npcap loopback adapter),
+/// re-enumerates every 5s so adapters appearing at runtime (VPN/accelerator TUN-TAP connect) are added
+/// without a restart, and applies a single load-guard filter <c>tcp and not (port 443 or port 80)</c>
+/// (keeps web/HTTPS bulk out of the parser; the game stream is identified by opcode content downstream).
+/// Promiscuous → non-promiscuous open fallback for adapters that reject promiscuous mode. Each segment
+/// carries the full TCP 4-tuple so the consumer can demux per connection.
 /// </summary>
 public sealed class NpcapBackend : IPacketCaptureBackend
 {
-    private LibPcapLiveDevice? _device;
+    private const string Filter = "tcp and not (port 443 or port 80)";
+    private const int ReenumIntervalMs = 5000;
+
+    private readonly ConcurrentDictionary<string, byte> _capturing = new();
+    private readonly List<LibPcapLiveDevice> _open = new();
+    private readonly object _openLock = new();
+    private Thread? _enumThread;
+    private volatile bool _running;
+    private CaptureConfig _config = new();
 
     public event Action<CapturedSegment>? SegmentReceived;
 
     public void Start(CaptureConfig config)
     {
-        string localIp = ResolveLocalIp(config.ServerIp.Split('/')[0], int.Parse(config.ServerPort));
-        LibPcapLiveDevice device = FindDevice(localIp)
-            ?? throw new InvalidOperationException($"no capture device found for local IP {localIp} (is Npcap installed?)");
-
-        device.Open(new DeviceConfiguration
-        {
-            Mode = DeviceModes.Promiscuous,
-            ReadTimeout = config.TimeoutMs,
-            Snaplen = config.SnapshotSize,
-        });
-        device.Filter = $"src net {config.ServerIp} and port {config.ServerPort}";
-        device.OnPacketArrival += OnPacketArrival;
-        _device = device;
-        device.StartCapture();
+        _config = config;
+        _running = true;
+        _enumThread = new Thread(EnumerateLoop) { IsBackground = true, Name = "npcap-enumerate" };
+        _enumThread.Start();
     }
 
-    private void OnPacketArrival(object sender, PacketCapture e)
+    private void EnumerateLoop()
     {
-        RawCapture raw = e.GetPacket();
-        Packet packet = Packet.ParsePacket(raw.LinkLayerType, raw.Data);
-        if (packet.Extract<TcpPacket>() is not { } tcp)
-        {
-            return;
-        }
-
-        byte[]? payload = tcp.PayloadData;
-        if (payload is null || payload.Length == 0)
-        {
-            return;
-        }
-
-        if (packet.Extract<IPv4Packet>() is not { } ip)
-        {
-            return;
-        }
-
-        long seq = (long)tcp.SequenceNumber & 0xffffffffL;
-        SegmentReceived?.Invoke(new CapturedSegment(
-            seq, payload, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ip.SourceAddress.ToString()));
-    }
-
-    // UDP connect sends no packets; it just resolves the OS's routed source address for that dest.
-    private static string ResolveLocalIp(string serverIp, int port)
-    {
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, System.Net.Sockets.ProtocolType.Udp);
-        socket.Connect(IPAddress.Parse(serverIp), port);
-        return ((IPEndPoint)socket.LocalEndPoint!).Address.ToString();
-    }
-
-    private static LibPcapLiveDevice? FindDevice(string localIp)
-    {
-        foreach (LibPcapLiveDevice device in LibPcapLiveDeviceList.Instance)
-        {
-            foreach (PcapAddress addr in device.Addresses)
-            {
-                if (addr.Addr?.ipAddress != null && addr.Addr.ipAddress.ToString() == localIp)
-                {
-                    return device;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    public void Stop()
-    {
-        if (_device != null)
+        while (_running)
         {
             try
             {
-                _device.StopCapture();
+                LibPcapLiveDeviceList devices = LibPcapLiveDeviceList.Instance;
+                devices.Refresh(); // pick up adapters added at runtime (VPN connect)
+                foreach (LibPcapLiveDevice device in devices)
+                {
+                    if (!_running)
+                    {
+                        break;
+                    }
+
+                    string name = device.Name;
+                    if (!string.IsNullOrEmpty(name) && _capturing.TryAdd(name, 0))
+                    {
+                        OpenAndCapture(device, name);
+                    }
+                }
+            }
+            catch
+            {
+                // enumeration failed this pass; retry next interval
+            }
+
+            for (int slept = 0; slept < ReenumIntervalMs && _running; slept += 100)
+            {
+                Thread.Sleep(100);
+            }
+        }
+    }
+
+    private void OpenAndCapture(LibPcapLiveDevice device, string name)
+    {
+        if (!TryOpen(device))
+        {
+            _capturing.TryRemove(name, out _); // let a later sweep retry this adapter
+            return;
+        }
+
+        try
+        {
+            device.Filter = Filter;
+            device.OnPacketArrival += OnPacketArrival;
+            device.StartCapture();
+            lock (_openLock)
+            {
+                _open.Add(device);
+            }
+        }
+        catch
+        {
+            _capturing.TryRemove(name, out _);
+            try
+            {
+                device.Close();
             }
             catch
             {
                 // ignore
             }
-
-            _device.OnPacketArrival -= OnPacketArrival;
         }
     }
 
-    public void Dispose()
+    private bool TryOpen(LibPcapLiveDevice device)
     {
-        Stop();
-        _device?.Dispose();
-        _device = null;
+        foreach (DeviceModes mode in new[] { DeviceModes.Promiscuous, DeviceModes.None })
+        {
+            try
+            {
+                device.Open(new DeviceConfiguration
+                {
+                    Mode = mode,
+                    ReadTimeout = _config.TimeoutMs,
+                    Snaplen = _config.SnapshotSize,
+                });
+                return true;
+            }
+            catch
+            {
+                // try the next mode (VPN TUN/TAP adapters often reject promiscuous)
+            }
+        }
+
+        return false;
     }
+
+    private void OnPacketArrival(object sender, PacketCapture e)
+    {
+        try
+        {
+            RawCapture raw = e.GetPacket();
+            Packet packet = Packet.ParsePacket(raw.LinkLayerType, raw.Data);
+            if (packet.Extract<TcpPacket>() is not { } tcp || packet.Extract<IPv4Packet>() is not { } ip)
+            {
+                return;
+            }
+
+            byte[]? payload = tcp.PayloadData;
+            if (payload is null || payload.Length == 0)
+            {
+                return;
+            }
+
+            long seq = (long)tcp.SequenceNumber & 0xffffffffL;
+            SegmentReceived?.Invoke(new CapturedSegment(
+                seq,
+                payload,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                ip.SourceAddress.ToString(),
+                tcp.SourcePort,
+                ip.DestinationAddress.ToString(),
+                tcp.DestinationPort));
+        }
+        catch
+        {
+            // malformed packet — skip
+        }
+    }
+
+    public void Stop()
+    {
+        _running = false;
+        _enumThread?.Join(1000);
+        lock (_openLock)
+        {
+            foreach (LibPcapLiveDevice device in _open)
+            {
+                try
+                {
+                    device.StopCapture();
+                }
+                catch
+                {
+                    // ignore
+                }
+
+                try
+                {
+                    device.Close();
+                }
+                catch
+                {
+                    // ignore
+                }
+            }
+
+            _open.Clear();
+        }
+
+        _capturing.Clear();
+    }
+
+    public void Dispose() => Stop();
 }

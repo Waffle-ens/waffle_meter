@@ -25,6 +25,29 @@ public sealed class CaptureWireProtocolTests
     }
 
     [Fact]
+    public void Segment_round_trips_full_tuple()
+    {
+        var original = new CapturedSegment(
+            Seq: 0x1000,
+            Payload: new byte[] { 0x38, 0x04 },
+            ArrivedAtMs: 5,
+            SrcIp: "127.0.0.1",
+            SrcPort: 51234,
+            DstIp: "206.127.156.10",
+            DstPort: 13328);
+
+        CapturedSegment decoded = CaptureWireProtocol.DecodeSegment(CaptureWireProtocol.EncodeSegment(original));
+
+        Assert.Equal(original.Seq, decoded.Seq);
+        Assert.Equal(original.SrcIp, decoded.SrcIp);
+        Assert.Equal(original.SrcPort, decoded.SrcPort);
+        Assert.Equal(original.DstIp, decoded.DstIp);
+        Assert.Equal(original.DstPort, decoded.DstPort);
+        Assert.Equal(original.Payload, decoded.Payload);
+        Assert.Equal("127.0.0.1:51234-206.127.156.10:13328", decoded.StreamKey);
+    }
+
+    [Fact]
     public void Segment_round_trips_with_empty_payload()
     {
         var original = new CapturedSegment(1, Array.Empty<byte>(), 0, "10.0.0.1");

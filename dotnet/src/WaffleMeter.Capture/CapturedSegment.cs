@@ -19,7 +19,26 @@ namespace WaffleMeter.Capture;
 /// the wire. Flows into ParsedDamagePacket.timestamp → battleStart/End → DPS/uptime, so it is
 /// always CONSUMED downstream and NEVER regenerated (see docs/phase-0-parity-harness.md §7).
 /// </param>
-/// <param name="SrcIp">
-/// Source IP string. A change resets the aligner (Kotlin <c>Main.kt:43-46</c>).
-/// </param>
-public readonly record struct CapturedSegment(long Seq, byte[] Payload, long ArrivedAtMs, string SrcIp);
+/// <param name="SrcIp">Source IP string (the <c>ip</c> field of Kotlin CapturedPacket).</param>
+/// <param name="SrcPort">TCP source port.</param>
+/// <param name="DstIp">Destination IP string.</param>
+/// <param name="DstPort">TCP destination port.</param>
+/// <remarks>
+/// Carries the full TCP 4-tuple (Kotlin CapturedPacket after dev commit d00c850). The downstream
+/// consumer demuxes streams by <see cref="StreamKey"/> — accelerator/VPN users route the game over a
+/// local proxy on the loopback adapter with dynamic ports where multiple connections share a srcPort,
+/// so srcIP-only keying merged distinct connections and the aligner discarded the plaintext game
+/// stream. The game stream is never targeted by IP/port; it is identified purely by opcode content.
+/// </remarks>
+public readonly record struct CapturedSegment(
+    long Seq,
+    byte[] Payload,
+    long ArrivedAtMs,
+    string SrcIp,
+    int SrcPort = 0,
+    string DstIp = "",
+    int DstPort = 0)
+{
+    /// <summary>Per-connection stream key (Kotlin "$ip:$srcPort-$dstIp:$dstPort").</summary>
+    public string StreamKey => $"{SrcIp}:{SrcPort}-{DstIp}:{DstPort}";
+}

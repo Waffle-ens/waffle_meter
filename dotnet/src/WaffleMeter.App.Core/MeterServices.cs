@@ -26,10 +26,21 @@ public sealed class MeterServices
     public StatsUploadQueue UploadQueue { get; }
     public string Version { get; }
 
-    private readonly PacketAlignmenter _aligner = new();
-    private readonly StreamAssembler _assembler;
+    // Per-connection stream demux (Kotlin Main.kt after dev d00c850): the game can flow over a local
+    // proxy on loopback with dynamic ports where multiple connections share a srcPort, so streams are
+    // keyed by the full 4-tuple; each owns its own aligner+assembler over ONE shared StreamProcessor.
+    private const long IdleMs = 30_000;
+    private const long EvictEvery = 1000;
     private readonly StreamProcessor _processor;
-    private string _currentIp = string.Empty;
+    private readonly Dictionary<string, StreamState> _streams = new();
+    private long _processed;
+
+    private sealed class StreamState(PacketAlignmenter aligner, StreamAssembler assembler)
+    {
+        public PacketAlignmenter Aligner { get; } = aligner;
+        public StreamAssembler Assembler { get; } = assembler;
+        public long LastSeen { get; set; }
+    }
 
     public MeterServices(
         PropertyHandler props,
@@ -42,16 +53,10 @@ public sealed class MeterServices
         OfficialLookup = officialLookup ?? new OfficialCharacterLookup();
         Data = new DataManager { OfficialLookup = OfficialLookup };
 
-        // Pipeline (single consumer owns these; the calculator's flush resets framing + ordering).
-        StreamAssembler assembler = null!;
-        Calculator = new DpsCalculator(Data, () =>
-        {
-            assembler.Flush();
-            _aligner.Reset();
-        });
+        // Pipeline (single consumer owns these; the calculator's flush resets framing + ordering of
+        // every live stream).
         _processor = new StreamProcessor(NullStreamProcessorSink.Instance, Data);
-        assembler = new StreamAssembler((packet, at) => _processor.OnPacketReceived(packet, at));
-        _assembler = assembler;
+        Calculator = new DpsCalculator(Data, FlushAllStreams);
 
         // Stats stack. Break the consent <-> builder cycle with a deferred reference.
         StatsApi = new StatsApiClient(() => StatsInstall.InstallId(props), statsTransport);
@@ -87,18 +92,47 @@ public sealed class MeterServices
         }
     }
 
-    /// <summary>Feeds one captured segment through the pipeline (Kotlin Main.kt consumer body).</summary>
+    /// <summary>Feeds one captured segment through its per-connection stream (Kotlin Main.kt consumer).</summary>
     public void Feed(CapturedSegment segment)
     {
-        if (segment.SrcIp != _currentIp)
+        if (!_streams.TryGetValue(segment.StreamKey, out StreamState? state))
         {
-            _currentIp = segment.SrcIp;
-            _aligner.Reset();
+            state = new StreamState(
+                new PacketAlignmenter(),
+                new StreamAssembler((packet, at) => _processor.OnPacketReceived(packet, at)));
+            _streams[segment.StreamKey] = state;
         }
 
-        foreach (AlignedChunk chunk in _aligner.Feed(segment.Seq, segment.Payload, segment.ArrivedAtMs))
+        state.LastSeen = segment.ArrivedAtMs;
+        foreach (AlignedChunk chunk in state.Aligner.Feed(segment.Seq, segment.Payload, segment.ArrivedAtMs))
         {
-            _assembler.ProcessChunk(chunk.Data, chunk.ArrivedAt);
+            state.Assembler.ProcessChunk(chunk.Data, chunk.ArrivedAt);
+        }
+
+        // Sampled idle eviction (every 1000th packet), clocked off the incoming packet like Kotlin.
+        if (++_processed % EvictEvery == 0)
+        {
+            long cutoff = segment.ArrivedAtMs - IdleMs;
+            foreach (string key in _streams.Where(kv => kv.Value.LastSeen < cutoff).Select(kv => kv.Key).ToList())
+            {
+                _streams.Remove(key);
+            }
+        }
+    }
+
+    private void FlushAllStreams()
+    {
+        foreach (StreamState state in _streams.Values)
+        {
+            try
+            {
+                state.Assembler.Flush();
+                state.Aligner.Reset();
+            }
+            catch
+            {
+                // one stream's reset failure must not abort the rest
+            }
         }
     }
 

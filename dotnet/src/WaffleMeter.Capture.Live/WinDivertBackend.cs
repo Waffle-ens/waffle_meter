@@ -123,7 +123,13 @@ public sealed class WinDivertBackend : IPacketCaptureBackend
 
             long seq = (long)tcp.SequenceNumber & 0xffffffffL;
             SegmentReceived?.Invoke(new CapturedSegment(
-                seq, payload, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), ip.SourceAddress.ToString()));
+                seq,
+                payload,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                ip.SourceAddress.ToString(),
+                tcp.SourcePort,
+                ip.DestinationAddress.ToString(),
+                tcp.DestinationPort));
         }
         catch
         {
@@ -132,34 +138,15 @@ public sealed class WinDivertBackend : IPacketCaptureBackend
     }
 
     /// <summary>
-    /// Translate the BPF "src net &lt;cidr&gt; and port &lt;port&gt;" into a WinDivert filter:
-    /// inbound IPv4 TCP whose source address is in the CIDR range and whose source port == port.
+    /// Content-based capture (Kotlin d00c850): no IP/port/interface targeting. WinDivert is a
+    /// WFP/network-layer engine that already sees every interface incl. loopback, so dropping
+    /// <c>inbound</c> and the CIDR/src-port constraints captures all TCP in both directions; the
+    /// only filter is a load guard excluding web/HTTPS bulk (80/443) that would flood the parser and
+    /// hurt overlay FPS. The game stream (13328 / dynamic loopback) is identified by opcode content
+    /// downstream. <paramref name="config"/> is unused for filtering (kept for the back-compat signature).
     /// </summary>
-    private static string BuildFilter(CaptureConfig config)
-    {
-        (string lo, string hi) = CidrRange(config.ServerIp);
-        return $"inbound and ip and tcp and ip.SrcAddr >= {lo} and ip.SrcAddr <= {hi} and tcp.SrcPort == {config.ServerPort}";
-    }
-
-    private static (string Lo, string Hi) CidrRange(string cidr)
-    {
-        string[] parts = cidr.Split('/');
-        IPAddress baseIp = IPAddress.Parse(parts[0]);
-        uint ipv4 = (uint)IPAddress.NetworkToHostOrder(BitConverter.ToInt32(baseIp.GetAddressBytes(), 0));
-        if (parts.Length < 2)
-        {
-            return (baseIp.ToString(), baseIp.ToString());
-        }
-
-        int prefix = int.Parse(parts[1]);
-        uint mask = prefix == 0 ? 0 : 0xFFFFFFFF << (32 - prefix);
-        uint lo = ipv4 & mask;
-        uint hi = lo | ~mask;
-        return (ToDotted(lo), ToDotted(hi));
-    }
-
-    private static string ToDotted(uint v) =>
-        new IPAddress(BitConverter.GetBytes(IPAddress.HostToNetworkOrder((int)v))).ToString();
+    private static string BuildFilter(CaptureConfig config) =>
+        "ip and tcp and not (tcp.SrcPort == 80 or tcp.DstPort == 80 or tcp.SrcPort == 443 or tcp.DstPort == 443)";
 
     public void Stop()
     {

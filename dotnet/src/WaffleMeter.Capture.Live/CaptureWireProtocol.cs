@@ -67,27 +67,57 @@ public static class CaptureWireProtocol
         return (type, body);
     }
 
+    // Layout: [i64 Seq][i64 ArrivedAtMs][u16 srcIpLen][srcIp][i32 SrcPort][u16 dstIpLen][dstIp]
+    //         [i32 DstPort][payload remainder]. The full 4-tuple travels so the consumer can demux
+    //         streams per connection (Kotlin CapturedPacket after dev d00c850).
     public static byte[] EncodeSegment(in CapturedSegment segment)
     {
-        byte[] ip = Encoding.UTF8.GetBytes(segment.SrcIp);
-        var buffer = new byte[8 + 8 + 2 + ip.Length + segment.Payload.Length];
+        byte[] src = Encoding.UTF8.GetBytes(segment.SrcIp);
+        byte[] dst = Encoding.UTF8.GetBytes(segment.DstIp);
+        var buffer = new byte[8 + 8 + 2 + src.Length + 4 + 2 + dst.Length + 4 + segment.Payload.Length];
         Span<byte> span = buffer;
-        BinaryPrimitives.WriteInt64LittleEndian(span, segment.Seq);
-        BinaryPrimitives.WriteInt64LittleEndian(span[8..], segment.ArrivedAtMs);
-        BinaryPrimitives.WriteUInt16LittleEndian(span[16..], (ushort)ip.Length);
-        ip.CopyTo(span[18..]);
-        segment.Payload.CopyTo(span[(18 + ip.Length)..]);
+        int offset = 0;
+        BinaryPrimitives.WriteInt64LittleEndian(span[offset..], segment.Seq);
+        offset += 8;
+        BinaryPrimitives.WriteInt64LittleEndian(span[offset..], segment.ArrivedAtMs);
+        offset += 8;
+        BinaryPrimitives.WriteUInt16LittleEndian(span[offset..], (ushort)src.Length);
+        offset += 2;
+        src.CopyTo(span[offset..]);
+        offset += src.Length;
+        BinaryPrimitives.WriteInt32LittleEndian(span[offset..], segment.SrcPort);
+        offset += 4;
+        BinaryPrimitives.WriteUInt16LittleEndian(span[offset..], (ushort)dst.Length);
+        offset += 2;
+        dst.CopyTo(span[offset..]);
+        offset += dst.Length;
+        BinaryPrimitives.WriteInt32LittleEndian(span[offset..], segment.DstPort);
+        offset += 4;
+        segment.Payload.CopyTo(span[offset..]);
         return buffer;
     }
 
     public static CapturedSegment DecodeSegment(ReadOnlySpan<byte> body)
     {
-        long seq = BinaryPrimitives.ReadInt64LittleEndian(body);
-        long arrivedAt = BinaryPrimitives.ReadInt64LittleEndian(body[8..]);
-        int ipLen = BinaryPrimitives.ReadUInt16LittleEndian(body[16..]);
-        string ip = Encoding.UTF8.GetString(body.Slice(18, ipLen));
-        byte[] payload = body[(18 + ipLen)..].ToArray();
-        return new CapturedSegment(seq, payload, arrivedAt, ip);
+        int offset = 0;
+        long seq = BinaryPrimitives.ReadInt64LittleEndian(body[offset..]);
+        offset += 8;
+        long arrivedAt = BinaryPrimitives.ReadInt64LittleEndian(body[offset..]);
+        offset += 8;
+        int srcLen = BinaryPrimitives.ReadUInt16LittleEndian(body[offset..]);
+        offset += 2;
+        string srcIp = Encoding.UTF8.GetString(body.Slice(offset, srcLen));
+        offset += srcLen;
+        int srcPort = BinaryPrimitives.ReadInt32LittleEndian(body[offset..]);
+        offset += 4;
+        int dstLen = BinaryPrimitives.ReadUInt16LittleEndian(body[offset..]);
+        offset += 2;
+        string dstIp = Encoding.UTF8.GetString(body.Slice(offset, dstLen));
+        offset += dstLen;
+        int dstPort = BinaryPrimitives.ReadInt32LittleEndian(body[offset..]);
+        offset += 4;
+        byte[] payload = body[offset..].ToArray();
+        return new CapturedSegment(seq, payload, arrivedAt, srcIp, srcPort, dstIp, dstPort);
     }
 
     public static byte[] EncodeStart(string backend, CaptureConfig config)
