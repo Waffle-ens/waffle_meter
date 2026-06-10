@@ -1,3 +1,4 @@
+using System.IO;
 using Drawing = System.Drawing;
 using WinForms = System.Windows.Forms;
 
@@ -16,7 +17,7 @@ public sealed class TrayIconController : IDisposable
     {
         _icon = new WinForms.NotifyIcon
         {
-            Icon = Drawing.SystemIcons.Application,
+            Icon = LoadIcon(),
             Text = window.Title,
             Visible = true,
         };
@@ -45,9 +46,28 @@ public sealed class TrayIconController : IDisposable
         };
     }
 
+    private static Drawing.Icon LoadIcon()
+    {
+        try
+        {
+            string path = Path.Combine(AppContext.BaseDirectory, "waffle.ico");
+            if (File.Exists(path))
+            {
+                return new Drawing.Icon(path);
+            }
+        }
+        catch
+        {
+            // fall through to the system icon
+        }
+
+        return Drawing.SystemIcons.Application;
+    }
+
     public void Dispose()
     {
         _icon.Visible = false;
         _icon.Dispose();
     }
 }
+

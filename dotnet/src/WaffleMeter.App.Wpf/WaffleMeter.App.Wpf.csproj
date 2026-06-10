@@ -11,6 +11,9 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>WaffleMeter.App.Wpf</RootNamespace>
+    <!-- WPF binding/formatting needs real cultures (StringFormat -> XmlLanguage.GetSpecificCulture);
+         the shared InvariantGlobalization=true breaks it. Code formatting uses InvariantCulture explicitly. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\..\..\src\main\resources\icons\waffle.ico</ApplicationIcon>
     <!-- WPF-primary app (WinForms only for the tray NotifyIcon); the manifest owns DPI, so silence the
@@ -32,6 +35,8 @@
   <ItemGroup>
     <!-- Reference catalogs the overlay needs for mob/skill/buff names; copied next to the exe. -->
     <Content Include="..\..\..\src\main\resources\json\*.json" Link="json\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Tray icon (NotifyIcon needs an .ico file at runtime). -->
+    <Content Include="..\..\..\src\main\resources\icons\waffle.ico" Link="waffle.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

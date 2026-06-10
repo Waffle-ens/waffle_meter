@@ -24,6 +24,36 @@ public partial class App : Application
     private DetailsViewModel? _detailViewModel;
     private int _detailUid;
 
+    public App()
+    {
+        // Surface UI-thread exceptions instead of hard-crashing, so a faulty window/binding is
+        // diagnosable (and the app survives). Logs next to the exe too.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            TryLogCrash(args.Exception);
+            System.Windows.MessageBox.Show(args.Exception.ToString(), "waffle_meter 오류", MessageBoxButton.OK, MessageBoxImage.Error);
+            args.Handled = true;
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, args) => TryLogCrash(args.ExceptionObject as Exception);
+    }
+
+    private static void TryLogCrash(Exception? ex)
+    {
+        if (ex == null)
+        {
+            return;
+        }
+
+        try
+        {
+            File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "crash.log"), $"{DateTime.Now:o}\n{ex}\n\n");
+        }
+        catch
+        {
+            // best effort
+        }
+    }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         // MUST be first: handles Velopack install/update/uninstall hooks and exits for those runs.
