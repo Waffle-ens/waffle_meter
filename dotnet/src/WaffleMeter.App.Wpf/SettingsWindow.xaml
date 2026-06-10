@@ -169,6 +169,7 @@
                 <StackPanel Margin="10">
                     <CheckBox Content="자동 숨김 (아이온2 포커싱 아닐 때 숨김)" IsChecked="{Binding IsAutoHide}" Margin="0,4"/>
                     <CheckBox Content="다중 모니터 이동" IsChecked="{Binding MultiMonitorMode}" Margin="0,4"/>
+                    <CheckBox Content="작업표시줄 모드 (alt+tab 표시 · 자동숨김 해제)" IsChecked="{Binding TaskbarMode}" Margin="0,4"/>
                     <TextBlock Text="{Binding MeterOpacity, StringFormat='미터 투명도 — {0:P0}'}" Style="{StaticResource Label}" Margin="0,6,0,0"/>
                     <Slider Minimum="0" Maximum="1" Value="{Binding MeterOpacity}" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
 

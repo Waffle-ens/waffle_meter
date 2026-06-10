@@ -77,6 +77,10 @@ public partial class App : Application
         // Auto-hide / park-present + tray (Kotlin BrowserApp behavior).
         _controller = new OverlayController(window, services.Props);
         _controller.Start();
+        if (_settings.TaskbarMode)
+        {
+            _controller.SetTaskbarMode(true); // restore persisted taskbar/alt-tab mode
+        }
         _tray = new TrayIconController(window, _controller, () => Dispatcher.Invoke(ExitApp));
         window.PositionChanged += (left, top) => SavePosition(services.Props, left, top);
 

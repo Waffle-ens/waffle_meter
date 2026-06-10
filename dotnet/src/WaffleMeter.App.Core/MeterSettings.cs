@@ -37,6 +37,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _meterOpacity = ReadDouble("meterOpacity", 0.4);
         _isMinimal = ReadBool("isMinimal", false);
         _multiMonitorMode = ReadBool("multiMonitorMode", false);
+        _taskbarMode = ReadBool("taskbarMode", false);
     }
 
     private string _displayMode;
@@ -71,6 +72,9 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private bool _multiMonitorMode;
     public bool MultiMonitorMode { get => _multiMonitorMode; set => SetBool(ref _multiMonitorMode, "multiMonitorMode", value); }
+
+    private bool _taskbarMode;
+    public bool TaskbarMode { get => _taskbarMode; set => SetBool(ref _taskbarMode, "taskbarMode", value); }
 
     /// <summary>Resolve the masking mode enum for the meter rows.</summary>
     public NameDisplay NameDisplayMode => _nameDisplay switch

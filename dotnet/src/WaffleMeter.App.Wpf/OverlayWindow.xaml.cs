@@ -29,9 +29,14 @@ public partial class OverlayWindow : Window
     private const int WmActivate = 0x0006;
     private const int WmWindowPosChanged = 0x0047;
 
+    private const int SwHide = 0;
+    private const int SwShowNoActivate = 4;
+
     private IntPtr _handle;
     private bool _clickThrough;
+    private bool _taskbarMode;
     public bool ClickThrough => _clickThrough;
+    public bool TaskbarMode => _taskbarMode;
 
     /// <summary>Raised after a drag completes with the new Left/Top (App persists it).</summary>
     public event Action<double, double>? PositionChanged;
@@ -75,7 +80,11 @@ public partial class OverlayWindow : Window
         }
 
         int current = GetWindowLong(_handle, GwlExStyle);
-        int baseStyle = (current | WsExToolWindow | WsExLayered | WsExNoActivate) & ~WsExAppWindow;
+        // Taskbar mode: a normal, activatable window that shows in the taskbar + alt-tab (APPWINDOW, no
+        // TOOLWINDOW/NOACTIVATE). Overlay mode: the game-overlay style (TOOLWINDOW|NOACTIVATE, no taskbar).
+        int baseStyle = _taskbarMode
+            ? (current | WsExLayered | WsExAppWindow) & ~WsExToolWindow & ~WsExNoActivate
+            : (current | WsExToolWindow | WsExLayered | WsExNoActivate) & ~WsExAppWindow;
         int next = _clickThrough ? baseStyle | WsExTransparent : baseStyle & ~WsExTransparent;
         if (next == current)
         {
@@ -90,6 +99,33 @@ public partial class OverlayWindow : Window
     {
         _clickThrough = enable;
         SyncInputStyle();
+    }
+
+    /// <summary>
+    /// Toggle taskbar / alt-tab mode (taskbar style). Implemented purely via the ex-style
+    /// (APPWINDOW↔TOOLWINDOW + NOACTIVATE) so the HWND is NOT recreated (WPF's ShowInTaskbar property
+    /// would recreate it and break our handle/hook). A hide+show forces the shell to re-evaluate the
+    /// taskbar button after the style change.
+    /// </summary>
+    public void SetTaskbarMode(bool enable)
+    {
+        _taskbarMode = enable;
+        if (enable)
+        {
+            // Normal window: visible, interactive, not topmost (so it alt-tabs like any app).
+            Topmost = false;
+            Opacity = 1.0;
+            _clickThrough = false;
+        }
+
+        SyncInputStyle();
+
+        if (_handle != IntPtr.Zero)
+        {
+            ShowWindow(_handle, SwHide);
+            ShowWindow(_handle, SwShowNoActivate);
+            SyncInputStyle(); // re-assert after the show
+        }
     }
 
     /// <summary>Show the overlay; topMost tracks whether the game is foreground.</summary>
@@ -154,4 +190,7 @@ public partial class OverlayWindow : Window
 
     [DllImport("user32.dll")]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 }

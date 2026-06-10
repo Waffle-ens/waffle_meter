@@ -105,6 +105,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set { _controller.SetAutoHide(value); OnPropertyChanged(); }
     }
 
+    /// <summary>Taskbar / alt-tab mode: the overlay becomes a normal window (shows in taskbar + alt-tab,
+    /// auto-hide suspended). Applied live + persisted; the header also exposes this as a toggle.</summary>
+    public bool TaskbarMode
+    {
+        get => _settings.TaskbarMode;
+        set { _settings.TaskbarMode = value; _controller.SetTaskbarMode(value); OnPropertyChanged(); }
+    }
+
     // ---- hotkey rebinding (buffered, committed on Save) ----
     private HotkeyCombo _pendingReset;
     public HotkeyCombo PendingReset { get => _pendingReset; set => Set(ref _pendingReset, value); }
