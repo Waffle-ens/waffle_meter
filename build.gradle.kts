@@ -156,3 +156,24 @@ compose.desktop {
     }
 }
 
+// WPF/.NET migration parity harness: replay a recorded packet-debug corpus through the live
+// DataManager+DpsCalculator and dump deterministic DPS goldens (see tools/GoldenGenerator.kt).
+// Uses compiled classes + src/main/resources directly so it does NOT trigger the npm/vite frontend
+// build. Run: ./gradlew generateGolden -Pcorpus=<corpus.jsonl> -Pout=<out.json>
+tasks.register<JavaExec>("generateGolden") {
+    group = "verification"
+    description = "Replay a packet corpus through DataManager+DpsCalculator and dump DPS goldens."
+    dependsOn("compileKotlin")
+    mainClass.set("com.tbread.tools.GoldenGeneratorKt")
+    classpath = files(
+        sourceSets["main"].output.classesDirs,
+        configurations["runtimeClasspath"],
+        layout.projectDirectory.dir("src/main/resources"),
+    )
+    val corpus = project.findProperty("corpus") as String?
+    val out = project.findProperty("out") as String?
+    if (corpus != null && out != null) {
+        args(corpus, out)
+    }
+}
+

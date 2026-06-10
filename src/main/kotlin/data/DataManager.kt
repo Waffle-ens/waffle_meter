@@ -377,13 +377,19 @@ object DataManager {
 
     fun executorId(): Int = userRepository.executor()
 
+    // Injectable clock seam. Default = wall clock, so app behavior is unchanged. Tests / golden
+    // generators set this to a simulated clock so the time-based battle logic (battle-start window
+    // for activePacketCutoff, dummy timeout, ended-battle ignore window) is deterministic when
+    // replaying a recorded packet corpus.
+    var clock: () -> Long = { System.currentTimeMillis() }
+
     @Volatile
     private var lastDummyHitTime: Long = 0
     private val DUMMY_TIMEOUT_MS = 5000L
 
     fun touchDummyBattle(mobId: Int, epoch: Long) {
         if (resetEpoch.get() != epoch) return
-        lastDummyHitTime = System.currentTimeMillis()
+        lastDummyHitTime = clock()
         if (currentTarget() <= 0) {
             saveCurrentBattleStart()
             saveCurrentTarget(mobId)
@@ -394,7 +400,7 @@ object DataManager {
         val current = currentTarget()
         if (current <= 0) return
         if (!isCurrentTargetDummy()) return
-        if (System.currentTimeMillis() - lastDummyHitTime > DUMMY_TIMEOUT_MS) {
+        if (clock() - lastDummyHitTime > DUMMY_TIMEOUT_MS) {
             saveCurrentBattleEnd(lastDummyHitTime)
             saveCurrentTarget(-1)
             lastDummyHitTime = 0
@@ -404,7 +410,7 @@ object DataManager {
     @Synchronized
     fun startBattle(mobId: Int) {
         val mobCode = DataManager.mobId(mobId)
-        val now = System.currentTimeMillis()
+        val now = clock()
         val endedBattle = recentlyEndedBattles[mobId]
         if (
             currentTarget() <= 0 &&
@@ -435,7 +441,7 @@ object DataManager {
         val mobCode = activeBattleMobCode ?: DataManager.mobId(mobId)
         saveCurrentBattleEnd()
         saveCurrentTarget(-1)
-        recentlyEndedBattles[mobId] = EndedBattle(mobCode, System.currentTimeMillis())
+        recentlyEndedBattles[mobId] = EndedBattle(mobCode, clock())
         activeBattleMobCode = null
     }
 
@@ -448,10 +454,10 @@ object DataManager {
     }
 
     private fun saveCurrentBattleStart() {
-        packetRepository.saveCurrentBattleStart()
+        packetRepository.saveCurrentBattleStart(clock())
     }
 
-    private fun saveCurrentBattleEnd(time: Long = System.currentTimeMillis()) {
+    private fun saveCurrentBattleEnd(time: Long = clock()) {
         packetRepository.saveCurrentBattleEnd(time)
     }
 
