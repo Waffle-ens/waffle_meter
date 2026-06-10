@@ -26,22 +26,35 @@ public partial class App : Application
 
         var viewModel = new OverlayViewModel(services.Version);
         var window = new OverlayWindow { DataContext = viewModel };
+        window.Show();
 
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
-        _engine = new MeterEngine(services, new NamedPipeCaptureClient("windivert"));
+        // The connect timeout is generous so it tolerates the user answering the UAC prompt.
+        _engine = new MeterEngine(services, new NamedPipeCaptureClient("windivert", connectTimeoutMs: 30_000));
         _engine.ReportUpdated += report => Dispatcher.Invoke(() => viewModel.Update(report));
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = message);
-        try
+
+        CaptureHostLaunch launch = CaptureHostLauncher.EnsureRunning();
+        if (launch is CaptureHostLaunch.Declined or CaptureHostLaunch.NotFound or CaptureHostLaunch.Failed)
         {
-            _engine.Start();
-            viewModel.Status = "캡처 중";
-        }
-        catch (Exception ex)
-        {
-            viewModel.Status = $"캡처 헬퍼 미연결 ({ex.Message})";
+            viewModel.Status = $"캡처 헬퍼 시작 실패: {launch}";
+            return;
         }
 
-        window.Show();
+        viewModel.Status = "캡처 헬퍼 연결 중…";
+        // Start off the UI thread: the pipe connect blocks until the helper's pipe is up.
+        Task.Run(() =>
+        {
+            try
+            {
+                _engine.Start();
+                Dispatcher.Invoke(() => viewModel.Status = "캡처 중");
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.Invoke(() => viewModel.Status = $"캡처 시작 실패 ({ex.Message})");
+            }
+        });
     }
 
     private static void TryLoadCatalogs(MeterServices services)
