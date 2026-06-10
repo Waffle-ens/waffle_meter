@@ -10,7 +10,26 @@ public sealed record CaptureConfig(
     string ServerIp = "206.127.156.0/24",
     string ServerPort = "13328",
     int TimeoutMs = 10,
-    int SnapshotSize = 65536);
+    int SnapshotSize = 65536)
+{
+    /// <summary>
+    /// Port of Kotlin <c>PcapCapturerConfig.loadFromProperties</c>. Takes a property getter (so this
+    /// layer needs no dependency on the Services config project) and applies the same keys/defaults:
+    /// server.ip, server.port, server.timeout, server.maxSnapshotSize.
+    /// </summary>
+    public static CaptureConfig FromProperties(Func<string, string?> getProperty)
+    {
+        string ip = getProperty("server.ip") ?? "206.127.156.0/24";
+        string port = getProperty("server.port") ?? "13328";
+        int timeout = getProperty("server.timeout") is { } t
+            ? int.Parse(t, System.Globalization.CultureInfo.InvariantCulture)
+            : 10;
+        int snap = getProperty("server.maxSnapshotSize") is { } s
+            ? int.Parse(s, System.Globalization.CultureInfo.InvariantCulture)
+            : 65536;
+        return new CaptureConfig(ip, port, timeout, snap);
+    }
+}
 
 /// <summary>
 /// A live packet-capture source. Implementations (WinDivert default, Npcap option) sniff the

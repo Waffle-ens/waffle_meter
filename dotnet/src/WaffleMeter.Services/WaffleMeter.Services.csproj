@@ -11,4 +11,9 @@
     <RootNamespace>WaffleMeter.Services</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- JobClass (official lookup maps the server's pcId to a job). -->
+    <ProjectReference Include="..\WaffleMeter.Data\WaffleMeter.Data.csproj" />
+  </ItemGroup>
+
 </Project>
