@@ -55,7 +55,12 @@ public static class CaptureHostServer
             }
         }
 
-        backend.SegmentReceived += seg => Send(CaptureWireProtocol.FrameSegment, CaptureWireProtocol.EncodeSegment(seg));
+        long received = 0;
+        backend.SegmentReceived += seg =>
+        {
+            Interlocked.Increment(ref received);
+            Send(CaptureWireProtocol.FrameSegment, CaptureWireProtocol.EncodeSegment(seg));
+        };
 
         try
         {
@@ -69,6 +74,11 @@ public static class CaptureHostServer
         }
 
         Send(CaptureWireProtocol.FrameStarted, ReadOnlySpan<byte>.Empty);
+
+        // Heartbeat so the operator can see whether the filter is actually matching traffic.
+        using var stats = new System.Timers.Timer(2000) { AutoReset = true };
+        stats.Elapsed += (_, _) => log?.Invoke($"captured segments: {Interlocked.Read(ref received)}");
+        stats.Start();
 
         try
         {
