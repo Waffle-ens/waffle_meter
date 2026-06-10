@@ -1,3 +1,4 @@
+using System.Text;
 using WaffleMeter.App.Core;
 using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
@@ -70,5 +71,34 @@ public sealed class MeterServicesTests : IDisposable
         CaptureConfig config = _services.BuildCaptureConfig();
         Assert.Equal("206.127.156.0/24", config.ServerIp);
         Assert.Equal("13328", config.ServerPort);
+    }
+
+    [Fact]
+    public void Feed_logs_each_segment_as_a_capture_line_with_the_right_fields()
+    {
+        // Proves the MeterServices -> DebugLogger.Capture wiring passes the segment's ip/seq/data/at
+        // (not just that the logger formats correctly). Inject a logger pointed at a temp dir so the
+        // test never touches the real %APPDATA% packet-debug-logs.
+        string logDir = Path.Combine(_temp, "pdl");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(new PropertyHandler(_temp), debugLogger: logger));
+
+        logger.Start();
+        services.Value.Feed(new CapturedSegment(42, new byte[] { 0x0A, 0x0B }, 12345, "9.9.9.9", 1, "8.8.8.8", 2));
+        logger.Stop();
+
+        string file = Directory.GetFiles(logDir, "*.jsonl").Single();
+        string[] lines = File.ReadAllLines(file, Encoding.UTF8).Where(l => l.Length > 0).ToArray();
+        Assert.Contains(
+            "{\"type\":\"capture\",\"at\":12345,\"ip\":\"9.9.9.9\",\"seq\":42,\"len\":2,\"head\":\"0A 0B\",\"data\":\"Cgs=\"}",
+            lines);
+    }
+
+    // Disposes the extra MeterServices' upload-queue thread without leaking it past the test.
+    private sealed class ServicesScope(MeterServices value) : IDisposable
+    {
+        public MeterServices Value { get; } = value;
+
+        public void Dispose() => Value.UploadQueue.Dispose();
     }
 }

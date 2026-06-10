@@ -26,6 +26,11 @@ public sealed class MeterServices
     public StatsUploadQueue UploadQueue { get; }
     public string Version { get; }
 
+    /// <summary>Diagnostic packet-debug-logs writer (off by default). Doubles as the stream processor
+    /// sink + capture/assembled hooks, so the app can record a replayable corpus without the Kotlin
+    /// dev build. Toggle with <c>DebugLogger.Start()/Stop()</c>.</summary>
+    public PacketDebugLogger DebugLogger { get; }
+
     // Per-connection stream demux (Kotlin Main.kt after dev d00c850): the game can flow over a local
     // proxy on loopback with dynamic ports where multiple connections share a srcPort, so streams are
     // keyed by the full 4-tuple; each owns its own aligner+assembler over ONE shared StreamProcessor.
@@ -45,7 +50,8 @@ public sealed class MeterServices
     public MeterServices(
         PropertyHandler props,
         StatsApiClient.RequestFunc? statsTransport = null,
-        OfficialCharacterLookup? officialLookup = null)
+        OfficialCharacterLookup? officialLookup = null,
+        PacketDebugLogger? debugLogger = null)
     {
         Props = props;
         Version = VersionConfig.LoadFromProperties(props).Version;
@@ -54,8 +60,10 @@ public sealed class MeterServices
         Data = new DataManager { OfficialLookup = OfficialLookup };
 
         // Pipeline (single consumer owns these; the calculator's flush resets framing + ordering of
-        // every live stream).
-        _processor = new StreamProcessor(NullStreamProcessorSink.Instance, Data);
+        // every live stream). The debug logger is the processor sink so a diagnostic session captures
+        // dispatch/damage/meta/etc.; it is an inert no-op until DebugLogger.Start() is called.
+        DebugLogger = debugLogger ?? new PacketDebugLogger();
+        _processor = new StreamProcessor(DebugLogger, Data);
         Calculator = new DpsCalculator(Data, FlushAllStreams);
 
         // Stats stack. Break the consent <-> builder cycle with a deferred reference.
@@ -95,11 +103,18 @@ public sealed class MeterServices
     /// <summary>Feeds one captured segment through its per-connection stream (Kotlin Main.kt consumer).</summary>
     public void Feed(CapturedSegment segment)
     {
+        // L0: log the raw segment (pre-alignment) for a diagnostic session — replayable corpus input.
+        DebugLogger.Capture(segment.SrcIp, segment.Seq, segment.Payload, segment.ArrivedAtMs);
+
         if (!_streams.TryGetValue(segment.StreamKey, out StreamState? state))
         {
             state = new StreamState(
                 new PacketAlignmenter(),
-                new StreamAssembler((packet, at) => _processor.OnPacketReceived(packet, at)));
+                new StreamAssembler((packet, at) =>
+                {
+                    DebugLogger.Assembled(packet, at); // L1: reassembled application packet
+                    _processor.OnPacketReceived(packet, at);
+                }));
             _streams[segment.StreamKey] = state;
         }
 
