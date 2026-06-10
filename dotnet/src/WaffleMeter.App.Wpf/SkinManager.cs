@@ -45,8 +45,13 @@ public sealed class SkinManager
             name = "dark";
         }
 
+        ResourceDictionary? next = TryLoad(name) ?? TryLoad("dark");
+        if (next == null)
+        {
+            return; // could not load any palette — leave current resources untouched
+        }
+
         Collection<ResourceDictionary> merged = Application.Current.Resources.MergedDictionaries;
-        var next = new ResourceDictionary { Source = PaletteUri(name) };
         if (_palette != null)
         {
             merged.Remove(_palette);
@@ -55,6 +60,18 @@ public sealed class SkinManager
         merged.Insert(0, next); // palette first; DynamicResource Skin.* resolves from here
         _palette = next;
         _props.SetProperty("skin", name);
+    }
+
+    private static ResourceDictionary? TryLoad(string name)
+    {
+        try
+        {
+            return new ResourceDictionary { Source = PaletteUri(name) };
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static Uri PaletteUri(string name)
