@@ -25,6 +25,9 @@ public sealed class User
 
     public override int GetHashCode() => Id;
     public override bool Equals(object? obj) => obj is User u && u.Id == Id;
+
+    /// <summary>Kotlin data-class <c>copy()</c> — a mutable snapshot (used by the stats builder).</summary>
+    public User Copy() => new(Id, Nickname, Server, Job, IsExecutor, Power);
 }
 
 /// <summary>Per-player aggregate (Kotlin DpsInformation). Doubles, mutable.</summary>

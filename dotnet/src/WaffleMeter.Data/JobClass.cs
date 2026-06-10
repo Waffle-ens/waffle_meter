@@ -58,4 +58,18 @@ public static class JobClassInfo
         9 or 10 or 11 or 12 => JobClass.TEMPLAR,
         _ => null,
     };
+
+    /// <summary>Kotlin JobClass.basicSkillCode (job -> base skill code; used for buff-source job match).</summary>
+    public static int BasicSkillCode(this JobClass job) => job switch
+    {
+        JobClass.GLADIATOR => 11020000,
+        JobClass.TEMPLAR => 12010000,
+        JobClass.RANGER => 14020000,
+        JobClass.ASSASSIN => 13010000,
+        JobClass.SORCERER => 15210000,
+        JobClass.CLERIC => 17010000,
+        JobClass.ELEMENTALIST => 16010000,
+        JobClass.CHANTER => 18010000,
+        _ => 0,
+    };
 }

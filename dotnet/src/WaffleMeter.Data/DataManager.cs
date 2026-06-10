@@ -146,6 +146,9 @@ public sealed class DataManager : ICaptureGameData
     public User? User(int uid) => _userRepository.Get(uid);
     public int ExecutorId() => _userRepository.Executor();
 
+    public User? FindUserByNicknameAndServer(string nickname, int server) =>
+        _userRepository.FindByNicknameAndServer(nickname, server);
+
     public void SaveUserPower(int uid, int power)
     {
         if (power <= 0) return;
