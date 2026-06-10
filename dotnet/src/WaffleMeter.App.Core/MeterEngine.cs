@@ -62,7 +62,17 @@ public sealed class MeterEngine : IDisposable
         {
             while (reader.TryRead(out CapturedSegment segment))
             {
-                _services.Feed(segment);
+                // Defense-in-depth: with content-based capture, non-game / truncated TCP flows through
+                // here. The parser dispatch already guards itself, but a framing-level throw (aligner /
+                // assembler on garbage) must never kill the single consumer thread — swallow per-segment.
+                try
+                {
+                    _services.Feed(segment);
+                }
+                catch
+                {
+                    // ignore one bad segment; keep draining
+                }
             }
 
             if (stopwatch.ElapsedMilliseconds - lastReport >= _reportIntervalMs)

@@ -164,37 +164,47 @@ public sealed class StreamProcessor
             return;
         }
 
-        switch (opcodeKey)
+        // Content-based capture feeds non-game / truncated TCP through here; a handler that reads past
+        // a short buffer must be IGNORED (counted as a parser error), never crash the consumer. The
+        // game stream is identified by which bytes parse cleanly as known opcodes.
+        try
         {
-            case DamageKey:
-                ParsingDamage(packet, extraFlag, arrivedAt);
-                break;
-            case DoTKey:
-                ParseDoTPacket(packet, extraFlag, arrivedAt);
-                break;
-            case OwnNicknameKey:
-                SearchOwnNickname(packet, lengthInfo, arrivedAt);
-                break;
-            case OtherNicknameKey:
-                SearchOtherNickname(packet, lengthInfo, arrivedAt);
-                break;
-            case OwnCombatPowerKey:
-                ParseOwnCombatPower(packet, lengthInfo, extraFlag, arrivedAt);
-                break;
-            case SummonKey:
-                ParseSummonPacket(packet, extraFlag);
-                break;
-            case BattleToggleKey:
-                ParseBattlePacket(packet, lengthInfo, extraFlag);
-                break;
-            case RemainHpKey:
-                ParseRemainHp(packet, lengthInfo, extraFlag);
-                break;
-            case BuffApplyKey:
-            case BuffApply2Key:
-                ParseBuffPacket(packet, lengthInfo, extraFlag, arrivedAt);
-                break;
-            // join-request handlers (PacketEvent) are ported with the services/UI phase.
+            switch (opcodeKey)
+            {
+                case DamageKey:
+                    ParsingDamage(packet, extraFlag, arrivedAt);
+                    break;
+                case DoTKey:
+                    ParseDoTPacket(packet, extraFlag, arrivedAt);
+                    break;
+                case OwnNicknameKey:
+                    SearchOwnNickname(packet, lengthInfo, arrivedAt);
+                    break;
+                case OtherNicknameKey:
+                    SearchOtherNickname(packet, lengthInfo, arrivedAt);
+                    break;
+                case OwnCombatPowerKey:
+                    ParseOwnCombatPower(packet, lengthInfo, extraFlag, arrivedAt);
+                    break;
+                case SummonKey:
+                    ParseSummonPacket(packet, extraFlag);
+                    break;
+                case BattleToggleKey:
+                    ParseBattlePacket(packet, lengthInfo, extraFlag);
+                    break;
+                case RemainHpKey:
+                    ParseRemainHp(packet, lengthInfo, extraFlag);
+                    break;
+                case BuffApplyKey:
+                case BuffApply2Key:
+                    ParseBuffPacket(packet, lengthInfo, extraFlag, arrivedAt);
+                    break;
+                // join-request handlers (PacketEvent) are ported with the services/UI phase.
+            }
+        }
+        catch (Exception e)
+        {
+            _sink.ParserError("dispatch", e.GetType().Name);
         }
     }
 
