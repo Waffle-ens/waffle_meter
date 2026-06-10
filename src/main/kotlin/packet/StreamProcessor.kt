@@ -32,10 +32,12 @@ class StreamProcessor() {
     private sealed class Opcode(b1: Int, b2: Int) {
         val key: Int = b1 or (b2 shl 8)
 
+        // 2026-06-10 서버 패치: 0x36 카테고리에 메시지가 하나 삽입되어 index >= 0x40 인 opcode 가 +1 시프트됨.
+        // OwnNickname(0x33)은 0x40 미만이라 그대로, Summon/OtherNickname/OwnCombatPower 는 +1.
         object OwnNickname   : Opcode(0x33, 0x36)
-        object OwnCombatPower : Opcode(0x55, 0x36)
-        object OtherNickname : Opcode(0x44, 0x36)
-        object Summon        : Opcode(0x40, 0x36)
+        object OwnCombatPower : Opcode(0x56, 0x36) // was 0x55
+        object OtherNickname : Opcode(0x45, 0x36) // was 0x44
+        object Summon        : Opcode(0x41, 0x36) // was 0x40
         object Damage        : Opcode(0x04, 0x38)
         object DoT           : Opcode(0x05, 0x38)
         object BuffApply     : Opcode(0x2A, 0x38)
@@ -251,7 +253,7 @@ class StreamProcessor() {
 
     private fun searchOtherNickname(packet: ByteArray, lengthInfo: VarIntOutput, arrivedAt: Long) {
         var offset = lengthInfo.length
-        if (packet[offset] != 0x44.toByte()) return
+        if (packet[offset] != 0x45.toByte()) return // was 0x44 (서버 패치로 +1 시프트)
         if (packet[offset + 1] != 0x36.toByte()) return
 
         offset += 2
@@ -510,7 +512,7 @@ class StreamProcessor() {
         }
 
 
-        if (packet[offset] != 0x40.toByte()) return false
+        if (packet[offset] != 0x41.toByte()) return false // was 0x40 (서버 패치로 +1 시프트)
         if (packet[offset + 1] != 0x36.toByte()) return false
         offset += 2
 
