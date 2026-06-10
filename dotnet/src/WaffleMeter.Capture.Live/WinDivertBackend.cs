@@ -20,7 +20,7 @@ public sealed class WinDivertBackend : IPacketCaptureBackend
 {
     private const int LayerNetwork = 0;
     private const ulong FlagSniff = 0x0001;
-    private const ulong FlagRecvOnly = 0x0008;
+    private const ulong FlagRecvOnly = 0x0004; // WinDivert 2.x RECV_ONLY (0x0008 is SEND_ONLY — the bug that captured 0)
     private static readonly IntPtr InvalidHandle = new(-1);
 
     [StructLayout(LayoutKind.Sequential, Size = 64)]
