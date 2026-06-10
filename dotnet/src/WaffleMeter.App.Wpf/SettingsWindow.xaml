@@ -10,6 +10,13 @@
         <local:InverseBooleanToVisibilityConverter x:Key="BoolToVisInverse"/>
         <local:FontFamilyConverter x:Key="FontConv"/>
 
+        <!-- Option label template — used for BOTH the dropdown items and the selection box, so the
+             custom ComboBox template's ContentPresenter shows the selected label (DisplayMemberPath did
+             not populate SelectionBoxItemTemplate in the custom template). -->
+        <DataTemplate x:Key="OptionItemTemplate">
+            <TextBlock Text="{Binding Label}" Foreground="#FFEEEEEE"/>
+        </DataTemplate>
+
         <!-- Dark theme: the overlay/detail windows are dark, so the settings window matches. -->
         <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#FFE0E0E0"/></Style>
         <Style TargetType="TextBlock" x:Key="Label"><Setter Property="FontSize" Value="11"/><Setter Property="Foreground" Value="#FF9A9A9A"/></Style>
@@ -144,15 +151,15 @@
             <TabItem Header="표시">
                 <StackPanel Margin="10">
                     <TextBlock Text="표시 형식" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding DisplayModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DisplayMode}"/>
+                    <ComboBox ItemsSource="{Binding DisplayModes}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DisplayMode}"/>
                     <TextBlock Text="딜량 기준" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding DamageValueModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DamageValueMode}"/>
+                    <ComboBox ItemsSource="{Binding DamageValueModes}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DamageValueMode}"/>
                     <TextBlock Text="기여도 표시 방식" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding ContributionModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding ContributionMode}"/>
+                    <ComboBox ItemsSource="{Binding ContributionModes}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding ContributionMode}"/>
                     <TextBlock Text="아이디 표기" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding NameDisplays}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding NameDisplay}"/>
+                    <ComboBox ItemsSource="{Binding NameDisplays}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding NameDisplay}"/>
                     <TextBlock Text="글꼴" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding FontFamilies}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
+                    <ComboBox ItemsSource="{Binding FontFamilies}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
                     <TextBlock Text="{Binding RowHeight, StringFormat='행 높이 — {0}px'}" Style="{StaticResource Label}" Margin="0,4,0,0"/>
                     <Slider Minimum="24" Maximum="80" Value="{Binding RowHeight}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                 </StackPanel>
@@ -166,7 +173,7 @@
                     <Slider Minimum="0" Maximum="1" Value="{Binding MeterOpacity}" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
 
                     <Separator Margin="0,10"/>
-                    <TextBlock Text="단축키 (Ctrl/Alt 필요)" Style="{StaticResource Label}"/>
+                    <TextBlock Text="단축키 (단일 키 또는 Ctrl/Alt 조합)" Style="{StaticResource Label}"/>
                     <Grid Margin="0,2">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="전투 초기화" VerticalAlignment="Center"/>

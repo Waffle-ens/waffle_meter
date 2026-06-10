@@ -6,9 +6,10 @@ using WaffleMeter.App.Core;
 namespace WaffleMeter.App.Wpf;
 
 /// <summary>
-/// Interactive hotkey rebinding box (React useHotkeyCapture): focus to capture; requires Ctrl and/or
-/// Alt (rejects Shift/Win and pure modifier keys); maps the WPF key to a Win32 VK so the stored combo
-/// matches the JS keyCode. Two-way <see cref="Combo"/> binds to the view model's pending hotkey.
+/// Interactive hotkey rebinding box: focus to capture, press a key. A single key (no modifier) is
+/// allowed, as are Ctrl/Alt combos; Shift/Win are ignored as modifiers and pure modifier presses are
+/// skipped (wait for the real key). Maps the WPF key to a Win32 VK so the stored combo matches the JS
+/// keyCode. Two-way <see cref="Combo"/> binds to the view model's pending hotkey.
 /// </summary>
 public sealed class HotkeyCaptureBox : TextBox
 {
@@ -38,24 +39,17 @@ public sealed class HotkeyCaptureBox : TextBox
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         e.Handled = true;
-        ModifierKeys mods = Keyboard.Modifiers;
-        if (mods.HasFlag(ModifierKeys.Shift) || mods.HasFlag(ModifierKeys.Windows))
-        {
-            return;
-        }
-
-        if (!mods.HasFlag(ModifierKeys.Control) && !mods.HasFlag(ModifierKeys.Alt))
-        {
-            return; // a Ctrl/Alt modifier is required
-        }
 
         Key key = e.Key == Key.System ? e.SystemKey : e.Key;
         int vk = KeyInterop.VirtualKeyFromKey(key);
         if (Array.IndexOf(PureModifiers, vk) >= 0)
         {
-            return; // ignore pure modifier presses
+            return; // a pure modifier was pressed alone — wait for the actual key
         }
 
+        // Single key (no modifier) is allowed; Ctrl/Alt combine if held. Shift/Win are ignored as
+        // modifiers (RegisterHotKey + the label formatter only model Ctrl/Alt).
+        ModifierKeys mods = Keyboard.Modifiers;
         int modifiers = (mods.HasFlag(ModifierKeys.Control) ? HotkeyHandler.ModControl : 0)
                         | (mods.HasFlag(ModifierKeys.Alt) ? HotkeyHandler.ModAlt : 0);
         Combo = new HotkeyCombo(modifiers, vk);
