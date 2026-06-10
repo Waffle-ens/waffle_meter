@@ -24,15 +24,32 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     private readonly int _uid;
     private readonly DpsCalculator _calc;
 
-    public DetailsViewModel(DpsReport report, int uid, DpsCalculator calc, string name)
+    public DetailsViewModel(DpsReport report, int uid, DpsCalculator calc, string name, MeterColorTheme theme, string fontFamily)
     {
         _uid = uid;
         _calc = calc;
         Title = $"{name} 상세내역";
+        FontFamily = fontFamily;
+        // Theme-linked text colors (snapshot at open; the detail window is short-lived per row click).
+        AmountBrush = ThemeBrush(theme.MeterStatAmount);
+        ContributionBrush = ThemeBrush(theme.MeterStatPercent);
+        DetailCombatTimeBrush = ThemeBrush(theme.CombatTimeColor);
         Refresh(report);
     }
 
     public string Title { get; }
+
+    /// <summary>Selected UI font family (resolved to a FontFamily by FontFamilyConverter in XAML).</summary>
+    public string FontFamily { get; }
+
+    /// <summary>누적 피해량 color (theme meterStatAmount).</summary>
+    public Brush AmountBrush { get; }
+
+    /// <summary>피해량 기여도 color (theme meterStatPercent).</summary>
+    public Brush ContributionBrush { get; }
+
+    /// <summary>전투 시간 color (theme combatTimeColor).</summary>
+    public Brush DetailCombatTimeBrush { get; }
     public ObservableCollection<SkillGroupVM> Skills { get; } = new();
     public ObservableCollection<BuffSectionVM> Buffs { get; } = new();
     public ObservableCollection<BuffSectionVM> Debuffs { get; } = new();
@@ -121,6 +138,13 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     {
         b.Freeze();
         return b;
+    }
+
+    // Theme colors may be rgba(...) (ColorConverter can't parse that) -> use ColorString.
+    private static Brush ThemeBrush(string value)
+    {
+        Color color = ColorString.TryParse(value, out ColorRgba c) ? Color.FromArgb(c.A, c.R, c.G, c.B) : Colors.White;
+        return Frozen(new SolidColorBrush(color));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

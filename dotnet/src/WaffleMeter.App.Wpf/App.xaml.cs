@@ -186,7 +186,7 @@ public partial class App : Application
         _detailWindow?.Close();
 
         string name = _lastReport.Contributors.FirstOrDefault(c => c.Id == uid)?.Nickname ?? uid.ToString();
-        _detailViewModel = new DetailsViewModel(_lastReport, uid, services.Calculator, name);
+        _detailViewModel = new DetailsViewModel(_lastReport, uid, services.Calculator, name, _theme!, _settings!.FontFamily);
         _detailUid = uid;
         _detailWindow = new DetailWindow
         {

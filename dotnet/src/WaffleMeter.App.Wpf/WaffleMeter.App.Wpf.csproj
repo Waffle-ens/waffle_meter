@@ -44,6 +44,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Bundled UI fonts (embedded so they render without a system install). Drop .ttf/.otf into Fonts\
+         (see Fonts\README.md); the FontFamilyConverter resolves them by family name, else falls back. -->
+    <Resource Include="Fonts\*.ttf" />
+    <Resource Include="Fonts\*.otf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Reference catalogs the overlay needs for mob/skill/buff names; copied next to the exe. -->
     <Content Include="..\..\..\src\main\resources\json\*.json" Link="json\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <!-- Tray icon (NotifyIcon needs an .ico file at runtime). -->

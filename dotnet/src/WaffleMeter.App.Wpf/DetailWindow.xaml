@@ -8,6 +8,7 @@
         Width="820" Height="600" Left="460" Top="40" FontFamily="Segoe UI">
     <Window.Resources>
         <local:RatioToStarConverter x:Key="RatioToStar"/>
+        <local:FontFamilyConverter x:Key="FontConv"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style x:Key="Stat" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#FFCFCFCF"/>
@@ -18,7 +19,8 @@
             <Setter Property="Foreground" Value="#FF888888"/>
         </Style>
     </Window.Resources>
-    <Border Background="#F21B1B1B" CornerRadius="8" Padding="12">
+    <Border Background="#F21B1B1B" CornerRadius="8" Padding="12"
+            TextElement.FontFamily="{Binding FontFamily, Converter={StaticResource FontConv}}">
         <DockPanel>
             <Grid DockPanel.Dock="Top" MouseLeftButtonDown="OnDragHandle" Background="Transparent" Margin="0,0,0,8">
                 <TextBlock Text="{Binding Title}" Foreground="#FFEEEEEE" FontWeight="Bold" FontSize="14"/>
@@ -31,14 +33,14 @@
                 <UniformGrid.Resources>
                     <Style TargetType="StackPanel"><Setter Property="Margin" Value="2"/></Style>
                 </UniformGrid.Resources>
-                <StackPanel><TextBlock Text="누적 피해량" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding TotalDamageText}" Foreground="#FFF8D66D" FontWeight="Bold"/></StackPanel>
-                <StackPanel><TextBlock Text="피해량 기여도" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding ContributionText}" Foreground="#FF8EE6CF"/></StackPanel>
+                <StackPanel><TextBlock Text="누적 피해량" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding TotalDamageText}" Foreground="{Binding AmountBrush}" FontWeight="Bold"/></StackPanel>
+                <StackPanel><TextBlock Text="피해량 기여도" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding ContributionText}" Foreground="{Binding ContributionBrush}"/></StackPanel>
                 <StackPanel><TextBlock Text="치명타 비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding CritText}" Foreground="#FFEEEEEE"/></StackPanel>
                 <StackPanel><TextBlock Text="강타 비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding StrongText}" Foreground="#FFEEEEEE"/></StackPanel>
                 <StackPanel><TextBlock Text="완벽 비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding PerfectText}" Foreground="#FFEEEEEE"/></StackPanel>
                 <StackPanel><TextBlock Text="백어택 비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding BackText}" Foreground="#FFEEEEEE"/></StackPanel>
                 <StackPanel><TextBlock Text="보스 막기비율" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="0.0%" Foreground="#FFEEEEEE"/></StackPanel>
-                <StackPanel><TextBlock Text="전투시간" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding CombatTimeText}" Foreground="#FFCBD5E1"/></StackPanel>
+                <StackPanel><TextBlock Text="전투시간" Style="{StaticResource Head}" TextAlignment="Left"/><TextBlock Text="{Binding CombatTimeText}" Foreground="{Binding DetailCombatTimeBrush}"/></StackPanel>
             </UniformGrid>
 
             <ScrollViewer VerticalScrollBarVisibility="Auto">

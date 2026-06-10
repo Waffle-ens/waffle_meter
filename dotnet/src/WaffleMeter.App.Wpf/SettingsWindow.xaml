@@ -8,10 +8,11 @@
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize" FontFamily="Segoe UI">
     <Window.Resources>
         <local:InverseBooleanToVisibilityConverter x:Key="BoolToVisInverse"/>
+        <local:FontFamilyConverter x:Key="FontConv"/>
         <Style TargetType="ComboBox"><Setter Property="Margin" Value="0,2,0,8"/></Style>
         <Style TargetType="TextBlock" x:Key="Label"><Setter Property="FontSize" Value="11"/><Setter Property="Foreground" Value="#FF666666"/></Style>
     </Window.Resources>
-    <DockPanel Margin="14">
+    <DockPanel Margin="14" TextElement.FontFamily="{Binding FontFamily, Converter={StaticResource FontConv}}">
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="취소" Width="80" Click="OnCancel" Margin="0,0,8,0"/>
             <Button Content="저장" Width="80" Click="OnSave"/>
@@ -27,6 +28,8 @@
                     <ComboBox ItemsSource="{Binding ContributionModes}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding ContributionMode}"/>
                     <TextBlock Text="아이디 표기" Style="{StaticResource Label}"/>
                     <ComboBox ItemsSource="{Binding NameDisplays}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding NameDisplay}"/>
+                    <TextBlock Text="글꼴" Style="{StaticResource Label}"/>
+                    <ComboBox ItemsSource="{Binding FontFamilies}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
                     <TextBlock Text="{Binding RowHeight, StringFormat='행 높이 — {0}px'}" Style="{StaticResource Label}" Margin="0,4,0,0"/>
                     <Slider Minimum="24" Maximum="80" Value="{Binding RowHeight}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                 </StackPanel>

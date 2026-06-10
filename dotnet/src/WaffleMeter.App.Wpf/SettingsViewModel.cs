@@ -70,11 +70,23 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("모두 숨김", "hidden"),
     };
 
+    // Bundled-or-fallback fonts (see Fonts/README.md). Malgun Gothic is always available.
+    public IReadOnlyList<SettingOption> FontFamilies { get; } = new[]
+    {
+        new SettingOption("맑은 고딕 (기본)", "Malgun Gothic"),
+        new SettingOption("NEXON Lv2 Gothic", "NEXON Lv2 Gothic"),
+        new SettingOption("Pretendard", "Pretendard"),
+        new SettingOption("Spoqa Han Sans Neo", "Spoqa Han Sans Neo"),
+        new SettingOption("Freesentation", "Freesentation"),
+        new SettingOption("Tmoney Round Wind", "Tmoney Round Wind"),
+    };
+
     // ---- display tab (live) ----
     public string DisplayMode { get => _settings.DisplayMode; set { _settings.DisplayMode = value; OnPropertyChanged(); } }
     public string DamageValueMode { get => _settings.DamageValueMode; set { _settings.DamageValueMode = value; OnPropertyChanged(); } }
     public string ContributionMode { get => _settings.ContributionMode; set { _settings.ContributionMode = value; OnPropertyChanged(); } }
     public string NameDisplay { get => _settings.NameDisplay; set { _settings.NameDisplay = value; OnPropertyChanged(); } }
+    public string FontFamily { get => _settings.FontFamily; set { _settings.FontFamily = value; OnPropertyChanged(); } }
     public int RowHeight { get => _settings.RowHeight; set { _settings.RowHeight = value; OnPropertyChanged(); } }
 
     // ---- overlay tab (live) ----
@@ -229,11 +241,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     private sealed record Snapshot(
         string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
-        int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide)
+        string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
-            s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide);
+            s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -241,6 +253,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.DamageValueMode = DamageValueMode;
             s.ContributionMode = ContributionMode;
             s.NameDisplay = NameDisplay;
+            s.FontFamily = FontFamily;
             s.RowHeight = RowHeight;
             s.MeterOpacity = MeterOpacity;
             s.MultiMonitorMode = MultiMonitor;
