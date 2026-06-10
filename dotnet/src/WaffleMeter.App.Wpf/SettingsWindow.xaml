@@ -94,7 +94,7 @@
                                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
                                 <ToggleButton.Template>
                                     <ControlTemplate TargetType="ToggleButton">
-                                        <Border Background="{TemplateBinding Background}" BorderBrush="#FF454545" BorderThickness="1" CornerRadius="4">
+                                        <Border Background="#FF2A2A2A" BorderBrush="#FF454545" BorderThickness="1" CornerRadius="4">
                                             <Path HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
                                                   Fill="#FFAAAAAA" Data="M 0 0 L 8 0 L 4 4 Z"/>
                                         </Border>
