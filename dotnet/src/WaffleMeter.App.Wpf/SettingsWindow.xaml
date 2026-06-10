@@ -150,6 +150,8 @@
         <TabControl>
             <TabItem Header="표시">
                 <StackPanel Margin="10">
+                    <TextBlock Text="스타일 (스킨)" Style="{StaticResource Label}"/>
+                    <ComboBox ItemsSource="{Binding Skins}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Name" SelectedValue="{Binding Skin}"/>
                     <TextBlock Text="표시 형식" Style="{StaticResource Label}"/>
                     <ComboBox ItemsSource="{Binding DisplayModes}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DisplayMode}"/>
                     <TextBlock Text="딜량 기준" Style="{StaticResource Label}"/>

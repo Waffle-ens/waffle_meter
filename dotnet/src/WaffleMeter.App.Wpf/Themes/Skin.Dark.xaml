@@ -1,0 +1,20 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- "Dark" skin palette (the current default look). Skin.* brush keys are referenced via
+         DynamicResource by Skin.Controls.xaml + the windows, so swapping this dictionary at runtime
+         re-themes the whole app. Keep the key set identical across all skin palettes. -->
+    <Color x:Key="Skin.OverlayBgColor">#1E1E1E</Color>
+    <SolidColorBrush x:Key="Skin.WindowBg" Color="#FF1E1E1E"/>
+    <SolidColorBrush x:Key="Skin.PanelBg" Color="#F21B1B1B"/>
+    <SolidColorBrush x:Key="Skin.Fg" Color="#FFE0E0E0"/>
+    <SolidColorBrush x:Key="Skin.MutedFg" Color="#FF9A9A9A"/>
+    <SolidColorBrush x:Key="Skin.Border" Color="#FF454545"/>
+    <SolidColorBrush x:Key="Skin.Accent" Color="#FF3A6EA5"/>
+    <SolidColorBrush x:Key="Skin.ControlBg" Color="#FF2A2A2A"/>
+    <SolidColorBrush x:Key="Skin.ControlBorder" Color="#FF454545"/>
+    <SolidColorBrush x:Key="Skin.ControlHover" Color="#FF484848"/>
+    <SolidColorBrush x:Key="Skin.ButtonBg" Color="#FF383838"/>
+    <SolidColorBrush x:Key="Skin.StatBg" Color="#57020617"/>
+    <SolidColorBrush x:Key="Skin.RowHover" Color="#14FFFFFF"/>
+    <SolidColorBrush x:Key="Skin.TabSelectedBg" Color="#FF2D2D2D"/>
+</ResourceDictionary>

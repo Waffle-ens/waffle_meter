@@ -26,7 +26,7 @@
     <Border CornerRadius="6" Padding="10,8" MinWidth="380"
             TextElement.FontFamily="{Binding Settings.FontFamily, Converter={StaticResource FontConv}}">
         <Border.Background>
-            <SolidColorBrush Color="#1E1E1E" Opacity="{Binding Settings.MeterOpacity}"/>
+            <SolidColorBrush Color="{DynamicResource Skin.OverlayBgColor}" Opacity="{Binding Settings.MeterOpacity}"/>
         </Border.Background>
         <StackPanel>
             <Grid Margin="0,0,0,6">
@@ -60,7 +60,7 @@
                                     <Setter Property="Background" Value="Transparent"/>
                                     <Style.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="#14FFFFFF"/>
+                                            <Setter Property="Background" Value="{DynamicResource Skin.RowHover}"/>
                                         </Trigger>
                                     </Style.Triggers>
                                 </Style>
@@ -77,7 +77,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Background="#57020617" BorderBrush="#1C94A3B8" BorderThickness="1"
+                                    <Border Grid.Column="0" Background="{DynamicResource Skin.StatBg}" BorderBrush="#1C94A3B8" BorderThickness="1"
                                             CornerRadius="6" MinWidth="22" Height="20" Padding="4,0" Margin="0,0,6,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Rank}" Foreground="#FFAAAAAA" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.32:9'}"/>
@@ -86,17 +86,17 @@
                                         <TextBlock Text="{Binding Name}" Foreground="{Binding NameBrush}" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" MaxWidth="150"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
-                                        <Border Background="#57020617" BorderBrush="#1C94A3B8" BorderThickness="1" CornerRadius="4"
+                                        <Border Background="{DynamicResource Skin.StatBg}" BorderBrush="#1C94A3B8" BorderThickness="1" CornerRadius="4"
                                                 Padding="4,0" Margin="6,0,0,0" VerticalAlignment="Center" Visibility="{Binding PowerVisible}">
                                             <TextBlock Text="{Binding PowerText}" Foreground="{Binding PowerBrush}"
                                                        FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.32:9'}"/>
                                         </Border>
                                     </StackPanel>
-                                    <Border Grid.Column="2" Background="#57020617" CornerRadius="4" Padding="5,0" Margin="6,0,4,0" VerticalAlignment="Center">
+                                    <Border Grid.Column="2" Background="{DynamicResource Skin.StatBg}" CornerRadius="4" Padding="5,0" Margin="6,0,4,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding DamageText}" Foreground="{Binding DamageBrush}"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
                                     </Border>
-                                    <Border Grid.Column="3" Background="#57020617" CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
+                                    <Border Grid.Column="3" Background="{DynamicResource Skin.StatBg}" CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding PercentText}" Foreground="{Binding PercentBrush}" MinWidth="40" TextAlignment="Right"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
                                     </Border>

@@ -15,6 +15,7 @@ public partial class App : Application
     private MeterEngine? _engine;
     private MeterSettings? _settings;
     private MeterColorTheme? _theme;
+    private SkinManager? _skin;
     private UpdateService? _updateService;
     private HotkeyHandler? _hotkeys;
     private OverlayController? _controller;
@@ -67,6 +68,10 @@ public partial class App : Application
         var services = new MeterServices(new PropertyHandler());
         TryLoadCatalogs(services);
 
+        // Apply the persisted skin (palette) into Application.Resources before any window is built.
+        _skin = new SkinManager(services.Props);
+        _skin.ApplyInitial();
+
         _settings = new MeterSettings(services.Props);
         _theme = new MeterColorTheme(services.Props);
         var viewModel = new OverlayViewModel(services.Version, _settings, _theme);
@@ -99,9 +104,10 @@ public partial class App : Application
         HotkeyHandler hotkeys = _hotkeys;
         MeterSettings settings = _settings;
         MeterColorTheme theme = _theme;
+        SkinManager skin = _skin;
         window.SettingsRequested += () =>
         {
-            var settingsWindow = new SettingsWindow(new SettingsViewModel(services, settings, theme, controller, hotkeys)) { Owner = window };
+            var settingsWindow = new SettingsWindow(new SettingsViewModel(services, settings, theme, skin, controller, hotkeys)) { Owner = window };
             settingsWindow.Show();
         };
         window.ExitRequested += ExitApp;

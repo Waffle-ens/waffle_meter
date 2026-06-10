@@ -21,15 +21,17 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 {
     private readonly MeterServices _services;
     private readonly MeterSettings _settings;
+    private readonly SkinManager _skin;
     private readonly OverlayController _controller;
     private readonly HotkeyHandler _hotkeys;
     private readonly Snapshot _snapshot;
 
-    public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, OverlayController controller, HotkeyHandler hotkeys)
+    public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, SkinManager skin, OverlayController controller, HotkeyHandler hotkeys)
     {
         _services = services;
         _settings = settings;
         Theme = theme;
+        _skin = skin;
         _controller = controller;
         _hotkeys = hotkeys;
         _snapshot = Snapshot.Capture(settings, controller);
@@ -175,6 +177,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         _services.Props.SetProperty("server.ip", ServerIp);
         _services.Props.SetProperty("server.port", ServerPort);
+    }
+
+    // ---- skin (overall style preset) ----
+    public IReadOnlyList<SkinManager.SkinOption> Skins => SkinManager.Skins;
+
+    /// <summary>Active skin preset; applied + persisted live (swaps the Skin.* palette app-wide).</summary>
+    public string Skin
+    {
+        get => _skin.Current;
+        set { _skin.Apply(value); OnPropertyChanged(); }
     }
 
     // ---- theme (color picker) ----

@@ -1,0 +1,18 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- "Midnight" skin: deeper blue-black with a brighter blue accent. -->
+    <Color x:Key="Skin.OverlayBgColor">#12161F</Color>
+    <SolidColorBrush x:Key="Skin.WindowBg" Color="#FF12161F"/>
+    <SolidColorBrush x:Key="Skin.PanelBg" Color="#F2141926"/>
+    <SolidColorBrush x:Key="Skin.Fg" Color="#FFE6ECF5"/>
+    <SolidColorBrush x:Key="Skin.MutedFg" Color="#FF8895AC"/>
+    <SolidColorBrush x:Key="Skin.Border" Color="#FF2A3346"/>
+    <SolidColorBrush x:Key="Skin.Accent" Color="#FF4F9CF0"/>
+    <SolidColorBrush x:Key="Skin.ControlBg" Color="#FF1B2233"/>
+    <SolidColorBrush x:Key="Skin.ControlBorder" Color="#FF2A3346"/>
+    <SolidColorBrush x:Key="Skin.ControlHover" Color="#FF26314A"/>
+    <SolidColorBrush x:Key="Skin.ButtonBg" Color="#FF222C42"/>
+    <SolidColorBrush x:Key="Skin.StatBg" Color="#5A0A1428"/>
+    <SolidColorBrush x:Key="Skin.RowHover" Color="#18FFFFFF"/>
+    <SolidColorBrush x:Key="Skin.TabSelectedBg" Color="#FF1B2233"/>
+</ResourceDictionary>

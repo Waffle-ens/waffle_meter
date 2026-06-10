@@ -19,7 +19,7 @@
             <Setter Property="Foreground" Value="#FF888888"/>
         </Style>
     </Window.Resources>
-    <Border Background="#F21B1B1B" CornerRadius="8" Padding="12"
+    <Border Background="{DynamicResource Skin.PanelBg}" CornerRadius="8" Padding="12"
             TextElement.FontFamily="{Binding FontFamily, Converter={StaticResource FontConv}}">
         <DockPanel>
             <Grid DockPanel.Dock="Top" MouseLeftButtonDown="OnDragHandle" Background="Transparent" Margin="0,0,0,8">

@@ -1,0 +1,18 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- "Slate" skin: neutral warm-gray, softer contrast. -->
+    <Color x:Key="Skin.OverlayBgColor">#22252A</Color>
+    <SolidColorBrush x:Key="Skin.WindowBg" Color="#FF22252A"/>
+    <SolidColorBrush x:Key="Skin.PanelBg" Color="#F2202329"/>
+    <SolidColorBrush x:Key="Skin.Fg" Color="#FFE3E5E8"/>
+    <SolidColorBrush x:Key="Skin.MutedFg" Color="#FF9DA3AC"/>
+    <SolidColorBrush x:Key="Skin.Border" Color="#FF3A3F46"/>
+    <SolidColorBrush x:Key="Skin.Accent" Color="#FF5E9CC8"/>
+    <SolidColorBrush x:Key="Skin.ControlBg" Color="#FF2C3037"/>
+    <SolidColorBrush x:Key="Skin.ControlBorder" Color="#FF3A3F46"/>
+    <SolidColorBrush x:Key="Skin.ControlHover" Color="#FF363B43"/>
+    <SolidColorBrush x:Key="Skin.ButtonBg" Color="#FF333840"/>
+    <SolidColorBrush x:Key="Skin.StatBg" Color="#550F141B"/>
+    <SolidColorBrush x:Key="Skin.RowHover" Color="#16FFFFFF"/>
+    <SolidColorBrush x:Key="Skin.TabSelectedBg" Color="#FF2C3037"/>
+</ResourceDictionary>
