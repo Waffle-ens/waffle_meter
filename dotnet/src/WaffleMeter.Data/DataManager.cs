@@ -40,9 +40,16 @@ public sealed class DataManager : ICaptureGameData
     private readonly Dictionary<int, EndedBattle> _recentlyEndedBattles = new();
     private int? _activeBattleMobCode;
     private long _lastDummyHitTime;
+    private readonly Dictionary<int, long> _officialLookupAttempts = new();
 
     /// <summary>Injectable clock (default wall clock; app behavior unchanged). Mirrors the Kotlin seam.</summary>
     public Func<long> Clock { get; set; } = () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    /// <summary>
+    /// Official-site lookup (Kotlin used a global object). Left null offline/in replay so enrichment
+    /// is a no-op and the DPS golden is unchanged; the live app injects WaffleMeter.Services.OfficialCharacterLookup.
+    /// </summary>
+    public IOfficialCharacterLookup? OfficialLookup { get; set; }
 
     public long CurrentEpoch() => _resetEpoch;
     public long CurrentBattleRevision() => _battleRevision;
@@ -194,8 +201,100 @@ public sealed class DataManager : ICaptureGameData
         }
     }
 
-    /// <summary>No-op (no network in replay; matches the no-enrichment golden).</summary>
-    public void RequestOfficialCharacterLookup(int uid) { }
+    public void RequestOfficialCharacterLookup(int uid)
+    {
+        User? user = _userRepository.Get(uid);
+        if (user == null)
+        {
+            return;
+        }
+
+        RequestOfficialCharacterLookup(uid, user.Nickname, user.Server, user.Job);
+    }
+
+    public void RequestOfficialCharacterLookup(
+        int uid,
+        string? nickname,
+        int server,
+        JobClass? job,
+        Action<OfficialCharacterInfo>? onResult = null)
+    {
+        if (OfficialLookup == null)
+        {
+            return; // no network (replay / headless without enrichment)
+        }
+
+        if (string.IsNullOrWhiteSpace(nickname) || server <= 0)
+        {
+            return;
+        }
+
+        long now = Clock();
+        if (_officialLookupAttempts.TryGetValue(uid, out long previous) && now - previous < 10 * 60 * 1000L)
+        {
+            return;
+        }
+
+        if (uid > 0)
+        {
+            _officialLookupAttempts[uid] = now;
+        }
+
+        OfficialLookup.LookupAsync(nickname, server, job, info =>
+        {
+            ApplyOfficialCharacterInfo(uid, info);
+            onResult?.Invoke(info);
+        });
+    }
+
+    public OfficialCharacterInfo? ResolveOfficialCharacterInfo(int uid, string? nickname, int server, JobClass? job)
+    {
+        if (OfficialLookup == null)
+        {
+            return null;
+        }
+
+        OfficialCharacterInfo? info = OfficialLookup.LookupBlocking(nickname, server, job);
+        if (info == null)
+        {
+            return null;
+        }
+
+        ApplyOfficialCharacterInfo(uid, info);
+        return info;
+    }
+
+    private void ApplyOfficialCharacterInfo(int uid, OfficialCharacterInfo info)
+    {
+        User? existing = uid > 0 ? _userRepository.Get(uid) : null;
+        if (existing != null)
+        {
+            if (string.IsNullOrWhiteSpace(existing.Nickname))
+            {
+                existing.Nickname = info.Nickname;
+            }
+
+            if (existing.Server <= 0)
+            {
+                existing.Server = info.Server;
+            }
+
+            if (existing.Job == null && info.Job != null)
+            {
+                existing.Job = info.Job;
+            }
+
+            if (existing.Power <= 0 && info.Power > 0)
+            {
+                existing.Power = info.Power;
+            }
+
+            _userRepository.Save(uid, existing);
+            return;
+        }
+
+        _userRepository.SavePending(new User(uid, info.Nickname, info.Server, info.Job, power: info.Power));
+    }
 
     // ---- buff ----
 

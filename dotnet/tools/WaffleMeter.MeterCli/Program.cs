@@ -3,6 +3,7 @@ using System.Threading.Channels;
 using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
+using WaffleMeter.Services;
 
 // Headless live meter core: capture -> the verified Aligner/Assembler/StreamProcessor pipeline ->
 // DataManager + DpsCalculator -> live per-player DPS. Run elevated (capture needs admin).
@@ -20,7 +21,11 @@ if (!Directory.Exists(jsonDir))
 }
 
 // Reference catalogs into the data layer (real wall clock for live capture).
-var dm = new DataManager();
+var dm = new DataManager
+{
+    // Live: enrich initial combat power/job from the official site (no-op offline).
+    OfficialLookup = new OfficialCharacterLookup(),
+};
 dm.LoadMobs(ReferenceJson.LoadMobs(Path.Combine(jsonDir, "mobs.json")));
 dm.LoadSkills(ReferenceJson.LoadSkills(Path.Combine(jsonDir, "skills.json")));
 foreach (string buffFile in new[] { "buff.json", "buff_custom.json" })

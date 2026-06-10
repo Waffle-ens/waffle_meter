@@ -7,25 +7,18 @@ using WaffleMeter.Data;
 
 namespace WaffleMeter.Services;
 
-/// <summary>Official character info pulled from the aion2 site (Kotlin <c>OfficialCharacterInfo</c>).</summary>
-public sealed record OfficialCharacterInfo(
-    string Nickname,
-    int Server,
-    JobClass? Job,
-    int Power,
-    IReadOnlyDictionary<int, int> Skills);
-
 /// <summary>
 /// Verbatim port of Kotlin <c>official.OfficialCharacterLookup</c>: resolves a character's job,
 /// combat power, and equipped skills from the official aion2 site, with a TTL cache (6h hits /
 /// 10min misses) and in-flight de-duplication. Used for the INITIAL combat-power value; live power
-/// is parsed from packets ([[combat-power-reverify]]).
+/// is parsed from packets ([[combat-power-reverify]]). Implements <see cref="IOfficialCharacterLookup"/>
+/// (defined in the data layer) so <see cref="DataManager"/> can consume it without referencing Services.
 ///
 /// HTTP is injected (<c>httpGet</c>: url -&gt; JSON body, throwing on non-2xx) so the parsing is
 /// unit-testable without a network; the clock is injected too (TTL determinism), defaulting to wall
 /// clock like the rest of the migration's clock seam.
 /// </summary>
-public sealed class OfficialCharacterLookup
+public sealed class OfficialCharacterLookup : IOfficialCharacterLookup
 {
     private const string BaseUrl = "https://aion2.plaync.com";
     private const long SuccessTtlMs = 6L * 60 * 60 * 1000;
