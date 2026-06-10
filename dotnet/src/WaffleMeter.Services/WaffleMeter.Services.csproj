@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Services layer (config / version / official API / stats). Pure net10.0 so the data + tools can
+    reference it without the Windows TFM; Windows-only concerns (global hotkeys) live in the UI.
+    EUC-KR (codepage 51949) for the PropertyHandler quirk comes from CodePagesEncodingProvider,
+    which net10.0 already ships in the shared framework (no extra package needed).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>WaffleMeter.Services</RootNamespace>
+  </PropertyGroup>
+
+</Project>
