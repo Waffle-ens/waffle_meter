@@ -21,10 +21,18 @@ public partial class OverlayWindow : Window
     [DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
+    /// <summary>Raised from the right-click menu (App opens the settings window / exits).</summary>
+    public event Action? SettingsRequested;
+    public event Action? ExitRequested;
+
     public OverlayWindow()
     {
         InitializeComponent();
     }
+
+    private void OnSettings(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke();
+
+    private void OnExit(object sender, RoutedEventArgs e) => ExitRequested?.Invoke();
 
     protected override void OnSourceInitialized(EventArgs e)
     {

@@ -11,6 +11,12 @@
         SizeToContent="WidthAndHeight"
         Left="40" Top="40"
         FontFamily="Segoe UI">
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="설정" Click="OnSettings"/>
+            <MenuItem Header="종료" Click="OnExit"/>
+        </ContextMenu>
+    </Window.ContextMenu>
     <Border Background="#CC1E1E1E" CornerRadius="6" Padding="8" MinWidth="380"
             MouseLeftButtonDown="OnDragHandle">
         <StackPanel>

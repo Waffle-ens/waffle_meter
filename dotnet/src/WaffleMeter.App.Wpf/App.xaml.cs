@@ -40,6 +40,15 @@ public partial class App : Application
         };
         _hotkeys.Start();
 
+        // Right-click overlay -> 설정 / 종료.
+        HotkeyHandler hotkeys = _hotkeys;
+        window.SettingsRequested += () =>
+        {
+            var settings = new SettingsWindow(new SettingsViewModel(services, hotkeys)) { Owner = window };
+            settings.Show();
+        };
+        window.ExitRequested += Shutdown;
+
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
         // The connect timeout is generous so it tolerates the user answering the UAC prompt.
         _engine = new MeterEngine(services, new NamedPipeCaptureClient("windivert", connectTimeoutMs: 30_000));
