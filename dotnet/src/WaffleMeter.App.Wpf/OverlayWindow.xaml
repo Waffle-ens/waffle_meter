@@ -26,10 +26,22 @@
             <SolidColorBrush Color="#1E1E1E" Opacity="{Binding Settings.MeterOpacity}"/>
         </Border.Background>
         <StackPanel>
-            <DockPanel LastChildFill="False" Margin="0,0,0,6" MouseLeftButtonDown="OnDragHandle" Background="Transparent">
-                <TextBlock Text="{Binding TargetName}" Foreground="#FFEEEEEE" FontWeight="Bold" FontSize="13"/>
-                <TextBlock Text="{Binding Duration}" Foreground="#FFBBBBBB" DockPanel.Dock="Right"/>
-            </DockPanel>
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <DockPanel Grid.Column="0" LastChildFill="False" MouseLeftButtonDown="OnDragHandle" Background="Transparent">
+                    <TextBlock Text="{Binding TargetName}" Foreground="#FFEEEEEE" FontWeight="Bold" FontSize="13"/>
+                    <TextBlock Text="{Binding Duration}" Foreground="#FFBBBBBB" DockPanel.Dock="Right" Margin="8,0"/>
+                </DockPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="⚙" Click="OnSettingsButton" ToolTip="설정" Width="22" Height="20" Padding="0"
+                            Background="Transparent" Foreground="#FFCCCCCC" BorderThickness="0" Cursor="Hand"/>
+                    <Button Content="✕" Click="OnExitButton" ToolTip="종료" Width="22" Height="20" Padding="0"
+                            Background="Transparent" Foreground="#FFCC6666" BorderThickness="0" Cursor="Hand"/>
+                </StackPanel>
+            </Grid>
 
             <TextBlock Text="전투 대기 중" Foreground="#FF888888" HorizontalAlignment="Center"
                        Margin="0,8" Visibility="{Binding PlaceholderVisibility}"/>

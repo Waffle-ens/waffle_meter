@@ -132,6 +132,12 @@ public partial class OverlayWindow : Window
 
     private void OnExit(object sender, RoutedEventArgs e) => ExitRequested?.Invoke();
 
+    // Header buttons: a reliable left-click path (the right-click ContextMenu is unreliable on a
+    // WS_EX_NOACTIVATE window — the popup can't hold focus).
+    private void OnSettingsButton(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke();
+
+    private void OnExitButton(object sender, RoutedEventArgs e) => ExitRequested?.Invoke();
+
     private void OnRowClick(object sender, MouseButtonEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: RowViewModel row } && DataContext is OverlayViewModel vm)
