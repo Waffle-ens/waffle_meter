@@ -28,4 +28,18 @@ public sealed class GameData : ICaptureGameData
     public void SaveMobId(int instanceId, int mobCode) => _mobId[instanceId] = mobCode;
 
     public bool SkillExists(long code) => _skillCodes.Contains(code);
+
+    // Capture-only reference context: the DPS write side effects are no-ops here (they do not affect
+    // the parser's emitted events). The full DataManager implements them to drive DPS.
+    public long CurrentEpoch() => 0;
+    public void SaveDamage(ParsedDamagePacket pdp, long epoch) { }
+    public void StartBattle(int target) { }
+    public void EndBattle(int target) { }
+    public void SaveNickname(int uid, string nickname, bool isExecutor, int server, int jobByte) { }
+    public void SaveUserPower(int uid, int power) { }
+    public void SaveSummon(int summonId, int ownerId) { }
+    public void SaveMobHp(int instanceId, int hp) { }
+    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) { }
+    public void RequestOfficialCharacterLookup(int uid) { }
+    public void TouchDummyBattle(int target, long epoch) { }
 }

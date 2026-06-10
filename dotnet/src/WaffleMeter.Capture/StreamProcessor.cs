@@ -354,6 +354,7 @@ public sealed class StreamProcessor
             return;
         }
 
+        _data.SaveDamage(pdp, _data.CurrentEpoch());
         _sink.Damage("direct", pdp, true, null, null);
     }
 
@@ -407,6 +408,7 @@ public sealed class StreamProcessor
         pdp.Damage = damageInfo.Value;
 
         pdp.Timestamp = arrivedAt;
+        _data.SaveDamage(pdp, _data.CurrentEpoch());
         _sink.Damage("dot", pdp, true, null, null);
     }
 
@@ -422,6 +424,7 @@ public sealed class StreamProcessor
             if (power <= 0 || power > 10_000_000) return;
             int executor = _executorId;
             if (executor <= 0) return;
+            _data.SaveUserPower(executor, power);
             _sink.Meta("own_combat_power", ("uid", executor), ("power", power));
         }
         catch
@@ -472,6 +475,12 @@ public sealed class StreamProcessor
         }
 
         _executorId = userInfo.Value;
+        _data.SaveNickname(userInfo.Value, nickname, true, server, job);
+        if (server > 0)
+        {
+            _data.RequestOfficialCharacterLookup(userInfo.Value);
+        }
+
         _sink.Meta("nickname", ("own", true), ("uid", userInfo.Value), ("nickname", nickname), ("server", server), ("job", job));
     }
 
@@ -552,7 +561,13 @@ public sealed class StreamProcessor
             }
         }
 
+        _data.SaveNickname(userInfo.Value, nickname, false, server, job);
         int? power = ParseSnapshotPower(packet);
+        if (power != null)
+        {
+            _data.SaveUserPower(userInfo.Value, power.Value);
+        }
+
         _sink.Meta("nickname", ("own", false), ("uid", userInfo.Value), ("nickname", nickname), ("server", server), ("job", job), ("power", power ?? 0));
     }
 
@@ -628,7 +643,7 @@ public sealed class StreamProcessor
         if (offset + 2 > packet.Length) return;
         int realActorId = PacketPrimitives.ParseUInt16Le(packet, offset);
 
-        // DataManager.saveSummon deferred.
+        _data.SaveSummon(summonInfo.Value, realActorId);
         _sink.Meta("summon_map", ("summonId", summonInfo.Value), ("ownerId", realActorId));
     }
 
@@ -659,7 +674,7 @@ public sealed class StreamProcessor
         offset += PacketPrimitives.ReadVarInt(packet, offset).Length;
 
         int mobHp = PacketPrimitives.ParseUInt32Le(packet, offset);
-        // DataManager.mobHp(...) deferred.
+        _data.SaveMobHp(mobIdInfo.Value, mobHp);
         _sink.Meta("remain_hp",
             ("target", mobIdInfo.Value),
             ("mobCode", mobCode.Value),
@@ -711,11 +726,11 @@ public sealed class StreamProcessor
         switch (toggleInfo.Value)
         {
             case 1:
-                // DataManager.startBattle deferred.
+                _data.StartBattle(battleInfo.Value);
                 _sink.Battle(battleInfo.Value, toggleInfo.Value, mobCode, mob.Name, true, "start");
                 break;
             case 0:
-                // DataManager.endBattle deferred.
+                _data.EndBattle(battleInfo.Value);
                 _sink.Battle(battleInfo.Value, toggleInfo.Value, mobCode, mob.Name, true, "end");
                 break;
             default:
@@ -768,7 +783,7 @@ public sealed class StreamProcessor
                 return;
             }
 
-            // DataManager.saveUseBuff / addon.loggingServerTime deferred.
+            _data.SaveUseBuff(targetInfo.Value, skillCode, arrivedAt, arrivedAt + duration, duration, actorInfo.Value);
             _sink.Meta("buff",
                 ("target", targetInfo.Value),
                 ("actor", actorInfo.Value),

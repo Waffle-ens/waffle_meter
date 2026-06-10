@@ -151,8 +151,9 @@ public sealed class DataManager : ICaptureGameData
         }
     }
 
-    public void SaveNickname(int uid, string nickname, bool isExecutor, int server, JobClass? job)
+    public void SaveNickname(int uid, string nickname, bool isExecutor, int server, int jobByte)
     {
+        JobClass? job = JobClassInfo.ConvertFromCode(jobByte);
         User? user = _userRepository.Get(uid);
         if (user == null)
         {
@@ -199,6 +200,12 @@ public sealed class DataManager : ICaptureGameData
     // ---- buff ----
 
     public void SaveUseBuff(int uid, UseBuff useBuff) => _useBuffRepository.Save(uid, useBuff);
+
+    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) =>
+        SaveUseBuff(uid, new UseBuff(skillCode, buffStart, buffEnd, duration, actorId));
+
+    public void SaveMobHp(int instanceId, int hp) => MobHp(instanceId, hp);
+
     public List<UseBuff> BattleBuff(int uid, long start, long end) => _useBuffRepository.FindOverlapping(uid, start, end);
 
     // ---- packet store ----

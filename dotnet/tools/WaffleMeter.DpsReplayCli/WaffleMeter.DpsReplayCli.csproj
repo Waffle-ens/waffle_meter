@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Phase 1 DPS parity: replay a packet corpus through the ported DataManager + DpsCalculator (with a
+    simulated clock) and diff the resulting saved-battle history against the Kotlin dps-golden.json.
+    Run via: dotnet run (project), Release config, passing corpus / skills.json / dps-golden.json.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>WaffleMeter.DpsReplayCli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
+    <ProjectReference Include="..\..\src\WaffleMeter.Data\WaffleMeter.Data.csproj" />
+  </ItemGroup>
+
+</Project>

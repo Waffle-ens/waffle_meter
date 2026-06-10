@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using WaffleMeter.Capture;
 
@@ -40,5 +41,62 @@ public static class ReferenceJson
         }
 
         return codes;
+    }
+
+    /// <summary>skills.json: array of { "code": int, "name": string? } -> Skill list (with names).</summary>
+    public static List<Skill> LoadSkills(string path)
+    {
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
+        var skills = new List<Skill>();
+        foreach (JsonElement el in doc.RootElement.EnumerateArray())
+        {
+            long code = el.GetProperty("code").GetInt64();
+            string? name = el.TryGetProperty("name", out JsonElement n) && n.ValueKind == JsonValueKind.String
+                ? n.GetString()
+                : null;
+            skills.Add(new Skill(code, name));
+        }
+
+        return skills;
+    }
+
+    /// <summary>
+    /// buff.json / buff_custom.json: object keyed by code -> { name, summary, effect, ... }. A Buff
+    /// is created only when BOTH summary and effect are present (Kotlin loadBuffJson). Last write wins.
+    /// </summary>
+    public static List<Buff> LoadBuffs(string path)
+    {
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
+        var buffs = new List<Buff>();
+        foreach (JsonProperty prop in doc.RootElement.EnumerateObject())
+        {
+            JsonElement obj = prop.Value;
+            if (obj.TryGetProperty("effect", out JsonElement eff) && eff.ValueKind == JsonValueKind.String
+                && obj.TryGetProperty("summary", out JsonElement sum) && sum.ValueKind == JsonValueKind.String)
+            {
+                string name = obj.TryGetProperty("name", out JsonElement n) && n.ValueKind == JsonValueKind.String
+                    ? n.GetString() ?? ""
+                    : "";
+                buffs.Add(new Buff(int.Parse(prop.Name, CultureInfo.InvariantCulture), name, sum.GetString() ?? "", eff.GetString() ?? ""));
+            }
+        }
+
+        return buffs;
+    }
+
+    /// <summary>buff_blacklist.json: { "blacklist": [int, ...] }.</summary>
+    public static List<int> LoadBuffBlacklist(string path)
+    {
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
+        var result = new List<int>();
+        if (doc.RootElement.TryGetProperty("blacklist", out JsonElement arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement e in arr.EnumerateArray())
+            {
+                result.Add(e.GetInt32());
+            }
+        }
+
+        return result;
     }
 }
