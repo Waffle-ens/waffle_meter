@@ -45,6 +45,10 @@ public partial class OverlayWindow : Window
     public event Action? SettingsRequested;
     public event Action? ExitRequested;
 
+    /// <summary>Header buttons (App handles): reset the meter / toggle taskbar (alt-tab) mode.</summary>
+    public event Action? ResetRequested;
+    public event Action? TaskbarToggleRequested;
+
     public OverlayWindow()
     {
         InitializeComponent();
@@ -173,6 +177,10 @@ public partial class OverlayWindow : Window
     private void OnSettingsButton(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke();
 
     private void OnExitButton(object sender, RoutedEventArgs e) => ExitRequested?.Invoke();
+
+    private void OnResetButton(object sender, RoutedEventArgs e) => ResetRequested?.Invoke();
+
+    private void OnTaskbarButton(object sender, RoutedEventArgs e) => TaskbarToggleRequested?.Invoke();
 
     private void OnRowClick(object sender, MouseButtonEventArgs e)
     {

@@ -39,6 +39,10 @@
                     <TextBlock Text="{Binding Duration}" Foreground="{Binding CombatTimeBrush}" DockPanel.Dock="Right" Margin="8,0"/>
                 </DockPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="⟳" Click="OnResetButton" ToolTip="전투 초기화" Width="22" Height="20" Padding="0"
+                            Background="Transparent" Foreground="#FFCCCCCC" BorderThickness="0" Cursor="Hand"/>
+                    <Button Content="⧉" Click="OnTaskbarButton" ToolTip="작업표시줄 / Alt+Tab 모드" Width="22" Height="20" Padding="0"
+                            Background="Transparent" Foreground="#FFCCCCCC" BorderThickness="0" Cursor="Hand"/>
                     <Button Content="⚙" Click="OnSettingsButton" ToolTip="설정" Width="22" Height="20" Padding="0"
                             Background="Transparent" Foreground="#FFCCCCCC" BorderThickness="0" Cursor="Hand"/>
                     <Button Content="✕" Click="OnExitButton" ToolTip="종료" Width="22" Height="20" Padding="0"

@@ -111,6 +111,13 @@ public partial class App : Application
             settingsWindow.Show();
         };
         window.ExitRequested += ExitApp;
+        window.ResetRequested += () => _engine?.RequestReset();
+        window.TaskbarToggleRequested += () =>
+        {
+            bool next = !controller.TaskbarMode;
+            settings.TaskbarMode = next;
+            controller.SetTaskbarMode(next);
+        };
 
         // Row click -> open/close the detail window for that player.
         viewModel.SelectionToggled += uid => ToggleDetail(uid, services, window);
