@@ -38,15 +38,23 @@ public sealed class FontFamilyConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object? parameter, CultureInfo culture)
     {
-        string name = value as string ?? "Segoe UI";
+        string name = value as string ?? "Malgun Gothic";
         try
         {
-            return new FontFamily(new Uri("pack://application:,,,/"), $"./Fonts/#{name}, {name}, Malgun Gothic, Segoe UI");
+            // Embedded (Fonts/*.ttf as Resource) first — but only if it actually resolved to a
+            // typeface, so an unbundled name cleanly falls through to a system font instead of a blank.
+            var bundled = new FontFamily(new Uri("pack://application:,,,/"), $"./Fonts/#{name}");
+            if (bundled.GetTypefaces().Count > 0)
+            {
+                return bundled;
+            }
         }
         catch
         {
-            return new FontFamily("Segoe UI");
+            // fall through to system lookup
         }
+
+        return new FontFamily($"{name}, Malgun Gothic, Segoe UI");
     }
 
     public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) =>
