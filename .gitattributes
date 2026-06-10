@@ -1,0 +1,5 @@
+# Native binaries — force binary handling so EOL normalization never touches them.
+# A kernel driver (.sys) or DLL corrupted by CRLF conversion fails to load with no clear error.
+*.dll binary
+*.sys binary
+*.ico binary
