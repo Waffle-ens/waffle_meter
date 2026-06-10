@@ -48,6 +48,7 @@ public sealed class WinDivertBackend : IPacketCaptureBackend
 
     public void Start(CaptureConfig config)
     {
+        EnsureBinariesPresent();
         string filter = BuildFilter(config);
         _handle = WinDivertOpen(filter, LayerNetwork, 0, FlagSniff | FlagRecvOnly);
         if (_handle == InvalidHandle)
@@ -59,6 +60,21 @@ public sealed class WinDivertBackend : IPacketCaptureBackend
         _running = true;
         _thread = new Thread(RecvLoop) { IsBackground = true, Name = "windivert-capture" };
         _thread.Start();
+    }
+
+    // Distinguish "binaries not bundled" from "driver failed to load" (HVCI/signing) so the UI can
+    // show an actionable message instead of a generic Win32 error.
+    private static void EnsureBinariesPresent()
+    {
+        string dir = AppContext.BaseDirectory;
+        string dll = Path.Combine(dir, "WinDivert.dll");
+        string sys = Path.Combine(dir, "WinDivert64.sys");
+        if (!File.Exists(dll) || !File.Exists(sys))
+        {
+            throw new FileNotFoundException(
+                "WinDivert binaries missing: place WinDivert.dll + WinDivert64.sys next to " +
+                "WaffleMeter.CaptureHost.exe (see dotnet/third-party/windivert/README.md), or use the Npcap backend.");
+        }
     }
 
     private void RecvLoop()
