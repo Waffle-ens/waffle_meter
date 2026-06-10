@@ -27,7 +27,10 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         // MUST be first: handles Velopack install/update/uninstall hooks and exits for those runs.
-        VelopackApp.Build().Run();
+        // On the first launch after install, supersede the legacy Kotlin MSI.
+        VelopackApp.Build()
+            .OnFirstRun(_ => LegacyMsiCleanup.Run())
+            .Run();
 
         base.OnStartup(e);
 
