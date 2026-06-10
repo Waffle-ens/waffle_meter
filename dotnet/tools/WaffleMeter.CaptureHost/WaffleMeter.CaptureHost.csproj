@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Elevated capture helper. The user chose to isolate elevation in a separate process: only THIS
+    exe runs as administrator and touches the WinDivert/Npcap driver. It streams CapturedSegments
+    over a named pipe to the unelevated main app (NamedPipeCaptureClient). app.manifest forces a UAC
+    prompt so the rest of the app never needs admin. Run standalone for now; the main app will spawn
+    it (ShellExecute "runas") once the WPF shell exists.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>WaffleMeter.CaptureHost</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
+    <ProjectReference Include="..\..\src\WaffleMeter.Capture.Live\WaffleMeter.Capture.Live.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -48,7 +48,20 @@ assembler = new StreamAssembler((packet, at) => processor.OnPacketReceived(packe
 Channel<CapturedSegment> channel = Channel.CreateUnbounded<CapturedSegment>(
     new UnboundedChannelOptions { SingleReader = true });
 
-IPacketCaptureBackend backend = backendName == "npcap" ? new NpcapBackend() : new WinDivertBackend();
+// "helper"/"helper-npcap" use the elevated CaptureHost over a named pipe (the isolated-elevation
+// architecture); "windivert"/"npcap" capture in-process (this process must then be elevated).
+IPacketCaptureBackend backend = backendName switch
+{
+    "npcap" => new NpcapBackend(),
+    "helper" => new NamedPipeCaptureClient("windivert"),
+    "helper-npcap" => new NamedPipeCaptureClient("npcap"),
+    _ => new WinDivertBackend(),
+};
+if (backend is NamedPipeCaptureClient pipeClient)
+{
+    pipeClient.CaptureError += msg => Console.Error.WriteLine($"[helper] {msg}");
+}
+
 backend.SegmentReceived += seg => channel.Writer.TryWrite(seg);
 
 bool stop = false;
