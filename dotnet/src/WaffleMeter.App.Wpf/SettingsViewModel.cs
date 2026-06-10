@@ -77,8 +77,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("NEXON Lv2 Gothic", "NEXON Lv2 Gothic"),
         new SettingOption("Pretendard", "Pretendard"),
         new SettingOption("Spoqa Han Sans Neo", "Spoqa Han Sans Neo"),
-        new SettingOption("Freesentation", "Freesentation"),
-        new SettingOption("Tmoney Round Wind", "Tmoney Round Wind"),
+        // Values are the fonts' INTERNAL family names (must match for the bundled lookup):
+        new SettingOption("Freesentation", "Freesentation 4"),     // file family = "Freesentation 4"
+        new SettingOption("Tmoney Round Wind", "Tmoney RoundWind"), // file family = "Tmoney RoundWind"
     };
 
     // ---- display tab (live) ----
