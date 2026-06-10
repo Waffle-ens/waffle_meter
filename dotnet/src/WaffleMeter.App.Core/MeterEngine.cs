@@ -21,6 +21,7 @@ public sealed class MeterEngine : IDisposable
     private readonly int _reportIntervalMs;
     private Thread? _consumer;
     private volatile bool _running;
+    private volatile bool _resetRequested;
 
     public MeterServices Services => _services;
 
@@ -42,6 +43,10 @@ public sealed class MeterEngine : IDisposable
             pipe.CaptureError += msg => CaptureError?.Invoke(msg);
         }
     }
+
+    /// <summary>Requests a full meter reset (clears saved battles + live data). Thread-safe: the actual
+    /// reset runs on the consumer thread, which solely owns the meter state.</summary>
+    public void RequestReset() => _resetRequested = true;
 
     public void Start() => Start(_services.BuildCaptureConfig());
 
@@ -73,6 +78,23 @@ public sealed class MeterEngine : IDisposable
                 {
                     // ignore one bad segment; keep draining
                 }
+            }
+
+            // Reset hotkey: run on this (owner) thread, then push an immediate empty report so the
+            // overlay clears without waiting for the next interval.
+            if (_resetRequested)
+            {
+                _resetRequested = false;
+                try
+                {
+                    _services.Calculator.HardReset();
+                }
+                catch
+                {
+                    // never let a reset failure kill the consumer
+                }
+
+                ReportUpdated?.Invoke(_services.GetReport());
             }
 
             if (stopwatch.ElapsedMilliseconds - lastReport >= _reportIntervalMs)

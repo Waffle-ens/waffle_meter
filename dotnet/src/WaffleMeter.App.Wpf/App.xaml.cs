@@ -85,7 +85,7 @@ public partial class App : Application
         OverlayController controller = _controller;
         _hotkeys = new HotkeyHandler(services.Props)
         {
-            OnReset = () => { /* placeholder: the Kotlin reset hotkey is currently a no-op */ },
+            OnReset = () => _engine?.RequestReset(), // clears saved battles + live data (runs on consumer thread)
             OnVisibility = () => Dispatcher.Invoke(controller.ToggleVisibility),
             OnClickThrough = () => Dispatcher.Invoke(() => window.SetClickThrough(!window.ClickThrough)),
         };
