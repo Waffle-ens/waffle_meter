@@ -13,15 +13,15 @@
             </DrawingBrush.Drawing>
         </DrawingBrush>
     </UserControl.Resources>
-    <Grid>
-        <ToggleButton x:Name="SwatchButton" Width="28" Height="28" Cursor="Hand" Padding="0" BorderThickness="0" Background="Transparent">
-            <Border CornerRadius="6" Background="{StaticResource Checker}" ClipToBounds="True"
-                    BorderBrush="#22FFFFFF" BorderThickness="1">
-                <Border x:Name="Chip" CornerRadius="6"/>
-            </Border>
-        </ToggleButton>
-        <Popup IsOpen="{Binding IsChecked, ElementName=SwatchButton}" StaysOpen="False"
-               Placement="Bottom" AllowsTransparency="True" PopupAnimation="Fade">
+    <Grid HorizontalAlignment="Left">
+        <!-- A plain Border swatch (no ToggleButton chrome, which collapsed the chip to 0). 28x28, the chip
+             fills it. Click toggles the picker popup. -->
+        <Border x:Name="SwatchBorder" Width="28" Height="28" CornerRadius="6" Background="{StaticResource Checker}"
+                ClipToBounds="True" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" MouseLeftButtonUp="OnSwatchClick">
+            <Border x:Name="Chip" CornerRadius="5"/>
+        </Border>
+        <Popup x:Name="PickerPopup" StaysOpen="False" Placement="Bottom" PlacementTarget="{Binding ElementName=SwatchBorder}"
+               AllowsTransparency="True" PopupAnimation="Fade">
             <Border Background="#FF1B1B1B" CornerRadius="8" Padding="12" Margin="6" BorderBrush="#33FFFFFF" BorderThickness="1">
                 <Border.Effect><DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.5"/></Border.Effect>
                 <controls:ColorPickerControl Color="{Binding Color, ElementName=Root, Mode=TwoWay}"/>

@@ -28,6 +28,9 @@ public partial class ColorSwatchButton : UserControl
     private static void OnColorChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((ColorSwatchButton)d).UpdateChip();
 
+    private void OnSwatchClick(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
+        PickerPopup.IsOpen = !PickerPopup.IsOpen;
+
     private void UpdateChip()
     {
         Color color = ColorString.TryParse(Color, out ColorRgba c)
