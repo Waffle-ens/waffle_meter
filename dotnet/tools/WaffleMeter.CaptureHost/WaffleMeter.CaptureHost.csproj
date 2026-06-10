@@ -12,6 +12,10 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>WaffleMeter.CaptureHost</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Version travels with the UI (CI passes WaffleVersion=x.y.z). -->
+    <WaffleVersion Condition="'$(WaffleVersion)' == ''">0.0.1-dev</WaffleVersion>
+    <Version>$(WaffleVersion)</Version>
+    <InformationalVersion>$(WaffleVersion)</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

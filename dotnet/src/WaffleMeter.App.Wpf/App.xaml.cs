@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Velopack;
 using WaffleMeter.App.Core;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
@@ -14,6 +15,7 @@ public partial class App : Application
 {
     private MeterEngine? _engine;
     private MeterSettings? _settings;
+    private UpdateService? _updateService;
     private HotkeyHandler? _hotkeys;
     private OverlayController? _controller;
     private TrayIconController? _tray;
@@ -24,6 +26,9 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // MUST be first: handles Velopack install/update/uninstall hooks and exits for those runs.
+        VelopackApp.Build().Run();
+
         base.OnStartup(e);
 
         // Decided overlay render mode: software rendering (no GPU compositing) keeps the overlay off
@@ -102,6 +107,10 @@ public partial class App : Application
                 Dispatcher.Invoke(() => viewModel.Status = $"캡처 시작 실패 ({ex.Message})");
             }
         });
+
+        // Background auto-update check (no-op for dev / non-Velopack installs).
+        _updateService = new UpdateService(prerelease: false);
+        _ = _updateService.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
     }
 
     private void ExitApp()

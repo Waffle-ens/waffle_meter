@@ -1,0 +1,75 @@
+# .NET / WPF + Velopack release (migration target).
+# Manual-only (workflow_dispatch) for now so it does NOT collide with the Kotlin MSI release.yml on
+# tag pushes. Flip to `on: push: tags` when the .NET app supersedes the Kotlin build.
+name: release-dotnet
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (x.y.z)"
+        required: true
+      channel:
+        description: "win (release) or dev"
+        required: true
+        default: win
+
+permissions:
+  contents: write
+  id-token: write   # Azure Trusted Signing via OIDC (when signing is configured)
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate version
+        shell: pwsh
+        run: |
+          $v = "${{ github.event.inputs.version }}".TrimStart('v')
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "version must be x.y.z" }
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $pid = if ("${{ github.event.inputs.channel }}" -eq "dev") { "waffle_meter-dev" } else { "waffle_meter" }
+          "PACK_ID=$pid" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install vpk
+        run: dotnet tool install -g vpk
+
+      # Both exes publish into the SAME folder so CaptureHost.exe + WinDivert + json sit beside the UI.
+      - name: Publish WPF app
+        run: dotnet publish dotnet/src/WaffleMeter.App.Wpf/WaffleMeter.App.Wpf.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -o publish
+
+      - name: Publish capture helper (into the same folder)
+        run: dotnet publish dotnet/tools/WaffleMeter.CaptureHost/WaffleMeter.CaptureHost.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -o publish
+
+      # WinDivert.dll/.sys are bundled by CaptureHost.csproj from dotnet/third-party/windivert when present.
+      # If sourced via a secret/artifact instead, copy them into publish\ here.
+
+      - name: Download previous release (for delta)
+        continue-on-error: true
+        run: vpk download github --repoUrl https://github.com/${{ github.repository }} --channel ${{ github.event.inputs.channel }} --token ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pack
+        run: >
+          vpk pack
+          --packId ${{ env.PACK_ID }}
+          --packVersion ${{ env.VERSION }}
+          --packDir publish
+          --mainExe WaffleMeter.App.Wpf.exe
+          --packTitle "waffle_meter"
+          --packAuthors "TK"
+          --icon dotnet/src/WaffleMeter.App.Wpf/../../../src/main/resources/icons/waffle.ico
+          --channel ${{ github.event.inputs.channel }}
+
+      - name: Upload release
+        run: >
+          vpk upload github
+          --repoUrl https://github.com/${{ github.repository }}
+          --channel ${{ github.event.inputs.channel }}
+          --publish --releaseName ${{ env.VERSION }} --tag ${{ env.VERSION }}
+          --token ${{ secrets.GITHUB_TOKEN }}
