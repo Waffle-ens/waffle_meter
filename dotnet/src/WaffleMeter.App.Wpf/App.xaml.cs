@@ -110,7 +110,9 @@ public partial class App : Application
 
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
         // The connect timeout is generous so it tolerates the user answering the UAC prompt.
-        _engine = new MeterEngine(services, new NamedPipeCaptureClient("windivert", connectTimeoutMs: 30_000));
+        // captureBackend setting: "windivert" (default, embedded) or "npcap" (needs Npcap installed).
+        string backend = services.Props.GetProperty("captureBackend") ?? "windivert";
+        _engine = new MeterEngine(services, new NamedPipeCaptureClient(backend, connectTimeoutMs: 30_000));
         _engine.ReportUpdated += report => Dispatcher.Invoke(() =>
         {
             _lastReport = report;
