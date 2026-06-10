@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\WaffleMeter.App.Core\WaffleMeter.App.Core.csproj" />
     <ProjectReference Include="..\..\src\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
     <ProjectReference Include="..\..\src\WaffleMeter.Capture.Live\WaffleMeter.Capture.Live.csproj" />
     <ProjectReference Include="..\..\src\WaffleMeter.Data\WaffleMeter.Data.csproj" />

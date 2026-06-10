@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    App composition root: wires the whole ported backend (capture pipeline + DPS + official lookup +
+    stats consent/queue) into a single live engine the WPF UI binds to. net10.0-windows for the
+    capture backends. No WPF here - the UI shell sits on top of this.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>WaffleMeter.App.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
+    <ProjectReference Include="..\WaffleMeter.Capture.Live\WaffleMeter.Capture.Live.csproj" />
+    <ProjectReference Include="..\WaffleMeter.Data\WaffleMeter.Data.csproj" />
+    <ProjectReference Include="..\WaffleMeter.Services\WaffleMeter.Services.csproj" />
+    <ProjectReference Include="..\WaffleMeter.Stats\WaffleMeter.Stats.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,13 +1,12 @@
-using System.Diagnostics;
-using System.Threading.Channels;
-using WaffleMeter.Capture;
+using WaffleMeter.App.Core;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
 using WaffleMeter.Services;
 
-// Headless live meter core: capture -> the verified Aligner/Assembler/StreamProcessor pipeline ->
-// DataManager + DpsCalculator -> live per-player DPS. Run elevated (capture needs admin).
-//   dotnet run --project <MeterCli> -c Release -- [windivert|npcap] [json-dir]
+// Headless live meter: builds the full backend via MeterServices, runs MeterEngine over a capture
+// backend, and prints the live DPS report. Run elevated for in-process capture, or use the "helper"
+// backend to talk to the elevated CaptureHost.
+//   dotnet run --project <MeterCli> -c Release -- [windivert|npcap|helper|helper-npcap] [json-dir]
 
 string backendName = args.Length >= 1 ? args[0].ToLowerInvariant() : "windivert";
 string jsonDir = args.Length >= 2
@@ -20,41 +19,9 @@ if (!Directory.Exists(jsonDir))
     return 1;
 }
 
-// Reference catalogs into the data layer (real wall clock for live capture).
-var dm = new DataManager
-{
-    // Live: enrich initial combat power/job from the official site (no-op offline).
-    OfficialLookup = new OfficialCharacterLookup(),
-};
-dm.LoadMobs(ReferenceJson.LoadMobs(Path.Combine(jsonDir, "mobs.json")));
-dm.LoadSkills(ReferenceJson.LoadSkills(Path.Combine(jsonDir, "skills.json")));
-foreach (string buffFile in new[] { "buff.json", "buff_custom.json" })
-{
-    string bp = Path.Combine(jsonDir, buffFile);
-    if (File.Exists(bp))
-    {
-        dm.LoadBuffs(ReferenceJson.LoadBuffs(bp));
-    }
-}
+var services = new MeterServices(new PropertyHandler());
+services.LoadCatalogs(jsonDir);
 
-if (File.Exists(Path.Combine(jsonDir, "buff_blacklist.json")))
-{
-    dm.LoadBuffBlacklist(ReferenceJson.LoadBuffBlacklist(Path.Combine(jsonDir, "buff_blacklist.json")));
-}
-
-// Pipeline (single consumer thread owns these — not thread-safe).
-var aligner = new PacketAlignmenter();
-StreamAssembler assembler = null!;
-var calculator = new DpsCalculator(dm, () => { assembler.Flush(); aligner.Reset(); });
-var processor = new StreamProcessor(NullStreamProcessorSink.Instance, dm);
-assembler = new StreamAssembler((packet, at) => processor.OnPacketReceived(packet, at));
-
-// Capture runs on its own thread; hand segments to the consumer via a channel (mirrors Main.kt).
-Channel<CapturedSegment> channel = Channel.CreateUnbounded<CapturedSegment>(
-    new UnboundedChannelOptions { SingleReader = true });
-
-// "helper"/"helper-npcap" use the elevated CaptureHost over a named pipe (the isolated-elevation
-// architecture); "windivert"/"npcap" capture in-process (this process must then be elevated).
 IPacketCaptureBackend backend = backendName switch
 {
     "npcap" => new NpcapBackend(),
@@ -62,12 +29,10 @@ IPacketCaptureBackend backend = backendName switch
     "helper-npcap" => new NamedPipeCaptureClient("npcap"),
     _ => new WinDivertBackend(),
 };
-if (backend is NamedPipeCaptureClient pipeClient)
-{
-    pipeClient.CaptureError += msg => Console.Error.WriteLine($"[helper] {msg}");
-}
 
-backend.SegmentReceived += seg => channel.Writer.TryWrite(seg);
+using var engine = new MeterEngine(services, backend);
+engine.CaptureError += msg => Console.Error.WriteLine($"[helper] {msg}");
+engine.ReportUpdated += PrintReport;
 
 bool stop = false;
 Console.CancelKeyPress += (_, e) =>
@@ -78,7 +43,7 @@ Console.CancelKeyPress += (_, e) =>
 
 try
 {
-    backend.Start(new CaptureConfig());
+    engine.Start();
 }
 catch (Exception ex)
 {
@@ -87,39 +52,12 @@ catch (Exception ex)
 }
 
 Console.WriteLine($"waffle_meter (headless, {backendName}) — capturing. Ctrl+C to stop.");
-
-var sw = Stopwatch.StartNew();
-long lastPrint = 0;
-string currentIp = "";
-ChannelReader<CapturedSegment> reader = channel.Reader;
-
 while (!stop)
 {
-    while (reader.TryRead(out CapturedSegment seg))
-    {
-        if (seg.SrcIp != currentIp)
-        {
-            currentIp = seg.SrcIp;
-            aligner.Reset();
-        }
-
-        foreach (AlignedChunk chunk in aligner.Feed(seg.Seq, seg.Payload, seg.ArrivedAtMs))
-        {
-            assembler.ProcessChunk(chunk.Data, chunk.ArrivedAt);
-        }
-    }
-
-    if (sw.ElapsedMilliseconds - lastPrint >= 500)
-    {
-        lastPrint = sw.ElapsedMilliseconds;
-        PrintReport(calculator.GetDps());
-    }
-
-    Thread.Sleep(5);
+    Thread.Sleep(50);
 }
 
-backend.Stop();
-backend.Dispose();
+engine.Stop();
 Console.WriteLine("stopped.");
 return 0;
 
