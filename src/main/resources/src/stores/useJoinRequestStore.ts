@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 // import { useDebugStore } from "../stores/debugStore";
 
 export interface JoinRequestUser {
@@ -48,7 +49,12 @@ export const useJoinRequestStore = create<JoinRequestStore>((set, get) => ({
 
     set((state) => ({
       requests: [...state.requests.filter((r) => r.requester !== data.requester), data],
-      isOpen: state.requests.length === 0 ? true : state.isOpen, // 빈배열일때만 자동오픈
+      // 빈배열일 때만 자동오픈하되, '파티 신청 자동 열기' 설정이 켜져 있을 때만.
+      // 꺼져 있으면 수동으로 연 상태(state.isOpen)는 유지한다.
+      isOpen:
+        state.requests.length === 0 && useSettingsStore.getState().autoOpenJoinPanel
+          ? true
+          : state.isOpen,
     }));
   },
 

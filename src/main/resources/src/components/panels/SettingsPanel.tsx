@@ -184,6 +184,7 @@ export const SettingsPanel = ({
     isClickThrough,
     isAutoHide,
     multiMonitorMode,
+    autoOpenJoinPanel,
     overlayTheme,
     closeAction,
     statsConsent,
@@ -207,6 +208,7 @@ export const SettingsPanel = ({
       isClickThrough: s.isClickThrough,
       isAutoHide: s.isAutoHide,
       multiMonitorMode: s.multiMonitorMode,
+      autoOpenJoinPanel: s.autoOpenJoinPanel,
       overlayTheme: s.overlayTheme,
       closeAction: s.closeAction,
       statsConsent: s.statsConsent,
@@ -234,6 +236,7 @@ export const SettingsPanel = ({
     toggleAutoHide,
     setClickThrough,
     setMultiMonitorMode,
+    setAutoOpenJoinPanel,
     setOverlayTheme,
     setCloseAction,
     setStatsConsent,
@@ -551,6 +554,15 @@ export const SettingsPanel = ({
             <Switch
               checked={overlayTheme === "light"}
               onCheckedChange={(v) => setOverlayTheme(v ? "light" : "dark")}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </SettingsRow>
+          <SettingsRow
+            title="파티 신청 자동 열기"
+            description="파티 신청이 오면 신청 패널을 자동으로 엽니다. 끄면 상단의 파티 신청 버튼으로 직접 엽니다.">
+            <Switch
+              checked={autoOpenJoinPanel}
+              onCheckedChange={setAutoOpenJoinPanel}
               className="data-[state=checked]:bg-emerald-500"
             />
           </SettingsRow>

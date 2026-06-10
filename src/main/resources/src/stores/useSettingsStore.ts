@@ -145,6 +145,8 @@ interface SettingsState {
   statsConsent: StatsConsentInfo;
   setStatsConsent: (v: StatsConsentInfo) => void;
   refreshStatsConsent: () => void;
+  autoOpenJoinPanel: boolean;
+  setAutoOpenJoinPanel: (v: boolean) => void;
   joinPanelWidth: number;
   setJoinPanelWidth: (w: number) => void;
   joinPanelHeight: number;
@@ -296,6 +298,7 @@ const defaultSettings = {
   closeAction: "ask" as CloseAction,
   gpuAcceleration: true,
   statsConsent: DEFAULT_STATS_CONSENT,
+  autoOpenJoinPanel: true,
   joinPanelWidth: 400,
   joinPanelHeight: 330,
   joinPanelX: 0,
@@ -440,6 +443,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
       closeAction: savedCloseAction,
       gpuAcceleration: savedGpuAcceleration,
       statsConsent: savedStatsConsent,
+      autoOpenJoinPanel: j.loadProps?.("autoOpenJoinPanel") !== "false",
       joinPanelWidth: Number(j.loadProps?.("joinPanelWidth")) || defaultSettings.joinPanelWidth,
       joinPanelHeight: Number(j.loadProps?.("joinPanelHeight")) || defaultSettings.joinPanelHeight,
       joinPanelX: hasSavedJoinPanelX ? Number(savedJoinPanelXRaw) : defaultSettings.joinPanelX,
@@ -503,6 +507,7 @@ export const useSettingsStore = create<SettingsState>((set) => {
     statsConsent: defaultSettings.statsConsent,
     isLoaded: defaultSettings.isLoaded,
 
+    autoOpenJoinPanel: defaultSettings.autoOpenJoinPanel,
     joinPanelWidth: defaultSettings.joinPanelWidth,
     joinPanelHeight: defaultSettings.joinPanelHeight,
     joinPanelX: defaultSettings.joinPanelX,
@@ -742,6 +747,10 @@ export const useSettingsStore = create<SettingsState>((set) => {
     //   set({ showPower });
     //   jb()?.saveProps?.("showPower", String(showPower));
     // },
+    setAutoOpenJoinPanel: (autoOpenJoinPanel) => {
+      set({ autoOpenJoinPanel });
+      jb()?.saveProps?.("autoOpenJoinPanel", String(autoOpenJoinPanel));
+    },
     setJoinPanelWidth: (joinPanelWidth) => {
       set({ joinPanelWidth });
       jb()?.saveProps?.("joinPanelWidth", String(joinPanelWidth));

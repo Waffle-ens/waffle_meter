@@ -107,6 +107,7 @@ export default function App() {
   } = useVersionCheck();
   const addRequest = useJoinRequestStore((s) => s.addRequest);
   const joinRequestCount = useJoinRequestStore((s) => s.requests.length);
+  const joinPanelOpen = useJoinRequestStore((s) => s.isOpen);
   const removeRequest = useJoinRequestStore((s) => s.removeRequest);
   const clearAll = useJoinRequestStore((s) => s.clearAll);
   const refuseRequest = useJoinRequestStore((s) => s.refuseRequest);
@@ -169,7 +170,11 @@ export default function App() {
   // 패널/토스트/모달이 열리면 전체화면 폴백(검증된 동작). union(패널 작은 창)은 네이티브 창 이동↔
   // WebView 리페인트 프레임 비동기로 전환 깜빡임이 구조적이라 보류 — 경로는 휴면 보존(렌더러 교체 시 재활성).
   const anyOverlayExpand =
-    activePanel !== null || joinRequestCount > 0 || updateToastVisible || modalOpen;
+    activePanel !== null ||
+    joinRequestCount > 0 ||
+    joinPanelOpen ||
+    updateToastVisible ||
+    modalOpen;
   const overlayMode: OverlayMode = !isLoaded || anyOverlayExpand ? "fullscreen" : "meterOnly";
   useOverlayWindow(overlayMode);
 
