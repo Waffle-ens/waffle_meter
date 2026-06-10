@@ -138,4 +138,38 @@ public sealed class StatsConsentManagerTests : IDisposable
         StatsConsentManager.Info info = manager.GetInfo(syncRemote: true);
         Assert.Equal("identity_missing", info.SyncStatus);
     }
+
+    [Fact]
+    public void Consent_is_remembered_per_character()
+    {
+        StatsApiClient accept = ApiReturning(
+            """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":true,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}""");
+
+        // Character A accepts.
+        _data.SaveNickname(1, "Alice", isExecutor: true, server: 3, jobByte: 0);
+        Manager(accept).Set("accepted", uploadEnabled: true, publicCharacter: true);
+        Assert.True(Manager(accept).IsCurrentCharacterConsented());
+        Assert.True(Manager(accept).IsUploadAllowed());
+
+        // Switch to character B -> NOT A's accepted; an undecided character is unknown.
+        _data.SaveNickname(2, "Bob", isExecutor: true, server: 3, jobByte: 0);
+        Assert.Equal("unknown", Manager(accept).GetInfo().State);
+        Assert.False(Manager(accept).IsCurrentCharacterConsented());
+        Assert.False(Manager(accept).IsUploadAllowed());
+
+        // B declines (remembered for B only).
+        Manager(ApiFailing()).Set("declined", uploadEnabled: false, publicCharacter: false);
+        Assert.Equal("declined", Manager(accept).GetInfo().State);
+
+        // Switch back to A -> still accepted (no re-prompt), upload still allowed.
+        _data.SaveNickname(1, "Alice", isExecutor: true, server: 3, jobByte: 0);
+        Assert.Equal("accepted", Manager(accept).GetInfo().State);
+        Assert.True(Manager(accept).IsCurrentCharacterConsented());
+        Assert.True(Manager(accept).IsUploadAllowed());
+
+        // The consented list has A but not B.
+        IReadOnlyList<string> consented = Manager(accept).ConsentedCharacterHashes();
+        Assert.Contains(StatsIdentity.CharacterIdentityHash(3, "Alice")!, consented);
+        Assert.DoesNotContain(StatsIdentity.CharacterIdentityHash(3, "Bob")!, consented);
+    }
 }

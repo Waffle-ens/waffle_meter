@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using WaffleMeter.Data;
 using WaffleMeter.Services;
 
@@ -26,6 +28,11 @@ public sealed class StatsConsentManager
     private const string KeySyncError = "statsConsentSyncError";
     private const string KeyServerUpdatedAt = "statsConsentServerUpdatedAt";
     private const string KeyLastSeenAt = "statsConsentLastSeenAt";
+    // Per-character consent memory (req 2): identityHash -> remembered decision, so switching
+    // characters never re-prompts an already-decided one. Session-level sync metadata (syncStatus
+    // etc.) stays in the global keys above. The global state/identity keys are kept as a migration /
+    // no-character fallback.
+    private const string KeyCharacters = "statsConsentCharacters";
 
     // Interned sentinel: SaveLocal's identityHash defaults to "the current character's hash"; an
     // explicit value (including null, from a remote response) overrides it.
@@ -231,7 +238,53 @@ public sealed class StatsConsentManager
         return user == null ? null : StatsIdentity.CharacterIdentityHash(user.Server, user.Nickname);
     }
 
+    /// <summary>True if the CURRENT character has an accepted consent on record (live or remembered).</summary>
+    public bool IsCurrentCharacterConsented() => LocalInfo().State == State.accepted.ToString();
+
+    /// <summary>Identity hashes of all locally-remembered consented characters (the consented list).</summary>
+    public IReadOnlyList<string> ConsentedCharacterHashes() =>
+        LoadCharacters().Where(kv => TryState(kv.Value.State) == State.accepted).Select(kv => kv.Key).ToList();
+
     private Info LocalInfo()
+    {
+        // Session-level sync metadata is always global (it describes the last sync op, not a character).
+        bool remoteExists = ParseBoolStrict(_props.GetProperty(KeyRemoteExists)) ?? false;
+        string syncStatus = _props.GetProperty(KeySyncStatus) ?? "local";
+        string? syncError = NonBlank(_props.GetProperty(KeySyncError));
+        string? serverUpdatedAt = NonBlank(_props.GetProperty(KeyServerUpdatedAt));
+        string? lastSeenAt = NonBlank(_props.GetProperty(KeyLastSeenAt));
+
+        string? currentHash = CurrentIdentityHash();
+        Dictionary<string, CharConsent> map = LoadCharacters();
+
+        // 1) Remembered decision for the current character -> use it (no re-prompt).
+        if (currentHash != null && map.TryGetValue(currentHash, out CharConsent? entry))
+        {
+            State st = TryState(entry.State) ?? State.unknown;
+            return new Info(
+                st.ToString(),
+                st == State.accepted && entry.UploadEnabled,
+                st == State.accepted && entry.PublicCharacter,
+                entry.ConsentVersion ?? ConsentVersion,
+                entry.UpdatedAt,
+                currentHash,
+                remoteExists, syncStatus, syncError, serverUpdatedAt, lastSeenAt);
+        }
+
+        // 2) Migration / no-character fallback: use the legacy global keys only when they belong to the
+        //    current character (a pre-feature consent) or no character is detected yet.
+        string? globalIdentity = NonBlank(_props.GetProperty(KeyIdentityHash));
+        if (currentHash == null || globalIdentity == currentHash)
+        {
+            return GlobalInfo(remoteExists, syncStatus, syncError, serverUpdatedAt, lastSeenAt);
+        }
+
+        // 3) A detected character with no decision on record -> unknown (eligible to be prompted).
+        return new Info(State.unknown.ToString(), false, false, ConsentVersion, 0, currentHash,
+            remoteExists, syncStatus, syncError, serverUpdatedAt, lastSeenAt);
+    }
+
+    private Info GlobalInfo(bool remoteExists, string syncStatus, string? syncError, string? serverUpdatedAt, string? lastSeenAt)
     {
         State state = TryState(_props.GetProperty(KeyState)) ?? State.unknown;
         bool uploadEnabled = ParseBoolStrict(_props.GetProperty(KeyUploadEnabled)) ?? false;
@@ -239,11 +292,6 @@ public sealed class StatsConsentManager
         string consentVersion = _props.GetProperty(KeyConsentVersion) ?? ConsentVersion;
         long updatedAt = long.TryParse(_props.GetProperty(KeyUpdatedAt), NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsed) ? parsed : 0L;
         string? identityHash = NonBlank(_props.GetProperty(KeyIdentityHash));
-        bool remoteExists = ParseBoolStrict(_props.GetProperty(KeyRemoteExists)) ?? false;
-        string syncStatus = _props.GetProperty(KeySyncStatus) ?? "local";
-        string? syncError = NonBlank(_props.GetProperty(KeySyncError));
-        string? serverUpdatedAt = NonBlank(_props.GetProperty(KeyServerUpdatedAt));
-        string? lastSeenAt = NonBlank(_props.GetProperty(KeyLastSeenAt));
         return new Info(
             state.ToString(),
             state == State.accepted && uploadEnabled,
@@ -256,6 +304,47 @@ public sealed class StatsConsentManager
             syncError,
             serverUpdatedAt,
             lastSeenAt);
+    }
+
+    private Dictionary<string, CharConsent> LoadCharacters()
+    {
+        string? raw = _props.GetProperty(KeyCharacters);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return new();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, CharConsent>>(raw) ?? new();
+        }
+        catch
+        {
+            return new();
+        }
+    }
+
+    private void UpsertCharacter(string identityHash, State state, bool uploadEnabled, bool publicCharacter, string version, long updatedAt)
+    {
+        Dictionary<string, CharConsent> map = LoadCharacters();
+        map[identityHash] = new CharConsent
+        {
+            State = state.ToString(),
+            UploadEnabled = state == State.accepted && uploadEnabled,
+            PublicCharacter = state == State.accepted && publicCharacter,
+            ConsentVersion = version,
+            UpdatedAt = updatedAt,
+        };
+        _props.SetProperty(KeyCharacters, JsonSerializer.Serialize(map));
+    }
+
+    private sealed class CharConsent
+    {
+        [JsonPropertyName("state")] public string State { get; set; } = "unknown";
+        [JsonPropertyName("uploadEnabled")] public bool UploadEnabled { get; set; }
+        [JsonPropertyName("publicCharacter")] public bool PublicCharacter { get; set; }
+        [JsonPropertyName("consentVersion")] public string? ConsentVersion { get; set; }
+        [JsonPropertyName("updatedAt")] public long UpdatedAt { get; set; }
     }
 
     private void SaveLocal(
@@ -286,6 +375,16 @@ public sealed class StatsConsentManager
         _props.SetProperty(KeySyncError, syncError ?? string.Empty);
         _props.SetProperty(KeyServerUpdatedAt, serverUpdatedAt ?? string.Empty);
         _props.SetProperty(KeyLastSeenAt, lastSeenAt ?? string.Empty);
+
+        // Remember this decision against the CURRENT character (req 2), keyed by the locally-computed
+        // identity hash — which is exactly what LocalInfo looks up (the server may echo a different/
+        // stubbed hash into the global key, but the per-character map must match the local lookup). When
+        // no character is detected, only the global keys are written.
+        string? mapKey = CurrentIdentityHash();
+        if (mapKey != null)
+        {
+            UpsertCharacter(mapKey, state, uploadEnabled, publicCharacter, version, updated);
+        }
     }
 
     private void RememberSync(string status, string? error)
