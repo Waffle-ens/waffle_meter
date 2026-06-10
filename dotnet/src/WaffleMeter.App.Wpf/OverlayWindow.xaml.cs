@@ -34,6 +34,14 @@ public partial class OverlayWindow : Window
 
     private void OnExit(object sender, RoutedEventArgs e) => ExitRequested?.Invoke();
 
+    private void OnRowClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: RowViewModel row } && DataContext is OverlayViewModel vm)
+        {
+            vm.ToggleSelection(row.Id);
+        }
+    }
+
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
