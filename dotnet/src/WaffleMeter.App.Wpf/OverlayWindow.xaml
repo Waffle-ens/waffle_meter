@@ -21,7 +21,10 @@
             <MenuItem Header="종료" Click="OnExit"/>
         </ContextMenu>
     </Window.ContextMenu>
-    <Border Background="#CC1E1E1E" CornerRadius="6" Padding="8" MinWidth="380">
+    <Border CornerRadius="6" Padding="8" MinWidth="380">
+        <Border.Background>
+            <SolidColorBrush Color="#1E1E1E" Opacity="{Binding Settings.MeterOpacity}"/>
+        </Border.Background>
         <StackPanel>
             <DockPanel LastChildFill="False" Margin="0,0,0,6" MouseLeftButtonDown="OnDragHandle" Background="Transparent">
                 <TextBlock Text="{Binding TargetName}" Foreground="#FFEEEEEE" FontWeight="Bold" FontSize="13"/>
@@ -34,9 +37,10 @@
             <ItemsControl ItemsSource="{Binding Rows}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Grid Margin="0,2" Background="Transparent" MouseLeftButtonUp="OnRowClick" Cursor="Hand">
+                        <Grid Margin="0,2" Background="Transparent" MouseLeftButtonUp="OnRowClick" Cursor="Hand"
+                              MinHeight="{Binding RowHeight}">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                                 <RowDefinition Height="3"/>
                             </Grid.RowDefinitions>
                             <Grid Grid.Row="0">

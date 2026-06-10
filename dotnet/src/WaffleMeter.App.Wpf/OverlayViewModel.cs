@@ -24,10 +24,17 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private static readonly Brush NameServerA = Solid("#7dd3fc");
     private static readonly Brush NameServerB = Solid("#f0abfc");
 
-    public OverlayViewModel(string version)
+    private readonly MeterSettings _settings;
+
+    public OverlayViewModel(string version, MeterSettings settings)
     {
+        _settings = settings;
+        Settings = settings;
         _status = $"waffle_meter {version}";
     }
+
+    /// <summary>Exposed for the overlay to bind opacity/font/etc. directly.</summary>
+    public MeterSettings Settings { get; }
 
     public ObservableCollection<RowViewModel> Rows { get; } = new();
 
@@ -54,10 +61,16 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         long durationMs = Math.Max(report.BattleEnd - report.BattleStart, 0);
         Duration = $"{durationMs / 1000.0:F1}s";
 
-        // metric = dps (default damageValueMode). Sort desc, take 8, always include self.
+        // metric = amount (total mode) or dps. Sort desc, take 8, always include self.
+        bool total = _settings.UseTotalDamage;
+        bool entire = _settings.UseEntireContribution;
+        NameDisplay nameMode = _settings.NameDisplayMode;
+        double rowHeight = _settings.RowHeight;
+        double Metric(DpsInformation info) => total ? info.Amount : info.Dps;
+
         List<Entry> entries = report.Information
             .Select(kv => new Entry(kv.Key, kv.Value, report.Contributors.FirstOrDefault(c => c.Id == kv.Key)))
-            .OrderByDescending(e => e.Info.Dps)
+            .OrderByDescending(e => Metric(e.Info))
             .ToList();
 
         var display = entries.Take(8).ToList();
@@ -67,25 +80,25 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             display.Add(entries[selfIndex]); // always show self, even outside top 8
         }
 
-        double topMetric = Math.Max(display.Count > 0 ? display.Max(e => e.Info.Dps) : 0.0, 1.0);
+        double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);
 
         for (int i = 0; i < display.Count; i++)
         {
             Entry e = display[i];
             bool isUser = e.User?.IsExecutor == true;
-            double contribution = e.Info.Contribution;
+            double contribution = e.Info.Contribution; // fill tier always uses party contribution
             int power = e.User?.Power ?? 0;
             int server = e.User?.Server ?? 0;
-            double ratio = Math.Clamp(e.Info.Dps / topMetric, 0.0, 1.0);
+            double ratio = Math.Clamp(Metric(e.Info) / topMetric, 0.0, 1.0);
 
             var row = new RowViewModel(
                 Id: e.Uid,
                 Rank: i + 1,
-                Name: MeterFormat.DisplayName(e.User?.Nickname, NameDisplay.All, isUser),
+                Name: MeterFormat.DisplayName(e.User?.Nickname, nameMode, isUser),
                 PowerText: power > 0 ? MeterFormat.FormatPower(power) : string.Empty,
                 PowerVisible: power > 0 ? Visibility.Visible : Visibility.Collapsed,
-                DamageText: MeterFormat.FormatDps(e.Info.Dps),
-                PercentText: MeterFormat.FormatPercent(contribution),
+                DamageText: total ? MeterFormat.FormatAmount(e.Info.Amount) : MeterFormat.FormatDps(e.Info.Dps),
+                PercentText: MeterFormat.FormatPercent(entire ? e.Info.EntireContribution : contribution),
                 BarRatio: ratio,
                 BarRest: 1.0 - ratio,
                 FillBrush: isUser ? UserBar : contribution < 3 ? ErrorBar : contribution < 5 ? WarningBar : NormalBar,
@@ -95,7 +108,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                     ServerColorTier.B => NameServerB,
                     _ => NameDefault,
                 },
-                IsUser: isUser);
+                IsUser: isUser,
+                RowHeight: rowHeight);
 
             if (i < Rows.Count)
             {
@@ -159,4 +173,5 @@ public sealed record RowViewModel(
     double BarRest,
     Brush FillBrush,
     Brush NameBrush,
-    bool IsUser);
+    bool IsUser,
+    double RowHeight);

@@ -13,6 +13,7 @@ namespace WaffleMeter.App.Wpf;
 public partial class App : Application
 {
     private MeterEngine? _engine;
+    private MeterSettings? _settings;
     private HotkeyHandler? _hotkeys;
     private OverlayController? _controller;
     private TrayIconController? _tray;
@@ -33,7 +34,8 @@ public partial class App : Application
         var services = new MeterServices(new PropertyHandler());
         TryLoadCatalogs(services);
 
-        var viewModel = new OverlayViewModel(services.Version);
+        _settings = new MeterSettings(services.Props);
+        var viewModel = new OverlayViewModel(services.Version, _settings);
         var window = new OverlayWindow { DataContext = viewModel };
         LoadPosition(services.Props, window);
         window.Show();
@@ -57,10 +59,11 @@ public partial class App : Application
 
         // Right-click overlay -> 설정 / 종료.
         HotkeyHandler hotkeys = _hotkeys;
+        MeterSettings settings = _settings;
         window.SettingsRequested += () =>
         {
-            var settings = new SettingsWindow(new SettingsViewModel(services, hotkeys)) { Owner = window };
-            settings.Show();
+            var settingsWindow = new SettingsWindow(new SettingsViewModel(services, settings, controller, hotkeys)) { Owner = window };
+            settingsWindow.Show();
         };
         window.ExitRequested += ExitApp;
 
