@@ -11,6 +11,7 @@ namespace WaffleMeter.App.Wpf;
 public partial class App : Application
 {
     private MeterEngine? _engine;
+    private HotkeyHandler? _hotkeys;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -27,6 +28,17 @@ public partial class App : Application
         var viewModel = new OverlayViewModel(services.Version);
         var window = new OverlayWindow { DataContext = viewModel };
         window.Show();
+
+        // Global hotkeys (Ctrl+R reset / Ctrl+H visibility / Ctrl+T click-through). Callbacks fire on
+        // the listener thread, so marshal window ops to the dispatcher.
+        _hotkeys = new HotkeyHandler(services.Props)
+        {
+            OnReset = () => { /* placeholder: the Kotlin reset hotkey is currently a no-op */ },
+            OnVisibility = () => Dispatcher.Invoke(() =>
+                window.Visibility = window.Visibility == Visibility.Visible ? Visibility.Hidden : Visibility.Visible),
+            OnClickThrough = () => Dispatcher.Invoke(() => window.SetClickThrough(!window.ClickThrough)),
+        };
+        _hotkeys.Start();
 
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
         // The connect timeout is generous so it tolerates the user answering the UAC prompt.
@@ -77,6 +89,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _hotkeys?.Dispose();
         _engine?.Dispose();
         base.OnExit(e);
     }
