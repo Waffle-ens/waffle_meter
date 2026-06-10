@@ -13,7 +13,22 @@ using WaffleMeter.Capture.Live;
 
 string pipeName = args.Length >= 1 ? args[0] : CaptureWireProtocol.DefaultPipeName;
 
-Console.WriteLine($"waffle_meter capture helper (elevated) — pipe '{pipeName}'. Ctrl+C to exit.");
+// Log to a file next to the exe too, so the exit reason survives the (serve-once) console closing.
+string logPath = Path.Combine(AppContext.BaseDirectory, "helper.log");
+void Log(string message)
+{
+    Console.WriteLine(message);
+    try
+    {
+        File.AppendAllText(logPath, $"{DateTime.Now:HH:mm:ss} {message}\n");
+    }
+    catch
+    {
+        // best effort
+    }
+}
+
+Log($"waffle_meter capture helper (elevated) — pipe '{pipeName}'. Ctrl+C to exit.");
 
 // Ctrl+C terminates immediately even while blocked in WaitForConnection.
 Console.CancelKeyPress += (_, _) => Environment.Exit(0);
@@ -26,18 +41,18 @@ using var server = new NamedPipeServerStream(
     PipeOptions.Asynchronous);
 
 server.WaitForConnection();
-Console.WriteLine("client connected.");
+Log("client connected.");
 try
 {
     CaptureHostServer.Serve(
         server,
         (backendName, _) => backendName == "npcap" ? new NpcapBackend() : new WinDivertBackend(),
-        Console.WriteLine);
+        Log);
 }
 catch (Exception ex)
 {
-    Console.Error.WriteLine($"client session ended with error: {ex.Message}");
+    Log($"session error: {ex.GetType().Name}: {ex.Message}");
 }
 
-Console.WriteLine("client disconnected — exiting.");
+Log("client disconnected — exiting.");
 return 0;

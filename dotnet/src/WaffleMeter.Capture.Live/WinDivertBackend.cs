@@ -146,7 +146,7 @@ public sealed class WinDivertBackend : IPacketCaptureBackend
     /// downstream. <paramref name="config"/> is unused for filtering (kept for the back-compat signature).
     /// </summary>
     private static string BuildFilter(CaptureConfig config) =>
-        "ip and tcp and not (tcp.SrcPort == 80 or tcp.DstPort == 80 or tcp.SrcPort == 443 or tcp.DstPort == 443)";
+        "ip and tcp and tcp.SrcPort != 80 and tcp.DstPort != 80 and tcp.SrcPort != 443 and tcp.DstPort != 443";
 
     public void Stop()
     {

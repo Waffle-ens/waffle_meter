@@ -68,6 +68,7 @@ public static class CaptureHostServer
         }
         catch (Exception ex)
         {
+            log?.Invoke($"capture start FAILED: {ex.GetType().Name}: {ex.Message}");
             Send(CaptureWireProtocol.FrameError, Encoding.UTF8.GetBytes(ex.Message));
             backend.Dispose();
             return;
