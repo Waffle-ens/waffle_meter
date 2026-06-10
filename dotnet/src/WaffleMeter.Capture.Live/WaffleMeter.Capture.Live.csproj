@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Live packet-capture backends that feed the (verified) capture pipeline with CapturedSegment.
+    WinDivert (default, embedded driver) + Npcap/SharpPcap (option). Windows-only at runtime.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>WaffleMeter.Capture.Live</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- libpcap/Npcap binding for the optional Npcap backend. -->
+    <PackageReference Include="SharpPcap" Version="6.3.1" />
+  </ItemGroup>
+
+</Project>
