@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Stats/telemetry subsystem (Kotlin com.tbread.stats). Anonymous, consent-gated boss-clear upload.
+    Ported verbatim to preserve existing behaviour. Depends on Data (DpsLog/DpsReport + DataManager)
+    and Services (PropertyHandler). The only Data->Stats edge (DpsCalculator offering a finished log)
+    is inverted via a hook so this project depends on Data, not the reverse.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>WaffleMeter.Stats</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WaffleMeter.Data\WaffleMeter.Data.csproj" />
+    <ProjectReference Include="..\WaffleMeter.Services\WaffleMeter.Services.csproj" />
+  </ItemGroup>
+
+</Project>
