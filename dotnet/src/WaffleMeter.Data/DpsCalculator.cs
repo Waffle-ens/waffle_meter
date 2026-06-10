@@ -575,6 +575,13 @@ public sealed class DpsCalculator
         return GetBuffOperatingRate(targetId.Value, data.BattleStart, data.BattleEnd);
     }
 
+    /// <summary>
+    /// Invoked with the frozen DpsLog each time a battle is saved (Kotlin called StatsUploadQueue
+    /// here directly). Left null in replay/headless-without-upload so the DPS golden is unaffected;
+    /// the live app wires it to the stats upload queue.
+    /// </summary>
+    public Action<DpsLog>? OnBattleLogged { get; set; }
+
     private void SaveRecentBattleLog()
     {
         Dictionary<int, Dictionary<string, AnalyzedSkill>> skillDetails =
@@ -586,7 +593,8 @@ public sealed class DpsCalculator
         _recentBuffRates = buffRates;
         _recentBossBuffRates = bossBuffRates;
 
-        _dm.SaveBattleLog(_recentData, skillDetails, buffRates, bossBuffRates);
+        DpsLog log = _dm.SaveBattleLog(_recentData, skillDetails, buffRates, bossBuffRates);
+        OnBattleLogged?.Invoke(log);
         _recentData.Packets = null;
     }
 
