@@ -62,10 +62,13 @@ public sealed class StreamProcessor
 
     private const int DamageKey = 0x04 | (0x38 << 8);          // 0x3804
     private const int DoTKey = 0x05 | (0x38 << 8);             // 0x3805
-    private const int OwnNicknameKey = 0x33 | (0x36 << 8);     // 0x3633
-    private const int OtherNicknameKey = 0x44 | (0x36 << 8);   // 0x3644
-    private const int OwnCombatPowerKey = 0x55 | (0x36 << 8);  // 0x3655
-    private const int SummonKey = 0x40 | (0x36 << 8);          // 0x3640
+    // 2026-06-10 server patch inserted a message into the 0x36 category, shifting every 0x36 opcode
+    // whose first byte >= 0x40 by +1 (Kotlin StreamProcessor fix 88ca14e / release v1.7.9). Other
+    // categories (0x38 damage, 0x8D battle) are untouched. OwnNickname (0x33 < 0x40) is unchanged.
+    private const int OwnNicknameKey = 0x33 | (0x36 << 8);     // 0x3633 (unchanged)
+    private const int OtherNicknameKey = 0x45 | (0x36 << 8);   // 0x3645 (was 0x3644)
+    private const int OwnCombatPowerKey = 0x56 | (0x36 << 8);  // 0x3656 (was 0x3655)
+    private const int SummonKey = 0x41 | (0x36 << 8);          // 0x3641 (was 0x3640)
     private const int BuffApplyKey = 0x2A | (0x38 << 8);       // 0x382A
     private const int BuffApply2Key = 0x2B | (0x38 << 8);      // 0x382B
     private const int BattleToggleKey = 0x21 | (0x8D << 8);    // 0x8D21
@@ -488,7 +491,7 @@ public sealed class StreamProcessor
     private void SearchOtherNickname(byte[] packet, VarIntOutput lengthInfo, long arrivedAt)
     {
         int offset = lengthInfo.Length;
-        if (packet[offset] != 0x44) return;
+        if (packet[offset] != 0x45) return; // was 0x44 (2026-06-10 0x36 +1 shift)
         if (packet[offset + 1] != 0x36) return;
         offset += 2;
         if (packet.Length < offset) return;
@@ -604,7 +607,7 @@ public sealed class StreamProcessor
             offset += 1;
         }
 
-        if (packet[offset] != 0x40) return;
+        if (packet[offset] != 0x41) return; // was 0x40 (2026-06-10 0x36 +1 shift)
         if (packet[offset + 1] != 0x36) return;
         offset += 2;
 
