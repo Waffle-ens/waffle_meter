@@ -81,6 +81,19 @@
                     <TextBlock Text="{Binding UploadStatus}" Foreground="#FF666666" FontSize="11" Margin="0,2"/>
                 </StackPanel>
             </TabItem>
+
+            <TabItem Header="진단">
+                <StackPanel Margin="10">
+                    <TextBlock Text="패킷 로깅" Style="{StaticResource Label}"/>
+                    <TextBlock Text="전투를 기록해 재생 가능한 코퍼스(packet-debug-logs)를 남깁니다. 진단/검증용이며, 켜두면 디스크에 계속 기록됩니다."
+                               TextWrapping="Wrap" Foreground="#FF888888" FontSize="11" Margin="0,2,0,8"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                        <Button Content="{Binding LoggingButtonLabel}" Width="100" Click="OnToggleLogging" Margin="0,0,8,0"/>
+                        <Button Content="로그 폴더 열기" Width="110" Click="OnOpenLogFolder"/>
+                    </StackPanel>
+                    <TextBlock Text="{Binding LoggingStatus}" Foreground="#FF666666" FontSize="11" Margin="0,4"/>
+                </StackPanel>
+            </TabItem>
         </TabControl>
     </DockPanel>
 </Window>

@@ -16,7 +16,11 @@ public partial class SettingsWindow : Window
 
         // Poll character-detection + upload status while open (React SettingsPanel 2.5s poll).
         _statusTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(2500) };
-        _statusTimer.Tick += (_, _) => _viewModel.RefreshCharacterStatus();
+        _statusTimer.Tick += (_, _) =>
+        {
+            _viewModel.RefreshCharacterStatus();
+            _viewModel.RefreshLogging();
+        };
         _statusTimer.Start();
         Closed += (_, _) => _statusTimer.Stop();
     }
@@ -34,6 +38,10 @@ public partial class SettingsWindow : Window
     }
 
     private void OnSaveServer(object sender, RoutedEventArgs e) => _viewModel.SaveServer();
+
+    private void OnToggleLogging(object sender, RoutedEventArgs e) => _viewModel.ToggleLogging();
+
+    private void OnOpenLogFolder(object sender, RoutedEventArgs e) => _viewModel.OpenLogFolder();
 
     private void OnApplyConsent(object sender, RoutedEventArgs e) => RunBackground(_viewModel.ApplyConsent);
 

@@ -1,6 +1,9 @@
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.CompilerServices;
 using WaffleMeter.App.Core;
+using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Stats;
 
@@ -150,6 +153,42 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         _services.Props.SetProperty("server.ip", ServerIp);
         _services.Props.SetProperty("server.port", ServerPort);
+    }
+
+    // ---- diagnostics (packet logging) ----
+    public bool IsLoggingActive => _services.DebugLogger.IsRunning;
+
+    public string LoggingButtonLabel => _services.DebugLogger.IsRunning ? "기록 중지" : "기록 시작";
+
+    public string LoggingStatus => _services.DebugLogger.IsRunning
+        ? $"기록 중 · 세그먼트 {_services.DebugLogger.CaptureCount} · {_services.DebugLogger.LineCount} 줄"
+        : "중지됨";
+
+    /// <summary>Start/stop a packet-debug-logs capture session (replayable corpus).</summary>
+    public void ToggleLogging()
+    {
+        if (_services.DebugLogger.IsRunning)
+        {
+            _services.DebugLogger.Stop();
+        }
+        else
+        {
+            _services.DebugLogger.Start();
+        }
+
+        RefreshLogging();
+        OnPropertyChanged(nameof(LoggingButtonLabel));
+        OnPropertyChanged(nameof(IsLoggingActive));
+    }
+
+    /// <summary>Re-reads the live logging counters (polled while the window is open).</summary>
+    public void RefreshLogging() => OnPropertyChanged(nameof(LoggingStatus));
+
+    public void OpenLogFolder()
+    {
+        string dir = PacketDebugLogger.LogDirectory();
+        Directory.CreateDirectory(dir);
+        Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
     }
 
     public void Reload()

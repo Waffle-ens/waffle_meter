@@ -57,6 +57,12 @@ public sealed class PacketDebugLogger : IStreamProcessorSink
 
     public bool IsRunning => _session != null;
 
+    /// <summary>Lines written this session (approximate live read for UI status).</summary>
+    public long LineCount => _session?.Lines ?? 0;
+
+    /// <summary>Captured segments logged this session (approximate live read for UI status).</summary>
+    public long CaptureCount => _session?.CaptureCount ?? 0;
+
     private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     /// <summary>Begins a new timestamped session (no-op if one is already running). Returns status JSON.</summary>
