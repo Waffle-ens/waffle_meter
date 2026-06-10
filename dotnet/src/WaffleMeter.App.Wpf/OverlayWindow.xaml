@@ -37,6 +37,8 @@
                 <DockPanel Grid.Column="0" LastChildFill="False" MouseLeftButtonDown="OnDragHandle" Background="Transparent">
                     <TextBlock Text="{Binding TargetName}" Foreground="#FFEEEEEE" FontWeight="Bold" FontSize="13"/>
                     <TextBlock Text="{Binding Duration}" Foreground="{Binding CombatTimeBrush}" DockPanel.Dock="Right" Margin="8,0"/>
+                    <TextBlock Text="{Binding TargetHpText}" Foreground="{Binding CombatTimeBrush}" DockPanel.Dock="Right"
+                               Margin="8,0,0,0" VerticalAlignment="Center" FontSize="11"/>
                 </DockPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="⟳" Click="OnResetButton" ToolTip="전투 초기화" Width="22" Height="20" Padding="0"

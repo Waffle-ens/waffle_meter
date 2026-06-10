@@ -78,6 +78,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private string _targetName = "-";
     public string TargetName { get => _targetName; private set => Set(ref _targetName, value); }
 
+    private string _targetHpText = string.Empty;
+    public string TargetHpText { get => _targetHpText; private set => Set(ref _targetHpText, value); }
+
     private string _duration = "0.0s";
     public string Duration { get => _duration; private set => Set(ref _duration, value); }
 
@@ -91,6 +94,16 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     {
         _lastReport = report;
         TargetName = report.Target?.Mob.Name ?? "-";
+        if (report.Target is { MaxHp: > 0 } tgt)
+        {
+            double pct = Math.Clamp((double)tgt.RemainHp / tgt.MaxHp * 100.0, 0, 100);
+            TargetHpText = $"{tgt.RemainHp:N0} / {tgt.MaxHp:N0}  {pct:F1}%";
+        }
+        else
+        {
+            TargetHpText = string.Empty;
+        }
+
         long durationMs = Math.Max(report.BattleEnd - report.BattleStart, 0);
         Duration = $"{durationMs / 1000.0:F1}s";
 
