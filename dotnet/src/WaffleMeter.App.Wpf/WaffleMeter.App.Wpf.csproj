@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Native WPF shell. Unelevated (asInvoker) — the elevated CaptureHost does the driver work, the UI
+    talks to it over the pipe. Overlay uses SoftwareOnly rendering + WS_EX_NOACTIVATE (the decided
+    approach) to avoid stealing focus/GPU from the game.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>WaffleMeter.App.Wpf</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WaffleMeter.App.Core\WaffleMeter.App.Core.csproj" />
+    <ProjectReference Include="..\WaffleMeter.Capture.Live\WaffleMeter.Capture.Live.csproj" />
+    <ProjectReference Include="..\WaffleMeter.Data\WaffleMeter.Data.csproj" />
+    <ProjectReference Include="..\WaffleMeter.Services\WaffleMeter.Services.csproj" />
+  </ItemGroup>
+
+</Project>
