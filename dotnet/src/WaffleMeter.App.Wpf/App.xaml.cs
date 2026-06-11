@@ -7,6 +7,7 @@ using WaffleMeter.App.Core;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
 using WaffleMeter.Services;
+using WaffleMeter.Stats;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -33,6 +34,8 @@ public partial class App : Application
     private bool _historyPanelVisible;
     private bool _viewingHistory;
     private long _historyBaselineBattleStart;
+    private readonly HashSet<string> _consentPrompted = new();
+    private bool _consentDialogOpen;
 
     public App()
     {
@@ -176,6 +179,7 @@ public partial class App : Application
 
             viewModel.Update(report);
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
+            MaybePromptConsent(services, window);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = message);
 
@@ -377,6 +381,47 @@ public partial class App : Application
             _historyPanelVisible = true;
             _historyPanel.Present(true);
         };
+    }
+
+    /// <summary>Show the stats-consent modal once per detected character that has no decision yet
+    /// (React StatsConsentModal). Runs on the UI thread from the report loop; remembers prompted hashes
+    /// so it never re-pops in the same session.</summary>
+    private void MaybePromptConsent(MeterServices services, Window owner)
+    {
+        if (_consentDialogOpen || !services.Consent.NeedsConsentPrompt())
+        {
+            return;
+        }
+
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (hash == null || !_consentPrompted.Add(hash))
+        {
+            return;
+        }
+
+        StatsOwnCharacter own = services.StatsBuilder.OwnCharacter();
+        string label = !string.IsNullOrEmpty(own.Nickname)
+            ? own.Nickname + (string.IsNullOrEmpty(own.Job) ? string.Empty : $" · {own.Job}")
+            : "내 캐릭터";
+
+        _consentDialogOpen = true;
+        try
+        {
+            var dlg = new StatsConsentModal(label) { Owner = owner };
+            dlg.ShowDialog();
+            if (dlg.Accepted)
+            {
+                services.Consent.Set("accepted", uploadEnabled: true, publicCharacter: dlg.PublicCharacter, services.Version);
+            }
+            else
+            {
+                services.Consent.Set("declined", uploadEnabled: false, publicCharacter: false, services.Version);
+            }
+        }
+        finally
+        {
+            _consentDialogOpen = false;
+        }
     }
 
     private static bool LoadPanelPosition(PropertyHandler props, Window panel, string xKey, string yKey)

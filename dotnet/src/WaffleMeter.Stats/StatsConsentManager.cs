@@ -241,6 +241,13 @@ public sealed class StatsConsentManager
     /// <summary>True if the CURRENT character has an accepted consent on record (live or remembered).</summary>
     public bool IsCurrentCharacterConsented() => LocalInfo().State == State.accepted.ToString();
 
+    /// <summary>True when an own character is detected but has no consent decision yet — the UI should
+    /// show the consent modal (React: modal opens when state is unknown for the detected character).</summary>
+    public bool NeedsConsentPrompt() => _ownCharacter().Detected && LocalInfo().State == State.unknown.ToString();
+
+    /// <summary>Identity hash of the current character (lets the UI prompt once per character).</summary>
+    public string? CurrentCharacterHash() => CurrentIdentityHash();
+
     /// <summary>Identity hashes of all locally-remembered consented characters (the consented list).</summary>
     public IReadOnlyList<string> ConsentedCharacterHashes() =>
         LoadCharacters().Where(kv => TryState(kv.Value.State) == State.accepted).Select(kv => kv.Key).ToList();
