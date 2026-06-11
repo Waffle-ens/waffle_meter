@@ -21,8 +21,13 @@ public sealed class JoinRequestStore
     public JoinRequestStore(Func<long>? now = null)
         => _now = now ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
-    /// <summary>Raised on any change so the UI can re-render.</summary>
+    /// <summary>Raised when the request set changes (add / remove / refuse) — re-render, stay open.</summary>
     public event Action? Changed;
+
+    /// <summary>Raised on a full clear (instance start / party exit) — the panel closes (web isOpen=false).
+    /// Kept distinct from <see cref="Changed"/> so a remove that empties the list leaves the panel open
+    /// (web parity: only clearAll closes it).</summary>
+    public event Action? Cleared;
 
     /// <summary>Add or replace by requester (newest wins / re-arm the timer).</summary>
     public void Add(JoinRequestUser u)
@@ -54,16 +59,12 @@ public sealed class JoinRequestStore
         if (changed) Changed?.Invoke();
     }
 
-    /// <summary>Instance start + party exit — clear everything.</summary>
+    /// <summary>Instance start + party exit — clear everything and close the panel (fires
+    /// <see cref="Cleared"/>, not <see cref="Changed"/>).</summary>
     public void ClearAll()
     {
-        bool any;
-        lock (_gate)
-        {
-            any = _byRequester.Count > 0;
-            _byRequester.Clear();
-        }
-        if (any) Changed?.Invoke();
+        lock (_gate) _byRequester.Clear();
+        Cleared?.Invoke();
     }
 
     /// <summary>Newest-first, with entries older than 20s dropped.</summary>

@@ -24,6 +24,9 @@ public partial class App : Application
     private DetailWindow? _detailWindow;
     private DetailsViewModel? _detailViewModel;
     private int _detailUid;
+    private JoinRequestPanel? _joinPanel;
+    private JoinRequestViewModel? _joinViewModel;
+    private bool _joinPanelPositioned;
 
     public App()
     {
@@ -122,6 +125,9 @@ public partial class App : Application
         // Row click -> open/close the detail window for that player.
         viewModel.SelectionToggled += uid => ToggleDetail(uid, services, window);
 
+        // Party join-request panel (Kotlin JoinRequest family -> React JoinRequestPanel).
+        WireJoinPanel(services, window);
+
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
         // The connect timeout is generous so it tolerates the user answering the UAC prompt.
         // captureBackend setting: "windivert" (default, embedded) or "npcap" (needs Npcap installed).
@@ -218,6 +224,63 @@ public partial class App : Application
             _detailUid = 0;
         };
         _detailWindow.Show();
+    }
+
+    private void WireJoinPanel(MeterServices services, OverlayWindow overlay)
+    {
+        _joinViewModel = new JoinRequestViewModel(_settings!);
+        _joinPanel = new JoinRequestPanel { DataContext = _joinViewModel };
+
+        // Build the HWND + assert the overlay ex-style, then park (hidden) until a request arrives.
+        _joinPanel.Show();
+        _joinPanel.Park();
+
+        // Restore a persisted position; otherwise dock under the meter overlay on first present.
+        if (LoadJoinPanelPosition(services.Props, _joinPanel))
+        {
+            _joinPanelPositioned = true;
+        }
+
+        _joinPanel.PositionChanged += (left, top) =>
+        {
+            _joinPanelPositioned = true;
+            services.Props.SetProperty("joinPanelX", left.ToString("0", CultureInfo.InvariantCulture));
+            services.Props.SetProperty("joinPanelY", top.ToString("0", CultureInfo.InvariantCulture));
+        };
+        _joinPanel.CloseRequested += () => _joinPanel.Park();
+
+        // Auto-open on the empty -> non-empty transition (web isOpen behavior).
+        _joinViewModel.RequestPresent += () =>
+        {
+            if (!_joinPanelPositioned)
+            {
+                _joinPanel.Left = overlay.Left;
+                _joinPanel.Top = overlay.Top + overlay.ActualHeight + 8;
+            }
+
+            _joinPanel.Present(true);
+        };
+
+        // Store events fire on the meter-consumer thread; marshal to the UI.
+        services.JoinRequests.Changed += () => Dispatcher.Invoke(() => _joinViewModel.Reconcile(services.JoinRequests.Snapshot()));
+        services.JoinRequests.Cleared += () => Dispatcher.Invoke(() =>
+        {
+            _joinViewModel.Clear();
+            _joinPanel.Park();
+        });
+    }
+
+    private static bool LoadJoinPanelPosition(PropertyHandler props, Window panel)
+    {
+        if (double.TryParse(props.GetProperty("joinPanelX"), NumberStyles.Float, CultureInfo.InvariantCulture, out double left) &&
+            double.TryParse(props.GetProperty("joinPanelY"), NumberStyles.Float, CultureInfo.InvariantCulture, out double top))
+        {
+            panel.Left = left;
+            panel.Top = top;
+            return true;
+        }
+
+        return false;
     }
 
     private static void TryLoadCatalogs(MeterServices services)

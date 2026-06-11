@@ -92,19 +92,34 @@ public class JoinRequestStoreTests
     }
 
     [Fact]
-    public void Changed_fires_on_mutation()
+    public void Changed_fires_on_mutation_but_not_on_clear()
     {
         var store = new JoinRequestStore(() => 1000);
-        int fired = 0;
-        store.Changed += () => fired++;
+        int changed = 0;
+        store.Changed += () => changed++;
 
         store.Add(User(1, 100));     // +1
         store.Add(User(1, 150));     // +1 (replace)
         store.Remove(1);             // +1
         store.Remove(1);             // no-op (already gone) -> no fire
         store.RefuseOldest();        // no-op (empty) -> no fire
-        store.ClearAll();            // no-op (empty) -> no fire
+        store.ClearAll();            // fires Cleared, NOT Changed
 
-        Assert.Equal(3, fired);
+        Assert.Equal(3, changed);
+    }
+
+    [Fact]
+    public void ClearAll_fires_Cleared_and_empties()
+    {
+        var store = new JoinRequestStore(() => 1000);
+        int cleared = 0;
+        store.Cleared += () => cleared++;
+        store.Add(User(1, 100));
+        store.Add(User(2, 200));
+
+        store.ClearAll();
+
+        Assert.Equal(1, cleared);
+        Assert.Empty(store.Snapshot());
     }
 }
