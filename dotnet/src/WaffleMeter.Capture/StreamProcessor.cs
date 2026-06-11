@@ -73,6 +73,13 @@ public sealed class StreamProcessor
     private const int BuffApply2Key = 0x2B | (0x38 << 8);      // 0x382B
     private const int BattleToggleKey = 0x21 | (0x8D << 8);    // 0x8D21
     private const int RemainHpKey = 0x00 | (0x8D << 8);        // 0x8D00
+    // Party join-request family (0x97 category — untouched by the 2026-06-10 0x36 shift).
+    private const int JoinRequestKey = 0x07 | (0x97 << 8);     // 0x9707
+    private const int CancelJoinKey = 0x25 | (0x97 << 8);      // 0x9725
+    private const int AdmitJoinKey = 0x0B | (0x97 << 8);       // 0x970B
+    private const int RefuseJoinKey = 0x09 | (0x97 << 8);      // 0x9709
+    private const int InstanceStartKey = 0x18 | (0x97 << 8);   // 0x9718
+    private const int ExitPartyKey = 0x1D | (0x97 << 8);       // 0x971D
 
     private static readonly Dictionary<int, string> OpcodeNames = new()
     {
@@ -98,6 +105,7 @@ public sealed class StreamProcessor
 
     private readonly IStreamProcessorSink _sink;
     private readonly ICaptureGameData _data;
+    private readonly IJoinRequestSink _joinSink;
 
     // Mirrors DataManager.executorId(): set from the own-nickname snapshot, read by 0x3655.
     private int _executorId;
@@ -107,10 +115,11 @@ public sealed class StreamProcessor
     private int _lastOwnPower;
     private string _lastOwnNickname = string.Empty;
 
-    public StreamProcessor(IStreamProcessorSink? sink = null, ICaptureGameData? data = null)
+    public StreamProcessor(IStreamProcessorSink? sink = null, ICaptureGameData? data = null, IJoinRequestSink? joinSink = null)
     {
         _sink = sink ?? NullStreamProcessorSink.Instance;
         _data = data ?? NullCaptureGameData.Instance;
+        _joinSink = joinSink ?? NullJoinRequestSink.Instance;
     }
 
     public void OnPacketReceived(byte[] packet, long arrivedAt)
@@ -204,7 +213,24 @@ public sealed class StreamProcessor
                 case BuffApply2Key:
                     ParseBuffPacket(packet, lengthInfo, extraFlag, arrivedAt);
                     break;
-                // join-request handlers (PacketEvent) are ported with the services/UI phase.
+                case JoinRequestKey:
+                    ParseJoinRequest(packet, lengthInfo, extraFlag, arrivedAt);
+                    break;
+                case CancelJoinKey:
+                    ParseCancelJoin(packet, lengthInfo, extraFlag);
+                    break;
+                case AdmitJoinKey:
+                    ParseAdmitJoin(packet, lengthInfo, extraFlag);
+                    break;
+                case RefuseJoinKey:
+                    ParseRefuseJoin(packet, lengthInfo, extraFlag);
+                    break;
+                case InstanceStartKey:
+                    ParseInstanceStart(packet, lengthInfo, extraFlag);
+                    break;
+                case ExitPartyKey:
+                    ParseExitParty(packet, lengthInfo, extraFlag);
+                    break;
             }
         }
         catch (Exception e)
@@ -450,6 +476,91 @@ public sealed class StreamProcessor
         {
             // swallowed (matches Kotlin)
         }
+    }
+
+    // ---- party join-request handlers (Kotlin parseJoinRequest/CancelJoin/AdmitJoin/RefuseJoin/
+    //      InstanceStart/ExitParty). Skill enrichment (official lookup) + rememberUserPower are deferred;
+    //      the join UI carries nickname/server/job/power from the packet itself. ----
+
+    /// <summary>0x9707: a party-join applicant. Byte layout corpus-verified.</summary>
+    private void ParseJoinRequest(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, long arrivedAt)
+    {
+        int offset = lengthInfo.Length;
+        if (extraFlag) offset++;
+        if (packet.Length < offset + 2) return;
+        if (packet[offset] != 0x07 || packet[offset + 1] != 0x97) return;
+        offset += 2;
+
+        _ = PacketPrimitives.ParseUInt32Le(packet, offset); offset += 4; // roomNum (unused, parity)
+        int requester = PacketPrimitives.ParseUInt32Le(packet, offset); offset += 4;
+        _ = PacketPrimitives.ParseUInt32Le(packet, offset); offset += 4; // unknown2
+        int jobCode = PacketPrimitives.ParseUInt32Le(packet, offset); offset += 4;
+        _ = PacketPrimitives.ParseUInt32Le(packet, offset); offset += 4; // unknown4
+        _ = PacketPrimitives.ParseUInt32Le(packet, offset); offset += 4; // unknown5
+
+        VarIntOutput nameLen = PacketPrimitives.ReadVarInt(packet, offset);
+        offset += nameLen.Length;
+        string nickname = Encoding.UTF8.GetString(packet, offset, nameLen.Value);
+        offset += nameLen.Value;
+
+        int server = PacketPrimitives.ParseUInt16Le(packet, offset);
+        offset += 6; // Kotlin skips 6 after reading the 2-byte server
+        int power = PacketPrimitives.ParseUInt32Le(packet, offset);
+
+        _sink.Meta("join_request", ("requester", requester), ("nickname", nickname), ("server", server), ("job", jobCode), ("power", power));
+        _joinSink.OnJoinRequest(requester, nickname, jobCode, server, power, arrivedAt);
+    }
+
+    /// <summary>0x9725 cancel / 0x970B admit — both remove the request by requester id.</summary>
+    /// <remarks>
+    /// Byte-exact port of Kotlin parseCancelJoinRequest/parseAdmitJoinRequest (offset+2 past opcode,
+    /// then a u32). NOTE: a corpus AdmitJoin frame (<c>35 0b 97 3a 02 aa 72 01 00 ...</c>) carries the
+    /// real requester (<c>aa 72 01 00</c> = 94890) at offset+4, not offset+0 — Kotlin reads the two
+    /// leading <c>3a 02</c> bytes into the id, so admit emits a non-matching id and the card is NOT
+    /// removed on accept; it instead expires via the 20s timeout. This is faithful dev-app parity, not
+    /// a fix. If instant removal-on-accept is wanted, re-derive the offset from the 3 corpus admits.
+    /// </remarks>
+    private void ParseCancelJoin(byte[] packet, VarIntOutput lengthInfo, bool extraFlag) =>
+        RemoveByRequester(packet, lengthInfo, extraFlag, 0x25);
+
+    private void ParseAdmitJoin(byte[] packet, VarIntOutput lengthInfo, bool extraFlag) =>
+        RemoveByRequester(packet, lengthInfo, extraFlag, 0x0B);
+
+    private void RemoveByRequester(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, byte opcodeLow)
+    {
+        int offset = lengthInfo.Length;
+        if (extraFlag) offset++;
+        if (packet.Length < offset + 2) return;
+        if (packet[offset] != opcodeLow || packet[offset + 1] != 0x97) return;
+        offset += 2;
+        int requester = PacketPrimitives.ParseUInt32Le(packet, offset);
+        _joinSink.OnJoinRequestRemove(requester);
+    }
+
+    /// <summary>0x9709 refuse (no id) — drop the oldest pending request.</summary>
+    private void ParseRefuseJoin(byte[] packet, VarIntOutput lengthInfo, bool extraFlag)
+    {
+        int offset = lengthInfo.Length;
+        if (extraFlag) offset++;
+        if (packet.Length < offset + 2) return;
+        if (packet[offset] != 0x09 || packet[offset + 1] != 0x97) return;
+        _joinSink.OnRefuseJoinRequest();
+    }
+
+    /// <summary>0x9718 instance-start / 0x971D exit-party — clear all pending requests.</summary>
+    private void ParseInstanceStart(byte[] packet, VarIntOutput lengthInfo, bool extraFlag) =>
+        ClearOnOpcode(packet, lengthInfo, extraFlag, 0x18);
+
+    private void ParseExitParty(byte[] packet, VarIntOutput lengthInfo, bool extraFlag) =>
+        ClearOnOpcode(packet, lengthInfo, extraFlag, 0x1D);
+
+    private void ClearOnOpcode(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, byte opcodeLow)
+    {
+        int offset = lengthInfo.Length;
+        if (extraFlag) offset++;
+        if (packet.Length < offset + 2) return;
+        if (packet[offset] != opcodeLow || packet[offset + 1] != 0x97) return;
+        _joinSink.OnExitPartyUi();
     }
 
     /// <summary>Own nickname snapshot 0x3633. Kotlin searchOwnNickname (192-250).</summary>

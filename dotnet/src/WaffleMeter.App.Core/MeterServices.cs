@@ -26,6 +26,10 @@ public sealed class MeterServices
     public StatsUploadQueue UploadQueue { get; }
     public string Version { get; }
 
+    /// <summary>Pending party-join requests (Kotlin PacketEvent.JoinRequest family). The WPF layer
+    /// subscribes to <see cref="JoinRequestStore.Changed"/> and renders the join panel.</summary>
+    public JoinRequestStore JoinRequests { get; }
+
     /// <summary>Diagnostic packet-debug-logs writer (off by default). Doubles as the stream processor
     /// sink + capture/assembled hooks, so the app can record a replayable corpus without the Kotlin
     /// dev build. Toggle with <c>DebugLogger.Start()/Stop()</c>.</summary>
@@ -63,7 +67,8 @@ public sealed class MeterServices
         // every live stream). The debug logger is the processor sink so a diagnostic session captures
         // dispatch/damage/meta/etc.; it is an inert no-op until DebugLogger.Start() is called.
         DebugLogger = debugLogger ?? new PacketDebugLogger();
-        _processor = new StreamProcessor(DebugLogger, Data);
+        JoinRequests = new JoinRequestStore();
+        _processor = new StreamProcessor(DebugLogger, Data, new JoinRequestSinkAdapter(JoinRequests));
         Calculator = new DpsCalculator(Data, FlushAllStreams);
 
         // Stats stack. Break the consent <-> builder cycle with a deferred reference.
