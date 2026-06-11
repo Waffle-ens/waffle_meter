@@ -79,6 +79,9 @@ internal static class Program
                 var rdy = new UpdateToastViewModel();
                 rdy.SetReady("1.8.0");
                 Capture(() => new UpdateToast { DataContext = rdy }, palette, Path.Combine(outDir, "toast_ready_Dark.png"));
+
+                var skillVis = new SkillVisibility(props);
+                Capture(() => new SkillSettingsFlyout { DataContext = new SkillSettingsViewModel(skillVis) }, palette, Path.Combine(outDir, "skillsettings_Dark.png"));
             }
         }
 

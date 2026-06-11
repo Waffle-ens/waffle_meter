@@ -28,6 +28,8 @@ public partial class App : Application
     private JoinRequestPanel? _joinPanel;
     private JoinRequestViewModel? _joinViewModel;
     private bool _joinPanelPositioned;
+    private SkillSettingsFlyout? _skillFlyout;
+    private bool _skillFlyoutVisible;
     private HistoryPanel? _historyPanel;
     private BattleHistoryViewModel? _historyViewModel;
     private bool _historyPanelPositioned;
@@ -298,7 +300,8 @@ public partial class App : Application
 
     private void WireJoinPanel(MeterServices services, OverlayWindow overlay)
     {
-        _joinViewModel = new JoinRequestViewModel(_settings!);
+        var skillVisibility = new SkillVisibility(services.Props);
+        _joinViewModel = new JoinRequestViewModel(_settings!, skillVisibility.Codes);
         _joinPanel = new JoinRequestPanel { DataContext = _joinViewModel };
 
         // Build the HWND + assert the overlay ex-style, then park (hidden) until a request arrives.
@@ -353,6 +356,32 @@ public partial class App : Application
             _joinViewModel.Clear();
             _joinPanel.Park();
         });
+
+        // Skill-settings flyout (visibleSkillCodes filter). The ⚙ button toggles it; changes re-render badges.
+        var skillVm = new SkillSettingsViewModel(skillVisibility);
+        _skillFlyout = new SkillSettingsFlyout { DataContext = skillVm };
+        _skillFlyout.Show();
+        _skillFlyout.Park();
+        _skillFlyout.CloseRequested += () => { _skillFlyoutVisible = false; _skillFlyout.Park(); };
+        skillVm.Changed += () =>
+        {
+            _joinViewModel.SetVisibleCodes(skillVisibility.Codes);
+            _joinViewModel.Reconcile(services.JoinRequests.Snapshot()); // rebuild rows so badges honor the new set
+        };
+        _joinPanel.SettingsRequested += () =>
+        {
+            if (_skillFlyoutVisible)
+            {
+                _skillFlyoutVisible = false;
+                _skillFlyout.Park();
+                return;
+            }
+
+            _skillFlyout.Left = _joinPanel.Left + _joinPanel.Width + 8;
+            _skillFlyout.Top = _joinPanel.Top;
+            _skillFlyoutVisible = true;
+            _skillFlyout.Present(true);
+        };
     }
 
     private void WireHistoryPanel(MeterServices services, OverlayWindow overlay, OverlayViewModel meterViewModel)

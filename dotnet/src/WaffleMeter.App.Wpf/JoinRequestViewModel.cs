@@ -31,8 +31,13 @@ public sealed class JoinRequestViewModel : INotifyPropertyChanged
 
     private HashSet<int> _visibleCodes;
 
-    /// <summary>Replace the visible-skill set (skill-settings flyout) and rebuild badges on the next reconcile.</summary>
-    public void SetVisibleCodes(IEnumerable<int> codes) => _visibleCodes = new HashSet<int>(codes);
+    /// <summary>Replace the visible-skill set (skill-settings flyout). Clears rows so the next reconcile
+    /// rebuilds each card's badges against the new set.</summary>
+    public void SetVisibleCodes(IEnumerable<int> codes)
+    {
+        _visibleCodes = new HashSet<int>(codes);
+        Rows.Clear();
+    }
 
     public ObservableCollection<JoinRequestRowViewModel> Rows { get; } = new();
 

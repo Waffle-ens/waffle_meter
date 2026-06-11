@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Threading;
 
 namespace WaffleMeter.App.Wpf;
@@ -11,6 +12,9 @@ public partial class JoinRequestPanel : OverlayPanelWindow
 {
     private readonly DispatcherTimer _ticker;
 
+    /// <summary>Raised when the ⚙ button is clicked (App opens the skill-settings flyout).</summary>
+    public event Action? SettingsRequested;
+
     public JoinRequestPanel()
     {
         InitializeComponent();
@@ -21,4 +25,6 @@ public partial class JoinRequestPanel : OverlayPanelWindow
     protected override void OnPresented() => _ticker.Start();
 
     protected override void OnParked() => _ticker.Stop();
+
+    private void OnSettingsButton(object sender, RoutedEventArgs e) => SettingsRequested?.Invoke();
 }
