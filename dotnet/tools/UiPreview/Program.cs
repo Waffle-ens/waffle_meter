@@ -54,6 +54,14 @@ internal static class Program
             var overlay = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 중" };
             overlay.Update(SampleMeterReport(now));
             Capture(() => new OverlayWindow { DataContext = overlay }, palette, Path.Combine(outDir, $"meter_{skin}.png"));
+
+            if (skin == "Dark")
+            {
+                // idle case: durationMs>0 but 0 rows — must NOT stack placeholder + combat-timer pill.
+                var idle = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 헬퍼 시작 실패: NotFound" };
+                idle.Update(new DpsReport { BattleStart = 0, BattleEnd = 5000 });
+                Capture(() => new OverlayWindow { DataContext = idle }, palette, Path.Combine(outDir, "meter_idle_Dark.png"));
+            }
         }
 
         Console.WriteLine(outDir);

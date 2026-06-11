@@ -159,7 +159,6 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
         long durationMs = Math.Max(report.BattleEnd - report.BattleStart, 0);
         Duration = $"{durationMs / 1000.0:F1}s";
-        CombatTimerVisibility = durationMs > 0 ? Visibility.Visible : Visibility.Collapsed;
         // In combat = activity within the last ~1.5s (mirrors React isInCombat + 1s debounce).
         bool inCombat = report.Information.Count > 0
             && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - report.BattleEnd < 1500;
@@ -240,6 +239,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
         PlaceholderVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         TargetInfoVisibility = Rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed; // React TargetInfo shows when players>0
+        // Combat-timer pill rides with the row list (not while the placeholder shows), so idle startup
+        // doesn't stack "전투 대기 중" + "대기 중".
+        CombatTimerVisibility = durationMs > 0 && Rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private readonly record struct Entry(int Uid, DpsInformation Info, User? User);
