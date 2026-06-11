@@ -93,7 +93,7 @@ internal static class Program
                 var ssvc = new MeterServices(sp);
                 var svm = new SettingsViewModel(ssvc, new MeterSettings(sp), new MeterColorTheme(sp), new SkinManager(sp),
                     new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp)) { SelectedNav = "display" };
-                Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_display_Dark.png"));
+                Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_display_Dark.png"), fixedSize: true);
             }
         }
 
@@ -185,7 +185,7 @@ internal static class Program
         Console.WriteLine($"=== settings: {pass} passed, {fail} failed ===");
     }
 
-    private static void Capture(Func<Window> factory, ResourceDictionary palette, string path)
+    private static void Capture(Func<Window> factory, ResourceDictionary palette, string path, bool fixedSize = false)
     {
         Window? window = null;
         try
@@ -206,6 +206,12 @@ internal static class Program
             double availableW = double.IsNaN(window.Width) ? content.ActualWidth : window.Width;
             content.Measure(new Size(availableW, double.PositiveInfinity));
             double measuredH = content.DesiredSize.Height > 0 ? content.DesiredSize.Height : content.ActualHeight;
+            // fixedSize: arrange at the window's real height so overflow scrolls (shows the scrollbar).
+            if (fixedSize && !double.IsNaN(window.Height) && window.Height > 0)
+            {
+                measuredH = window.Height;
+            }
+
             content.Arrange(new Rect(0, 0, availableW, measuredH));
             content.UpdateLayout();
 

@@ -74,4 +74,19 @@
     <ProjectReference Include="..\WaffleMeter.Services\WaffleMeter.Services.csproj" />
   </ItemGroup>
 
+  <!-- Dev convenience: build + copy the elevated capture host beside the app so a plain `dotnet build`
+       run can launch it (no more "캡처 헬퍼 시작 실패: NotFound"). Skipped during publish — the release
+       workflow publishes CaptureHost into the same folder itself (release-dotnet.yml). -->
+  <Target Name="CopyCaptureHostForDev" AfterTargets="Build"
+          Condition="'$(_IsPublishing)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="..\..\tools\WaffleMeter.CaptureHost\WaffleMeter.CaptureHost.csproj"
+             Targets="Build" Properties="Configuration=$(Configuration)" />
+    <ItemGroup>
+      <_CaptureHostFiles Include="..\..\tools\WaffleMeter.CaptureHost\bin\$(Configuration)\net10.0-windows\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_CaptureHostFiles)"
+          DestinationFiles="@(_CaptureHostFiles-&gt;'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
