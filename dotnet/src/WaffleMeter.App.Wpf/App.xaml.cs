@@ -121,7 +121,10 @@ public partial class App : Application
         SkinManager skin = _skin;
         window.SettingsRequested += () =>
         {
-            var settingsWindow = new SettingsWindow(new SettingsViewModel(services, settings, theme, skin, controller, hotkeys)) { Owner = window };
+            var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys);
+            svm.CheckUpdateRequested = () => _ = _updateService?.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
+            svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
+            var settingsWindow = new SettingsWindow(svm) { Owner = window };
             settingsWindow.Show();
         };
         window.ExitRequested += () =>
@@ -444,6 +447,44 @@ public partial class App : Application
         finally
         {
             _consentDialogOpen = false;
+        }
+    }
+
+    /// <summary>Settings "위치 초기화": clear a panel's saved position and re-dock it now.</summary>
+    private void ResetPanelPosition(string which, MeterServices services, OverlayWindow overlay)
+    {
+        switch (which)
+        {
+            case "meter":
+                services.Props.SetProperty("uiX", string.Empty);
+                services.Props.SetProperty("uiY", string.Empty);
+                services.Props.SetProperty("windowX", string.Empty);
+                services.Props.SetProperty("windowY", string.Empty);
+                overlay.Left = 40;
+                overlay.Top = 40;
+                break;
+            case "join":
+                services.Props.SetProperty("joinPanelX", string.Empty);
+                services.Props.SetProperty("joinPanelY", string.Empty);
+                _joinPanelPositioned = false;
+                if (_joinPanel is { } jp && jp.Opacity > 0)
+                {
+                    jp.Left = overlay.Left;
+                    jp.Top = overlay.Top + overlay.ActualHeight + 8;
+                }
+
+                break;
+            case "history":
+                services.Props.SetProperty("historyPanelX", string.Empty);
+                services.Props.SetProperty("historyPanelY", string.Empty);
+                _historyPanelPositioned = false;
+                if (_historyPanel is { } hp && _historyPanelVisible)
+                {
+                    hp.Left = overlay.Left + overlay.ActualWidth + 8;
+                    hp.Top = overlay.Top;
+                }
+
+                break;
         }
     }
 

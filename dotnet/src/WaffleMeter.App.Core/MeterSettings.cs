@@ -21,6 +21,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private static readonly string[] Themes = { "dark", "light" };
     private static readonly string[] CloseActions = { "ask", "tray", "exit" };
     private static readonly string[] CaptureBackends = { "windivert", "npcap" };
+    private static readonly string[] TargetInfoDisplayModes = { "hp_full_percent", "hp_percent", "remain_full_percent", "remain_percent", "percent" };
 
     private readonly PropertyHandler _props;
 
@@ -37,9 +38,12 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _rowHeight = ReadInt("rowHeight", 36);
         _meterOpacity = ReadDouble("meterOpacity", 0.4);
         _isMinimal = ReadBool("isMinimal", false);
+        _showCombatTimerInMinimal = ReadBool("showCombatTimerInMinimal", true);
+        _showTargetInfoInMinimal = ReadBool("showTargetInfoInMinimal", true);
         _multiMonitorMode = ReadBool("multiMonitorMode", false);
         _taskbarMode = ReadBool("taskbarMode", false);
         _captureBackend = ReadEnum("captureBackend", "windivert", CaptureBackends);
+        _targetInfoDisplayMode = ReadEnum("targetInfoDisplayMode", "hp_full_percent", TargetInfoDisplayModes);
     }
 
     private string _displayMode;
@@ -71,6 +75,15 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private bool _isMinimal;
     public bool IsMinimal { get => _isMinimal; set => SetBool(ref _isMinimal, "isMinimal", value); }
+
+    private bool _showCombatTimerInMinimal;
+    public bool ShowCombatTimerInMinimal { get => _showCombatTimerInMinimal; set => SetBool(ref _showCombatTimerInMinimal, "showCombatTimerInMinimal", value); }
+
+    private bool _showTargetInfoInMinimal;
+    public bool ShowTargetInfoInMinimal { get => _showTargetInfoInMinimal; set => SetBool(ref _showTargetInfoInMinimal, "showTargetInfoInMinimal", value); }
+
+    private string _targetInfoDisplayMode;
+    public string TargetInfoDisplayMode { get => _targetInfoDisplayMode; set => SetProp(ref _targetInfoDisplayMode, "targetInfoDisplayMode", value); }
 
     private bool _multiMonitorMode;
     public bool MultiMonitorMode { get => _multiMonitorMode; set => SetBool(ref _multiMonitorMode, "multiMonitorMode", value); }

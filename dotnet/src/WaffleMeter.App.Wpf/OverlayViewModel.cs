@@ -146,7 +146,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             double pct = ratio * 100.0;
             TargetHpRatio = ratio;
             TargetHpRest = 1.0 - ratio;
-            TargetHpText = $"{tgt.RemainHp:N0} / {tgt.MaxHp:N0}  {pct:F1}%";
+            TargetHpText = FormatTargetHp(tgt.RemainHp, tgt.MaxHp, pct, _settings.TargetInfoDisplayMode);
             TargetHpVisibility = hasTarget ? Visibility.Visible : Visibility.Collapsed;
         }
         else
@@ -238,11 +238,22 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         }
 
         PlaceholderVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        TargetInfoVisibility = Rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed; // React TargetInfo shows when players>0
-        // Combat-timer pill rides with the row list (not while the placeholder shows), so idle startup
-        // doesn't stack "전투 대기 중" + "대기 중".
-        CombatTimerVisibility = durationMs > 0 && Rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        // React TargetInfo/CombatTimer show when players>0; compact mode can hide each (with overrides).
+        bool minimal = _settings.IsMinimal;
+        TargetInfoVisibility = Rows.Count > 0 && (!minimal || _settings.ShowTargetInfoInMinimal) ? Visibility.Visible : Visibility.Collapsed;
+        CombatTimerVisibility = durationMs > 0 && Rows.Count > 0 && (!minimal || _settings.ShowCombatTimerInMinimal)
+            ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    /// <summary>Boss HP readout per React targetInfoDisplayMode.</summary>
+    private static string FormatTargetHp(int remain, int max, double pct, string mode) => mode switch
+    {
+        "percent" => $"{pct:F1}%",
+        "remain_percent" => $"{MeterFormat.FormatAmount(remain)}  {pct:F1}%",
+        "remain_full_percent" => $"{remain:N0}  {pct:F1}%",
+        "hp_percent" => $"{MeterFormat.FormatAmount(remain)} / {MeterFormat.FormatAmount(max)}  {pct:F1}%",
+        _ => $"{remain:N0} / {max:N0}  {pct:F1}%", // hp_full_percent
+    };
 
     private readonly record struct Entry(int Uid, DpsInformation Info, User? User);
 

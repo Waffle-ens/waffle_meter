@@ -72,6 +72,14 @@ public partial class SettingsWindow : Window
 
     private void OnOpenLogFolder(object sender, RoutedEventArgs e) => _viewModel.OpenLogFolder();
 
+    private void OnCheckUpdate(object sender, RoutedEventArgs e) => _viewModel.CheckForUpdate();
+
+    private void OnResetMeterPosition(object sender, RoutedEventArgs e) => _viewModel.ResetMeterPosition();
+
+    private void OnResetJoinPosition(object sender, RoutedEventArgs e) => _viewModel.ResetJoinPosition();
+
+    private void OnResetHistoryPosition(object sender, RoutedEventArgs e) => _viewModel.ResetHistoryPosition();
+
     private void OnApplyConsent(object sender, RoutedEventArgs e) => RunBackground(_viewModel.ApplyConsent);
 
     private void OnRefreshConsent(object sender, RoutedEventArgs e) => RunBackground(_viewModel.RefreshConsentFromServer);

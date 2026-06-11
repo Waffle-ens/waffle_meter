@@ -72,6 +72,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("모두 숨김", "hidden"),
     };
 
+    public IReadOnlyList<SettingOption> TargetInfoDisplayModes { get; } = new[]
+    {
+        new SettingOption("남은/최대 · 퍼센트", "hp_full_percent"),
+        new SettingOption("남은/최대(축약) · 퍼센트", "hp_percent"),
+        new SettingOption("남은 체력 · 퍼센트", "remain_full_percent"),
+        new SettingOption("남은 체력(축약) · 퍼센트", "remain_percent"),
+        new SettingOption("퍼센트만", "percent"),
+    };
+
     // Bundled-or-fallback fonts (see Fonts/README.md). Malgun Gothic is always available.
     public IReadOnlyList<SettingOption> FontFamilies { get; } = new[]
     {
@@ -91,6 +100,20 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string NameDisplay { get => _settings.NameDisplay; set { _settings.NameDisplay = value; OnPropertyChanged(); } }
     public string FontFamily { get => _settings.FontFamily; set { _settings.FontFamily = value; OnPropertyChanged(); } }
     public int RowHeight { get => _settings.RowHeight; set { _settings.RowHeight = value; OnPropertyChanged(); } }
+    public string TargetInfoDisplayMode { get => _settings.TargetInfoDisplayMode; set { _settings.TargetInfoDisplayMode = value; OnPropertyChanged(); } }
+    public bool IsMinimal { get => _settings.IsMinimal; set { _settings.IsMinimal = value; OnPropertyChanged(); } }
+    public bool ShowCombatTimerInMinimal { get => _settings.ShowCombatTimerInMinimal; set { _settings.ShowCombatTimerInMinimal = value; OnPropertyChanged(); } }
+    public bool ShowTargetInfoInMinimal { get => _settings.ShowTargetInfoInMinimal; set { _settings.ShowTargetInfoInMinimal = value; OnPropertyChanged(); } }
+
+    /// <summary>Wired by App: trigger an update check (results surface in the toast).</summary>
+    public Action? CheckUpdateRequested { get; set; }
+    public void CheckForUpdate() => CheckUpdateRequested?.Invoke();
+
+    /// <summary>Wired by App: reset a panel position ("meter" / "join" / "history").</summary>
+    public Action<string>? ResetPositionRequested { get; set; }
+    public void ResetMeterPosition() => ResetPositionRequested?.Invoke("meter");
+    public void ResetJoinPosition() => ResetPositionRequested?.Invoke("join");
+    public void ResetHistoryPosition() => ResetPositionRequested?.Invoke("history");
 
     // ---- overlay tab (live) ----
     public double MeterOpacity { get => _settings.MeterOpacity; set { _settings.MeterOpacity = value; OnPropertyChanged(); } }
@@ -298,11 +321,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     private sealed record Snapshot(
         string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
-        string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide)
+        string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
+        string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
-            s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide);
+            s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
+            s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -316,6 +341,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.MultiMonitorMode = MultiMonitor;
             s.OverlayTheme = Theme;
             c.SetAutoHide(AutoHide);
+            s.TargetInfoDisplayMode = TargetInfoDisplayMode;
+            s.IsMinimal = IsMinimal;
+            s.ShowCombatTimerInMinimal = ShowCombatTimerInMinimal;
+            s.ShowTargetInfoInMinimal = ShowTargetInfoInMinimal;
         }
     }
 

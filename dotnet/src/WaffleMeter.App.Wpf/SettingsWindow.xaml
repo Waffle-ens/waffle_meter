@@ -90,6 +90,16 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="보스 표시 형식" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="타겟 바의 보스 체력 표기 방식을 선택합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding TargetInfoDisplayModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding TargetInfoDisplayMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="스타일 (스킨)" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="앱 전체의 색 테마 프리셋입니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
@@ -150,6 +160,42 @@
                                 <TextBlock Text="오버레이를 일반 창으로 바꿔 작업표시줄·Alt+Tab에 표시합니다. (자동 숨김 해제)" Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TaskbarMode}"/>
+                        </Grid>
+
+                        <TextBlock Text="컴팩트 모드" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="컴팩트 모드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="타겟 바와 전투 시간 바를 숨겨 미터기를 작게 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsMinimal}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="컴팩트 모드 중 전투 시간 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="컴팩트 모드에서도 전투 시간 바를 유지합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowCombatTimerInMinimal}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="컴팩트 모드 중 보스 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="컴팩트 모드에서도 타겟(보스) 바를 유지합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowTargetInfoInMinimal}"/>
+                        </Grid>
+
+                        <TextBlock Text="업데이트" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding Version, StringFormat='현재 버전 — v{0}'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="최신 버전을 확인하고 백그라운드에서 내려받습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="업데이트 확인" Click="OnCheckUpdate" VerticalAlignment="Center"/>
                         </Grid>
                     </StackPanel>
 
@@ -297,6 +343,14 @@
                             <Button Content="로그 폴더 열기" Click="OnOpenLogFolder"/>
                         </StackPanel>
                         <TextBlock Text="{Binding LoggingStatus}" Style="{StaticResource SettingDesc}" Margin="0,6,0,0"/>
+
+                        <TextBlock Text="위치 초기화" Style="{StaticResource SectionHeader}" Margin="0,16,0,8"/>
+                        <TextBlock Text="드래그로 옮긴 창들을 기본 위치로 되돌립니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="미터기 위치" Click="OnResetMeterPosition" Margin="0,0,8,0"/>
+                            <Button Content="파티 신청 위치" Click="OnResetJoinPosition" Margin="0,0,8,0"/>
+                            <Button Content="전투 기록 위치" Click="OnResetHistoryPosition"/>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
