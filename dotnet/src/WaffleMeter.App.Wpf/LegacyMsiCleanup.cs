@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -34,17 +35,36 @@ internal static class LegacyMsiCleanup
 
             foreach (string code in codes)
             {
+                Log($"legacy MSI {code} found — uninstalling");
                 // Per-user MSI -> /qn uninstalls without a UAC prompt.
-                Process.Start(new ProcessStartInfo("msiexec.exe", $"/x {code} /qn /norestart")
+                using Process? p = Process.Start(new ProcessStartInfo("msiexec.exe", $"/x {code} /qn /norestart")
                 {
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                })?.WaitForExit(60_000);
+                });
+                p?.WaitForExit(60_000);
+                Log($"msiexec /x {code} -> exit {(p?.HasExited == true ? p.ExitCode : -2)}"); // -2 = timed out
             }
+        }
+        catch (Exception ex)
+        {
+            Log($"cleanup skipped: {ex.GetType().Name}: {ex.Message}");
+            // best-effort; retried on the next launch if it didn't complete
+        }
+    }
+
+    // Diagnostic trail for the one-time transition (helps verify the supersede ran on a live machine).
+    private static void Log(string message)
+    {
+        try
+        {
+            File.AppendAllText(
+                Path.Combine(AppContext.BaseDirectory, "msi-migration.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}\n");
         }
         catch
         {
-            // best-effort; retried on the next launch if it didn't complete
+            // best effort
         }
     }
 }

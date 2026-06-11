@@ -93,6 +93,30 @@ public static class CaptureHostLauncher
         }
     }
 
+    /// <summary>Best-effort removal of the capture-helper scheduled task — called from the Velopack
+    /// uninstall hook so an uninstall leaves nothing behind. If deletion needs rights the (per-user,
+    /// unelevated) uninstall lacks, the leftover task is inert anyway (on-demand only, command path gone),
+    /// so the failure is swallowed.</summary>
+    public static void RemoveScheduledTask()
+    {
+        try
+        {
+            var psi = new ProcessStartInfo("schtasks.exe", $"/delete /tn \"{TaskName}\" /f")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using Process? p = Process.Start(psi);
+            p?.WaitForExit(10000);
+        }
+        catch
+        {
+            // best effort
+        }
+    }
+
     // ---- runas (fallback / dev): UAC prompt each launch ----
     private static CaptureHostLaunch LaunchViaRunas(string path)
     {

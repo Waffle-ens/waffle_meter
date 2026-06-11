@@ -1,5 +1,6 @@
 using System;
 using Velopack;
+using WaffleMeter.App.Core;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -15,9 +16,11 @@ public static class Program
     public static void Main(string[] args)
     {
         // MUST be first. Handles Velopack lifecycle hooks and exits for those runs. On the first launch
-        // after install, supersede the legacy Kotlin jpackage MSI.
+        // after install, supersede the legacy Kotlin jpackage MSI; on uninstall, remove the capture-helper
+        // scheduled task so nothing is left behind.
         VelopackApp.Build()
             .OnFirstRun(_ => LegacyMsiCleanup.Run())
+            .OnBeforeUninstallFastCallback(_ => CaptureHostLauncher.RemoveScheduledTask())
             .Run();
 
         var app = new App();

@@ -103,7 +103,6 @@ public partial class App : Application
         _overlayWindow = window;
         AttachScreenClamp(window);
         AttachResize(window, services.Props, "meterWidth", "meterHeight", widthOnly: true);
-        TryRemoveLegacyMsi(); // one-time supersede of the old jpackage MSI (installed builds only)
         // Snap all windows back onto a monitor the moment multi-monitor movement is turned off.
         _settings.PropertyChanged += (_, e) =>
         {
@@ -602,33 +601,6 @@ public partial class App : Application
             window.Width = w;
             window.Height = h;
         }
-    }
-
-    /// <summary>One-time supersede of the legacy jpackage MSI (Kotlin v1.x) so it doesn't coexist with the
-    /// Velopack install. Only for an INSTALLED build (under %LocalAppData%) — a dev run must never uninstall
-    /// the developer's real legacy install. Runs on a background thread (msiexec can take seconds) and is a
-    /// no-op once the old MSI is gone.</summary>
-    private static void TryRemoveLegacyMsi()
-    {
-        string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        bool installed = !string.IsNullOrEmpty(localApp)
-            && AppContext.BaseDirectory.StartsWith(localApp, StringComparison.OrdinalIgnoreCase);
-        if (!installed)
-        {
-            return;
-        }
-
-        System.Threading.Tasks.Task.Run(() => LegacyMsiMigration.RemoveIfPresent(msg =>
-        {
-            try
-            {
-                File.AppendAllText(Path.Combine(AppContext.BaseDirectory, "msi-migration.log"), $"{DateTime.Now:HH:mm:ss} {msg}\n");
-            }
-            catch
-            {
-                // best effort
-            }
-        }));
     }
 
     /// <summary>Apply only a persisted WIDTH (for the meter, whose height auto-sizes to its content).</summary>
