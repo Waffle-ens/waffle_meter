@@ -54,6 +54,20 @@ public static class MeterFormat
     /// <summary>DPS column text: "{dps:N0}/s" (React `${dps.toLocaleString()}/s`).</summary>
     public static string FormatDps(double dps) => Math.Truncate(dps).ToString("N0", Inv) + "/s";
 
+    /// <summary>Battle duration "MM:SS" (React useMeter formatBattleTime). Non-positive → "00:00".</summary>
+    public static string FormatBattleTime(long ms)
+    {
+        if (ms <= 0)
+        {
+            return "00:00";
+        }
+
+        long totalSec = ms / 1000;
+        long min = totalSec / 60;
+        long sec = totalSec % 60;
+        return $"{min:00}:{sec:00}";
+    }
+
     /// <summary>Contribution column text: one-decimal percent.</summary>
     public static string FormatPercent(double contribution) => contribution.ToString("F1", Inv) + "%";
 

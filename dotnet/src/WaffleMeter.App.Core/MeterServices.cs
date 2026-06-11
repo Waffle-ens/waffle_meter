@@ -30,6 +30,15 @@ public sealed class MeterServices
     /// subscribes to <see cref="JoinRequestStore.Changed"/> and renders the join panel.</summary>
     public JoinRequestStore JoinRequests { get; }
 
+    /// <summary>Raised (on the consumer thread) with a fresh saved-battle snapshot whenever the history
+    /// changes — a battle is saved or the meter is reset. The history panel caches the latest snapshot.
+    /// Fires on the owner thread; the WPF layer marshals it.</summary>
+    public event Action<List<(int Index, DpsReport Report)>>? BattleListChanged;
+
+    /// <summary>Snapshot the saved-battle list and notify subscribers. MUST be called on the consumer
+    /// (owner) thread — it reads the repository the parser writes to.</summary>
+    public void NotifyBattleListChanged() => BattleListChanged?.Invoke(Data.RecentBattleList());
+
     /// <summary>Diagnostic packet-debug-logs writer (off by default). Doubles as the stream processor
     /// sink + capture/assembled hooks, so the app can record a replayable corpus without the Kotlin
     /// dev build. Toggle with <c>DebugLogger.Start()/Stop()</c>.</summary>
@@ -80,8 +89,13 @@ public sealed class MeterServices
         UploadQueue = new StatsUploadQueue(consent, StatsBuilder, StatsApi, Data, props);
         UploadQueue.Configure(Version);
 
-        // The only Data -> Stats edge: a saved battle log is offered to the upload queue.
-        Calculator.OnBattleLogged = log => UploadQueue.OfferIfEligible(log);
+        // The only Data -> Stats edge: a saved battle log is offered to the upload queue. Also refresh
+        // the history-panel snapshot (both run on the consumer thread inside the save).
+        Calculator.OnBattleLogged = log =>
+        {
+            UploadQueue.OfferIfEligible(log);
+            NotifyBattleListChanged();
+        };
     }
 
     /// <summary>Loads the reference catalogs (mobs/skills/buffs/blacklist) from a json directory.</summary>

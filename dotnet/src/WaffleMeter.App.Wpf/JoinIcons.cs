@@ -13,6 +13,24 @@ public static class JoinIcons
 {
     private static readonly Dictionary<string, BitmapImage?> JobCache = new();
 
+    private static BitmapImage? _bossIcon;
+    private static bool _bossLoaded;
+
+    /// <summary>The boss icon used by the battle-history panel (bundled from src/assets/bossIcon.png).</summary>
+    public static BitmapImage? BossIcon
+    {
+        get
+        {
+            if (!_bossLoaded)
+            {
+                _bossIcon = TryLoad("pack://application:,,,/JobIcons/bossIcon.png");
+                _bossLoaded = true;
+            }
+
+            return _bossIcon;
+        }
+    }
+
     public static BitmapImage? Job(string? job)
     {
         if (string.IsNullOrEmpty(job))

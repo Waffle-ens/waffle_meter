@@ -88,6 +88,7 @@ public sealed class MeterEngine : IDisposable
                 try
                 {
                     _services.Calculator.HardReset();
+                    _services.NotifyBattleListChanged(); // history was flushed — clear the panel
                 }
                 catch
                 {

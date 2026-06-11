@@ -45,9 +45,11 @@ public partial class OverlayWindow : Window
     public event Action? SettingsRequested;
     public event Action? ExitRequested;
 
-    /// <summary>Header buttons (App handles): reset the meter / toggle taskbar (alt-tab) mode.</summary>
+    /// <summary>Header buttons (App handles): reset the meter / toggle taskbar (alt-tab) mode / open
+    /// the battle-history panel.</summary>
     public event Action? ResetRequested;
     public event Action? TaskbarToggleRequested;
+    public event Action? HistoryRequested;
 
     public OverlayWindow()
     {
@@ -181,6 +183,8 @@ public partial class OverlayWindow : Window
     private void OnResetButton(object sender, RoutedEventArgs e) => ResetRequested?.Invoke();
 
     private void OnTaskbarButton(object sender, RoutedEventArgs e) => TaskbarToggleRequested?.Invoke();
+
+    private void OnHistoryButton(object sender, RoutedEventArgs e) => HistoryRequested?.Invoke();
 
     private void OnRowClick(object sender, MouseButtonEventArgs e)
     {

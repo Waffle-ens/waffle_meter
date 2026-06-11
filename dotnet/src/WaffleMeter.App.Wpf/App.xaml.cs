@@ -27,6 +27,12 @@ public partial class App : Application
     private JoinRequestPanel? _joinPanel;
     private JoinRequestViewModel? _joinViewModel;
     private bool _joinPanelPositioned;
+    private HistoryPanel? _historyPanel;
+    private BattleHistoryViewModel? _historyViewModel;
+    private bool _historyPanelPositioned;
+    private bool _historyPanelVisible;
+    private bool _viewingHistory;
+    private long _historyBaselineBattleStart;
 
     public App()
     {
@@ -97,7 +103,7 @@ public partial class App : Application
         OverlayController controller = _controller;
         _hotkeys = new HotkeyHandler(services.Props)
         {
-            OnReset = () => _engine?.RequestReset(), // clears saved battles + live data (runs on consumer thread)
+            OnReset = () => { _viewingHistory = false; _engine?.RequestReset(); }, // clears saved battles + live data (runs on consumer thread)
             OnVisibility = () => Dispatcher.Invoke(controller.ToggleVisibility),
             OnClickThrough = () => Dispatcher.Invoke(() => window.SetClickThrough(!window.ClickThrough)),
         };
@@ -114,7 +120,7 @@ public partial class App : Application
             settingsWindow.Show();
         };
         window.ExitRequested += ExitApp;
-        window.ResetRequested += () => _engine?.RequestReset();
+        window.ResetRequested += () => { _viewingHistory = false; _engine?.RequestReset(); };
         window.TaskbarToggleRequested += () =>
         {
             bool next = !controller.TaskbarMode;
@@ -128,6 +134,9 @@ public partial class App : Application
         // Party join-request panel (Kotlin JoinRequest family -> React JoinRequestPanel).
         WireJoinPanel(services, window);
 
+        // Battle-history panel (React HistoryPanel): the 기록 header button toggles it.
+        WireHistoryPanel(services, window, viewModel);
+
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
         // The connect timeout is generous so it tolerates the user answering the UAC prompt.
         // captureBackend setting: "windivert" (default, embedded) or "npcap" (needs Npcap installed).
@@ -136,6 +145,21 @@ public partial class App : Application
         _engine.ReportUpdated += report => Dispatcher.Invoke(() =>
         {
             _lastReport = report;
+            // While viewing a saved battle, hold the overlay until a NEW battle begins (React resets the
+            // selected history when isInCombat); the detail window still tracks live.
+            if (_viewingHistory)
+            {
+                if (report.BattleStart > _historyBaselineBattleStart)
+                {
+                    _viewingHistory = false;
+                }
+                else
+                {
+                    _detailViewModel?.Refresh(report);
+                    return;
+                }
+            }
+
             viewModel.Update(report);
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
         });
@@ -236,7 +260,7 @@ public partial class App : Application
         _joinPanel.Park();
 
         // Restore a persisted position; otherwise dock under the meter overlay on first present.
-        if (LoadJoinPanelPosition(services.Props, _joinPanel))
+        if (LoadPanelPosition(services.Props, _joinPanel, "joinPanelX", "joinPanelY"))
         {
             _joinPanelPositioned = true;
         }
@@ -270,10 +294,66 @@ public partial class App : Application
         });
     }
 
-    private static bool LoadJoinPanelPosition(PropertyHandler props, Window panel)
+    private void WireHistoryPanel(MeterServices services, OverlayWindow overlay, OverlayViewModel meterViewModel)
     {
-        if (double.TryParse(props.GetProperty("joinPanelX"), NumberStyles.Float, CultureInfo.InvariantCulture, out double left) &&
-            double.TryParse(props.GetProperty("joinPanelY"), NumberStyles.Float, CultureInfo.InvariantCulture, out double top))
+        _historyViewModel = new BattleHistoryViewModel(_theme!, _settings!);
+        _historyPanel = new HistoryPanel { DataContext = _historyViewModel };
+        _historyPanel.Show();
+        _historyPanel.Park();
+
+        if (LoadPanelPosition(services.Props, _historyPanel, "historyPanelX", "historyPanelY"))
+        {
+            _historyPanelPositioned = true;
+        }
+
+        _historyPanel.PositionChanged += (left, top) =>
+        {
+            _historyPanelPositioned = true;
+            services.Props.SetProperty("historyPanelX", left.ToString("0", CultureInfo.InvariantCulture));
+            services.Props.SetProperty("historyPanelY", top.ToString("0", CultureInfo.InvariantCulture));
+        };
+        _historyPanel.CloseRequested += () =>
+        {
+            _historyPanelVisible = false;
+            _historyPanel.Park();
+        };
+
+        // Saved-battle snapshots arrive on the consumer thread; cache them on the UI thread.
+        services.BattleListChanged += battles => Dispatcher.Invoke(() => _historyViewModel.SetBattles(battles));
+
+        // Clicking a saved battle replays it in the meter until the next live battle starts.
+        _historyViewModel.BattleSelected += report =>
+        {
+            _viewingHistory = true;
+            _historyBaselineBattleStart = _lastReport?.BattleStart ?? 0;
+            meterViewModel.Update(report);
+        };
+
+        // The 기록 header button toggles the panel.
+        overlay.HistoryRequested += () =>
+        {
+            if (_historyPanelVisible)
+            {
+                _historyPanelVisible = false;
+                _historyPanel.Park();
+                return;
+            }
+
+            if (!_historyPanelPositioned)
+            {
+                _historyPanel.Left = overlay.Left + overlay.ActualWidth + 8;
+                _historyPanel.Top = overlay.Top;
+            }
+
+            _historyPanelVisible = true;
+            _historyPanel.Present(true);
+        };
+    }
+
+    private static bool LoadPanelPosition(PropertyHandler props, Window panel, string xKey, string yKey)
+    {
+        if (double.TryParse(props.GetProperty(xKey), NumberStyles.Float, CultureInfo.InvariantCulture, out double left) &&
+            double.TryParse(props.GetProperty(yKey), NumberStyles.Float, CultureInfo.InvariantCulture, out double top))
         {
             panel.Left = left;
             panel.Top = top;
