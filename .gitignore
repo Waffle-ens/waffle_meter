@@ -74,3 +74,8 @@ obj/
 dotnet/run-test/
 dotnet/run-test2/
 
+
+### bridge transition MSI (local build outputs)
+/bridge/*.msi
+/bridge/*.wixpdb
+/bridge/*.cab

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Transition "bridge" MSI for v1.x (jpackage MSI) -> v2.0 (Velopack).
+  The deployed v1.7.x updater only offers releases that carry a .msi asset, and installs it with
+  `msiexec /i ... /qb`. This MSI's only job is to install v2.0: it bundles the Velopack Setup.exe and
+  runs it silently. It shares the jpackage UpgradeCode, so installing it MAJOR-UPGRADES (removes) the old
+  v1.x product (no duplicate). v2.0's first-run LegacyMsiCleanup then removes THIS bridge (same
+  UpgradeCode) -> end state: only the v2.0 Velopack install.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="waffle_meter" Manufacturer="TK" Version="2.0.0"
+           UpgradeCode="66D7E440-C8DB-47D8-A7AC-996796404049" Scope="perUser" Compressed="yes">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of waffle_meter is already installed."
+                  AllowSameVersionUpgrades="yes" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="waffle_meter_bridge" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="Payload" Directory="INSTALLFOLDER">
+      <Component Id="SetupExeComp">
+        <File Id="SetupExe" Source="waffle_meter-win-Setup.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="Payload" />
+    </Feature>
+
+    <!-- Run the bundled Velopack installer silently right after the files are laid down. asyncNoWait so
+         msiexec returns immediately; Impersonate=yes so the per-user Velopack install runs as the user. -->
+    <CustomAction Id="RunSetup" FileRef="SetupExe" ExeCommand="--silent"
+                  Execute="deferred" Impersonate="yes" Return="asyncNoWait" />
+    <InstallExecuteSequence>
+      <Custom Action="RunSetup" After="InstallFinalize" Condition="NOT REMOVE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>
