@@ -79,3 +79,4 @@ dotnet/run-test2/
 /bridge/*.msi
 /bridge/*.wixpdb
 /bridge/*.cab
+/bridge/*.log

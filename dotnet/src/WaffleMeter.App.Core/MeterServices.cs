@@ -64,10 +64,13 @@ public sealed class MeterServices
         PropertyHandler props,
         StatsApiClient.RequestFunc? statsTransport = null,
         OfficialCharacterLookup? officialLookup = null,
-        PacketDebugLogger? debugLogger = null)
+        PacketDebugLogger? debugLogger = null,
+        string? appVersion = null)
     {
         Props = props;
-        Version = VersionConfig.LoadFromProperties(props).Version;
+        // From the build (entry-assembly InformationalVersion = WaffleVersion), not a persisted
+        // property — the old Kotlin value lingers in settings.properties. appVersion lets tests/CLI inject.
+        Version = VersionConfig.Resolve(appVersion).Version;
 
         OfficialLookup = officialLookup ?? new OfficialCharacterLookup();
         Data = new DataManager { OfficialLookup = OfficialLookup };

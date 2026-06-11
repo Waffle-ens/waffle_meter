@@ -45,7 +45,10 @@ public sealed class MeterServicesTests : IDisposable
         Assert.NotNull(_services.StatsBuilder);
         Assert.NotNull(_services.UploadQueue);
         Assert.NotNull(_services.Calculator.OnBattleLogged); // Data -> Stats edge wired
-        Assert.Equal("1.6.9-dev", _services.Version);        // default when no version property
+        // Version comes from the build (assembly InformationalVersion), not a persisted property;
+        // the injectable appVersion path is the deterministic one to assert.
+        Assert.False(string.IsNullOrWhiteSpace(_services.Version));
+        Assert.Equal("9.9.9-test", new MeterServices(new PropertyHandler(_temp), appVersion: "9.9.9-test").Version);
 
         static IOfficialCharacterLookup? GetInjectedLookup(MeterServices s) => s.Data.OfficialLookup;
     }
