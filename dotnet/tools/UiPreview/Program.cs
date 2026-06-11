@@ -61,6 +61,12 @@ internal static class Program
                 var idle = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 헬퍼 시작 실패: NotFound" };
                 idle.Update(new DpsReport { BattleStart = 0, BattleEnd = 5000 });
                 Capture(() => new OverlayWindow { DataContext = idle }, palette, Path.Combine(outDir, "meter_idle_Dark.png"));
+
+                // Detail window chrome (skill table is empty without packet data, but verifies re-theming).
+                var calc = new WaffleMeter.Data.DpsCalculator(new WaffleMeter.Data.DataManager(), () => { });
+                var details = new DetailsViewModel(SampleMeterReport(now), 1, calc, "콘팡", theme, settings.FontFamily);
+                details.Refresh(SampleMeterReport(now));
+                Capture(() => new DetailWindow { DataContext = details }, palette, Path.Combine(outDir, "detail_Dark.png"));
             }
         }
 

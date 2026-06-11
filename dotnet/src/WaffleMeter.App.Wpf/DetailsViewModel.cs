@@ -66,6 +66,8 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     public string PerfectText { get => _perfectText; private set => Set(ref _perfectText, value); }
     private string _backText = "0.0%";
     public string BackText { get => _backText; private set => Set(ref _backText, value); }
+    private string _parryText = "0.0%";
+    public string ParryText { get => _parryText; private set => Set(ref _parryText, value); }
     private string _combatTimeText = "0:00";
     public string CombatTimeText { get => _combatTimeText; private set => Set(ref _combatTimeText, value); }
     private bool _hasBuffs;
@@ -95,6 +97,7 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         StrongText = model.StrongPct.ToString("F1", Inv) + "%";
         PerfectText = model.PerfectPct.ToString("F1", Inv) + "%";
         BackText = model.BackPct.ToString("F1", Inv) + "%";
+        ParryText = model.ParryPct.ToString("F1", Inv) + "%";
         TimeSpan span = TimeSpan.FromMilliseconds(model.CombatMs);
         CombatTimeText = $"{(int)span.TotalMinutes}:{span.Seconds:D2}";
 
