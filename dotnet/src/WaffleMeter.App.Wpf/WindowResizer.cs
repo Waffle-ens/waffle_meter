@@ -18,15 +18,27 @@ public static class WindowResizer
 
     public static void Attach(Window window, double margin = 6)
     {
-        window.SourceInitialized += (_, _) =>
+        // The window may already be shown (Attach is called after Show), in which case SourceInitialized
+        // has fired — add the hook now; otherwise wait for it.
+        if (PresentationSource.FromVisual(window) is HwndSource existing)
         {
-            if (PresentationSource.FromVisual(window) is HwndSource source)
+            AddHook(existing, window, margin);
+        }
+        else
+        {
+            window.SourceInitialized += (_, _) =>
             {
-                source.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
-                    WndProc(window, margin, msg, lParam, ref handled));
-            }
-        };
+                if (PresentationSource.FromVisual(window) is HwndSource source)
+                {
+                    AddHook(source, window, margin);
+                }
+            };
+        }
     }
+
+    private static void AddHook(HwndSource source, Window window, double margin) =>
+        source.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+            WndProc(window, margin, msg, lParam, ref handled));
 
     private static IntPtr WndProc(Window window, double margin, int msg, IntPtr lParam, ref bool handled)
     {

@@ -142,6 +142,12 @@ public partial class App : Application
             svm.CheckUpdateRequested = () => _ = _updateService?.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
             var settingsWindow = new SettingsWindow(svm) { Owner = window };
+            LoadWindowSize(services.Props, "settingsWidth", "settingsHeight", settingsWindow);
+            settingsWindow.SizeChanged += (_, _) =>
+            {
+                services.Props.SetProperty("settingsWidth", settingsWindow.ActualWidth.ToString("0", CultureInfo.InvariantCulture));
+                services.Props.SetProperty("settingsHeight", settingsWindow.ActualHeight.ToString("0", CultureInfo.InvariantCulture));
+            };
             settingsWindow.Show();
         };
         window.ExitRequested += () =>
