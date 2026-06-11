@@ -1,6 +1,22 @@
 # .NET / WPF + Velopack release (migration target).
 # Manual-only (workflow_dispatch) for now so it does NOT collide with the Kotlin MSI release.yml on
 # tag pushes. Flip to `on: push: tags` when the .NET app supersedes the Kotlin build.
+#
+# CODE SIGNING — SignPath.io OSS (free for public MIT projects):
+#   Signing is OPTIONAL and gated on the repo VARIABLE `SIGNPATH_ORG_ID`. Until it is set the release
+#   ships UNSIGNED (still works; first-install SmartScreen + AV friction). To enable signing:
+#     1. Get the project approved at https://signpath.org/opensource and create, in the SignPath dashboard:
+#        - a Project           (slug must match SIGNPATH_PROJECT_SLUG below: `waffle_meter`)
+#        - a Signing Policy     (slug must match SIGNPATH_POLICY_SLUG below: `release-signing`)
+#        - two Artifact Configurations:
+#            * `app-binaries` — sign the app's OWN code only: WaffleMeter.*.exe + WaffleMeter.*.dll
+#              (NOT the .NET runtime dlls, NOT WinDivert.* which its author already signs)
+#            * `installer`    — sign the Velopack output: *Setup.exe (+ Update.exe if present)
+#     2. Repo → Settings:
+#        - Variable  `SIGNPATH_ORG_ID`    = your SignPath organization GUID
+#        - Secret    `SIGNPATH_API_TOKEN` = a SignPath CI user API token
+#   Pass 1 signs the binaries BEFORE `vpk pack` (so the installed app + helper, and every in-app-updated
+#   file, are signed). Pass 2 signs the generated Setup.exe (the first-download SmartScreen hurdle).
 name: release-dotnet
 
 on:
@@ -16,11 +32,16 @@ on:
 
 permissions:
   contents: write
-  id-token: write   # Azure Trusted Signing via OIDC (when signing is configured)
+  id-token: write   # OIDC (kept for any future cloud signer)
 
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      # secrets/vars can't be referenced in step-level `if:`, so surface the signing gate as an env flag.
+      SIGN_ENABLED: ${{ vars.SIGNPATH_ORG_ID != '' }}
+      SIGNPATH_PROJECT_SLUG: waffle_meter
+      SIGNPATH_POLICY_SLUG: release-signing
     steps:
       - uses: actions/checkout@v4
 
@@ -30,8 +51,8 @@ jobs:
           $v = "${{ github.event.inputs.version }}".TrimStart('v')
           if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "version must be x.y.z" }
           "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append
-          $pid = if ("${{ github.event.inputs.channel }}" -eq "dev") { "waffle_meter-dev" } else { "waffle_meter" }
-          "PACK_ID=$pid" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $packId = if ("${{ github.event.inputs.channel }}" -eq "dev") { "waffle_meter-dev" } else { "waffle_meter" }
+          "PACK_ID=$packId" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -47,8 +68,30 @@ jobs:
       - name: Publish capture helper (into the same folder)
         run: dotnet publish dotnet/tools/WaffleMeter.CaptureHost/WaffleMeter.CaptureHost.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -o publish
 
-      # WinDivert.dll/.sys are bundled by CaptureHost.csproj from dotnet/third-party/windivert when present.
-      # If sourced via a secret/artifact instead, copy them into publish\ here.
+      # WinDivert.dll/.sys come from dotnet/third-party/windivert via CaptureHost.csproj (bundled on publish).
+
+      # ---- Pass 1: sign the app's OWN binaries BEFORE packing (SignPath OSS; no-op until configured) ----
+      - name: Upload unsigned binaries (for signing)
+        id: upload-binaries
+        if: env.SIGN_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-binaries
+          path: publish/
+
+      - name: Sign app binaries (SignPath)
+        if: env.SIGN_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORG_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: app-binaries
+          github-artifact-id: ${{ steps.upload-binaries.outputs.artifact-id }}
+          wait-for-completion: true
+          # Overwrite publish/ with the signed binaries so vpk packs the SIGNED files.
+          output-artifact-directory: publish
 
       - name: Download previous release (for delta)
         continue-on-error: true
@@ -63,13 +106,37 @@ jobs:
           --mainExe WaffleMeter.App.Wpf.exe
           --packTitle "waffle_meter"
           --packAuthors "TK"
+          --outputDir Releases
           --icon dotnet/src/WaffleMeter.App.Wpf/../../../src/main/resources/icons/waffle.ico
           --channel ${{ github.event.inputs.channel }}
+
+      # ---- Pass 2: sign the generated Setup.exe AFTER packing (first-download SmartScreen) ----
+      - name: Upload unsigned installer (for signing)
+        id: upload-installer
+        if: env.SIGN_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-installer
+          path: Releases/
+
+      - name: Sign installer (SignPath)
+        if: env.SIGN_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORG_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.upload-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: Releases
 
       - name: Upload release
         run: >
           vpk upload github
           --repoUrl https://github.com/${{ github.repository }}
+          --outputDir Releases
           --channel ${{ github.event.inputs.channel }}
           --publish --releaseName ${{ env.VERSION }} --tag ${{ env.VERSION }}
           --token ${{ secrets.GITHUB_TOKEN }}
