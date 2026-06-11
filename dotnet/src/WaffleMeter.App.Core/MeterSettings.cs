@@ -22,6 +22,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private static readonly string[] CloseActions = { "ask", "tray", "exit" };
     private static readonly string[] CaptureBackends = { "windivert", "npcap" };
     private static readonly string[] TargetInfoDisplayModes = { "hp_full_percent", "hp_percent", "remain_full_percent", "remain_percent", "percent" };
+    private static readonly string[] BarStyles = { "fill", "bar", "none" };
 
     private readonly PropertyHandler _props;
 
@@ -44,6 +45,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _taskbarMode = ReadBool("taskbarMode", false);
         _captureBackend = ReadEnum("captureBackend", "windivert", CaptureBackends);
         _targetInfoDisplayMode = ReadEnum("targetInfoDisplayMode", "hp_full_percent", TargetInfoDisplayModes);
+        _barStyle = ReadEnum("barStyle", "fill", BarStyles);
     }
 
     private string _displayMode;
@@ -84,6 +86,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private string _targetInfoDisplayMode;
     public string TargetInfoDisplayMode { get => _targetInfoDisplayMode; set => SetProp(ref _targetInfoDisplayMode, "targetInfoDisplayMode", value); }
+
+    private string _barStyle;
+    /// <summary>Damage gauge form: "fill" (proportional cell fill), "bar" (thin bottom bar), "none".</summary>
+    public string BarStyle { get => _barStyle; set => SetProp(ref _barStyle, "barStyle", value); }
 
     private bool _multiMonitorMode;
     public bool MultiMonitorMode { get => _multiMonitorMode; set => SetBool(ref _multiMonitorMode, "multiMonitorMode", value); }

@@ -103,6 +103,16 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="게이지 형태" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="피해량 막대의 표시 형태를 선택합니다 (칸 채우기 / 얇은 바 / 없음)." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding BarStyles}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding BarStyle}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="스타일 (스킨)" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="앱 전체의 색 테마 프리셋입니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>

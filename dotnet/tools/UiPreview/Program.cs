@@ -62,6 +62,16 @@ internal static class Program
 
             if (skin == "Dark")
             {
+                // gauge-form variants: "fill" (above), "bar" (thin bottom bar), "none".
+                foreach (string bs in new[] { "bar", "none" })
+                {
+                    settings.BarStyle = bs;
+                    var bv = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 중" };
+                    bv.Update(SampleMeterReport(now));
+                    Capture(() => new OverlayWindow { DataContext = bv }, palette, Path.Combine(outDir, $"meter_gauge_{bs}_Dark.png"));
+                }
+                settings.BarStyle = "fill";
+
                 // idle case: durationMs>0 but 0 rows — must NOT stack placeholder + combat-timer pill.
                 var idle = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 헬퍼 시작 실패: NotFound" };
                 idle.Update(new DpsReport { BattleStart = 0, BattleEnd = 5000 });
@@ -142,6 +152,7 @@ internal static class Program
         vm.ContributionMode = "entireContribution"; Check("ContributionMode", settings.UseEntireContribution);
         vm.NameDisplay = "me_only"; Check("NameDisplay", settings.NameDisplayMode == NameDisplay.MeOnly);
         vm.TargetInfoDisplayMode = "percent"; Check("TargetInfoDisplayMode", settings.TargetInfoDisplayMode == "percent");
+        vm.BarStyle = "bar"; Check("BarStyle", settings.BarStyle == "bar" && props.GetProperty("barStyle") == "bar");
         vm.FontFamily = "Pretendard"; Check("FontFamily", settings.FontFamily == "Pretendard");
         vm.RowHeight = 50; Check("RowHeight", settings.RowHeight == 50 && props.GetProperty("rowHeight") == "50");
         vm.MeterOpacity = 0.7; Check("MeterOpacity", Math.Abs(settings.MeterOpacity - 0.7) < 0.001);

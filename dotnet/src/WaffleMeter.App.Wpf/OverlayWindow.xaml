@@ -213,6 +213,16 @@
                                     <RowDefinition Height="2"/>
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0">
+                                    <!-- thick "fill" gauge behind the content (barStyle=fill): a proportional
+                                         FillBrush panel at low opacity so the row text stays readable on top. -->
+                                    <Grid Visibility="{Binding BarFillVisibility}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
+                                            <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Background="{Binding FillBrush}" Opacity="0.3" CornerRadius="4"/>
+                                    </Grid>
+                                  <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -257,8 +267,9 @@
                                         <TextBlock Text="{Binding PercentText}" Foreground="{Binding PercentBrush}" MinWidth="40" TextAlignment="Right"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
                                     </Border>
+                                  </Grid>
                                 </Grid>
-                                <Grid Grid.Row="1" Margin="0,2,0,0">
+                                <Grid Grid.Row="1" Margin="0,2,0,0" Visibility="{Binding BottomBarVisibility}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
                                         <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>

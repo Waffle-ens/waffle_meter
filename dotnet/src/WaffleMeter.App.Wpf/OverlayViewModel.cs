@@ -208,6 +208,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         bool entire = _settings.UseEntireContribution;
         NameDisplay nameMode = _settings.NameDisplayMode;
         double rowHeight = _settings.RowHeight;
+        string barStyle = _settings.BarStyle; // "fill" (cell fill) / "bar" (thin bottom bar) / "none"
+        Visibility fillVis = barStyle == "fill" ? Visibility.Visible : Visibility.Collapsed;
+        Visibility barVis = barStyle == "bar" ? Visibility.Visible : Visibility.Collapsed;
         double Metric(DpsInformation info) => total ? info.Amount : info.Dps;
 
         List<Entry> entries = report.Information
@@ -258,7 +261,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 IsUser: isUser,
                 RowHeight: rowHeight,
                 IconSource: JoinIcons.Job(jobName),
-                AccentOpacity: isUser ? 0.95 : 0.82);
+                AccentOpacity: isUser ? 0.95 : 0.82,
+                BarFillVisibility: fillVis,
+                BottomBarVisibility: barVis);
 
             if (i < Rows.Count)
             {
@@ -346,4 +351,6 @@ public sealed record RowViewModel(
     bool IsUser,
     double RowHeight,
     System.Windows.Media.ImageSource? IconSource,
-    double AccentOpacity);
+    double AccentOpacity,
+    Visibility BarFillVisibility,
+    Visibility BottomBarVisibility);

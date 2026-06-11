@@ -81,6 +81,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("퍼센트만", "percent"),
     };
 
+    public IReadOnlyList<SettingOption> BarStyles { get; } = new[]
+    {
+        new SettingOption("칸 채우기 (두꺼운 게이지)", "fill"),
+        new SettingOption("얇은 바", "bar"),
+        new SettingOption("표시 안 함", "none"),
+    };
+
     // Bundled-or-fallback fonts (see Fonts/README.md). Malgun Gothic is always available.
     public IReadOnlyList<SettingOption> FontFamilies { get; } = new[]
     {
@@ -101,6 +108,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string FontFamily { get => _settings.FontFamily; set { _settings.FontFamily = value; OnPropertyChanged(); } }
     public int RowHeight { get => _settings.RowHeight; set { _settings.RowHeight = value; OnPropertyChanged(); } }
     public string TargetInfoDisplayMode { get => _settings.TargetInfoDisplayMode; set { _settings.TargetInfoDisplayMode = value; OnPropertyChanged(); } }
+    public string BarStyle { get => _settings.BarStyle; set { _settings.BarStyle = value; OnPropertyChanged(); } }
     public bool IsMinimal { get => _settings.IsMinimal; set { _settings.IsMinimal = value; OnPropertyChanged(); } }
     public bool ShowCombatTimerInMinimal { get => _settings.ShowCombatTimerInMinimal; set { _settings.ShowCombatTimerInMinimal = value; OnPropertyChanged(); } }
     public bool ShowTargetInfoInMinimal { get => _settings.ShowTargetInfoInMinimal; set { _settings.ShowTargetInfoInMinimal = value; OnPropertyChanged(); } }
@@ -230,6 +238,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         FontFamily = "NEXON Lv2 Gothic";
         RowHeight = 36;
         MeterOpacity = 0.4;
+        BarStyle = "fill";
         Skin = "dark";
         Theme.Reset();
     }
@@ -318,12 +327,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private sealed record Snapshot(
         string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
         string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
-        string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal)
+        string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
+        string BarStyle)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
             s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
-            s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal);
+            s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
+            s.BarStyle);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -341,6 +352,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.IsMinimal = IsMinimal;
             s.ShowCombatTimerInMinimal = ShowCombatTimerInMinimal;
             s.ShowTargetInfoInMinimal = ShowTargetInfoInMinimal;
+            s.BarStyle = BarStyle;
         }
     }
 
