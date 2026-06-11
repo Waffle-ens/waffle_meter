@@ -30,7 +30,7 @@ internal static class Program
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         // Preload skin palettes once (re-sourcing a ResourceDictionary mid-run is flaky).
-        var skins = new[] { "Dark", "Midnight", "Slate" }.ToDictionary(
+        var skins = new[] { "Dark", "Midnight", "Slate", "Light" }.ToDictionary(
             s => s,
             s => new ResourceDictionary { Source = new Uri($"pack://application:,,,/WaffleMeter.App.Wpf;component/Themes/Skin.{s}.xaml") });
 
@@ -51,7 +51,8 @@ internal static class Program
             history.SetBattles(SampleBattles(now));
             Capture(() => new HistoryPanel { DataContext = history }, palette, Path.Combine(outDir, $"history_{skin}.png"));
 
-            var overlay = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 중" };
+            string currentSkin = skin;
+            var overlay = new OverlayViewModel("1.7.8", settings, theme, () => currentSkin == "Light") { Status = "캡처 중" };
             overlay.Update(SampleMeterReport(now));
             Capture(() => new OverlayWindow { DataContext = overlay }, palette, Path.Combine(outDir, $"meter_{skin}.png"));
 

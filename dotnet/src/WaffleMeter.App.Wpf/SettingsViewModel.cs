@@ -118,11 +118,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     // ---- overlay tab (live) ----
     public double MeterOpacity { get => _settings.MeterOpacity; set { _settings.MeterOpacity = value; OnPropertyChanged(); } }
     public bool MultiMonitorMode { get => _settings.MultiMonitorMode; set { _settings.MultiMonitorMode = value; OnPropertyChanged(); } }
-    public bool LightMode
-    {
-        get => _settings.OverlayTheme == "light";
-        set { _settings.OverlayTheme = value ? "light" : "dark"; OnPropertyChanged(); }
-    }
+    // (Light mode is now a skin — "light" in the Skin list — not a separate overlayTheme toggle.)
 
     public bool IsAutoHide
     {

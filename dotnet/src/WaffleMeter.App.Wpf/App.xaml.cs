@@ -88,7 +88,9 @@ public partial class App : Application
 
         _settings = new MeterSettings(services.Props);
         _theme = new MeterColorTheme(services.Props);
-        var viewModel = new OverlayViewModel(services.Version, _settings, _theme);
+        SkinManager skinManager = _skin;
+        var viewModel = new OverlayViewModel(services.Version, _settings, _theme, () => skinManager.IsLight);
+        skinManager.Changed += viewModel.RefreshSkin; // re-theme stat colors on light/dark swap
         var window = new OverlayWindow { DataContext = viewModel };
         LoadPosition(services.Props, window);
         window.Show();

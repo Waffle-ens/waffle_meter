@@ -20,12 +20,19 @@ public sealed class SkinManager
         new SkinOption("dark", "다크"),
         new SkinOption("midnight", "미드나잇"),
         new SkinOption("slate", "슬레이트"),
+        new SkinOption("light", "라이트"),
     };
 
     private readonly PropertyHandler _props;
     private ResourceDictionary? _palette;
 
     public SkinManager(PropertyHandler props) => _props = props;
+
+    /// <summary>Raised after a skin is applied (lets light/dark-aware view models rebuild brushes).</summary>
+    public event Action? Changed;
+
+    /// <summary>True when the active skin is the light palette (drives light text-color overrides).</summary>
+    public bool IsLight => Current == "light";
 
     public string Current
     {
@@ -78,6 +85,7 @@ public sealed class SkinManager
         merged.Insert(0, next); // palette first; DynamicResource Skin.* resolves from here
         _palette = next;
         _props.SetProperty("skin", name);
+        Changed?.Invoke();
     }
 
     private static ResourceDictionary? TryLoad(string name)

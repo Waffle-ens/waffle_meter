@@ -18,6 +18,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 {
     private readonly MeterSettings _settings;
     private readonly MeterColorTheme _theme;
+    private readonly Func<bool> _isLight;
 
     // Rebuilt from the theme whenever a color changes (MeterColorTheme.Changed); rows are records that
     // bake in the brush references, so a theme change re-runs Update on the last report.
@@ -26,12 +27,23 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Brush _amountBrush = null!, _dpsBrush = null!, _percentBrush = null!;
     private DpsReport? _lastReport;
 
-    public OverlayViewModel(string version, MeterSettings settings, MeterColorTheme theme)
+    // React isLightOverlay hardcoded stat colors — used when the active skin is "light" so values stay
+    // readable on the light background (the user theme colors are tuned for dark).
+    private static readonly Brush LightName = Frozen(Color.FromRgb(0x1E, 0x29, 0x3B));
+    private static readonly Brush LightServerA = Frozen(Color.FromRgb(0x03, 0x69, 0xA1));
+    private static readonly Brush LightServerB = Frozen(Color.FromRgb(0xA2, 0x1C, 0xAF));
+    private static readonly Brush LightPower = Frozen(Color.FromRgb(0x8A, 0x5A, 0x00));
+    private static readonly Brush LightDps = Frozen(Color.FromRgb(0x10, 0x20, 0x33));
+    private static readonly Brush LightPercent = Frozen(Color.FromRgb(0x04, 0x78, 0x57));
+    private static readonly Brush LightCombatTime = Frozen(Color.FromRgb(0x33, 0x41, 0x55));
+
+    public OverlayViewModel(string version, MeterSettings settings, MeterColorTheme theme, Func<bool>? isLight = null)
     {
         _settings = settings;
         Settings = settings;
         _theme = theme;
         Theme = theme;
+        _isLight = isLight ?? (() => false);
         RebuildBrushes();
         theme.Changed += (_, _) =>
         {
@@ -42,6 +54,16 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             }
         };
         _status = $"waffle_meter {version}";
+    }
+
+    /// <summary>Re-theme on a skin swap (light/dark stat colors) and repaint.</summary>
+    public void RefreshSkin()
+    {
+        RebuildBrushes();
+        if (_lastReport is { } report)
+        {
+            Update(report);
+        }
     }
 
     /// <summary>Exposed for the overlay to bind opacity/font/etc. directly.</summary>
@@ -72,13 +94,29 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         _normalBar = ThemeGradient(_theme.NormalBarFrom, _theme.NormalBarTo);
         _warningBar = ThemeGradient(_theme.WarningBarFrom, _theme.WarningBarTo);
         _errorBar = ThemeGradient(_theme.ErrorBarFrom, _theme.ErrorBarTo);
-        _nameDefault = ThemeSolid(_theme.ServerDefaultColor);
-        _nameServerA = ThemeSolid(_theme.ServerAColor);
-        _nameServerB = ThemeSolid(_theme.ServerBColor);
-        _amountBrush = ThemeSolid(_theme.MeterStatAmount);  // power badge (React MeterRow.tsx:207)
-        _dpsBrush = ThemeSolid(_theme.MeterStatDps);        // damage value (MeterRow.tsx:126)
-        _percentBrush = ThemeSolid(_theme.MeterStatPercent); // percent (MeterRow.tsx:119/127)
-        CombatTimeBrush = ThemeSolid(_theme.CombatTimeColor);
+        if (_isLight())
+        {
+            // Light skin: the user theme's stat colors (tuned for dark) are unreadable on the light bg,
+            // so use React's isLightOverlay hardcodes.
+            _nameDefault = LightName;
+            _nameServerA = LightServerA;
+            _nameServerB = LightServerB;
+            _amountBrush = LightPower;
+            _dpsBrush = LightDps;
+            _percentBrush = LightPercent;
+            CombatTimeBrush = LightCombatTime;
+        }
+        else
+        {
+            _nameDefault = ThemeSolid(_theme.ServerDefaultColor);
+            _nameServerA = ThemeSolid(_theme.ServerAColor);
+            _nameServerB = ThemeSolid(_theme.ServerBColor);
+            _amountBrush = ThemeSolid(_theme.MeterStatAmount);  // power badge (React MeterRow.tsx:207)
+            _dpsBrush = ThemeSolid(_theme.MeterStatDps);        // damage value (MeterRow.tsx:126)
+            _percentBrush = ThemeSolid(_theme.MeterStatPercent); // percent (MeterRow.tsx:119/127)
+            CombatTimeBrush = ThemeSolid(_theme.CombatTimeColor);
+        }
+
         BossBarBrush = ThemeGradient(_theme.BossBarFrom, _theme.BossBarTo);
     }
 
