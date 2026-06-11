@@ -77,7 +77,7 @@ public sealed class MeterServices
         // dispatch/damage/meta/etc.; it is an inert no-op until DebugLogger.Start() is called.
         DebugLogger = debugLogger ?? new PacketDebugLogger();
         JoinRequests = new JoinRequestStore();
-        _processor = new StreamProcessor(DebugLogger, Data, new JoinRequestSinkAdapter(JoinRequests));
+        _processor = new StreamProcessor(DebugLogger, Data, new JoinRequestSinkAdapter(JoinRequests, Data));
         Calculator = new DpsCalculator(Data, FlushAllStreams);
 
         // Stats stack. Break the consent <-> builder cycle with a deferred reference.

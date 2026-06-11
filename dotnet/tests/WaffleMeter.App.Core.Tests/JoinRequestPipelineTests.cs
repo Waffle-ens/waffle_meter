@@ -1,5 +1,6 @@
 using WaffleMeter.App.Core;
 using WaffleMeter.Capture;
+using WaffleMeter.Data;
 using Xunit;
 
 namespace WaffleMeter.App.Core.Tests;
@@ -24,7 +25,7 @@ public class JoinRequestPipelineTests
     public void JoinRequest_flows_through_adapter_into_store_with_resolved_job()
     {
         var store = new JoinRequestStore(() => 1_000_000);
-        var proc = new StreamProcessor(joinSink: new JoinRequestSinkAdapter(store));
+        var proc = new StreamProcessor(joinSink: new JoinRequestSinkAdapter(store, new DataManager()));
 
         proc.OnPacketReceived(GoldenJoinRequest, 1_000_000); // arrivedAt within the 20s window
 
@@ -42,7 +43,7 @@ public class JoinRequestPipelineTests
     public void ExitParty_clears_the_store()
     {
         var store = new JoinRequestStore(() => 1_000_000);
-        var proc = new StreamProcessor(joinSink: new JoinRequestSinkAdapter(store));
+        var proc = new StreamProcessor(joinSink: new JoinRequestSinkAdapter(store, new DataManager()));
         int cleared = 0;
         store.Cleared += () => cleared++;
 

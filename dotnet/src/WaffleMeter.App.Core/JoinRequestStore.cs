@@ -86,18 +86,44 @@ public sealed class JoinRequestStore
 /// domain <see cref="JoinRequestStore"/>: resolves the job code to its Korean class name and builds the
 /// <see cref="JoinRequestUser"/> record. Keeps <c>WaffleMeter.Capture</c> free of a data-layer dependency.
 /// </summary>
-public sealed class JoinRequestSinkAdapter(JoinRequestStore store) : IJoinRequestSink
+public sealed class JoinRequestSinkAdapter(JoinRequestStore store, DataManager data) : IJoinRequestSink
 {
+    private const long EnrichWindowMs = 20_000L;
+
     public void OnJoinRequest(int requester, string nickname, int jobCode, int server, int power, long arrivedAt)
     {
-        store.Add(new JoinRequestUser
+        JobClass? job = JobClassInfo.ConvertFromCode(jobCode);
+        var user = new JoinRequestUser
         {
             Requester = requester,
             Nickname = nickname,
-            Job = JobClassInfo.ConvertFromCode(jobCode)?.ClassName(),
+            Job = job?.ClassName(),
             Server = server,
             Power = power,
             ArrivedAt = arrivedAt,
+        };
+        store.Add(user);
+
+        // Enrich with the official-site skills (live only; no-op offline). The callback fires on a
+        // background thread; store.Add is thread-safe and re-renders the card with the skill badges.
+        data.RequestOfficialCharacterLookup(requester, nickname, server, job, info =>
+        {
+            if (info.Skills.Count == 0)
+            {
+                return;
+            }
+
+            if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - arrivedAt > EnrichWindowMs)
+            {
+                return; // request already expired
+            }
+
+            store.Add(user with
+            {
+                Skill = new Dictionary<int, int>(info.Skills),
+                Power = user.Power > 0 ? user.Power : info.Power,
+                Job = user.Job ?? info.Job?.ClassName(),
+            });
         });
     }
 
