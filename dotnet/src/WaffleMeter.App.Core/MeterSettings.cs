@@ -20,6 +20,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private static readonly string[] NameDisplays = { "all", "me_only", "hidden" };
     private static readonly string[] Themes = { "dark", "light" };
     private static readonly string[] CloseActions = { "ask", "tray", "exit" };
+    private static readonly string[] CaptureBackends = { "windivert", "npcap" };
 
     private readonly PropertyHandler _props;
 
@@ -38,6 +39,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _isMinimal = ReadBool("isMinimal", false);
         _multiMonitorMode = ReadBool("multiMonitorMode", false);
         _taskbarMode = ReadBool("taskbarMode", false);
+        _captureBackend = ReadEnum("captureBackend", "windivert", CaptureBackends);
     }
 
     private string _displayMode;
@@ -75,6 +77,9 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private bool _taskbarMode;
     public bool TaskbarMode { get => _taskbarMode; set => SetBool(ref _taskbarMode, "taskbarMode", value); }
+
+    private string _captureBackend;
+    public string CaptureBackend { get => _captureBackend; set => SetProp(ref _captureBackend, "captureBackend", value); }
 
     /// <summary>Resolve the masking mode enum for the meter rows.</summary>
     public NameDisplay NameDisplayMode => _nameDisplay switch

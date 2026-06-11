@@ -179,6 +179,42 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _services.Props.SetProperty("server.port", ServerPort);
     }
 
+    // ---- nav rail + footer ----
+    private string _selectedNav = "display";
+    public string SelectedNav { get => _selectedNav; set => Set(ref _selectedNav, value); }
+
+    public string Version => _services.Version;
+
+    // ---- advanced ----
+    public IReadOnlyList<SettingOption> CloseActions { get; } = new[]
+    {
+        new SettingOption("종료 시 묻기", "ask"),
+        new SettingOption("트레이로 최소화", "tray"),
+        new SettingOption("프로그램 종료", "exit"),
+    };
+    public string CloseAction { get => _settings.CloseAction; set { _settings.CloseAction = value; OnPropertyChanged(); } }
+
+    public IReadOnlyList<SettingOption> CaptureBackends { get; } = new[]
+    {
+        new SettingOption("WinDivert (기본)", "windivert"),
+        new SettingOption("Npcap", "npcap"),
+    };
+    public string CaptureBackend { get => _settings.CaptureBackend; set { _settings.CaptureBackend = value; OnPropertyChanged(); } }
+
+    /// <summary>Footer "기본값 복원": restore the display settings + theme to defaults.</summary>
+    public void ResetDefaults()
+    {
+        DisplayMode = "dps_percent";
+        DamageValueMode = "dps";
+        ContributionMode = "contribution";
+        NameDisplay = "all";
+        FontFamily = "NEXON Lv2 Gothic";
+        RowHeight = 36;
+        MeterOpacity = 0.4;
+        Skin = "dark";
+        Theme.Reset();
+    }
+
     // ---- skin (overall style preset) ----
     public IReadOnlyList<SkinManager.SkinOption> Skins => SkinManager.Skins;
 

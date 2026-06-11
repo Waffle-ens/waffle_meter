@@ -3,6 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FontFamily="Segoe UI">
     <UserControl.Resources>
+        <!-- Shield the picker from any ambient (host window) implicit control styles so its preset
+             swatches / format toggles / hex input keep their intended look. -->
+        <Style TargetType="Button"/>
+        <Style TargetType="ToggleButton"/>
+        <Style TargetType="TextBox"/>
+
         <!-- 10px checkerboard behind translucent colors (matches buildCheckerboardCss). -->
         <DrawingBrush x:Key="Checker" TileMode="Tile" Viewport="0,0,10,10" ViewportUnits="Absolute" Stretch="None">
             <DrawingBrush.Drawing>

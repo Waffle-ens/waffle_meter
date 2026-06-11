@@ -66,6 +66,8 @@ public partial class SettingsWindow : Window
 
     private void OnResetTheme(object sender, RoutedEventArgs e) => _viewModel.ResetTheme();
 
+    private void OnResetDefaults(object sender, RoutedEventArgs e) => _viewModel.ResetDefaults();
+
     private void OnToggleLogging(object sender, RoutedEventArgs e) => _viewModel.ToggleLogging();
 
     private void OnOpenLogFolder(object sender, RoutedEventArgs e) => _viewModel.OpenLogFolder();

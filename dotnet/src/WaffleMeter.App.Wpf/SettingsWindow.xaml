@@ -3,209 +3,160 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:WaffleMeter.App.Wpf"
         xmlns:controls="clr-namespace:WaffleMeter.App.Wpf.Controls"
-        Title="waffle_meter 설정"
-        Width="460" SizeToContent="Height" Background="#FF1E1E1E"
-        WindowStartupLocation="CenterScreen" ResizeMode="NoResize" FontFamily="Segoe UI">
+        Title="설정" Width="760" Height="560" MinWidth="640" MinHeight="440"
+        Background="{DynamicResource Skin.WindowBg}"
+        WindowStartupLocation="CenterScreen" FontFamily="Segoe UI">
     <Window.Resources>
-        <local:InverseBooleanToVisibilityConverter x:Key="BoolToVisInverse"/>
-        <local:FontFamilyConverter x:Key="FontConv"/>
-
-        <!-- Option label template — used for BOTH the dropdown items and the selection box, so the
-             custom ComboBox template's ContentPresenter shows the selected label (DisplayMemberPath did
-             not populate SelectionBoxItemTemplate in the custom template). -->
-        <DataTemplate x:Key="OptionItemTemplate">
-            <TextBlock Text="{Binding Label}" Foreground="#FFEEEEEE"/>
-        </DataTemplate>
-
-        <!-- Dark theme: the overlay/detail windows are dark, so the settings window matches. -->
-        <Style TargetType="TextBlock"><Setter Property="Foreground" Value="#FFE0E0E0"/></Style>
-        <Style TargetType="TextBlock" x:Key="Label"><Setter Property="FontSize" Value="11"/><Setter Property="Foreground" Value="#FF9A9A9A"/></Style>
-
-        <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#FFE0E0E0"/>
-        </Style>
-
-        <Style TargetType="TextBox">
-            <Setter Property="Background" Value="#FF2A2A2A"/>
-            <Setter Property="Foreground" Value="#FFEEEEEE"/>
-            <Setter Property="BorderBrush" Value="#FF454545"/>
-            <Setter Property="CaretBrush" Value="#FFEEEEEE"/>
-            <Setter Property="Padding" Value="4,3"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4">
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="Button">
-            <Setter Property="Foreground" Value="#FFE8E8E8"/>
-            <Setter Property="Background" Value="#FF383838"/>
-            <Setter Property="BorderBrush" Value="#FF555555"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="1" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Background" Value="#FF484848"/></Trigger>
-                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="b" Property="Background" Value="#FF2C2C2C"/></Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="ComboBoxItem">
-            <Setter Property="Foreground" Value="#FFEEEEEE"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Padding" Value="8,5"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBoxItem">
-                        <Border x:Name="b" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="b" Property="Background" Value="#FF3A6EA5"/></Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="ComboBox">
-            <Setter Property="Margin" Value="0,2,0,8"/>
-            <Setter Property="Foreground" Value="#FFEEEEEE"/>
-            <Setter Property="Background" Value="#FF2A2A2A"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <ToggleButton Focusable="False" ClickMode="Press"
-                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <Border Background="#FF2A2A2A" BorderBrush="#FF454545" BorderThickness="1" CornerRadius="4">
-                                            <Path HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
-                                                  Fill="#FFAAAAAA" Data="M 0 0 L 8 0 L 4 4 Z"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                            </ToggleButton>
-                            <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
-                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                              Margin="8,0,24,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
-                            <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False">
-                                <Border Background="#FF2A2A2A" BorderBrush="#FF454545" BorderThickness="1" CornerRadius="4"
-                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
-                                    <ScrollViewer MaxHeight="260"><ItemsPresenter/></ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style TargetType="TabControl">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-        </Style>
-        <Style TargetType="TabItem">
-            <Setter Property="Foreground" Value="#FFBBBBBB"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Border x:Name="b" Background="Transparent" Padding="12,6" Margin="0,0,2,0" CornerRadius="4,4,0,0">
-                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="b" Property="Background" Value="#FF2D2D2D"/>
-                                <Setter Property="Foreground" Value="#FFFFFFFF"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="b" Property="Background" Value="#FF333333"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Themes/Skin.Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <local:InverseBooleanToVisibilityConverter x:Key="BoolToVisInverse"/>
+            <local:StringEqualsToVisibilityConverter x:Key="NavVis"/>
+            <local:FontFamilyConverter x:Key="FontConv"/>
+        </ResourceDictionary>
     </Window.Resources>
-    <DockPanel Margin="14" TextElement.FontFamily="{Binding FontFamily, Converter={StaticResource FontConv}}">
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="취소" Width="80" Click="OnCancel" Margin="0,0,8,0"/>
-            <Button Content="저장" Width="80" Click="OnSave"/>
-        </StackPanel>
-        <TabControl>
-            <TabItem Header="표시">
-                <StackPanel Margin="10">
-                    <TextBlock Text="스타일 (스킨)" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding Skins}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Name" SelectedValue="{Binding Skin}"/>
-                    <TextBlock Text="표시 형식" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding DisplayModes}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DisplayMode}"/>
-                    <TextBlock Text="딜량 기준" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding DamageValueModes}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DamageValueMode}"/>
-                    <TextBlock Text="기여도 표시 방식" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding ContributionModes}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding ContributionMode}"/>
-                    <TextBlock Text="아이디 표기" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding NameDisplays}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding NameDisplay}"/>
-                    <TextBlock Text="글꼴" Style="{StaticResource Label}"/>
-                    <ComboBox ItemsSource="{Binding FontFamilies}" ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
-                    <TextBlock Text="{Binding RowHeight, StringFormat='행 높이 — {0}px'}" Style="{StaticResource Label}" Margin="0,4,0,0"/>
-                    <Slider Minimum="24" Maximum="80" Value="{Binding RowHeight}" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                </StackPanel>
-            </TabItem>
 
-            <TabItem Header="오버레이">
-                <StackPanel Margin="10">
-                    <CheckBox Content="자동 숨김 (아이온2 포커싱 아닐 때 숨김)" IsChecked="{Binding IsAutoHide}" Margin="0,4"/>
-                    <CheckBox Content="다중 모니터 이동" IsChecked="{Binding MultiMonitorMode}" Margin="0,4"/>
-                    <CheckBox Content="작업표시줄 모드 (alt+tab 표시 · 자동숨김 해제)" IsChecked="{Binding TaskbarMode}" Margin="0,4"/>
-                    <TextBlock Text="{Binding MeterOpacity, StringFormat='미터 투명도 — {0:P0}'}" Style="{StaticResource Label}" Margin="0,6,0,0"/>
-                    <Slider Minimum="0" Maximum="1" Value="{Binding MeterOpacity}" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
+    <Grid TextElement.Foreground="{DynamicResource Skin.Fg}"
+          TextElement.FontFamily="{Binding FontFamily, Converter={StaticResource FontConv}}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-                    <Separator Margin="0,10"/>
-                    <TextBlock Text="단축키 (단일 키 또는 Ctrl/Alt 조합)" Style="{StaticResource Label}"/>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="전투 초기화" VerticalAlignment="Center"/>
-                        <local:HotkeyCaptureBox Grid.Column="1" Combo="{Binding PendingReset, Mode=TwoWay}"/>
-                    </Grid>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="표시/숨김" VerticalAlignment="Center"/>
-                        <local:HotkeyCaptureBox Grid.Column="1" Combo="{Binding PendingVisibility, Mode=TwoWay}"/>
-                    </Grid>
-                    <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="클릭 통과" VerticalAlignment="Center"/>
-                        <local:HotkeyCaptureBox Grid.Column="1" Combo="{Binding PendingClickThrough, Mode=TwoWay}"/>
-                    </Grid>
+        <!-- body: nav rail + content -->
+        <Grid Grid.Row="0" Margin="10,14,10,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="148"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                    <Separator Margin="0,10"/>
-                    <TextBlock Text="서버 IP (CIDR)" Style="{StaticResource Label}"/>
-                    <TextBox Text="{Binding ServerIp}" Margin="0,2,0,6"/>
-                    <TextBlock Text="포트" Style="{StaticResource Label}"/>
-                    <TextBox Text="{Binding ServerPort}" Margin="0,2,0,6"/>
-                    <Button Content="서버 저장" Width="90" HorizontalAlignment="Left" Click="OnSaveServer"/>
-                </StackPanel>
-            </TabItem>
+            <ListBox Grid.Column="0" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource NavItem}"
+                     SelectedValuePath="Tag" SelectedValue="{Binding SelectedNav}" Margin="6,0,6,0">
+                <ListBoxItem Tag="display" Content="화면"/>
+                <ListBoxItem Tag="theme" Content="테마 색상"/>
+                <ListBoxItem Tag="hotkeys" Content="단축키"/>
+                <ListBoxItem Tag="advanced" Content="고급"/>
+                <ListBoxItem Tag="stats" Content="공개 설정"/>
+                <ListBoxItem Tag="diag" Content="진단"/>
+            </ListBox>
 
-            <TabItem Header="테마">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="440">
-                    <StackPanel Margin="10">
-                        <TextBlock Text="유저 이름 색상" Style="{StaticResource Label}" Margin="0,0,0,2"/>
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="16,0,12,0">
+                <Grid>
+                    <!-- ===== 화면 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=display}">
+                        <TextBlock Text="표시 설정" Style="{StaticResource SectionHeader}"/>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="표시 형식" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="DPS 카드의 정보 조합을 전환합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding DisplayModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DisplayMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="딜량 기준" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="딜량을 DPS로 볼지 누적 피해량으로 볼지 선택합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding DamageValueModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DamageValueMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="기여도 표시 방식" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="파티 기여도 또는 보스 체력 기여도로 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding ContributionModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding ContributionMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="아이디 표기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="다른 플레이어 이름의 표시 범위를 선택합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding NameDisplays}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding NameDisplay}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="스타일 (스킨)" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="앱 전체의 색 테마 프리셋입니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding Skins}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Name" SelectedValue="{Binding Skin}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="글꼴" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="번들 글꼴이 없으면 맑은 고딕으로 표시됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding FontFamilies}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding RowHeight, StringFormat='행 높이 — {0}px'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="미터 한 줄의 높이입니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="24" Maximum="80" Value="{Binding RowHeight}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding MeterOpacity, StringFormat='미터 투명도 — {0:P0}'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="메인 창과 상세 창 배경에 함께 적용됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding MeterOpacity}" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="아이온 활성화 시 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="AION2 창이 활성화된 동안에만 미터기를 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsAutoHide}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="다중 모니터 이동" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="모니터 경계를 넘어 창 위치를 보정합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding MultiMonitorMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="작업표시줄 / Alt+Tab 모드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="오버레이를 일반 창으로 바꿔 작업표시줄·Alt+Tab에 표시합니다. (자동 숨김 해제)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TaskbarMode}"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ===== 테마 색상 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=theme}">
+                        <TextBlock Text="테마 색상" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="유저 이름 색상" Style="{StaticResource Label}" Margin="0,0,0,4"/>
                         <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="천족" VerticalAlignment="Center"/>
                             <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.ServerAColor, Mode=TwoWay}"/></Grid>
@@ -213,21 +164,21 @@
                             <TextBlock Grid.Column="0" Text="마족" VerticalAlignment="Center"/>
                             <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.ServerBColor, Mode=TwoWay}"/></Grid>
 
-                        <TextBlock Text="미터 바 색상" Style="{StaticResource Label}" Margin="0,10,0,2"/>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="미터 바 색상" Style="{StaticResource Label}" Margin="0,12,0,4"/>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="내 캐릭터" VerticalAlignment="Center"/>
                             <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.UserBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.UserBarTo, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="일반" VerticalAlignment="Center"/>
                             <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.NormalBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.NormalBarTo, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="경고 (기여도 5% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
                             <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.WarningBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.WarningBarTo, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="에러 (기여도 3% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
                             <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.ErrorBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.ErrorBarTo, Mode=TwoWay}"/></Grid>
 
-                        <TextBlock Text="미터 텍스트 색상" Style="{StaticResource Label}" Margin="0,10,0,2"/>
+                        <TextBlock Text="미터 텍스트 색상" Style="{StaticResource Label}" Margin="0,12,0,4"/>
                         <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="누적 / 전투력" VerticalAlignment="Center"/>
                             <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.MeterStatAmount, Mode=TwoWay}"/></Grid>
@@ -241,47 +192,124 @@
                             <TextBlock Grid.Column="0" Text="전투 시간" VerticalAlignment="Center"/>
                             <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.CombatTimeColor, Mode=TwoWay}"/></Grid>
 
-                        <TextBlock Text="보스 / 전투 기록" Style="{StaticResource Label}" Margin="0,10,0,2"/>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="140"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="보스 / 전투 기록" Style="{StaticResource Label}" Margin="0,12,0,4"/>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="타겟 / 전투 기록" VerticalAlignment="Center"/>
                             <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.BossBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.BossBarTo, Mode=TwoWay}"/></Grid>
                         <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="남은 체력 / 경과 시간" VerticalAlignment="Center"/>
                             <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.BossRightValue, Mode=TwoWay}"/></Grid>
 
-                        <Button Content="테마 초기화" Width="100" HorizontalAlignment="Left" Margin="0,12,0,0" Click="OnResetTheme"/>
+                        <Button Content="테마 색상 초기화" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OnResetTheme"/>
                     </StackPanel>
-                </ScrollViewer>
-            </TabItem>
 
-            <TabItem Header="통계">
-                <StackPanel Margin="10">
-                    <CheckBox Content="익명 통계 업로드에 동의" IsChecked="{Binding ConsentAccepted}" IsEnabled="{Binding CharacterDetected}" Margin="0,4"/>
-                    <CheckBox Content="업로드 활성화" IsChecked="{Binding UploadEnabled}" IsEnabled="{Binding CharacterDetected}" Margin="16,2,0,2"/>
-                    <CheckBox Content="캐릭터 공개" IsChecked="{Binding PublicCharacter}" IsEnabled="{Binding CharacterDetected}" Margin="16,2,0,2"/>
-                    <TextBlock Text="캐릭터 접속 후 동의할 수 있어요" Foreground="#FFCC8800" FontSize="11"
-                               Visibility="{Binding CharacterDetected, Converter={StaticResource BoolToVisInverse}, FallbackValue=Collapsed}"/>
-                    <TextBlock Text="{Binding ConsentStatus}" Foreground="#FF666666" FontSize="11" Margin="0,4"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <Button Content="적용" Width="80" Click="OnApplyConsent" Margin="0,0,8,0"/>
-                        <Button Content="서버 동기화" Width="100" Click="OnRefreshConsent"/>
+                    <!-- ===== 단축키 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=hotkeys}">
+                        <TextBlock Text="단축키" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="단일 키 또는 Ctrl/Alt 조합으로 지정할 수 있습니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,12"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="전투 초기화" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
+                            <local:HotkeyCaptureBox Grid.Column="1" Combo="{Binding PendingReset, Mode=TwoWay}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="표시 / 숨김" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
+                            <local:HotkeyCaptureBox Grid.Column="1" Combo="{Binding PendingVisibility, Mode=TwoWay}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="클릭 통과 / 잠금" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
+                            <local:HotkeyCaptureBox Grid.Column="1" Combo="{Binding PendingClickThrough, Mode=TwoWay}"/>
+                        </Grid>
                     </StackPanel>
-                    <TextBlock Text="{Binding UploadStatus}" Foreground="#FF666666" FontSize="11" Margin="0,2"/>
-                </StackPanel>
-            </TabItem>
 
-            <TabItem Header="진단">
-                <StackPanel Margin="10">
-                    <TextBlock Text="패킷 로깅" Style="{StaticResource Label}"/>
-                    <TextBlock Text="전투를 기록해 재생 가능한 코퍼스(packet-debug-logs)를 남깁니다. 진단/검증용이며, 켜두면 디스크에 계속 기록됩니다."
-                               TextWrapping="Wrap" Foreground="#FF888888" FontSize="11" Margin="0,2,0,8"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,4">
-                        <Button Content="{Binding LoggingButtonLabel}" Width="100" Click="OnToggleLogging" Margin="0,0,8,0"/>
-                        <Button Content="로그 폴더 열기" Width="110" Click="OnOpenLogFolder"/>
+                    <!-- ===== 고급 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=advanced}">
+                        <TextBlock Text="창 동작" Style="{StaticResource SectionHeader}"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="닫기 버튼 동작" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="X 버튼을 눌렀을 때 트레이로 보낼지 종료할지 선택합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding CloseActions}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding CloseAction}"/>
+                        </Grid>
+
+                        <TextBlock Text="캡처 방식" Style="{StaticResource SectionHeader}" Margin="0,6,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="패킷 캡처 백엔드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="WinDivert가 막히면 Npcap으로 전환할 수 있습니다. (재시작 후 적용)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding CaptureBackends}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding CaptureBackend}"/>
+                        </Grid>
+
+                        <TextBlock Text="서버" Style="{StaticResource SectionHeader}" Margin="0,6,0,10"/>
+                        <TextBlock Text="서버 IP (CIDR)" Style="{StaticResource Label}"/>
+                        <TextBox Text="{Binding ServerIp}" Margin="0,4,0,10"/>
+                        <TextBlock Text="포트" Style="{StaticResource Label}"/>
+                        <TextBox Text="{Binding ServerPort}" Margin="0,4,0,10"/>
+                        <Button Content="서버 저장" HorizontalAlignment="Left" Click="OnSaveServer"/>
                     </StackPanel>
-                    <TextBlock Text="{Binding LoggingStatus}" Foreground="#FF666666" FontSize="11" Margin="0,4"/>
-                </StackPanel>
-            </TabItem>
-        </TabControl>
-    </DockPanel>
+
+                    <!-- ===== 공개 설정 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=stats}">
+                        <TextBlock Text="공개 설정 (익명 통계)" Style="{StaticResource SectionHeader}"/>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="익명 통계 업로드에 동의" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="캐릭터별로 동의가 기억됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ConsentAccepted}" IsEnabled="{Binding CharacterDetected}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="업로드 활성화" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding UploadEnabled}" IsEnabled="{Binding CharacterDetected}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="캐릭터 공개" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding PublicCharacter}" IsEnabled="{Binding CharacterDetected}"/>
+                        </Grid>
+                        <TextBlock Text="캐릭터 접속 후 동의할 수 있어요" Foreground="#FFCC8800" FontSize="11"
+                                   Visibility="{Binding CharacterDetected, Converter={StaticResource BoolToVisInverse}, FallbackValue=Collapsed}"/>
+                        <TextBlock Text="{Binding ConsentStatus}" Style="{StaticResource SettingDesc}" Margin="0,4"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="적용" Click="OnApplyConsent" Margin="0,0,8,0"/>
+                            <Button Content="서버 동기화" Click="OnRefreshConsent"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding UploadStatus}" Style="{StaticResource SettingDesc}" Margin="0,8,0,0"/>
+                    </StackPanel>
+
+                    <!-- ===== 진단 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=diag}">
+                        <TextBlock Text="진단 — 패킷 로깅" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="전투를 기록해 재생 가능한 코퍼스(packet-debug-logs)를 남깁니다. 진단/검증용이며, 켜두면 디스크에 계속 기록됩니다."
+                                   Style="{StaticResource SettingDesc}" Margin="0,0,0,12"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <Button Content="{Binding LoggingButtonLabel}" Width="110" Click="OnToggleLogging" Margin="0,0,8,0"/>
+                            <Button Content="로그 폴더 열기" Click="OnOpenLogFolder"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding LoggingStatus}" Style="{StaticResource SettingDesc}" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- footer -->
+        <Grid Grid.Row="1" Margin="20,10,16,14">
+            <TextBlock Text="{Binding Version, StringFormat='waffle_meter v{0}'}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11" VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="기본값 복원" Click="OnResetDefaults" Margin="0,0,8,0"/>
+                <Button Content="취소" Width="80" Click="OnCancel" Margin="0,0,8,0"/>
+                <Button Content="저장" Width="80" Click="OnSave"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
 </Window>

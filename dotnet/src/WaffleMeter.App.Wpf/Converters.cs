@@ -18,6 +18,17 @@ public sealed class RatioToStarConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>value == parameter (string) -&gt; Visible, else Collapsed. Drives the settings nav rail:
+/// each section panel is shown only when the selected nav key matches.</summary>
+public sealed class StringEqualsToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object? parameter, CultureInfo culture) =>
+        string.Equals(value as string, parameter as string, StringComparison.Ordinal) ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>true -&gt; Collapsed, false -&gt; Visible (for "shown when false" hints).</summary>
 public sealed class InverseBooleanToVisibilityConverter : IValueConverter
 {
