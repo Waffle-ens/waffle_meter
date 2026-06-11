@@ -1,6 +1,6 @@
-# waffle_meter.v1.4
+# waffle_meter
 
-아이온2 전투분석을 위한 미터기 프로젝트
+아이온2 전투분석을 위한 미터기 프로젝트 (v2.0 — 네이티브 WPF/.NET 재작성)
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/Waffle-ens/waffle_meter)](https://github.com/Waffle-ens/waffle_meter/issues)
@@ -13,24 +13,29 @@
 
 ## 사용법
 
-1. [Npcap](https://npcap.com/#download)을 설치합니다.
-   설치 중 `Install Npcap in WinPcap API-compatible Mode` 옵션을 반드시 체크합니다.
+1. [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 설치 파일(`waffle_meter-win-Setup.exe`)을 받아 실행합니다.
+   패킷 캡처 드라이버(WinDivert)가 내장되어 있어 **Npcap 등 별도 설치가 필요 없습니다.** (드라이버가 차단되는 환경에서는 설정에서 Npcap 백엔드로 전환할 수 있습니다.)
 
-2. [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 `waffle_meter.v1.4-x.x.x.msi` 파일을 다운로드해 설치합니다.
+2. 설치 후 시작 메뉴의 `waffle_meter`를 실행합니다.
+   처음 실행 시 패킷 캡처를 위해 권한 상승 동의(UAC)가 **한 번만** 표시되며, 이후 실행부터는 다시 묻지 않습니다.
 
-3. 아이온2가 실행 중이라면 먼저 캐릭터 선택창으로 이동합니다.
+3. 아이온2에 접속해 전투를 시작하면 데미지 기록·전투 기록·파티 신청 패널이 인게임 오버레이로 표시됩니다.
 
-4. 시작 메뉴 또는 설치 폴더의 `waffle_meter.v1.4.exe`를 관리자 권한으로 실행합니다.
-   기본 설치 경로는 `C:\Program Files\waffle_meter.v1.4`입니다.
+4. 미터기 위치가 화면 밖이면 설정 → 위치 초기화로 되돌릴 수 있습니다.
 
-5. 미터기가 보이면 아이온2에 접속해 전투를 시작합니다.
-   데미지 기록, 전투 기록, 파티 신청 패널은 인게임 오버레이 형태로 표시됩니다.
+5. 업데이트는 앱이 자동으로 확인합니다. 알림의 **"지금 재시작"**을 누르면 자동으로 적용되고 한 번 재시작됩니다. (수동 재설치 불필요)
 
-6. 미터기가 보이지 않거나 위치가 이상하면 앱을 종료한 뒤 `%APPDATA%\waffle_meter.v1.4\settings.properties`에서 `windowX`, `windowY`, `uiX`, `uiY` 값을 `0`으로 수정한 다음 다시 실행합니다.
-
-7. 업데이트 알림이 표시되면 앱 안에서 업데이트 파일을 다운로드하거나, [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 MSI를 직접 설치합니다.
+> v1.x(MSI) 사용자: v2.0 설치 시 기존 버전은 자동으로 정리되어 중복 설치되지 않습니다.
 
 ## 업데이트 기록
+
+- v2.0.0 — 네이티브 재작성
+  - JavaFX/WebView 기반에서 **네이티브 WPF/.NET**으로 전면 재작성했습니다. 인게임 프레임 방어와 반응성이 개선되었습니다.
+  - 패킷 캡처 드라이버(WinDivert)를 내장해 **Npcap 별도 설치가 필요 없습니다.** (필요 시 설정에서 Npcap 백엔드로 전환)
+  - **인앱 자동 업데이트**(Velopack)를 적용해 수동 재설치 없이 업데이트됩니다.
+  - 권한 상승 캡처 헬퍼를 분리하고, **최초 1회만 동의하면 이후 무프롬프트**로 동작합니다.
+  - 기존 v1.x MSI는 v2.0 설치 시 자동 정리되어 중복 설치되지 않습니다.
+  - 데미지 게이지·상세내역·패널·테마 등 UI 전반을 다듬었습니다.
 
 - v1.4.10
   - 초월 단계별 크로메데 던전 보스 코드 누락을 보강했습니다.

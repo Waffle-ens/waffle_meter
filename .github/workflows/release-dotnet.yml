@@ -1,6 +1,5 @@
-# .NET / WPF + Velopack release (migration target).
-# Manual-only (workflow_dispatch) for now so it does NOT collide with the Kotlin MSI release.yml on
-# tag pushes. Flip to `on: push: tags` when the .NET app supersedes the Kotlin build.
+# .NET / WPF + Velopack release (the v2.0 build — supersedes the Kotlin MSI release.yml, whose tag
+# trigger is retired so a `x.y.z` tag only builds THIS). Triggered by a version tag OR manual dispatch.
 #
 # CODE SIGNING — SignPath.io OSS (free for public MIT projects):
 #   Signing is OPTIONAL and gated on the repo VARIABLE `SIGNPATH_ORG_ID`. Until it is set the release
@@ -20,11 +19,14 @@
 name: release-dotnet
 
 on:
+  push:
+    tags:
+      - "*.*.*"
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (x.y.z)"
-        required: true
+        description: "Release version (x.y.z) — ignored on a tag push (uses the tag)"
+        required: false
       channel:
         description: "win (release) or dev"
         required: true
@@ -45,14 +47,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate version
+      - name: Resolve version + channel
         shell: pwsh
         run: |
-          $v = "${{ github.event.inputs.version }}".TrimStart('v')
-          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "version must be x.y.z" }
-          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append
-          $packId = if ("${{ github.event.inputs.channel }}" -eq "dev") { "waffle_meter-dev" } else { "waffle_meter" }
-          "PACK_ID=$packId" | Out-File -FilePath $env:GITHUB_ENV -Append
+          # On a tag push the version comes from the tag (github.ref_name); on dispatch from the input.
+          $v = "${{ github.event.inputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($v)) { $v = "${{ github.ref_name }}" }
+          $v = $v.TrimStart('v')
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "version must be x.y.z (got '$v')" }
+          $channel = "${{ github.event.inputs.channel }}"
+          if ([string]::IsNullOrWhiteSpace($channel)) { $channel = "win" }
+          $packId = if ($channel -eq "dev") { "waffle_meter-dev" } else { "waffle_meter" }
+          "VERSION=$v"      | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CHANNEL=$channel" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "PACK_ID=$packId"  | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -95,7 +103,7 @@ jobs:
 
       - name: Download previous release (for delta)
         continue-on-error: true
-        run: vpk download github --repoUrl https://github.com/${{ github.repository }} --channel ${{ github.event.inputs.channel }} --token ${{ secrets.GITHUB_TOKEN }}
+        run: vpk download github --repoUrl https://github.com/${{ github.repository }} --channel ${{ env.CHANNEL }} --token ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pack
         run: >
@@ -108,7 +116,7 @@ jobs:
           --packAuthors "TK"
           --outputDir Releases
           --icon dotnet/src/WaffleMeter.App.Wpf/../../../src/main/resources/icons/waffle.ico
-          --channel ${{ github.event.inputs.channel }}
+          --channel ${{ env.CHANNEL }}
 
       # ---- Pass 2: sign the generated Setup.exe AFTER packing (first-download SmartScreen) ----
       - name: Upload unsigned installer (for signing)
@@ -137,6 +145,6 @@ jobs:
           vpk upload github
           --repoUrl https://github.com/${{ github.repository }}
           --outputDir Releases
-          --channel ${{ github.event.inputs.channel }}
+          --channel ${{ env.CHANNEL }}
           --publish --releaseName ${{ env.VERSION }} --tag ${{ env.VERSION }}
           --token ${{ secrets.GITHUB_TOKEN }}

@@ -1,9 +1,8 @@
-name: Release MSI
+name: Release MSI (Kotlin v1.x — RETIRED)
 
+# Tag trigger removed for the v2.0 cutover: a `x.y.z` tag now builds the .NET app via release-dotnet.yml.
+# Kept as manual-dispatch ONLY, so a Kotlin MSI can still be cut for an emergency rollback if ever needed.
 on:
-  push:
-    tags:
-      - "*.*.*"
   workflow_dispatch:
     inputs:
       version:
