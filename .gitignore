@@ -61,3 +61,16 @@ bin/
 /.codex-msi-extract-original/
 /statistics_web_handoff/
 
+### Internal dev/planning docs — not for the public repo ###
+docs/
+/HANDOFF.md
+/HANDOFF_install_update.md
+/STATS_PAYLOAD_BUFF_ATTRIBUTION.md
+
+### .NET build output + local packaging artifacts (v2.0) ###
+obj/
+/publish/
+/Releases/
+dotnet/run-test/
+dotnet/run-test2/
+
