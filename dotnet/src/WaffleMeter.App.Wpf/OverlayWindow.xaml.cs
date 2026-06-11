@@ -50,6 +50,7 @@ public partial class OverlayWindow : Window
     public event Action? ResetRequested;
     public event Action? TaskbarToggleRequested;
     public event Action? HistoryRequested;
+    public event Action? ThemeRequested;
 
     public OverlayWindow()
     {
@@ -185,6 +186,8 @@ public partial class OverlayWindow : Window
     private void OnTaskbarButton(object sender, RoutedEventArgs e) => TaskbarToggleRequested?.Invoke();
 
     private void OnHistoryButton(object sender, RoutedEventArgs e) => HistoryRequested?.Invoke();
+
+    private void OnThemeButton(object sender, RoutedEventArgs e) => ThemeRequested?.Invoke();
 
     private void OnRowClick(object sender, MouseButtonEventArgs e)
     {

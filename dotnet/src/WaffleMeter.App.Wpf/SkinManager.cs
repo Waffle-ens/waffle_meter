@@ -38,6 +38,24 @@ public sealed class SkinManager
 
     public void ApplyInitial() => Apply(Current);
 
+    /// <summary>Apply the next skin in <see cref="Skins"/> (the overlay 테마 button). Returns its label.</summary>
+    public string Cycle()
+    {
+        int index = 0;
+        for (int i = 0; i < Skins.Count; i++)
+        {
+            if (Skins[i].Name == Current)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        SkinOption next = Skins[(index + 1) % Skins.Count];
+        Apply(next.Name);
+        return next.Label;
+    }
+
     public void Apply(string name)
     {
         if (!Skins.Any(x => x.Name == name))

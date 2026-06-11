@@ -16,6 +16,53 @@
         <local:RatioToStarConverter x:Key="RatioToStar"/>
         <local:FontFamilyConverter x:Key="FontConv"/>
         <local:RowHeightToFontSizeConverter x:Key="FontSize"/>
+
+        <!-- Header icon button: Segoe MDL2 Assets glyph, transparent until hover (skin row-hover bg +
+             brighter fg). One consistent, crisp look for the whole header control row. -->
+        <Style x:Key="HeaderIconButton" TargetType="Button">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Close: same shape, red on hover. -->
+        <Style x:Key="HeaderCloseButton" TargetType="Button" BasedOn="{StaticResource HeaderIconButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#33E81123"/>
+                                <Setter Property="Foreground" Value="#FFF36A6A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Window.ContextMenu>
         <ContextMenu>
@@ -41,16 +88,12 @@
                                Margin="8,0,0,0" VerticalAlignment="Center" FontSize="11"/>
                 </DockPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="⟳" Click="OnResetButton" ToolTip="전투 초기화" Width="22" Height="20" Padding="0"
-                            Background="Transparent" Foreground="#FFCCCCCC" BorderThickness="0" Cursor="Hand"/>
-                    <Button Content="⧉" Click="OnTaskbarButton" ToolTip="작업표시줄 / Alt+Tab 모드" Width="22" Height="20" Padding="0"
-                            Background="Transparent" Foreground="#FFCCCCCC" BorderThickness="0" Cursor="Hand"/>
-                    <Button Content="기록" Click="OnHistoryButton" ToolTip="전투 기록" Height="20" Padding="3,0" FontSize="11"
-                            Background="Transparent" Foreground="#FFCCCCCC" BorderThickness="0" Cursor="Hand"/>
-                    <Button Content="⚙" Click="OnSettingsButton" ToolTip="설정" Width="22" Height="20" Padding="0"
-                            Background="Transparent" Foreground="#FFCCCCCC" BorderThickness="0" Cursor="Hand"/>
-                    <Button Content="✕" Click="OnExitButton" ToolTip="종료" Width="22" Height="20" Padding="0"
-                            Background="Transparent" Foreground="#FFCC6666" BorderThickness="0" Cursor="Hand"/>
+                    <Button Style="{StaticResource HeaderIconButton}" Content="&#xE771;" Click="OnThemeButton" ToolTip="테마 변경"/>
+                    <Button Style="{StaticResource HeaderIconButton}" Content="&#xE72C;" Click="OnResetButton" ToolTip="전투 초기화"/>
+                    <Button Style="{StaticResource HeaderIconButton}" Content="&#xE8A7;" Click="OnTaskbarButton" ToolTip="작업표시줄 / Alt+Tab 모드"/>
+                    <Button Style="{StaticResource HeaderIconButton}" Content="&#xE81C;" Click="OnHistoryButton" ToolTip="전투 기록"/>
+                    <Button Style="{StaticResource HeaderIconButton}" Content="&#xE713;" Click="OnSettingsButton" ToolTip="설정"/>
+                    <Button Style="{StaticResource HeaderCloseButton}" Content="&#xE8BB;" Click="OnExitButton" ToolTip="종료"/>
                 </StackPanel>
             </Grid>
 

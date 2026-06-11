@@ -50,6 +50,10 @@ internal static class Program
             var history = new BattleHistoryViewModel(theme, settings);
             history.SetBattles(SampleBattles(now));
             Capture(() => new HistoryPanel { DataContext = history }, palette, Path.Combine(outDir, $"history_{skin}.png"));
+
+            var overlay = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 중" };
+            overlay.Update(SampleMeterReport(now));
+            Capture(() => new OverlayWindow { DataContext = overlay }, palette, Path.Combine(outDir, $"meter_{skin}.png"));
         }
 
         Console.WriteLine(outDir);
@@ -121,6 +125,31 @@ internal static class Program
         Battle(1, "발탄 군주", true, now - 300_000, now - 300_000 + 183_000, 8_200_000, 6_400_000, 3_100_000),
         Battle(2, "그림자 추적자", true, now - 120_000, now - 120_000 + 92_000, 4_200_000, 3_800_000),
     };
+
+    private static DpsReport SampleMeterReport(long now)
+    {
+        var report = new DpsReport
+        {
+            BattleStart = now - 145_300,
+            BattleEnd = now,
+            Target = new MobInfo(999, new Mob(500, "크로메데의 심연", true), remainHp: 0, maxHp: 168_750_000),
+            Contributors = new List<User>
+            {
+                new(1, "콘팡", 1001, JobClass.SORCERER, isExecutor: true, power: 656_000),
+                new(2, "쌈", 1001, JobClass.GLADIATOR, power: 663_400),
+                new(3, "강까", 1001, JobClass.RANGER, power: 659_500),
+                new(4, "노까", 1002, JobClass.CLERIC, power: 591_700),
+            },
+            Information = new Dictionary<int, DpsInformation>
+            {
+                [1] = new DpsInformation(59_300_000, 408_239, 35.1, 35.1),
+                [2] = new DpsInformation(46_200_000, 318_077, 27.4, 27.4),
+                [3] = new DpsInformation(36_300_000, 249_953, 21.5, 21.5),
+                [4] = new DpsInformation(27_000_000, 185_861, 16.0, 16.0),
+            },
+        };
+        return report;
+    }
 
     private static (int, DpsReport) Battle(int idx, string mob, bool boss, long start, long end, params double[] amounts)
     {

@@ -121,6 +121,7 @@ public partial class App : Application
         };
         window.ExitRequested += ExitApp;
         window.ResetRequested += () => { _viewingHistory = false; _engine?.RequestReset(); };
+        window.ThemeRequested += () => skin.Cycle(); // 테마 버튼: cycle dark → midnight → slate
         window.TaskbarToggleRequested += () =>
         {
             bool next = !controller.TaskbarMode;
