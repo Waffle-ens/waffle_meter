@@ -29,11 +29,15 @@
     </Feature>
 
     <!-- Run the bundled Velopack installer silently right after the files are laid down. asyncNoWait so
-         msiexec returns immediately; Impersonate=yes so the per-user Velopack install runs as the user. -->
+         msiexec returns immediately; Impersonate=yes so the per-user Velopack install runs as the user.
+         A deferred CA MUST be sequenced INSIDE the InstallInitialize..InstallFinalize transaction — using
+         After="InstallFinalize" puts it outside the script and fails with error 2762 ("Cannot write script
+         record. Transaction not started."). Schedule Before InstallFinalize: InstallFiles has already run
+         so SetupExe is on disk, and the action is still inside the transaction. -->
     <CustomAction Id="RunSetup" FileRef="SetupExe" ExeCommand="--silent"
                   Execute="deferred" Impersonate="yes" Return="asyncNoWait" />
     <InstallExecuteSequence>
-      <Custom Action="RunSetup" After="InstallFinalize" Condition="NOT REMOVE" />
+      <Custom Action="RunSetup" Before="InstallFinalize" Condition="NOT REMOVE" />
     </InstallExecuteSequence>
   </Package>
 </Wix>
