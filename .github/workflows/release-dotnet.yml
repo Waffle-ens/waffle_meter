@@ -115,7 +115,7 @@ jobs:
           --packTitle "waffle_meter"
           --packAuthors "TK"
           --outputDir Releases
-          --icon dotnet/src/WaffleMeter.App.Wpf/../../../src/main/resources/icons/waffle.ico
+          --icon dotnet/Assets/waffle.ico
           --channel ${{ env.CHANNEL }}
 
       # ---- Pass 2: sign the generated Setup.exe AFTER packing (first-download SmartScreen) ----

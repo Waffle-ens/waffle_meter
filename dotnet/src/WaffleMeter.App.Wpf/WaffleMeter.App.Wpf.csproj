@@ -18,7 +18,7 @@
          the shared InvariantGlobalization=true breaks it. Code formatting uses InvariantCulture explicitly. -->
     <InvariantGlobalization>false</InvariantGlobalization>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>..\..\..\src\main\resources\icons\waffle.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\Assets\waffle.ico</ApplicationIcon>
     <!-- WPF-primary app (WinForms only for the tray NotifyIcon); the manifest owns DPI, so silence the
          WinForms "configure DPI via API" advisory. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
@@ -51,16 +51,16 @@
     <!-- Job icons (filename = Korean class name, e.g. 검성.png) for the party join-request panel;
          embedded so they paint instantly on a software-rendered overlay. JoinIcons resolves them by
          pack URI. (Also pulls bossIcon/lock/logo — harmless, only the 8 class icons are referenced.) -->
-    <Resource Include="..\..\..\src\main\resources\src\assets\*.png" Link="JobIcons\%(Filename)%(Extension)" />
+    <Resource Include="..\..\Assets\JobIcons\*.png" Link="JobIcons\%(Filename)%(Extension)" />
     <!-- 332 skill icons (filename = skill code) for the join-panel skill badges; embedded as resources. -->
-    <Resource Include="..\..\..\src\main\resources\dist\skill-icons\*.png" Link="SkillIcons\%(Filename)%(Extension)" />
+    <Resource Include="..\..\Assets\SkillIcons\*.png" Link="SkillIcons\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Reference catalogs the overlay needs for mob/skill/buff names; copied next to the exe. -->
-    <Content Include="..\..\..\src\main\resources\json\*.json" Link="json\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\Assets\json\*.json" Link="json\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <!-- Tray icon (NotifyIcon needs an .ico file at runtime). -->
-    <Content Include="..\..\..\src\main\resources\icons\waffle.ico" Link="waffle.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\Assets\waffle.ico" Link="waffle.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
