@@ -35,7 +35,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _nameDisplay = ReadEnum("nameDisplay", "all", NameDisplays);
         _overlayTheme = ReadEnum("overlayTheme", "dark", Themes);
         _closeAction = ReadEnum("closeAction", "ask", CloseActions);
-        _fontFamily = _props.GetProperty("fontFamily") ?? "NEXON Lv2 Gothic";
+        _fontFamily = _props.GetProperty("fontFamily") ?? "NEXON Lv2 Gothic Medium";
         _rowHeight = ReadInt("rowHeight", 36);
         _meterOpacity = ReadDouble("meterOpacity", 0.4);
         _isMinimal = ReadBool("isMinimal", false);

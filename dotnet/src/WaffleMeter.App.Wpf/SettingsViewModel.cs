@@ -88,16 +88,23 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("표시 안 함", "none"),
     };
 
-    // Bundled-or-fallback fonts (see Fonts/README.md). Malgun Gothic is always available.
+    // Bundled-or-fallback fonts (see Fonts/README.md). Each font ships a regular + a bolder weight; the
+    // bold weight is a SEPARATE Win32 family name (e.g. "NEXON Lv2 Gothic Medium") so it resolves as its
+    // own family with no font-weight plumbing. Values = the font's family name used by FontFamilyConverter
+    // (./Fonts/#<value>). Malgun Gothic is always available (system fallback).
     public IReadOnlyList<SettingOption> FontFamilies { get; } = new[]
     {
-        new SettingOption("맑은 고딕 (기본)", "Malgun Gothic"),
+        new SettingOption("NEXON Lv2 Gothic (Bold, 기본)", "NEXON Lv2 Gothic Medium"),
         new SettingOption("NEXON Lv2 Gothic", "NEXON Lv2 Gothic"),
+        new SettingOption("Pretendard (Bold)", "Pretendard SemiBold"),
         new SettingOption("Pretendard", "Pretendard"),
+        new SettingOption("Spoqa Han Sans Neo (Bold)", "Spoqa Han Sans Neo Medium"),
         new SettingOption("Spoqa Han Sans Neo", "Spoqa Han Sans Neo"),
-        // Values are the fonts' INTERNAL family names (must match for the bundled lookup):
-        new SettingOption("Freesentation", "Freesentation"),       // file family = "Freesentation"
-        new SettingOption("Tmoney Round Wind", "Tmoney RoundWind"), // file family = "Tmoney RoundWind"
+        new SettingOption("Freesentation (Bold)", "Freesentation 6 SemiBold"),
+        new SettingOption("Freesentation", "Freesentation"),
+        new SettingOption("Tmoney Round Wind (Bold)", "Tmoney RoundWind ExtraBold"),
+        new SettingOption("Tmoney Round Wind", "Tmoney RoundWind"),
+        new SettingOption("맑은 고딕", "Malgun Gothic"),
     };
 
     // ---- display tab (live) ----
@@ -235,7 +242,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         DamageValueMode = "dps";
         ContributionMode = "contribution";
         NameDisplay = "all";
-        FontFamily = "NEXON Lv2 Gothic";
+        FontFamily = "NEXON Lv2 Gothic Medium";
         RowHeight = 36;
         MeterOpacity = 0.4;
         BarStyle = "fill";

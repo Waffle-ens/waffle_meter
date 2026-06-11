@@ -80,7 +80,7 @@ internal static class Program
 
                 // font test: a visually-distinct BUNDLED font must actually reach the row text (item 3).
                 string savedFont = settings.FontFamily;
-                settings.FontFamily = "Tmoney RoundWind";
+                settings.FontFamily = "Tmoney RoundWind ExtraBold";
                 var fv = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 중" };
                 fv.SetRecognized(true, "콘팡"); // also exercise the "캐릭터 인식됨" indicator (item 5)
                 fv.Update(SampleMeterReport(now));
