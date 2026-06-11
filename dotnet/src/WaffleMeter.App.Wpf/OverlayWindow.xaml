@@ -133,10 +133,10 @@
                         </Grid.ColumnDefinitions>
                         <!-- left accent rail -->
                         <Border Grid.Column="0" Width="3" CornerRadius="2" Margin="0,4,8,4" Background="{Binding BossBarBrush}"/>
-                        <Image Grid.Column="1" Source="{Binding BossIcon}" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <Image Grid.Column="1" Source="{Binding BossIcon}" Width="20" Height="20" Margin="0,0,7,0" VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="2" Text="{Binding TargetName}" Foreground="{DynamicResource Skin.Fg}" FontWeight="SemiBold"
-                                   FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Grid.Column="3" Text="{Binding TargetHpText}" Foreground="{Binding CombatTimeBrush}" FontSize="11"
+                                   FontSize="14" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="3" Text="{Binding TargetHpText}" Foreground="{Binding CombatTimeBrush}" FontSize="12"
                                    VerticalAlignment="Center" Margin="8,0,0,0" Visibility="{Binding TargetHpVisibility}"/>
                     </Grid>
                 </Grid>

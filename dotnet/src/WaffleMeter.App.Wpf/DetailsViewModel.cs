@@ -204,6 +204,7 @@ public sealed class SkillRowVM
     public SkillRowVM(DetailSkillRow row)
     {
         Name = row.Name;
+        IconSource = JoinIcons.Skill(row.Code);
         HitsText = row.Hits.ToString("N0", Inv);
         CritText = Pct(row.CritPct);
         StrongText = Pct(row.StrongPct);
@@ -217,6 +218,7 @@ public sealed class SkillRowVM
     }
 
     public string Name { get; }
+    public ImageSource? IconSource { get; }
     public string HitsText { get; }
     public string CritText { get; }
     public string StrongText { get; }

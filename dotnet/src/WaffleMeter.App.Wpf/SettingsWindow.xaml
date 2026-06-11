@@ -306,13 +306,8 @@
                             <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding CaptureBackends}"
                                       ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding CaptureBackend}"/>
                         </Grid>
-
-                        <TextBlock Text="서버" Style="{StaticResource SectionHeader}" Margin="0,6,0,10"/>
-                        <TextBlock Text="서버 IP (CIDR)" Style="{StaticResource Label}"/>
-                        <TextBox Text="{Binding ServerIp}" Margin="0,4,0,10"/>
-                        <TextBlock Text="포트" Style="{StaticResource Label}"/>
-                        <TextBox Text="{Binding ServerPort}" Margin="0,4,0,10"/>
-                        <Button Content="서버 저장" HorizontalAlignment="Left" Click="OnSaveServer"/>
+                        <!-- 서버 IP/포트는 자동 감지되며 사용자가 직접 설정할 일이 없어 UI에서 숨김
+                             (값/저장 경로는 SettingsViewModel.ServerIp/Port/SaveServer에 그대로 보존). -->
                     </StackPanel>
 
                     <!-- ===== 공개 설정 ===== -->

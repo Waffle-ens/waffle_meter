@@ -76,14 +76,19 @@ public sealed class SkinManager
             return; // could not load any palette — leave current resources untouched
         }
 
+        // Keep ONE persistent wrapper dictionary in the app's MergedDictionaries and swap the active
+        // palette as its child. Mutating an in-place dictionary refreshes DynamicResource Skin.* in EVERY
+        // open window/panel/toast reliably; replacing the dictionary INSTANCE in MergedDictionaries could
+        // leave already-shown secondary windows on the old palette (the "panels don't re-theme" bug).
         Collection<ResourceDictionary> merged = Application.Current.Resources.MergedDictionaries;
-        if (_palette != null)
+        if (_palette == null)
         {
-            merged.Remove(_palette);
+            _palette = new ResourceDictionary();
+            merged.Insert(0, _palette); // palette wrapper first; DynamicResource Skin.* resolves from here
         }
 
-        merged.Insert(0, next); // palette first; DynamicResource Skin.* resolves from here
-        _palette = next;
+        _palette.MergedDictionaries.Clear();
+        _palette.MergedDictionaries.Add(next);
         _props.SetProperty("skin", name);
         Changed?.Invoke();
     }

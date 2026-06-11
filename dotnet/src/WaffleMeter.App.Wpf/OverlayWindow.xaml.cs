@@ -35,6 +35,7 @@ public partial class OverlayWindow : Window
     private IntPtr _handle;
     private bool _clickThrough;
     private bool _taskbarMode;
+    private bool? _presentedTopMost; // last applied present state; null = parked (forces re-present)
     public bool ClickThrough => _clickThrough;
     public bool TaskbarMode => _taskbarMode;
 
@@ -118,6 +119,7 @@ public partial class OverlayWindow : Window
     public void SetTaskbarMode(bool enable)
     {
         _taskbarMode = enable;
+        _presentedTopMost = null; // z-order changes here; force the next Present to re-assert
         if (enable)
         {
             // Normal window: visible, interactive, not topmost (so it alt-tabs like any app).
@@ -136,15 +138,19 @@ public partial class OverlayWindow : Window
         }
     }
 
-    /// <summary>Show the overlay; topMost tracks whether the game is foreground.</summary>
+    /// <summary>Show the overlay; topMost tracks whether the game is foreground. Idempotent: the 300ms
+    /// auto-hide Poll calls this every tick, so re-issuing SetWindowPos when nothing changed would
+    /// repeatedly dismiss hover tooltips (the reported "tooltip vanishes too fast" bug). Only re-assert
+    /// z-order when the topmost state actually changed since the last Present (or after a Park).</summary>
     public void Present(bool topMost)
     {
-        Topmost = topMost;
         Opacity = 1.0;
+        Topmost = topMost;
         SyncInputStyle();
-        if (_handle != IntPtr.Zero)
+        if (_handle != IntPtr.Zero && _presentedTopMost != topMost)
         {
             SetWindowPos(_handle, topMost ? HwndTopMost : HwndTop, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
+            _presentedTopMost = topMost;
         }
     }
 
@@ -154,6 +160,7 @@ public partial class OverlayWindow : Window
     {
         Opacity = 0.0;
         Topmost = false;
+        _presentedTopMost = null; // force the next Present to re-assert z-order
         if (_handle != IntPtr.Zero)
         {
             SetWindowPos(_handle, HwndNoTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);

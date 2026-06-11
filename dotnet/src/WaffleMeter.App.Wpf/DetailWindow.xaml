@@ -73,32 +73,36 @@
             </Setter>
         </Style>
 
-        <!-- Skill-chain expand toggle (the +/- in the skill table) restyled as a clean MDL2 chevron. -->
+        <!-- Skill-chain expand toggle: dev's bordered +/- box (control-bg, accent glyph). -->
         <Style x:Key="ChainToggle" TargetType="ToggleButton">
-            <Setter Property="Width" Value="16"/>
-            <Setter Property="Height" Value="16"/>
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Focusable" Value="False"/>
-            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
-                        <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="3">
-                            <TextBlock x:Name="g" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="9"
-                                       Foreground="{DynamicResource Skin.MutedFg}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border x:Name="b" CornerRadius="4" Background="{DynamicResource Skin.ControlBg}"
+                                BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1">
+                            <TextBlock x:Name="g" Text="+" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Skin.Accent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="g" Property="Text" Value="&#xE70D;"/>
+                                <Setter TargetName="g" Property="Text" Value="&#x2212;"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="b" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
-                                <Setter TargetName="g" Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- Skill-table damage cell: a proportional gradient bar with the damage + (%) overlaid right (dev). -->
+        <Style x:Key="SkillStatCell" TargetType="TextBlock" BasedOn="{StaticResource Stat}">
+            <Setter Property="TextAlignment" Value="Center"/>
         </Style>
     </Window.Resources>
     <Border Background="{DynamicResource Skin.PanelBg}" CornerRadius="8" Padding="12"
@@ -203,90 +207,123 @@
                     <Expander Header="스킬 피해량" IsExpanded="True" Style="{StaticResource DetailExpander}">
                         <StackPanel Margin="4,4">
                             <Border Background="{DynamicResource Skin.TableHeadBg}" CornerRadius="4" Margin="0,0,0,3">
-                            <Grid Margin="2,3">
+                            <Grid Margin="8,4">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="18"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="56"/>
-                                    <ColumnDefinition Width="50"/>
-                                    <ColumnDefinition Width="50"/>
-                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="48"/>
+                                    <ColumnDefinition Width="48"/>
+                                    <ColumnDefinition Width="48"/>
                                     <ColumnDefinition Width="56"/>
-                                    <ColumnDefinition Width="50"/>
-                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="48"/>
+                                    <ColumnDefinition Width="150"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="1" Text="스킬명" Style="{StaticResource Head}" TextAlignment="Left"/>
-                                <TextBlock Grid.Column="2" Text="명중 횟수" Style="{StaticResource Head}"/>
-                                <TextBlock Grid.Column="3" Text="치명타" Style="{StaticResource Head}"/>
-                                <TextBlock Grid.Column="4" Text="강타" Style="{StaticResource Head}"/>
-                                <TextBlock Grid.Column="5" Text="완벽" Style="{StaticResource Head}"/>
-                                <TextBlock Grid.Column="6" Text="백어택" Style="{StaticResource Head}"/>
-                                <TextBlock Grid.Column="7" Text="패리" Style="{StaticResource Head}"/>
-                                <TextBlock Grid.Column="8" Text="누적 피해량" Style="{StaticResource Head}"/>
+                                <TextBlock Grid.Column="0" Text="스킬명" Style="{StaticResource Head}" TextAlignment="Left"/>
+                                <TextBlock Grid.Column="1" Text="명중 횟수" Style="{StaticResource Head}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="치명타" Style="{StaticResource Head}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="강타" Style="{StaticResource Head}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="4" Text="완벽" Style="{StaticResource Head}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="5" Text="백어택" Style="{StaticResource Head}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="6" Text="패리" Style="{StaticResource Head}" TextAlignment="Center"/>
+                                <TextBlock Grid.Column="7" Text="누적 피해량" Style="{StaticResource Head}" TextAlignment="Center"/>
                             </Grid>
                             </Border>
                             <ItemsControl ItemsSource="{Binding Skills}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Margin="0,1">
+                                            <!-- main (merged) skill row: [± toggle][icon][name] | stats | proportional damage bar -->
+                                            <Border CornerRadius="4" Padding="8,3" Background="{DynamicResource Skin.RowBg}">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="18"/>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="56"/>
-                                                    <ColumnDefinition Width="50"/>
-                                                    <ColumnDefinition Width="50"/>
-                                                    <ColumnDefinition Width="50"/>
+                                                    <ColumnDefinition Width="48"/>
+                                                    <ColumnDefinition Width="48"/>
+                                                    <ColumnDefinition Width="48"/>
                                                     <ColumnDefinition Width="56"/>
-                                                    <ColumnDefinition Width="50"/>
-                                                    <ColumnDefinition Width="120"/>
+                                                    <ColumnDefinition Width="48"/>
+                                                    <ColumnDefinition Width="150"/>
                                                 </Grid.ColumnDefinitions>
-                                                <ToggleButton Grid.Column="0" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
-                                                              Visibility="{Binding HasChildren, Converter={StaticResource BoolToVis}}"
-                                                              Style="{StaticResource ChainToggle}"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding Merged.Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="12" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding Merged.HitsText}" Style="{StaticResource Stat}"/>
-                                                <TextBlock Grid.Column="3" Text="{Binding Merged.CritText}" Style="{StaticResource Stat}"/>
-                                                <TextBlock Grid.Column="4" Text="{Binding Merged.StrongText}" Style="{StaticResource Stat}"/>
-                                                <TextBlock Grid.Column="5" Text="{Binding Merged.PerfectText}" Style="{StaticResource Stat}"/>
-                                                <TextBlock Grid.Column="6" Text="{Binding Merged.BackText}" Style="{StaticResource Stat}"/>
-                                                <TextBlock Grid.Column="7" Text="{Binding Merged.ParryText}" Style="{StaticResource Stat}"/>
-                                                <StackPanel Grid.Column="8" Orientation="Horizontal" HorizontalAlignment="Right">
-                                                    <TextBlock Text="{Binding Merged.DamageText}" Foreground="#FFB7791F"/>
-                                                    <TextBlock Text="{Binding Merged.PercentText}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" Margin="6,0,0,0"/>
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Grid Width="22" Margin="0,0,6,0">
+                                                        <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                      Visibility="{Binding HasChildren, Converter={StaticResource BoolToVis}}"
+                                                                      Style="{StaticResource ChainToggle}"/>
+                                                    </Grid>
+                                                    <Image Source="{Binding Merged.IconSource}" Width="22" Height="22" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Merged.Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="12"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding Merged.HitsText}" Style="{StaticResource SkillStatCell}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Merged.CritText}" Style="{StaticResource SkillStatCell}"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding Merged.StrongText}" Style="{StaticResource SkillStatCell}"/>
+                                                <TextBlock Grid.Column="4" Text="{Binding Merged.PerfectText}" Style="{StaticResource SkillStatCell}"/>
+                                                <TextBlock Grid.Column="5" Text="{Binding Merged.BackText}" Style="{StaticResource SkillStatCell}"/>
+                                                <TextBlock Grid.Column="6" Text="{Binding Merged.ParryText}" Style="{StaticResource SkillStatCell}"/>
+                                                <Grid Grid.Column="7" Height="22" Margin="6,0,0,0">
+                                                    <Border CornerRadius="4" ClipToBounds="True">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="{Binding Merged.BarRatio, Converter={StaticResource RatioToStar}}"/>
+                                                                <ColumnDefinition Width="{Binding Merged.BarRest, Converter={StaticResource RatioToStar}}"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.Column="0" Background="{Binding Merged.BarBrush}"/>
+                                                        </Grid>
+                                                    </Border>
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                        <TextBlock Text="{Binding Merged.DamageText}" Foreground="#FFE8B964" FontWeight="SemiBold" FontSize="11"/>
+                                                        <TextBlock Text="{Binding Merged.PercentText, StringFormat=({0})}" Foreground="#FFE8B964" Opacity="0.8" FontSize="10" Margin="4,0,0,0"/>
+                                                    </StackPanel>
+                                                </Grid>
                                             </Grid>
-                                            <Grid Height="3" Margin="20,1,0,2">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="{Binding Merged.BarRatio, Converter={StaticResource RatioToStar}}"/>
-                                                    <ColumnDefinition Width="{Binding Merged.BarRest, Converter={StaticResource RatioToStar}}"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Border Grid.Column="0" Background="{Binding Merged.BarBrush}" CornerRadius="1.5"/>
-                                            </Grid>
-                                            <ItemsControl ItemsSource="{Binding Children}" Margin="22,0,0,2"
+                                            </Border>
+                                            <!-- chain children: indented, accent left rail, smaller icon -->
+                                            <ItemsControl ItemsSource="{Binding Children}" Margin="0,1,0,0"
                                                           Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Grid Margin="0,1">
+                                                        <Border CornerRadius="4" Padding="8,2" Margin="22,1,0,0" BorderThickness="2,0,0,0"
+                                                                BorderBrush="{DynamicResource Skin.Accent}" Background="{DynamicResource Skin.RowHover}">
+                                                        <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="*"/>
                                                                 <ColumnDefinition Width="56"/>
-                                                                <ColumnDefinition Width="50"/>
-                                                                <ColumnDefinition Width="50"/>
-                                                                <ColumnDefinition Width="50"/>
+                                                                <ColumnDefinition Width="48"/>
+                                                                <ColumnDefinition Width="48"/>
+                                                                <ColumnDefinition Width="48"/>
                                                                 <ColumnDefinition Width="56"/>
-                                                                <ColumnDefinition Width="50"/>
-                                                                <ColumnDefinition Width="120"/>
+                                                                <ColumnDefinition Width="48"/>
+                                                                <ColumnDefinition Width="150"/>
                                                             </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Grid.Column="1" Text="{Binding HitsText}" Style="{StaticResource Stat}"/>
-                                                            <TextBlock Grid.Column="2" Text="{Binding CritText}" Style="{StaticResource Stat}"/>
-                                                            <TextBlock Grid.Column="3" Text="{Binding StrongText}" Style="{StaticResource Stat}"/>
-                                                            <TextBlock Grid.Column="4" Text="{Binding PerfectText}" Style="{StaticResource Stat}"/>
-                                                            <TextBlock Grid.Column="5" Text="{Binding BackText}" Style="{StaticResource Stat}"/>
-                                                            <TextBlock Grid.Column="6" Text="{Binding ParryText}" Style="{StaticResource Stat}"/>
-                                                            <TextBlock Grid.Column="7" Text="{Binding DamageText}" Foreground="#FFB7791F" TextAlignment="Right" FontSize="11"/>
+                                                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <Image Source="{Binding IconSource}" Width="18" Height="18" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11"
+                                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="1" Text="{Binding HitsText}" Style="{StaticResource SkillStatCell}"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding CritText}" Style="{StaticResource SkillStatCell}"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding StrongText}" Style="{StaticResource SkillStatCell}"/>
+                                                            <TextBlock Grid.Column="4" Text="{Binding PerfectText}" Style="{StaticResource SkillStatCell}"/>
+                                                            <TextBlock Grid.Column="5" Text="{Binding BackText}" Style="{StaticResource SkillStatCell}"/>
+                                                            <TextBlock Grid.Column="6" Text="{Binding ParryText}" Style="{StaticResource SkillStatCell}"/>
+                                                            <Grid Grid.Column="7" Height="18" Margin="6,0,0,0">
+                                                                <Border CornerRadius="3" ClipToBounds="True">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
+                                                                            <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <Border Grid.Column="0" Background="{Binding BarBrush}"/>
+                                                                    </Grid>
+                                                                </Border>
+                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                                    <TextBlock Text="{Binding DamageText}" Foreground="#FFE8B964" FontSize="10"/>
+                                                                    <TextBlock Text="{Binding PercentText, StringFormat=({0})}" Foreground="#FFE8B964" Opacity="0.8" FontSize="9" Margin="4,0,0,0"/>
+                                                                </StackPanel>
+                                                            </Grid>
                                                         </Grid>
+                                                        </Border>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
