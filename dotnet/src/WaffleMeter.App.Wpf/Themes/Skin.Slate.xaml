@@ -1,18 +1,37 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- "Slate" skin: neutral warm-gray, softer contrast. -->
-    <Color x:Key="Skin.OverlayBgColor">#22252A</Color>
+    <!-- "Slate" skin: neutral warm-gray, softer contrast. Same key set as Skin.Dark. -->
+
+    <!-- core surfaces -->
+    <Color x:Key="Skin.OverlayBgColor">#1B1E23</Color>
     <SolidColorBrush x:Key="Skin.WindowBg" Color="#FF22252A"/>
-    <SolidColorBrush x:Key="Skin.PanelBg" Color="#F2202329"/>
+    <SolidColorBrush x:Key="Skin.PanelBg" Color="#F71E2127"/>
     <SolidColorBrush x:Key="Skin.Fg" Color="#FFE3E5E8"/>
-    <SolidColorBrush x:Key="Skin.MutedFg" Color="#FF9DA3AC"/>
-    <SolidColorBrush x:Key="Skin.Border" Color="#FF3A3F46"/>
+    <SolidColorBrush x:Key="Skin.MutedFg" Color="#ADA8AEB8"/>
+    <SolidColorBrush x:Key="Skin.Border" Color="#2EA8AEB8"/>
+    <SolidColorBrush x:Key="Skin.SoftBorder" Color="#1CA8AEB8"/>
     <SolidColorBrush x:Key="Skin.Accent" Color="#FF5E9CC8"/>
-    <SolidColorBrush x:Key="Skin.ControlBg" Color="#FF2C3037"/>
-    <SolidColorBrush x:Key="Skin.ControlBorder" Color="#FF3A3F46"/>
-    <SolidColorBrush x:Key="Skin.ControlHover" Color="#FF363B43"/>
-    <SolidColorBrush x:Key="Skin.ButtonBg" Color="#FF333840"/>
+    <SolidColorBrush x:Key="Skin.AccentSoft" Color="#1F5E9CC8"/>
+
+    <!-- rows -->
+    <SolidColorBrush x:Key="Skin.RowBg" Color="#A31E2127"/>
+    <SolidColorBrush x:Key="Skin.RowHover" Color="#D12C3037"/>
+    <SolidColorBrush x:Key="Skin.RowSelected" Color="#215E9CC8"/>
+    <SolidColorBrush x:Key="Skin.RowSelectedBorder" Color="#5C5E9CC8"/>
     <SolidColorBrush x:Key="Skin.StatBg" Color="#550F141B"/>
-    <SolidColorBrush x:Key="Skin.RowHover" Color="#16FFFFFF"/>
+    <SolidColorBrush x:Key="Skin.IconRing" Color="#29A8AEB8"/>
+
+    <!-- controls -->
+    <SolidColorBrush x:Key="Skin.ControlBg" Color="#B31E2127"/>
+    <SolidColorBrush x:Key="Skin.ControlBorder" Color="#21A8AEB8"/>
+    <SolidColorBrush x:Key="Skin.ControlHover" Color="#EB2C3037"/>
+    <SolidColorBrush x:Key="Skin.ButtonBg" Color="#B3262A31"/>
     <SolidColorBrush x:Key="Skin.TabSelectedBg" Color="#FF2C3037"/>
+
+    <!-- detail/history tables -->
+    <SolidColorBrush x:Key="Skin.SectionBg" Color="#D61E2127"/>
+    <SolidColorBrush x:Key="Skin.TableHeadBg" Color="#F02C3037"/>
+    <SolidColorBrush x:Key="Skin.TableHeadFg" Color="#FFE3E5E8"/>
+    <SolidColorBrush x:Key="Skin.TableRowBg" Color="#941E2127"/>
+    <SolidColorBrush x:Key="Skin.TableRowAlt" Color="#752C3037"/>
 </ResourceDictionary>

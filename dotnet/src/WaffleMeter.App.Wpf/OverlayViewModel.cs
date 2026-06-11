@@ -136,6 +136,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             int power = e.User?.Power ?? 0;
             int server = e.User?.Server ?? 0;
             double ratio = Math.Clamp(Metric(e.Info) / topMetric, 0.0, 1.0);
+            double barRatio = ratio > 0 ? Math.Max(0.015, ratio) : 0.0; // React max(1.5%, ratio) so small bars stay visible
+            string? jobName = e.User?.Job is JobClass jc ? jc.ClassName() : null;
 
             var row = new RowViewModel(
                 Id: e.Uid,
@@ -145,8 +147,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 PowerVisible: power > 0 ? Visibility.Visible : Visibility.Collapsed,
                 DamageText: total ? MeterFormat.FormatAmount(e.Info.Amount) : MeterFormat.FormatDps(e.Info.Dps),
                 PercentText: MeterFormat.FormatPercent(entire ? e.Info.EntireContribution : contribution),
-                BarRatio: ratio,
-                BarRest: 1.0 - ratio,
+                BarRatio: barRatio,
+                BarRest: 1.0 - barRatio,
                 FillBrush: isUser ? _userBar : contribution < 3 ? _errorBar : contribution < 5 ? _warningBar : _normalBar,
                 NameBrush: MeterFormat.ServerTier(server) switch
                 {
@@ -158,7 +160,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 DamageBrush: _dpsBrush,
                 PercentBrush: _percentBrush,
                 IsUser: isUser,
-                RowHeight: rowHeight);
+                RowHeight: rowHeight,
+                IconSource: JoinIcons.Job(jobName),
+                AccentOpacity: isUser ? 0.95 : 0.82);
 
             if (i < Rows.Count)
             {
@@ -229,4 +233,6 @@ public sealed record RowViewModel(
     Brush DamageBrush,
     Brush PercentBrush,
     bool IsUser,
-    double RowHeight);
+    double RowHeight,
+    System.Windows.Media.ImageSource? IconSource,
+    double AccentOpacity);

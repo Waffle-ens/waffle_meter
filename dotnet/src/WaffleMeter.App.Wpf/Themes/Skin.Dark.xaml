@@ -1,20 +1,40 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- "Dark" skin palette (the current default look). Skin.* brush keys are referenced via
-         DynamicResource by Skin.Controls.xaml + the windows, so swapping this dictionary at runtime
-         re-themes the whole app. Keep the key set identical across all skin palettes. -->
-    <Color x:Key="Skin.OverlayBgColor">#1E1E1E</Color>
-    <SolidColorBrush x:Key="Skin.WindowBg" Color="#FF1E1E1E"/>
-    <SolidColorBrush x:Key="Skin.PanelBg" Color="#F21B1B1B"/>
-    <SolidColorBrush x:Key="Skin.Fg" Color="#FFE0E0E0"/>
-    <SolidColorBrush x:Key="Skin.MutedFg" Color="#FF9A9A9A"/>
-    <SolidColorBrush x:Key="Skin.Border" Color="#FF454545"/>
-    <SolidColorBrush x:Key="Skin.Accent" Color="#FF3A6EA5"/>
-    <SolidColorBrush x:Key="Skin.ControlBg" Color="#FF2A2A2A"/>
-    <SolidColorBrush x:Key="Skin.ControlBorder" Color="#FF454545"/>
-    <SolidColorBrush x:Key="Skin.ControlHover" Color="#FF484848"/>
-    <SolidColorBrush x:Key="Skin.ButtonBg" Color="#FF383838"/>
-    <SolidColorBrush x:Key="Skin.StatBg" Color="#57020617"/>
-    <SolidColorBrush x:Key="Skin.RowHover" Color="#14FFFFFF"/>
-    <SolidColorBrush x:Key="Skin.TabSelectedBg" Color="#FF2D2D2D"/>
+    <!-- "Dark" skin = the dev build's default overlay theme. Values ported 1:1 from the React
+         meter CSS tokens (App.tsx) so the WPF overlay reads as the cool navy/slate dev look, not a
+         neutral gray. Skin.* keys are referenced via DynamicResource by the windows; keep the key set
+         identical across all palettes (SkinManager contract). -->
+
+    <!-- core surfaces -->
+    <Color x:Key="Skin.OverlayBgColor">#050A10</Color>            <!-- meter-bg base (opacity applied via MeterOpacity) -->
+    <SolidColorBrush x:Key="Skin.WindowBg" Color="#FF0B1018"/>
+    <SolidColorBrush x:Key="Skin.PanelBg" Color="#F7070C14"/>     <!-- panel-bg rgba(7,12,20,0.97) -->
+    <SolidColorBrush x:Key="Skin.Fg" Color="#FFF8FAFC"/>          <!-- meter-fg slate-50 -->
+    <SolidColorBrush x:Key="Skin.MutedFg" Color="#ADCBD5E1"/>     <!-- meter-muted slate-300 @68% -->
+    <SolidColorBrush x:Key="Skin.Border" Color="#2E94A3B8"/>      <!-- meter-border slate-400 @18% -->
+    <SolidColorBrush x:Key="Skin.SoftBorder" Color="#1C94A3B8"/>  <!-- meter-soft-border slate-400 @11% -->
+    <SolidColorBrush x:Key="Skin.Accent" Color="#FF2DD4BF"/>      <!-- meter-accent teal-400 -->
+    <SolidColorBrush x:Key="Skin.AccentSoft" Color="#1F2DD4BF"/>  <!-- meter-accent-soft -->
+
+    <!-- rows -->
+    <SolidColorBrush x:Key="Skin.RowBg" Color="#A30F172A"/>       <!-- meter-row-bg slate-900 @64% -->
+    <SolidColorBrush x:Key="Skin.RowHover" Color="#D11E293B"/>    <!-- meter-row-hover slate-800 @82% -->
+    <SolidColorBrush x:Key="Skin.RowSelected" Color="#2114B8A6"/> <!-- meter-row-selected -->
+    <SolidColorBrush x:Key="Skin.RowSelectedBorder" Color="#5C2DD4BF"/>
+    <SolidColorBrush x:Key="Skin.StatBg" Color="#57020617"/>     <!-- meter-stat-bg -->
+    <SolidColorBrush x:Key="Skin.IconRing" Color="#2994A3B8"/>    <!-- meter-icon-ring -->
+
+    <!-- controls -->
+    <SolidColorBrush x:Key="Skin.ControlBg" Color="#B30F172A"/>
+    <SolidColorBrush x:Key="Skin.ControlBorder" Color="#2194A3B8"/>
+    <SolidColorBrush x:Key="Skin.ControlHover" Color="#EB1E293B"/>
+    <SolidColorBrush x:Key="Skin.ButtonBg" Color="#B30F172A"/>
+    <SolidColorBrush x:Key="Skin.TabSelectedBg" Color="#FF1E293B"/>
+
+    <!-- detail/history tables -->
+    <SolidColorBrush x:Key="Skin.SectionBg" Color="#D60F172A"/>
+    <SolidColorBrush x:Key="Skin.TableHeadBg" Color="#F01E293B"/>
+    <SolidColorBrush x:Key="Skin.TableHeadFg" Color="#FFF8FAFC"/>
+    <SolidColorBrush x:Key="Skin.TableRowBg" Color="#940F172A"/>
+    <SolidColorBrush x:Key="Skin.TableRowAlt" Color="#751E293B"/>
 </ResourceDictionary>
