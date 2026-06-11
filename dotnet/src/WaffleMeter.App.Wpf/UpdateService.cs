@@ -14,6 +14,12 @@ public sealed class UpdateService
 
     private readonly UpdateManager? _manager;
 
+    public enum UpdateStage { Downloading, Ready, Failed }
+
+    /// <summary>Raised on update progress: (stage, version-or-error, percent). Fires off the UI thread —
+    /// the App marshals it to the toast.</summary>
+    public event Action<UpdateStage, string, int>? StageChanged;
+
     public UpdateService(bool prerelease)
     {
         try
@@ -42,14 +48,18 @@ public sealed class UpdateService
                 return;
             }
 
-            status?.Invoke($"업데이트 다운로드 중… {update.TargetFullRelease.Version}");
-            await _manager.DownloadUpdatesAsync(update).ConfigureAwait(false);
-            status?.Invoke($"업데이트 준비됨 — 재시작 시 적용 ({update.TargetFullRelease.Version})");
+            string version = update.TargetFullRelease.Version.ToString();
+            status?.Invoke($"업데이트 다운로드 중… {version}");
+            StageChanged?.Invoke(UpdateStage.Downloading, version, 0);
+            await _manager.DownloadUpdatesAsync(update, p => StageChanged?.Invoke(UpdateStage.Downloading, version, p)).ConfigureAwait(false);
+            status?.Invoke($"업데이트 준비됨 — 재시작 시 적용 ({version})");
             _pending = update;
+            StageChanged?.Invoke(UpdateStage.Ready, version, 100);
         }
         catch (Exception ex)
         {
             status?.Invoke($"업데이트 확인 실패: {ex.Message}");
+            StageChanged?.Invoke(UpdateStage.Failed, ex.Message, 0);
         }
     }
 

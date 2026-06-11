@@ -36,6 +36,8 @@ public partial class App : Application
     private long _historyBaselineBattleStart;
     private readonly HashSet<string> _consentPrompted = new();
     private bool _consentDialogOpen;
+    private UpdateToast? _updateToast;
+    private UpdateToastViewModel? _updateToastVm;
 
     public App()
     {
@@ -205,8 +207,29 @@ public partial class App : Application
             }
         });
 
-        // Background auto-update check (no-op for dev / non-Velopack installs).
+        // Background auto-update check (no-op for dev / non-Velopack installs) — surfaced via the toast.
+        _updateToastVm = new UpdateToastViewModel();
+        _updateToast = new UpdateToast { DataContext = _updateToastVm };
+        _updateToast.Show();
+        _updateToast.Park();
+        _updateToast.CloseRequested += () => _updateToast.Park();
         _updateService = new UpdateService(prerelease: false);
+        UpdateService updateService = _updateService;
+        _updateToast.RestartRequested += () => updateService.ApplyAndRestart();
+        _updateService.StageChanged += (stage, info, percent) => Dispatcher.Invoke(() =>
+        {
+            switch (stage)
+            {
+                case UpdateService.UpdateStage.Downloading: _updateToastVm.SetDownloading(info, percent); break;
+                case UpdateService.UpdateStage.Ready: _updateToastVm.SetReady(info); break;
+                case UpdateService.UpdateStage.Failed: _updateToastVm.SetFailed(info); break;
+            }
+
+            Rect wa = SystemParameters.WorkArea;
+            _updateToast.Left = wa.Right - _updateToast.Width - 16;
+            _updateToast.Top = wa.Bottom - 130;
+            _updateToast.Present(true);
+        });
         _ = _updateService.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
     }
 

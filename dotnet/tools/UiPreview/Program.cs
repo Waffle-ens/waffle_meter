@@ -70,6 +70,13 @@ internal static class Program
 
                 Capture(() => new CloseActionDialog(), palette, Path.Combine(outDir, "closedialog_Dark.png"));
                 Capture(() => new StatsConsentModal("콘팡 · 마도성"), palette, Path.Combine(outDir, "consent_Dark.png"));
+
+                var dl = new UpdateToastViewModel();
+                dl.SetDownloading("1.8.0", 62);
+                Capture(() => new UpdateToast { DataContext = dl }, palette, Path.Combine(outDir, "toast_downloading_Dark.png"));
+                var rdy = new UpdateToastViewModel();
+                rdy.SetReady("1.8.0");
+                Capture(() => new UpdateToast { DataContext = rdy }, palette, Path.Combine(outDir, "toast_ready_Dark.png"));
             }
         }
 
