@@ -160,7 +160,7 @@ export default function App() {
   }, []);
   const [selected, setSelected] = useState<Player | null>(null);
 
-  // small-window 작은 창 오버레이. 모드: fullscreen / meterOnly / union.
+  // 작은 창 오버레이. 모드: fullscreen / meterOnly / union.
   const updateToastVisible = Boolean(
     updateInfo && activePanel !== "update" && dismissedUpdateVersion !== updateInfo.latestVersion,
   );

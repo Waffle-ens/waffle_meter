@@ -111,7 +111,7 @@ public partial class OverlayWindow : Window
     }
 
     /// <summary>
-    /// Toggle taskbar / alt-tab mode (taskbar style). Implemented purely via the ex-style
+    /// Toggle taskbar / alt-tab mode. Implemented purely via the ex-style
     /// (APPWINDOW↔TOOLWINDOW + NOACTIVATE) so the HWND is NOT recreated (WPF's ShowInTaskbar property
     /// would recreate it and break our handle/hook). A hide+show forces the shell to re-evaluate the
     /// taskbar button after the style change.

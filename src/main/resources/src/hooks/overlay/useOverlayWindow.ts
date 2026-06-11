@@ -17,7 +17,7 @@ const setOriginVars = (x: number, y: number) => {
 };
 
 /**
- * small-window 작은 창 오버레이의 네이티브 창 bounds + 콘텐츠 origin(`--ovx/--ovy`) 단일 소유자.
+ * 작은 창 오버레이의 네이티브 창 bounds + 콘텐츠 origin(`--ovx/--ovy`) 단일 소유자.
  *
  * `union` 모드는 **측정 기반**: 보이는 `[data-overlay-content]` 요소의 `getBoundingClientRect()`(창-상대)에
  * 현재 적용 origin 을 더해 화면좌표를 복원하고, 그 union 으로 새 origin/크기를 구해 `--ovx` 와

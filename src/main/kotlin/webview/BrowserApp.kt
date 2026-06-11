@@ -95,7 +95,7 @@ class BrowserApp(private val config: VersionConfig, private val dpsCalculator: D
             return fitOverlayToScreen(stage, webView)
         }
 
-        // small-window 방식 작은 창: Stage 를 화면 절대좌표(x,y) + 크기(w,h)로 직접 배치한다(논리 px).
+        // 작은 창: Stage 를 화면 절대좌표(x,y) + 크기(w,h)로 직접 배치한다(논리 px).
         // 전체화면 fitOverlayToScreen 대신, 보이는 콘텐츠 bbox 만큼만 창을 잡아 게임 위 합성 부담을 줄인다.
         // 창 전체가 화면 안에 남도록 clamp(다중 모니터 모드면 가상 화면, 아니면 주 화면 기준).
         fun setWindowBounds(x: Double, y: Double, w: Double, h: Double) {

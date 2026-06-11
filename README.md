@@ -16,9 +16,13 @@
 1. [Releases](https://github.com/Waffle-ens/waffle_meter/releases)에서 최신 설치 파일(`waffle_meter-win-Setup.exe`)을 받아 실행합니다.
    패킷 캡처 드라이버(WinDivert)가 내장되어 있어 **Npcap 등 별도 설치가 필요 없습니다.** (드라이버가 차단되는 환경에서는 설정에서 Npcap 백엔드로 전환할 수 있습니다.)
 
-   > ⚠️ 설치 파일을 처음 실행하면 **"Windows의 PC 보호"** 경고가 뜰 수 있습니다(코드 서명 평판이 쌓이기 전 단계). **추가 정보 → 실행**을 누르면 설치됩니다. (1회성)
+   > ⚠️ 설치 파일을 처음 실행하면 **"Windows의 PC 보호"** 경고가 뜰 수 있습니다(코드 서명 평판이 쌓이기 전 단계). 1회성이며, 아래 순서로 실행하면 됩니다.
    >
-   > ![Windows의 PC 보호 — 추가 정보 → 실행](readme-asset/smartscreen.png)
+   > ![Windows의 PC 보호 — 차단 화면](readme-asset/smartscreen-1.png)
+   >
+   > **추가 정보**를 누르면 아래처럼 **실행** 버튼이 나타납니다. (게시자가 "알 수 없는 게시자"로 표시돼도 정상입니다.)
+   >
+   > ![추가 정보 → 실행](readme-asset/smartscreen-2.png)
 
 2. 설치 후 시작 메뉴의 `waffle_meter`를 실행합니다.
    처음 실행 시 패킷 캡처를 위해 권한 상승 동의(UAC)가 **한 번만** 표시되며, 이후 실행부터는 다시 묻지 않습니다.
