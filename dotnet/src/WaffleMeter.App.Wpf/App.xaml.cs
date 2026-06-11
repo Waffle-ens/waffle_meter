@@ -119,7 +119,20 @@ public partial class App : Application
             var settingsWindow = new SettingsWindow(new SettingsViewModel(services, settings, theme, skin, controller, hotkeys)) { Owner = window };
             settingsWindow.Show();
         };
-        window.ExitRequested += ExitApp;
+        window.ExitRequested += () =>
+        {
+            // Honor the CloseAction setting (React closeAction): exit / tray-hide / ask-once.
+            string action = settings.CloseAction;
+            if (action == "tray") { controller.HideToTray(); return; }
+            if (action == "exit") { ExitApp(); return; }
+
+            var dlg = new CloseActionDialog { Owner = window };
+            dlg.ShowDialog();
+            if (dlg.Choice == CloseActionDialog.CloseChoice.Cancel) { return; }
+            settings.CloseAction = dlg.Choice == CloseActionDialog.CloseChoice.Tray ? "tray" : "exit"; // remember the choice
+            if (dlg.Choice == CloseActionDialog.CloseChoice.Tray) { controller.HideToTray(); }
+            else { ExitApp(); }
+        };
         window.ResetRequested += () => { _viewingHistory = false; _engine?.RequestReset(); };
         window.ThemeRequested += () => skin.Cycle(); // 테마 버튼: cycle dark → midnight → slate
         window.TaskbarToggleRequested += () =>
