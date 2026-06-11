@@ -23,7 +23,7 @@ public static class JoinIcons
         {
             if (!_bossLoaded)
             {
-                _bossIcon = TryLoad("pack://application:,,,/JobIcons/bossIcon.png");
+                _bossIcon = TryLoad("pack://application:,,,/WaffleMeter.App.Wpf;component/JobIcons/bossIcon.png");
                 _bossLoaded = true;
             }
 
@@ -43,7 +43,7 @@ public static class JoinIcons
             return cached;
         }
 
-        BitmapImage? image = TryLoad($"pack://application:,,,/JobIcons/{job}.png");
+        BitmapImage? image = TryLoad($"pack://application:,,,/WaffleMeter.App.Wpf;component/JobIcons/{job}.png");
         JobCache[job] = image;
         return image;
     }

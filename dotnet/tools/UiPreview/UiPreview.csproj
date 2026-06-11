@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Offline UI-preview harness: renders the WPF panels with sample data to PNG (RenderTargetBitmap)
+       so the rendered overlay UI can be eyeballed without a running game / capture host. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>WaffleMeter.Tools.UiPreview</RootNamespace>
+    <!-- WPF binding/StringFormat needs real cultures (XmlLanguage.GetSpecificCulture); the shared
+         InvariantGlobalization=true (Directory.Build.props) breaks it, same as the App.Wpf project. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WaffleMeter.App.Wpf\WaffleMeter.App.Wpf.csproj" />
+  </ItemGroup>
+
+</Project>
