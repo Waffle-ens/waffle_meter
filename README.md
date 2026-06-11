@@ -35,6 +35,12 @@
 
 > v1.x(MSI) 사용자: v2.0 설치 시 기존 버전은 자동으로 정리되어 중복 설치되지 않습니다.
 
+## 코드 서명 (Code signing)
+
+This project uses free code signing provided by [SignPath.io](https://signpath.io) and a free code signing certificate by the [SignPath Foundation](https://signpath.org).
+
+배포 파일은 [SignPath.io](https://signpath.io)의 무료 코드 서명과 [SignPath Foundation](https://signpath.org)의 무료 코드 서명 인증서를 사용합니다.
+
 ## 업데이트 기록
 
 - v2.0.1 (2026-06-12)
