@@ -103,6 +103,7 @@ public sealed class SkinManager
     private static Uri PaletteUri(string name)
     {
         string file = "Skin." + char.ToUpperInvariant(name[0]) + name[1..] + ".xaml";
-        return new Uri("pack://application:,,,/Themes/" + file, UriKind.Absolute);
+        // Assembly-qualified so the palette resolves regardless of the entry assembly.
+        return new Uri("pack://application:,,,/WaffleMeter.App.Wpf;component/Themes/" + file, UriKind.Absolute);
     }
 }

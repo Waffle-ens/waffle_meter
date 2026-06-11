@@ -24,6 +24,9 @@ internal static class Program
         Directory.CreateDirectory(outDir);
 
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+
+        VerifySettings();
+
         var props = new PropertyHandler();
         var settings = new MeterSettings(props);
         var theme = new MeterColorTheme(props);
@@ -82,11 +85,104 @@ internal static class Program
 
                 var skillVis = new SkillVisibility(props);
                 Capture(() => new SkillSettingsFlyout { DataContext = new SkillSettingsViewModel(skillVis) }, palette, Path.Combine(outDir, "skillsettings_Dark.png"));
+
+                // settings window (hotkeys tab) — verify the HotkeyCaptureBox now matches the dark style.
+                string sdir = Path.Combine(Path.GetTempPath(), "waffle_settings_preview");
+                Directory.CreateDirectory(sdir);
+                var sp = new PropertyHandler(sdir);
+                var ssvc = new MeterServices(sp);
+                var svm = new SettingsViewModel(ssvc, new MeterSettings(sp), new MeterColorTheme(sp), new SkinManager(sp),
+                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp)) { SelectedNav = "hotkeys" };
+                Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_hotkeys_Dark.png"));
             }
         }
 
         Console.WriteLine(outDir);
         app.Shutdown();
+    }
+
+    /// <summary>Drive every SettingsViewModel control/command against an ISOLATED settings file and assert
+    /// each propagates. Prints a PASS/FAIL report — a one-cycle settings verification.</summary>
+    private static void VerifySettings()
+    {
+        string tmp = Path.Combine(Path.GetTempPath(), "waffle_settings_verify");
+        Directory.CreateDirectory(tmp);
+        foreach (string f in Directory.GetFiles(tmp))
+        {
+            File.Delete(f);
+        }
+
+        var props = new PropertyHandler(tmp);
+        var services = new MeterServices(props);
+        var settings = new MeterSettings(props);
+        var theme = new MeterColorTheme(props);
+        var skin = new SkinManager(props);
+        var controller = new OverlayController(new OverlayWindow(), props);
+        var hotkeys = new HotkeyHandler(props);
+        var vm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys);
+
+        int pass = 0, fail = 0;
+        void Check(string name, bool ok)
+        {
+            Console.WriteLine($"  [{(ok ? "ok  " : "FAIL")}] {name}");
+            if (ok)
+            {
+                pass++;
+            }
+            else
+            {
+                fail++;
+            }
+        }
+
+        Console.WriteLine("=== settings verification cycle ===");
+
+        vm.DisplayMode = "amount_percent"; Check("DisplayMode", settings.DisplayMode == "amount_percent" && props.GetProperty("displayMode") == "amount_percent");
+        vm.DamageValueMode = "total"; Check("DamageValueMode", settings.UseTotalDamage);
+        vm.ContributionMode = "entireContribution"; Check("ContributionMode", settings.UseEntireContribution);
+        vm.NameDisplay = "me_only"; Check("NameDisplay", settings.NameDisplayMode == NameDisplay.MeOnly);
+        vm.TargetInfoDisplayMode = "percent"; Check("TargetInfoDisplayMode", settings.TargetInfoDisplayMode == "percent");
+        vm.FontFamily = "Pretendard"; Check("FontFamily", settings.FontFamily == "Pretendard");
+        vm.RowHeight = 50; Check("RowHeight", settings.RowHeight == 50 && props.GetProperty("rowHeight") == "50");
+        vm.MeterOpacity = 0.7; Check("MeterOpacity", Math.Abs(settings.MeterOpacity - 0.7) < 0.001);
+
+        vm.IsMinimal = true; Check("IsMinimal", settings.IsMinimal);
+        vm.ShowCombatTimerInMinimal = false; Check("ShowCombatTimerInMinimal", !settings.ShowCombatTimerInMinimal);
+        vm.ShowTargetInfoInMinimal = false; Check("ShowTargetInfoInMinimal", !settings.ShowTargetInfoInMinimal);
+        vm.MultiMonitorMode = true; Check("MultiMonitorMode", settings.MultiMonitorMode);
+        vm.IsAutoHide = false; Check("IsAutoHide", !controller.IsAutoHide);
+        vm.TaskbarMode = true; Check("TaskbarMode", settings.TaskbarMode && controller.TaskbarMode);
+
+        vm.CloseAction = "tray"; Check("CloseAction", settings.CloseAction == "tray");
+        vm.CaptureBackend = "npcap"; Check("CaptureBackend", settings.CaptureBackend == "npcap");
+        vm.ServerIp = "10.0.0.0/8"; vm.ServerPort = "7777"; vm.SaveServer();
+        Check("SaveServer", props.GetProperty("server.ip") == "10.0.0.0/8" && props.GetProperty("server.port") == "7777");
+
+        vm.Skin = "light"; Check("Skin (light)", skin.Current == "light" && skin.IsLight);
+
+        theme.UserBarFrom = "#FF112233"; Check("Theme color set", theme.UserBarFrom == "#FF112233");
+        vm.ResetTheme(); Check("ResetTheme", theme.UserBarFrom != "#FF112233");
+
+        bool updateAsked = false; vm.CheckUpdateRequested = () => updateAsked = true; vm.CheckForUpdate(); Check("CheckForUpdate", updateAsked);
+        string? resetWhich = null; vm.ResetPositionRequested = w => resetWhich = w;
+        vm.ResetMeterPosition(); Check("ResetMeterPosition", resetWhich == "meter");
+        vm.ResetJoinPosition(); Check("ResetJoinPosition", resetWhich == "join");
+        vm.ResetHistoryPosition(); Check("ResetHistoryPosition", resetWhich == "history");
+
+        vm.ToggleLogging(); Check("Logging start", services.DebugLogger.IsRunning);
+        vm.ToggleLogging(); Check("Logging stop", !services.DebugLogger.IsRunning);
+
+        vm.PendingReset = new HotkeyCombo(0, 0x71); vm.Commit(); // F2
+        Check("Hotkey commit", hotkeys.Reset.VkCode == 0x71);
+
+        vm.ResetDefaults();
+        Check("ResetDefaults", settings.DisplayMode == "dps_percent" && settings.RowHeight == 36 && skin.Current == "dark");
+
+        bool consentOk = true;
+        try { vm.ConsentAccepted = false; vm.ApplyConsent(); } catch { consentOk = false; }
+        Check("ApplyConsent (no crash)", consentOk);
+
+        Console.WriteLine($"=== settings: {pass} passed, {fail} failed ===");
     }
 
     private static void Capture(Func<Window> factory, ResourceDictionary palette, string path)
