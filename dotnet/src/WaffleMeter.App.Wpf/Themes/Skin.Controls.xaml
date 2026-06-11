@@ -183,4 +183,49 @@
             </Setter.Value>
         </Setter>
     </Style>
+
+    <!-- Slider: thin rounded track, accent fill left of the thumb, small round thumb (matches the
+         overlay opacity slider). Implicit so the settings sliders pick it up. -->
+    <Style TargetType="Slider">
+        <Setter Property="Height" Value="18"/>
+        <Setter Property="IsMoveToPointEnabled" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid VerticalAlignment="Center">
+                        <Border Height="4" CornerRadius="2" Background="{DynamicResource Skin.ControlBg}"
+                                BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"/>
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Height="4" CornerRadius="2" Background="{DynamicResource Skin.Accent}"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge" Focusable="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Focusable="False">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border Width="13" Height="13" CornerRadius="7" Cursor="Hand"
+                                                    Background="{DynamicResource Skin.Fg}" BorderBrush="{DynamicResource Skin.Accent}" BorderThickness="2"/>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 </ResourceDictionary>

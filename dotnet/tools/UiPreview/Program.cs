@@ -92,8 +92,8 @@ internal static class Program
                 var sp = new PropertyHandler(sdir);
                 var ssvc = new MeterServices(sp);
                 var svm = new SettingsViewModel(ssvc, new MeterSettings(sp), new MeterColorTheme(sp), new SkinManager(sp),
-                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp)) { SelectedNav = "hotkeys" };
-                Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_hotkeys_Dark.png"));
+                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp)) { SelectedNav = "display" };
+                Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_display_Dark.png"));
             }
         }
 

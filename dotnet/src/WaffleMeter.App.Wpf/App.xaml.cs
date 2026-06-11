@@ -21,6 +21,7 @@ public partial class App : Application
     private HotkeyHandler? _hotkeys;
     private OverlayController? _controller;
     private TrayIconController? _tray;
+    private OverlayWindow? _overlayWindow;
     private DpsReport? _lastReport;
     private DetailWindow? _detailWindow;
     private DetailsViewModel? _detailViewModel;
@@ -96,6 +97,16 @@ public partial class App : Application
         var window = new OverlayWindow { DataContext = viewModel };
         LoadPosition(services.Props, window);
         window.Show();
+        _overlayWindow = window;
+        AttachScreenClamp(window);
+        // Snap all windows back onto a monitor the moment multi-monitor movement is turned off.
+        _settings.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MeterSettings.MultiMonitorMode) && !_settings.MultiMonitorMode)
+            {
+                Dispatcher.BeginInvoke(ClampAllWindows);
+            }
+        };
 
         // Auto-hide / park-present + tray (Kotlin BrowserApp behavior).
         _controller = new OverlayController(window, services.Props);
@@ -296,6 +307,7 @@ public partial class App : Application
             _detailUid = 0;
         };
         _detailWindow.Show();
+        AttachScreenClamp(_detailWindow);
     }
 
     private void WireJoinPanel(MeterServices services, OverlayWindow overlay)
@@ -307,6 +319,7 @@ public partial class App : Application
         // Build the HWND + assert the overlay ex-style, then park (hidden) until a request arrives.
         _joinPanel.Show();
         _joinPanel.Park();
+        AttachScreenClamp(_joinPanel);
 
         // Restore a persisted position; otherwise dock under the meter overlay on first present.
         if (LoadPanelPosition(services.Props, _joinPanel, "joinPanelX", "joinPanelY"))
@@ -362,6 +375,7 @@ public partial class App : Application
         _skillFlyout = new SkillSettingsFlyout { DataContext = skillVm };
         _skillFlyout.Show();
         _skillFlyout.Park();
+        AttachScreenClamp(_skillFlyout);
         _skillFlyout.CloseRequested += () => { _skillFlyoutVisible = false; _skillFlyout.Park(); };
         skillVm.Changed += () =>
         {
@@ -390,6 +404,7 @@ public partial class App : Application
         _historyPanel = new HistoryPanel { DataContext = _historyViewModel };
         _historyPanel.Show();
         _historyPanel.Park();
+        AttachScreenClamp(_historyPanel);
 
         if (LoadPanelPosition(services.Props, _historyPanel, "historyPanelX", "historyPanelY"))
         {
@@ -516,6 +531,25 @@ public partial class App : Application
                 }
 
                 break;
+        }
+    }
+
+    /// <summary>Confine a window to its monitor while multi-monitor movement is off (off-screen guard).</summary>
+    private void AttachScreenClamp(Window w)
+    {
+        w.LocationChanged += (_, _) => ScreenClamp.Apply(w, _settings?.MultiMonitorMode ?? false);
+    }
+
+    /// <summary>Re-clamp every meter window (called when multi-monitor is turned off).</summary>
+    private void ClampAllWindows()
+    {
+        bool allow = _settings?.MultiMonitorMode ?? false;
+        foreach (Window? w in new Window?[] { _overlayWindow, _joinPanel, _historyPanel, _skillFlyout, _detailWindow })
+        {
+            if (w != null)
+            {
+                ScreenClamp.Apply(w, allow);
+            }
         }
     }
 
