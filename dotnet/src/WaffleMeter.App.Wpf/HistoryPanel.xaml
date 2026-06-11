@@ -8,9 +8,9 @@
         Background="Transparent"
         Topmost="True"
         ShowInTaskbar="False"
-        ResizeMode="NoResize"
-        SizeToContent="Height"
-        Width="320"
+        ResizeMode="CanResize"
+        SizeToContent="Manual"
+        Width="320" Height="400" MinWidth="260" MinHeight="160"
         Left="40" Top="40"
         FontFamily="Segoe UI">
     <Window.Resources>
@@ -26,7 +26,7 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
             <!-- Header (drag handle) -->
@@ -45,7 +45,7 @@
             <Grid Grid.Row="1">
                 <TextBlock Text="전투 기록이 없습니다" Foreground="{DynamicResource Skin.MutedFg}" FontSize="12"
                            HorizontalAlignment="Center" Margin="0,26" Visibility="{Binding EmptyVisibility}"/>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="380" Padding="0,4">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,4">
                     <ItemsControl ItemsSource="{Binding Rows}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>

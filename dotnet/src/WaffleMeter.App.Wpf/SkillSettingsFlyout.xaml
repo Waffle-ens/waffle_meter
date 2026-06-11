@@ -4,8 +4,8 @@
         xmlns:local="clr-namespace:WaffleMeter.App.Wpf"
         Title="표시할 스킬 선택"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
-        SizeToContent="Height" Width="340" Left="40" Top="40" FontFamily="Segoe UI">
+        Topmost="True" ShowInTaskbar="False" ResizeMode="CanResize"
+        SizeToContent="Manual" Width="340" Height="480" MinWidth="280" MinHeight="200" Left="40" Top="40" FontFamily="Segoe UI">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolVis"/>
         <!-- skill toggle chip: dim when off, accent border + opaque when on -->
@@ -49,7 +49,7 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
             <Border Grid.Row="0" Background="{DynamicResource Skin.StatBg}" CornerRadius="8,8,0,0"
                     BorderBrush="{DynamicResource Skin.Border}" BorderThickness="0,0,0,1" MouseLeftButtonDown="OnDragHandle">
@@ -61,7 +61,7 @@
                 </Grid>
             </Border>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="460" Padding="12,8">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12,8">
                 <ItemsControl ItemsSource="{Binding Groups}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>

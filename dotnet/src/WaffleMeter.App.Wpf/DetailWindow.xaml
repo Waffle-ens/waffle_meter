@@ -4,8 +4,8 @@
         xmlns:local="clr-namespace:WaffleMeter.App.Wpf"
         Title="상세내역"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
-        Width="820" Height="600" Left="460" Top="40" FontFamily="Segoe UI">
+        Topmost="True" ShowInTaskbar="False" ResizeMode="CanResize"
+        Width="820" Height="600" MinWidth="520" MinHeight="320" Left="460" Top="40" FontFamily="Segoe UI">
     <Window.Resources>
         <local:RatioToStarConverter x:Key="RatioToStar"/>
         <local:FontFamilyConverter x:Key="FontConv"/>

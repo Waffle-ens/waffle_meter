@@ -96,9 +96,11 @@ public partial class App : Application
         skinManager.Changed += viewModel.RefreshSkin; // re-theme stat colors on light/dark swap
         var window = new OverlayWindow { DataContext = viewModel };
         LoadPosition(services.Props, window);
+        LoadWindowSize(services.Props, "meterWidth", "meterHeight", window);
         window.Show();
         _overlayWindow = window;
         AttachScreenClamp(window);
+        AttachResize(window, services.Props, "meterWidth", "meterHeight");
         // Snap all windows back onto a monitor the moment multi-monitor movement is turned off.
         _settings.PropertyChanged += (_, e) =>
         {
@@ -306,8 +308,10 @@ public partial class App : Application
             _detailViewModel = null;
             _detailUid = 0;
         };
+        LoadWindowSize(services.Props, "detailWidth", "detailHeight", _detailWindow);
         _detailWindow.Show();
         AttachScreenClamp(_detailWindow);
+        AttachResize(_detailWindow, services.Props, "detailWidth", "detailHeight");
     }
 
     private void WireJoinPanel(MeterServices services, OverlayWindow overlay)
@@ -315,11 +319,13 @@ public partial class App : Application
         var skillVisibility = new SkillVisibility(services.Props);
         _joinViewModel = new JoinRequestViewModel(_settings!, skillVisibility.Codes);
         _joinPanel = new JoinRequestPanel { DataContext = _joinViewModel };
+        LoadWindowSize(services.Props, "joinPanelWidth", "joinPanelHeight", _joinPanel);
 
         // Build the HWND + assert the overlay ex-style, then park (hidden) until a request arrives.
         _joinPanel.Show();
         _joinPanel.Park();
         AttachScreenClamp(_joinPanel);
+        AttachResize(_joinPanel, services.Props, "joinPanelWidth", "joinPanelHeight");
 
         // Restore a persisted position; otherwise dock under the meter overlay on first present.
         if (LoadPanelPosition(services.Props, _joinPanel, "joinPanelX", "joinPanelY"))
@@ -373,9 +379,11 @@ public partial class App : Application
         // Skill-settings flyout (visibleSkillCodes filter). The ⚙ button toggles it; changes re-render badges.
         var skillVm = new SkillSettingsViewModel(skillVisibility);
         _skillFlyout = new SkillSettingsFlyout { DataContext = skillVm };
+        LoadWindowSize(services.Props, "skillFlyoutWidth", "skillFlyoutHeight", _skillFlyout);
         _skillFlyout.Show();
         _skillFlyout.Park();
         AttachScreenClamp(_skillFlyout);
+        AttachResize(_skillFlyout, services.Props, "skillFlyoutWidth", "skillFlyoutHeight");
         _skillFlyout.CloseRequested += () => { _skillFlyoutVisible = false; _skillFlyout.Park(); };
         skillVm.Changed += () =>
         {
@@ -402,9 +410,11 @@ public partial class App : Application
     {
         _historyViewModel = new BattleHistoryViewModel(_theme!, _settings!);
         _historyPanel = new HistoryPanel { DataContext = _historyViewModel };
+        LoadWindowSize(services.Props, "historyPanelWidth", "historyPanelHeight", _historyPanel);
         _historyPanel.Show();
         _historyPanel.Park();
         AttachScreenClamp(_historyPanel);
+        AttachResize(_historyPanel, services.Props, "historyPanelWidth", "historyPanelHeight");
 
         if (LoadPanelPosition(services.Props, _historyPanel, "historyPanelX", "historyPanelY"))
         {
@@ -551,6 +561,28 @@ public partial class App : Application
                 ScreenClamp.Apply(w, allow);
             }
         }
+    }
+
+    /// <summary>Apply a persisted manual size (no-op if unset/invalid).</summary>
+    private static void LoadWindowSize(PropertyHandler props, string wKey, string hKey, Window window)
+    {
+        if (double.TryParse(props.GetProperty(wKey), NumberStyles.Float, CultureInfo.InvariantCulture, out double w) && w >= window.MinWidth &&
+            double.TryParse(props.GetProperty(hKey), NumberStyles.Float, CultureInfo.InvariantCulture, out double h) && h >= window.MinHeight)
+        {
+            window.Width = w;
+            window.Height = h;
+        }
+    }
+
+    /// <summary>Attach edge resize + persist the new size on resize.</summary>
+    private void AttachResize(Window window, PropertyHandler props, string wKey, string hKey)
+    {
+        WindowResizer.Attach(window);
+        window.SizeChanged += (_, _) =>
+        {
+            props.SetProperty(wKey, window.ActualWidth.ToString("0", CultureInfo.InvariantCulture));
+            props.SetProperty(hKey, window.ActualHeight.ToString("0", CultureInfo.InvariantCulture));
+        };
     }
 
     private static bool LoadPanelPosition(PropertyHandler props, Window panel, string xKey, string yKey)

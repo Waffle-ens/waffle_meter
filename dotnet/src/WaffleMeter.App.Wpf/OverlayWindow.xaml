@@ -8,8 +8,9 @@
         Background="Transparent"
         Topmost="True"
         ShowInTaskbar="False"
-        ResizeMode="NoResize"
-        SizeToContent="WidthAndHeight"
+        ResizeMode="CanResize"
+        SizeToContent="Manual"
+        Width="420" Height="300" MinWidth="320" MinHeight="150"
         Left="40" Top="40"
         FontFamily="Segoe UI">
     <Window.Resources>
@@ -115,13 +116,20 @@
             <MenuItem Header="종료" Click="OnExit"/>
         </ContextMenu>
     </Window.ContextMenu>
-    <Border CornerRadius="6" Padding="10,8" MinWidth="380"
+    <Border CornerRadius="6" Padding="10,8"
             TextElement.FontFamily="{Binding Settings.FontFamily, Converter={StaticResource FontConv}}">
         <Border.Background>
             <SolidColorBrush Color="{DynamicResource Skin.OverlayBgColor}" Opacity="{Binding Settings.MeterOpacity}"/>
         </Border.Background>
-        <StackPanel>
-            <Grid Margin="0,0,0,6">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0" Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -146,7 +154,7 @@
             </Grid>
 
             <!-- target-info bar (React TargetInfo.tsx): above the rows, shown when there are rows -->
-            <Border CornerRadius="6" Padding="8,0" Margin="0,0,0,6" Height="26" ClipToBounds="True"
+            <Border Grid.Row="1" CornerRadius="6" Padding="8,0" Margin="0,0,0,6" Height="26" ClipToBounds="True"
                     Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
                     Visibility="{Binding TargetInfoVisibility}">
                 <Grid>
@@ -176,6 +184,8 @@
                 </Grid>
             </Border>
 
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
             <TextBlock Text="전투 대기 중" Foreground="{DynamicResource Skin.MutedFg}" HorizontalAlignment="Center"
                        Margin="0,8" Visibility="{Binding PlaceholderVisibility}"/>
 
@@ -260,9 +270,11 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            </StackPanel>
+            </ScrollViewer>
 
             <!-- combat-timer pill (React CombatTimer.tsx): below the rows -->
-            <Border CornerRadius="6" Padding="8,3" Margin="0,6,0,0"
+            <Border Grid.Row="3" CornerRadius="6" Padding="8,3" Margin="0,6,0,0"
                     Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
                     Visibility="{Binding CombatTimerVisibility}">
                 <Grid>
@@ -278,7 +290,7 @@
                 </Grid>
             </Border>
 
-            <TextBlock Text="{Binding Status}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" Margin="0,6,0,0"/>
-        </StackPanel>
+            <TextBlock Grid.Row="4" Text="{Binding Status}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" Margin="0,6,0,0"/>
+        </Grid>
     </Border>
 </Window>
