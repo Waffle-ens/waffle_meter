@@ -52,6 +52,8 @@
          embedded so they paint instantly on a software-rendered overlay. JoinIcons resolves them by
          pack URI. (Also pulls bossIcon/lock/logo — harmless, only the 8 class icons are referenced.) -->
     <Resource Include="..\..\..\src\main\resources\src\assets\*.png" Link="JobIcons\%(Filename)%(Extension)" />
+    <!-- 332 skill icons (filename = skill code) for the join-panel skill badges; embedded as resources. -->
+    <Resource Include="..\..\..\src\main\resources\dist\skill-icons\*.png" Link="SkillIcons\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

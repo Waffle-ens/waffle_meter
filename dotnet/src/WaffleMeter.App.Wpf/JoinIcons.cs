@@ -12,6 +12,7 @@ namespace WaffleMeter.App.Wpf;
 public static class JoinIcons
 {
     private static readonly Dictionary<string, BitmapImage?> JobCache = new();
+    private static readonly Dictionary<int, BitmapImage?> SkillCache = new();
 
     private static BitmapImage? _bossIcon;
     private static bool _bossLoaded;
@@ -29,6 +30,46 @@ public static class JoinIcons
 
             return _bossIcon;
         }
+    }
+
+    /// <summary>Skill icon for a code (port of getSkillIconSrc): exact manifest hit, else the floor base
+    /// for a skill/buff code, else null. Cached.</summary>
+    public static BitmapImage? Skill(int code)
+    {
+        if (code <= 0)
+        {
+            return null;
+        }
+
+        if (SkillCache.TryGetValue(code, out BitmapImage? cached))
+        {
+            return cached;
+        }
+
+        int? resolved = null;
+        if (SkillIconManifest.Codes.Contains(code))
+        {
+            resolved = code;
+        }
+        else
+        {
+            int? baseCode = code switch
+            {
+                >= 11_000_000 and <= 19_999_999 => code / 10_000 * 10_000,        // skill code
+                >= 110_000_000 and <= 190_999_999 => code / 100_000 * 10_000,     // buff code
+                _ => null,
+            };
+            if (baseCode is int b && SkillIconManifest.Codes.Contains(b))
+            {
+                resolved = b;
+            }
+        }
+
+        BitmapImage? image = resolved is int r
+            ? TryLoad($"pack://application:,,,/WaffleMeter.App.Wpf;component/SkillIcons/{r}.png")
+            : null;
+        SkillCache[code] = image;
+        return image;
     }
 
     public static BitmapImage? Job(string? job)

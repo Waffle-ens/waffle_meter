@@ -5,7 +5,7 @@ namespace WaffleMeter.App.Wpf;
 /// <summary>Per-job card colors for the join panel (dark tone), ported from the web JOB_COLOR_MAP /
 /// getClassColor. <see cref="Card"/> is the slate-950 card fill, <see cref="Border"/> the faint job
 /// outline, <see cref="Accent"/> the 4px left bar.</summary>
-public readonly record struct JobColors(Brush Card, Brush Border, Brush Accent);
+public readonly record struct JobColors(Brush Card, Brush Border, Brush Accent, Brush BadgeBg);
 
 /// <summary>
 /// Resolves a Korean class name to its <see cref="JobColors"/>. Mirrors classColor.ts (dark map only —
@@ -19,7 +19,8 @@ public static class JoinPanelPalette
     private static readonly JobColors Neutral = new(
         Frozen(Color.FromArgb(0xB3, 0x02, 0x06, 0x17)),
         Frozen(Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF)),
-        Frozen(Color.FromArgb(0xC7, 0x94, 0xA3, 0xB8)));
+        Frozen(Color.FromArgb(0xC7, 0x94, 0xA3, 0xB8)),
+        Frozen(Color.FromArgb(0x22, 0x94, 0xA3, 0xB8)));
 
     private static readonly Dictionary<string, JobColors> Map = Build();
 
@@ -48,7 +49,8 @@ public static class JoinPanelPalette
             map[d.Job] = new JobColors(
                 CardFill,
                 Frozen(Color.FromArgb(0x38, d.Border.R, d.Border.G, d.Border.B)),  // ~22% alpha
-                Frozen(Color.FromArgb(0xC7, d.Accent.R, d.Accent.G, d.Accent.B))); // ~78% alpha
+                Frozen(Color.FromArgb(0xC7, d.Accent.R, d.Accent.G, d.Accent.B)),  // ~78% alpha
+                Frozen(Color.FromArgb(0x26, d.Accent.R, d.Accent.G, d.Accent.B))); // badge bg ~15% alpha
         }
 
         return map;

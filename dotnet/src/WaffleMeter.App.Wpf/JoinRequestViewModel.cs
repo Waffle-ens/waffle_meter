@@ -9,6 +9,9 @@ using WaffleMeter.Data;
 
 namespace WaffleMeter.App.Wpf;
 
+/// <summary>One skill badge on a join card: icon + "name LvN" + job-tinted pill colors.</summary>
+public sealed record JoinSkillBadge(System.Windows.Media.ImageSource? Icon, string Label, Brush Background, Brush BorderBrush);
+
 /// <summary>
 /// View model for the party join-request panel (port of React JoinRequestPanel). <see cref="Reconcile"/>
 /// (on store Changed) rebuilds the row list newest-first; <see cref="Tick"/> (a 250ms UI timer) drives
@@ -17,13 +20,19 @@ namespace WaffleMeter.App.Wpf;
 /// </summary>
 public sealed class JoinRequestViewModel : INotifyPropertyChanged
 {
-    public JoinRequestViewModel(MeterSettings settings)
+    public JoinRequestViewModel(MeterSettings settings, IEnumerable<int>? visibleCodes = null)
     {
         Settings = settings;
+        _visibleCodes = visibleCodes != null ? new HashSet<int>(visibleCodes) : new HashSet<int>(SkillCatalog.DefaultVisibleCodes);
     }
 
     /// <summary>Exposed so the panel can bind the user's overlay font.</summary>
     public MeterSettings Settings { get; }
+
+    private HashSet<int> _visibleCodes;
+
+    /// <summary>Replace the visible-skill set (skill-settings flyout) and rebuild badges on the next reconcile.</summary>
+    public void SetVisibleCodes(IEnumerable<int> codes) => _visibleCodes = new HashSet<int>(codes);
 
     public ObservableCollection<JoinRequestRowViewModel> Rows { get; } = new();
 
@@ -59,7 +68,7 @@ public sealed class JoinRequestViewModel : INotifyPropertyChanged
             int existing = IndexOfId(u.Requester);
             if (existing < 0)
             {
-                Rows.Insert(i, new JoinRequestRowViewModel(u));
+                Rows.Insert(i, new JoinRequestRowViewModel(u, _visibleCodes));
             }
             else if (existing != i)
             {
@@ -159,7 +168,7 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
     private static readonly Brush AmberFill = Gradient("#FFF59E0B", "#FFB45309");
     private static readonly Brush RoseFill = Gradient("#FFFB7185", "#FFBE123C");
 
-    public JoinRequestRowViewModel(JoinRequestUser u)
+    public JoinRequestRowViewModel(JoinRequestUser u, ISet<int> visibleCodes)
     {
         Id = u.Requester;
         ArrivedAt = u.ArrivedAt;
@@ -174,6 +183,12 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
         CardBrush = colors.Card;
         BorderBrush = colors.Border;
         AccentBrush = colors.Accent;
+
+        BuildBadges(u.Skill, visibleCodes, colors, out List<JoinSkillBadge> normal, out List<JoinSkillBadge> stigma);
+        NormalBadges = normal;
+        StigmaBadges = stigma;
+        NormalBadgesVisibility = normal.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        StigmaBadgesVisibility = stigma.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public int Id { get; }
@@ -184,6 +199,45 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
     public Brush CardBrush { get; }
     public Brush BorderBrush { get; }
     public Brush AccentBrush { get; }
+    public IReadOnlyList<JoinSkillBadge> NormalBadges { get; }
+    public IReadOnlyList<JoinSkillBadge> StigmaBadges { get; }
+    public Visibility NormalBadgesVisibility { get; }
+    public Visibility StigmaBadgesVisibility { get; }
+
+    // From the requester's skills: normalize → keep only visible → dedupe (max lv) → sort by catalog
+    // order → split 일반/스티그마 (port of JoinRequestPanel badgeMap + SkillBadges).
+    private static void BuildBadges(IReadOnlyDictionary<int, int> skill, ISet<int> visibleCodes, JobColors colors,
+        out List<JoinSkillBadge> normal, out List<JoinSkillBadge> stigma)
+    {
+        normal = new List<JoinSkillBadge>();
+        stigma = new List<JoinSkillBadge>();
+        if (skill.Count == 0)
+        {
+            return;
+        }
+
+        var merged = new Dictionary<int, (string Name, int Lv, bool Stigma)>();
+        foreach ((int rawCode, int lv) in skill)
+        {
+            int code = SkillCatalog.Normalize(rawCode);
+            if (!visibleCodes.Contains(code))
+            {
+                continue;
+            }
+
+            SkillMeta? meta = SkillCatalog.Get(code);
+            string name = meta?.Name ?? rawCode.ToString();
+            bool isStigma = meta?.IsStigma ?? false;
+            int level = merged.TryGetValue(code, out var prev) ? Math.Max(prev.Lv, lv) : lv;
+            merged[code] = (name, level, isStigma);
+        }
+
+        foreach ((int code, var b) in merged.OrderBy(kv => SkillCatalog.Order(kv.Key)))
+        {
+            var badge = new JoinSkillBadge(JoinIcons.Skill(code), $"{b.Name} Lv{b.Lv}", colors.BadgeBg, colors.Border);
+            (b.Stigma ? stigma : normal).Add(badge);
+        }
+    }
 
     private double _barRatio = 1.0;
     public double BarRatio { get => _barRatio; private set => Set(ref _barRatio, value); }
