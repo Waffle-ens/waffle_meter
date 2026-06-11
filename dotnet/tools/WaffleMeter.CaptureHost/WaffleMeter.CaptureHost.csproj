@@ -8,7 +8,10 @@
     it (ShellExecute "runas") once the WPF shell exists.
   -->
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <!-- WinExe (no console subsystem) so the elevated helper runs WINDOWLESS — a console Exe launched
+         via ShellExecute "runas" pops a visible console window. Logging still goes to helper.log next to
+         the exe; the helper exits on client disconnect (not Ctrl+C), so no console is needed. -->
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>WaffleMeter.CaptureHost</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>

@@ -16,7 +16,9 @@ namespace WaffleMeter.App.Wpf;
 public sealed class DetailsViewModel : INotifyPropertyChanged
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-    internal static readonly Brush SkillBar = Frozen(new LinearGradientBrush(C("#55c42a"), C("#3a9e20"), 0.0));
+    // Brighter emerald gradient (was a flat, dull #55c42a→#3a9e20) so the damage bar reads clean + vivid
+    // on the dark panel; white bold damage text is overlaid for contrast.
+    internal static readonly Brush SkillBar = Frozen(new LinearGradientBrush(C("#FF4ADE80"), C("#FF15A34A"), 0.0));
     private static readonly Brush GoodBuff = Frozen(new SolidColorBrush(C("#55c42a")));
     private static readonly Brush WarnBuff = Frozen(new SolidColorBrush(C("#e6a817")));
     private static readonly Brush BadBuff = Frozen(new SolidColorBrush(C("#e05252")));
