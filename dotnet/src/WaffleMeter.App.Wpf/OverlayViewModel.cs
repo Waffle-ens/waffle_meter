@@ -53,6 +53,19 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Brush _combatTimeBrush = null!;
     public Brush CombatTimeBrush { get => _combatTimeBrush; private set => Set(ref _combatTimeBrush, value); }
 
+    private Brush _bossBarBrush = null!;
+    /// <summary>Target-info accent rail + HP fill gradient (React theme.bossBar).</summary>
+    public Brush BossBarBrush { get => _bossBarBrush; private set => Set(ref _bossBarBrush, value); }
+
+    // In-combat accent (React active dot/label #2dd4bf); standby reuses CombatTimeBrush.
+    private static readonly Brush CombatActiveBrush = Frozen(Color.FromRgb(0x2D, 0xD4, 0xBF));
+
+    private Brush _combatStatusBrush = CombatActiveBrush;
+    public Brush CombatStatusBrush { get => _combatStatusBrush; private set => Set(ref _combatStatusBrush, value); }
+
+    /// <summary>Boss icon for the target-info bar (bundled).</summary>
+    public System.Windows.Media.ImageSource? BossIcon => JoinIcons.BossIcon;
+
     private void RebuildBrushes()
     {
         _userBar = ThemeGradient(_theme.UserBarFrom, _theme.UserBarTo);
@@ -66,6 +79,14 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         _dpsBrush = ThemeSolid(_theme.MeterStatDps);        // damage value (MeterRow.tsx:126)
         _percentBrush = ThemeSolid(_theme.MeterStatPercent); // percent (MeterRow.tsx:119/127)
         CombatTimeBrush = ThemeSolid(_theme.CombatTimeColor);
+        BossBarBrush = ThemeGradient(_theme.BossBarFrom, _theme.BossBarTo);
+    }
+
+    private static Brush Frozen(Color c)
+    {
+        var b = new SolidColorBrush(c);
+        b.Freeze();
+        return b;
     }
 
     public ObservableCollection<RowViewModel> Rows { get; } = new();
@@ -90,22 +111,60 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Visibility _placeholderVisibility = Visibility.Visible;
     public Visibility PlaceholderVisibility { get => _placeholderVisibility; private set => Set(ref _placeholderVisibility, value); }
 
+    // ---- target-info bar (above the list) + combat-timer pill (below the list) ----
+    private double _targetHpRatio;
+    public double TargetHpRatio { get => _targetHpRatio; private set => Set(ref _targetHpRatio, value); }
+
+    private double _targetHpRest = 1.0;
+    public double TargetHpRest { get => _targetHpRest; private set => Set(ref _targetHpRest, value); }
+
+    private Visibility _targetInfoVisibility = Visibility.Collapsed;
+    public Visibility TargetInfoVisibility { get => _targetInfoVisibility; private set => Set(ref _targetInfoVisibility, value); }
+
+    private Visibility _targetFailedVisibility = Visibility.Collapsed;
+    public Visibility TargetFailedVisibility { get => _targetFailedVisibility; private set => Set(ref _targetFailedVisibility, value); }
+
+    private Visibility _targetHpVisibility = Visibility.Collapsed;
+    public Visibility TargetHpVisibility { get => _targetHpVisibility; private set => Set(ref _targetHpVisibility, value); }
+
+    private Visibility _combatTimerVisibility = Visibility.Collapsed;
+    public Visibility CombatTimerVisibility { get => _combatTimerVisibility; private set => Set(ref _combatTimerVisibility, value); }
+
+    private string _combatStatusText = "대기 중";
+    public string CombatStatusText { get => _combatStatusText; private set => Set(ref _combatStatusText, value); }
+
     public void Update(DpsReport report)
     {
         _lastReport = report;
-        TargetName = report.Target?.Mob.Name ?? "-";
+        string? mobName = report.Target?.Mob.Name;
+        bool hasTarget = !string.IsNullOrEmpty(mobName);
+        TargetName = hasTarget ? mobName! : "타겟 인식 실패";
+        TargetFailedVisibility = hasTarget ? Visibility.Collapsed : Visibility.Visible;
         if (report.Target is { MaxHp: > 0 } tgt)
         {
-            double pct = Math.Clamp((double)tgt.RemainHp / tgt.MaxHp * 100.0, 0, 100);
+            double ratio = Math.Clamp((double)tgt.RemainHp / tgt.MaxHp, 0, 1);
+            double pct = ratio * 100.0;
+            TargetHpRatio = ratio;
+            TargetHpRest = 1.0 - ratio;
             TargetHpText = $"{tgt.RemainHp:N0} / {tgt.MaxHp:N0}  {pct:F1}%";
+            TargetHpVisibility = hasTarget ? Visibility.Visible : Visibility.Collapsed;
         }
         else
         {
+            TargetHpRatio = 0;
+            TargetHpRest = 1.0;
             TargetHpText = string.Empty;
+            TargetHpVisibility = Visibility.Collapsed;
         }
 
         long durationMs = Math.Max(report.BattleEnd - report.BattleStart, 0);
         Duration = $"{durationMs / 1000.0:F1}s";
+        CombatTimerVisibility = durationMs > 0 ? Visibility.Visible : Visibility.Collapsed;
+        // In combat = activity within the last ~1.5s (mirrors React isInCombat + 1s debounce).
+        bool inCombat = report.Information.Count > 0
+            && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - report.BattleEnd < 1500;
+        CombatStatusText = inCombat ? "전투 중" : "대기 중";
+        CombatStatusBrush = inCombat ? CombatActiveBrush : CombatTimeBrush;
 
         // metric = amount (total mode) or dps. Sort desc, take 8, always include self.
         bool total = _settings.UseTotalDamage;
@@ -180,6 +239,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         }
 
         PlaceholderVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        TargetInfoVisibility = Rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed; // React TargetInfo shows when players>0
     }
 
     private readonly record struct Entry(int Uid, DpsInformation Info, User? User);

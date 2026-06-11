@@ -274,8 +274,7 @@ public partial class App : Application
         };
         _joinPanel.CloseRequested += () => _joinPanel.Park();
 
-        // Auto-open on the empty -> non-empty transition (web isOpen behavior).
-        _joinViewModel.RequestPresent += () =>
+        void PresentJoinPanel()
         {
             if (!_joinPanelPositioned)
             {
@@ -284,6 +283,22 @@ public partial class App : Application
             }
 
             _joinPanel.Present(true);
+        }
+
+        // Auto-open on the empty -> non-empty transition (web isOpen behavior).
+        _joinViewModel.RequestPresent += PresentJoinPanel;
+
+        // 계정/파티 신청 header button: toggle the panel manually (Opacity tracks park/present).
+        overlay.JoinRequested += () =>
+        {
+            if (_joinPanel.Opacity > 0)
+            {
+                _joinPanel.Park();
+            }
+            else
+            {
+                PresentJoinPanel();
+            }
         };
 
         // Store events fire on the meter-consumer thread; marshal to the UI.
