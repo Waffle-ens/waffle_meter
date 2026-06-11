@@ -146,6 +146,23 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private string _status;
     public string Status { get => _status; set => Set(ref _status, value); }
 
+    private string _recognizedStatus = string.Empty;
+    /// <summary>"· 콘팡 인식됨" shown beside the capture status once the own character is detected.</summary>
+    public string RecognizedStatus { get => _recognizedStatus; private set => Set(ref _recognizedStatus, value); }
+
+    private Visibility _recognizedVisibility = Visibility.Collapsed;
+    public Visibility RecognizedVisibility { get => _recognizedVisibility; private set => Set(ref _recognizedVisibility, value); }
+
+    /// <summary>App calls this each tick from StatsBuilder.OwnCharacter() so the indicator appears the
+    /// moment the own character is recognized (and names it when known).</summary>
+    public void SetRecognized(bool detected, string? nickname)
+    {
+        RecognizedVisibility = detected ? Visibility.Visible : Visibility.Collapsed;
+        RecognizedStatus = !detected
+            ? string.Empty
+            : string.IsNullOrWhiteSpace(nickname) ? "· 캐릭터 인식됨" : $"· {nickname} 인식됨";
+    }
+
     private Visibility _placeholderVisibility = Visibility.Visible;
     public Visibility PlaceholderVisibility { get => _placeholderVisibility; private set => Set(ref _placeholderVisibility, value); }
 
@@ -196,7 +213,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         }
 
         long durationMs = Math.Max(report.BattleEnd - report.BattleStart, 0);
-        Duration = $"{durationMs / 1000.0:F1}s";
+        Duration = FormatDuration(durationMs);
         // In combat = activity within the last ~1.5s (mirrors React isInCombat + 1s debounce).
         bool inCombat = report.Information.Count > 0
             && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - report.BattleEnd < 1500;
@@ -286,6 +303,19 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         TargetInfoVisibility = Rows.Count > 0 && (!minimal || _settings.ShowTargetInfoInMinimal) ? Visibility.Visible : Visibility.Collapsed;
         CombatTimerVisibility = durationMs > 0 && Rows.Count > 0 && (!minimal || _settings.ShowCombatTimerInMinimal)
             ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Combat-time readout: under a minute keeps "12.3s"; from a minute up it converts to
+    /// "6m 32s" (whole seconds, decimals truncated) so long fights read cleanly.</summary>
+    private static string FormatDuration(long ms)
+    {
+        long totalSeconds = ms / 1000;
+        if (totalSeconds < 60)
+        {
+            return $"{ms / 1000.0:F1}s";
+        }
+
+        return $"{totalSeconds / 60}m {totalSeconds % 60}s";
     }
 
     /// <summary>Boss HP readout per React targetInfoDisplayMode.</summary>

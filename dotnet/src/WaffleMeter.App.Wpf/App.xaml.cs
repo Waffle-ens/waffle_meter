@@ -96,11 +96,13 @@ public partial class App : Application
         skinManager.Changed += viewModel.RefreshSkin; // re-theme stat colors on light/dark swap
         var window = new OverlayWindow { DataContext = viewModel };
         LoadPosition(services.Props, window);
-        LoadWindowSize(services.Props, "meterWidth", "meterHeight", window);
+        // The meter auto-sizes its HEIGHT to the row count (SizeToContent=Height) so no scrollbar appears;
+        // only WIDTH is user-resizable + persisted.
+        LoadWindowWidth(services.Props, "meterWidth", window);
         window.Show();
         _overlayWindow = window;
         AttachScreenClamp(window);
-        AttachResize(window, services.Props, "meterWidth", "meterHeight");
+        AttachResize(window, services.Props, "meterWidth", "meterHeight", widthOnly: true);
         // Snap all windows back onto a monitor the moment multi-monitor movement is turned off.
         _settings.PropertyChanged += (_, e) =>
         {
@@ -207,6 +209,8 @@ public partial class App : Application
 
             viewModel.Update(report);
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
+            StatsOwnCharacter own = services.StatsBuilder.OwnCharacter();
+            viewModel.SetRecognized(own.Detected, own.Nickname);
             MaybePromptConsent(services, window);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = message);
@@ -302,12 +306,7 @@ public partial class App : Application
         string name = _lastReport.Contributors.FirstOrDefault(c => c.Id == uid)?.Nickname ?? uid.ToString();
         _detailViewModel = new DetailsViewModel(_lastReport, uid, services.Calculator, name, _theme!, _settings!.FontFamily);
         _detailUid = uid;
-        _detailWindow = new DetailWindow
-        {
-            DataContext = _detailViewModel,
-            Left = owner.Left + owner.ActualWidth + 8,
-            Top = owner.Top,
-        };
+        _detailWindow = new DetailWindow { DataContext = _detailViewModel };
         _detailWindow.Closed += (_, _) =>
         {
             _detailWindow = null;
@@ -315,9 +314,33 @@ public partial class App : Application
             _detailUid = 0;
         };
         LoadWindowSize(services.Props, "detailWidth", "detailHeight", _detailWindow);
+        PlaceDetailWindow(owner, _detailWindow); // right of the meter, flipping left if it would clip off-screen
         _detailWindow.Show();
         AttachScreenClamp(_detailWindow);
         AttachResize(_detailWindow, services.Props, "detailWidth", "detailHeight");
+    }
+
+    /// <summary>Place the detail window beside the meter: to its RIGHT by default, flipped to the LEFT
+    /// when the right side would run off the monitor (the reported "opens off-screen" bug when the meter
+    /// sits at the right edge). Clamped to the owner's monitor so it's always fully visible.</summary>
+    private static void PlaceDetailWindow(Window owner, Window detail)
+    {
+        const double gap = 8;
+        double w = detail.Width, h = detail.Height;
+
+        IntPtr hwnd = new WindowInteropHelper(owner).Handle;
+        System.Drawing.Rectangle b = System.Windows.Forms.Screen.FromHandle(hwnd).Bounds; // physical px
+        DpiScale dpi = VisualTreeHelper.GetDpi(owner);
+        double left = b.Left / dpi.DpiScaleX, right = b.Right / dpi.DpiScaleX;
+        double top = b.Top / dpi.DpiScaleY, bottom = b.Bottom / dpi.DpiScaleY;
+
+        double rightPos = owner.Left + owner.ActualWidth + gap;
+        double leftPos = owner.Left - w - gap;
+        double x = rightPos + w <= right ? rightPos          // fits on the right
+                 : leftPos >= left ? leftPos                 // else flip to the left
+                 : Math.Max(left, right - w);                // neither side fits: clamp inside
+        detail.Left = x;
+        detail.Top = Math.Min(owner.Top, Math.Max(top, bottom - h));
     }
 
     private void WireJoinPanel(MeterServices services, OverlayWindow overlay)
@@ -580,14 +603,27 @@ public partial class App : Application
         }
     }
 
-    /// <summary>Attach edge resize + persist the new size on resize.</summary>
-    private void AttachResize(Window window, PropertyHandler props, string wKey, string hKey)
+    /// <summary>Apply only a persisted WIDTH (for the meter, whose height auto-sizes to its content).</summary>
+    private static void LoadWindowWidth(PropertyHandler props, string wKey, Window window)
+    {
+        if (double.TryParse(props.GetProperty(wKey), NumberStyles.Float, CultureInfo.InvariantCulture, out double w) && w >= window.MinWidth)
+        {
+            window.Width = w;
+        }
+    }
+
+    /// <summary>Attach edge resize + persist the new size on resize. When <paramref name="widthOnly"/>,
+    /// only the width is persisted (the window's height is content-driven).</summary>
+    private void AttachResize(Window window, PropertyHandler props, string wKey, string hKey, bool widthOnly = false)
     {
         WindowResizer.Attach(window);
         window.SizeChanged += (_, _) =>
         {
             props.SetProperty(wKey, window.ActualWidth.ToString("0", CultureInfo.InvariantCulture));
-            props.SetProperty(hKey, window.ActualHeight.ToString("0", CultureInfo.InvariantCulture));
+            if (!widthOnly)
+            {
+                props.SetProperty(hKey, window.ActualHeight.ToString("0", CultureInfo.InvariantCulture));
+            }
         };
     }
 

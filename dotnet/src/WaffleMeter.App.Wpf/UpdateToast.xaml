@@ -29,9 +29,7 @@
                     <TextBlock Text="{Binding Title}" Foreground="{DynamicResource Skin.Fg}" FontSize="13" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Text="{Binding Description}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
-                <Button Grid.Column="2" Content="&#xE8BB;" Click="OnCloseButton" FontFamily="Segoe MDL2 Assets" FontSize="10"
-                        Width="22" Height="22" Padding="0" VerticalAlignment="Top" Cursor="Hand"
-                        Background="Transparent" Foreground="{DynamicResource Skin.MutedFg}" BorderThickness="0"/>
+                <Button Grid.Column="2" Content="&#xE8BB;" Click="OnCloseButton" Style="{StaticResource HeaderCloseButton}" VerticalAlignment="Top"/>
             </Grid>
 
             <!-- progress (downloading) -->

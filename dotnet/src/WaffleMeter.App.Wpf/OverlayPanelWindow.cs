@@ -36,6 +36,7 @@ public abstract class OverlayPanelWindow : Window
     private const int WmWindowPosChanged = 0x0047;
 
     private IntPtr _handle;
+    private bool _dragging;
 
     /// <summary>Raised after a drag completes with the new Left/Top (App persists it).</summary>
     public event Action<double, double>? PositionChanged;
@@ -53,7 +54,10 @@ public abstract class OverlayPanelWindow : Window
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg is WmActivate or WmWindowPosChanged)
+        // Skip the re-assert while a drag is in flight: WM_WINDOWPOSCHANGED fires on every move tick, and
+        // re-applying the frame style mid-drag forces a repaint that reads as a flicker. Re-assert once
+        // when the drag ends (OnDragHandle).
+        if ((msg is WmActivate or WmWindowPosChanged) && !_dragging)
         {
             SyncInputStyle();
         }
@@ -119,7 +123,17 @@ public abstract class OverlayPanelWindow : Window
     {
         if (e.ButtonState == MouseButtonState.Pressed)
         {
-            DragMove();
+            _dragging = true;
+            try
+            {
+                DragMove();
+            }
+            finally
+            {
+                _dragging = false;
+            }
+
+            SyncInputStyle(); // re-assert once now the drag has settled
             PositionChanged?.Invoke(Left, Top);
         }
     }

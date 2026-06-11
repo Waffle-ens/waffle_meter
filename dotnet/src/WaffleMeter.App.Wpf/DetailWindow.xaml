@@ -18,14 +18,95 @@
         <Style x:Key="Head" TargetType="TextBlock" BasedOn="{StaticResource Stat}">
             <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
         </Style>
+
+        <!-- Section expander styled to match the meter: a row-card header with a MDL2 chevron that flips
+             on expand, our row-bg/hover, and a disabled dim. -->
+        <Style x:Key="DetailExpander" TargetType="Expander">
+            <Setter Property="Margin" Value="0,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <Border Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                BorderThickness="1" CornerRadius="6">
+                            <DockPanel>
+                                <ToggleButton DockPanel.Dock="Top" Focusable="False" OverridesDefaultStyle="True" Cursor="Hand"
+                                              Content="{TemplateBinding Header}"
+                                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border x:Name="hb" Background="Transparent" Padding="10,7" CornerRadius="6"
+                                                    TextElement.Foreground="{DynamicResource Skin.Fg}" TextElement.FontWeight="SemiBold" TextElement.FontSize="12">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <ContentPresenter Grid.Column="0" VerticalAlignment="Center"/>
+                                                    <TextBlock x:Name="chev" Grid.Column="1" Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
+                                                               FontSize="11" FontWeight="Normal" Foreground="{DynamicResource Skin.MutedFg}" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="False">
+                                                    <Setter TargetName="chev" Property="Text" Value="&#xE76C;"/>
+                                                </Trigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="hb" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <ContentPresenter x:Name="content" DockPanel.Dock="Top"/>
+                            </DockPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="False">
+                                <Setter TargetName="content" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Skill-chain expand toggle (the +/- in the skill table) restyled as a clean MDL2 chevron. -->
+        <Style x:Key="ChainToggle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="3">
+                            <TextBlock x:Name="g" Text="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="9"
+                                       Foreground="{DynamicResource Skin.MutedFg}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="g" Property="Text" Value="&#xE70D;"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
+                                <Setter TargetName="g" Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Border Background="{DynamicResource Skin.PanelBg}" CornerRadius="8" Padding="12"
             TextElement.FontFamily="{Binding FontFamily, Converter={StaticResource FontConv}}">
         <DockPanel>
             <Grid DockPanel.Dock="Top" MouseLeftButtonDown="OnDragHandle" Background="Transparent" Margin="0,0,0,8">
                 <TextBlock Text="{Binding Title}" Foreground="{DynamicResource Skin.Fg}" FontWeight="Bold" FontSize="14"/>
-                <Button Content="✕" Click="OnClose" HorizontalAlignment="Right" Width="24" Height="24"
-                        Background="Transparent" Foreground="{DynamicResource Skin.MutedFg}" BorderThickness="0" FontSize="12"/>
+                <Button Content="&#xE8BB;" Click="OnClose" HorizontalAlignment="Right" Style="{StaticResource HeaderCloseButton}"/>
             </Grid>
 
             <!-- 8-cell summary grid -->
@@ -45,7 +126,7 @@
 
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                    <Expander Header="버프 가동률" IsEnabled="{Binding HasBuffs}" Foreground="{DynamicResource Skin.Fg}" Margin="0,2">
+                    <Expander Header="버프 가동률" IsEnabled="{Binding HasBuffs}" Style="{StaticResource DetailExpander}">
                         <ItemsControl ItemsSource="{Binding Buffs}" Margin="8,4">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -56,11 +137,14 @@
                                                 <DataTemplate>
                                                     <Grid Margin="0,1" ToolTip="{Binding Description}">
                                                         <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="150"/>
+                                                            <ColumnDefinition Width="172"/>
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="52"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                            <Image Source="{Binding IconSource}" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                        </StackPanel>
                                                         <Grid Grid.Column="1" Height="8" VerticalAlignment="Center">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
@@ -79,7 +163,7 @@
                         </ItemsControl>
                     </Expander>
 
-                    <Expander Header="디버프 가동률" IsEnabled="{Binding HasDebuffs}" Foreground="{DynamicResource Skin.Fg}" Margin="0,2">
+                    <Expander Header="디버프 가동률" IsEnabled="{Binding HasDebuffs}" Style="{StaticResource DetailExpander}">
                         <ItemsControl ItemsSource="{Binding Debuffs}" Margin="8,4">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -90,11 +174,14 @@
                                                 <DataTemplate>
                                                     <Grid Margin="0,1" ToolTip="{Binding Description}">
                                                         <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="150"/>
+                                                            <ColumnDefinition Width="172"/>
                                                             <ColumnDefinition Width="*"/>
                                                             <ColumnDefinition Width="52"/>
                                                         </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                            <Image Source="{Binding IconSource}" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                        </StackPanel>
                                                         <Grid Grid.Column="1" Height="8" VerticalAlignment="Center">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
@@ -113,7 +200,7 @@
                         </ItemsControl>
                     </Expander>
 
-                    <Expander Header="스킬 피해량" IsExpanded="True" Foreground="{DynamicResource Skin.Fg}" Margin="0,2">
+                    <Expander Header="스킬 피해량" IsExpanded="True" Style="{StaticResource DetailExpander}">
                         <StackPanel Margin="4,4">
                             <Border Background="{DynamicResource Skin.TableHeadBg}" CornerRadius="4" Margin="0,0,0,3">
                             <Grid Margin="2,3">
@@ -156,18 +243,7 @@
                                                 </Grid.ColumnDefinitions>
                                                 <ToggleButton Grid.Column="0" IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                               Visibility="{Binding HasChildren, Converter={StaticResource BoolToVis}}"
-                                                              Width="16" Height="16" Padding="0" FontSize="10">
-                                                    <ToggleButton.Style>
-                                                        <Style TargetType="ToggleButton">
-                                                            <Setter Property="Content" Value="+"/>
-                                                            <Style.Triggers>
-                                                                <Trigger Property="IsChecked" Value="True">
-                                                                    <Setter Property="Content" Value="−"/>
-                                                                </Trigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ToggleButton.Style>
-                                                </ToggleButton>
+                                                              Style="{StaticResource ChainToggle}"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding Merged.Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="12" TextTrimming="CharacterEllipsis"/>
                                                 <TextBlock Grid.Column="2" Text="{Binding Merged.HitsText}" Style="{StaticResource Stat}"/>
                                                 <TextBlock Grid.Column="3" Text="{Binding Merged.CritText}" Style="{StaticResource Stat}"/>

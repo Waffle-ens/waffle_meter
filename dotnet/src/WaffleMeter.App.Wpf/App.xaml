@@ -1,3 +1,13 @@
 <Application x:Class="WaffleMeter.App.Wpf.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" />
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Shared overlay chrome (close/icon buttons). The skin palette is inserted at index 0
+                     at runtime by SkinManager; this stays merged so StaticResource lookups resolve. -->
+                <ResourceDictionary Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Themes/PanelChrome.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

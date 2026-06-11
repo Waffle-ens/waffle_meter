@@ -25,7 +25,11 @@ public static class ScreenClamp
             return;
         }
 
-        System.Drawing.Rectangle wa = System.Windows.Forms.Screen.FromHandle(hwnd).WorkingArea; // physical px
+        // Full monitor bounds (not WorkingArea) so a window can travel to the true screen edges on every
+        // side — incl. down past the taskbar. WorkingArea stops short of the taskbar, which read as the
+        // window "moving less" at the bottom while top/left/right reached the edge. The game overlay is
+        // meant to sit anywhere on the monitor (the game is usually fullscreen/taskbar-hidden anyway).
+        System.Drawing.Rectangle wa = System.Windows.Forms.Screen.FromHandle(hwnd).Bounds; // physical px
         DpiScale dpi = VisualTreeHelper.GetDpi(window);
         double left = wa.Left / dpi.DpiScaleX;
         double top = wa.Top / dpi.DpiScaleY;

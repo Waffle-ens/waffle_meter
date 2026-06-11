@@ -1,0 +1,57 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+      Shared overlay chrome (merged app-wide in App.xaml) so every window/panel shares ONE look.
+      HeaderIconButton/HeaderCloseButton: Segoe MDL2 Assets glyph buttons, transparent until hover.
+      The close button is the single canonical design used by the meter header AND every panel.
+    -->
+    <Style x:Key="HeaderIconButton" TargetType="Button">
+        <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Width" Value="26"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <!-- Tooltips on a WS_EX_NOACTIVATE overlay dismiss quickly; hold them long enough to read. -->
+        <Setter Property="ToolTipService.InitialShowDelay" Value="250"/>
+        <Setter Property="ToolTipService.ShowDuration" Value="20000"/>
+        <Setter Property="ToolTipService.BetweenShowDelay" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Close: same shape, red on hover. Canonical for the meter header AND all panels. -->
+    <Style x:Key="HeaderCloseButton" TargetType="Button" BasedOn="{StaticResource HeaderIconButton}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="bg" Property="Background" Value="#33E81123"/>
+                            <Setter Property="Foreground" Value="#FFF36A6A"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

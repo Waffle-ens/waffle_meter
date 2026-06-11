@@ -55,9 +55,7 @@
                     BorderBrush="{DynamicResource Skin.Border}" BorderThickness="0,0,0,1" MouseLeftButtonDown="OnDragHandle">
                 <Grid Margin="12,8">
                     <TextBlock Text="표시할 스킬 선택" Foreground="{DynamicResource Skin.Fg}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
-                    <Button Content="✕" Click="OnCloseButton" ToolTip="닫기" HorizontalAlignment="Right"
-                            Width="24" Height="24" Padding="0" Background="Transparent"
-                            Foreground="{DynamicResource Skin.MutedFg}" BorderThickness="0" Cursor="Hand"/>
+                    <Button Content="&#xE8BB;" Click="OnCloseButton" ToolTip="닫기" HorizontalAlignment="Right" Style="{StaticResource HeaderCloseButton}"/>
                 </Grid>
             </Border>
 

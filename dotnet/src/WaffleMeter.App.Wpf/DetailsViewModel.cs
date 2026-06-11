@@ -246,6 +246,7 @@ public sealed class BuffRowVM
         BarRest = 1.0 - BarRatio;
         Brush = DetailsViewModel.BuffBrush(row.Rate);
         Description = row.Description;
+        IconSource = JoinIcons.Skill(row.Code); // buff/debuff share the skill-icon manifest
     }
 
     public string Name { get; }
@@ -254,4 +255,5 @@ public sealed class BuffRowVM
     public double BarRest { get; }
     public Brush Brush { get; }
     public string Description { get; }
+    public ImageSource? IconSource { get; }
 }

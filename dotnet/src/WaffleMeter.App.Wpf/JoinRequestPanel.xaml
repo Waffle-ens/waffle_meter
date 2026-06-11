@@ -43,12 +43,8 @@
                         </Border>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Content="&#xE713;" Click="OnSettingsButton" ToolTip="표시할 스킬 선택" FontFamily="Segoe MDL2 Assets" FontSize="12"
-                                Width="24" Height="24" Padding="0" Background="Transparent" Margin="0,0,2,0"
-                                Foreground="{DynamicResource Skin.MutedFg}" BorderThickness="0" Cursor="Hand"/>
-                        <Button Content="✕" Click="OnCloseButton" ToolTip="닫기"
-                                Width="24" Height="24" Padding="0" Background="Transparent"
-                                Foreground="{DynamicResource Skin.MutedFg}" BorderThickness="0" Cursor="Hand"/>
+                        <Button Content="&#xE713;" Click="OnSettingsButton" ToolTip="표시할 스킬 선택" Style="{StaticResource HeaderIconButton}" Margin="0,0,2,0"/>
+                        <Button Content="&#xE8BB;" Click="OnCloseButton" ToolTip="닫기" Style="{StaticResource HeaderCloseButton}"/>
                     </StackPanel>
                 </Grid>
             </Border>

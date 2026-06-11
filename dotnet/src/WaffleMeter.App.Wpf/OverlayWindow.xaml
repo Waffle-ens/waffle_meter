@@ -9,7 +9,7 @@
         Topmost="True"
         ShowInTaskbar="False"
         ResizeMode="CanResize"
-        SizeToContent="Manual"
+        SizeToContent="Height"
         Width="420" Height="300" MinWidth="320" MinHeight="150"
         Left="40" Top="40"
         FontFamily="Segoe UI">
@@ -17,35 +17,10 @@
         <local:RatioToStarConverter x:Key="RatioToStar"/>
         <local:FontFamilyConverter x:Key="FontConv"/>
         <local:RowHeightToFontSizeConverter x:Key="FontSize"/>
+        <local:OffsetConverter x:Key="Offset"/>
 
-        <!-- Header icon button: Segoe MDL2 Assets glyph, transparent until hover (skin row-hover bg +
-             brighter fg). One consistent, crisp look for the whole header control row. -->
-        <Style x:Key="HeaderIconButton" TargetType="Button">
-            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Width" Value="26"/>
-            <Setter Property="Height" Value="22"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
-                                <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!-- HeaderIconButton / HeaderCloseButton live in Themes/PanelChrome.xaml (merged app-wide) so the
+             meter header and every panel share one button look + tooltip timing. -->
         <!-- Compact opacity slider: thin rounded track, accent fill left of the thumb, small round thumb
              (replaces the default WPF chrome that clashed with the dark overlay). -->
         <Style x:Key="OpacitySlider" TargetType="Slider">
@@ -87,24 +62,6 @@
                                 </Track.Thumb>
                             </Track>
                         </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <!-- Close: same shape, red on hover. -->
-        <Style x:Key="HeaderCloseButton" TargetType="Button" BasedOn="{StaticResource HeaderIconButton}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bg" Property="Background" Value="#33E81123"/>
-                                <Setter Property="Foreground" Value="#FFF36A6A"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -154,7 +111,8 @@
             </Grid>
 
             <!-- target-info bar (React TargetInfo.tsx): above the rows, shown when there are rows -->
-            <Border Grid.Row="1" CornerRadius="6" Padding="8,0" Margin="0,0,0,6" Height="26" ClipToBounds="True"
+            <Border Grid.Row="1" CornerRadius="6" Padding="8,0" Margin="0,0,0,6" ClipToBounds="True"
+                    Height="{Binding Settings.RowHeight, Converter={StaticResource Offset}, ConverterParameter=6}"
                     Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
                     Visibility="{Binding TargetInfoVisibility}">
                 <Grid>
@@ -184,7 +142,7 @@
                 </Grid>
             </Border>
 
-            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
             <TextBlock Text="전투 대기 중" Foreground="{DynamicResource Skin.MutedFg}" HorizontalAlignment="Center"
                        Margin="0,8" Visibility="{Binding PlaceholderVisibility}"/>
@@ -192,7 +150,7 @@
             <ItemsControl ItemsSource="{Binding Rows}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border CornerRadius="6" Padding="5,3" Margin="0,2" Cursor="Hand" BorderThickness="1"
+                        <Border CornerRadius="6" Padding="5,3" Margin="0,1" Cursor="Hand" BorderThickness="1"
                                 ClipToBounds="True" MouseLeftButtonUp="OnRowClick" MinHeight="{Binding RowHeight}">
                             <Border.Style>
                                 <!-- Resting card fill + soft border (matches React .meter-row); hover lightens. -->
@@ -210,7 +168,7 @@
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*"/>
-                                    <RowDefinition Height="2"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <Grid Grid.Row="0">
                                     <!-- thick "fill" gauge behind the content (barStyle=fill): a proportional
@@ -269,12 +227,12 @@
                                     </Border>
                                   </Grid>
                                 </Grid>
-                                <Grid Grid.Row="1" Margin="0,2,0,0" Visibility="{Binding BottomBarVisibility}">
+                                <Grid Grid.Row="1" Height="3" Margin="0,3,0,0" Visibility="{Binding BottomBarVisibility}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
                                         <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
                                     </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Background="{Binding FillBrush}" CornerRadius="1"/>
+                                    <Border Grid.Column="0" Background="{Binding FillBrush}" CornerRadius="1.5"/>
                                 </Grid>
                             </Grid>
                         </Border>
@@ -301,7 +259,11 @@
                 </Grid>
             </Border>
 
-            <TextBlock Grid.Row="4" Text="{Binding Status}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" Margin="0,6,0,0"/>
+            <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,6,0,0">
+                <TextBlock Text="{Binding Status}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding RecognizedStatus}" Foreground="{Binding CombatStatusBrush}" FontSize="10" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="6,0,0,0" Visibility="{Binding RecognizedVisibility}"/>
+            </StackPanel>
         </Grid>
     </Border>
 </Window>

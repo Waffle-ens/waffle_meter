@@ -96,7 +96,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("Pretendard", "Pretendard"),
         new SettingOption("Spoqa Han Sans Neo", "Spoqa Han Sans Neo"),
         // Values are the fonts' INTERNAL family names (must match for the bundled lookup):
-        new SettingOption("Freesentation", "Freesentation 4"),     // file family = "Freesentation 4"
+        new SettingOption("Freesentation", "Freesentation"),       // file family = "Freesentation"
         new SettingOption("Tmoney Round Wind", "Tmoney RoundWind"), // file family = "Tmoney RoundWind"
     };
 

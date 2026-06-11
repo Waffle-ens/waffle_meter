@@ -54,7 +54,9 @@ public sealed class FontFamilyConverter : IValueConverter
         {
             // Embedded (Fonts/*.ttf as Resource) first — but only if it actually resolved to a
             // typeface, so an unbundled name cleanly falls through to a system font instead of a blank.
-            var bundled = new FontFamily(new Uri("pack://application:,,,/"), $"./Fonts/#{name}");
+            // Assembly-qualified location so the bundled font resolves regardless of the entry assembly
+            // (the bare pack URI resolves against the host exe, which breaks UiPreview + any other host).
+            var bundled = new FontFamily(new Uri("pack://application:,,,/"), $"/WaffleMeter.App.Wpf;component/Fonts/#{name}");
             if (bundled.GetTypefaces().Count > 0)
             {
                 return bundled;
@@ -76,6 +78,26 @@ public sealed class FontFamilyConverter : IValueConverter
 /// Row height -&gt; font size, scaling like React MeterRow (sizes derive from rowHeight). Parameter is
 /// "<c>mult:min</c>" (e.g. "0.4:10" primary, "0.32:9" secondary); result = max(min, floor(height*mult)).
 /// </summary>
+/// <summary>Adds a constant (ConverterParameter) to a numeric value — e.g. the boss/target bar height =
+/// row height + a few px so it reads slightly thicker than the player rows.</summary>
+public sealed class OffsetConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        double v = value switch { int i => i, double d => d, _ => 0.0 };
+        double offset = 0;
+        if (parameter is string p)
+        {
+            double.TryParse(p, NumberStyles.Float, CultureInfo.InvariantCulture, out offset);
+        }
+
+        return v + offset;
+    }
+
+    public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 public sealed class RowHeightToFontSizeConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object? parameter, CultureInfo culture)

@@ -24,6 +24,12 @@ internal static class Program
         Directory.CreateDirectory(outDir);
 
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        // Shared overlay chrome (HeaderIconButton/HeaderCloseButton) — merged app-wide by App.xaml in the
+        // real app; the preview host must merge it too so windows resolve the StaticResource styles.
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri("pack://application:,,,/WaffleMeter.App.Wpf;component/Themes/PanelChrome.xaml"),
+        });
 
         VerifySettings();
 
@@ -71,6 +77,15 @@ internal static class Program
                     Capture(() => new OverlayWindow { DataContext = bv }, palette, Path.Combine(outDir, $"meter_gauge_{bs}_Dark.png"));
                 }
                 settings.BarStyle = "fill";
+
+                // font test: a visually-distinct BUNDLED font must actually reach the row text (item 3).
+                string savedFont = settings.FontFamily;
+                settings.FontFamily = "Tmoney RoundWind";
+                var fv = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 중" };
+                fv.SetRecognized(true, "콘팡"); // also exercise the "캐릭터 인식됨" indicator (item 5)
+                fv.Update(SampleMeterReport(now));
+                Capture(() => new OverlayWindow { DataContext = fv }, palette, Path.Combine(outDir, "meter_font_Dark.png"));
+                settings.FontFamily = savedFont;
 
                 // idle case: durationMs>0 but 0 rows — must NOT stack placeholder + combat-timer pill.
                 var idle = new OverlayViewModel("1.7.8", settings, theme) { Status = "캡처 헬퍼 시작 실패: NotFound" };
