@@ -73,8 +73,13 @@ public sealed class DpsCalculator
 
     private int? ResolveActor(ParsedDamagePacket packet, ICollection<User> candidates)
     {
+        // Fold a summon's damage into its summoner — BUT never when the actor is itself a known player.
+        // The summon map persists across battles (only HardReset flushes it) and entity ids get reused,
+        // so a stale summonId->owner mapping could otherwise steal a FOREIGN player's skill (e.g. a 검성's
+        // 흡혈의 검) into another player's breakdown. A real player is never a summon, so attribute a known
+        // user's damage to that user directly. (Hardening over the original Kotlin's unconditional fold.)
         int? summoner = _dm.SummonerId(packet.ActorId);
-        if (summoner != null) return summoner;
+        if (summoner != null && _dm.User(packet.ActorId) == null) return summoner;
 
         if (IsSummonDamageSkill(packet.SkillCode))
         {
