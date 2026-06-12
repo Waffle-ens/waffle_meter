@@ -105,6 +105,8 @@ jobs:
         continue-on-error: true
         run: vpk download github --repoUrl https://github.com/${{ github.repository }} --channel ${{ env.CHANNEL }} --token ${{ secrets.GITHUB_TOKEN }}
 
+      # RELEASE_NOTES.md (markdown) is embedded by --releaseNotes; `vpk upload github` then uses it as the
+      # GitHub Release body, so each release page shows its patch notes (like the old Kotlin releases did).
       - name: Pack
         run: >
           vpk pack
@@ -117,6 +119,7 @@ jobs:
           --outputDir Releases
           --icon dotnet/Assets/waffle.ico
           --channel ${{ env.CHANNEL }}
+          --releaseNotes RELEASE_NOTES.md
 
       # ---- Pass 2: sign the generated Setup.exe AFTER packing (first-download SmartScreen) ----
       - name: Upload unsigned installer (for signing)
