@@ -163,6 +163,15 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             : string.IsNullOrWhiteSpace(nickname) ? "· 캐릭터 인식됨" : $"· {nickname} 인식됨";
     }
 
+    private Visibility _clickThroughVisibility = Visibility.Collapsed;
+    /// <summary>Header lock badge: visible while click-through (input pass-through) is active, so the user
+    /// can see the overlay is letting clicks fall through to the game (React Header LockKeyhole badge).</summary>
+    public Visibility ClickThroughVisibility { get => _clickThroughVisibility; private set => Set(ref _clickThroughVisibility, value); }
+
+    /// <summary>Driven by the overlay window whenever click-through toggles (hotkey, or taskbar-mode reset
+    /// clearing it) so the header lock badge always reflects the real pass-through state.</summary>
+    public void SetClickThroughIndicator(bool on) => ClickThroughVisibility = on ? Visibility.Visible : Visibility.Collapsed;
+
     private Visibility _placeholderVisibility = Visibility.Visible;
     public Visibility PlaceholderVisibility { get => _placeholderVisibility; private set => Set(ref _placeholderVisibility, value); }
 

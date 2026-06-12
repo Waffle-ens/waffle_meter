@@ -108,6 +108,16 @@ public partial class OverlayWindow : Window
     {
         _clickThrough = enable;
         SyncInputStyle();
+        NotifyClickThrough();
+    }
+
+    /// <summary>Push the current click-through state to the view model so the header lock badge tracks it.</summary>
+    private void NotifyClickThrough()
+    {
+        if (DataContext is OverlayViewModel vm)
+        {
+            vm.SetClickThroughIndicator(_clickThrough);
+        }
     }
 
     /// <summary>
@@ -136,6 +146,8 @@ public partial class OverlayWindow : Window
             ShowWindow(_handle, SwShowNoActivate);
             SyncInputStyle(); // re-assert after the show
         }
+
+        NotifyClickThrough(); // entering taskbar mode clears click-through — keep the badge in sync
     }
 
     /// <summary>Show the overlay; topMost tracks whether the game is foreground. Idempotent: the 300ms

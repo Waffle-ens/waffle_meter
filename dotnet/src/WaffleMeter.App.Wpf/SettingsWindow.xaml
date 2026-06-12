@@ -140,15 +140,6 @@
                         </Grid>
 
                         <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{Binding MeterOpacity, StringFormat='미터 투명도 — {0:P0}'}" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="메인 창과 상세 창 배경에 함께 적용됩니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding MeterOpacity}" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="아이온 활성화 시 표시" Style="{StaticResource SettingTitle}"/>
