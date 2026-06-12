@@ -213,19 +213,25 @@ public partial class App : Application
             viewModel.SetRecognized(own.Detected, own.Nickname);
             MaybePromptConsent(services, window);
         });
-        _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = message);
+        _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));
 
-        CaptureHostLaunch launch = CaptureHostLauncher.EnsureRunning();
-        if (launch is CaptureHostLaunch.Declined or CaptureHostLaunch.NotFound or CaptureHostLaunch.Failed)
-        {
-            viewModel.Status = $"캡처 헬퍼 시작 실패: {launch}";
-            return;
-        }
-
-        viewModel.Status = "캡처 헬퍼 연결 중…";
-        // Start off the UI thread: the pipe connect blocks until the helper's pipe is up.
+        viewModel.Status = "캡처 헬퍼 시작 중…";
+        // Launch + connect entirely off the UI thread. EnsureServing registers/triggers the elevated helper
+        // and WAITS for its pipe to actually appear: schtasks /run reports success when the task is merely
+        // triggered, so a VPN/booster or AV that silently blocks the (unsigned, elevated) helper would
+        // otherwise surface only as a 30s pipe-connect timeout. If the no-prompt task yields no pipe,
+        // EnsureServing escalates to a user-approved runas (harder to block) before reporting Blocked.
         Task.Run(() =>
         {
+            CaptureHostLaunch launch = CaptureHostLauncher.EnsureServing();
+            if (launch is CaptureHostLaunch.Declined or CaptureHostLaunch.NotFound
+                or CaptureHostLaunch.Failed or CaptureHostLaunch.Blocked)
+            {
+                Dispatcher.Invoke(() => viewModel.Status = CaptureLaunchMessage(launch));
+                return;
+            }
+
+            Dispatcher.Invoke(() => viewModel.Status = "캡처 헬퍼 연결 중…");
             try
             {
                 _engine.Start();
@@ -261,6 +267,32 @@ public partial class App : Application
             _updateToast.Present(true);
         });
         _ = _updateService.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
+    }
+
+    private static string CaptureLaunchMessage(CaptureHostLaunch launch) => launch switch
+    {
+        CaptureHostLaunch.Blocked =>
+            $"캡처 헬퍼('{CaptureHostLauncher.HostExeName}')가 차단된 것 같습니다. VPN·게임 가속기나 보안 프로그램이 " +
+            "헬퍼 실행을 막고 있을 수 있어요. 보안 프로그램 허용 목록에 이 파일을 추가하거나 잠시 끄고 다시 시작해 주세요.",
+        CaptureHostLaunch.Declined => "권한 상승(UAC)이 취소되어 캡처를 시작할 수 없습니다. 앱을 다시 시작하면 재시도합니다.",
+        CaptureHostLaunch.NotFound => "캡처 헬퍼 파일을 찾을 수 없습니다. 앱을 재설치해 주세요.",
+        _ => "캡처 헬퍼 시작에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    };
+
+    // The pipe wait only proves the helper PROCESS started — the WinDivert driver opens later, after the
+    // client connects. So a booster/AV that allows the process but blocks the .sys surfaces here (not as
+    // a launch failure). Re-route driver-load errors through the same actionable booster guidance.
+    private static string CaptureErrorMessage(string raw)
+    {
+        if (raw.Contains("WinDivert", StringComparison.OrdinalIgnoreCase)
+            || raw.Contains("driver", StringComparison.OrdinalIgnoreCase)
+            || raw.Contains("드라이버", StringComparison.Ordinal))
+        {
+            return "캡처 드라이버 로드에 실패했습니다. VPN·게임 가속기나 보안 프로그램이 드라이버를 막고 있을 수 있어요. " +
+                   $"허용 목록에 추가하거나 잠시 끄고 다시 시작해 주세요. (원본: {raw})";
+        }
+
+        return raw;
     }
 
     private void ExitApp()

@@ -33,25 +33,40 @@ Log($"waffle_meter capture helper (elevated) — pipe '{pipeName}'. Ctrl+C to ex
 // Ctrl+C terminates immediately even while blocked in WaitForConnection.
 Console.CancelKeyPress += (_, _) => Environment.Exit(0);
 
-using var server = new NamedPipeServerStream(
-    pipeName,
-    PipeDirection.InOut,
-    maxNumberOfServerInstances: 1,
-    PipeTransmissionMode.Byte,
-    PipeOptions.Asynchronous);
-
-server.WaitForConnection();
-Log("client connected.");
+NamedPipeServerStream server;
 try
 {
-    CaptureHostServer.Serve(
-        server,
-        (backendName, _) => backendName == "npcap" ? new NpcapBackend() : new WinDivertBackend(),
-        Log);
+    server = new NamedPipeServerStream(
+        pipeName,
+        PipeDirection.InOut,
+        maxNumberOfServerInstances: 1,
+        PipeTransmissionMode.Byte,
+        PipeOptions.Asynchronous);
 }
-catch (Exception ex)
+catch (IOException)
 {
-    Log($"session error: {ex.GetType().Name}: {ex.Message}");
+    // The pipe name is already owned by another helper instance — e.g. a launch race where the client's
+    // no-prompt scheduled task AND its runas fallback both started a helper. Serve-once means one is
+    // enough, so the loser just exits quietly instead of crashing with an unhandled "pipe busy".
+    Log("pipe already served by another helper instance — exiting.");
+    return 0;
+}
+
+using (server)
+{
+    server.WaitForConnection();
+    Log("client connected.");
+    try
+    {
+        CaptureHostServer.Serve(
+            server,
+            (backendName, _) => backendName == "npcap" ? new NpcapBackend() : new WinDivertBackend(),
+            Log);
+    }
+    catch (Exception ex)
+    {
+        Log($"session error: {ex.GetType().Name}: {ex.Message}");
+    }
 }
 
 Log("client disconnected — exiting.");

@@ -14,13 +14,14 @@ public sealed class CaptureHostLauncherTests
     }
 
     [Fact]
-    public void Ensure_running_returns_not_found_for_a_missing_exe()
+    public void Launch_returns_not_found_for_a_missing_exe()
     {
         // A random pipe name guarantees IsRunning() is false, so we exercise the missing-exe path
-        // without ever triggering a UAC prompt.
+        // without ever triggering a UAC prompt or the pipe-wait (NotFound returns before any launch).
         string randomPipe = "wm_nohost_" + Guid.NewGuid().ToString("N");
         string missing = Path.Combine(Path.GetTempPath(), "wm_missing_" + Guid.NewGuid().ToString("N") + ".exe");
 
+        Assert.Equal(CaptureHostLaunch.NotFound, CaptureHostLauncher.EnsureServing(missing, randomPipe));
         Assert.Equal(CaptureHostLaunch.NotFound, CaptureHostLauncher.EnsureRunning(missing, randomPipe));
     }
 

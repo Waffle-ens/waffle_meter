@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
+using System.Threading;
 using WaffleMeter.Capture.Live;
 
 namespace WaffleMeter.App.Core;
@@ -12,6 +13,10 @@ public enum CaptureHostLaunch
     Declined,
     NotFound,
     Failed,
+
+    /// <summary>A launch was requested (scheduled task and/or runas) but the helper never served the
+    /// pipe within the wait budget — typically a VPN/booster or AV silently blocking the elevated helper.</summary>
+    Blocked,
 }
 
 /// <summary>
@@ -75,6 +80,91 @@ public static class CaptureHostLauncher
         }
 
         return LaunchViaRunas(path);
+    }
+
+    /// <summary>
+    /// Like <see cref="EnsureRunning"/>, but VERIFIES the helper actually serves the pipe before returning,
+    /// and escalates a silently-failed launch. <c>schtasks /run</c> reports success when the task is merely
+    /// triggered — a VPN/game-booster or AV can block the (unsigned, elevated) helper so the process never
+    /// runs and the pipe never appears. So: launch, poll for the pipe up to <paramref name="readyTimeoutMs"/>,
+    /// and if the no-prompt task yielded no pipe, retry once via a user-approved <c>runas</c> (harder to
+    /// block than a silent task spawn). Returns <see cref="CaptureHostLaunch.Blocked"/> if nothing serves.
+    /// Call this off the UI thread (it blocks while polling).
+    /// </summary>
+    public static CaptureHostLaunch EnsureServing(
+        string? hostPath = null,
+        string pipeName = CaptureWireProtocol.DefaultPipeName,
+        int readyTimeoutMs = 15000)
+    {
+        if (IsRunning(pipeName))
+        {
+            return CaptureHostLaunch.AlreadyRunning;
+        }
+
+        string path = hostPath ?? ResolveHostPath();
+        if (!File.Exists(path))
+        {
+            return CaptureHostLaunch.NotFound;
+        }
+
+        // Attempt 1: installed builds prefer the no-prompt scheduled task; dev builds go straight to runas.
+        // The wait budget is generous (15s) on purpose: on the exact AV/booster machines this targets, a
+        // LEGITIMATE helper's cold start (unsigned exe scanned on launch) can take several seconds — too low
+        // a budget would manufacture an unnecessary runas (2nd UAC) for users who weren't actually blocked.
+        if (IsInstalledPath(path))
+        {
+            CaptureHostLaunch viaTask = LaunchViaScheduledTask(path);
+            if (viaTask is CaptureHostLaunch.Declined)
+            {
+                return viaTask; // user cancelled the one-time UAC — don't nag with a second prompt.
+            }
+
+            if (viaTask is CaptureHostLaunch.Launched && WaitForPipe(pipeName, readyTimeoutMs))
+            {
+                return CaptureHostLaunch.Launched;
+            }
+            // Task triggered but no pipe within the budget -> silently blocked. Escalate to runas.
+        }
+
+        // Final guard: the pipe may have appeared right at the budget boundary — don't fire a spurious UAC.
+        if (IsRunning(pipeName))
+        {
+            return CaptureHostLaunch.Launched;
+        }
+
+        CaptureHostLaunch viaRunas = LaunchViaRunas(path);
+        if (viaRunas is CaptureHostLaunch.Declined)
+        {
+            return viaRunas;
+        }
+
+        // Once the user approves UAC the helper starts promptly, so a shorter wait suffices here.
+        if (viaRunas is CaptureHostLaunch.Launched && WaitForPipe(pipeName, Math.Min(readyTimeoutMs, 10000)))
+        {
+            return CaptureHostLaunch.Launched;
+        }
+
+        // A launch was requested (task and/or runas) but no helper ever served the pipe.
+        return CaptureHostLaunch.Blocked;
+    }
+
+    /// <summary>Poll (non-intrusively, via <see cref="IsRunning"/>) for the helper's pipe to appear.
+    /// A non-blocked helper creates the pipe within the first moments of process start, so a multi-second
+    /// budget elapsing means the process isn't coming up.</summary>
+    private static bool WaitForPipe(string pipeName, int timeoutMs)
+    {
+        const int stepMs = 150;
+        for (int waited = 0; waited < timeoutMs; waited += stepMs)
+        {
+            if (IsRunning(pipeName))
+            {
+                return true;
+            }
+
+            Thread.Sleep(stepMs);
+        }
+
+        return IsRunning(pipeName);
     }
 
     /// <summary>An installed (Velopack) build lives under %LocalAppData%; dev builds run from the repo bin.

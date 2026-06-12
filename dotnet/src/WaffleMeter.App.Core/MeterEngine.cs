@@ -22,6 +22,7 @@ public sealed class MeterEngine : IDisposable
     private Thread? _consumer;
     private volatile bool _running;
     private volatile bool _resetRequested;
+    private volatile bool _disposed;
 
     public MeterServices Services => _services;
 
@@ -52,6 +53,14 @@ public sealed class MeterEngine : IDisposable
 
     public void Start(CaptureConfig config)
     {
+        // Idempotent + shutdown-safe: the launch runs on a background task that can take many seconds
+        // (helper launch + pipe wait), so the user may quit (Dispose) before this fires. Don't start a
+        // capture/consumer on a disposed or already-running engine.
+        if (_disposed || _running)
+        {
+            return;
+        }
+
         _backend.Start(config);
         _running = true;
         _consumer = new Thread(ConsumeLoop) { IsBackground = true, Name = "meter-consumer" };
@@ -122,6 +131,7 @@ public sealed class MeterEngine : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         Stop();
         _backend.Dispose();
     }
