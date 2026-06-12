@@ -20,6 +20,12 @@ public sealed class OverlayController
     private readonly PropertyHandler _props;
     private readonly DispatcherTimer _timer;
     private bool _aionEverFocused;
+    private uint _aionPid; // cached AION2 foreground PID; keeps the game recognized even when a
+                           // protected/anti-cheat process can no longer be OpenProcess'd to read its name
+    private int _parkPending; // consecutive "another app is foreground" polls before we actually park
+    // ~0.9s at the 300ms cadence: a short grace so brief focus excursions (game-owned popups, a quick
+    // alt-tab, the capture-helper UAC prompt) don't flicker the overlay (mirrors React's ~1s debounce).
+    private const int ParkGraceTicks = 3;
 
     public OverlayController(OverlayWindow window, PropertyHandler props)
     {
@@ -95,73 +101,112 @@ public sealed class OverlayController
             return; // parked/hidden owns visibility while hidden
         }
 
-        bool aionFocused = ForegroundExeEndsWith(AionExe);
-        bool selfFocused = ForegroundProcessId() == Environment.ProcessId;
+        Foreground fg = DetectForeground();
 
         if (!IsAutoHide)
         {
-            _window.Present(aionFocused); // always shown; topmost follows the game
+            _window.Present(fg == Foreground.Aion); // always shown; topmost follows the game
             return;
         }
 
         if (!_aionEverFocused)
         {
-            if (aionFocused)
+            if (fg == Foreground.Aion)
             {
                 _aionEverFocused = true;
             }
             else
             {
-                return; // don't park before the game has ever been focused
+                return; // startup grace: don't park before the game has ever been focused
             }
         }
 
-        if (aionFocused || selfFocused)
+        switch (fg)
         {
-            _window.Present(aionFocused);
-        }
-        else
-        {
-            _window.Park();
+            case Foreground.Aion:
+                _parkPending = 0;
+                _window.Present(true);
+                break;
+            case Foreground.Self:
+                _parkPending = 0;
+                _window.Present(false);
+                break;
+            case Foreground.Unknown:
+                // Ambiguous: no foreground window (alt-tab / UAC secure desktop / lock), or an
+                // unqueryable process that isn't the known game PID. Don't act on a non-answer —
+                // HOLD the current present/park state rather than wrongly parking.
+                break;
+            default: // Foreground.Other: a different app is genuinely foreground
+                // Park after a short grace so brief excursions don't flicker the overlay, and re-issue
+                // the park only ONCE when the grace elapses (not every tick).
+                if (_parkPending < ParkGraceTicks && ++_parkPending == ParkGraceTicks)
+                {
+                    _window.Park();
+                }
+
+                break;
         }
     }
 
-    private static int ForegroundProcessId()
+    private enum Foreground
+    {
+        Aion,    // the game is foreground (confirmed by exe name, or by the cached game PID)
+        Self,    // this app (overlay / settings / panels) is foreground
+        Other,   // a different, queryable process is foreground
+        Unknown, // can't tell: no foreground window, or an unqueryable (protected) non-cached process
+    }
+
+    /// <summary>Classify the foreground window. The game PID is cached on the first confirmed name match
+    /// so the game stays recognized even when anti-cheat later blocks OpenProcess (a denied query is
+    /// treated as Unknown, never as a false "not the game"); a transient null foreground is likewise
+    /// Unknown rather than a false negative that would wrongly park the overlay mid-fight.</summary>
+    private Foreground DetectForeground()
     {
         IntPtr hwnd = GetForegroundWindow();
         if (hwnd == IntPtr.Zero)
         {
-            return 0;
+            return Foreground.Unknown;
         }
 
         GetWindowThreadProcessId(hwnd, out uint pid);
-        return (int)pid;
-    }
-
-    private static bool ForegroundExeEndsWith(string exe)
-    {
-        int pid = ForegroundProcessId();
         if (pid == 0)
         {
-            return false;
+            return Foreground.Unknown;
         }
 
-        IntPtr handle = OpenProcess(ProcessQueryLimitedInformation, false, (uint)pid);
+        if ((int)pid == Environment.ProcessId)
+        {
+            return Foreground.Self;
+        }
+
+        IntPtr handle = OpenProcess(ProcessQueryLimitedInformation, false, pid);
         if (handle == IntPtr.Zero)
         {
-            return false;
+            // Protected / anti-cheat process we can't open: trust the cached game PID, else Unknown.
+            return pid == _aionPid ? Foreground.Aion : Foreground.Unknown;
         }
 
         try
         {
             var buffer = new StringBuilder(1024);
             int size = buffer.Capacity;
-            if (QueryFullProcessImageName(handle, 0, buffer, ref size))
+            if (!QueryFullProcessImageName(handle, 0, buffer, ref size))
             {
-                return buffer.ToString().EndsWith(exe, StringComparison.OrdinalIgnoreCase);
+                return pid == _aionPid ? Foreground.Aion : Foreground.Unknown;
             }
 
-            return false;
+            if (buffer.ToString().EndsWith(AionExe, StringComparison.OrdinalIgnoreCase))
+            {
+                _aionPid = pid; // remember the game PID for the anti-cheat-denial path above
+                return Foreground.Aion;
+            }
+
+            if (pid == _aionPid)
+            {
+                _aionPid = 0; // the cached PID was reused by a non-game process; forget it
+            }
+
+            return Foreground.Other;
         }
         finally
         {
