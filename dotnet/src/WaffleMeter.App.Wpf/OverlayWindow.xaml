@@ -151,7 +151,8 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border CornerRadius="6" Padding="5,3" Margin="0,1" Cursor="Hand" BorderThickness="1"
-                                ClipToBounds="True" MouseLeftButtonUp="OnRowClick" MinHeight="{Binding RowHeight}">
+                                ClipToBounds="True" MouseLeftButtonUp="OnRowClick" MinHeight="{Binding RowHeight}"
+                                Typography.NumeralAlignment="Tabular">
                             <Border.Style>
                                 <!-- Resting card fill + soft border (matches React .meter-row); hover lightens. -->
                                 <Style TargetType="Border">
@@ -222,7 +223,7 @@
                                     </Border>
                                     <Border Grid.Column="5" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
                                             CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding PercentText}" Foreground="{Binding PercentBrush}" MinWidth="40" TextAlignment="Right"
+                                        <TextBlock Text="{Binding PercentText}" Foreground="{Binding PercentBrush}" MinWidth="40" TextAlignment="Center"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
                                     </Border>
                                   </Grid>
