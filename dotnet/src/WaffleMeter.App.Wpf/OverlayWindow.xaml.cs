@@ -55,6 +55,9 @@ public partial class OverlayWindow : Window
     public event Action? ThemeRequested;
     public event Action? JoinRequested;
 
+    /// <summary>Header update badge clicked (App shows the restart toast on demand).</summary>
+    public event Action? UpdateRequested;
+
     public OverlayWindow()
     {
         InitializeComponent();
@@ -216,6 +219,8 @@ public partial class OverlayWindow : Window
     private void OnThemeButton(object sender, RoutedEventArgs e) => ThemeRequested?.Invoke();
 
     private void OnJoinButton(object sender, RoutedEventArgs e) => JoinRequested?.Invoke();
+
+    private void OnUpdateButton(object sender, RoutedEventArgs e) => UpdateRequested?.Invoke();
 
     private void OnRowClick(object sender, MouseButtonEventArgs e)
     {

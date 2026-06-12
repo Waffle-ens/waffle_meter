@@ -172,6 +172,21 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     /// clearing it) so the header lock badge always reflects the real pass-through state.</summary>
     public void SetClickThroughIndicator(bool on) => ClickThroughVisibility = on ? Visibility.Visible : Visibility.Collapsed;
 
+    private Visibility _updateReadyVisibility = Visibility.Collapsed;
+    /// <summary>Header "update available" badge: shown once an update is downloaded and ready. Clicking it
+    /// opens the restart toast on demand — there is no auto-popup, so the user updates when they choose.</summary>
+    public Visibility UpdateReadyVisibility { get => _updateReadyVisibility; private set => Set(ref _updateReadyVisibility, value); }
+
+    private string _updateTooltip = "업데이트";
+    public string UpdateTooltip { get => _updateTooltip; private set => Set(ref _updateTooltip, value); }
+
+    /// <summary>App calls this when an update has finished downloading; reveals the header update badge.</summary>
+    public void SetUpdateReady(string version)
+    {
+        UpdateTooltip = $"업데이트 {version} — 클릭하면 적용(재시작)";
+        UpdateReadyVisibility = Visibility.Visible;
+    }
+
     private Visibility _placeholderVisibility = Visibility.Visible;
     public Visibility PlaceholderVisibility { get => _placeholderVisibility; private set => Set(ref _placeholderVisibility, value); }
 

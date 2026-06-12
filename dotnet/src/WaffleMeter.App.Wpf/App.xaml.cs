@@ -262,15 +262,23 @@ public partial class App : Application
             switch (stage)
             {
                 case UpdateService.UpdateStage.Downloading: _updateToastVm.SetDownloading(info, percent); break;
-                case UpdateService.UpdateStage.Ready: _updateToastVm.SetReady(info); break;
+                case UpdateService.UpdateStage.Ready: _updateToastVm.SetReady(info); viewModel.SetUpdateReady(info); break;
                 case UpdateService.UpdateStage.Failed: _updateToastVm.SetFailed(info); break;
             }
 
+            // No auto-popup: the download runs silently and surfaces as the header "업데이트" badge on the
+            // meter (UpdateReadyVisibility). The toast is shown only on demand when the user clicks the badge.
+        });
+
+        // User clicks the meter's update badge -> show the restart toast (bottom-right) so they apply when
+        // they choose (the toast's 지금 재시작 -> UpdateService.ApplyAndRestart).
+        window.UpdateRequested += () =>
+        {
             Rect wa = SystemParameters.WorkArea;
             _updateToast.Left = wa.Right - _updateToast.Width - 16;
             _updateToast.Top = wa.Bottom - 130;
             _updateToast.Present(true);
-        });
+        };
         _ = _updateService.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
     }
 
