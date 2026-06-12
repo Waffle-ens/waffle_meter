@@ -102,6 +102,7 @@ public partial class App : Application
         window.Show();
         _overlayWindow = window;
         AttachScreenClamp(window);
+        ClampWhenLoaded(window); // pull a stale/off-screen restored position back onto a live monitor
         AttachResize(window, services.Props, "meterWidth", "meterHeight", widthOnly: true);
         // Snap all windows back onto a monitor the moment multi-monitor movement is turned off.
         _settings.PropertyChanged += (_, e) =>
@@ -111,6 +112,10 @@ public partial class App : Application
                 Dispatcher.BeginInvoke(ClampAllWindows);
             }
         };
+
+        // Re-clamp every window onto a live monitor when the display topology changes (a monitor
+        // unplugged / resolution or arrangement change can otherwise strand a window off the desktop).
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
 
         // Auto-hide / park-present + tray (Kotlin BrowserApp behavior).
         _controller = new OverlayController(window, services.Props);
@@ -394,6 +399,8 @@ public partial class App : Application
             _joinPanelPositioned = true;
         }
 
+        ClampWhenLoaded(_joinPanel); // a persisted off-screen panel position should restore reachable
+
         _joinPanel.PositionChanged += (left, top) =>
         {
             _joinPanelPositioned = true;
@@ -481,6 +488,8 @@ public partial class App : Application
         {
             _historyPanelPositioned = true;
         }
+
+        ClampWhenLoaded(_historyPanel); // a persisted off-screen panel position should restore reachable
 
         _historyPanel.PositionChanged += (left, top) =>
         {
@@ -611,6 +620,19 @@ public partial class App : Application
         w.LocationChanged += (_, _) => ScreenClamp.Apply(w, _settings?.MultiMonitorMode ?? false);
     }
 
+    /// <summary>One-shot off-screen reconciliation after a window is shown. LoadPosition/LoadPanelPosition
+    /// assign Left/Top before the HWND and layout exist, so a persisted position naming a monitor that no
+    /// longer exists (undocked/disconnected) or lying outside the virtual desktop would otherwise restore
+    /// the window invisibly. Dispatched at Loaded priority so ActualWidth/Height are valid when it runs.</summary>
+    private void ClampWhenLoaded(Window w) =>
+        Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Loaded,
+            new Action(() => ScreenClamp.Apply(w, _settings?.MultiMonitorMode ?? false)));
+
+    /// <summary>Display topology changed (monitor unplugged / resolution / arrangement) — pull every
+    /// window back onto a live monitor. Fires off the UI thread, so marshal the clamp to the dispatcher.</summary>
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(ClampAllWindows);
+
     /// <summary>Re-clamp every meter window (called when multi-monitor is turned off).</summary>
     private void ClampAllWindows()
     {
@@ -692,6 +714,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _tray?.Dispose();
         _hotkeys?.Dispose();
         _engine?.Dispose();
