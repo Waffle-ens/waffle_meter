@@ -4,7 +4,7 @@ namespace WaffleMeter.Data;
 /// Verbatim port of Kotlin UserRepository. Identity (nickname/server/job) and combat power can
 /// arrive in separate packets, so power that arrives before identity is held in "pending" maps and
 /// merged in when the user is created. mergeInto fills only missing fields (never overwrites a known
-/// nickname/server/job; power always takes the latest &gt; 0).
+/// nickname/server; an authoritative job overrides an inferred one; power always takes the latest &gt; 0).
 /// </summary>
 public sealed class UserRepository
 {
@@ -133,9 +133,12 @@ public sealed class UserRepository
             target.Server = source.Server;
         }
 
-        if (target.Job == null && source.Job != null)
+        // Fill a missing job, OR let an AUTHORITATIVE job (packet byte / official pcId) override a prior
+        // skill-code inference — but never overwrite an already-authoritative job.
+        if (source.Job != null && (target.Job == null || (!target.JobAuthoritative && source.JobAuthoritative)))
         {
             target.Job = source.Job;
+            target.JobAuthoritative = source.JobAuthoritative;
         }
 
         if (!target.IsExecutor && source.IsExecutor)

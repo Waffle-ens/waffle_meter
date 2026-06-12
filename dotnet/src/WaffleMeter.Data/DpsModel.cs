@@ -10,6 +10,13 @@ public sealed class User
     public string? Nickname { get; set; }
     public int Server { get; set; }
     public JobClass? Job { get; set; }
+
+    /// <summary>True once <see cref="Job"/> came from an AUTHORITATIVE source (packet jobByte via
+    /// ConvertFromCode, or the official-API pcId) rather than skill-code inference. An authoritative job
+    /// overrides an inferred one and then locks, so an early wrong inference (e.g. a summon-folded foreign
+    /// skill code) is corrected when the real byte arrives and can't be flipped back.</summary>
+    public bool JobAuthoritative { get; set; }
+
     public bool IsExecutor { get; set; }
     public int Power { get; set; }
 
@@ -27,7 +34,7 @@ public sealed class User
     public override bool Equals(object? obj) => obj is User u && u.Id == Id;
 
     /// <summary>Kotlin data-class <c>copy()</c> — a mutable snapshot (used by the stats builder).</summary>
-    public User Copy() => new(Id, Nickname, Server, Job, IsExecutor, Power);
+    public User Copy() => new(Id, Nickname, Server, Job, IsExecutor, Power) { JobAuthoritative = JobAuthoritative };
 }
 
 /// <summary>Per-player aggregate (Kotlin DpsInformation). Doubles, mutable.</summary>

@@ -161,7 +161,12 @@ public sealed class DpsCalculator
         _cachedContributors.RemoveAll(u => u.Id == user.Id);
         _cachedContributors.Add(user);
 
-        if (user.Job == null)
+        // Infer job from the skill code ONLY for the actor's OWN (un-folded) packet. When ResolveActor
+        // folded this packet onto another uid (a summon owner, or the lone elementalist), the skill code
+        // belongs to a DIFFERENT player, so inferring from it would mislabel the resolved user — the
+        // reported wrong-class-icon bug (e.g. a CLERIC/CHANTER summon's 17xx/18xx code folded onto a
+        // TEMPLAR). The authoritative nickname jobByte fills the job for folded users instead.
+        if (user.Job == null && actor == packet.ActorId)
         {
             user.Job = JobClassInfo.ConvertFromSkill(packet.SkillCode);
         }

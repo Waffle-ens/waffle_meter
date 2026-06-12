@@ -177,9 +177,14 @@ public sealed class DataManager : ICaptureGameData
             user.Server = server;
         }
 
-        if (user.Job == null && job != null)
+        // Authoritative job byte (ConvertFromCode) overrides a prior skill-code INFERENCE and then locks,
+        // so an early wrong inference (e.g. a summon-folded foreign skill code) can't stick and is corrected
+        // when the real byte arrives. First authoritative value wins; a later (possibly mis-located) byte
+        // doesn't flip it.
+        if (job != null && !user.JobAuthoritative)
         {
             user.Job = job;
+            user.JobAuthoritative = true;
         }
 
         _userRepository.Save(uid, user);
@@ -282,9 +287,10 @@ public sealed class DataManager : ICaptureGameData
                 existing.Server = info.Server;
             }
 
-            if (existing.Job == null && info.Job != null)
+            if (info.Job != null && !existing.JobAuthoritative)
             {
-                existing.Job = info.Job;
+                existing.Job = info.Job; // official pcId job is authoritative; overrides a skill inference
+                existing.JobAuthoritative = true;
             }
 
             if (existing.Power <= 0 && info.Power > 0)
@@ -296,7 +302,11 @@ public sealed class DataManager : ICaptureGameData
             return;
         }
 
-        _userRepository.SavePending(new User(uid, info.Nickname, info.Server, info.Job, power: info.Power));
+        var pending = new User(uid, info.Nickname, info.Server, info.Job, power: info.Power)
+        {
+            JobAuthoritative = info.Job != null, // official pcId job is authoritative
+        };
+        _userRepository.SavePending(pending);
     }
 
     // ---- buff ----
