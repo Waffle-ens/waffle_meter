@@ -35,6 +35,7 @@ public partial class OverlayWindow : Window
     private IntPtr _handle;
     private bool _clickThrough;
     private bool _taskbarMode;
+    private bool _parked; // auto-hidden (Opacity 0); while parked the taskbar/Alt+Tab ex-style is dropped
     private bool? _presentedTopMost; // last applied present state; null = parked (forces re-present)
     public bool ClickThrough => _clickThrough;
     public bool TaskbarMode => _taskbarMode;
@@ -89,9 +90,13 @@ public partial class OverlayWindow : Window
         }
 
         int current = GetWindowLong(_handle, GwlExStyle);
-        // Taskbar mode: a normal, activatable window that shows in the taskbar + alt-tab (APPWINDOW, no
-        // TOOLWINDOW/NOACTIVATE). Overlay mode: the game-overlay style (TOOLWINDOW|NOACTIVATE, no taskbar).
-        int baseStyle = _taskbarMode
+        // Taskbar/Alt+Tab listing (APPWINDOW, activatable, no TOOLWINDOW/NOACTIVATE) applies ONLY while the
+        // overlay is presented; a parked (auto-hidden) overlay falls back to the game-overlay style
+        // (TOOLWINDOW|NOACTIVATE) so it leaves no blank taskbar/Alt+Tab entry. This keeps taskbar mode
+        // (Option 2) orthogonal to auto-hide (Option 1): the listing follows Option 2, but only when the
+        // overlay is actually on screen.
+        bool taskbar = _taskbarMode && !_parked;
+        int baseStyle = taskbar
             ? (current | WsExLayered | WsExAppWindow) & ~WsExToolWindow & ~WsExNoActivate
             : (current | WsExToolWindow | WsExLayered | WsExNoActivate) & ~WsExAppWindow;
         int next = _clickThrough ? baseStyle | WsExTransparent : baseStyle & ~WsExTransparent;
@@ -132,12 +137,11 @@ public partial class OverlayWindow : Window
         _presentedTopMost = null; // z-order changes here; force the next Present to re-assert
         if (enable)
         {
-            // Normal window: visible, interactive, not topmost (so it alt-tabs like any app).
-            Topmost = false;
-            Opacity = 1.0;
-            _clickThrough = false;
+            _clickThrough = false; // a taskbar/Alt+Tab window shouldn't pass input through to the game
         }
 
+        // NOTE: visibility (Opacity) and topmost are intentionally NOT touched here — they are owned by
+        // Present/Park (driven by the auto-hide poll), so taskbar mode stays orthogonal to auto-hide.
         SyncInputStyle();
 
         if (_handle != IntPtr.Zero)
@@ -156,6 +160,7 @@ public partial class OverlayWindow : Window
     /// z-order when the topmost state actually changed since the last Present (or after a Park).</summary>
     public void Present(bool topMost)
     {
+        _parked = false; // presented: SyncInputStyle may now apply the taskbar/Alt+Tab ex-style
         Opacity = 1.0;
         Topmost = topMost;
         SyncInputStyle();
@@ -170,6 +175,7 @@ public partial class OverlayWindow : Window
     /// + ex-style survive).</summary>
     public void Park()
     {
+        _parked = true; // auto-hidden: drop the taskbar/Alt+Tab ex-style so no blank entry is left
         Opacity = 0.0;
         Topmost = false;
         _presentedTopMost = null; // force the next Present to re-assert z-order

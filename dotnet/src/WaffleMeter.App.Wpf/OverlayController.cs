@@ -42,17 +42,16 @@ public sealed class OverlayController
 
     public void Start() => _timer.Start();
 
-    /// <summary>Toggle taskbar/alt-tab mode: the overlay becomes a normal window (in taskbar + alt-tab)
-    /// and the auto-hide/park poll is suspended; turning it off re-arms the game-focus auto-hide.</summary>
+    /// <summary>Toggle taskbar/Alt+Tab mode. This ONLY controls whether the overlay is listed in the
+    /// taskbar/Alt+Tab (the window ex-style) — it is ORTHOGONAL to auto-hide. The overlay's on-screen
+    /// visibility is always governed by the auto-hide poll ("아이온 활성화 시 표시"), in BOTH taskbar modes,
+    /// so the two options no longer fight (the old code suspended the poll + forced the window visible).
+    /// Re-poll immediately so the new ex-style + correct visibility apply at once.</summary>
     public void SetTaskbarMode(bool enable)
     {
         TaskbarMode = enable;
-        IsVisible = true;
         _window.SetTaskbarMode(enable);
-        if (!enable)
-        {
-            _aionEverFocused = false; // re-arm overlay auto-hide; next poll re-presents/parks
-        }
+        Poll();
     }
 
     public void ToggleVisibility()
@@ -91,11 +90,6 @@ public sealed class OverlayController
 
     private void Poll()
     {
-        if (TaskbarMode)
-        {
-            return; // a normal taskbar window manages its own visibility/z-order
-        }
-
         if (!IsVisible)
         {
             return; // parked/hidden owns visibility while hidden
