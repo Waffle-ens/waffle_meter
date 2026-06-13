@@ -99,7 +99,10 @@ public sealed class OverlayController
 
         if (!IsAutoHide)
         {
-            _window.Present(fg == Foreground.Aion); // always shown; topmost follows the game
+            // "항상 표시": hold HWND_TOPMOST regardless of foreground. (The old Present(fg == Aion) demoted to
+            // non-topmost on every Self/Other/Unknown excursion, thrashing z-order = the intermittent flicker.)
+            _window.Present(true);
+            _window.ReassertTopmostIfBuried(); // re-claim if a borderless game re-asserted its own topmost above us
             return;
         }
 
@@ -120,6 +123,7 @@ public sealed class OverlayController
             case Foreground.Aion:
                 _parkPending = 0;
                 _window.Present(true);
+                _window.ReassertTopmostIfBuried(); // re-claim if the game re-topped above us
                 break;
             case Foreground.Self:
                 _parkPending = 0;

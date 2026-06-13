@@ -21,6 +21,8 @@ public partial class OverlayWindow : Window
     private const uint SwpFrameChanged = 0x0020;
     private const uint SwpShowWindow = 0x0040;
 
+    private const uint GwHwndPrev = 3; // GetWindow: the window ABOVE us in z-order (within our band)
+
     private static readonly IntPtr HwndTopMost = new(-1);
     private static readonly IntPtr HwndTop = new(0);
     private static readonly IntPtr HwndNoTopMost = new(-2);
@@ -37,6 +39,7 @@ public partial class OverlayWindow : Window
     private bool _taskbarMode;
     private bool _parked; // auto-hidden (Opacity 0); while parked the taskbar/Alt+Tab ex-style is dropped
     private bool? _presentedTopMost; // last applied present state; null = parked (forces re-present)
+    private bool _tooltipOpen; // an owned ToolTip is showing -> skip the topmost re-assert (it would dismiss it)
     public bool ClickThrough => _clickThrough;
     public bool TaskbarMode => _taskbarMode;
 
@@ -71,6 +74,10 @@ public partial class OverlayWindow : Window
         // Re-assert the ex-style on focus/z-order changes so WPF can't strip TOOLWINDOW|NOACTIVATE
         // (the taskbar-flicker / focus-steal fix).
         HwndSource.FromHwnd(_handle)?.AddHook(WndProc);
+        // Track owned tooltips so ReassertTopmostIfBuried can skip while one is open — re-ordering our HWND
+        // would dismiss its own tooltip (the exact regression the Present idempotent guard was added for).
+        ToolTipOpening += (_, _) => _tooltipOpen = true;
+        ToolTipClosing += (_, _) => _tooltipOpen = false;
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -137,7 +144,9 @@ public partial class OverlayWindow : Window
     public void SetTaskbarMode(bool enable)
     {
         _taskbarMode = enable;
-        _presentedTopMost = null; // z-order changes here; force the next Present to re-assert
+        // (Taskbar mode flips only the ex-style bucket, NOT the topmost bucket — do NOT reset
+        // _presentedTopMost here. The poll's Present(true) + ReassertTopmostIfBuried keep z-order correct,
+        // and not resetting avoids an extra z-order mutation/blink on the follow-up Present.)
         if (enable)
         {
             _clickThrough = false; // a taskbar/Alt+Tab window shouldn't pass input through to the game
@@ -191,6 +200,37 @@ public partial class OverlayWindow : Window
         SyncInputStyle();
     }
 
+    /// <summary>
+    /// Re-claim HWND_TOPMOST when a FOREIGN topmost window — a borderless-fullscreen game re-asserting its
+    /// own topmost (alt-enter, resolution/HDR transitions, game-owned popups) — has climbed above us. The
+    /// 300ms poll calls this while the game is foreground. It reconciles "always above the game" with "no
+    /// tooltip flicker": a true no-op on the common already-on-top path (no SetWindowPos, no recomposite),
+    /// re-asserts WITHOUT SwpShowWindow only when actually buried, keeps NOACTIVATE (never steals game
+    /// foreground), and is SKIPPED entirely while one of our own tooltips is open. Independent of the
+    /// Present idempotent guard, so it never re-introduces the per-tick tooltip-dismiss that guard prevents.
+    /// </summary>
+    public void ReassertTopmostIfBuried()
+    {
+        if (_handle == IntPtr.Zero || _parked || _presentedTopMost != true || _tooltipOpen)
+        {
+            return;
+        }
+
+        // Walk the windows sitting ABOVE us. On a topmost window these are other topmost windows; our own
+        // tooltips/popups (same process) are skipped so they don't trigger a needless re-assert.
+        for (IntPtr above = GetWindow(_handle, GwHwndPrev); above != IntPtr.Zero; above = GetWindow(above, GwHwndPrev))
+        {
+            GetWindowThreadProcessId(above, out uint pid);
+            if ((int)pid != Environment.ProcessId && IsWindowVisible(above))
+            {
+                // A foreign topmost window (the game) is above us — re-claim the top. No SwpShowWindow so an
+                // already-correct z-order stays a no-op; NOACTIVATE so we never take the game's foreground.
+                SetWindowPos(_handle, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+                return;
+            }
+        }
+    }
+
     private void OnDragHandle(object sender, MouseButtonEventArgs e)
     {
         if (e.ButtonState == MouseButtonState.Pressed)
@@ -241,4 +281,13 @@ public partial class OverlayWindow : Window
 
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
 }
