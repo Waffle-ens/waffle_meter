@@ -41,6 +41,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _isMinimal = ReadBool("isMinimal", false);
         _showCombatTimerInMinimal = ReadBool("showCombatTimerInMinimal", true);
         _showTargetInfoInMinimal = ReadBool("showTargetInfoInMinimal", true);
+        _showServerTag = ReadBool("showServerTag", true);
         _multiMonitorMode = ReadBool("multiMonitorMode", false);
         _taskbarMode = ReadBool("taskbarMode", false);
         _captureBackend = ReadEnum("captureBackend", "windivert", CaptureBackends);
@@ -83,6 +84,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private bool _showTargetInfoInMinimal;
     public bool ShowTargetInfoInMinimal { get => _showTargetInfoInMinimal; set => SetBool(ref _showTargetInfoInMinimal, "showTargetInfoInMinimal", value); }
+
+    private bool _showServerTag;
+    /// <summary>Show the abbreviated server label "[xx]" next to each player nickname in the meter rows.</summary>
+    public bool ShowServerTag { get => _showServerTag; set => SetBool(ref _showServerTag, "showServerTag", value); }
 
     private string _targetInfoDisplayMode;
     public string TargetInfoDisplayMode { get => _targetInfoDisplayMode; set => SetProp(ref _targetInfoDisplayMode, "targetInfoDisplayMode", value); }

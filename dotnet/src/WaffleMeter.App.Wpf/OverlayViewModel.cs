@@ -275,6 +275,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             double contribution = e.Info.Contribution; // fill tier always uses party contribution
             int power = e.User?.Power ?? 0;
             int server = e.User?.Server ?? 0;
+            // Restored bracketed server tag (dropped in the WPF migration). A SEPARATE row element (not folded
+            // into Name) so it survives name masking + the Name MaxWidth ellipsis; collapsed when off/unknown.
+            string serverTag = _settings.ShowServerTag ? ServerNames.GetServerLabel(server) : string.Empty;
             double ratio = Math.Clamp(Metric(e.Info) / topMetric, 0.0, 1.0);
             double barRatio = ratio > 0 ? Math.Max(0.015, ratio) : 0.0; // React max(1.5%, ratio) so small bars stay visible
             string? jobName = e.User?.Job is JobClass jc ? jc.ClassName() : null;
@@ -283,6 +286,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 Id: e.Uid,
                 Rank: i + 1,
                 Name: MeterFormat.DisplayName(e.User?.Nickname, nameMode, isUser),
+                ServerTag: serverTag,
+                ServerTagVisibility: serverTag.Length == 0 ? Visibility.Collapsed : Visibility.Visible,
                 PowerText: power > 0 ? MeterFormat.FormatPower(power) : string.Empty,
                 PowerVisible: power > 0 ? Visibility.Visible : Visibility.Collapsed,
                 DamageText: total ? MeterFormat.FormatAmount(e.Info.Amount) : MeterFormat.FormatDps(e.Info.Dps),
@@ -391,6 +396,8 @@ public sealed record RowViewModel(
     int Id,
     int Rank,
     string Name,
+    string ServerTag,
+    Visibility ServerTagVisibility,
     string PowerText,
     Visibility PowerVisible,
     string DamageText,

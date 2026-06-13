@@ -166,6 +166,15 @@
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TaskbarMode}"/>
                         </Grid>
 
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="서버 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="닉네임 옆에 서버 약칭을 [ ] 안에 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowServerTag}"/>
+                        </Grid>
+
                         <TextBlock Text="컴팩트 모드" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

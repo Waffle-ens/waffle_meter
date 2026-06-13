@@ -223,6 +223,10 @@
                                         <TextBlock Text="{Binding Name}" Foreground="{Binding NameBrush}" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" MaxWidth="150"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
+                                        <!-- restored bracketed server tag; own element so masking/ellipsis can't eat it -->
+                                        <TextBlock Text="{Binding ServerTag, StringFormat='[{0}]'}" Foreground="{Binding NameBrush}"
+                                                   VerticalAlignment="Center" Margin="3,0,0,0" Visibility="{Binding ServerTagVisibility}"
+                                                   FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.34:9'}"/>
                                         <Border Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1" CornerRadius="4"
                                                 Padding="4,0" Margin="6,0,0,0" VerticalAlignment="Center" Visibility="{Binding PowerVisible}">
                                             <TextBlock Text="{Binding PowerText}" Foreground="{Binding PowerBrush}"

@@ -119,6 +119,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool IsMinimal { get => _settings.IsMinimal; set { _settings.IsMinimal = value; OnPropertyChanged(); } }
     public bool ShowCombatTimerInMinimal { get => _settings.ShowCombatTimerInMinimal; set { _settings.ShowCombatTimerInMinimal = value; OnPropertyChanged(); } }
     public bool ShowTargetInfoInMinimal { get => _settings.ShowTargetInfoInMinimal; set { _settings.ShowTargetInfoInMinimal = value; OnPropertyChanged(); } }
+    public bool ShowServerTag { get => _settings.ShowServerTag; set { _settings.ShowServerTag = value; OnPropertyChanged(); } }
 
     /// <summary>Wired by App: trigger an update check (results surface in the toast).</summary>
     public Action? CheckUpdateRequested { get; set; }
@@ -335,13 +336,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
         string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
         string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
-        string BarStyle)
+        bool ShowServerTag, string BarStyle)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
             s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
             s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
-            s.BarStyle);
+            s.ShowServerTag, s.BarStyle);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -359,6 +360,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.IsMinimal = IsMinimal;
             s.ShowCombatTimerInMinimal = ShowCombatTimerInMinimal;
             s.ShowTargetInfoInMinimal = ShowTargetInfoInMinimal;
+            s.ShowServerTag = ShowServerTag;
             s.BarStyle = BarStyle;
         }
     }
