@@ -473,8 +473,15 @@ public partial class App : Application
             _joinPanel.Present(true);
         }
 
-        // Auto-open on the empty -> non-empty transition (web isOpen behavior).
-        _joinViewModel.RequestPresent += PresentJoinPanel;
+        // Auto-open on the empty -> non-empty transition (web isOpen behavior), unless the user turned off
+        // auto-show (the header 파티 신청 button still opens it manually).
+        _joinViewModel.RequestPresent += () =>
+        {
+            if (_settings!.ShowJoinPanel)
+            {
+                PresentJoinPanel();
+            }
+        };
 
         // 계정/파티 신청 header button: toggle the panel manually (Opacity tracks park/present).
         overlay.JoinRequested += () =>

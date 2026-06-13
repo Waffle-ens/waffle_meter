@@ -42,6 +42,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showCombatTimerInMinimal = ReadBool("showCombatTimerInMinimal", true);
         _showTargetInfoInMinimal = ReadBool("showTargetInfoInMinimal", true);
         _showServerTag = ReadBool("showServerTag", true);
+        _showJoinPanel = ReadBool("showJoinPanel", true);
         _multiMonitorMode = ReadBool("multiMonitorMode", false);
         _taskbarMode = ReadBool("taskbarMode", false);
         _captureBackend = ReadEnum("captureBackend", "windivert", CaptureBackends);
@@ -98,6 +99,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private bool _multiMonitorMode;
     public bool MultiMonitorMode { get => _multiMonitorMode; set => SetBool(ref _multiMonitorMode, "multiMonitorMode", value); }
+
+    private bool _showJoinPanel;
+    /// <summary>Auto-show the party join-request panel when a request arrives. Off = stay hidden; the
+    /// header 파티 신청 button still opens it manually.</summary>
+    public bool ShowJoinPanel { get => _showJoinPanel; set => SetBool(ref _showJoinPanel, "showJoinPanel", value); }
 
     private bool _taskbarMode;
     public bool TaskbarMode { get => _taskbarMode; set => SetBool(ref _taskbarMode, "taskbarMode", value); }

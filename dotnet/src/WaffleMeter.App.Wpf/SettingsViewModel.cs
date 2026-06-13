@@ -134,6 +134,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     // ---- overlay tab (live) ----
     public double MeterOpacity { get => _settings.MeterOpacity; set { _settings.MeterOpacity = value; OnPropertyChanged(); } }
     public bool MultiMonitorMode { get => _settings.MultiMonitorMode; set { _settings.MultiMonitorMode = value; OnPropertyChanged(); } }
+    public bool ShowJoinPanel { get => _settings.ShowJoinPanel; set { _settings.ShowJoinPanel = value; OnPropertyChanged(); } }
     // (Light mode is now a skin — "light" in the Skin list — not a separate overlayTheme toggle.)
 
     public bool IsAutoHide
@@ -336,13 +337,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
         string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
         string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
-        bool ShowServerTag, string BarStyle)
+        bool ShowServerTag, string BarStyle, bool ShowJoinPanel)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
             s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
             s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
-            s.ShowServerTag, s.BarStyle);
+            s.ShowServerTag, s.BarStyle, s.ShowJoinPanel);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -362,6 +363,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.ShowTargetInfoInMinimal = ShowTargetInfoInMinimal;
             s.ShowServerTag = ShowServerTag;
             s.BarStyle = BarStyle;
+            s.ShowJoinPanel = ShowJoinPanel;
         }
     }
 

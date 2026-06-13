@@ -175,6 +175,15 @@
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowServerTag}"/>
                         </Grid>
 
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="파티 신청 패널 자동 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="파티 신청이 오면 패널을 자동으로 띄웁니다. 끄면 헤더의 파티 신청 버튼으로 직접 열 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowJoinPanel}"/>
+                        </Grid>
+
                         <TextBlock Text="컴팩트 모드" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
