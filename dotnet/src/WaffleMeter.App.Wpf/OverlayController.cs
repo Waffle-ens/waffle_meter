@@ -181,7 +181,7 @@ public sealed class OverlayController
         if (handle == IntPtr.Zero)
         {
             // Protected / anti-cheat process we can't open: trust the cached game PID, else Unknown.
-            return pid == _aionPid ? Foreground.Aion : Foreground.Unknown;
+            return IsAionPid(pid) ? Foreground.Aion : Foreground.Unknown;
         }
 
         try
@@ -190,7 +190,7 @@ public sealed class OverlayController
             int size = buffer.Capacity;
             if (!QueryFullProcessImageName(handle, 0, buffer, ref size))
             {
-                return pid == _aionPid ? Foreground.Aion : Foreground.Unknown;
+                return IsAionPid(pid) ? Foreground.Aion : Foreground.Unknown;
             }
 
             if (buffer.ToString().EndsWith(AionExe, StringComparison.OrdinalIgnoreCase))
@@ -210,6 +210,49 @@ public sealed class OverlayController
         {
             CloseHandle(handle);
         }
+    }
+
+    /// <summary>True if <paramref name="pid"/> is the AION2 game. Trusts the cached <see cref="_aionPid"/>
+    /// first; if that was cleared (a long alt-tab absence lets the OS reuse the game's old PID for another
+    /// app, clearing the cache at ~line 202-205), RE-ACQUIRE it by enumerating live processes named
+    /// "Aion2". GetProcessesByName reads the process-name snapshot (no OpenProcess handle), so it still
+    /// works when anti-cheat denies a handle — which is exactly the return-from-long-absence case where the
+    /// game would otherwise stay classified Unknown (and the parked overlay stay hidden) indefinitely.</summary>
+    private bool IsAionPid(uint pid)
+    {
+        if (pid != 0 && pid == _aionPid)
+        {
+            return true;
+        }
+
+        try
+        {
+            System.Diagnostics.Process[] procs = System.Diagnostics.Process.GetProcessesByName("Aion2");
+            try
+            {
+                foreach (System.Diagnostics.Process p in procs)
+                {
+                    if ((uint)p.Id == pid)
+                    {
+                        _aionPid = pid; // re-cache so subsequent denied ticks resolve instantly
+                        return true;
+                    }
+                }
+            }
+            finally
+            {
+                foreach (System.Diagnostics.Process p in procs)
+                {
+                    p.Dispose(); // GetProcessesByName hands back open handles — release every one
+                }
+            }
+        }
+        catch
+        {
+            // enumeration can throw on access / an exited-process race — treat as not-the-game
+        }
+
+        return false;
     }
 
     [DllImport("user32.dll")]
