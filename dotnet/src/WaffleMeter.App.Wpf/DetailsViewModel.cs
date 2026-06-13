@@ -80,10 +80,19 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     public void Refresh(DpsReport report)
     {
         Dictionary<string, AnalyzedSkill> skills = _calc.BattleDetails(report, _uid);
-        List<OperatingData> own = _calc.GetBuffOperatingRate(_uid, report.BattleStart, report.BattleEnd);
-        List<OperatingData> boss = report.Target != null
-            ? _calc.GetBuffOperatingRate(report.Target.Id, report.BattleStart, report.BattleEnd)
-            : new();
+
+        // Prefer the frozen buff-rate snapshot the battle was saved with (identical to the stats/web data).
+        // The live buff repository is pruned once a battle is saved, so recomputing post-battle under-counts;
+        // recompute only for the in-progress battle, where no snapshot exists yet and the repo is intact.
+        bool hasSnapshot = report.BuffRates.Count > 0;
+        List<OperatingData> own = hasSnapshot
+            ? report.BuffRates.GetValueOrDefault(_uid) ?? new()
+            : _calc.GetBuffOperatingRate(_uid, report.BattleStart, report.BattleEnd);
+        List<OperatingData> boss = hasSnapshot
+            ? report.BossBuffRates
+            : report.Target != null
+                ? _calc.GetBuffOperatingRate(report.Target.Id, report.BattleStart, report.BattleEnd)
+                : new();
 
         User? user = report.Contributors.FirstOrDefault(c => c.Id == _uid);
         double contribution = report.Information.TryGetValue(_uid, out DpsInformation? info) ? info.Contribution : 0.0;

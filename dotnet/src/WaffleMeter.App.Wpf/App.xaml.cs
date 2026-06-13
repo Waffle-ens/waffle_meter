@@ -277,6 +277,7 @@ public partial class App : Application
         _updateToast = new UpdateToast { DataContext = _updateToastVm };
         _updateToast.Show();
         _updateToast.Park();
+        _controller?.RegisterOverlay(_updateToast);
         _updateToast.CloseRequested += () => _updateToast.Park();
         _updateService = new UpdateService(prerelease: false);
         UpdateService updateService = _updateService;
@@ -414,8 +415,13 @@ public partial class App : Application
         _detailViewModel = new DetailsViewModel(_lastReport, uid, services.Calculator, name, _theme!, _settings!.FontFamily);
         _detailUid = uid;
         _detailWindow = new DetailWindow { DataContext = _detailViewModel };
-        _detailWindow.Closed += (_, _) =>
+        _detailWindow.Closed += (s, _) =>
         {
+            if (s is IReassertableOverlay overlay)
+            {
+                _controller?.UnregisterOverlay(overlay); // recreated per row -> drop the dead-HWND reference
+            }
+
             _detailWindow = null;
             _detailViewModel = null;
             _detailUid = 0;
@@ -423,6 +429,7 @@ public partial class App : Application
         LoadWindowSize(services.Props, "detailWidth", "detailHeight", _detailWindow);
         PlaceDetailWindow(owner, _detailWindow); // right of the meter, flipping left if it would clip off-screen
         _detailWindow.Show();
+        _controller?.RegisterOverlay(_detailWindow); // poll re-claims its topmost on alt-tab return to the game
         AttachScreenClamp(_detailWindow);
         AttachResize(_detailWindow, services.Props, "detailWidth", "detailHeight");
     }
@@ -460,6 +467,7 @@ public partial class App : Application
         // Build the HWND + assert the overlay ex-style, then park (hidden) until a request arrives.
         _joinPanel.Show();
         _joinPanel.Park();
+        _controller?.RegisterOverlay(_joinPanel); // poll re-claims its topmost on alt-tab return to the game
         AttachScreenClamp(_joinPanel);
         AttachResize(_joinPanel, services.Props, "joinPanelWidth", "joinPanelHeight");
 
@@ -562,6 +570,7 @@ public partial class App : Application
         LoadWindowSize(services.Props, "skillFlyoutWidth", "skillFlyoutHeight", _skillFlyout);
         _skillFlyout.Show();
         _skillFlyout.Park();
+        _controller?.RegisterOverlay(_skillFlyout);
         AttachScreenClamp(_skillFlyout);
         AttachResize(_skillFlyout, services.Props, "skillFlyoutWidth", "skillFlyoutHeight");
         _skillFlyout.CloseRequested += () => { _skillFlyoutVisible = false; _skillFlyout.Park(); };
@@ -593,6 +602,7 @@ public partial class App : Application
         LoadWindowSize(services.Props, "historyPanelWidth", "historyPanelHeight", _historyPanel);
         _historyPanel.Show();
         _historyPanel.Park();
+        _controller?.RegisterOverlay(_historyPanel);
         AttachScreenClamp(_historyPanel);
         AttachResize(_historyPanel, services.Props, "historyPanelWidth", "historyPanelHeight");
 
@@ -827,6 +837,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        _controller?.Stop(); // unhook the foreground WinEvent + stop the poll
         _tray?.Dispose();
         _hotkeys?.Dispose();
         _engine?.Dispose();

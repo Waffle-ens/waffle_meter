@@ -19,6 +19,16 @@ or any font viewer) and, if needed, tell me the exact name so the dropdown value
 | `NEXON Lv2 Gothic` | NEXON free font license (free for commercial use) | NEXON 폰트 공식 페이지 |
 | `Tmoney Round Wind` (티머니 둥근바람) | Tmoney custom free license (free incl. commercial; no resale/modification) | 티머니 공식 폰트 페이지 |
 
+Extra-bold "(EX)" weights — four families ship a heavier extra-bold, exposed in the dropdown as
+`<name> (EX)`. The settings value is the name WPF resolves the bundled face by (verified per file):
+
+| Settings value | File | Resolves via |
+|---|---|---|
+| `NEXON Lv2 Gothic Bold` | `NEXON Lv2 Gothic Bold.ttf` | Win32 family name |
+| `Spoqa Han Sans Neo Bold` | `SpoqaHanSansNeo-Bold.ttf` | Win32 family name |
+| `Freesentation 7 Bold` | `Freesentation-7Bold.ttf` | Win32 family name |
+| `Pretendard Bold` | `Pretendard-Bold.otf` | family+face (its Win32 family is the shared `Pretendard`) |
+
 Notes
 - A single regular weight per family is enough for the overlay; add more weights only if needed.
 - `Malgun Gothic` is always available on Windows and is the safe fallback — it is also offered in the

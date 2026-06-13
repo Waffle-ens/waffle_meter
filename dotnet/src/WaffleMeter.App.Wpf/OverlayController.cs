@@ -16,9 +16,16 @@ public sealed class OverlayController
     private const string AionExe = "Aion2.exe";
     private const uint ProcessQueryLimitedInformation = 0x1000;
 
+    private const uint EventSystemForeground = 0x0003;
+    private const uint WineventOutofcontext = 0x0000;
+    private const uint WineventSkipownprocess = 0x0002;
+
     private readonly OverlayWindow _window;
     private readonly PropertyHandler _props;
     private readonly DispatcherTimer _timer;
+    private readonly List<IReassertableOverlay> _overlays = new(); // panels (join/history/skill/toast) + per-row detail
+    private readonly WinEventDelegate _winEventProc; // field-held so the marshaled callback isn't GC'd
+    private IntPtr _winEventHook;
     private bool _aionEverFocused;
     private uint _aionPid; // cached AION2 foreground PID; keeps the game recognized even when a
                            // protected/anti-cheat process can no longer be OpenProcess'd to read its name
@@ -34,13 +41,84 @@ public sealed class OverlayController
         IsAutoHide = props.GetProperty("isAutoHide") is not "false"; // default true
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(300) };
         _timer.Tick += (_, _) => Poll();
+        _winEventProc = OnForegroundChanged;
     }
 
     public bool IsVisible { get; private set; } = true;
     public bool IsAutoHide { get; private set; }
     public bool TaskbarMode { get; private set; }
 
-    public void Start() => _timer.Start();
+    public void Start()
+    {
+        _timer.Start();
+        // Re-claim topmost the INSTANT AION2 regains the foreground (alt-tab return / app switch) instead of
+        // waiting up to one 300ms poll tick — the user-visible "돌아오면 즉시 최상단" behavior. The poll stays as
+        // the backstop for the case the hook can't see: the game re-asserting its OWN topmost while it KEEPS
+        // the foreground (no foreground-change event fires then).
+        _winEventHook = SetWinEventHook(
+            EventSystemForeground, EventSystemForeground, IntPtr.Zero, _winEventProc, 0, 0,
+            WineventOutofcontext | WineventSkipownprocess);
+    }
+
+    /// <summary>Stop the poll and unhook the foreground listener (app shutdown).</summary>
+    public void Stop()
+    {
+        _timer.Stop();
+        if (_winEventHook != IntPtr.Zero)
+        {
+            UnhookWinEvent(_winEventHook);
+            _winEventHook = IntPtr.Zero;
+        }
+    }
+
+    // EVENT_SYSTEM_FOREGROUND callback. Fires on the UI thread (OUTOFCONTEXT delivers to the installing
+    // thread's message loop), so it can touch windows directly. Whenever AION2 becomes the foreground window
+    // and we're not tray-hidden, force the overlay (and any open panel/detail window) back on top at once.
+    private void OnForegroundChanged(IntPtr hook, uint ev, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)
+    {
+        try
+        {
+            if (!IsVisible || DetectForeground() != Foreground.Aion)
+            {
+                return; // tray-hidden, or something other than the game took focus
+            }
+
+            _parkPending = 0;
+            _window.Present(true);             // un-park if auto-hidden, then...
+            _window.ReassertTopmostIfBuried(); // ...re-claim above the topmost the game just re-asserted
+            ReassertOverlaysIfBuried();
+        }
+        catch
+        {
+            // a WinEvent callback must never throw into the message loop
+        }
+    }
+
+    /// <summary>Register a secondary overlay (join requests / battle history / skill flyout / update toast /
+    /// per-row detail window) so the poll re-claims its topmost whenever AION2 returns to the foreground and
+    /// re-asserts its own topmost above us — e.g. an overlay left open across an alt-tab. The overlay self-skips
+    /// when it is parked/hidden or already on top, so registering one that is currently hidden is harmless.</summary>
+    public void RegisterOverlay(IReassertableOverlay overlay)
+    {
+        if (!_overlays.Contains(overlay))
+        {
+            _overlays.Add(overlay);
+        }
+    }
+
+    /// <summary>Stop polling an overlay. The per-row detail window is recreated/closed per click, so it
+    /// unregisters on Closed to keep dead-HWND references from accumulating in the list.</summary>
+    public void UnregisterOverlay(IReassertableOverlay overlay) => _overlays.Remove(overlay);
+
+    // Re-claim topmost for every registered overlay that is open. Called only on the topmost-present paths
+    // (game foreground / always-show), mirroring the meter window's own ReassertTopmostIfBuried.
+    private void ReassertOverlaysIfBuried()
+    {
+        foreach (IReassertableOverlay overlay in _overlays)
+        {
+            overlay.ReassertTopmostIfBuried();
+        }
+    }
 
     /// <summary>Toggle taskbar/Alt+Tab mode. This ONLY controls whether the overlay is listed in the
     /// taskbar/Alt+Tab (the window ex-style) — it is ORTHOGONAL to auto-hide. The overlay's on-screen
@@ -103,6 +181,7 @@ public sealed class OverlayController
             // non-topmost on every Self/Other/Unknown excursion, thrashing z-order = the intermittent flicker.)
             _window.Present(true);
             _window.ReassertTopmostIfBuried(); // re-claim if a borderless game re-asserted its own topmost above us
+            ReassertOverlaysIfBuried();        // ...and any open panel/detail window buried the same way (alt-tab return)
             return;
         }
 
@@ -124,6 +203,7 @@ public sealed class OverlayController
                 _parkPending = 0;
                 _window.Present(true);
                 _window.ReassertTopmostIfBuried(); // re-claim if the game re-topped above us
+                ReassertOverlaysIfBuried();        // ...and any open panel/detail window (e.g. left open across an alt-tab)
                 break;
             case Foreground.Self:
                 _parkPending = 0;
@@ -254,6 +334,14 @@ public sealed class OverlayController
 
         return false;
     }
+
+    private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();

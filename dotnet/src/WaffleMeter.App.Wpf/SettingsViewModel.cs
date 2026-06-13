@@ -94,19 +94,25 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("직업 강조", "job"),
     };
 
-    // Bundled-or-fallback fonts (see Fonts/README.md). Each font ships a regular + a bolder weight; the
-    // bold weight is a SEPARATE Win32 family name (e.g. "NEXON Lv2 Gothic Medium") so it resolves as its
-    // own family with no font-weight plumbing. Values = the font's family name used by FontFamilyConverter
-    // (./Fonts/#<value>). Malgun Gothic is always available (system fallback).
+    // Bundled-or-fallback fonts (see Fonts/README.md). Each family ships a regular + a bolder weight, and
+    // four families add an even heavier "(EX)" extra-bold. Each Value is the name FontFamilyConverter feeds
+    // to WPF as ./Fonts/#<value>, which resolves to that exact weight's typeface — WPF matches it against the
+    // font's Win32 family name (e.g. "NEXON Lv2 Gothic Bold") or its family+face (e.g. "Pretendard Bold",
+    // whose Win32 family is the shared "Pretendard") — so the weight needs no separate FontWeight plumbing.
+    // (EX) values verified per file via GlyphTypeface resolution. Malgun Gothic is always available (fallback).
     public IReadOnlyList<SettingOption> FontFamilies { get; } = new[]
     {
         new SettingOption("NEXON Lv2 Gothic (Bold, 기본)", "NEXON Lv2 Gothic Medium"),
+        new SettingOption("NEXON Lv2 Gothic (EX)", "NEXON Lv2 Gothic Bold"),
         new SettingOption("NEXON Lv2 Gothic", "NEXON Lv2 Gothic"),
         new SettingOption("Pretendard (Bold)", "Pretendard SemiBold"),
+        new SettingOption("Pretendard (EX)", "Pretendard Bold"),
         new SettingOption("Pretendard", "Pretendard"),
         new SettingOption("Spoqa Han Sans Neo (Bold)", "Spoqa Han Sans Neo Medium"),
+        new SettingOption("Spoqa Han Sans Neo (EX)", "Spoqa Han Sans Neo Bold"),
         new SettingOption("Spoqa Han Sans Neo", "Spoqa Han Sans Neo"),
         new SettingOption("Freesentation (Bold)", "Freesentation 6 SemiBold"),
+        new SettingOption("Freesentation (EX)", "Freesentation 7 Bold"),
         new SettingOption("Freesentation", "Freesentation"),
         new SettingOption("Tmoney Round Wind (Bold)", "Tmoney RoundWind ExtraBold"),
         new SettingOption("Tmoney Round Wind", "Tmoney RoundWind"),

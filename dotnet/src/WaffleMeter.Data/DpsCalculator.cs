@@ -603,6 +603,11 @@ public sealed class DpsCalculator
         _recentBuffRates = buffRates;
         _recentBossBuffRates = bossBuffRates;
 
+        // Freeze the rates onto the live report too, so the post-battle detail (which holds this same
+        // _recentData) reads the snapshot instead of recomputing against the now-pruned buff repository.
+        _recentData.BuffRates = buffRates;
+        _recentData.BossBuffRates = bossBuffRates;
+
         DpsLog log = _dm.SaveBattleLog(_recentData, skillDetails, buffRates, bossBuffRates);
         OnBattleLogged?.Invoke(log);
         _recentData.Packets = null;

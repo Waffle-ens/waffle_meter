@@ -438,6 +438,8 @@ public sealed class DataManager : ICaptureGameData
             Information = data.Information.ToDictionary(kv => kv.Key, kv => CopyInfo(kv.Value)),
             Target = data.Target is { } t ? new MobInfo(t.Id, t.Mob, t.RemainHp, t.MaxHp) : null,
             Packets = null,
+            BuffRates = buffRates,         // frozen so the detail (history replay) matches the web
+            BossBuffRates = bossBuffRates,
         };
 
         var log = new DpsLog

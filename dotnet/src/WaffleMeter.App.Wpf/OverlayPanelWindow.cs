@@ -12,7 +12,7 @@ namespace WaffleMeter.App.Wpf;
 /// <see cref="Park"/> visibility (park keeps the HWND + ex-style alive). Subclasses hook
 /// <see cref="OnPresented"/> / <see cref="OnParked"/> (e.g. to run a countdown timer).
 /// </summary>
-public abstract class OverlayPanelWindow : Window
+public abstract class OverlayPanelWindow : Window, IReassertableOverlay
 {
     private const int GwlExStyle = -20;
     private const int WsExNoActivate = 0x08000000;
@@ -27,6 +27,8 @@ public abstract class OverlayPanelWindow : Window
     private const uint SwpFrameChanged = 0x0020;
     private const uint SwpShowWindow = 0x0040;
 
+    private const uint GwHwndPrev = 3; // GetWindow: the window ABOVE us in z-order (within our band)
+
     private static readonly IntPtr HwndTopMost = new(-1);
     private static readonly IntPtr HwndTop = new(0);
     private static readonly IntPtr HwndNoTopMost = new(-2);
@@ -37,6 +39,7 @@ public abstract class OverlayPanelWindow : Window
 
     private IntPtr _handle;
     private bool _dragging;
+    private bool? _presentedTopMost; // last applied present state; null = parked -> ReassertTopmostIfBuried no-ops
 
     /// <summary>Raised after a drag completes with the new Left/Top (App persists it).</summary>
     public event Action<double, double>? PositionChanged;
@@ -89,6 +92,7 @@ public abstract class OverlayPanelWindow : Window
     {
         Topmost = topMost;
         Opacity = 1.0;
+        _presentedTopMost = topMost; // arm ReassertTopmostIfBuried while shown
         SyncInputStyle();
         if (_handle != IntPtr.Zero)
         {
@@ -104,6 +108,7 @@ public abstract class OverlayPanelWindow : Window
         OnParked();
         Opacity = 0.0;
         Topmost = false;
+        _presentedTopMost = null; // parked -> ReassertTopmostIfBuried no-ops until the next Present
         if (_handle != IntPtr.Zero)
         {
             SetWindowPos(_handle, HwndNoTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
@@ -111,6 +116,36 @@ public abstract class OverlayPanelWindow : Window
         }
 
         SyncInputStyle();
+    }
+
+    /// <summary>
+    /// Re-claim HWND_TOPMOST when a FOREIGN topmost window (a borderless-fullscreen game re-asserting its own
+    /// topmost on alt-tab return / alt-enter / a game-owned popup) has climbed above this panel. Mirrors
+    /// <see cref="OverlayWindow.ReassertTopmostIfBuried"/>: the meter's 300ms poll drives it for every open
+    /// panel while AION2 is foreground, so a panel left open across an alt-tab no longer stays buried behind
+    /// the game. A true no-op on the common already-on-top path (no SetWindowPos, no recomposite); re-asserts
+    /// WITHOUT SwpShowWindow only when actually buried; keeps NOACTIVATE (never steals the game's foreground);
+    /// and is skipped while parked or mid-drag. No tooltip guard: our own tooltip/popup is a same-process
+    /// topmost HWND the walk skips, so it never triggers a re-assert (see OverlayWindow for the full rationale).
+    /// </summary>
+    public void ReassertTopmostIfBuried()
+    {
+        if (_handle == IntPtr.Zero || _presentedTopMost != true || _dragging)
+        {
+            return;
+        }
+
+        // Walk the windows sitting ABOVE us. Our own windows (meter / sibling panels / tooltips, same process)
+        // are skipped so they don't trigger a needless re-assert; only a foreign topmost (the game) does.
+        for (IntPtr above = GetWindow(_handle, GwHwndPrev); above != IntPtr.Zero; above = GetWindow(above, GwHwndPrev))
+        {
+            GetWindowThreadProcessId(above, out uint pid);
+            if ((int)pid != Environment.ProcessId && IsWindowVisible(above))
+            {
+                SetWindowPos(_handle, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+                return;
+            }
+        }
     }
 
     /// <summary>Called after the panel is presented (subclass hook, e.g. start a timer).</summary>
@@ -148,4 +183,13 @@ public abstract class OverlayPanelWindow : Window
 
     [DllImport("user32.dll")]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
 }

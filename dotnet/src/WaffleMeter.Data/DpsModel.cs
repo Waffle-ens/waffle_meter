@@ -146,6 +146,16 @@ public sealed class DpsReport
     public bool FakeTimeFlag { get; set; }
     public List<ParsedDamagePacket>? Packets { get; set; }
 
+    /// <summary>Frozen buff-uptime snapshot (uid -&gt; rates), populated when the battle is saved so the
+    /// detail window shows the SAME rates the stats payload/web uses. The live buff repository is pruned
+    /// after a battle is saved (<see cref="UseBuffRepository.PruneBefore"/>), so recomputing post-battle
+    /// would under-count; this stays empty while the battle is in progress (the detail recomputes live
+    /// against the intact repo then).</summary>
+    public Dictionary<int, List<OperatingData>> BuffRates { get; set; } = new();
+
+    /// <summary>Frozen boss-debuff-uptime snapshot, populated alongside <see cref="BuffRates"/>.</summary>
+    public List<OperatingData> BossBuffRates { get; set; } = [];
+
     public bool IsEmpty() => Information.Count == 0;
 
     public void CompareBattleTime(long time)

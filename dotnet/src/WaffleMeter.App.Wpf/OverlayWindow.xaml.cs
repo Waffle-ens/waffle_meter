@@ -39,7 +39,6 @@ public partial class OverlayWindow : Window
     private bool _taskbarMode;
     private bool _parked; // auto-hidden (Opacity 0); while parked the taskbar/Alt+Tab ex-style is dropped
     private bool? _presentedTopMost; // last applied present state; null = parked (forces re-present)
-    private bool _tooltipOpen; // an owned ToolTip is showing -> skip the topmost re-assert (it would dismiss it)
     public bool ClickThrough => _clickThrough;
     public bool TaskbarMode => _taskbarMode;
 
@@ -74,10 +73,6 @@ public partial class OverlayWindow : Window
         // Re-assert the ex-style on focus/z-order changes so WPF can't strip TOOLWINDOW|NOACTIVATE
         // (the taskbar-flicker / focus-steal fix).
         HwndSource.FromHwnd(_handle)?.AddHook(WndProc);
-        // Track owned tooltips so ReassertTopmostIfBuried can skip while one is open — re-ordering our HWND
-        // would dismiss its own tooltip (the exact regression the Present idempotent guard was added for).
-        ToolTipOpening += (_, _) => _tooltipOpen = true;
-        ToolTipClosing += (_, _) => _tooltipOpen = false;
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -205,13 +200,16 @@ public partial class OverlayWindow : Window
     /// own topmost (alt-enter, resolution/HDR transitions, game-owned popups) — has climbed above us. The
     /// 300ms poll calls this while the game is foreground. It reconciles "always above the game" with "no
     /// tooltip flicker": a true no-op on the common already-on-top path (no SetWindowPos, no recomposite),
-    /// re-asserts WITHOUT SwpShowWindow only when actually buried, keeps NOACTIVATE (never steals game
-    /// foreground), and is SKIPPED entirely while one of our own tooltips is open. Independent of the
-    /// Present idempotent guard, so it never re-introduces the per-tick tooltip-dismiss that guard prevents.
+    /// re-asserts WITHOUT SwpShowWindow only when actually buried, and keeps NOACTIVATE (never steals game
+    /// foreground). No tooltip guard is needed: our own ToolTip/Popup is a SAME-PROCESS topmost HWND, which the
+    /// foreign-window walk skips, so a re-assert never fires merely because our tooltip is up — only a genuine
+    /// foreign bury triggers SetWindowPos. (The 6361280 tooltip-dismiss regression came from the OLD
+    /// unconditional per-tick HWND_TOPMOST; this buried-only walk is not that. A tooltip-open guard here used to
+    /// LATCH for the 20s ShowDuration and leave the overlay stuck behind the game after a header hover.)
     /// </summary>
     public void ReassertTopmostIfBuried()
     {
-        if (_handle == IntPtr.Zero || _parked || _presentedTopMost != true || _tooltipOpen)
+        if (_handle == IntPtr.Zero || _parked || _presentedTopMost != true)
         {
             return;
         }
