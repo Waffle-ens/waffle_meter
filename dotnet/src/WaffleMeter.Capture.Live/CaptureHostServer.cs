@@ -90,6 +90,20 @@ public static class CaptureHostServer
                 {
                     break;
                 }
+
+                // The app classified a connection as high-volume non-game noise (P2P/streaming) — drop
+                // it at the source so a flood can't starve the game's capture.
+                if (backend is ISupportsConnectionExclusion excludable)
+                {
+                    if (frame.Value.Type == CaptureWireProtocol.FrameExclude && frame.Value.Body.Length >= 12)
+                    {
+                        excludable.ExcludeConnection(CaptureWireProtocol.DecodeConnKey(frame.Value.Body));
+                    }
+                    else if (frame.Value.Type == CaptureWireProtocol.FrameClearExclude)
+                    {
+                        excludable.ClearExclusions();
+                    }
+                }
             }
         }
         catch (IOException)

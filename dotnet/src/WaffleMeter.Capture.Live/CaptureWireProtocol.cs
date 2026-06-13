@@ -28,6 +28,8 @@ public static class CaptureWireProtocol
     // client -> server
     public const byte FrameStart = 0x10;   // body = encoded Start (backend + CaptureConfig)
     public const byte FrameStop = 0x11;    // body = empty (graceful stop request)
+    public const byte FrameExclude = 0x12; // body = encoded ConnKey (drop this connection at capture — noise guard)
+    public const byte FrameClearExclude = 0x13; // body = empty (re-admit all excluded connections — from a reset)
 
     private const int HeaderLength = 5;
 
@@ -119,6 +121,25 @@ public static class CaptureWireProtocol
         byte[] payload = body[offset..].ToArray();
         return new CapturedSegment(seq, payload, arrivedAt, srcIp, srcPort, dstIp, dstPort);
     }
+
+    // ConnKey wire form: [u32 SrcIp][u16 SrcPort][u32 DstIp][u16 DstPort], little-endian (the uint VALUE
+    // round-trips regardless of the IP's network-byte-order semantics — both sides agree on the value).
+    public static byte[] EncodeConnKey(in ConnKey key)
+    {
+        var buffer = new byte[12];
+        Span<byte> span = buffer;
+        BinaryPrimitives.WriteUInt32LittleEndian(span, key.SrcIp);
+        BinaryPrimitives.WriteUInt16LittleEndian(span[4..], key.SrcPort);
+        BinaryPrimitives.WriteUInt32LittleEndian(span[6..], key.DstIp);
+        BinaryPrimitives.WriteUInt16LittleEndian(span[10..], key.DstPort);
+        return buffer;
+    }
+
+    public static ConnKey DecodeConnKey(ReadOnlySpan<byte> body) => new(
+        BinaryPrimitives.ReadUInt32LittleEndian(body),
+        BinaryPrimitives.ReadUInt16LittleEndian(body[4..]),
+        BinaryPrimitives.ReadUInt32LittleEndian(body[6..]),
+        BinaryPrimitives.ReadUInt16LittleEndian(body[10..]));
 
     public static byte[] EncodeStart(string backend, CaptureConfig config)
     {

@@ -44,3 +44,18 @@ public interface IPacketCaptureBackend : IDisposable
     void Start(CaptureConfig config);
     void Stop();
 }
+
+/// <summary>
+/// A capture backend (or the pipe client) that can be told to exclude a connection from capture. The
+/// WinDivert backend drops the connection's packets locally in its receive loop; the unelevated pipe
+/// client forwards the request to the elevated helper, which then does the same. Used by the P2P/
+/// streaming noise guard so a high-volume non-game flood can't starve the game's capture.
+/// </summary>
+public interface ISupportsConnectionExclusion
+{
+    void ExcludeConnection(ConnKey key);
+
+    /// <summary>Re-admit all excluded connections (from a user reset), so a misclassification recovers
+    /// without an app relaunch.</summary>
+    void ClearExclusions();
+}

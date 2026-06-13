@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Net;
 using System.Runtime.InteropServices;
@@ -16,8 +17,15 @@ namespace WaffleMeter.Capture.Live;
 /// administrator rights to load the driver (this backend runs inside the elevated capture helper).
 /// The HVCI/driver-load behaviour is the go/no-go gating spike — validate on a clean Win11 machine.
 /// </summary>
-public sealed class WinDivertBackend : IPacketCaptureBackend
+public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectionExclusion
 {
+    // Connections the app classified as high-volume non-game noise (P2P / streaming). Their packets are
+    // dropped early in the receive loop (before the PacketDotNet parse + pipe write), which keeps the
+    // kernel SNIFF queue draining fast so a flood can't crowd out the game's high-frequency damage
+    // stream. Written by the serve thread (on a FrameExclude), read by the capture thread — concurrent.
+    private const int MaxExcluded = 16384;
+    private readonly ConcurrentDictionary<ConnKey, byte> _excluded = new();
+
     private const int LayerNetwork = 0;
     private const ulong FlagSniff = 0x0001;
     private const ulong FlagRecvOnly = 0x0004; // WinDivert 2.x RECV_ONLY (0x0008 is SEND_ONLY — the bug that captured 0)
@@ -77,6 +85,19 @@ public sealed class WinDivertBackend : IPacketCaptureBackend
         }
     }
 
+    /// <summary>Exclude a connection from capture (P2P/streaming noise guard). Idempotent; capped so a
+    /// churning peer set can't grow the set without bound.</summary>
+    public void ExcludeConnection(ConnKey key)
+    {
+        if (_excluded.Count < MaxExcluded)
+        {
+            _excluded.TryAdd(key, 0);
+        }
+    }
+
+    /// <summary>Re-admit all dropped connections (from a user reset on the client side).</summary>
+    public void ClearExclusions() => _excluded.Clear();
+
     private void RecvLoop()
     {
         var buffer = new byte[65535];
@@ -95,9 +116,43 @@ public sealed class WinDivertBackend : IPacketCaptureBackend
 
             if (recvLen >= 20)
             {
+                // Drop excluded (noise) connections before the expensive parse + pipe write, so the
+                // receive loop stays fast and the kernel queue keeps draining for the game stream.
+                if (!_excluded.IsEmpty
+                    && TryReadConnKey(buffer, (int)recvLen, out ConnKey key)
+                    && _excluded.ContainsKey(key))
+                {
+                    continue;
+                }
+
                 Parse(buffer, (int)recvLen);
             }
         }
+    }
+
+    /// <summary>Cheap, allocation-free 4-tuple read straight from the IPv4+TCP header (the same value
+    /// space as <see cref="ConnKey.TryFrom"/>'s dotted-quad parse), so the exclusion match agrees with
+    /// what the app sent. Returns false for non-IPv4 / non-TCP / truncated headers.</summary>
+    internal static bool TryReadConnKey(byte[] b, int len, out ConnKey key)
+    {
+        key = default;
+        if (len < 20 || (b[0] >> 4) != 4)
+        {
+            return false;
+        }
+
+        int ihl = (b[0] & 0x0F) * 4;
+        if (ihl < 20 || len < ihl + 4 || b[9] != 6 /* TCP */)
+        {
+            return false;
+        }
+
+        uint src = ((uint)b[12] << 24) | ((uint)b[13] << 16) | ((uint)b[14] << 8) | b[15];
+        uint dst = ((uint)b[16] << 24) | ((uint)b[17] << 16) | ((uint)b[18] << 8) | b[19];
+        var sport = (ushort)((b[ihl] << 8) | b[ihl + 1]);
+        var dport = (ushort)((b[ihl + 2] << 8) | b[ihl + 3]);
+        key = new ConnKey(src, sport, dst, dport);
+        return true;
     }
 
     private void Parse(byte[] buffer, int len)

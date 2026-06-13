@@ -49,16 +49,40 @@ public sealed class MeterServices
     // keyed by the full 4-tuple; each owns its own aligner+assembler over ONE shared StreamProcessor.
     private const long IdleMs = 30_000;
     private const long EvictEvery = 1000;
+    // P2P/streaming noise guard: a directional connection that has pushed this many bytes WITHOUT ever
+    // yielding a recognizable game packet is noise (NAVER Live P2P, downloads, OBS…). We stop processing
+    // it AND ask the elevated helper to drop it at capture, so a flood can't starve the game's
+    // high-frequency damage stream. Content-based (never IP/port targeted) → loopback/booster game paths,
+    // which DO yield game packets, are always kept (they earn GameSignal within the first few KB).
+    private const long NoiseVolumeBytes = 2_000_000;
+    // Require some FRAMED packets too, so a stalled aligner (which accumulates raw bytes but emits no
+    // assembled packets — more likely under the very flood this fights) can never be misread as noise.
+    private const int MinNoisePackets = 50;
+    private const int MaxExcludedKeys = 16384;
     private readonly StreamProcessor _processor;
     private readonly Dictionary<string, StreamState> _streams = new();
+    private readonly HashSet<string> _excludedKeys = new();
     private long _processed;
+
+    /// <summary>Raised (consumer thread) when a connection is classified as high-volume non-game noise,
+    /// so the capture helper can drop it at the source. <see cref="MeterEngine"/> forwards it to the
+    /// backend (the pipe client relays it to the elevated helper).</summary>
+    public event Action<ConnKey>? ConnectionExcludeRequested;
 
     private sealed class StreamState(PacketAlignmenter aligner, StreamAssembler assembler)
     {
         public PacketAlignmenter Aligner { get; } = aligner;
         public StreamAssembler Assembler { get; } = assembler;
         public long LastSeen { get; set; }
+        public long Bytes { get; set; }          // raw payload volume seen on this directional connection
+        public int EmittedPackets { get; set; }  // assembled packets the framer emitted (stall guard)
+        public int GameSignal { get; set; }      // assembled packets that look like game packets (>0 => protected)
     }
+
+    /// <summary>Re-admit every excluded connection (called from a user reset, on the consumer thread) so a
+    /// misclassification recovers without an app relaunch. The helper's source-side drop set is cleared
+    /// separately by <see cref="MeterEngine"/>.</summary>
+    public void ClearExclusions() => _excludedKeys.Clear();
 
     public MeterServices(
         PropertyHandler props,
@@ -125,25 +149,67 @@ public sealed class MeterServices
     /// <summary>Feeds one captured segment through its per-connection stream (Kotlin Main.kt consumer).</summary>
     public void Feed(CapturedSegment segment)
     {
+        // Known noise (P2P/streaming flood): already classified — drop locally. The elevated helper also
+        // drops it at the source, so these segments stop arriving shortly after the exclusion is sent.
+        if (_excludedKeys.Contains(segment.StreamKey))
+        {
+            return;
+        }
+
         // L0: log the raw segment (pre-alignment) for a diagnostic session — replayable corpus input.
         DebugLogger.Capture(segment.SrcIp, segment.Seq, segment.Payload, segment.ArrivedAtMs);
 
         if (!_streams.TryGetValue(segment.StreamKey, out StreamState? state))
         {
-            state = new StreamState(
-                new PacketAlignmenter(),
-                new StreamAssembler((packet, at) =>
+            StreamState? created = null;
+            var assembler = new StreamAssembler((packet, at) =>
+            {
+                DebugLogger.Assembled(packet, at); // L1: reassembled application packet
+                if (created is not null)
                 {
-                    DebugLogger.Assembled(packet, at); // L1: reassembled application packet
-                    _processor.OnPacketReceived(packet, at);
-                }));
+                    created.EmittedPackets++;
+                    if (StreamProcessor.LooksLikeGamePacket(packet))
+                    {
+                        created.GameSignal++; // content signal: this connection carries the game stream — protect it
+                    }
+                }
+
+                _processor.OnPacketReceived(packet, at);
+            });
+            created = new StreamState(new PacketAlignmenter(), assembler);
+            state = created;
             _streams[segment.StreamKey] = state;
         }
 
         state.LastSeen = segment.ArrivedAtMs;
+        state.Bytes += segment.Payload.Length;
         foreach (AlignedChunk chunk in state.Aligner.Feed(segment.Seq, segment.Payload, segment.ArrivedAtMs))
         {
             state.Assembler.ProcessChunk(chunk.Data, chunk.ArrivedAt);
+        }
+
+        // Classify AFTER processing (so this segment's packets count first): a connection that has pushed
+        // a lot of bytes AND emitted enough framed packets, none of which look like the game, is noise.
+        // The game stream earns GameSignal within the first few KB, so it is protected long before this.
+        if (state.GameSignal == 0 && state.EmittedPackets >= MinNoisePackets && state.Bytes >= NoiseVolumeBytes)
+        {
+            // Always drop it locally (decoupled from the notify cap). Breadcrumb it so a wrongful exclusion
+            // is diagnosable in a debug session instead of a silent blackout.
+            _streams.Remove(segment.StreamKey);
+            DebugLogger.Meta("conn_excluded",
+                ("key", segment.StreamKey), ("bytes", state.Bytes), ("packets", state.EmittedPackets));
+
+            // Tell the helper to drop it at the source too (capped to bound the set under peer churn).
+            if (_excludedKeys.Count < MaxExcludedKeys)
+            {
+                _excludedKeys.Add(segment.StreamKey);
+                if (ConnKey.TryFrom(segment, out ConnKey key))
+                {
+                    ConnectionExcludeRequested?.Invoke(key);
+                }
+            }
+
+            return;
         }
 
         // Sampled idle eviction (every 1000th packet), clocked off the incoming packet like Kotlin.

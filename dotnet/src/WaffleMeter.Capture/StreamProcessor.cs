@@ -122,6 +122,54 @@ public sealed class StreamProcessor
         _joinSink = joinSink ?? NullJoinRequestSink.Instance;
     }
 
+    /// <summary>
+    /// Cheap structural check used by the connection classifier (NOT by the parser): does this assembled
+    /// packet look like a GAME packet — a known opcode key, or an LZ4 (FF FF) compressed game packet?
+    /// Lets the app tell the game stream apart from high-volume non-game noise (P2P/streaming) purely by
+    /// content, so loopback/booster game paths — which DO yield game packets — are never excluded.
+    /// Mirrors the header walk in <see cref="OnPacketReceived"/>; a false negative only delays a
+    /// connection earning "game" status, a false positive only spares a noisy connection.
+    /// </summary>
+    public static bool LooksLikeGamePacket(byte[] packet)
+    {
+        if (packet.Length < 4)
+        {
+            return false;
+        }
+
+        VarIntOutput lengthInfo = PacketPrimitives.ReadVarInt(packet);
+        if (lengthInfo.Length < 0 || lengthInfo.Length >= packet.Length)
+        {
+            return false;
+        }
+
+        int flagByte = packet[lengthInfo.Length];
+        bool extraFlag = flagByte >= 0xF0 && flagByte < 0xFF;
+
+        if (extraFlag)
+        {
+            if (lengthInfo.Length + 2 < packet.Length
+                && packet[lengthInfo.Length + 1] == 0xFF && packet[lengthInfo.Length + 2] == 0xFF)
+            {
+                return true; // FF FF LZ4-compressed game packet
+            }
+        }
+        else if (lengthInfo.Length + 1 < packet.Length
+            && packet[lengthInfo.Length] == 0xFF && packet[lengthInfo.Length + 1] == 0xFF)
+        {
+            return true;
+        }
+
+        int opcodeOffset = lengthInfo.Length + (extraFlag ? 1 : 0);
+        if (opcodeOffset + 1 >= packet.Length)
+        {
+            return false;
+        }
+
+        int opcodeKey = (packet[opcodeOffset] & 0xFF) | ((packet[opcodeOffset + 1] & 0xFF) << 8);
+        return OpcodeNames.ContainsKey(opcodeKey);
+    }
+
     public void OnPacketReceived(byte[] packet, long arrivedAt)
     {
         if (packet.Length == 3)

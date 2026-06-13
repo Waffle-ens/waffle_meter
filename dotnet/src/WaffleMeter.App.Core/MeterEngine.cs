@@ -43,6 +43,13 @@ public sealed class MeterEngine : IDisposable
         {
             pipe.CaptureError += msg => CaptureError?.Invoke(msg);
         }
+
+        // P2P/streaming noise guard: when the services classifier marks a connection as non-game noise,
+        // forward it to the backend so it's dropped at the source (the pipe client relays to the helper).
+        if (backend is ISupportsConnectionExclusion exclusion)
+        {
+            _services.ConnectionExcludeRequested += key => exclusion.ExcludeConnection(key);
+        }
     }
 
     /// <summary>Requests a full meter reset (clears saved battles + live data). Thread-safe: the actual
@@ -97,6 +104,14 @@ public sealed class MeterEngine : IDisposable
                 try
                 {
                     _services.Calculator.HardReset();
+                    // Recover from any noise-guard misclassification: re-admit excluded connections both
+                    // locally and at the helper's source-side drop set.
+                    _services.ClearExclusions();
+                    if (_backend is ISupportsConnectionExclusion exclusion)
+                    {
+                        exclusion.ClearExclusions();
+                    }
+
                     _services.NotifyBattleListChanged(); // history was flushed — clear the panel
                 }
                 catch

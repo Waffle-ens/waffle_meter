@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -41,6 +42,11 @@ public partial class App : Application
     private bool _consentDialogOpen;
     private UpdateToast? _updateToast;
     private UpdateToastViewModel? _updateToastVm;
+
+    /// <summary>Auto-reset event the FIRST instance owns (set by <see cref="Program"/>); a later launch
+    /// opens it by name and signals it instead of spawning a colliding UI. We wait on it and surface the
+    /// overlay (un-hide from tray) so relaunching the shortcut brings the running instance back.</summary>
+    public EventWaitHandle? SingleInstanceShowSignal { get; set; }
 
     public App()
     {
@@ -126,6 +132,10 @@ public partial class App : Application
         }
         _tray = new TrayIconController(window, _controller, () => Dispatcher.Invoke(ExitApp));
         window.PositionChanged += (left, top) => SavePosition(services.Props, left, top);
+
+        // Single-instance: surface this (running) instance when a later launch signals us, so relaunching
+        // the shortcut un-hides the overlay instead of spawning a second UI that would collide on the pipe.
+        StartSingleInstanceListener();
 
         // Global hotkeys (Ctrl+R reset / Ctrl+H visibility / Ctrl+T click-through). Callbacks fire on
         // the listener thread, so marshal window ops to the dispatcher.
@@ -306,6 +316,41 @@ public partial class App : Application
         }
 
         return raw;
+    }
+
+    /// <summary>Background waiter for the single-instance "show" signal. A later launch (see
+    /// <see cref="Program"/>) opens the named event and Set()s it; we un-hide the overlay from the tray so
+    /// the user gets the running instance back instead of a second, colliding one. Best-effort: any handle
+    /// error (e.g. on shutdown) just ends the loop.</summary>
+    private void StartSingleInstanceListener()
+    {
+        EventWaitHandle? signal = SingleInstanceShowSignal;
+        if (signal is null)
+        {
+            return;
+        }
+
+        var thread = new Thread(() =>
+        {
+            while (true)
+            {
+                try
+                {
+                    signal.WaitOne();
+                }
+                catch
+                {
+                    break; // handle disposed / abandoned on shutdown
+                }
+
+                Dispatcher.Invoke(() => _controller?.ShowFromTray());
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "single-instance-listener",
+        };
+        thread.Start();
     }
 
     private void ExitApp()

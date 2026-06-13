@@ -100,6 +100,20 @@ public sealed class NamedPipeCaptureLoopbackTests
         serverThread.Join(5000);
     }
 
+    [Fact]
+    public void Connect_failure_self_classifies_a_missing_helper_pipe()
+    {
+        // No server is ever created for this random name, so the pipe NAME is absent. Start must throw
+        // within the (small) budget — proving the retry respects the deadline rather than hanging — and
+        // the message must classify the failure as "no helper pipe" (helper not serving), not blame the pipe.
+        string pipeName = "wm_test_" + Guid.NewGuid().ToString("N");
+        using var client = new NamedPipeCaptureClient("windivert", pipeName, connectTimeoutMs: 300);
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => client.Start(new CaptureConfig()));
+        Assert.Contains(pipeName, ex.Message);
+        Assert.Contains("no helper pipe", ex.Message);
+    }
+
     private sealed class FakeBackend : IPacketCaptureBackend
     {
         private readonly CapturedSegment[] _segments;

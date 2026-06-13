@@ -14,11 +14,12 @@ namespace WaffleMeter.Capture.Live;
 /// capturing in-process, it relays the helper's capture. The helper's chosen driver (WinDivert
 /// default or Npcap option) is selected via the backend name passed to <see cref="Start(string, CaptureConfig)"/>.
 /// </summary>
-public sealed class NamedPipeCaptureClient : IPacketCaptureBackend
+public sealed class NamedPipeCaptureClient : IPacketCaptureBackend, ISupportsConnectionExclusion
 {
     private readonly string _pipeName;
     private readonly string _backend;
     private readonly int _connectTimeoutMs;
+    private readonly object _writeLock = new(); // serialize app->helper frames (Start/Stop/Exclude)
     private NamedPipeClientStream? _pipe;
     private Thread? _thread;
     private volatile bool _running;
@@ -40,24 +41,138 @@ public sealed class NamedPipeCaptureClient : IPacketCaptureBackend
 
     public void Start(CaptureConfig config)
     {
-        var pipe = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
-        try
-        {
-            pipe.Connect(_connectTimeoutMs);
-        }
-        catch (Exception ex)
-        {
-            pipe.Dispose();
-            throw new InvalidOperationException(
-                $"could not connect to the capture helper pipe '{_pipeName}' — is WaffleMeter.CaptureHost running elevated?", ex);
-        }
+        NamedPipeClientStream pipe = ConnectWithRetry();
 
         _pipe = pipe;
-        CaptureWireProtocol.WriteFrame(pipe, CaptureWireProtocol.FrameStart, CaptureWireProtocol.EncodeStart(_backend, config));
+        lock (_writeLock)
+        {
+            CaptureWireProtocol.WriteFrame(pipe, CaptureWireProtocol.FrameStart, CaptureWireProtocol.EncodeStart(_backend, config));
+        }
 
         _running = true;
         _thread = new Thread(ReadLoop) { IsBackground = true, Name = "pipe-capture-client" };
         _thread.Start();
+    }
+
+    /// <summary>Tell the elevated helper to drop a connection at the source (P2P/streaming noise guard).
+    /// Best-effort: the helper may already be gone, and the app drops the connection locally regardless.</summary>
+    public void ExcludeConnection(ConnKey key)
+    {
+        NamedPipeClientStream? pipe = _pipe;
+        if (pipe is not { IsConnected: true })
+        {
+            return;
+        }
+
+        try
+        {
+            lock (_writeLock)
+            {
+                CaptureWireProtocol.WriteFrame(pipe, CaptureWireProtocol.FrameExclude, CaptureWireProtocol.EncodeConnKey(key));
+            }
+        }
+        catch
+        {
+            // helper gone / pipe broken — non-fatal; the local skip still applies
+        }
+    }
+
+    /// <summary>Ask the helper to re-admit all dropped connections (from a user reset).</summary>
+    public void ClearExclusions()
+    {
+        NamedPipeClientStream? pipe = _pipe;
+        if (pipe is not { IsConnected: true })
+        {
+            return;
+        }
+
+        try
+        {
+            lock (_writeLock)
+            {
+                CaptureWireProtocol.WriteFrame(pipe, CaptureWireProtocol.FrameClearExclude, ReadOnlySpan<byte>.Empty);
+            }
+        }
+        catch
+        {
+            // helper gone / pipe broken — non-fatal
+        }
+    }
+
+    /// <summary>
+    /// Connect within the SAME total budget (<see cref="_connectTimeoutMs"/>), retrying on transient
+    /// failures with fresh streams. A healthy helper connects on the first attempt in milliseconds, so
+    /// this never slows the happy path; only a failing connect re-attempts and the total wall-clock is
+    /// unchanged. No relaunch/kill — the unelevated UI can't displace the elevated helper anyway; this is
+    /// purely connect-side resilience plus a self-classifying failure message.
+    /// </summary>
+    private NamedPipeClientStream ConnectWithRetry()
+    {
+        const int perAttemptCapMs = 5000;
+        const int retryGapMs = 200;
+        long deadline = Environment.TickCount64 + _connectTimeoutMs;
+        Exception? last = null;
+
+        while (true)
+        {
+            int remaining = (int)(deadline - Environment.TickCount64);
+            if (remaining <= 0)
+            {
+                break;
+            }
+
+            var pipe = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+            try
+            {
+                pipe.Connect(Math.Min(remaining, perAttemptCapMs));
+                return pipe;
+            }
+            catch (Exception ex)
+            {
+                pipe.Dispose();
+                last = ex;
+            }
+
+            if (deadline - Environment.TickCount64 <= retryGapMs)
+            {
+                break;
+            }
+
+            Thread.Sleep(retryGapMs);
+        }
+
+        throw new InvalidOperationException(
+            $"could not connect to the capture helper pipe '{_pipeName}' — {DiagnoseConnectFailure(last)}", last);
+    }
+
+    /// <summary>
+    /// Turn a connect failure into a self-classifying message: whether the pipe NAME is present but
+    /// unconnectable (helper busy/stale — the lone server instance is occupied) versus absent (the helper
+    /// never served or has exited), plus the inner error detail. Maps a single screenshot to the right
+    /// root-cause family without a repro.
+    /// </summary>
+    private string DiagnoseConnectFailure(Exception? ex)
+    {
+        string inner = ex is null
+            ? "unknown error"
+            : ex.GetType().Name + (ex.HResult != 0 ? $" (0x{ex.HResult:X8})" : string.Empty);
+        return $"{PipeNamePresence(_pipeName)}; {inner} — is WaffleMeter.CaptureHost running elevated?";
+    }
+
+    private static string PipeNamePresence(string pipeName)
+    {
+        try
+        {
+            bool present = Directory.GetFiles(@"\\.\pipe\")
+                .Any(p => string.Equals(Path.GetFileName(p), pipeName, StringComparison.OrdinalIgnoreCase));
+            return present
+                ? "pipe present but unconnectable (helper busy/stale — single instance occupied)"
+                : "no helper pipe (CaptureHost not serving — never launched or exited)";
+        }
+        catch
+        {
+            return "pipe presence unknown";
+        }
     }
 
     private void ReadLoop()
@@ -101,9 +216,12 @@ public sealed class NamedPipeCaptureClient : IPacketCaptureBackend
         _running = false;
         try
         {
-            if (_pipe is { IsConnected: true })
+            lock (_writeLock)
             {
-                CaptureWireProtocol.WriteFrame(_pipe, CaptureWireProtocol.FrameStop, ReadOnlySpan<byte>.Empty);
+                if (_pipe is { IsConnected: true })
+                {
+                    CaptureWireProtocol.WriteFrame(_pipe, CaptureWireProtocol.FrameStop, ReadOnlySpan<byte>.Empty);
+                }
             }
         }
         catch
