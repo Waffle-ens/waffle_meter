@@ -9,13 +9,17 @@ public sealed class MeterColorThemeTests : IDisposable
     private readonly string _temp;
     private readonly PropertyHandler _props;
 
-    // Verbatim JSON.stringify(DEFAULT_THEME) from useSettingsStore.ts.
+    // React JSON.stringify(DEFAULT_THEME) from useSettingsStore.ts (first 13 keys, byte-identical), then the
+    // .NET-only meter-bar-color extension (barColorMode + 8 per-job colors) appended in ThemeDto order.
     private const string DefaultThemeJson =
         "{\"userBar\":[\"#15c98f\",\"#0b8f72\"],\"normalBar\":[\"#f6c65b\",\"#d68a21\"]," +
         "\"warningBar\":[\"#ff9f45\",\"#d96d19\"],\"errorBar\":[\"#ef4444\",\"#991b1b\"]," +
         "\"bossBar\":[\"#e11d48\",\"#7f1d1d\"],\"serverAColor\":\"#7dd3fc\",\"serverBColor\":\"#f0abfc\"," +
         "\"serverDefaultColor\":\"#ffffff\",\"meterStatAmount\":\"#f8d66d\",\"meterStatDps\":\"#f8fafc\"," +
-        "\"meterStatPercent\":\"#8ee6cf\",\"bossRightValue\":\"#fecdd3\",\"combatTimeColor\":\"#cbd5e1\"}";
+        "\"meterStatPercent\":\"#8ee6cf\",\"bossRightValue\":\"#fecdd3\",\"combatTimeColor\":\"#cbd5e1\"," +
+        "\"barColorMode\":\"self\",\"jobBarGladiator\":\"#22d3ee\",\"jobBarTemplar\":\"#60a5fa\"," +
+        "\"jobBarRanger\":\"#34d399\",\"jobBarAssassin\":\"#84cc16\",\"jobBarSorcerer\":\"#a78bfa\"," +
+        "\"jobBarCleric\":\"#f59e0b\",\"jobBarElementalist\":\"#d946ef\",\"jobBarChanter\":\"#f97316\"}";
 
     public MeterColorThemeTests()
     {

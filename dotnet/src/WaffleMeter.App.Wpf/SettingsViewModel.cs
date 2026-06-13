@@ -88,6 +88,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("표시 안 함", "none"),
     };
 
+    public IReadOnlyList<SettingOption> BarColorModes { get; } = new[]
+    {
+        new SettingOption("본인 강조", "self"),
+        new SettingOption("직업 강조", "job"),
+    };
+
     // Bundled-or-fallback fonts (see Fonts/README.md). Each font ships a regular + a bolder weight; the
     // bold weight is a SEPARATE Win32 family name (e.g. "NEXON Lv2 Gothic Medium") so it resolves as its
     // own family with no font-weight plumbing. Values = the font's family name used by FontFamilyConverter

@@ -23,6 +23,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     // Rebuilt from the theme whenever a color changes (MeterColorTheme.Changed); rows are records that
     // bake in the brush references, so a theme change re-runs Update on the last report.
     private Brush _userBar = null!, _normalBar = null!, _warningBar = null!, _errorBar = null!;
+    private Dictionary<JobClass, Brush> _jobBars = new(); // per-job bar brushes (직업 강조 mode), rebuilt on theme change
     private Brush _nameDefault = null!, _nameServerA = null!, _nameServerB = null!;
     private Brush _amountBrush = null!, _dpsBrush = null!, _percentBrush = null!;
     private DpsReport? _lastReport;
@@ -94,6 +95,12 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         _normalBar = ThemeGradient(_theme.NormalBarFrom, _theme.NormalBarTo);
         _warningBar = ThemeGradient(_theme.WarningBarFrom, _theme.WarningBarTo);
         _errorBar = ThemeGradient(_theme.ErrorBarFrom, _theme.ErrorBarTo);
+        _jobBars = new Dictionary<JobClass, Brush>();
+        foreach (JobClass jc in Enum.GetValues<JobClass>())
+        {
+            _jobBars[jc] = ThemeSolid(_theme.JobBar(jc));
+        }
+
         if (_isLight())
         {
             // Light skin: the user theme's stat colors (tuned for dark) are unreadable on the light bg,
@@ -281,6 +288,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             double ratio = Math.Clamp(Metric(e.Info) / topMetric, 0.0, 1.0);
             double barRatio = ratio > 0 ? Math.Max(0.015, ratio) : 0.0; // React max(1.5%, ratio) so small bars stay visible
             string? jobName = e.User?.Job is JobClass jc ? jc.ClassName() : null;
+            // 직업 강조 mode: this player's job bar (self keeps _userBar; unresolved job -> _normalBar).
+            Brush jobBar = e.User?.Job is JobClass jcb && _jobBars.TryGetValue(jcb, out Brush? jbr) ? jbr : _normalBar;
 
             var row = new RowViewModel(
                 Id: e.Uid,
@@ -294,7 +303,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 PercentText: MeterFormat.FormatPercent(entire ? e.Info.EntireContribution : contribution),
                 BarRatio: barRatio,
                 BarRest: 1.0 - barRatio,
-                FillBrush: isUser ? _userBar : contribution < 3 ? _errorBar : contribution < 5 ? _warningBar : _normalBar,
+                FillBrush: _theme.BarColorMode == "job"
+                    ? (isUser ? _userBar : jobBar)
+                    : (isUser ? _userBar : contribution < 3 ? _errorBar : contribution < 5 ? _warningBar : _normalBar),
                 NameBrush: MeterFormat.ServerTier(server) switch
                 {
                     ServerColorTier.A => _nameServerA,

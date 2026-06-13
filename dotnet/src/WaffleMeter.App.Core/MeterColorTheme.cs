@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using WaffleMeter.Data;
 using WaffleMeter.Services;
 
 namespace WaffleMeter.App.Core;
@@ -31,6 +32,19 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
     public const string DefaultBossRightValue = "#fecdd3";
     public const string DefaultCombatTimeColor = "#cbd5e1";
 
+    // Meter bar color mode: "self" (본인 강조, by contribution — current/default) or "job" (직업 강조).
+    public const string DefaultBarColorMode = "self";
+    // Per-job bar colors for 직업 강조 mode. Source of truth = JoinPanelPalette accents (opaque RGB) so the
+    // bars match the join-card job tints (design consistency) while staying vivid/eye-catching.
+    public const string DefaultJobBarGladiator = "#22d3ee";    // 검성 cyan
+    public const string DefaultJobBarTemplar = "#60a5fa";      // 수호성 blue
+    public const string DefaultJobBarRanger = "#34d399";       // 궁성 emerald
+    public const string DefaultJobBarAssassin = "#84cc16";     // 살성 lime
+    public const string DefaultJobBarSorcerer = "#a78bfa";     // 마도성 violet
+    public const string DefaultJobBarCleric = "#f59e0b";       // 치유성 amber
+    public const string DefaultJobBarElementalist = "#d946ef"; // 정령성 fuchsia
+    public const string DefaultJobBarChanter = "#f97316";      // 호법성 orange
+
     private readonly PropertyHandler _props;
     private bool _loading;
 
@@ -49,6 +63,9 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
     private string _serverAColor = null!, _serverBColor = null!, _serverDefaultColor = null!;
     private string _meterStatAmount = null!, _meterStatDps = null!, _meterStatPercent = null!;
     private string _bossRightValue = null!, _combatTimeColor = null!;
+    private string _barColorMode = null!;
+    private string _jobBarGladiator = null!, _jobBarTemplar = null!, _jobBarRanger = null!, _jobBarAssassin = null!;
+    private string _jobBarSorcerer = null!, _jobBarCleric = null!, _jobBarElementalist = null!, _jobBarChanter = null!;
 
     public string UserBarFrom { get => _userBarFrom; set => Set(ref _userBarFrom, value); }
     public string UserBarTo { get => _userBarTo; set => Set(ref _userBarTo, value); }
@@ -68,6 +85,31 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
     public string MeterStatPercent { get => _meterStatPercent; set => Set(ref _meterStatPercent, value); }
     public string BossRightValue { get => _bossRightValue; set => Set(ref _bossRightValue, value); }
     public string CombatTimeColor { get => _combatTimeColor; set => Set(ref _combatTimeColor, value); }
+
+    /// <summary>Meter bar color mode: "self" (본인 강조) or "job" (직업 강조).</summary>
+    public string BarColorMode { get => _barColorMode; set => Set(ref _barColorMode, value); }
+    public string JobBarGladiator { get => _jobBarGladiator; set => Set(ref _jobBarGladiator, value); }
+    public string JobBarTemplar { get => _jobBarTemplar; set => Set(ref _jobBarTemplar, value); }
+    public string JobBarRanger { get => _jobBarRanger; set => Set(ref _jobBarRanger, value); }
+    public string JobBarAssassin { get => _jobBarAssassin; set => Set(ref _jobBarAssassin, value); }
+    public string JobBarSorcerer { get => _jobBarSorcerer; set => Set(ref _jobBarSorcerer, value); }
+    public string JobBarCleric { get => _jobBarCleric; set => Set(ref _jobBarCleric, value); }
+    public string JobBarElementalist { get => _jobBarElementalist; set => Set(ref _jobBarElementalist, value); }
+    public string JobBarChanter { get => _jobBarChanter; set => Set(ref _jobBarChanter, value); }
+
+    /// <summary>The configured bar color (hex/rgba) for a job in 직업 강조 mode.</summary>
+    public string JobBar(JobClass job) => job switch
+    {
+        JobClass.GLADIATOR => _jobBarGladiator,
+        JobClass.TEMPLAR => _jobBarTemplar,
+        JobClass.RANGER => _jobBarRanger,
+        JobClass.ASSASSIN => _jobBarAssassin,
+        JobClass.SORCERER => _jobBarSorcerer,
+        JobClass.CLERIC => _jobBarCleric,
+        JobClass.ELEMENTALIST => _jobBarElementalist,
+        JobClass.CHANTER => _jobBarChanter,
+        _ => DefaultServerDefaultColor, // all 8 enum values are covered; neutral white for safety
+    };
 
     /// <summary>Raised on any color change (and reset) so views rebuild brushes.</summary>
     public event EventHandler? Changed;
@@ -96,6 +138,15 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
         _meterStatPercent = DefaultMeterStatPercent;
         _bossRightValue = DefaultBossRightValue;
         _combatTimeColor = DefaultCombatTimeColor;
+        _barColorMode = DefaultBarColorMode;
+        _jobBarGladiator = DefaultJobBarGladiator;
+        _jobBarTemplar = DefaultJobBarTemplar;
+        _jobBarRanger = DefaultJobBarRanger;
+        _jobBarAssassin = DefaultJobBarAssassin;
+        _jobBarSorcerer = DefaultJobBarSorcerer;
+        _jobBarCleric = DefaultJobBarCleric;
+        _jobBarElementalist = DefaultJobBarElementalist;
+        _jobBarChanter = DefaultJobBarChanter;
     }
 
     private void Load()
@@ -128,6 +179,15 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
             if (dto.MeterStatPercent is { }) { _meterStatPercent = dto.MeterStatPercent; }
             if (dto.BossRightValue is { }) { _bossRightValue = dto.BossRightValue; }
             if (dto.CombatTimeColor is { }) { _combatTimeColor = dto.CombatTimeColor; }
+            if (dto.BarColorMode is { }) { _barColorMode = dto.BarColorMode; }
+            if (dto.JobBarGladiator is { }) { _jobBarGladiator = dto.JobBarGladiator; }
+            if (dto.JobBarTemplar is { }) { _jobBarTemplar = dto.JobBarTemplar; }
+            if (dto.JobBarRanger is { }) { _jobBarRanger = dto.JobBarRanger; }
+            if (dto.JobBarAssassin is { }) { _jobBarAssassin = dto.JobBarAssassin; }
+            if (dto.JobBarSorcerer is { }) { _jobBarSorcerer = dto.JobBarSorcerer; }
+            if (dto.JobBarCleric is { }) { _jobBarCleric = dto.JobBarCleric; }
+            if (dto.JobBarElementalist is { }) { _jobBarElementalist = dto.JobBarElementalist; }
+            if (dto.JobBarChanter is { }) { _jobBarChanter = dto.JobBarChanter; }
         }
         catch
         {
@@ -152,6 +212,15 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
             MeterStatPercent = _meterStatPercent,
             BossRightValue = _bossRightValue,
             CombatTimeColor = _combatTimeColor,
+            BarColorMode = _barColorMode,
+            JobBarGladiator = _jobBarGladiator,
+            JobBarTemplar = _jobBarTemplar,
+            JobBarRanger = _jobBarRanger,
+            JobBarAssassin = _jobBarAssassin,
+            JobBarSorcerer = _jobBarSorcerer,
+            JobBarCleric = _jobBarCleric,
+            JobBarElementalist = _jobBarElementalist,
+            JobBarChanter = _jobBarChanter,
         };
         _props.SetProperty("theme", JsonSerializer.Serialize(dto));
     }
@@ -200,5 +269,14 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
         [JsonPropertyName("meterStatPercent")] public string? MeterStatPercent { get; set; }
         [JsonPropertyName("bossRightValue")] public string? BossRightValue { get; set; }
         [JsonPropertyName("combatTimeColor")] public string? CombatTimeColor { get; set; }
+        [JsonPropertyName("barColorMode")] public string? BarColorMode { get; set; }
+        [JsonPropertyName("jobBarGladiator")] public string? JobBarGladiator { get; set; }
+        [JsonPropertyName("jobBarTemplar")] public string? JobBarTemplar { get; set; }
+        [JsonPropertyName("jobBarRanger")] public string? JobBarRanger { get; set; }
+        [JsonPropertyName("jobBarAssassin")] public string? JobBarAssassin { get; set; }
+        [JsonPropertyName("jobBarSorcerer")] public string? JobBarSorcerer { get; set; }
+        [JsonPropertyName("jobBarCleric")] public string? JobBarCleric { get; set; }
+        [JsonPropertyName("jobBarElementalist")] public string? JobBarElementalist { get; set; }
+        [JsonPropertyName("jobBarChanter")] public string? JobBarChanter { get; set; }
     }
 }

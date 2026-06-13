@@ -234,17 +234,55 @@
 
                         <TextBlock Text="미터 바 색상" Style="{StaticResource Label}" Margin="0,12,0,4"/>
                         <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="색상 방식" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding BarColorModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding Theme.BarColorMode, Mode=TwoWay}"/></Grid>
+                        <!-- 내 캐릭터(본인) 색은 두 모드 모두에서 사용 -->
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="내 캐릭터" VerticalAlignment="Center"/>
                             <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.UserBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.UserBarTo, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="일반" VerticalAlignment="Center"/>
-                            <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.NormalBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.NormalBarTo, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="경고 (기여도 5% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                            <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.WarningBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.WarningBarTo, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="에러 (기여도 3% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                            <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.ErrorBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.ErrorBarTo, Mode=TwoWay}"/></Grid>
+
+                        <!-- 본인 강조: 기여도 티어 색 -->
+                        <StackPanel Visibility="{Binding Theme.BarColorMode, Converter={StaticResource NavVis}, ConverterParameter=self}">
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="일반" VerticalAlignment="Center"/>
+                                <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.NormalBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.NormalBarTo, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="경고 (기여도 5% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.WarningBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.WarningBarTo, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="에러 (기여도 3% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.ErrorBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.ErrorBarTo, Mode=TwoWay}"/></Grid>
+                        </StackPanel>
+
+                        <!-- 직업 강조: 직업별 색 (기본값 = 조인 패널과 동일 팔레트) -->
+                        <StackPanel Visibility="{Binding Theme.BarColorMode, Converter={StaticResource NavVis}, ConverterParameter=job}">
+                            <TextBlock Text="직업별 색상" Style="{StaticResource Label}" Margin="0,8,0,4"/>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="검성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarGladiator, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="수호성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarTemplar, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="궁성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarRanger, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="살성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarAssassin, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="마도성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarSorcerer, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="치유성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarCleric, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="정령성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarElementalist, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="호법성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarChanter, Mode=TwoWay}"/></Grid>
+                        </StackPanel>
 
                         <TextBlock Text="미터 텍스트 색상" Style="{StaticResource Label}" Margin="0,12,0,4"/>
                         <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
