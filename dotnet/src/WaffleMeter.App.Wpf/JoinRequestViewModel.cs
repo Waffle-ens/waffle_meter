@@ -74,8 +74,20 @@ public sealed class JoinRequestViewModel : INotifyPropertyChanged
             if (existing < 0)
             {
                 Rows.Insert(i, new JoinRequestRowViewModel(u, _visibleCodes));
+                continue;
             }
-            else if (existing != i)
+
+            // The official-API enrichment re-Adds the SAME requester with Skill/Power/Job filled in (the
+            // initial join packet carries no skills). Rebuild the row in place when its source changed so the
+            // badges/power refresh — without this they stay EMPTY until something else forces a rebuild (the
+            // reported "no badges until I toggle a skill" bug). ArrivedAt is carried across the re-Add, so the
+            // rebuilt row's countdown stays continuous; an unchanged source just reorders (row object kept).
+            if (Rows[existing].SourceChanged(u))
+            {
+                Rows[existing] = new JoinRequestRowViewModel(u, _visibleCodes);
+            }
+
+            if (existing != i)
             {
                 Rows.Move(existing, i);
             }
@@ -173,8 +185,11 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
     private static readonly Brush AmberFill = Gradient("#FFF59E0B", "#FFB45309");
     private static readonly Brush RoseFill = Gradient("#FFFB7185", "#FFBE123C");
 
+    private readonly JoinRequestUser _source;
+
     public JoinRequestRowViewModel(JoinRequestUser u, ISet<int> visibleCodes)
     {
+        _source = u;
         Id = u.Requester;
         ArrivedAt = u.ArrivedAt;
 
@@ -194,6 +209,32 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
         StigmaBadges = stigma;
         NormalBadgesVisibility = normal.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         StigmaBadgesVisibility = stigma.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>True if the underlying request changed in a way that affects the card — the official-API
+    /// enrichment fills Skill/Power/Job AFTER the initial empty-skill packet — so the row must be rebuilt.</summary>
+    public bool SourceChanged(JoinRequestUser u) =>
+        u.Power != _source.Power
+        || u.Job != _source.Job
+        || u.Server != _source.Server
+        || !SameSkills(u.Skill, _source.Skill);
+
+    private static bool SameSkills(IReadOnlyDictionary<int, int> a, IReadOnlyDictionary<int, int> b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        foreach (KeyValuePair<int, int> kv in a)
+        {
+            if (!b.TryGetValue(kv.Key, out int v) || v != kv.Value)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public int Id { get; }
