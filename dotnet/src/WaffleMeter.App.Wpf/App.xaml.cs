@@ -30,6 +30,8 @@ public partial class App : Application
     private JoinRequestPanel? _joinPanel;
     private JoinRequestViewModel? _joinViewModel;
     private bool _joinPanelPositioned;
+    private bool _joinUserDismissed;                         // user closed the panel — suppress auto-show…
+    private readonly HashSet<int> _joinDismissedIds = new(); // …until a requester NOT in this set applies (option a)
     private SkillSettingsFlyout? _skillFlyout;
     private bool _skillFlyoutVisible;
     private HistoryPanel? _historyPanel;
@@ -460,7 +462,22 @@ public partial class App : Application
             services.Props.SetProperty("joinPanelX", left.ToString("0", CultureInfo.InvariantCulture));
             services.Props.SetProperty("joinPanelY", top.ToString("0", CultureInfo.InvariantCulture));
         };
-        _joinPanel.CloseRequested += () => _joinPanel.Park();
+        _joinPanel.CloseRequested += () =>
+        {
+            // Explicit close (✕): remember the requests showing now and stay closed until a genuinely NEW
+            // requester applies. Clearing the VM resets its count to 0 so an enrichment re-Add of the SAME
+            // request (which lands ~hundreds of ms later) can no longer re-fire the empty->non-empty auto-show
+            // that made close look like it "didn't work".
+            _joinDismissedIds.Clear();
+            foreach (var s in services.JoinRequests.Snapshot())
+            {
+                _joinDismissedIds.Add(s.Requester);
+            }
+
+            _joinUserDismissed = true;
+            _joinViewModel.Clear();
+            _joinPanel.Park();
+        };
 
         void PresentJoinPanel()
         {
@@ -477,7 +494,7 @@ public partial class App : Application
         // auto-show (the header 파티 신청 button still opens it manually).
         _joinViewModel.RequestPresent += () =>
         {
-            if (_settings!.ShowJoinPanel)
+            if (_settings!.ShowJoinPanel && !_joinUserDismissed)
             {
                 PresentJoinPanel();
             }
@@ -492,14 +509,34 @@ public partial class App : Application
             }
             else
             {
+                _joinUserDismissed = false; // manual open overrides a prior dismissal
+                _joinViewModel.Reconcile(services.JoinRequests.Snapshot()); // re-show currently-live requests
                 PresentJoinPanel();
             }
         };
 
         // Store events fire on the meter-consumer thread; marshal to the UI.
-        services.JoinRequests.Changed += () => Dispatcher.Invoke(() => _joinViewModel.Reconcile(services.JoinRequests.Snapshot()));
+        services.JoinRequests.Changed += () => Dispatcher.Invoke(() =>
+        {
+            var snapshot = services.JoinRequests.Snapshot();
+            if (_joinUserDismissed)
+            {
+                foreach (var s in snapshot)
+                {
+                    if (!_joinDismissedIds.Contains(s.Requester))
+                    {
+                        _joinUserDismissed = false; // a brand-new requester re-arms auto-show (option a)
+                        break;
+                    }
+                }
+            }
+
+            _joinViewModel.Reconcile(snapshot);
+        });
         services.JoinRequests.Cleared += () => Dispatcher.Invoke(() =>
         {
+            _joinUserDismissed = false; // party exit / instance start resets the dismissal
+            _joinDismissedIds.Clear();
             _joinViewModel.Clear();
             _joinPanel.Park();
         });
