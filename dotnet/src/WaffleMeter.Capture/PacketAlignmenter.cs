@@ -25,6 +25,13 @@ public sealed class PacketAlignmenter
     // Kotlin: -1L sentinel meaning "not yet initialized".
     private long _nextExpectedSeq = -1L;
 
+    // Bytes currently held (out-of-order, not-yet-contiguous). Above MaxHoldBytes the gap is treated as
+    // permanent (a capture-dropped segment SNIFF will never re-observe) and skipped, so a stalled stream
+    // can't grow the hold buffer without bound. Well above any legitimate game reorder window — only a
+    // truly-stalled (usually high-volume non-game) stream reaches it. Mirrors PacketAccumulator's 2MB reset.
+    private const long MaxHoldBytes = 2_000_000;
+    private long _heldBytes;
+
     /// <summary>
     /// Feed one captured segment. Returns the chunks (possibly none, possibly several) that
     /// became contiguous as a result, in sequence order.
@@ -37,7 +44,13 @@ public sealed class PacketAlignmenter
         }
 
         // Kotlin uses `holdBuffer[seq] = ...` which overwrites on duplicate seq; indexer matches.
+        if (_holdBuffer.TryGetValue(seq, out AlignedChunk previous))
+        {
+            _heldBytes -= previous.Data.Length; // overwriting a duplicate seq: drop its byte count first
+        }
+
         _holdBuffer[seq] = new AlignedChunk(data, arrivedAt);
+        _heldBytes += data.Length;
 
         var result = new List<AlignedChunk>();
 
@@ -49,17 +62,31 @@ public sealed class PacketAlignmenter
             {
                 AlignedChunk chunk = _holdBuffer[firstSeq];
                 _holdBuffer.Remove(firstSeq);
+                _heldBytes -= chunk.Data.Length;
                 _nextExpectedSeq = (_nextExpectedSeq + chunk.Data.Length) & 0xffffffffL;
                 result.Add(chunk);
             }
             else if (firstSeq < _nextExpectedSeq)
             {
                 // Pure retransmit / already-consumed range: drop it.
+                _heldBytes -= _holdBuffer[firstSeq].Data.Length;
                 _holdBuffer.Remove(firstSeq);
             }
             else
             {
-                // Gap: the next expected bytes have not arrived yet. Stall.
+                // Gap: the next expected bytes have not arrived yet. Normally STALL and wait. But once the
+                // hold buffer has grown past MaxHoldBytes the gap is treated as permanent (a capture-dropped
+                // segment SNIFF will never re-observe): SKIP it — re-sync _nextExpectedSeq to the smallest
+                // held seq and resume. This bounds memory AND recovers the stream (a stalled game stream
+                // resumes emitting -> DPS recovers; a noise stream resumes emitting -> the noise guard can
+                // then exclude it). Fires ONLY above the cap, so the normal in-order/reorder arithmetic is
+                // unchanged below it (DPS parity preserved).
+                if (_heldBytes > MaxHoldBytes)
+                {
+                    _nextExpectedSeq = firstSeq;
+                    continue;
+                }
+
                 break;
             }
         }
@@ -71,6 +98,7 @@ public sealed class PacketAlignmenter
     public void Reset()
     {
         _holdBuffer.Clear();
+        _heldBytes = 0;
         _nextExpectedSeq = -1L;
     }
 }

@@ -37,7 +37,16 @@ public sealed class MeterEngine : IDisposable
         _services = services;
         _backend = backend;
         _reportIntervalMs = reportIntervalMs;
-        _channel = Channel.CreateUnbounded<CapturedSegment>(new UnboundedChannelOptions { SingleReader = true });
+        // Bounded (not unbounded) so a sustained capture flood the single consumer can't drain cannot grow
+        // the queue without limit (UI-heap bloat -> paging -> system-wide slowdown over long uptime).
+        // DropOldest keeps the writer non-blocking and discards the oldest pending segment when full; the
+        // data path already tolerates loss (the aligner skips gaps, the assembler resyncs), and in normal
+        // play the queue stays near-empty so this never drops anything.
+        _channel = Channel.CreateBounded<CapturedSegment>(new BoundedChannelOptions(50_000)
+        {
+            SingleReader = true,
+            FullMode = BoundedChannelFullMode.DropOldest,
+        });
         _backend.SegmentReceived += seg => _channel.Writer.TryWrite(seg);
         if (backend is NamedPipeCaptureClient pipe)
         {

@@ -59,6 +59,25 @@ public class PacketAlignmenterTests
     }
 
     [Fact]
+    public void Skips_a_permanent_gap_once_the_hold_buffer_exceeds_the_cap()
+    {
+        // Anti-leak guard: a stream permanently stalled on a gap SNIFF never re-observes must not grow the
+        // hold buffer without bound. Below the 2MB cap it stalls (parity behavior); above it, the gap is
+        // skipped and the buffer drains.
+        var a = new PacketAlignmenter();
+        Assert.Equal(new[] { 1L }, Ids(Feed(a, 0, 10, 1)));   // next = 10
+
+        Assert.Empty(Feed(a, 1_000, 1_000_000, 2));           // held (gap at 10); heldBytes = 1,000,000
+        Assert.Empty(Feed(a, 5_000_000, 1_000_000, 3));       // held; heldBytes = 2,000,000 (== cap, no skip)
+
+        // This push takes heldBytes PAST 2MB -> the gap is treated as permanent and skipped: the aligner
+        // re-syncs to the smallest held seq and drains it, instead of holding forever / growing unbounded.
+        long[] emitted = Ids(Feed(a, 9_000_000, 1_000_000, 4));
+        Assert.NotEmpty(emitted);
+        Assert.Equal(2L, emitted[0]);                         // oldest held segment released first
+    }
+
+    [Fact]
     public void Handles_32bit_sequence_wrap()
     {
         var a = new PacketAlignmenter();
