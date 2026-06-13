@@ -38,7 +38,20 @@ public static class Program
         // connect to the capture helper pipe". Instead, signal the running instance to surface (un-hide from
         // tray) and exit. Velopack's ApplyUpdatesAndRestart waits for the old process to fully exit before
         // relaunching, so the mutex is free on an update-restart — this never interferes with updates.
-        _singleInstance = new Mutex(initiallyOwned: true, MutexName, out bool isFirstInstance);
+        bool isFirstInstance;
+        try
+        {
+            _singleInstance = new Mutex(initiallyOwned: true, MutexName, out isFirstInstance);
+        }
+        catch
+        {
+            // A kernel-object name/type collision or an access error must not crash startup before any
+            // window exists. Treat an unusable guard as "proceed as the first instance": the worst case is
+            // the pre-guard behavior (a possible second UI), never a hard crash with no UI at all.
+            _singleInstance = null;
+            isFirstInstance = true;
+        }
+
         if (!isFirstInstance)
         {
             SignalExistingInstance();
@@ -54,6 +67,24 @@ public static class Program
         app.Run();
 
         GC.KeepAlive(_singleInstance);
+    }
+
+    /// <summary>Release the single-instance guard deterministically before an update-restart hands off to
+    /// Velopack. Velopack relaunches the new version after a bounded wait even if this process is slow to
+    /// exit; freeing the mutex first guarantees the relaunched instance acquires it as "first" instead of
+    /// racing this (still-exiting) process's handle. Invoked on the UI thread, which owns the mutex.</summary>
+    internal static void ReleaseSingleInstance()
+    {
+        if (_singleInstance is null)
+        {
+            return;
+        }
+
+        try { _singleInstance.ReleaseMutex(); }
+        catch { /* not owned by this thread / already released — fall through to dispose */ }
+        try { _singleInstance.Dispose(); } // closing our only handle destroys the object → next launch is "first"
+        catch { /* best effort */ }
+        _singleInstance = null;
     }
 
     /// <summary>Best-effort: tell the already-running instance to surface. Even if signaling fails, the

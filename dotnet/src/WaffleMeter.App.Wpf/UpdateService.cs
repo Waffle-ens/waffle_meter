@@ -65,11 +65,18 @@ public sealed class UpdateService
 
     private UpdateInfo? _pending;
 
+    /// <summary>Invoked synchronously immediately before the update is applied and the app restarts —
+    /// e.g. to release the single-instance guard so the relaunched process never contends with this
+    /// (exiting) one. Fired ONLY when a restart is actually proceeding, so it can safely tear down
+    /// process-lifetime state.</summary>
+    public Action? BeforeRestart { get; set; }
+
     /// <summary>Apply a downloaded update and restart (call from a user "지금 재시작" action).</summary>
     public void ApplyAndRestart()
     {
         if (_manager is { IsInstalled: true } && _pending != null)
         {
+            BeforeRestart?.Invoke();
             _manager.ApplyUpdatesAndRestart(_pending);
         }
     }

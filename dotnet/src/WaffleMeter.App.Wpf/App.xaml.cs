@@ -202,10 +202,13 @@ public partial class App : Application
         WireHistoryPanel(services, window, viewModel);
 
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
-        // The connect timeout is generous so it tolerates the user answering the UAC prompt.
+        // EnsureServing (below) already launches the helper, absorbs any UAC prompt, and WAITS for the
+        // pipe to appear before we connect — so by connect time a healthy helper accepts in milliseconds.
+        // The connect budget is therefore modest: a longer wait would only prolong the failure when the
+        // single serve-once pipe is already OCCUPIED by another (e.g. pre-guard/old-build) instance.
         // captureBackend setting: "windivert" (default, embedded) or "npcap" (needs Npcap installed).
         string backend = services.Props.GetProperty("captureBackend") ?? "windivert";
-        _engine = new MeterEngine(services, new NamedPipeCaptureClient(backend, connectTimeoutMs: 30_000));
+        _engine = new MeterEngine(services, new NamedPipeCaptureClient(backend, connectTimeoutMs: 10_000));
         _engine.ReportUpdated += report => Dispatcher.Invoke(() =>
         {
             _lastReport = report;
@@ -256,7 +259,16 @@ public partial class App : Application
             }
             catch (Exception ex)
             {
-                Dispatcher.Invoke(() => viewModel.Status = $"캡처 시작 실패 ({ex.Message})");
+                // A helper pipe was already being served before we launched (AlreadyRunning) yet we still
+                // can't connect → another waffle_meter is almost certainly occupying the single serve-once
+                // helper. Surface that actionable cause instead of a raw connect error (covers an old,
+                // pre-single-instance-guard build still running, or a cross-session instance).
+                bool occupiedByOther = launch == CaptureHostLaunch.AlreadyRunning
+                    && ex.Message.Contains("occupied", StringComparison.OrdinalIgnoreCase);
+                string status = occupiedByOther
+                    ? "다른 waffle_meter가 이미 실행 중인 것 같아요. 트레이의 기존 창을 쓰거나 종료한 뒤 다시 시작해 주세요."
+                    : $"캡처 시작 실패 ({ex.Message})";
+                Dispatcher.Invoke(() => viewModel.Status = status);
             }
         });
 
@@ -268,6 +280,9 @@ public partial class App : Application
         _updateToast.CloseRequested += () => _updateToast.Park();
         _updateService = new UpdateService(prerelease: false);
         UpdateService updateService = _updateService;
+        // Free the single-instance guard the instant an update-restart commits, so Velopack's relaunched
+        // process acquires the mutex as "first" instead of racing this (exiting) process's handle.
+        updateService.BeforeRestart = Program.ReleaseSingleInstance;
         _updateToast.RestartRequested += () => updateService.ApplyAndRestart();
         _updateService.StageChanged += (stage, info, percent) => Dispatcher.Invoke(() =>
         {
