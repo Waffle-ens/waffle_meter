@@ -95,7 +95,10 @@
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
                             MouseLeftButtonDown="OnDragHandle" Background="Transparent">
                     <TextBlock Text="투명도" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" VerticalAlignment="Center" Margin="2,0,6,0"/>
-                    <Slider Style="{StaticResource OpacitySlider}" Width="92" VerticalAlignment="Center" Minimum="0.15" Maximum="1.0"
+                    <!-- Minimum=0 restores the old (1.7.x React) slider's full transparency range. MeterOpacity
+                         feeds ONLY the panel background brush (line ~79), never Window.Opacity, so even at 0 the
+                         rows/text/header buttons keep their own opacity and the window stays clickable. -->
+                    <Slider Style="{StaticResource OpacitySlider}" Width="92" VerticalAlignment="Center" Minimum="0.0" Maximum="1.0"
                             SmallChange="0.05" LargeChange="0.1" Value="{Binding Settings.MeterOpacity, Mode=TwoWay}"/>
                 </StackPanel>
                 <!-- right: control buttons -->
