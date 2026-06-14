@@ -2,6 +2,21 @@ using WaffleMeter.Capture;
 
 namespace WaffleMeter.Data;
 
+/// <summary>Confidence of the source that set <see cref="User.Job"/>. A higher source overrides a lower
+/// one and then can't be flipped back by a lower one; within a tier the FIRST write wins. OwnSkill ranks
+/// ABOVE Authoritative on purpose: in AION2 damage skills are job-locked, so a player's OWN un-folded
+/// damage packet is direct, live proof of their job — more reliable than the fragile byte-after-nickname
+/// jobByte parse OR a short-name official lookup that can resolve a DIFFERENT same-name character. (Summon-
+/// folded foreign skills never reach OwnSkill: the caller gates on actor == packet.ActorId.)</summary>
+public enum JobProvenance
+{
+    None = 0,
+    // The snapshot jobByte (ConvertFromCode) and the official pcId lookup — both external, both first-write-
+    // wins relative to each other (the live snapshot byte is not overwritten by a later name lookup).
+    Authoritative = 1,
+    OwnSkill = 2, // the player's own un-folded job-locked damage skill — live ground truth, corrects the above
+}
+
 /// <summary>Player. Verbatim port of Kotlin <c>entity/User.kt</c>; equality/hash by id only
 /// (so a contributor set is keyed by id).</summary>
 public sealed class User
@@ -11,11 +26,28 @@ public sealed class User
     public int Server { get; set; }
     public JobClass? Job { get; set; }
 
-    /// <summary>True once <see cref="Job"/> came from an AUTHORITATIVE source (packet jobByte via
-    /// ConvertFromCode, or the official-API pcId) rather than skill-code inference. An authoritative job
-    /// overrides an inferred one and then locks, so an early wrong inference (e.g. a summon-folded foreign
-    /// skill code) is corrected when the real byte arrives and can't be flipped back.</summary>
-    public bool JobAuthoritative { get; set; }
+    /// <summary>Confidence of the source that last set <see cref="Job"/>; see <see cref="JobProvenance"/>.</summary>
+    public JobProvenance JobSource { get; set; }
+
+    /// <summary>True once <see cref="Job"/> came from something stronger than a missing value — kept as a
+    /// computed alias so existing callers read the same intent (the job shouldn't be re-filled blindly).</summary>
+    public bool JobAuthoritative => JobSource >= JobProvenance.Authoritative;
+
+    /// <summary>Set <see cref="Job"/> only if <paramref name="source"/> is STRICTLY higher-confidence than
+    /// the current source (so equal/lower sources can't overwrite — first-write-wins within a tier, and a
+    /// player's own job-locked skill (OwnSkill) corrects a wrong jobByte/official label). Returns whether it
+    /// changed. Null jobs are ignored (a neutral/unknown skill code never clears a known job).</summary>
+    public bool TrySetJob(JobClass? job, JobProvenance source)
+    {
+        if (job == null || source <= JobSource)
+        {
+            return false;
+        }
+
+        Job = job;
+        JobSource = source;
+        return true;
+    }
 
     public bool IsExecutor { get; set; }
     public int Power { get; set; }
@@ -34,7 +66,7 @@ public sealed class User
     public override bool Equals(object? obj) => obj is User u && u.Id == Id;
 
     /// <summary>Kotlin data-class <c>copy()</c> — a mutable snapshot (used by the stats builder).</summary>
-    public User Copy() => new(Id, Nickname, Server, Job, IsExecutor, Power) { JobAuthoritative = JobAuthoritative };
+    public User Copy() => new(Id, Nickname, Server, Job, IsExecutor, Power) { JobSource = JobSource };
 }
 
 /// <summary>Per-player aggregate (Kotlin DpsInformation). Doubles, mutable.</summary>

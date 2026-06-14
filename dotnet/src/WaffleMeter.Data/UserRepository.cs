@@ -133,13 +133,9 @@ public sealed class UserRepository
             target.Server = source.Server;
         }
 
-        // Fill a missing job, OR let an AUTHORITATIVE job (packet byte / official pcId) override a prior
-        // skill-code inference — but never overwrite an already-authoritative job.
-        if (source.Job != null && (target.Job == null || (!target.JobAuthoritative && source.JobAuthoritative)))
-        {
-            target.Job = source.Job;
-            target.JobAuthoritative = source.JobAuthoritative;
-        }
+        // Merge the job by confidence: a higher-provenance source (e.g. own-skill over a jobByte) overrides,
+        // an equal/lower one doesn't (see User.TrySetJob / JobProvenance).
+        target.TrySetJob(source.Job, source.JobSource);
 
         if (!target.IsExecutor && source.IsExecutor)
         {

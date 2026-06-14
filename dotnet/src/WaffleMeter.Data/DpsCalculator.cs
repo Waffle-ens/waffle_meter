@@ -165,10 +165,13 @@ public sealed class DpsCalculator
         // folded this packet onto another uid (a summon owner, or the lone elementalist), the skill code
         // belongs to a DIFFERENT player, so inferring from it would mislabel the resolved user — the
         // reported wrong-class-icon bug (e.g. a CLERIC/CHANTER summon's 17xx/18xx code folded onto a
-        // TEMPLAR). The authoritative nickname jobByte fills the job for folded users instead.
-        if (user.Job == null && actor == packet.ActorId)
+        // TEMPLAR). The fold guard (actor == packet.ActorId) keeps a folded foreign code from ever reaching
+        // here. An OWN job-locked skill is the highest-confidence source, so it CORRECTS a wrong jobByte /
+        // official label (e.g. a 살성's 13xxxxxx skills overriding a mis-read 궁성 jobByte), not just fills
+        // a missing job — see User.TrySetJob / JobProvenance.
+        if (actor == packet.ActorId && JobClassInfo.ConvertFromSkill(packet.SkillCode) is { } inferredJob)
         {
-            user.Job = JobClassInfo.ConvertFromSkill(packet.SkillCode);
+            user.TrySetJob(inferredJob, JobProvenance.OwnSkill);
         }
 
         if (!string.IsNullOrWhiteSpace(user.Nickname) && user.Server > 0 && user.Power <= 0)

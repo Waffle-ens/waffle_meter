@@ -177,15 +177,11 @@ public sealed class DataManager : ICaptureGameData
             user.Server = server;
         }
 
-        // Authoritative job byte (ConvertFromCode) overrides a prior skill-code INFERENCE and then locks,
-        // so an early wrong inference (e.g. a summon-folded foreign skill code) can't stick and is corrected
-        // when the real byte arrives. First authoritative value wins; a later (possibly mis-located) byte
-        // doesn't flip it.
-        if (job != null && !user.JobAuthoritative)
-        {
-            user.Job = job;
-            user.JobAuthoritative = true;
-        }
+        // Snapshot jobByte (ConvertFromCode) is an Authoritative source (the byte right after a probed
+        // nickname): it fills a missing job and isn't overwritten by a later same-tier source (e.g. the
+        // official lookup), but the player's own job-locked damage skills (OwnSkill) outrank it and can
+        // correct a mis-read byte. First write wins within the tier.
+        user.TrySetJob(job, JobProvenance.Authoritative);
 
         _userRepository.Save(uid, user);
         if (isExecutor)
@@ -287,11 +283,11 @@ public sealed class DataManager : ICaptureGameData
                 existing.Server = info.Server;
             }
 
-            if (info.Job != null && !existing.JobAuthoritative)
-            {
-                existing.Job = info.Job; // official pcId job is authoritative; overrides a skill inference
-                existing.JobAuthoritative = true;
-            }
+            // Official pcId is Authoritative (same tier as the snapshot jobByte; first write wins, so it
+            // doesn't clobber a job the live snapshot already set). The player's own job-locked skills
+            // (OwnSkill) still win — a short-name lookup can resolve a DIFFERENT same-name character, so live
+            // combat evidence is the final arbiter.
+            existing.TrySetJob(info.Job, JobProvenance.Authoritative);
 
             if (existing.Power <= 0 && info.Power > 0)
             {
@@ -304,7 +300,7 @@ public sealed class DataManager : ICaptureGameData
 
         var pending = new User(uid, info.Nickname, info.Server, info.Job, power: info.Power)
         {
-            JobAuthoritative = info.Job != null, // official pcId job is authoritative
+            JobSource = info.Job != null ? JobProvenance.Authoritative : JobProvenance.None,
         };
         _userRepository.SavePending(pending);
     }
@@ -488,7 +484,7 @@ public sealed class DataManager : ICaptureGameData
         _lastDummyHitTime = 0;
     }
 
-    private static User CopyUser(User u) => new(u.Id, u.Nickname, u.Server, u.Job, u.IsExecutor, u.Power);
+    private static User CopyUser(User u) => new(u.Id, u.Nickname, u.Server, u.Job, u.IsExecutor, u.Power) { JobSource = u.JobSource };
 
     private static DpsInformation CopyInfo(DpsInformation i) =>
         new(i.Amount, i.Dps, i.Contribution, i.EntireContribution);
