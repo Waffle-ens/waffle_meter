@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Media;
 using WaffleMeter.App.Core;
 using WaffleMeter.Data;
@@ -25,12 +26,13 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
 
     private readonly int _uid;
     private readonly DpsCalculator _calc;
+    private readonly string _fallbackName;
 
     public DetailsViewModel(DpsReport report, int uid, DpsCalculator calc, string name, MeterColorTheme theme, string fontFamily)
     {
         _uid = uid;
         _calc = calc;
-        Title = $"{name} 상세내역";
+        _fallbackName = name;
         FontFamily = fontFamily;
         // Theme-linked text colors (snapshot at open; the detail window is short-lived per row click).
         AmountBrush = ThemeBrush(theme.MeterStatAmount);
@@ -39,7 +41,11 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         Refresh(report);
     }
 
-    public string Title { get; }
+    private string _title = string.Empty;
+
+    /// <summary>"{player} 상세내역" — re-derived on every <see cref="Refresh"/> from the resolved report's
+    /// roster, so it self-heals to the real nickname and never gets stuck showing a bare numeric uid.</summary>
+    public string Title { get => _title; private set => Set(ref _title, value); }
 
     /// <summary>Selected UI font family (resolved to a FontFamily by FontFamilyConverter in XAML).</summary>
     public string FontFamily { get; }
@@ -77,8 +83,53 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     private bool _hasDebuffs;
     public bool HasDebuffs { get => _hasDebuffs; private set => Set(ref _hasDebuffs, value); }
 
+    private bool _hasData = true;
+
+    /// <summary>False when the resolved report has no row for this uid — the window then shows a "데이터 없음"
+    /// placeholder and "-" stats instead of a misleading all-zero breakdown (and an honest title).</summary>
+    public bool HasData
+    {
+        get => _hasData;
+        private set
+        {
+            if (_hasData == value)
+            {
+                return;
+            }
+
+            _hasData = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasData)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NoDataVisibility)));
+        }
+    }
+
+    public Visibility NoDataVisibility => _hasData ? Visibility.Collapsed : Visibility.Visible;
+
     public void Refresh(DpsReport report)
     {
+        // Re-derive the title + presence from the RESOLVED report each tick: the title self-heals to the
+        // real nickname (or an honest "플레이어 {uid}" rather than a bare number), and a uid that isn't in
+        // this report renders a "데이터 없음" state instead of a misleading all-zero breakdown.
+        string? nickname = report.Contributors.FirstOrDefault(c => c.Id == _uid)?.Nickname;
+        bool present = report.Information.ContainsKey(_uid) || report.Contributors.Any(c => c.Id == _uid);
+        string display = !string.IsNullOrWhiteSpace(nickname) ? nickname!
+            : !string.IsNullOrWhiteSpace(_fallbackName) && !int.TryParse(_fallbackName, out _) ? _fallbackName
+            : $"플레이어 {_uid}";
+        Title = $"{display} 상세내역";
+        HasData = present;
+
+        if (!present)
+        {
+            Skills.Clear();
+            Buffs.Clear();
+            Debuffs.Clear();
+            HasBuffs = false;
+            HasDebuffs = false;
+            TotalDamageText = ContributionText = CritText = StrongText =
+                PerfectText = BackText = ParryText = CombatTimeText = "-";
+            return;
+        }
+
         Dictionary<string, AnalyzedSkill> skills = _calc.BattleDetails(report, _uid);
 
         // Prefer the frozen buff-rate snapshot the battle was saved with (identical to the stats/web data).

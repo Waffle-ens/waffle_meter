@@ -145,6 +145,10 @@
                 <Border><StackPanel><TextBlock Text="전투시간" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding CombatTimeText}" Style="{StaticResource SumValue}" Foreground="{Binding DetailCombatTimeBrush}"/></StackPanel></Border>
             </UniformGrid>
 
+            <Grid>
+            <TextBlock Text="이 전투에는 표시할 데이터가 없어요." Visibility="{Binding NoDataVisibility}"
+                       Foreground="{DynamicResource Skin.MutedFg}" FontSize="13" Panel.ZIndex="1"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <Expander Header="버프 가동률" IsEnabled="{Binding HasBuffs}" Style="{StaticResource DetailExpander}">
@@ -352,6 +356,7 @@
                     </Expander>
                 </StackPanel>
             </ScrollViewer>
+            </Grid>
         </DockPanel>
     </Border>
 </Window>

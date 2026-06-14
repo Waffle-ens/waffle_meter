@@ -219,6 +219,13 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private string _combatStatusText = "대기 중";
     public string CombatStatusText { get => _combatStatusText; private set => Set(ref _combatStatusText, value); }
 
+    /// <summary>The report the meter is CURRENTLY displaying — the live report, or a saved battle while
+    /// replaying from history. The clickable rows are built from this exact report (<see cref="Update"/>
+    /// keys rows by its Information), so the detail window must resolve a clicked uid against THIS report,
+    /// not the app's live <c>_lastReport</c> (resolving against the live report while a saved battle is on
+    /// screen is what produced the raw-uid title + all-zero breakdown).</summary>
+    public DpsReport? CurrentReport => _lastReport;
+
     public void Update(DpsReport report)
     {
         _lastReport = report;

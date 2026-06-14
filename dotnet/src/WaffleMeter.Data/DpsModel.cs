@@ -156,6 +156,14 @@ public sealed class DpsReport
     /// <summary>Frozen boss-debuff-uptime snapshot, populated alongside <see cref="BuffRates"/>.</summary>
     public List<OperatingData> BossBuffRates { get; set; } = [];
 
+    /// <summary>Frozen per-actor skill-breakdown snapshot (uid -&gt; skillCode -&gt; analyzed skill),
+    /// populated when the battle is saved. A SAVED report carries <see cref="Packets"/>=null, so
+    /// <see cref="DpsCalculator.BattleDetails"/> could otherwise only rebuild from packets and would return
+    /// an EMPTY skill table for any history-replayed battle (which also zeroed 누적 피해량 + every hit-rate%,
+    /// since the detail's summary derives from the skill rows). Preferred by BattleDetails when non-empty;
+    /// stays empty for the in-progress/live report, where BattleDetails uses the live cache instead.</summary>
+    public Dictionary<int, Dictionary<string, AnalyzedSkill>> SkillDetailsSnapshot { get; set; } = new();
+
     public bool IsEmpty() => Information.Count == 0;
 
     public void CompareBattleTime(long time)

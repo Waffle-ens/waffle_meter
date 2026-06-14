@@ -459,6 +459,16 @@ public sealed class DpsCalculator
     public Dictionary<string, AnalyzedSkill> BattleDetails(DpsReport? data, int uid)
     {
         if (data == null) return new Dictionary<string, AnalyzedSkill>();
+
+        // A SAVED/history-replayed report carries a frozen per-actor skill snapshot (and Packets==null), so
+        // prefer it — otherwise the rebuild-from-packets path below would return an empty table for every
+        // replayed battle. Live/in-progress reports leave this empty and fall through to the cache/packets.
+        if (data.SkillDetailsSnapshot.Count > 0)
+        {
+            Dictionary<string, AnalyzedSkill> snapshot = data.SkillDetailsSnapshot.GetValueOrDefault(uid) ?? new();
+            return snapshot.ToDictionary(kv => kv.Key, kv => kv.Value.Copy());
+        }
+
         if (ReferenceEquals(data, _recentData) && data.Packets == null)
         {
             Dictionary<string, AnalyzedSkill> details =

@@ -440,6 +440,7 @@ public sealed class DataManager : ICaptureGameData
             Packets = null,
             BuffRates = buffRates,         // frozen so the detail (history replay) matches the web
             BossBuffRates = bossBuffRates,
+            SkillDetailsSnapshot = skillDetails, // frozen so the replayed detail's skill table + summary aren't empty
         };
 
         var log = new DpsLog

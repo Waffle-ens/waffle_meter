@@ -193,7 +193,7 @@ public partial class App : Application
         };
 
         // Row click -> open/close the detail window for that player.
-        viewModel.SelectionToggled += uid => ToggleDetail(uid, services, window);
+        viewModel.SelectionToggled += uid => ToggleDetail(uid, services, window, viewModel);
 
         // Party join-request panel (Kotlin JoinRequest family -> React JoinRequestPanel).
         WireJoinPanel(services, window);
@@ -213,7 +213,7 @@ public partial class App : Application
         {
             _lastReport = report;
             // While viewing a saved battle, hold the overlay until a NEW battle begins (React resets the
-            // selected history when isInCombat); the detail window still tracks live.
+            // selected history when isInCombat); the open detail follows the SAME displayed battle (below).
             if (_viewingHistory)
             {
                 if (report.BattleStart > _historyBaselineBattleStart)
@@ -222,7 +222,11 @@ public partial class App : Application
                 }
                 else
                 {
-                    _detailViewModel?.Refresh(report);
+                    // Still replaying a saved battle: the overlay stays frozen on it, so refresh the open
+                    // detail against the SAME displayed (saved) report. Refreshing with the LIVE `report`
+                    // here is what made a detail opened on a history row blank out into a raw-uid title +
+                    // all-zero stats once the live battle moved on.
+                    _detailViewModel?.Refresh(viewModel.CurrentReport ?? report);
                     return;
                 }
             }
@@ -396,9 +400,15 @@ public partial class App : Application
         props.SetProperty("uiY", top.ToString("0", CultureInfo.InvariantCulture));
     }
 
-    private void ToggleDetail(int uid, MeterServices services, Window owner)
+    private void ToggleDetail(int uid, MeterServices services, Window owner, OverlayViewModel meterVm)
     {
-        if (_lastReport == null)
+        // Resolve the clicked player against the report the OVERLAY IS CURRENTLY SHOWING (the live battle,
+        // or a saved battle while replaying from history) — NOT the live _lastReport. A row clicked while
+        // a saved battle is on screen carries a uid from that saved battle; resolving it against the live
+        // report (a different, possibly unrelated battle) is what produced the "15485 상세내역" raw-uid
+        // title, all-zero stats/skills, and the meter-vs-detail combat-time mismatch.
+        DpsReport? source = meterVm.CurrentReport ?? _lastReport;
+        if (source == null)
         {
             return;
         }
@@ -411,8 +421,8 @@ public partial class App : Application
 
         _detailWindow?.Close();
 
-        string name = _lastReport.Contributors.FirstOrDefault(c => c.Id == uid)?.Nickname ?? uid.ToString();
-        _detailViewModel = new DetailsViewModel(_lastReport, uid, services.Calculator, name, _theme!, _settings!.FontFamily);
+        string name = source.Contributors.FirstOrDefault(c => c.Id == uid)?.Nickname ?? uid.ToString();
+        _detailViewModel = new DetailsViewModel(source, uid, services.Calculator, name, _theme!, _settings!.FontFamily);
         _detailUid = uid;
         _detailWindow = new DetailWindow { DataContext = _detailViewModel };
         _detailWindow.Closed += (s, _) =>
