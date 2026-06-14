@@ -13,6 +13,7 @@ public partial class OverlayWindow : Window
     private const int WsExLayered = 0x00080000;
     private const int WsExAppWindow = 0x00040000;
     private const int WsExTransparent = 0x00000020;
+    private const int WsExTopmost = 0x00000008;
 
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoMove = 0x0002;
@@ -22,6 +23,7 @@ public partial class OverlayWindow : Window
     private const uint SwpShowWindow = 0x0040;
 
     private const uint GwHwndPrev = 3; // GetWindow: the window ABOVE us in z-order (within our band)
+    private const uint GwOwner = 4;    // GetWindow: this window's owner (none by default; see ForceTopmost)
 
     private static readonly IntPtr HwndTopMost = new(-1);
     private static readonly IntPtr HwndTop = new(0);
@@ -41,6 +43,14 @@ public partial class OverlayWindow : Window
     private bool? _presentedTopMost; // last applied present state; null = parked (forces re-present)
     public bool ClickThrough => _clickThrough;
     public bool TaskbarMode => _taskbarMode;
+
+    /// <summary>Diagnostic-only: whether the overlay is currently auto-hide parked (Opacity 0). Read by
+    /// <see cref="OverlayController"/>'s foreground-state trace. See overlay-autohide-unpark-on-return-rootcause.</summary>
+    public bool DiagParked => _parked;
+
+    /// <summary>Diagnostic-only: whether the HWND actually carries WS_EX_TOPMOST right now. This is the real
+    /// symptom — a "presented" overlay (parked=false) with topmost=false is buried behind a fullscreen game.</summary>
+    public bool DiagTopmost => _handle != IntPtr.Zero && (GetWindowLong(_handle, GwlExStyle) & WsExTopmost) != 0;
 
     /// <summary>Raised after a drag completes with the new Left/Top (App persists it).</summary>
     public event Action<double, double>? PositionChanged;
@@ -69,6 +79,11 @@ public partial class OverlayWindow : Window
     {
         base.OnSourceInitialized(e);
         _handle = new WindowInteropHelper(this).Handle;
+        // This window keeps ShowInTaskbar at its WPF default (true) — it must NOT be set to false in XAML.
+        // WPF implements ShowInTaskbar=false by giving the window a hidden, NON-topmost OWNER window, and an
+        // owned window cannot stay topmost above a borderless-fullscreen game — it gets pinned behind it
+        // (the "overlay invisible after returning to the game" bug). The taskbar/Alt+Tab button is hidden
+        // via WS_EX_TOOLWINDOW in SyncInputStyle instead.
         SyncInputStyle();
         // Re-assert the ex-style on focus/z-order changes so WPF can't strip TOOLWINDOW|NOACTIVATE
         // (the taskbar-flicker / focus-steal fix).
@@ -214,19 +229,50 @@ public partial class OverlayWindow : Window
             return;
         }
 
-        // Walk the windows sitting ABOVE us. On a topmost window these are other topmost windows; our own
-        // tooltips/popups (same process) are skipped so they don't trigger a needless re-assert.
+        if (IsBuried())
+        {
+            ForceTopmost();
+        }
+    }
+
+    /// <summary>We intend to be topmost (caller checked) — are we actually on top? Buried if our own
+    /// WS_EX_TOPMOST bit is missing (a WPF owned-window / z-order shuffle silently demoted us — the desync
+    /// that left the meter pinned behind a fullscreen game), or a foreign visible window sits above us. Our
+    /// own windows (tooltips / popups / sibling panels, same process) are skipped so they never trigger a
+    /// needless re-assert.</summary>
+    private bool IsBuried()
+    {
+        if ((GetWindowLong(_handle, GwlExStyle) & WsExTopmost) == 0)
+        {
+            return true; // the HWND lost topmost while we still think we're presented-topmost
+        }
+
         for (IntPtr above = GetWindow(_handle, GwHwndPrev); above != IntPtr.Zero; above = GetWindow(above, GwHwndPrev))
         {
             GetWindowThreadProcessId(above, out uint pid);
             if ((int)pid != Environment.ProcessId && IsWindowVisible(above))
             {
-                // A foreign topmost window (the game) is above us — re-claim the top. No SwpShowWindow so an
-                // already-correct z-order stays a no-op; NOACTIVATE so we never take the game's foreground.
-                SetWindowPos(_handle, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
-                return;
+                return true;
             }
         }
+
+        return false;
+    }
+
+    /// <summary>Force HWND_TOPMOST without show/activation (NOACTIVATE so we never steal the game's
+    /// foreground). Re-topmosts any window OWNER first: an owned window cannot sit above a non-topmost owner,
+    /// so a stale owner would pin us back down. We keep ShowInTaskbar at its default so there is normally NO
+    /// owner (the owner step is then a no-op) — this is the belt-and-suspenders guard against any owner WPF
+    /// might still attach.</summary>
+    private void ForceTopmost()
+    {
+        IntPtr owner = GetWindow(_handle, GwOwner);
+        if (owner != IntPtr.Zero)
+        {
+            SetWindowPos(owner, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+        }
+
+        SetWindowPos(_handle, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
     }
 
     private void OnDragHandle(object sender, MouseButtonEventArgs e)

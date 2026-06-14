@@ -10,8 +10,10 @@ public partial class DetailWindow : Window, IReassertableOverlay
     private const int GwlExStyle = -20;
     private const int WsExNoActivate = 0x08000000;
     private const int WsExToolWindow = 0x00000080;
+    private const int WsExTopmost = 0x00000008;
 
     private const uint GwHwndPrev = 3; // GetWindow: the window ABOVE us in z-order (within our band)
+    private const uint GwOwner = 4;    // GetWindow: this window's owner (none by default; see ForceTopmost)
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoMove = 0x0002;
     private const uint SwpNoActivate = 0x0010;
@@ -47,6 +49,9 @@ public partial class DetailWindow : Window, IReassertableOverlay
     {
         base.OnSourceInitialized(e);
         _handle = new WindowInteropHelper(this).Handle;
+        // ShowInTaskbar stays at its WPF default (true) — must NOT be false in XAML, or WPF attaches a hidden
+        // non-topmost OWNER window that pins this window behind a fullscreen game. WS_EX_TOOLWINDOW (below)
+        // keeps it off the taskbar instead.
         int exStyle = GetWindowLong(_handle, GwlExStyle);
         SetWindowLong(_handle, GwlExStyle, exStyle | WsExNoActivate | WsExToolWindow);
     }
@@ -67,15 +72,44 @@ public partial class DetailWindow : Window, IReassertableOverlay
             return;
         }
 
+        if (IsBuried())
+        {
+            ForceTopmost();
+        }
+    }
+
+    /// <summary>Buried if our own WS_EX_TOPMOST bit is missing (a WPF owned-window / z-order shuffle demoted
+    /// us), or a foreign visible window sits above us. Our own windows (same process) are skipped.</summary>
+    private bool IsBuried()
+    {
+        if ((GetWindowLong(_handle, GwlExStyle) & WsExTopmost) == 0)
+        {
+            return true;
+        }
+
         for (IntPtr above = GetWindow(_handle, GwHwndPrev); above != IntPtr.Zero; above = GetWindow(above, GwHwndPrev))
         {
             GetWindowThreadProcessId(above, out uint pid);
             if ((int)pid != Environment.ProcessId && IsWindowVisible(above))
             {
-                SetWindowPos(_handle, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
-                return;
+                return true;
             }
         }
+
+        return false;
+    }
+
+    /// <summary>Force HWND_TOPMOST without show/activation (NOACTIVATE). Re-topmosts any window OWNER first so
+    /// a stale non-topmost owner can't pin us below it; normally there is no owner (ShowInTaskbar default).</summary>
+    private void ForceTopmost()
+    {
+        IntPtr owner = GetWindow(_handle, GwOwner);
+        if (owner != IntPtr.Zero)
+        {
+            SetWindowPos(owner, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+        }
+
+        SetWindowPos(_handle, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
     }
 
     private void OnDragHandle(object sender, MouseButtonEventArgs e)

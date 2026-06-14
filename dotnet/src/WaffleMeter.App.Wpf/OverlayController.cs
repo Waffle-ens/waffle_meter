@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Threading;
@@ -33,6 +35,16 @@ public sealed class OverlayController
     // ~0.9s at the 300ms cadence: a short grace so brief focus excursions (game-owned popups, a quick
     // alt-tab, the capture-helper UAC prompt) don't flicker the overlay (mirrors React's ~1s debounce).
     private const int ParkGraceTicks = 3;
+
+    // Diagnostics: DetectForeground records WHY it classified the foreground, so the de-duplicated
+    // LogDiag line can pinpoint the "returned to the game but the overlay stayed parked" case in the
+    // wild (DetectForeground returning Unknown/Other for AION2). See
+    // overlay-autohide-unpark-on-return-rootcause. Captured every classification, logged only on change.
+    private uint _diagFgPid;
+    private bool _diagOpenProcOk;   // OpenProcess succeeded (false = anti-cheat / protected denial)
+    private string _diagFgExe = ""; // foreground exe filename when readable, else ""
+    private bool _diagReacquireHit; // IsAionPid resolved via GetProcessesByName("Aion2"), not the cache
+    private string _lastDiagLine = "";
 
     public OverlayController(OverlayWindow window, PropertyHandler props)
     {
@@ -168,12 +180,14 @@ public sealed class OverlayController
 
     private void Poll()
     {
+        Foreground fg = DetectForeground();
+        LogDiag(fg); // de-duplicated foreground-state trace (logged before the IsVisible gate so a
+                     // tray-hidden episode is captured too — distinguishes auto-hide-park from IsVisible=false)
+
         if (!IsVisible)
         {
             return; // parked/hidden owns visibility while hidden
         }
-
-        Foreground fg = DetectForeground();
 
         if (!IsAutoHide)
         {
@@ -240,6 +254,12 @@ public sealed class OverlayController
     /// Unknown rather than a false negative that would wrongly park the overlay mid-fight.</summary>
     private Foreground DetectForeground()
     {
+        // Reset the per-classification diagnostics (LogDiag reads these after we return).
+        _diagFgPid = 0;
+        _diagOpenProcOk = false;
+        _diagFgExe = "";
+        _diagReacquireHit = false;
+
         IntPtr hwnd = GetForegroundWindow();
         if (hwnd == IntPtr.Zero)
         {
@@ -247,6 +267,7 @@ public sealed class OverlayController
         }
 
         GetWindowThreadProcessId(hwnd, out uint pid);
+        _diagFgPid = pid;
         if (pid == 0)
         {
             return Foreground.Unknown;
@@ -264,6 +285,7 @@ public sealed class OverlayController
             return IsAionPid(pid) ? Foreground.Aion : Foreground.Unknown;
         }
 
+        _diagOpenProcOk = true;
         try
         {
             var buffer = new StringBuilder(1024);
@@ -273,7 +295,9 @@ public sealed class OverlayController
                 return IsAionPid(pid) ? Foreground.Aion : Foreground.Unknown;
             }
 
-            if (buffer.ToString().EndsWith(AionExe, StringComparison.OrdinalIgnoreCase))
+            string image = buffer.ToString();
+            _diagFgExe = Path.GetFileName(image);
+            if (image.EndsWith(AionExe, StringComparison.OrdinalIgnoreCase))
             {
                 _aionPid = pid; // remember the game PID for the anti-cheat-denial path above
                 return Foreground.Aion;
@@ -290,6 +314,50 @@ public sealed class OverlayController
         {
             CloseHandle(handle);
         }
+    }
+
+    /// <summary>Append one foreground-state line whenever the classification (or the inputs that decide
+    /// it) change, so the NEXT in-the-wild repro of "returned to the game but the overlay stayed parked"
+    /// records exactly why DetectForeground did not return Aion (e.g. <c>detect=Unknown openProc=False
+    /// reAcquireHit=False fgPid=&lt;game&gt;</c>). De-duplicated (tiny on disk), size-capped, and never
+    /// throws into the poll. Lands next to settings.properties as <c>overlay-diag.log</c>.</summary>
+    private void LogDiag(Foreground fg)
+    {
+        try
+        {
+            string line = string.Format(
+                CultureInfo.InvariantCulture,
+                "detect={0} isVisible={1} parked={2} topmost={3} autoHide={4} fgPid={5} fgExe={6} openProc={7} aionPidCache={8} reAcquireHit={9}",
+                fg, IsVisible, _window.DiagParked, _window.DiagTopmost, IsAutoHide, _diagFgPid,
+                string.IsNullOrEmpty(_diagFgExe) ? "?" : _diagFgExe,
+                _diagOpenProcOk, _aionPid, _diagReacquireHit);
+            if (line == _lastDiagLine)
+            {
+                return; // unchanged since the last tick — keep the log small
+            }
+
+            _lastDiagLine = line;
+            string path = DiagLogPath();
+            if (new FileInfo(path) is { Exists: true, Length: > 1_000_000 })
+            {
+                return; // safety cap: stop before the trace grows without bound
+            }
+
+            File.AppendAllText(
+                path,
+                DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture) + " " + line + Environment.NewLine);
+        }
+        catch
+        {
+            // diagnostics must never disturb the poll
+        }
+    }
+
+    private static string DiagLogPath()
+    {
+        string appData = Environment.GetEnvironmentVariable("APPDATA")
+                         ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return Path.Combine(appData, "waffle_meter.v1.4", "overlay-diag.log");
     }
 
     /// <summary>True if <paramref name="pid"/> is the AION2 game. Trusts the cached <see cref="_aionPid"/>
@@ -315,6 +383,7 @@ public sealed class OverlayController
                     if ((uint)p.Id == pid)
                     {
                         _aionPid = pid; // re-cache so subsequent denied ticks resolve instantly
+                        _diagReacquireHit = true; // resolved by live enumeration, not the cache
                         return true;
                     }
                 }

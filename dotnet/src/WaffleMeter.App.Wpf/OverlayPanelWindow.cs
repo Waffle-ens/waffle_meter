@@ -19,6 +19,7 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     private const int WsExToolWindow = 0x00000080;
     private const int WsExLayered = 0x00080000;
     private const int WsExAppWindow = 0x00040000;
+    private const int WsExTopmost = 0x00000008;
 
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoMove = 0x0002;
@@ -28,6 +29,7 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     private const uint SwpShowWindow = 0x0040;
 
     private const uint GwHwndPrev = 3; // GetWindow: the window ABOVE us in z-order (within our band)
+    private const uint GwOwner = 4;    // GetWindow: this window's owner (none by default; see ForceTopmost)
 
     private static readonly IntPtr HwndTopMost = new(-1);
     private static readonly IntPtr HwndTop = new(0);
@@ -51,6 +53,9 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     {
         base.OnSourceInitialized(e);
         _handle = new WindowInteropHelper(this).Handle;
+        // Keep ShowInTaskbar at its WPF default (true) — do NOT set it false in XAML. WPF implements
+        // ShowInTaskbar=false with a hidden, non-topmost OWNER window, and an owned window can't stay topmost
+        // above a borderless-fullscreen game. We hide from the taskbar via WS_EX_TOOLWINDOW below instead.
         SyncInputStyle();
         HwndSource.FromHwnd(_handle)?.AddHook(WndProc);
     }
@@ -135,17 +140,46 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
             return;
         }
 
-        // Walk the windows sitting ABOVE us. Our own windows (meter / sibling panels / tooltips, same process)
-        // are skipped so they don't trigger a needless re-assert; only a foreign topmost (the game) does.
+        if (IsBuried())
+        {
+            ForceTopmost();
+        }
+    }
+
+    /// <summary>Buried if our own WS_EX_TOPMOST bit is missing (a WPF owned-window / z-order shuffle demoted
+    /// us), or a foreign visible window sits above us. Our own windows (meter / sibling panels / tooltips,
+    /// same process) are skipped so they never trigger a needless re-assert.</summary>
+    private bool IsBuried()
+    {
+        if ((GetWindowLong(_handle, GwlExStyle) & WsExTopmost) == 0)
+        {
+            return true;
+        }
+
         for (IntPtr above = GetWindow(_handle, GwHwndPrev); above != IntPtr.Zero; above = GetWindow(above, GwHwndPrev))
         {
             GetWindowThreadProcessId(above, out uint pid);
             if ((int)pid != Environment.ProcessId && IsWindowVisible(above))
             {
-                SetWindowPos(_handle, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
-                return;
+                return true;
             }
         }
+
+        return false;
+    }
+
+    /// <summary>Force HWND_TOPMOST without show/activation (NOACTIVATE). Re-topmosts any window OWNER first so
+    /// a stale non-topmost owner can't pin us below it; normally there is no owner (ShowInTaskbar default), so
+    /// the owner step is a no-op.</summary>
+    private void ForceTopmost()
+    {
+        IntPtr owner = GetWindow(_handle, GwOwner);
+        if (owner != IntPtr.Zero)
+        {
+            SetWindowPos(owner, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+        }
+
+        SetWindowPos(_handle, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
     }
 
     /// <summary>Called after the panel is presented (subclass hook, e.g. start a timer).</summary>

@@ -311,8 +311,31 @@
 
                     <!-- ===== 단축키 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=hotkeys}">
-                        <TextBlock Text="단축키" Style="{StaticResource SectionHeader}"/>
-                        <TextBlock Text="단일 키 또는 Ctrl/Alt 조합으로 지정할 수 있습니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,12"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="단축키" Style="{StaticResource SectionHeader}"/>
+                            <!-- Hover help: modifier-less single-key hotkeys are allowed (kept by request) but are
+                                 registered SYSTEM-WIDE, so a bare key like F11 fires in-game too and can silently
+                                 hide the overlay. Warn instead of restricting. See
+                                 overlay-autohide-unpark-on-return-rootcause. -->
+                            <Border Width="18" Height="18" CornerRadius="9" Margin="8,0,0,10" VerticalAlignment="Center"
+                                    Cursor="Help" Background="{DynamicResource Skin.AccentSoft}"
+                                    BorderBrush="{DynamicResource Skin.Border}" BorderThickness="1"
+                                    ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="60000">
+                                <TextBlock Text="?" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource Skin.Accent}"/>
+                                <Border.ToolTip>
+                                    <ToolTip MaxWidth="340" Background="{DynamicResource Skin.PanelBg}"
+                                             BorderBrush="{DynamicResource Skin.Border}">
+                                        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Skin.Fg}">
+                                            단축키에는 <Run FontWeight="Bold">Ctrl / Alt / Shift 중 하나 이상</Run>을 함께 지정하길 권장합니다.<LineBreak/><LineBreak/>
+                                            수식키 없는 단일 키(예: F11)도 지정할 수 있지만, 이 경우 <Run FontWeight="Bold">시스템 전역</Run>으로 등록되어 게임·다른 프로그램에서 그 키를 눌러도 동작합니다. 예를 들어 '표시 / 숨김'을 F11로 두면 게임 중 F11을 누르는 순간 오버레이가 숨겨지고, 같은 키를 다시 누르거나 트레이 아이콘으로만 되돌릴 수 있습니다.<LineBreak/><LineBreak/>
+                                            수식키를 함께 쓰면 이런 의도치 않은 동작을 막을 수 있습니다.
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="단일 키 또는 Ctrl/Alt 조합으로 지정할 수 있습니다. (수식키 없는 단일 키는 권장하지 않습니다 — ⓘ 참고)" Style="{StaticResource SettingDesc}" Margin="0,0,0,12"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="전투 초기화" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>

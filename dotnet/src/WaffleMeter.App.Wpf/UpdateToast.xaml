@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:WaffleMeter.App.Wpf"
         Title="업데이트"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize"
+        Topmost="True" ResizeMode="NoResize"
         SizeToContent="Height" Width="320" Left="40" Top="40" FontFamily="Segoe UI">
     <Window.Resources>
         <local:RatioToStarConverter x:Key="RatioToStar"/>

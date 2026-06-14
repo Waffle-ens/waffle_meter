@@ -4,7 +4,7 @@
         xmlns:local="clr-namespace:WaffleMeter.App.Wpf"
         Title="표시할 스킬 선택"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" ShowInTaskbar="False" ResizeMode="CanResize"
+        Topmost="True" ResizeMode="CanResize"
         SizeToContent="Manual" Width="340" Height="480" MinWidth="280" MinHeight="200" Left="40" Top="40" FontFamily="Segoe UI">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolVis"/>
