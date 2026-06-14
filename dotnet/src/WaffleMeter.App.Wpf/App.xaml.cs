@@ -234,7 +234,7 @@ public partial class App : Application
             viewModel.Update(report);
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
             StatsOwnCharacter own = services.StatsBuilder.OwnCharacter();
-            viewModel.SetRecognized(own.Detected, own.Nickname);
+            viewModel.SetRecognized(own.Detected, own.Nickname, own.Id);
             MaybePromptConsent(services, window);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));

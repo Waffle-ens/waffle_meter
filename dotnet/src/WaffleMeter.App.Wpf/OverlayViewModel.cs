@@ -160,15 +160,27 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Visibility _recognizedVisibility = Visibility.Collapsed;
     public Visibility RecognizedVisibility { get => _recognizedVisibility; private set => Set(ref _recognizedVisibility, value); }
 
+    // The recognized 본인 (executor) uid, mirrored from StatsBuilder.OwnCharacter().Id. Used as a SECOND
+    // self signal for row coloring so the "내 캐릭터" color wins over the job color even when a row's own
+    // IsExecutor flag is stale — notably a history/saved replay, where DataManager.CopyUser froze the flag
+    // at save time (often before the character was recognized). 0 = not recognized (no override).
+    private int _selfId;
+
     /// <summary>App calls this each tick from StatsBuilder.OwnCharacter() so the indicator appears the
-    /// moment the own character is recognized (and names it when known).</summary>
-    public void SetRecognized(bool detected, string? nickname)
+    /// moment the own character is recognized (and names it when known). <paramref name="selfId"/> is the
+    /// recognized 본인 uid, used to keep the self row on the "내 캐릭터" color in 직업 강조 mode.</summary>
+    public void SetRecognized(bool detected, string? nickname, int selfId = 0)
     {
+        _selfId = detected ? selfId : 0;
         RecognizedVisibility = detected ? Visibility.Visible : Visibility.Collapsed;
         RecognizedStatus = !detected
             ? string.Empty
             : string.IsNullOrWhiteSpace(nickname) ? "· 캐릭터 인식됨" : $"· {nickname} 인식됨";
     }
+
+    /// <summary>True when this row is the local player ("본인"): the per-row executor flag OR the recognized
+    /// 본인 uid (the latter survives a stale/frozen IsExecutor flag, e.g. on a saved-battle replay).</summary>
+    private bool IsSelf(int uid, User? user) => user?.IsExecutor == true || (_selfId != 0 && uid == _selfId);
 
     private Visibility _clickThroughVisibility = Visibility.Collapsed;
     /// <summary>Header lock badge: visible while click-through (input pass-through) is active, so the user
@@ -274,7 +286,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             .ToList();
 
         var display = entries.Take(8).ToList();
-        int selfIndex = entries.FindIndex(e => e.User?.IsExecutor == true);
+        int selfIndex = entries.FindIndex(e => IsSelf(e.Uid, e.User));
         if (selfIndex >= 0 && !display.Contains(entries[selfIndex]))
         {
             display.Add(entries[selfIndex]); // always show self, even outside top 8
@@ -285,7 +297,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         for (int i = 0; i < display.Count; i++)
         {
             Entry e = display[i];
-            bool isUser = e.User?.IsExecutor == true;
+            bool isUser = IsSelf(e.Uid, e.User);
             double contribution = e.Info.Contribution; // fill tier always uses party contribution
             int power = e.User?.Power ?? 0;
             int server = e.User?.Server ?? 0;
