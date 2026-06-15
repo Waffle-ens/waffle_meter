@@ -128,8 +128,17 @@
                     Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
                     Visibility="{Binding TargetInfoVisibility}">
                 <Grid>
-                    <!-- bottom HP-fill bar -->
-                    <Grid VerticalAlignment="Bottom" Height="2">
+                    <!-- "fill" HP gauge (게이지 형태 = fill): proportional cell fill behind the content at low
+                         opacity so the boss name stays readable — mirrors the meter row fill. -->
+                    <Grid Visibility="{Binding TargetBarFillVisibility}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="{Binding TargetHpRatio, Converter={StaticResource RatioToStar}}"/>
+                            <ColumnDefinition Width="{Binding TargetHpRest, Converter={StaticResource RatioToStar}}"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Background="{Binding BossBarBrush}" Opacity="0.3" CornerRadius="4"/>
+                    </Grid>
+                    <!-- "bar" HP gauge (게이지 형태 = bar): thin bottom HP-fill bar. "none" hides both. -->
+                    <Grid VerticalAlignment="Bottom" Height="2" Visibility="{Binding TargetBottomBarVisibility}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="{Binding TargetHpRatio, Converter={StaticResource RatioToStar}}"/>
                             <ColumnDefinition Width="{Binding TargetHpRest, Converter={StaticResource RatioToStar}}"/>

@@ -160,10 +160,11 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Visibility _recognizedVisibility = Visibility.Collapsed;
     public Visibility RecognizedVisibility { get => _recognizedVisibility; private set => Set(ref _recognizedVisibility, value); }
 
-    // The recognized 본인 (executor) uid, mirrored from StatsBuilder.OwnCharacter().Id. Used as a SECOND
-    // self signal for row coloring so the "내 캐릭터" color wins over the job color even when a row's own
-    // IsExecutor flag is stale — notably a history/saved replay, where DataManager.CopyUser froze the flag
-    // at save time (often before the character was recognized). 0 = not recognized (no override).
+    // The recognized 본인 (executor) uid, mirrored LIVE from StatsBuilder.OwnCharacter().Id. The fallback
+    // self signal for row coloring, used only when the report being shown carries no frozen executor id
+    // (i.e. a live/in-progress report — see DpsReport.ExecutorId). A saved/history report self-identifies
+    // its own player via report.ExecutorId, so it no longer depends on this transient live value (which the
+    // history-replay path never refreshes). 0 = not recognized.
     private int _selfId;
 
     /// <summary>App calls this each tick from StatsBuilder.OwnCharacter() so the indicator appears the
@@ -178,9 +179,11 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             : string.IsNullOrWhiteSpace(nickname) ? "· 캐릭터 인식됨" : $"· {nickname} 인식됨";
     }
 
-    /// <summary>True when this row is the local player ("본인"): the per-row executor flag OR the recognized
-    /// 본인 uid (the latter survives a stale/frozen IsExecutor flag, e.g. on a saved-battle replay).</summary>
-    private bool IsSelf(int uid, User? user) => user?.IsExecutor == true || (_selfId != 0 && uid == _selfId);
+    /// <summary>True when this row is the local player ("본인"): the per-row executor flag OR the effective
+    /// 본인 uid for the report being shown (<paramref name="selfId"/>). The uid path survives a stale/frozen
+    /// IsExecutor flag — notably a saved-battle replay, where every row's IsExecutor was frozen false.</summary>
+    private static bool IsSelf(int uid, User? user, int selfId) =>
+        user?.IsExecutor == true || (selfId != 0 && uid == selfId);
 
     private Visibility _clickThroughVisibility = Visibility.Collapsed;
     /// <summary>Header lock badge: visible while click-through (input pass-through) is active, so the user
@@ -224,6 +227,16 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
     private Visibility _targetHpVisibility = Visibility.Collapsed;
     public Visibility TargetHpVisibility { get => _targetHpVisibility; private set => Set(ref _targetHpVisibility, value); }
+
+    // Boss HP gauge form, driven by the same 게이지 형태 (BarStyle) setting as the meter rows: "fill" paints a
+    // proportional cell fill behind the boss name, "bar" keeps the thin bottom HP bar, "none" hides both.
+    private Visibility _targetBarFillVisibility = Visibility.Visible;
+    /// <summary>Boss HP gauge as a proportional cell fill (게이지 형태 = "fill"), mirroring the meter rows.</summary>
+    public Visibility TargetBarFillVisibility { get => _targetBarFillVisibility; private set => Set(ref _targetBarFillVisibility, value); }
+
+    private Visibility _targetBottomBarVisibility = Visibility.Collapsed;
+    /// <summary>Boss HP gauge as a thin bottom bar (게이지 형태 = "bar").</summary>
+    public Visibility TargetBottomBarVisibility { get => _targetBottomBarVisibility; private set => Set(ref _targetBottomBarVisibility, value); }
 
     private Visibility _combatTimerVisibility = Visibility.Collapsed;
     public Visibility CombatTimerVisibility { get => _combatTimerVisibility; private set => Set(ref _combatTimerVisibility, value); }
@@ -278,7 +291,16 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         string barStyle = _settings.BarStyle; // "fill" (cell fill) / "bar" (thin bottom bar) / "none"
         Visibility fillVis = barStyle == "fill" ? Visibility.Visible : Visibility.Collapsed;
         Visibility barVis = barStyle == "bar" ? Visibility.Visible : Visibility.Collapsed;
+        // The boss HP gauge follows the same 게이지 형태 choice as the rows (fill / thin bar / none).
+        TargetBarFillVisibility = fillVis;
+        TargetBottomBarVisibility = barVis;
         double Metric(DpsInformation info) => total ? info.Amount : info.Dps;
+
+        // "본인" id for coloring: prefer the id frozen INTO this report (a saved/history battle carries its
+        // executor uid even though CopyUser froze every row's IsExecutor false) and fall back to the live
+        // recognized id for an in-progress report. This is what keeps the "내 캐릭터" color on the own bar in
+        // 직업 강조 mode after the battle is saved, no longer at the mercy of the live recognition state.
+        int selfId = report.ExecutorId != 0 ? report.ExecutorId : _selfId;
 
         List<Entry> entries = report.Information
             .Select(kv => new Entry(kv.Key, kv.Value, report.Contributors.FirstOrDefault(c => c.Id == kv.Key)))
@@ -286,7 +308,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             .ToList();
 
         var display = entries.Take(8).ToList();
-        int selfIndex = entries.FindIndex(e => IsSelf(e.Uid, e.User));
+        int selfIndex = entries.FindIndex(e => IsSelf(e.Uid, e.User, selfId));
         if (selfIndex >= 0 && !display.Contains(entries[selfIndex]))
         {
             display.Add(entries[selfIndex]); // always show self, even outside top 8
@@ -297,7 +319,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         for (int i = 0; i < display.Count; i++)
         {
             Entry e = display[i];
-            bool isUser = IsSelf(e.Uid, e.User);
+            bool isUser = IsSelf(e.Uid, e.User, selfId);
             double contribution = e.Info.Contribution; // fill tier always uses party contribution
             int power = e.User?.Power ?? 0;
             int server = e.User?.Server ?? 0;

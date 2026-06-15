@@ -196,6 +196,15 @@ public sealed class DpsReport
     /// stays empty for the in-progress/live report, where BattleDetails uses the live cache instead.</summary>
     public Dictionary<int, Dictionary<string, AnalyzedSkill>> SkillDetailsSnapshot { get; set; } = new();
 
+    /// <summary>The 본인(executor) uid, frozen into a SAVED report at save time (like <see cref="BuffRates"/>
+    /// and <see cref="SkillDetailsSnapshot"/>). A saved report's per-row <see cref="User.IsExecutor"/> is
+    /// frozen by <c>DataManager.CopyUser</c> — usually <c>false</c>, since a battle is often saved before the
+    /// own character is recognized — so nothing in the report itself would otherwise mark the local player,
+    /// and a history replay's "내 캐릭터" color (직업 강조 mode) would leak back to the job color. This lets a
+    /// saved battle self-identify its executor regardless of the LIVE recognition state at view time. 0 = a
+    /// live/in-progress report (the overlay then uses the live recognized uid / per-row IsExecutor instead).</summary>
+    public int ExecutorId { get; set; }
+
     public bool IsEmpty() => Information.Count == 0;
 
     public void CompareBattleTime(long time)

@@ -434,6 +434,7 @@ public sealed class DataManager : ICaptureGameData
             Information = data.Information.ToDictionary(kv => kv.Key, kv => CopyInfo(kv.Value)),
             Target = data.Target is { } t ? new MobInfo(t.Id, t.Mob, t.RemainHp, t.MaxHp) : null,
             Packets = null,
+            ExecutorId = ExecutorId(),     // freeze the 본인 uid so a history replay self-colors the own row (CopyUser froze IsExecutor — usually false)
             BuffRates = buffRates,         // frozen so the detail (history replay) matches the web
             BossBuffRates = bossBuffRates,
             SkillDetailsSnapshot = skillDetails, // frozen so the replayed detail's skill table + summary aren't empty
