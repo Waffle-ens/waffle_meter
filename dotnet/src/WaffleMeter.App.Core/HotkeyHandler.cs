@@ -59,6 +59,13 @@ public sealed class HotkeyHandler : IDisposable
     private const int VisibilityId = 2;
     private const int ClickThroughId = 3;
 
+    // A held global hotkey auto-repeats: Windows posts WM_HOTKEY at the keyboard repeat rate while the combo
+    // stays down. For a TOGGLE action (Ctrl+H visibility) an even-count repeat burst cancels itself out and
+    // leaves the overlay in the wrong state — the "hide, then the same key won't bring it back" report.
+    // Collapse a burst into a single action: fire only on the leading edge, ignoring further WM_HOTKEY for
+    // the same id until that id's stream has been quiet for this long (a fresh press past the gap fires again).
+    private const long HotkeyRepeatSuppressMs = 400;
+
     private const string KeyReset = "hotkey";
     private const string KeyVisibility = "hideHotkey";
     private const string KeyClickThrough = "clickThroughHotkey";
@@ -73,6 +80,7 @@ public sealed class HotkeyHandler : IDisposable
     private volatile HotkeyCombo _clickThrough;
     private Thread? _listener;
     private volatile bool _running;
+    private readonly Dictionary<int, long> _lastHotkeyTick = new(); // per-id leading-edge debounce; listener-thread-only
 
     public Action? OnReset { get; set; }
     public Action? OnVisibility { get; set; }
@@ -140,7 +148,7 @@ public sealed class HotkeyHandler : IDisposable
             {
                 if (PeekMessageW(out MSG msg, IntPtr.Zero, 0, 0, PmRemove))
                 {
-                    if (msg.message == WmHotkey)
+                    if (msg.message == WmHotkey && PassesRepeatGuard((int)msg.wParam))
                     {
                         switch ((int)msg.wParam)
                         {
@@ -168,6 +176,18 @@ public sealed class HotkeyHandler : IDisposable
             UnregisterHotKey(IntPtr.Zero, VisibilityId);
             UnregisterHotKey(IntPtr.Zero, ClickThroughId);
         }
+    }
+
+    /// <summary>Leading-edge debounce against a held hotkey's auto-repeat. Returns true the first time an id
+    /// fires after a quiet gap, false while the same id keeps arriving within <see cref="HotkeyRepeatSuppressMs"/>.
+    /// The timestamp is updated on EVERY message, so a continuous repeat stream keeps extending the quiet
+    /// window and never re-fires. Runs only on the listener thread, so it needs no synchronization.</summary>
+    private bool PassesRepeatGuard(int id)
+    {
+        long now = Environment.TickCount64;
+        bool fire = !_lastHotkeyTick.TryGetValue(id, out long last) || now - last >= HotkeyRepeatSuppressMs;
+        _lastHotkeyTick[id] = now;
+        return fire;
     }
 
     public void Stop()

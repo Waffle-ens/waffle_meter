@@ -146,13 +146,18 @@ public sealed class OverlayController
 
     public void ToggleVisibility()
     {
-        if (IsVisible)
+        // Branch on the ACTUAL on-screen state (parked = invisible), not the IsVisible tray-bool. The
+        // auto-hide poll can Park() the window while IsVisible stays true, and in always-on mode the poll
+        // early-returns on !IsVisible so it can't repair a bool the hotkey left out of step — keying off the
+        // window's real park state makes one press always do the visible-correct thing, so Ctrl+H can't get
+        // stuck "hidden" (the reported "hide, then the same key won't bring it back" bug).
+        if (_window.DiagParked)
         {
-            HideToTray();
+            ShowFromTray();
         }
         else
         {
-            ShowFromTray();
+            HideToTray();
         }
     }
 
@@ -165,7 +170,15 @@ public sealed class OverlayController
     public void ShowFromTray()
     {
         IsVisible = true;
-        _aionEverFocused = false; // re-arm: don't present until AION2 is seen again
+        if (IsAutoHide)
+        {
+            // Auto-hide only: re-arm the startup grace so the poll holds the just-shown overlay present until
+            // AION2 is next seen, instead of parking it after the grace just because another app is foreground
+            // right now. In always-on mode the poll never reads _aionEverFocused, so leaving it untouched
+            // there keeps Show idempotent — the always-on "show" path no longer depends on this flag.
+            _aionEverFocused = false;
+        }
+
         _window.Present(true);
     }
 
