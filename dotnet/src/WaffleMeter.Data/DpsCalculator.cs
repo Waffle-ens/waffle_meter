@@ -251,6 +251,9 @@ public sealed class DpsCalculator
             BattleEnd = battleEnd,
             Packets = null,
             Target = targetInfo,
+            ExecutorId = _dm.ExecutorId(), // freeze 본인 uid so the post-combat idle ("대기 중") view self-colors the
+                                           // own row in 직업 강조 mode — this is the report returned in the idle state,
+                                           // so without it self-id falls to the transient _selfId and reverts to job color
         };
 
         double totalDamage = _cachedInfo.Values.Sum(i => i.Amount);
@@ -398,6 +401,8 @@ public sealed class DpsCalculator
                 : dmStart != 0L ? dmStart : _cachedBattleStart,
             BattleEnd = Math.Max(dmEnd, _cachedBattleEnd),
             Packets = reportPackets,
+            ExecutorId = _dm.ExecutorId(), // carry 본인 uid into the live report so self-coloring survives the
+                                           // transition into the post-combat idle state (matches the saved snapshot)
         };
 
         if (_currentTarget > 0)
