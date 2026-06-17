@@ -34,6 +34,7 @@ public partial class App : Application
     private readonly HashSet<int> _joinDismissedIds = new(); // …until a requester NOT in this set applies (option a)
     private SkillSettingsFlyout? _skillFlyout;
     private bool _skillFlyoutVisible;
+    private SettingsWindow? _settingsWindow; // single instance; the ⚙ button toggles it (open/close), not stacks
     private HistoryPanel? _historyPanel;
     private BattleHistoryViewModel? _historyViewModel;
     private bool _historyPanelPositioned;
@@ -157,6 +158,15 @@ public partial class App : Application
         SkinManager skin = _skin;
         window.SettingsRequested += () =>
         {
+            // Toggle like the other panels (전투 기록 / 파티 신청): a second press on the ⚙ button closes the
+            // open window instead of stacking another one. The window nulls the field on close (✕ / Esc / Alt+F4),
+            // so the next press reopens a fresh instance.
+            if (_settingsWindow != null)
+            {
+                _settingsWindow.Close();
+                return;
+            }
+
             var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys);
             svm.CheckUpdateRequested = () => _ = _updateService?.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
@@ -167,6 +177,14 @@ public partial class App : Application
                 services.Props.SetProperty("settingsWidth", settingsWindow.ActualWidth.ToString("0", CultureInfo.InvariantCulture));
                 services.Props.SetProperty("settingsHeight", settingsWindow.ActualHeight.ToString("0", CultureInfo.InvariantCulture));
             };
+            settingsWindow.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_settingsWindow, settingsWindow))
+                {
+                    _settingsWindow = null;
+                }
+            };
+            _settingsWindow = settingsWindow;
             settingsWindow.Show();
         };
         window.ExitRequested += () =>
