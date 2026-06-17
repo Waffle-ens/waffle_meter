@@ -59,9 +59,20 @@ public sealed class MeterServices
     // assembled packets — more likely under the very flood this fights) can never be misread as noise.
     private const int MinNoisePackets = 50;
     private const int MaxExcludedKeys = 16384;
+    // Single-game-stream lock (dual-capture defense): a VPN/accelerator can expose the SAME plaintext
+    // game bytes under TWO 4-tuples (dual tunnel, loopback relay, mid-session port rebind). Each StreamKey
+    // owns its own aligner, so TCP-seq dedup can't collapse them and BOTH would feed the shared processor —
+    // every damage event counted twice (~2x DPS, uniform across all rows/classes). Only the PRIMARY game
+    // stream is fed; a concurrent duplicate is dropped. If the primary emits no game packet for this long,
+    // the next game stream fails over (real reconnect / proxy port change). A lone game stream is always
+    // primary, so single-stream (non-VPN) users are byte-for-byte unaffected.
+    private const long GameStreamHandoverMs = 5_000;
     private readonly StreamProcessor _processor;
     private readonly Dictionary<string, StreamState> _streams = new();
     private readonly HashSet<string> _excludedKeys = new();
+    private readonly bool _dedupeGameStreams;
+    private string? _primaryGameKey;
+    private long _primaryGameAt;
     private long _processed;
 
     /// <summary>Raised (consumer thread) when a connection is classified as high-volume non-game noise,
@@ -74,9 +85,10 @@ public sealed class MeterServices
         public PacketAlignmenter Aligner { get; } = aligner;
         public StreamAssembler Assembler { get; } = assembler;
         public long LastSeen { get; set; }
-        public long Bytes { get; set; }          // raw payload volume seen on this directional connection
-        public int EmittedPackets { get; set; }  // assembled packets the framer emitted (stall guard)
-        public int GameSignal { get; set; }      // assembled packets that look like game packets (>0 => protected)
+        public long Bytes { get; set; }              // raw payload volume seen on this directional connection
+        public int EmittedPackets { get; set; }      // assembled packets the framer emitted (stall guard)
+        public int GameSignal { get; set; }          // assembled packets that look like game packets (>0 => protected)
+        public bool SuppressedDuplicate { get; set; } // a concurrent duplicate of the primary game stream — drop its packets
     }
 
     /// <summary>Re-admit every excluded connection (called from a user reset, on the consumer thread) so a
@@ -95,6 +107,10 @@ public sealed class MeterServices
         // From the build (entry-assembly InformationalVersion = WaffleVersion), not a persisted
         // property — the old Kotlin value lingers in settings.properties. appVersion lets tests/CLI inject.
         Version = VersionConfig.Resolve(appVersion).Version;
+
+        // Dual-capture defense (default on): collapse a game stream that a VPN/accelerator mirrors onto two
+        // 4-tuples down to one, so damage isn't double-counted. Escape hatch: capture.dedupeGameStreams=false.
+        _dedupeGameStreams = props.GetProperty("capture.dedupeGameStreams", "true") != "false";
 
         OfficialLookup = officialLookup ?? new OfficialCharacterLookup();
         Data = new DataManager { OfficialLookup = OfficialLookup };
@@ -161,17 +177,52 @@ public sealed class MeterServices
 
         if (!_streams.TryGetValue(segment.StreamKey, out StreamState? state))
         {
+            string streamKey = segment.StreamKey; // captured for the closure (the key this state is stored under)
             StreamState? created = null;
             var assembler = new StreamAssembler((packet, at) =>
             {
                 DebugLogger.Assembled(packet, at); // L1: reassembled application packet
+                bool isGame = StreamProcessor.LooksLikeGamePacket(packet);
                 if (created is not null)
                 {
                     created.EmittedPackets++;
-                    if (StreamProcessor.LooksLikeGamePacket(packet))
+                    if (isGame)
                     {
                         created.GameSignal++; // content signal: this connection carries the game stream — protect it
                     }
+                }
+
+                // Single-game-stream lock: claim primary for the first/live game stream; suppress a
+                // concurrent SECOND game stream (a VPN/accelerator mirroring the same plaintext bytes onto
+                // another 4-tuple) so its damage isn't double-counted. Fail over to it only if the primary
+                // has gone quiet for GameStreamHandoverMs (real reconnect / proxy port change). A lone game
+                // stream always satisfies the first branch, so non-VPN users are unaffected.
+                if (_dedupeGameStreams && isGame && created is not null)
+                {
+                    if (_primaryGameKey is null || _primaryGameKey == streamKey
+                        || at - _primaryGameAt > GameStreamHandoverMs)
+                    {
+                        _primaryGameKey = streamKey;
+                        _primaryGameAt = at;
+                        created.SuppressedDuplicate = false;
+                    }
+                    else
+                    {
+                        if (!created.SuppressedDuplicate)
+                        {
+                            // Breadcrumb the 0->1 transition only (not every packet): a debug session now
+                            // shows whether dual-capture is happening WITHOUT disabling the VPN.
+                            DebugLogger.Meta("dup_game_stream_dropped",
+                                ("key", streamKey), ("primary", _primaryGameKey));
+                        }
+
+                        created.SuppressedDuplicate = true;
+                    }
+                }
+
+                if (created is { SuppressedDuplicate: true })
+                {
+                    return; // duplicate capture of the game stream — already counted on the primary
                 }
 
                 _processor.OnPacketReceived(packet, at);
@@ -196,6 +247,7 @@ public sealed class MeterServices
             // Always drop it locally (decoupled from the notify cap). Breadcrumb it so a wrongful exclusion
             // is diagnosable in a debug session instead of a silent blackout.
             _streams.Remove(segment.StreamKey);
+            if (_primaryGameKey == segment.StreamKey) _primaryGameKey = null; // free the lock if (defensively) it was primary
             DebugLogger.Meta("conn_excluded",
                 ("key", segment.StreamKey), ("bytes", state.Bytes), ("packets", state.EmittedPackets));
 
@@ -219,6 +271,7 @@ public sealed class MeterServices
             foreach (string key in _streams.Where(kv => kv.Value.LastSeen < cutoff).Select(kv => kv.Key).ToList())
             {
                 _streams.Remove(key);
+                if (_primaryGameKey == key) _primaryGameKey = null; // primary went idle — let the next game stream claim it
             }
         }
     }
@@ -231,12 +284,15 @@ public sealed class MeterServices
             {
                 state.Assembler.Flush();
                 state.Aligner.Reset();
+                state.SuppressedDuplicate = false;
             }
             catch
             {
                 // one stream's reset failure must not abort the rest
             }
         }
+
+        _primaryGameKey = null; // a user reset re-selects the primary game stream from scratch
     }
 
     /// <summary>The live DPS report (must be called on the same thread as <see cref="Feed"/>).</summary>

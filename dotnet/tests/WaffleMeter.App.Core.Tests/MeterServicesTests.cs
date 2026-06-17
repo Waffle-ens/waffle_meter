@@ -97,6 +97,93 @@ public sealed class MeterServicesTests : IDisposable
             lines);
     }
 
+    [Fact]
+    public void Dual_capture_of_the_game_stream_is_counted_once()
+    {
+        // The VPN dual-capture shape: the SAME game packet (opcode 0x3804) arrives under two different
+        // 4-tuples (distinct src ports). The second connection is a duplicate of the game stream and must
+        // be suppressed — otherwise every damage event would be dispatched (and SaveDamage'd) twice → ~2x.
+        string logDir = Path.Combine(_temp, "pdl_dual");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(new PropertyHandler(_temp), debugLogger: logger));
+
+        logger.Start();
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5000));
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5001));
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.Equal(1, lines.Count(l => l.Contains("\"type\":\"dispatch\"")));               // counted once
+        Assert.Equal(1, lines.Count(l => l.Contains("\"type\":\"dup_game_stream_dropped\""))); // breadcrumb fired
+    }
+
+    [Fact]
+    public void Single_game_stream_is_never_suppressed()
+    {
+        // Non-VPN users have ONE game connection: both packets on it dispatch, nothing is dropped.
+        string logDir = Path.Combine(_temp, "pdl_single");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(new PropertyHandler(_temp), debugLogger: logger));
+
+        logger.Start();
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5000));
+        services.Value.Feed(GameSegment(seq: 5, at: 1001, srcPort: 5000)); // same 4-tuple, next contiguous seq
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.Equal(2, lines.Count(l => l.Contains("\"type\":\"dispatch\"")));
+        Assert.DoesNotContain(lines, l => l.Contains("dup_game_stream_dropped"));
+    }
+
+    [Fact]
+    public void Quiet_primary_fails_over_to_the_surviving_game_stream()
+    {
+        // Real reconnect / proxy port change: the primary goes quiet, so after the handover window the
+        // other game stream takes over and IS dispatched (no permanent blackout).
+        string logDir = Path.Combine(_temp, "pdl_failover");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(new PropertyHandler(_temp), debugLogger: logger));
+
+        logger.Start();
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5000));        // A claims primary → dispatched
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5001));        // B concurrent → suppressed
+        services.Value.Feed(GameSegment(seq: 5, at: 7001, srcPort: 5001));        // > handover later → B takes over
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.Equal(2, lines.Count(l => l.Contains("\"type\":\"dispatch\""))); // A's first + B's failover packet
+    }
+
+    [Fact]
+    public void Dedup_is_disabled_when_the_property_is_off()
+    {
+        // Escape hatch: capture.dedupeGameStreams=false restores the old (double-counting) behavior.
+        var props = new PropertyHandler(_temp);
+        props.SetProperty("capture.dedupeGameStreams", "false");
+        string logDir = Path.Combine(_temp, "pdl_off");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(props, debugLogger: logger));
+
+        logger.Start();
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5000));
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5001));
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.Equal(2, lines.Count(l => l.Contains("\"type\":\"dispatch\""))); // both dispatched (lock off)
+        Assert.DoesNotContain(lines, l => l.Contains("dup_game_stream_dropped"));
+    }
+
+    // A length-prefixed frame whose opcode is 0x3804 (Damage) — passes StreamProcessor.LooksLikeGamePacket
+    // and dispatches as a game packet. realLength = varint.value(8) + varint.length(1) - 4 = 5 = frame size.
+    private static CapturedSegment GameSegment(long seq, long at, int srcPort) =>
+        new(seq, new byte[] { 0x08, 0x04, 0x38, 0x00, 0x00 }, at, "10.0.0.1", srcPort, "10.0.0.2", 13328);
+
+    private static string[] ReadLog(string logDir) =>
+        File.ReadAllLines(Directory.GetFiles(logDir, "*.jsonl").Single(), Encoding.UTF8)
+            .Where(l => l.Length > 0)
+            .ToArray();
+
     // Disposes the extra MeterServices' upload-queue thread without leaking it past the test.
     private sealed class ServicesScope(MeterServices value) : IDisposable
     {
