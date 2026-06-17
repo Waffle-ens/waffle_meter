@@ -8,10 +8,12 @@ using WaffleMeter.Services;
 namespace WaffleMeter.App.Wpf;
 
 /// <summary>
-/// Drives overlay visibility (Kotlin BrowserApp auto-hide). A 300ms poll presents the overlay only
-/// when AION2 (or this app) is foreground and parks it otherwise; auto-hide off keeps it always
-/// present with topmost tracking the game. Visibility toggle / tray hide use park (not Hide) so the
-/// HWND + ex-style survive. All window mutations happen on the UI thread (DispatcherTimer / callers).
+/// Drives overlay visibility (Kotlin BrowserApp auto-hide). A 300ms poll keeps the overlay permanently
+/// topmost and only modulates its Opacity: it is shown (opaque) when AION2 (or this app) is foreground and
+/// FADED (opacity 0 + click-through, still topmost) otherwise, so returning to the game is a single
+/// Opacity flip with no z-order reclaim race. Auto-hide off keeps it always shown.
+/// Visibility toggle / tray hide also fade (not Hide) so the HWND + ex-style survive. All window mutations
+/// happen on the UI thread (DispatcherTimer / callers).
 /// </summary>
 public sealed class OverlayController
 {
@@ -96,7 +98,7 @@ public sealed class OverlayController
             }
 
             _parkPending = 0;
-            _window.Present(true);             // un-park if auto-hidden, then...
+            _window.Present();                 // un-fade if auto-hidden, then...
             _window.ReassertTopmostIfBuried(); // ...re-claim above the topmost the game just re-asserted
             ReassertOverlaysIfBuried();
         }
@@ -164,7 +166,7 @@ public sealed class OverlayController
     public void HideToTray()
     {
         IsVisible = false;
-        _window.Park();
+        _window.Fade();
     }
 
     public void ShowFromTray()
@@ -179,11 +181,11 @@ public sealed class OverlayController
             _aionEverFocused = false;
         }
 
-        _window.Present(true);
+        _window.Present();
     }
 
     /// <summary>Tray "input recover": force the overlay back on top, interactive.</summary>
-    public void Present() => _window.Present(true);
+    public void Present() => _window.Present();
 
     public void SetAutoHide(bool enabled)
     {
@@ -206,7 +208,7 @@ public sealed class OverlayController
         {
             // "항상 표시": hold HWND_TOPMOST regardless of foreground. (The old Present(fg == Aion) demoted to
             // non-topmost on every Self/Other/Unknown excursion, thrashing z-order = the intermittent flicker.)
-            _window.Present(true);
+            _window.Present();
             _window.ReassertTopmostIfBuried(); // re-claim if a borderless game re-asserted its own topmost above us
             ReassertOverlaysIfBuried();        // ...and any open panel/detail window buried the same way (alt-tab return)
             return;
@@ -228,13 +230,18 @@ public sealed class OverlayController
         {
             case Foreground.Aion:
                 _parkPending = 0;
-                _window.Present(true);
+                _window.Present();
                 _window.ReassertTopmostIfBuried(); // re-claim if the game re-topped above us
                 ReassertOverlaysIfBuried();        // ...and any open panel/detail window (e.g. left open across an alt-tab)
                 break;
             case Foreground.Self:
+                // Our own window (settings / a panel / the meter's own popup) is foreground. Keep the overlay
+                // shown and topmost — do NOT demote. The old Present(false) demotion was a reclaim-race source;
+                // owned dialogs (Owner = meter) already render above the topmost meter, so nothing is covered.
                 _parkPending = 0;
-                _window.Present(false);
+                _window.Present();
+                _window.ReassertTopmostIfBuried();
+                ReassertOverlaysIfBuried();
                 break;
             case Foreground.Unknown:
                 // Ambiguous: no foreground window (alt-tab / UAC secure desktop / lock), or an
@@ -242,11 +249,11 @@ public sealed class OverlayController
                 // HOLD the current present/park state rather than wrongly parking.
                 break;
             default: // Foreground.Other: a different app is genuinely foreground
-                // Park after a short grace so brief excursions don't flicker the overlay, and re-issue
-                // the park only ONCE when the grace elapses (not every tick).
+                // Fade (opacity 0, stays topmost) after a short grace so brief excursions don't flicker the
+                // overlay, and re-issue the fade only ONCE when the grace elapses (Fade is itself idempotent).
                 if (_parkPending < ParkGraceTicks && ++_parkPending == ParkGraceTicks)
                 {
-                    _window.Park();
+                    _window.Fade();
                 }
 
                 break;

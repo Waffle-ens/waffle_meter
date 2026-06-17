@@ -20,15 +20,11 @@ public partial class OverlayWindow : Window
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpFrameChanged = 0x0020;
-    private const uint SwpShowWindow = 0x0040;
 
     private const uint GwHwndPrev = 3; // GetWindow: the window ABOVE us in z-order (within our band)
     private const uint GwOwner = 4;    // GetWindow: this window's owner (none by default; see ForceTopmost)
 
     private static readonly IntPtr HwndTopMost = new(-1);
-    private static readonly IntPtr HwndTop = new(0);
-    private static readonly IntPtr HwndNoTopMost = new(-2);
-    private static readonly IntPtr HwndBottom = new(1);
 
     private const int WmActivate = 0x0006;
     private const int WmWindowPosChanged = 0x0047;
@@ -39,14 +35,15 @@ public partial class OverlayWindow : Window
     private IntPtr _handle;
     private bool _clickThrough;
     private bool _taskbarMode;
-    private bool _parked; // auto-hidden (Opacity 0); while parked the taskbar/Alt+Tab ex-style is dropped
-    private bool? _presentedTopMost; // last applied present state; null = parked (forces re-present)
+    private bool _faded; // auto-hidden: Opacity 0 + forced click-through, but the window STAYS HWND_TOPMOST.
+                         // "Hide" here is purely visual (opacity + hit-testing); z-order is never demoted, so
+                         // returning to the game is a single Opacity flip with no reclaim race.
     public bool ClickThrough => _clickThrough;
     public bool TaskbarMode => _taskbarMode;
 
-    /// <summary>Diagnostic-only: whether the overlay is currently auto-hide parked (Opacity 0). Read by
+    /// <summary>Diagnostic-only: whether the overlay is currently auto-hide faded (Opacity 0). Read by
     /// <see cref="OverlayController"/>'s foreground-state trace. See overlay-autohide-unpark-on-return-rootcause.</summary>
-    public bool DiagParked => _parked;
+    public bool DiagParked => _faded;
 
     /// <summary>Diagnostic-only: whether the HWND actually carries WS_EX_TOPMOST right now. This is the real
     /// symptom — a "presented" overlay (parked=false) with topmost=false is buried behind a fullscreen game.</summary>
@@ -111,15 +108,19 @@ public partial class OverlayWindow : Window
 
         int current = GetWindowLong(_handle, GwlExStyle);
         // Taskbar/Alt+Tab listing (APPWINDOW, activatable, no TOOLWINDOW/NOACTIVATE) applies ONLY while the
-        // overlay is presented; a parked (auto-hidden) overlay falls back to the game-overlay style
+        // overlay is presented; a faded (auto-hidden) overlay falls back to the game-overlay style
         // (TOOLWINDOW|NOACTIVATE) so it leaves no blank taskbar/Alt+Tab entry. This keeps taskbar mode
         // (Option 2) orthogonal to auto-hide (Option 1): the listing follows Option 2, but only when the
         // overlay is actually on screen.
-        bool taskbar = _taskbarMode && !_parked;
+        bool taskbar = _taskbarMode && !_faded;
         int baseStyle = taskbar
             ? (current | WsExLayered | WsExAppWindow) & ~WsExToolWindow & ~WsExNoActivate
             : (current | WsExToolWindow | WsExLayered | WsExNoActivate) & ~WsExAppWindow;
-        int next = _clickThrough ? baseStyle | WsExTransparent : baseStyle & ~WsExTransparent;
+        // While faded the window is invisible but stays HWND_TOPMOST, so it MUST be click-through (otherwise it
+        // would eat clicks over its footprint); force WS_EX_TRANSPARENT whenever faded, regardless of the user's
+        // click-through setting (which is restored on the next Present).
+        bool transparent = _clickThrough || _faded;
+        int next = transparent ? baseStyle | WsExTransparent : baseStyle & ~WsExTransparent;
         if (next == current)
         {
             return;
@@ -154,16 +155,13 @@ public partial class OverlayWindow : Window
     public void SetTaskbarMode(bool enable)
     {
         _taskbarMode = enable;
-        // (Taskbar mode flips only the ex-style bucket, NOT the topmost bucket — do NOT reset
-        // _presentedTopMost here. The poll's Present(true) + ReassertTopmostIfBuried keep z-order correct,
-        // and not resetting avoids an extra z-order mutation/blink on the follow-up Present.)
         if (enable)
         {
             _clickThrough = false; // a taskbar/Alt+Tab window shouldn't pass input through to the game
         }
 
-        // NOTE: visibility (Opacity) and topmost are intentionally NOT touched here — they are owned by
-        // Present/Park (driven by the auto-hide poll), so taskbar mode stays orthogonal to auto-hide.
+        // NOTE: visibility (Opacity) and topmost are owned by Present/Fade (driven by the auto-hide poll), so
+        // taskbar mode stays orthogonal to auto-hide — we only flip the APPWINDOW/TOOLWINDOW ex-style bucket here.
         SyncInputStyle();
 
         if (_handle != IntPtr.Zero)
@@ -171,43 +169,51 @@ public partial class OverlayWindow : Window
             ShowWindow(_handle, SwHide);
             ShowWindow(_handle, SwShowNoActivate);
             SyncInputStyle(); // re-assert after the show
+            if (!_faded)
+            {
+                ForceTopmost(); // SW_SHOWNOACTIVATE can drop us out of the topmost band — re-claim the top
+                                // (user-paced action, not the per-tick poll, so an unconditional re-assert is fine)
+            }
         }
 
         NotifyClickThrough(); // entering taskbar mode clears click-through — keep the badge in sync
     }
 
-    /// <summary>Show the overlay; topMost tracks whether the game is foreground. Idempotent: the 300ms
-    /// auto-hide Poll calls this every tick, so re-issuing SetWindowPos when nothing changed would
-    /// repeatedly dismiss hover tooltips (the reported "tooltip vanishes too fast" bug). Only re-assert
-    /// z-order when the topmost state actually changed since the last Present (or after a Park).</summary>
-    public void Present(bool topMost)
+    /// <summary>Show the overlay fully: opaque, interactive (per the click-through setting), and HWND_TOPMOST.
+    /// The overlay is topmost whenever it is alive — this never demotes. Idempotent: the
+    /// 300ms auto-hide Poll calls this every tick, so SetWindowPos is issued ONLY on the transition out of the
+    /// faded state (re-claiming the top of z-order once, in case the game re-topped while we were invisible).
+    /// Steady-state ticks touch no z-order here, so hover tooltips don't flicker; the buried-only
+    /// <see cref="ReassertTopmostIfBuried"/> is the per-tick guard for a genuine foreign bury.</summary>
+    public void Present()
     {
-        _parked = false; // presented: SyncInputStyle may now apply the taskbar/Alt+Tab ex-style
+        bool wasFaded = _faded;
+        _faded = false; // presented: SyncInputStyle restores the click-through setting + taskbar/Alt+Tab ex-style
         Opacity = 1.0;
-        Topmost = topMost;
+        Topmost = true;
         SyncInputStyle();
-        if (_handle != IntPtr.Zero && _presentedTopMost != topMost)
+        if (_handle != IntPtr.Zero && wasFaded)
         {
-            SetWindowPos(_handle, topMost ? HwndTopMost : HwndTop, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
-            _presentedTopMost = topMost;
+            ForceTopmost(); // returning from faded — re-claim the top of z-order once
         }
     }
 
-    /// <summary>Park the overlay: invisible, non-topmost, bottom of z-order (not Hide(), so the HWND
-    /// + ex-style survive).</summary>
-    public void Park()
+    /// <summary>Auto-hide the overlay WITHOUT touching z-order: Opacity 0 and forced click-through (so clicks
+    /// fall through the now-invisible surface), but the window STAYS HWND_TOPMOST. "Hide" is purely visual,
+    /// never a demote / HWND_BOTTOM push, so returning to the game
+    /// (<see cref="Present"/>) is a single Opacity flip with the window already on top: no reclaim race, which
+    /// was the source of the intermittent "overlay gone even though AION2 is focused" reports. Idempotent.</summary>
+    public void Fade()
     {
-        _parked = true; // auto-hidden: drop the taskbar/Alt+Tab ex-style so no blank entry is left
-        Opacity = 0.0;
-        Topmost = false;
-        _presentedTopMost = null; // force the next Present to re-assert z-order
-        if (_handle != IntPtr.Zero)
+        if (_faded)
         {
-            SetWindowPos(_handle, HwndNoTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
-            SetWindowPos(_handle, HwndBottom, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+            return; // already faded — keep it a true no-op on the steady auto-hide ticks
         }
 
-        SyncInputStyle();
+        _faded = true; // auto-hidden: drop the taskbar/Alt+Tab ex-style so no blank entry is left
+        Opacity = 0.0;
+        // Topmost is intentionally NOT cleared and z-order is NOT changed — only opacity + hit-testing.
+        SyncInputStyle(); // forces WS_EX_TRANSPARENT while faded so the invisible window passes clicks through
     }
 
     /// <summary>
@@ -224,9 +230,9 @@ public partial class OverlayWindow : Window
     /// </summary>
     public void ReassertTopmostIfBuried()
     {
-        if (_handle == IntPtr.Zero || _parked || _presentedTopMost != true)
+        if (_handle == IntPtr.Zero || _faded)
         {
-            return;
+            return; // faded = invisible; Present() re-claims the top of z-order on the unfade transition
         }
 
         if (IsBuried())
