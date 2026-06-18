@@ -41,6 +41,9 @@ public partial class App : Application
     private bool _historyPanelVisible;
     private bool _viewingHistory;
     private long _historyBaselineBattleStart;
+    // How recently a player's nickname snapshot must have been seen to appear in the pre-combat party
+    // preview. Scopes the roster to the current zone (snapshots re-fire on dungeon/zone entry).
+    private const long PreCombatRosterWindowMs = 90_000;
     private readonly HashSet<string> _consentPrompted = new();
     private bool _consentDialogOpen;
     private UpdateToast? _updateToast;
@@ -249,6 +252,11 @@ public partial class App : Application
                 }
             }
 
+            // Pre-combat party preview: feed the recently-seen roster so party members show on dungeon entry
+            // (OverlayViewModel only merges it while idle, so it never affects combat rows). 90s window scopes
+            // it to the current zone — players from a previous dungeon age out (their nickname snapshot isn't
+            // re-seen). Skipped while replaying a saved battle (this branch returns above when _viewingHistory).
+            viewModel.SetRoster(services.Data.RecentRoster(PreCombatRosterWindowMs));
             viewModel.Update(report);
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
             StatsOwnCharacter own = services.StatsBuilder.OwnCharacter();

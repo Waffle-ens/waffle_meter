@@ -84,6 +84,8 @@ public partial class SettingsWindow : Window
 
     private void OnRefreshConsent(object sender, RoutedEventArgs e) => RunBackground(_viewModel.RefreshConsentFromServer);
 
+    private void OnOpenMyStats(object sender, RoutedEventArgs e) => _viewModel.OpenMyStats();
+
     // Consent apply/refresh hit the backend; keep them off the UI thread.
     private static void RunBackground(Action work) => Task.Run(() =>
     {

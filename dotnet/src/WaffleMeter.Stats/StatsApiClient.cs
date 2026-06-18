@@ -41,6 +41,13 @@ public sealed class StatsApiClient
 
     public string ReportEndpoint() => ReportEndpointUrl;
 
+    /// <summary>Public web URL where a user can view a SINGLE character's own uploaded battle records,
+    /// keyed by the anonymous <paramref name="identityHash"/> ("내 캐릭터 검색", Tier A). The hash is
+    /// recomputed from server+nickname, so the link is identical across reinstalls and other PCs and
+    /// matches every historical upload; it carries no nickname. The separate stats-web project must serve
+    /// this route and must NOT render nickname/server for characters that are not marked public.</summary>
+    public string CharacterReportUrl(string identityHash) => $"{BaseUrl}/c/{identityHash}";
+
     public ConsentStatusResponse GetConsentStatus(string identityHash)
     {
         string encoded = WebUtility.UrlEncode(identityHash);

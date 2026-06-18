@@ -167,6 +167,15 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     // history-replay path never refreshes). 0 = not recognized.
     private int _selfId;
 
+    private IReadOnlyList<User> _roster = [];
+
+    /// <summary>App supplies the pre-combat party roster (recently-seen known players) each tick. It is
+    /// merged as idle (0-DPS) rows in <see cref="Update"/> ONLY while there is no live combat data and the
+    /// report is live (not a saved/history replay), so the combat row set, sort, and self-index are never
+    /// touched once damage starts. Persisted in a field so it survives theme repaints (which re-run Update
+    /// against the last report).</summary>
+    public void SetRoster(IReadOnlyList<User> roster) => _roster = roster;
+
     /// <summary>App calls this each tick from StatsBuilder.OwnCharacter() so the indicator appears the
     /// moment the own character is recognized (and names it when known). <paramref name="selfId"/> is the
     /// recognized 본인 uid, used to keep the self row on the "내 캐릭터" color in 직업 강조 mode.</summary>
@@ -307,6 +316,20 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             .OrderByDescending(e => Metric(e.Info))
             .ToList();
 
+        // Pre-combat party preview: with no live combat data (and on a live, not saved/history, report),
+        // surface recently-seen party members as idle 0-DPS rows so the party shows on dungeon entry instead
+        // of the "전투 대기 중" placeholder. Skipped the instant any damage lands (Information non-empty), so
+        // the combat path is untouched. _roster is already sorted executor-first / power-desc.
+        bool idleRoster = report.Information.Count == 0 && report.ExecutorId == 0
+                          && _settings.ShowPreCombatRoster && _roster.Count > 0;
+        if (idleRoster)
+        {
+            foreach (User member in _roster)
+            {
+                entries.Add(new Entry(member.Id, new DpsInformation(), member));
+            }
+        }
+
         var display = entries.Take(8).ToList();
         int selfIndex = entries.FindIndex(e => IsSelf(e.Uid, e.User, selfId));
         if (selfIndex >= 0 && !display.Contains(entries[selfIndex]))
@@ -380,9 +403,12 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
         PlaceholderVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         // React TargetInfo/CombatTimer show when players>0; compact mode can hide each (with overrides).
+        // Gate on COMBAT rows (live damage), not Rows.Count, so the pre-combat idle roster doesn't show a
+        // "타겟 인식 실패" bar or a 00:00 timer before the fight starts.
+        bool hasCombatRows = report.Information.Count > 0;
         bool minimal = _settings.IsMinimal;
-        TargetInfoVisibility = Rows.Count > 0 && (!minimal || _settings.ShowTargetInfoInMinimal) ? Visibility.Visible : Visibility.Collapsed;
-        CombatTimerVisibility = durationMs > 0 && Rows.Count > 0 && (!minimal || _settings.ShowCombatTimerInMinimal)
+        TargetInfoVisibility = hasCombatRows && (!minimal || _settings.ShowTargetInfoInMinimal) ? Visibility.Visible : Visibility.Collapsed;
+        CombatTimerVisibility = durationMs > 0 && hasCombatRows && (!minimal || _settings.ShowCombatTimerInMinimal)
             ? Visibility.Visible : Visibility.Collapsed;
     }
 

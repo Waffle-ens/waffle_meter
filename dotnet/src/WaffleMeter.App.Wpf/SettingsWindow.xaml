@@ -17,6 +17,28 @@
             <!-- HotkeyCaptureBox is a TextBox subclass, so the implicit TextBox style (Skin.Controls)
                  doesn't auto-apply; inherit it so the hotkey inputs match the other dark controls. -->
             <Style TargetType="{x:Type local:HotkeyCaptureBox}" BasedOn="{StaticResource {x:Type TextBox}}"/>
+            <!-- Reusable hover-help "?" dot (same visual as the 단축키 help marker). Put a Border with
+                 this style next to a control and give it a Border.ToolTip for the explanation. -->
+            <Style x:Key="HelpDot" TargetType="Border">
+                <Setter Property="Width" Value="18"/>
+                <Setter Property="Height" Value="18"/>
+                <Setter Property="CornerRadius" Value="9"/>
+                <Setter Property="Cursor" Value="Help"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Background" Value="{DynamicResource Skin.AccentSoft}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource Skin.Border}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="ToolTipService.InitialShowDelay" Value="150"/>
+                <Setter Property="ToolTipService.ShowDuration" Value="60000"/>
+            </Style>
+            <Style x:Key="HelpQ" TargetType="TextBlock">
+                <Setter Property="Text" Value="?"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+                <Setter Property="HorizontalAlignment" Value="Center"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -182,6 +204,15 @@
                                 <TextBlock Text="파티 신청이 오면 패널을 자동으로 띄웁니다. 끄면 헤더의 파티 신청 버튼으로 직접 열 수 있습니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowJoinPanel}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="전투 전 파티원 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="던전 입장 시 전투가 시작되기 전에도 파티원을 미리 표시합니다. 첫 피해가 들어오면 자동으로 전투 화면으로 전환됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowPreCombatRoster}"/>
                         </Grid>
 
                         <TextBlock Text="컴팩트 모드" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
@@ -382,7 +413,24 @@
 
                     <!-- ===== 공개 설정 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=stats}">
-                        <TextBlock Text="공개 설정 (익명 통계)" Style="{StaticResource SectionHeader}"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="공개 설정 (익명 통계)" Style="{StaticResource SectionHeader}"/>
+                            <Border Style="{StaticResource HelpDot}" Margin="8,0,0,10">
+                                <TextBlock Style="{StaticResource HelpQ}"/>
+                                <Border.ToolTip>
+                                    <ToolTip MaxWidth="360" Background="{DynamicResource Skin.PanelBg}" BorderBrush="{DynamicResource Skin.Border}">
+                                        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Skin.Fg}">
+                                            게임에서 측정한 보스 전투 기록을 <Run FontWeight="Bold">익명</Run>으로 통계 서버에 보낼지 설정합니다. 닉네임·서버는 식별 불가능한 해시로 처리됩니다.<LineBreak/><LineBreak/>
+                                            세 스위치는 바꾼 즉시 적용되지 않습니다 — 변경 후 <Run FontWeight="Bold">적용</Run>을 눌러야 저장·전송됩니다.<LineBreak/><LineBreak/>
+                                            <Run FontWeight="Bold">동의</Run> — 통계 수집 기본 동의. 끄면 업로드·공개가 모두 중지됩니다.<LineBreak/>
+                                            <Run FontWeight="Bold">업로드 활성화</Run> — 동의한 상태에서 실제 전송을 켜고 끕니다 (내 PC에만 저장).<LineBreak/>
+                                            <Run FontWeight="Bold">캐릭터 공개</Run> — 통계 사이트에 내 캐릭터를 공개로 표시할지 여부 (끄면 익명 집계).<LineBreak/><LineBreak/>
+                                            동의는 캐릭터별로 기억되며, 캐릭터가 접속해 있어야 설정할 수 있습니다.
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                            </Border>
+                        </StackPanel>
                         <Grid Margin="0,0,0,12">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
@@ -403,12 +451,71 @@
                         </Grid>
                         <TextBlock Text="캐릭터 접속 후 동의할 수 있어요" Foreground="#FFCC8800" FontSize="11"
                                    Visibility="{Binding CharacterDetected, Converter={StaticResource BoolToVisInverse}, FallbackValue=Collapsed}"/>
-                        <TextBlock Text="{Binding ConsentStatus}" Style="{StaticResource SettingDesc}" Margin="0,4"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Text="{Binding ConsentStatus}" Style="{StaticResource SettingDesc}" VerticalAlignment="Center"/>
+                            <Border Style="{StaticResource HelpDot}" Width="16" Height="16" Margin="6,0,0,0">
+                                <TextBlock Style="{StaticResource HelpQ}" FontSize="11"/>
+                                <Border.ToolTip>
+                                    <ToolTip MaxWidth="360" Background="{DynamicResource Skin.PanelBg}" BorderBrush="{DynamicResource Skin.Border}">
+                                        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Skin.Fg}">
+                                            동의 상태와 마지막 동기화 결과입니다. 형식: <Run FontWeight="Bold">&lt;상태&gt; · &lt;동기화&gt;</Run><LineBreak/><LineBreak/>
+                                            accepted / declined = 동의 / 거부<LineBreak/>
+                                            synced = 서버 반영 완료 · local = 내 PC에만 저장<LineBreak/>
+                                            sync_failed(…) = 서버 전송 실패 · identity_missing = 캐릭터 미접속
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                            </Border>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="적용" Click="OnApplyConsent" Margin="0,0,8,0"/>
-                            <Button Content="서버 동기화" Click="OnRefreshConsent"/>
+                            <Button Content="적용" Click="OnApplyConsent" Margin="0,0,4,0"/>
+                            <Border Style="{StaticResource HelpDot}" Margin="0,0,12,0">
+                                <TextBlock Style="{StaticResource HelpQ}"/>
+                                <Border.ToolTip>
+                                    <ToolTip MaxWidth="360" Background="{DynamicResource Skin.PanelBg}" BorderBrush="{DynamicResource Skin.Border}">
+                                        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Skin.Fg}">
+                                            현재 스위치 상태를 저장하고 서버에 반영합니다.<LineBreak/><LineBreak/>
+                                            <Run FontWeight="Bold">동의 ON</Run> → 동의 정보를 서버로 전송 (닉네임·서버·직업·전투력·공개 여부). <Run FontWeight="Bold">OFF</Run> → 내 PC에만 '거부'로 기록 (서버 전송 안 함).<LineBreak/><LineBreak/>
+                                            '업로드 활성화'는 내 PC에만 저장되며 서버로 전송되지 않습니다.<LineBreak/><LineBreak/>
+                                            전송에 실패하면 상태가 sync_failed로 표시되고, 안전을 위해 업로드는 자동으로 꺼집니다.
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                            </Border>
+                            <Button Content="서버 동기화" Click="OnRefreshConsent" Margin="0,0,4,0"/>
+                            <Border Style="{StaticResource HelpDot}">
+                                <TextBlock Style="{StaticResource HelpQ}"/>
+                                <Border.ToolTip>
+                                    <ToolTip MaxWidth="360" Background="{DynamicResource Skin.PanelBg}" BorderBrush="{DynamicResource Skin.Border}">
+                                        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Skin.Fg}">
+                                            서버에 저장된 내 동의 상태를 <Run FontWeight="Bold">불러와</Run> 화면의 스위치를 그 값으로 맞춥니다.<LineBreak/><LineBreak/>
+                                            '적용'은 내 설정을 <Run FontWeight="Bold">서버로 보내고</Run>, '서버 동기화'는 서버 값을 <Run FontWeight="Bold">가져옵니다</Run>.<LineBreak/><LineBreak/>
+                                            주의: 스위치를 바꾼 뒤 적용하지 않고 이 버튼을 누르면 바뀐 내용은 서버 값으로 덮어써집니다 (단, '업로드 활성화'는 유지).
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                            </Border>
                         </StackPanel>
                         <TextBlock Text="{Binding UploadStatus}" Style="{StaticResource SettingDesc}" Margin="0,8,0,0"/>
+
+                        <TextBlock Text="내 전투 기록" Style="{StaticResource SectionHeader}" Margin="0,18,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="내 캐릭터 통계 보기" Click="OnOpenMyStats" IsEnabled="{Binding CharacterDetected}"/>
+                            <Border Style="{StaticResource HelpDot}" Margin="6,0,0,0">
+                                <TextBlock Style="{StaticResource HelpQ}"/>
+                                <Border.ToolTip>
+                                    <ToolTip MaxWidth="360" Background="{DynamicResource Skin.PanelBg}" BorderBrush="{DynamicResource Skin.Border}">
+                                        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Skin.Fg}">
+                                            현재 접속한 캐릭터의 통계 페이지를 웹에서 엽니다.<LineBreak/><LineBreak/>
+                                            닉네임·서버는 공개되지 않으며, 익명 식별값으로 <Run FontWeight="Bold">내가 올린 전투 기록만</Run> 모아 볼 수 있습니다.<LineBreak/><LineBreak/>
+                                            미터기를 재설치하거나 다른 PC에서 접속해도, 같은 캐릭터라면 동일한 기록이 열립니다 (예전에 올린 전투 포함).
+                                        </TextBlock>
+                                    </ToolTip>
+                                </Border.ToolTip>
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="캐릭터가 접속해 있어야 열 수 있어요" Style="{StaticResource SettingDesc}" Margin="0,4,0,0"
+                                   Visibility="{Binding CharacterDetected, Converter={StaticResource BoolToVisInverse}, FallbackValue=Collapsed}"/>
                     </StackPanel>
 
                     <!-- ===== 진단 ===== -->

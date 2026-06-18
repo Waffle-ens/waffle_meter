@@ -147,6 +147,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public double MeterOpacity { get => _settings.MeterOpacity; set { _settings.MeterOpacity = value; OnPropertyChanged(); } }
     public bool MultiMonitorMode { get => _settings.MultiMonitorMode; set { _settings.MultiMonitorMode = value; OnPropertyChanged(); } }
     public bool ShowJoinPanel { get => _settings.ShowJoinPanel; set { _settings.ShowJoinPanel = value; OnPropertyChanged(); } }
+    public bool ShowPreCombatRoster { get => _settings.ShowPreCombatRoster; set { _settings.ShowPreCombatRoster = value; OnPropertyChanged(); } }
     // (Light mode is now a skin — "light" in the Skin list — not a separate overlayTheme toggle.)
 
     public bool IsAutoHide
@@ -199,6 +200,20 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     }
 
     public void RefreshConsentFromServer() => ApplyInfo(_services.Consent.GetInfo(syncRemote: true, _services.Version));
+
+    /// <summary>Open the stats site to THIS character's own battle records ("내 캐릭터 통계 보기", Tier A:
+    /// identityHash link — portable across reinstalls/other PCs, no nickname in the URL). No-op when no
+    /// character is detected (the hash needs both a nickname and a server).</summary>
+    public void OpenMyStats()
+    {
+        string? hash = _services.Consent.CurrentCharacterHash();
+        if (string.IsNullOrWhiteSpace(hash))
+        {
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo { FileName = _services.StatsApi.CharacterReportUrl(hash), UseShellExecute = true });
+    }
 
     public void RefreshCharacterStatus()
     {
@@ -349,13 +364,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
         string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
         string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
-        bool ShowServerTag, string BarStyle, bool ShowJoinPanel)
+        bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
             s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
             s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
-            s.ShowServerTag, s.BarStyle, s.ShowJoinPanel);
+            s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -376,6 +391,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.ShowServerTag = ShowServerTag;
             s.BarStyle = BarStyle;
             s.ShowJoinPanel = ShowJoinPanel;
+            s.ShowPreCombatRoster = ShowPreCombatRoster;
         }
     }
 
