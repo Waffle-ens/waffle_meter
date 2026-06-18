@@ -17,7 +17,17 @@ namespace WaffleMeter.Data;
 /// </summary>
 public sealed class DataManager : ICaptureGameData
 {
-    private const long EndedBattleStartIgnoreMs = 30 * 60 * 1000L;
+    // Death-rattle window: after a boss dies the game may emit a residual battle-start toggle (0x8D21) on the
+    // corpse — swallow only that brief tail. A genuine re-pull happens well after this, so it is never blocked
+    // here; and a re-pull whose toggle DOES land inside the window is recovered by _pendingStart (see below).
+    // (Was 30 min — far longer than any death rattle — which froze the meter on the previous battle when a
+    // re-pull's start-toggle arrived before the boss's fresh HP packet. Upstream Kotlin has no such guard.)
+    private const long EndedBattleStartIgnoreMs = 3_000L;
+
+    // A swallowed re-pull start (see _pendingStart) is replayed only if the boss's first HP>0 packet arrives
+    // within this window of the suppressed toggle — long enough to cover any realistic in-combat HP delay, short
+    // enough that a much-later HP broadcast on the same instance id can't trigger a spurious empty battle.
+    private const long PendingStartTtlMs = 60_000L;
     private const long DummyTimeoutMs = 5000L;
 
     private readonly record struct EndedBattle(int? MobCode, long EndedAt);
@@ -39,6 +49,11 @@ public sealed class DataManager : ICaptureGameData
     private long _battleRevision;
     private readonly Dictionary<int, EndedBattle> _recentlyEndedBattles = new();
     private int? _activeBattleMobCode;
+    // A StartBattle the corpse-guard suppressed (a re-pull whose start-toggle beat the boss's fresh HP packet).
+    // Replayed the instant the boss next reports HP>0 (within PendingStartTtlMs), so a genuine re-pull never
+    // stays frozen on the previous battle even when the game emits no second start-toggle (see StartBattle +
+    // MobHp). At = when it was suppressed, so a stale pending can't fire a spurious battle much later.
+    private (int MobId, int? MobCode, long At)? _pendingStart;
     private long _lastDummyHitTime;
     private readonly Dictionary<int, long> _officialLookupAttempts = new();
     // Latest full party/raid roster snapshot (0x9702 packet): each member's (nickname, server) + when it
@@ -105,6 +120,10 @@ public sealed class DataManager : ICaptureGameData
         if (previous != null && previous != code)
         {
             _recentlyEndedBattles.Remove(mid);
+            if (_pendingStart?.MobId == mid)
+            {
+                _pendingStart = null; // this instance id was recycled to a different mob — drop the stale retry
+            }
         }
 
         _mobIdRepository.Save(mid, code);
@@ -127,6 +146,18 @@ public sealed class DataManager : ICaptureGameData
         {
             _recentlyEndedBattles.Remove(mobId);
             SaveMobMaxHp(mobId, mobHp);
+
+            // A re-pull whose start-toggle we swallowed as a death-rattle: the boss now shows HP, so honor that
+            // start (the game may not re-send the toggle). The recently-ended entry was just removed above, so
+            // StartBattle no longer suppresses; the CurrentTarget<=0 guard keeps it from stomping a live battle.
+            if (_pendingStart is { } ps && ps.MobId == mobId && ps.MobCode == GetMobId(mobId) && CurrentTarget() <= 0)
+            {
+                _pendingStart = null; // consumed either way, so a stale pending can't linger and fire later
+                if (Clock() - ps.At <= PendingStartTtlMs)
+                {
+                    StartBattle(mobId);
+                }
+            }
         }
     }
 
@@ -463,6 +494,9 @@ public sealed class DataManager : ICaptureGameData
             && MobHp(mobId) == 0
             && now - endedBattle.Value.EndedAt <= EndedBattleStartIgnoreMs)
         {
+            // Likely a residual post-kill toggle on the corpse — don't restart now. But remember the intent: if
+            // the boss next reports HP>0 (a real re-pull/respawn), MobHp replays this start so we never freeze.
+            _pendingStart = (mobId, mobCode, now);
             return;
         }
 
@@ -474,6 +508,7 @@ public sealed class DataManager : ICaptureGameData
             return;
         }
 
+        _pendingStart = null;
         _recentlyEndedBattles.Remove(mobId);
         _battleRevision++;
         SaveCurrentBattleStart();
@@ -555,7 +590,34 @@ public sealed class DataManager : ICaptureGameData
         _packetRepository.Flush();
         _recentlyEndedBattles.Clear();
         _activeBattleMobCode = null;
+        _pendingStart = null;
         _lastDummyHitTime = 0;
+    }
+
+    /// <summary>
+    /// Soft reset for the user "초기화" button: clears the battle LEDGER (saved history + the in-flight damage
+    /// packets) and all battle-lifecycle transients, but PRESERVES every piece of runtime reference state that
+    /// the game only re-broadcasts on a zone load — recognized users (incl. the executor), the mob-instance map,
+    /// mob HP, the summon map, buff intervals, the party roster, official-lookup throttles, and the catalogs.
+    /// This is what makes reset usable inside a dungeon with no map transition: the executor stays recognized
+    /// (0x3633 won't re-fire) AND already-spawned bosses keep their instance→code mapping (0x3640 won't re-fire),
+    /// so the very next pull still starts a battle and attributes the local player's DPS. Use <see cref="HardReset"/>
+    /// only for a true full wipe.
+    /// </summary>
+    public void ResetBattleRecords()
+    {
+        _resetEpoch++;            // reject in-flight SaveDamage(pdp, oldEpoch) captured before this reset
+        _battleRevision = 0;      // assign 0 (mirror HardReset); DpsCalculator zeroes _currentBattleRevision in lockstep
+        _battleLogRepository.Flush(); // clear saved battle history (the 전투 기록 panel)
+        _packetRepository.Flush();    // drop the in-flight/old battle's damage packets
+        _recentlyEndedBattles.Clear();
+        _activeBattleMobCode = null;
+        _pendingStart = null;
+        _lastDummyHitTime = 0;
+        // PRESERVE (do NOT flush): _userRepository (recognized chars + executor), _mobIdRepository (boss
+        // instance→code, needed for the next StartBattle in a no-respawn dungeon), _mobHpRepository,
+        // _summonRepository, _useBuffRepository, _partyRoster/_partyRosterAtMs, _officialLookupAttempts,
+        // and the load-once catalogs (_mobs/_skillRepository/_buffRepository/_buffBlacklist).
     }
 
     private static User CopyUser(User u) => new(u.Id, u.Nickname, u.Server, u.Job, u.IsExecutor, u.Power) { JobSource = u.JobSource };

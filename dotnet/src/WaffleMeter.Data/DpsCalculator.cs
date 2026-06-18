@@ -679,4 +679,25 @@ public sealed class DpsCalculator
         _recentDataSaved = false;
         ResetCache();
     }
+
+    /// <summary>
+    /// Soft reset for the user "초기화" button: clears the live report + cached battle and the saved history
+    /// (via <see cref="DataManager.ResetBattleRecords"/>) but KEEPS recognized characters/executor, the
+    /// mob-instance map, and the party roster, so combat info still appears on the next pull inside a dungeon
+    /// with no zone reload. Mirrors <see cref="HardReset"/> exactly except it does not wipe users. The
+    /// in-progress battle is intentionally NOT saved (the reset is a deliberate full-ledger wipe).
+    /// </summary>
+    public void ResetKeepingCharacters()
+    {
+        _dm.ResetBattleRecords();
+        _streamResetCallback?.Invoke();
+        _currentTarget = -1;
+        _currentBattleRevision = 0; // lockstep with DataManager._battleRevision = 0 (else GetDps mis-detects a restart)
+        _recentData = new DpsReport();
+        _recentSkillDetails = new();
+        _recentBuffRates = new();
+        _recentBossBuffRates = [];
+        _recentDataSaved = false;
+        ResetCache();
+    }
 }

@@ -188,12 +188,6 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             : string.IsNullOrWhiteSpace(nickname) ? "· 캐릭터 인식됨" : $"· {nickname} 인식됨";
     }
 
-    /// <summary>True when this row is the local player ("본인"): the per-row executor flag OR the effective
-    /// 본인 uid for the report being shown (<paramref name="selfId"/>). The uid path survives a stale/frozen
-    /// IsExecutor flag — notably a saved-battle replay, where every row's IsExecutor was frozen false.</summary>
-    private static bool IsSelf(int uid, User? user, int selfId) =>
-        user?.IsExecutor == true || (selfId != 0 && uid == selfId);
-
     private Visibility _clickThroughVisibility = Visibility.Collapsed;
     /// <summary>Header lock badge: visible while click-through (input pass-through) is active, so the user
     /// can see the overlay is letting clicks fall through to the game (React Header LockKeyhole badge).</summary>
@@ -305,44 +299,21 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         TargetBottomBarVisibility = barVis;
         double Metric(DpsInformation info) => total ? info.Amount : info.Dps;
 
-        // "본인" id for coloring: prefer the id frozen INTO this report (a saved/history battle carries its
-        // executor uid even though CopyUser froze every row's IsExecutor false) and fall back to the live
-        // recognized id for an in-progress report. This is what keeps the "내 캐릭터" color on the own bar in
-        // 직업 강조 mode after the battle is saved, no longer at the mercy of the live recognition state.
-        int selfId = report.ExecutorId != 0 ? report.ExecutorId : _selfId;
-
-        List<Entry> entries = report.Information
-            .Select(kv => new Entry(kv.Key, kv.Value, report.Contributors.FirstOrDefault(c => c.Id == kv.Key)))
-            .OrderByDescending(e => Metric(e.Info))
-            .ToList();
-
-        // Pre-combat party preview: with no live combat data (and on a live, not saved/history, report),
-        // surface recently-seen party members as idle 0-DPS rows so the party shows on dungeon entry instead
-        // of the "전투 대기 중" placeholder. Skipped the instant any damage lands (Information non-empty), so
-        // the combat path is untouched. _roster is already sorted executor-first / power-desc.
-        bool idleRoster = report.Information.Count == 0 && report.ExecutorId == 0
-                          && _settings.ShowPreCombatRoster && _roster.Count > 0;
-        if (idleRoster)
-        {
-            foreach (User member in _roster)
-            {
-                entries.Add(new Entry(member.Id, new DpsInformation(), member));
-            }
-        }
-
-        var display = entries.Take(8).ToList();
-        int selfIndex = entries.FindIndex(e => IsSelf(e.Uid, e.User, selfId));
-        if (selfIndex >= 0 && !display.Contains(entries[selfIndex]))
-        {
-            display.Add(entries[selfIndex]); // always show self, even outside top 8
-        }
+        // Row selection lives in the pure OverlayRowBuilder (App.Core, unit-tested): it drops bare/no-nickname
+        // combat rows (a mid-join provisional actor that would otherwise show as a blank "broken" line — its DPS
+        // still accumulates and the row appears once identity arrives), surfaces the pre-combat party roster
+        // (incl. the App-injected self) only on the fresh report, always includes self, and reports whether any
+        // DISPLAYABLE combat row exists via hasCombatRows (so an all-bare mid-join can't render a boss bar/timer
+        // over the placeholder). Self-coloring uses the frozen report.ExecutorId, else the live _selfId.
+        IReadOnlyList<OverlayRowBuilder.Row> display = OverlayRowBuilder.Build(
+            report, _roster, _selfId, total, _settings.ShowPreCombatRoster, out bool hasCombatRows);
 
         double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);
 
         for (int i = 0; i < display.Count; i++)
         {
-            Entry e = display[i];
-            bool isUser = IsSelf(e.Uid, e.User, selfId);
+            OverlayRowBuilder.Row e = display[i];
+            bool isUser = e.IsSelf;
             double contribution = e.Info.Contribution; // fill tier always uses party contribution
             int power = e.User?.Power ?? 0;
             int server = e.User?.Server ?? 0;
@@ -403,9 +374,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
         PlaceholderVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         // React TargetInfo/CombatTimer show when players>0; compact mode can hide each (with overrides).
-        // Gate on COMBAT rows (live damage), not Rows.Count, so the pre-combat idle roster doesn't show a
-        // "타겟 인식 실패" bar or a 00:00 timer before the fight starts.
-        bool hasCombatRows = report.Information.Count > 0;
+        // hasCombatRows is the count of DISPLAYABLE (named) combat rows from OverlayRowBuilder above — NOT
+        // report.Information.Count — so the pre-combat idle roster (and an all-bare mid-join) never shows a
+        // "타겟 인식 실패" bar or a 00:00 timer before a nameable fight is on screen.
         bool minimal = _settings.IsMinimal;
         TargetInfoVisibility = hasCombatRows && (!minimal || _settings.ShowTargetInfoInMinimal) ? Visibility.Visible : Visibility.Collapsed;
         CombatTimerVisibility = durationMs > 0 && hasCombatRows && (!minimal || _settings.ShowCombatTimerInMinimal)
@@ -434,8 +405,6 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         "hp_percent" => $"{MeterFormat.FormatAmount(remain)} / {MeterFormat.FormatAmount(max)}  {pct:F1}%",
         _ => $"{remain:N0} / {max:N0}  {pct:F1}%", // hp_full_percent
     };
-
-    private readonly record struct Entry(int Uid, DpsInformation Info, User? User);
 
     // angle 0 = left->right, matching the React `linear-gradient(to right, ...)` bars.
     private static Brush ThemeGradient(string from, string to)

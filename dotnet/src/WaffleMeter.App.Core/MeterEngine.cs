@@ -61,8 +61,10 @@ public sealed class MeterEngine : IDisposable
         }
     }
 
-    /// <summary>Requests a full meter reset (clears saved battles + live data). Thread-safe: the actual
-    /// reset runs on the consumer thread, which solely owns the meter state.</summary>
+    /// <summary>Requests a meter reset: clears the saved battles + live data but PRESERVES recognized
+    /// characters (the executor + party) and the spawned-mob map, so combat info still appears on the next
+    /// pull inside a dungeon with no zone reload. Thread-safe: the actual reset runs on the consumer thread,
+    /// which solely owns the meter state.</summary>
     public void RequestReset() => _resetRequested = true;
 
     public void Start() => Start(_services.BuildCaptureConfig());
@@ -112,7 +114,11 @@ public sealed class MeterEngine : IDisposable
                 _resetRequested = false;
                 try
                 {
-                    _services.Calculator.HardReset();
+                    // Soft reset: clears saved battles + live data but keeps recognized characters (executor +
+                    // party) and the spawned-mob map, so the next pull still shows combat info even in a dungeon
+                    // with no zone reload (HardReset would wipe those and the meter would stay blank until a zone
+                    // change re-broadcast them). Use HardReset only for a true full wipe.
+                    _services.Calculator.ResetKeepingCharacters();
                     // Recover from any noise-guard misclassification: re-admit excluded connections both
                     // locally and at the helper's source-side drop set.
                     _services.ClearExclusions();

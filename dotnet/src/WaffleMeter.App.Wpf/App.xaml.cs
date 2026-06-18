@@ -150,7 +150,7 @@ public partial class App : Application
         OverlayController controller = _controller;
         _hotkeys = new HotkeyHandler(services.Props)
         {
-            OnReset = () => { _viewingHistory = false; _engine?.RequestReset(); }, // clears saved battles + live data (runs on consumer thread)
+            OnReset = () => { _viewingHistory = false; _engine?.RequestReset(); }, // clears saved battles + live data, keeps recognized characters (consumer thread)
             OnVisibility = () => Dispatcher.Invoke(controller.ToggleVisibility),
             OnClickThrough = () => Dispatcher.Invoke(() => window.SetClickThrough(!window.ClickThrough)),
         };
@@ -285,6 +285,19 @@ public partial class App : Application
                 if (u != null && !string.IsNullOrWhiteSpace(u.Nickname))
                 {
                     rosterById[kv.Key] = u;
+                }
+            }
+
+            // Pin the recognized 본인 so the local player shows in the pre-combat preview even when the 0x9702
+            // roster omits self (party packets often exclude the local player) or its name+server hasn't matched
+            // a uid yet. Dedup by uid: if self already arrived via 0x9702 or combat, keep that object (it may
+            // carry a better server/power). Self sorts first via the executor-first OrderBy below.
+            if (execUid != 0 && !rosterById.ContainsKey(execUid))
+            {
+                User? self = services.Data.User(execUid);
+                if (self != null && !string.IsNullOrWhiteSpace(self.Nickname))
+                {
+                    rosterById[execUid] = self;
                 }
             }
 
