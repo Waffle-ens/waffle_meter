@@ -46,7 +46,7 @@ public sealed class StatsApiClient
     /// recomputed from server+nickname, so the link is identical across reinstalls and other PCs and
     /// matches every historical upload; it carries no nickname. The separate stats-web project must serve
     /// this route and must NOT render nickname/server for characters that are not marked public.</summary>
-    public string CharacterReportUrl(string identityHash) => $"{BaseUrl}/c/{identityHash}";
+    public string CharacterReportUrl(string identityHash) => $"{BaseUrl}/characters/{identityHash}";
 
     public ConsentStatusResponse GetConsentStatus(string identityHash)
     {
