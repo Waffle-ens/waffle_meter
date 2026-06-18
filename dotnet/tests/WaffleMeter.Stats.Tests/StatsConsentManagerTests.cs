@@ -172,4 +172,72 @@ public sealed class StatsConsentManagerTests : IDisposable
         Assert.Contains(StatsIdentity.CharacterIdentityHash(3, "Alice")!, consented);
         Assert.DoesNotContain(StatsIdentity.CharacterIdentityHash(3, "Bob")!, consented);
     }
+
+    private static StatsApiClient AcceptApi(bool pub) => ApiReturning(
+        $$"""{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":{{(pub ? "true" : "false")}},"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}""");
+
+    [Fact]
+    public void ListCharacters_includes_name_server_job_metadata()
+    {
+        GiveExecutor(); // Hero, server 3
+        Manager(AcceptApi(true)).Set("accepted", uploadEnabled: true, publicCharacter: true);
+
+        StatsConsentManager.CharacterConsentInfo hero =
+            Manager(AcceptApi(true)).ListCharacters().Single(c => c.Nickname == "Hero");
+
+        Assert.Equal(3, hero.Server);
+        Assert.Equal("마도성", hero.Job);          // from the own-character provider
+        Assert.Equal("accepted", hero.State);
+        Assert.True(hero.IsCurrent);
+        Assert.True(hero.PublicCharacter);
+        Assert.True(hero.CanSetPublic);
+        Assert.Equal(StatsIdentity.CharacterIdentityHash(3, "Hero"), hero.IdentityHash);
+    }
+
+    [Fact]
+    public void SetCharacterPublic_updates_a_non_current_character_only()
+    {
+        // Alice accepts public=true, then we switch to Bob (Alice is now non-current).
+        _data.SaveNickname(1, "Alice", isExecutor: true, server: 3, jobByte: 0);
+        Manager(AcceptApi(true)).Set("accepted", uploadEnabled: true, publicCharacter: true);
+        string aliceHash = StatsIdentity.CharacterIdentityHash(3, "Alice")!;
+        _data.SaveNickname(2, "Bob", isExecutor: true, server: 3, jobByte: 0);
+
+        Manager(AcceptApi(false)).SetCharacterPublic(aliceHash, publicCharacter: false);
+
+        StatsConsentManager.CharacterConsentInfo alice =
+            Manager(AcceptApi(false)).ListCharacters().Single(c => c.IdentityHash == aliceHash);
+        Assert.False(alice.PublicCharacter); // toggled private
+        Assert.Equal("accepted", alice.State);
+        Assert.False(alice.IsCurrent);
+        // Bob's (current) consent is untouched / undecided.
+        Assert.Equal("unknown", Manager(AcceptApi(false)).GetInfo().State);
+    }
+
+    [Fact]
+    public void RevokeCharacter_revokes_a_non_current_character()
+    {
+        _data.SaveNickname(1, "Alice", isExecutor: true, server: 3, jobByte: 0);
+        Manager(AcceptApi(true)).Set("accepted", uploadEnabled: true, publicCharacter: true);
+        string aliceHash = StatsIdentity.CharacterIdentityHash(3, "Alice")!;
+        _data.SaveNickname(2, "Bob", isExecutor: true, server: 3, jobByte: 0);
+
+        StatsApiClient revoked = ApiReturning(
+            """{"ok":true,"identityHash":"h","exists":false,"consentState":"revoked","consentVersion":"2026-06-04","updatedAt":"2026-06-05T00:00:00Z"}""");
+        Manager(revoked).RevokeCharacter(aliceHash);
+
+        Assert.DoesNotContain(aliceHash, Manager(revoked).ConsentedCharacterHashes());
+        Assert.Equal("revoked", Manager(revoked).ListCharacters().Single(c => c.IdentityHash == aliceHash).State);
+    }
+
+    [Fact]
+    public void Korean_nickname_round_trips_through_property_storage()
+    {
+        // EUC-KR settings encoding corrupts raw Korean; the default JSON serializer \uXXXX-escapes it to
+        // ASCII so it survives. A fresh manager (re-reads settings.properties) must still see the name.
+        _data.SaveNickname(1, "와플", isExecutor: true, server: 3, jobByte: 0);
+        Manager(AcceptApi(false)).Set("accepted", uploadEnabled: true, publicCharacter: false);
+
+        Assert.Contains(Manager(AcceptApi(false)).ListCharacters(), c => c.Nickname == "와플");
+    }
 }

@@ -463,6 +463,41 @@
                         </StackPanel>
                         <TextBlock Text="{Binding UploadStatus}" Style="{StaticResource SettingDesc}" Margin="0,8,0,0"/>
 
+                        <TextBlock Text="내 캐릭터 관리" Style="{StaticResource SectionHeader}" Margin="0,18,0,6"/>
+                        <TextBlock Text="익명 통계에 동의한 내 캐릭터들의 공개 여부를 바꾸거나 동의를 철회할 수 있습니다. (철회 시 이후 업로드가 중단됩니다.)"
+                                   Style="{StaticResource SettingDesc}" Margin="0,0,0,8"/>
+                        <ItemsControl ItemsSource="{Binding ConsentCharacters}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource Skin.PanelBg}" BorderBrush="{DynamicResource Skin.Border}"
+                                            BorderThickness="1" CornerRadius="6" Padding="10,7" Margin="0,0,0,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Label}" FontWeight="Bold"/>
+                                                    <Border Background="{DynamicResource Skin.AccentSoft}" CornerRadius="3" Padding="4,1" Margin="6,0,0,0"
+                                                            VerticalAlignment="Center" Visibility="{Binding CurrentBadgeVisibility}">
+                                                        <TextBlock Text="현재 접속" FontSize="10" Foreground="{DynamicResource Skin.Accent}"/>
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding SubLabel}" Style="{StaticResource SettingDesc}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                <TextBlock Text="공개" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource Skin.MutedFg}"/>
+                                                <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Center"
+                                                          IsChecked="{Binding IsPublic, Mode=OneWay}" IsEnabled="{Binding CanSetPublic}"
+                                                          Click="OnToggleCharacterPublic"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="2" Content="동의 철회" Click="OnRevokeCharacter" IsEnabled="{Binding CanRevoke}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="아직 동의한 캐릭터가 없습니다." Style="{StaticResource SettingDesc}"
+                                   Visibility="{Binding HasConsentCharacters, Converter={StaticResource BoolToVisInverse}, FallbackValue=Visible}"/>
+
                         <TextBlock Text="내 전투 기록" Style="{StaticResource SectionHeader}" Margin="0,18,0,8"/>
                         <Button Content="내 캐릭터 통계 보기" Click="OnOpenMyStats" IsEnabled="{Binding CharacterDetected}" HorizontalAlignment="Left"/>
                         <TextBlock Text="캐릭터가 접속해 있어야 열 수 있어요" Style="{StaticResource SettingDesc}" Margin="0,4,0,0"

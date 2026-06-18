@@ -252,6 +252,96 @@ public sealed class StatsConsentManager
     public IReadOnlyList<string> ConsentedCharacterHashes() =>
         LoadCharacters().Where(kv => TryState(kv.Value.State) == State.accepted).Select(kv => kv.Key).ToList();
 
+    /// <summary>One locally-remembered character's consent, for the per-character management UI.</summary>
+    public sealed record CharacterConsentInfo(
+        string IdentityHash, string? Nickname, int Server, string? Job, string State,
+        bool UploadEnabled, bool PublicCharacter, long UpdatedAt, bool IsCurrent, bool CanSetPublic);
+
+    /// <summary>All locally-remembered characters and their consent (the management list), current character
+    /// first then most-recently-updated. <c>CanSetPublic</c> is false for a legacy entry that has no stored
+    /// nickname/server and isn't the current character — its accept event can't be rebuilt, so its public
+    /// flag can't be changed (it can still be revoked, which needs only the hash).</summary>
+    public IReadOnlyList<CharacterConsentInfo> ListCharacters()
+    {
+        string? current = CurrentIdentityHash();
+        return LoadCharacters()
+            .Select(kv =>
+            {
+                CharConsent c = kv.Value;
+                bool isCurrent = kv.Key == current;
+                bool named = !string.IsNullOrWhiteSpace(c.Nickname) && c.Server > 0;
+                return new CharacterConsentInfo(
+                    kv.Key, c.Nickname, c.Server, c.Job, c.State, c.UploadEnabled, c.PublicCharacter,
+                    c.UpdatedAt, isCurrent, CanSetPublic: isCurrent || named);
+            })
+            .OrderByDescending(c => c.IsCurrent)
+            .ThenByDescending(c => c.UpdatedAt)
+            .ToList();
+    }
+
+    /// <summary>Set a SPECIFIC character's public flag. The current character routes through the normal
+    /// accept path; a non-current character re-issues an accept event from its stored identity (name+server)
+    /// and updates only its own remembered entry. No-op if the character isn't accepted or can't be rebuilt.</summary>
+    public void SetCharacterPublic(string identityHash, bool publicCharacter, string clientVersion = "dev")
+    {
+        if (identityHash == CurrentIdentityHash())
+        {
+            Accept(LocalInfo().UploadEnabled, publicCharacter, clientVersion);
+            return;
+        }
+
+        Dictionary<string, CharConsent> map = LoadCharacters();
+        if (!map.TryGetValue(identityHash, out CharConsent? entry)
+            || TryState(entry.State) != State.accepted
+            || string.IsNullOrWhiteSpace(entry.Nickname)
+            || entry.Server <= 0)
+        {
+            return;
+        }
+
+        var character = new ConsentEventCharacter(identityHash, entry.Nickname!, entry.Server, publicCharacter, entry.Job, 0);
+        try
+        {
+            ConsentStatusResponse response = _api.PostConsentEvent(
+                new ConsentEventRequest(State.accepted.ToString(), ConsentVersion, Character: character), clientVersion);
+            bool accepted = (TryState(response.ConsentState) ?? State.unknown) == State.accepted && response.Exists;
+            UpsertCharacter(identityHash, accepted ? State.accepted : State.declined, entry.UploadEnabled,
+                accepted && response.PublicCharacter, response.ConsentVersion ?? ConsentVersion,
+                ParseRemoteTime(response.UpdatedAt) ?? _clock(), entry.Nickname, entry.Server, entry.Job);
+        }
+        catch
+        {
+            // leave the entry unchanged on a failed sync; the list re-reads the old state
+        }
+    }
+
+    /// <summary>Revoke a SPECIFIC character's consent. The current character routes through the normal
+    /// revoke path; a non-current character posts a revoke event (hash only) and marks its remembered entry
+    /// revoked — even on a failed sync, so future uploads stop locally regardless.</summary>
+    public void RevokeCharacter(string identityHash, string clientVersion = "dev")
+    {
+        if (identityHash == CurrentIdentityHash())
+        {
+            Revoke(clientVersion);
+            return;
+        }
+
+        LoadCharacters().TryGetValue(identityHash, out CharConsent? entry);
+        try
+        {
+            ConsentStatusResponse response = _api.PostConsentEvent(
+                new ConsentEventRequest(State.revoked.ToString(), ConsentVersion, IdentityHash: identityHash), clientVersion);
+            UpsertCharacter(identityHash, State.revoked, false, false,
+                response.ConsentVersion ?? ConsentVersion, ParseRemoteTime(response.UpdatedAt) ?? _clock(),
+                entry?.Nickname, entry?.Server ?? 0, entry?.Job);
+        }
+        catch
+        {
+            UpsertCharacter(identityHash, State.revoked, false, false, ConsentVersion, _clock(),
+                entry?.Nickname, entry?.Server ?? 0, entry?.Job);
+        }
+    }
+
     private Info LocalInfo()
     {
         // Session-level sync metadata is always global (it describes the last sync op, not a character).
@@ -331,17 +421,22 @@ public sealed class StatsConsentManager
         }
     }
 
-    private void UpsertCharacter(string identityHash, State state, bool uploadEnabled, bool publicCharacter, string version, long updatedAt)
+    private void UpsertCharacter(string identityHash, State state, bool uploadEnabled, bool publicCharacter,
+        string version, long updatedAt, string? nickname = null, int server = 0, string? job = null)
     {
         Dictionary<string, CharConsent> map = LoadCharacters();
-        map[identityHash] = new CharConsent
-        {
-            State = state.ToString(),
-            UploadEnabled = state == State.accepted && uploadEnabled,
-            PublicCharacter = state == State.accepted && publicCharacter,
-            ConsentVersion = version,
-            UpdatedAt = updatedAt,
-        };
+        CharConsent entry = map.TryGetValue(identityHash, out CharConsent? existing) ? existing : new CharConsent();
+        entry.State = state.ToString();
+        entry.UploadEnabled = state == State.accepted && uploadEnabled;
+        entry.PublicCharacter = state == State.accepted && publicCharacter;
+        entry.ConsentVersion = version;
+        entry.UpdatedAt = updatedAt;
+        // Preserve previously-stored identity metadata when this call doesn't supply it (e.g. a hash-only
+        // revoke of a non-current character).
+        if (!string.IsNullOrWhiteSpace(nickname)) entry.Nickname = nickname;
+        if (server > 0) entry.Server = server;
+        if (!string.IsNullOrWhiteSpace(job)) entry.Job = job;
+        map[identityHash] = entry;
         _props.SetProperty(KeyCharacters, JsonSerializer.Serialize(map));
     }
 
@@ -352,6 +447,12 @@ public sealed class StatsConsentManager
         [JsonPropertyName("publicCharacter")] public bool PublicCharacter { get; set; }
         [JsonPropertyName("consentVersion")] public string? ConsentVersion { get; set; }
         [JsonPropertyName("updatedAt")] public long UpdatedAt { get; set; }
+        // Display metadata for the per-character management UI (so it can label characters by name, not the
+        // raw hash). MUST stay on the DEFAULT serializer so Korean is \uXXXX-escaped to ASCII and survives
+        // the EUC-KR settings encoding — StatsJson's relaxed escaping would corrupt raw Korean here.
+        [JsonPropertyName("nickname")] public string? Nickname { get; set; }
+        [JsonPropertyName("server")] public int Server { get; set; }
+        [JsonPropertyName("job")] public string? Job { get; set; }
     }
 
     private void SaveLocal(
@@ -390,7 +491,12 @@ public sealed class StatsConsentManager
         string? mapKey = CurrentIdentityHash();
         if (mapKey != null)
         {
-            UpsertCharacter(mapKey, state, uploadEnabled, publicCharacter, version, updated);
+            // Stamp the current character's display identity (name/server/job) so the management UI can
+            // label it; resolve from the live executor (and the own-character provider for job).
+            User? u = _data.User(_data.ExecutorId());
+            string? job = NonBlank(_ownCharacter().Job) ?? (u?.Job is { } jc ? jc.ClassName() : null);
+            UpsertCharacter(mapKey, state, uploadEnabled, publicCharacter, version, updated,
+                NonBlank(u?.Nickname), u?.Server ?? 0, job);
         }
     }
 

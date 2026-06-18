@@ -1,7 +1,9 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using WaffleMeter.App.Core;
 using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
@@ -11,6 +13,19 @@ namespace WaffleMeter.App.Wpf;
 
 /// <summary>A label/value choice for a settings ComboBox.</summary>
 public sealed record SettingOption(string Label, string Value);
+
+/// <summary>One row of the per-character consent management list (immutable; the collection is rebuilt on
+/// change). The public toggle binds <c>IsPublic</c> one-way and routes the change through a Click handler.</summary>
+public sealed class ConsentCharacterRow
+{
+    public string IdentityHash { get; init; } = "";
+    public string Label { get; init; } = "";
+    public string SubLabel { get; init; } = "";
+    public bool IsPublic { get; init; }
+    public bool CanSetPublic { get; init; }
+    public bool CanRevoke { get; init; }
+    public Visibility CurrentBadgeVisibility { get; init; }
+}
 
 /// <summary>
 /// Backs the tabbed settings window. Display/overlay settings apply live via <see cref="MeterSettings"/>
@@ -215,6 +230,49 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         Process.Start(new ProcessStartInfo { FileName = _services.StatsApi.CharacterReportUrl(hash), UseShellExecute = true });
     }
 
+    // ---- per-character consent management (the 내 캐릭터 관리 list) ----
+    public ObservableCollection<ConsentCharacterRow> ConsentCharacters { get; } = new();
+    public bool HasConsentCharacters => ConsentCharacters.Count > 0;
+
+    /// <summary>Rebuild the management list from the locally-remembered consented characters (current
+    /// character first). Local-only + UI-thread (no network); call on open and after each action.</summary>
+    public void RefreshConsentCharacters()
+    {
+        ConsentCharacters.Clear();
+        foreach (StatsConsentManager.CharacterConsentInfo c in _services.Consent.ListCharacters())
+        {
+            if (c.State != "accepted")
+            {
+                continue; // the management list = currently-consented characters
+            }
+
+            string label = !string.IsNullOrWhiteSpace(c.Nickname)
+                ? (c.Server > 0 ? $"{c.Nickname} [{ServerNames.GetServerLabel(c.Server)}]" : c.Nickname!)
+                : "이름 없음 (이전 기록)";
+            string job = string.IsNullOrWhiteSpace(c.Job) ? string.Empty : c.Job! + " · ";
+            ConsentCharacters.Add(new ConsentCharacterRow
+            {
+                IdentityHash = c.IdentityHash,
+                Label = label,
+                SubLabel = job + (c.PublicCharacter ? "공개" : "비공개 (익명 집계)"),
+                IsPublic = c.PublicCharacter,
+                CanSetPublic = c.CanSetPublic,
+                CanRevoke = true,
+                CurrentBadgeVisibility = c.IsCurrent ? Visibility.Visible : Visibility.Collapsed,
+            });
+        }
+
+        OnPropertyChanged(nameof(HasConsentCharacters));
+    }
+
+    /// <summary>Change a character's public flag. Network call — run off the UI thread, then refresh.</summary>
+    public void SetCharacterPublic(string identityHash, bool publicCharacter)
+        => _services.Consent.SetCharacterPublic(identityHash, publicCharacter, _services.Version);
+
+    /// <summary>Revoke a character's consent. Network call — run off the UI thread, then refresh.</summary>
+    public void RevokeConsentCharacter(string identityHash)
+        => _services.Consent.RevokeCharacter(identityHash, _services.Version);
+
     public void RefreshCharacterStatus()
     {
         CharacterDetected = _services.StatsBuilder.OwnCharacter().Detected;
@@ -337,6 +395,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         ApplyInfo(_services.Consent.GetInfo(syncRemote: false, _services.Version));
         RefreshCharacterStatus();
+        RefreshConsentCharacters();
         CaptureConfig config = _services.BuildCaptureConfig();
         ServerIp = config.ServerIp;
         ServerPort = config.ServerPort;

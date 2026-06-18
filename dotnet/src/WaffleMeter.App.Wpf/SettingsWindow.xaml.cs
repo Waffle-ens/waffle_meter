@@ -86,6 +86,38 @@ public partial class SettingsWindow : Window
 
     private void OnOpenMyStats(object sender, RoutedEventArgs e) => _viewModel.OpenMyStats();
 
+    private void OnToggleCharacterPublic(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.CheckBox cb && cb.DataContext is ConsentCharacterRow row)
+        {
+            bool makePublic = cb.IsChecked == true;
+            RunThenRefresh(() => _viewModel.SetCharacterPublic(row.IdentityHash, makePublic));
+        }
+    }
+
+    private void OnRevokeCharacter(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.DataContext is ConsentCharacterRow row)
+        {
+            RunThenRefresh(() => _viewModel.RevokeConsentCharacter(row.IdentityHash));
+        }
+    }
+
+    // The per-character action hits the backend (off the UI thread); the list rebuild must run on the UI thread.
+    private void RunThenRefresh(Action network) => Task.Run(() =>
+    {
+        try
+        {
+            network();
+        }
+        catch
+        {
+            // surfaced on the next list refresh
+        }
+
+        Dispatcher.Invoke(_viewModel.RefreshConsentCharacters);
+    });
+
     // Consent apply/refresh hit the backend; keep them off the UI thread.
     private static void RunBackground(Action work) => Task.Run(() =>
     {
