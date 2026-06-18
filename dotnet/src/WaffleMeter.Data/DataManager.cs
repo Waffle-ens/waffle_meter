@@ -41,9 +41,6 @@ public sealed class DataManager : ICaptureGameData
     private int? _activeBattleMobCode;
     private long _lastDummyHitTime;
     private readonly Dictionary<int, long> _officialLookupAttempts = new();
-    // uid -> last time the player's identity/power was refreshed (for the pre-combat party roster: players
-    // from a previous zone age out instead of lingering forever, since _userRepository is never pruned).
-    private readonly Dictionary<int, long> _lastSeenMs = new();
 
     /// <summary>Injectable clock (default wall clock; app behavior unchanged). Mirrors the Kotlin seam.</summary>
     public Func<long> Clock { get; set; } = () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -157,28 +154,11 @@ public sealed class DataManager : ICaptureGameData
         if (power <= 0) return;
         User? user = _userRepository.Get(uid);
         if (user == null) return;
-        _lastSeenMs[uid] = Clock();
         if (user.Power != power)
         {
             user.Power = power;
             _userRepository.Save(uid, user);
         }
-    }
-
-    /// <summary>Recently-seen known players for the pre-combat party preview ("던전 입장 시 파티원 미리
-    /// 표시"). Includes the executor (when known) plus any player whose identity/power was refreshed within
-    /// <paramref name="withinMs"/>, so players from a previous zone age out. Sorted executor-first then by
-    /// power desc for a stable display order. Returns named players only.</summary>
-    public IReadOnlyList<User> RecentRoster(long withinMs)
-    {
-        long now = Clock();
-        int exec = _userRepository.Executor();
-        return _userRepository.All()
-            .Where(u => !string.IsNullOrWhiteSpace(u.Nickname)
-                        && (u.Id == exec || (_lastSeenMs.TryGetValue(u.Id, out long seen) && now - seen <= withinMs)))
-            .OrderByDescending(u => u.Id == exec)
-            .ThenByDescending(u => u.Power)
-            .ToList();
     }
 
     /// <summary>Returns the User for <paramref name="uid"/>, creating and persisting a bare one (no
@@ -238,7 +218,6 @@ public sealed class DataManager : ICaptureGameData
         user.TrySetJob(job, JobProvenance.Authoritative);
 
         _userRepository.Save(uid, user);
-        _lastSeenMs[uid] = Clock();
         if (isExecutor)
         {
             SaveExecutorId(uid);

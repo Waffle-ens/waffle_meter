@@ -91,10 +91,6 @@ public sealed class UserRepository
     public User? Get(int id) => _storage.GetValueOrDefault(id);
     public bool Exist(int id) => _storage.ContainsKey(id);
 
-    /// <summary>All known players (live storage only, not the pending power maps). A snapshot copy, so a
-    /// caller can enumerate it for the pre-combat party roster without touching the store.</summary>
-    public IReadOnlyList<User> All() => _storage.Values.ToList();
-
     public User? FindByNicknameAndServer(string nickname, int server) =>
         _storage.Values.FirstOrDefault(u => u.Nickname == nickname && u.Server == server);
 
