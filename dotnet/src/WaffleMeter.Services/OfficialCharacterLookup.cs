@@ -130,7 +130,7 @@ public sealed class OfficialCharacterLookup : IOfficialCharacterLookup
 
     private OfficialCharacterInfo? Lookup(string nickname, int server, JobClass? fallbackJob)
     {
-        CharacterSearchResult? character = FindCharacter(nickname, server);
+        CharacterSearchResult? character = FindCharacter(nickname, server, fallbackJob);
         if (character == null)
         {
             return null;
@@ -146,7 +146,7 @@ public sealed class OfficialCharacterLookup : IOfficialCharacterLookup
             skills);
     }
 
-    private CharacterSearchResult? FindCharacter(string nickname, int server)
+    private CharacterSearchResult? FindCharacter(string nickname, int server, JobClass? fallbackJob)
     {
         string url = $"{BaseUrl}/api/search/character?{Query(
             ("keyword", nickname),
@@ -188,9 +188,26 @@ public sealed class OfficialCharacterLookup : IOfficialCharacterLookup
                 IntOrNull(element, "level") ?? 0,
                 IntOrNull(element, "pcId") is { } pcId ? JobClassInfo.ConvertFromCode(pcId) : null);
 
-            if (best == null || result.Level > best.Level)
+            if (best == null)
             {
-                best = result; // maxByOrNull{level}: keep the first maximum
+                best = result;
+                continue;
+            }
+
+            // Disambiguate same-name same-server namesakes: prefer a candidate whose class matches the
+            // local job hint (the snapshot jobByte / own-skill job we already have), otherwise keep the
+            // highest level (maxByOrNull{level}, as before). A job-matching candidate beats a non-matching
+            // one regardless of level — this avoids stamping a higher-level namesake's class onto the wrong
+            // character. When no hint is supplied, behavior is identical to the prior maxByLevel.
+            bool resultMatches = fallbackJob != null && result.Job == fallbackJob;
+            bool bestMatches = fallbackJob != null && best.Job == fallbackJob;
+            if (resultMatches && !bestMatches)
+            {
+                best = result;
+            }
+            else if (resultMatches == bestMatches && result.Level > best.Level)
+            {
+                best = result;
             }
         }
 

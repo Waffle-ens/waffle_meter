@@ -43,6 +43,46 @@ public sealed class OfficialCharacterLookupTests
         throw new InvalidOperationException("unexpected url " + url);
     }
 
+    // Two same-name same-server namesakes with DIFFERENT classes: a higher-level 궁성 (pcId 14) and a
+    // lower-level 치유성 (pcId 29). Without a hint, maxByLevel picks the 궁성; with a matching job hint the
+    // correct lower-level character must win (H5 namesake disambiguation).
+    private const string NamesakeJson = """
+        {"list":[
+          {"name":"Twin","serverId":3,"characterId":"hi%3D","level":80,"pcId":14},
+          {"name":"Twin","serverId":3,"characterId":"lo%3D","level":50,"pcId":29}
+        ]}
+        """;
+
+    private static string RouteNamesake(string url)
+    {
+        if (url.Contains("/api/search/character")) return NamesakeJson;
+        if (url.Contains("/api/character/equipment")) return EquipmentJson;
+        if (url.Contains("/api/character/info")) return InfoJson;
+        throw new InvalidOperationException("unexpected url " + url);
+    }
+
+    [Fact]
+    public void Disambiguates_same_name_namesakes_by_fallback_job()
+    {
+        var lookup = new OfficialCharacterLookup(RouteNamesake, clock: () => 0);
+
+        OfficialCharacterInfo? info = lookup.LookupBlocking("Twin", 3, fallbackJob: JobClass.CLERIC);
+
+        Assert.NotNull(info);
+        Assert.Equal(JobClass.CLERIC, info!.Job); // matched the hint, beating the higher-level 궁성
+    }
+
+    [Fact]
+    public void Falls_back_to_highest_level_when_no_job_hint()
+    {
+        var lookup = new OfficialCharacterLookup(RouteNamesake, clock: () => 0);
+
+        OfficialCharacterInfo? info = lookup.LookupBlocking("Twin", 3, fallbackJob: null);
+
+        Assert.NotNull(info);
+        Assert.Equal(JobClass.RANGER, info!.Job); // maxByLevel unchanged when there is no hint
+    }
+
     [Fact]
     public void Resolves_job_power_and_equipped_skills()
     {

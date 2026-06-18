@@ -63,4 +63,39 @@ public sealed class UserJobProvenanceTests
         Assert.Equal(JobClass.ASSASSIN, dm.User(42)!.Job); // stays corrected
         Assert.Equal(JobProvenance.OwnSkill, dm.User(42)!.JobSource);
     }
+
+    [Fact]
+    public void SaveNickname_resets_locked_job_when_a_reused_uid_changes_identity()
+    {
+        // AION2 reuses entity ids across pulls. A reused id taken over by a DIFFERENT player must NOT keep
+        // the prior player's OwnSkill-locked class icon (the reported sticky-mislabel). Reproduces a 정령성
+        // entity id later occupied by a 치유성.
+        var dm = new DataManager();
+        dm.SaveNickname(7, "옛주인", isExecutor: false, server: 1001, jobByte: 21); // ELEMENTALIST
+        dm.User(7)!.TrySetJob(JobClass.ELEMENTALIST, JobProvenance.OwnSkill);       // locked by own skill
+        dm.SaveUserPower(7, 5000);
+        Assert.Equal(JobClass.ELEMENTALIST, dm.User(7)!.Job);
+
+        dm.SaveNickname(7, "새주인", isExecutor: false, server: 1001, jobByte: 29); // CLERIC, different player
+
+        Assert.Equal("새주인", dm.User(7)!.Nickname);
+        Assert.Equal(JobClass.CLERIC, dm.User(7)!.Job);            // not the prior ELEMENTALIST
+        Assert.Equal(JobProvenance.Authoritative, dm.User(7)!.JobSource);
+        Assert.Equal(0, dm.User(7)!.Power);                        // stale power cleared, re-resolves
+    }
+
+    [Fact]
+    public void SaveNickname_same_name_does_not_reset_an_own_skill_job()
+    {
+        // Guard for the reset above: a repeated snapshot for the SAME player (same name) must keep the
+        // own-skill correction — otherwise every re-probe would wipe the live ground truth.
+        var dm = new DataManager();
+        dm.SaveNickname(7, "차예", isExecutor: false, server: 1001, jobByte: 13); // RANGER
+        dm.User(7)!.TrySetJob(JobClass.ASSASSIN, JobProvenance.OwnSkill);
+
+        dm.SaveNickname(7, "차예", isExecutor: false, server: 1001, jobByte: 13); // same name re-probe
+
+        Assert.Equal(JobClass.ASSASSIN, dm.User(7)!.Job);
+        Assert.Equal(JobProvenance.OwnSkill, dm.User(7)!.JobSource);
+    }
 }

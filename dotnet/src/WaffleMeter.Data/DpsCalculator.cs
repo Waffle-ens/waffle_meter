@@ -156,7 +156,23 @@ public sealed class DpsCalculator
         if (actorN == null) return;
         int actor = actorN.Value;
         User? user = _dm.User(actor);
-        if (user == null) return;
+        if (user == null)
+        {
+            // 난입(mid-join) / late identity: the executor's own-nickname (0x3633) — the only packet that
+            // registers "this uid is me" — can arrive AFTER the first boss fight, so the executor's own
+            // damage (often the top dealer) was being silently dropped, losing its DPS row entirely. Instead
+            // of dropping, provisionally register an un-folded actor that is dealing a JOB-LOCKED damage skill
+            // (direct evidence it is a player — AION2 damage skills are job-locked), so the row shows with the
+            // correct DPS now and is enriched (nickname/server/job/isExecutor) IN PLACE when 0x3633/0x3645
+            // arrives. The un-folded + job-locked-skill gate keeps non-player entities (NPC allies, unmapped
+            // pets) out; summons/mobs are already folded or dropped by ResolveActor.
+            if (actor != packet.ActorId || JobClassInfo.ConvertFromSkill(packet.SkillCode) is null)
+            {
+                return;
+            }
+
+            user = _dm.EnsureUser(actor);
+        }
 
         _cachedContributors.RemoveAll(u => u.Id == user.Id);
         _cachedContributors.Add(user);

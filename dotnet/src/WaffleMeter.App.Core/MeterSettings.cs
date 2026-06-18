@@ -43,6 +43,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showTargetInfoInMinimal = ReadBool("showTargetInfoInMinimal", true);
         _showServerTag = ReadBool("showServerTag", true);
         _showJoinPanel = ReadBool("showJoinPanel", true);
+        _showPreCombatRoster = ReadBool("showPreCombatRoster", true);
         _multiMonitorMode = ReadBool("multiMonitorMode", false);
         _taskbarMode = ReadBool("taskbarMode", false);
         _captureBackend = ReadEnum("captureBackend", "windivert", CaptureBackends);
@@ -104,6 +105,12 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Auto-show the party join-request panel when a request arrives. Off = stay hidden; the
     /// header 파티 신청 button still opens it manually.</summary>
     public bool ShowJoinPanel { get => _showJoinPanel; set => SetBool(ref _showJoinPanel, "showJoinPanel", value); }
+
+    private bool _showPreCombatRoster;
+    /// <summary>Show the party roster as idle (0-DPS) rows before combat starts, so party members appear on
+    /// dungeon entry instead of the "전투 대기 중" placeholder. Only shown while there is no live combat
+    /// data; the moment any damage lands the normal combat rows take over.</summary>
+    public bool ShowPreCombatRoster { get => _showPreCombatRoster; set => SetBool(ref _showPreCombatRoster, "showPreCombatRoster", value); }
 
     private bool _taskbarMode;
     public bool TaskbarMode { get => _taskbarMode; set => SetBool(ref _taskbarMode, "taskbarMode", value); }
