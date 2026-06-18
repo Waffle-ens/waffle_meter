@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using K4os.Compression.LZ4;
 
@@ -80,6 +81,7 @@ public sealed class StreamProcessor
     private const int RefuseJoinKey = 0x09 | (0x97 << 8);      // 0x9709
     private const int InstanceStartKey = 0x18 | (0x97 << 8);   // 0x9718
     private const int ExitPartyKey = 0x1D | (0x97 << 8);       // 0x971D
+    private const int PartyRosterKey = 0x02 | (0x97 << 8);     // 0x9702 — full party/raid roster snapshot
 
     private static readonly Dictionary<int, string> OpcodeNames = new()
     {
@@ -99,6 +101,7 @@ public sealed class StreamProcessor
         [Key(0x09, 0x97)] = "RefuseJoin",
         [Key(0x18, 0x97)] = "InstanceStart",
         [Key(0x1D, 0x97)] = "ExitParty",
+        [Key(0x02, 0x97)] = "PartyRoster",
     };
 
     private static readonly byte[] PowerMarker = { 0xF4, 0xCB, 0x1F };
@@ -278,6 +281,9 @@ public sealed class StreamProcessor
                     break;
                 case ExitPartyKey:
                     ParseExitParty(packet, lengthInfo, extraFlag);
+                    break;
+                case PartyRosterKey:
+                    ParsePartyRoster(packet, lengthInfo, extraFlag);
                     break;
             }
         }
@@ -610,6 +616,77 @@ public sealed class StreamProcessor
         if (packet[offset] != opcodeLow || packet[offset + 1] != 0x97) return;
         _joinSink.OnExitPartyUi();
     }
+
+    /// <summary>0x9702 full party/raid roster snapshot. Every member is encoded as a
+    /// [serverId u16 LE][nameLen u8][name UTF-8] record (RE'd against a live party-join capture: the roster
+    /// grows 2→3→4 as members join). Scan the packet for those records — gated on a valid server + a
+    /// plausible name — and hand the whole set to the data layer, which matches each member to a known uid
+    /// (by name+server, the same identity our 0x3645/0x3633 snapshots carry) for the pre-combat party
+    /// preview. A full snapshot, so it REPLACES the roster.</summary>
+    private void ParsePartyRoster(byte[] packet, VarIntOutput lengthInfo, bool extraFlag)
+    {
+        int offset = lengthInfo.Length + (extraFlag ? 1 : 0);
+        if (offset + 2 > packet.Length || packet[offset] != 0x02 || packet[offset + 1] != 0x97)
+        {
+            return;
+        }
+
+        var members = new List<(string Nickname, int Server)>();
+        var seen = new HashSet<string>();
+        for (int n = offset + 2; n + 3 < packet.Length; n++)
+        {
+            int server = PacketPrimitives.ParseUInt16Le(packet, n);
+            if (!IsPartyServer(server))
+            {
+                continue;
+            }
+
+            int len = packet[n + 2] & 0xFF;
+            if (len < 1 || len > 30 || n + 3 + len > packet.Length)
+            {
+                continue;
+            }
+
+            string name = Encoding.UTF8.GetString(packet, n + 3, len);
+            if (Encoding.UTF8.GetByteCount(name) != len || !IsValidNickname(name))
+            {
+                continue;
+            }
+
+            if (seen.Add(name + " " + server.ToString(CultureInfo.InvariantCulture)))
+            {
+                members.Add((name, server));
+            }
+
+            n += 2 + len; // skip past this record (the loop's n++ steps over the final byte)
+        }
+
+        if (members.Count == 0)
+        {
+            return;
+        }
+
+        _data.SavePartyRoster(members);
+
+        var sb = new StringBuilder();
+        foreach ((string nick, int srv) in members)
+        {
+            if (sb.Length > 0)
+            {
+                sb.Append(',');
+            }
+
+            sb.Append(nick).Append('[').Append(srv).Append(']');
+        }
+
+        _sink.Meta("party_roster", ("count", members.Count), ("members", sb.ToString()));
+    }
+
+    // Valid Aion2 server-id range for a party member record (same range our nickname snapshots use, so a
+    // matched member's server lines up with its 0x3645/0x3633 identity). Tight enough to reject the random
+    // [server][len][name]-shaped byte runs that would otherwise false-match inside the packet body.
+    private static bool IsPartyServer(int server) =>
+        (server is >= 1001 and <= 1021) || (server is >= 2001 and <= 2021);
 
     /// <summary>Own nickname snapshot 0x3633. Kotlin searchOwnNickname (192-250).</summary>
     private void SearchOwnNickname(byte[] packet, VarIntOutput lengthInfo, long arrivedAt)

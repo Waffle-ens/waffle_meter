@@ -41,6 +41,10 @@ public sealed class DataManager : ICaptureGameData
     private int? _activeBattleMobCode;
     private long _lastDummyHitTime;
     private readonly Dictionary<int, long> _officialLookupAttempts = new();
+    // Latest full party/raid roster snapshot (0x9702 packet): each member's (nickname, server) + when it
+    // arrived. Matched to known uids on demand for the pre-combat party preview (see PartyRoster).
+    private readonly List<(string Nickname, int Server)> _partyRoster = new();
+    private long _partyRosterAtMs;
 
     /// <summary>Injectable clock (default wall clock; app behavior unchanged). Mirrors the Kotlin seam.</summary>
     public Func<long> Clock { get; set; } = () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -148,6 +152,41 @@ public sealed class DataManager : ICaptureGameData
 
     public User? FindUserByNicknameAndServer(string nickname, int server) =>
         _userRepository.FindByNicknameAndServer(nickname, server);
+
+    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server)> members)
+    {
+        _partyRoster.Clear();
+        _partyRoster.AddRange(members);
+        _partyRosterAtMs = Clock();
+    }
+
+    /// <summary>Known Users for the current party/raid roster — the 0x9702 snapshot matched to uids by
+    /// name+server — executor first then power desc. Empty when no roster is known, or when the last
+    /// snapshot is older than <paramref name="withinMs"/> (the party was left / it is stale). This is the
+    /// authoritative pre-combat party source (the roster packet fires on party formation, before combat).</summary>
+    public IReadOnlyList<User> PartyRoster(long withinMs)
+    {
+        if (_partyRoster.Count == 0 || Clock() - _partyRosterAtMs > withinMs)
+        {
+            return Array.Empty<User>();
+        }
+
+        int exec = _userRepository.Executor();
+        var result = new List<User>();
+        foreach ((string nickname, int server) in _partyRoster)
+        {
+            User? user = _userRepository.FindByNicknameAndServer(nickname, server);
+            if (user != null && !string.IsNullOrWhiteSpace(user.Nickname))
+            {
+                result.Add(user);
+            }
+        }
+
+        return result
+            .OrderByDescending(u => u.Id == exec)
+            .ThenByDescending(u => u.Power)
+            .ToList();
+    }
 
     public void SaveUserPower(int uid, int power)
     {

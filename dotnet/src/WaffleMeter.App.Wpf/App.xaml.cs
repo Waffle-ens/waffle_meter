@@ -265,11 +265,30 @@ public partial class App : Application
                 _partyLastCombatMs[combatUid] = nowMs;
             }
             int execUid = services.Data.ExecutorId();
-            List<User> partyRoster = _partyLastCombatMs
-                .Where(kv => nowMs - kv.Value <= PreCombatPartyTtlMs)
-                .Select(kv => services.Data.User(kv.Key))
-                .Where(u => u != null && !string.IsNullOrWhiteSpace(u!.Nickname))
-                .Select(u => u!)
+            // Authoritative party from the 0x9702 roster packet (fires on party formation, so the party
+            // shows on dungeon entry BEFORE any combat), unioned with recent boss-combat contributors as a
+            // fallback (covers a party seen only in combat / before its roster snapshot arrives). Dedup by
+            // uid, executor first then power desc.
+            var rosterById = new Dictionary<int, User>();
+            foreach (User member in services.Data.PartyRoster(PreCombatPartyTtlMs))
+            {
+                rosterById[member.Id] = member;
+            }
+            foreach (KeyValuePair<int, long> kv in _partyLastCombatMs)
+            {
+                if (nowMs - kv.Value > PreCombatPartyTtlMs || rosterById.ContainsKey(kv.Key))
+                {
+                    continue;
+                }
+
+                User? u = services.Data.User(kv.Key);
+                if (u != null && !string.IsNullOrWhiteSpace(u.Nickname))
+                {
+                    rosterById[kv.Key] = u;
+                }
+            }
+
+            List<User> partyRoster = rosterById.Values
                 .OrderByDescending(u => u.Id == execUid)
                 .ThenByDescending(u => u.Power)
                 .ToList();
