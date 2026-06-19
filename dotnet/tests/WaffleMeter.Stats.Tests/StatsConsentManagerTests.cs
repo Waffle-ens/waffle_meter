@@ -274,4 +274,34 @@ public sealed class StatsConsentManagerTests : IDisposable
         Assert.Equal("Hero", hero.Nickname);
         Assert.False(hero.IsCurrent);
     }
+
+    [Fact]
+    public void ListCharacters_hides_name_less_legacy_records()
+    {
+        // Legacy records with no stored nickname and no character recognized -> all hidden (no confusing rows).
+        string h1 = StatsIdentity.CharacterIdentityHash(3, "Alice")!;
+        string h2 = StatsIdentity.CharacterIdentityHash(3, "Bob")!;
+        _props.SetProperty("statsConsentCharacters",
+            "{\"" + h1 + "\":{\"state\":\"accepted\",\"uploadEnabled\":true,\"publicCharacter\":true,\"updatedAt\":1},"
+            + "\"" + h2 + "\":{\"state\":\"accepted\",\"uploadEnabled\":true,\"publicCharacter\":false,\"updatedAt\":2}}");
+
+        Assert.Empty(Manager(ApiFailing()).ListCharacters());
+    }
+
+    [Fact]
+    public void ListCharacters_shows_only_named_characters_when_some_records_are_name_less()
+    {
+        GiveExecutor(); // Hero recognized -> live-named
+        string heroHash = StatsIdentity.CharacterIdentityHash(3, "Hero")!;
+        string ghostHash = StatsIdentity.CharacterIdentityHash(3, "Ghost")!;
+        _props.SetProperty("statsConsentCharacters",
+            "{\"" + heroHash + "\":{\"state\":\"accepted\",\"uploadEnabled\":true,\"publicCharacter\":false,\"updatedAt\":1},"
+            + "\"" + ghostHash + "\":{\"state\":\"accepted\",\"uploadEnabled\":true,\"publicCharacter\":false,\"updatedAt\":2}}");
+
+        IReadOnlyList<StatsConsentManager.CharacterConsentInfo> list = Manager(ApiFailing()).ListCharacters();
+
+        StatsConsentManager.CharacterConsentInfo only = Assert.Single(list); // Hero (live-named); nameless Ghost hidden
+        Assert.Equal("Hero", only.Nickname);
+        Assert.True(only.IsCurrent);
+    }
 }

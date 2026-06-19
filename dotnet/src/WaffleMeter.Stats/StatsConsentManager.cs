@@ -289,6 +289,10 @@ public sealed class StatsConsentManager
                     kv.Key, nickname, server, job, c.State, c.UploadEnabled, c.PublicCharacter,
                     c.UpdatedAt, isCurrent, CanSetPublic: isCurrent || named);
             })
+            // Hide name-less legacy records (consented in a prior session before names were stored): a list of
+            // "이름 없음 (이전 기록)" rows is confusing. The consent record stays (uploads honor the prior decision);
+            // the character reappears here — named — the moment it reconnects (BackfillCurrentCharacterIdentity).
+            .Where(c => !string.IsNullOrWhiteSpace(c.Nickname))
             .OrderByDescending(c => c.IsCurrent)
             .ThenByDescending(c => c.UpdatedAt)
             .ToList();
