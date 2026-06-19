@@ -305,6 +305,15 @@ public partial class App : Application
                 .OrderByDescending(u => u.Id == execUid)
                 .ThenByDescending(u => u.Power)
                 .ToList();
+            // Dedup by character identity (nickname+server): 본인 can persist under an OLD uid (e.g. before a
+            // town→dungeon re-instance, kept since reset preserves users) AND the current executor uid — both
+            // same nickname+server — so the 0x9702 name-match + self-inject would list 본인 twice. Keep the first;
+            // the executor sorts first, so 본인 keeps its executor uid (self-coloring). Also collapses any other
+            // same-character-different-uid duplicate across the roster sources.
+            var seenIdentity = new HashSet<(string, int)>();
+            partyRoster = partyRoster
+                .Where(u => string.IsNullOrWhiteSpace(u.Nickname) || seenIdentity.Add((u.Nickname!, u.Server)))
+                .ToList();
             // Don't surface a solo "party" preview (just self, no real party) — e.g. in town after a reset, where
             // self is still recognized but the party roster has been cleared. Self only joins a real party preview.
             if (partyRoster.Count == 1 && partyRoster[0].Id == execUid)
