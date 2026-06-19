@@ -288,6 +288,11 @@ public partial class App : Application
                 }
             }
 
+            // Did a real party source (0x9702 roster / recent combat) report anyone? If not, the only thing in the
+            // preview is the self-injection below — a purely solo preview we suppress (see the solo filter). In a
+            // dungeon the 0x9702 packet fires (even a party-of-1), so this is true there and self shows.
+            bool hasPartySource = rosterById.Count > 0;
+
             // Pin the recognized 본인 so the local player shows in the pre-combat preview even when the 0x9702
             // roster omits self (party packets often exclude the local player) or its name+server hasn't matched
             // a uid yet. Dedup by uid: if self already arrived via 0x9702 or combat, keep that object (it may
@@ -314,9 +319,10 @@ public partial class App : Application
             partyRoster = partyRoster
                 .Where(u => string.IsNullOrWhiteSpace(u.Nickname) || seenIdentity.Add((u.Nickname!, u.Server)))
                 .ToList();
-            // Don't surface a solo "party" preview (just self, no real party) — e.g. in town after a reset, where
-            // self is still recognized but the party roster has been cleared. Self only joins a real party preview.
-            if (partyRoster.Count == 1 && partyRoster[0].Id == execUid)
+            // Suppress a PURELY self-injected solo preview (no party source) — e.g. in town right after a reset,
+            // where the party roster was cleared but self is still recognized. In a dungeon, 0x9702 fires (even a
+            // party-of-1), so hasPartySource is true and self still shows while waiting for members to join.
+            if (!hasPartySource && partyRoster.Count == 1 && partyRoster[0].Id == execUid)
             {
                 partyRoster.Clear();
             }
