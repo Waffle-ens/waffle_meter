@@ -240,4 +240,38 @@ public sealed class StatsConsentManagerTests : IDisposable
 
         Assert.Contains(Manager(AcceptApi(false)).ListCharacters(), c => c.Nickname == "와플");
     }
+
+    [Fact]
+    public void ListCharacters_shows_the_current_character_name_live_when_its_record_has_none()
+    {
+        GiveExecutor(); // Hero recognized (uid 1, server 3)
+        string hash = StatsIdentity.CharacterIdentityHash(3, "Hero")!;
+        // A prior-session record with NO stored nickname (e.g. server-synced before the name was known).
+        _props.SetProperty("statsConsentCharacters",
+            "{\"" + hash + "\":{\"state\":\"accepted\",\"uploadEnabled\":true,\"publicCharacter\":false,\"updatedAt\":1}}");
+
+        StatsConsentManager.CharacterConsentInfo c = Manager(ApiFailing()).ListCharacters().Single();
+
+        Assert.Equal("Hero", c.Nickname); // resolved live from the executor, not "이름 없음 (이전 기록)"
+        Assert.Equal(3, c.Server);
+        Assert.True(c.IsCurrent);
+    }
+
+    [Fact]
+    public void BackfillCurrentCharacterIdentity_persists_the_name_so_it_shows_when_not_current()
+    {
+        GiveExecutor(); // Hero current
+        string hash = StatsIdentity.CharacterIdentityHash(3, "Hero")!;
+        _props.SetProperty("statsConsentCharacters",
+            "{\"" + hash + "\":{\"state\":\"accepted\",\"uploadEnabled\":true,\"publicCharacter\":false,\"updatedAt\":1}}");
+
+        Manager(ApiFailing()).BackfillCurrentCharacterIdentity();
+
+        // Switch away so Hero is no longer current -> its name must come from the PERSISTED record, not live.
+        _data.SaveNickname(2, "Bob", isExecutor: true, server: 3, jobByte: 0);
+        StatsConsentManager.CharacterConsentInfo hero =
+            Manager(ApiFailing()).ListCharacters().Single(c => c.IdentityHash == hash);
+        Assert.Equal("Hero", hero.Nickname);
+        Assert.False(hero.IsCurrent);
+    }
 }

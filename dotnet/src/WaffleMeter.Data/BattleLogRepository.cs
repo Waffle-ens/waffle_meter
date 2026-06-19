@@ -1,16 +1,16 @@
 namespace WaffleMeter.Data;
 
 /// <summary>
-/// Verbatim port of Kotlin BattleLogRepository: a bounded (12) history of saved battles. A new log
-/// that matches an existing battle (same target id + mob code, within a 120s gap) replaces it with
-/// the "preferred" of the two (higher damage, but keep the existing one if the new is a longer
-/// idle-extended run with ~no extra damage). Order preserved (oldest first).
+/// Ported from Kotlin BattleLogRepository: a bounded history of saved battles (cap 30 — the history panel
+/// shows them newest-first in a scrollable list). A new log that matches an existing battle (same target id
+/// + mob code, within a 120s gap) replaces it with the "preferred" of the two (higher damage, but keep the
+/// existing one if the new is a longer idle-extended run with ~no extra damage). Order preserved (oldest first).
 /// </summary>
 public sealed class BattleLogRepository
 {
     private const long SameBattleMergeWindowMs = 120_000L;
     private const long IdleExtensionGraceMs = 30_000L;
-    private const int MaxSize = 12;
+    private const int MaxSize = 30;
 
     private readonly List<DpsLog> _storage = [];
 

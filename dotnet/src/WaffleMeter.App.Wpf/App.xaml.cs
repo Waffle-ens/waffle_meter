@@ -48,6 +48,7 @@ public partial class App : Application
     private readonly Dictionary<int, long> _partyLastCombatMs = new();
     private readonly HashSet<string> _consentPrompted = new();
     private bool _consentDialogOpen;
+    private int _lastConsentBackfillId; // executor uid whose name was last persisted into its consent record
     private UpdateToast? _updateToast;
     private UpdateToastViewModel? _updateToastVm;
 
@@ -335,6 +336,14 @@ public partial class App : Application
             // its new id's own-load packet (0x3633) is missing — see OverlayRowBuilder lost-executor recovery.
             JobClass? ownJob = own.Detected ? services.Data.User(own.Id)?.Job : null;
             viewModel.SetRecognized(own.Detected, own.Nickname, own.Id, own.Server, ownJob, own.Power);
+            // Persist the connected character's display name into its consent record (local only) once per
+            // recognized character, so the '내 캐릭터 관리' list shows the real name instead of "이름 없음".
+            if (own.Detected && own.Id != _lastConsentBackfillId)
+            {
+                _lastConsentBackfillId = own.Id;
+                services.Consent.BackfillCurrentCharacterIdentity();
+            }
+
             MaybePromptConsent(services, window);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));

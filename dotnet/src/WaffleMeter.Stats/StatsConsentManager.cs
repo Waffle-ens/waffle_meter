@@ -264,19 +264,74 @@ public sealed class StatsConsentManager
     public IReadOnlyList<CharacterConsentInfo> ListCharacters()
     {
         string? current = CurrentIdentityHash();
+        // The CURRENT character's display name may be missing from its stored entry (synced in a prior session,
+        // or saved before its nickname was recognized). Resolve it LIVE from the executor so "내 캐릭터 관리"
+        // shows the real name instead of "이름 없음" right away (BackfillCurrentCharacterIdentity persists it).
+        User? liveSelf = current != null ? _data.User(_data.ExecutorId()) : null;
+        string? liveNick = NonBlank(liveSelf?.Nickname);
         return LoadCharacters()
             .Select(kv =>
             {
                 CharConsent c = kv.Value;
                 bool isCurrent = kv.Key == current;
-                bool named = !string.IsNullOrWhiteSpace(c.Nickname) && c.Server > 0;
+                string? nickname = c.Nickname;
+                int server = c.Server;
+                string? job = c.Job;
+                if (isCurrent && liveNick != null)
+                {
+                    nickname = liveNick;
+                    if (liveSelf!.Server > 0) server = liveSelf.Server;
+                    job ??= NonBlank(_ownCharacter().Job) ?? liveSelf.Job?.ClassName();
+                }
+
+                bool named = !string.IsNullOrWhiteSpace(nickname) && server > 0;
                 return new CharacterConsentInfo(
-                    kv.Key, c.Nickname, c.Server, c.Job, c.State, c.UploadEnabled, c.PublicCharacter,
+                    kv.Key, nickname, server, job, c.State, c.UploadEnabled, c.PublicCharacter,
                     c.UpdatedAt, isCurrent, CanSetPublic: isCurrent || named);
             })
             .OrderByDescending(c => c.IsCurrent)
             .ThenByDescending(c => c.UpdatedAt)
             .ToList();
+    }
+
+    /// <summary>Fill in the CURRENT character's display name (nickname/server/job) on its stored consent record
+    /// from the live executor — local only, never uploaded — so the management list shows the real name even
+    /// after the character disconnects. Idempotent: no-op when nothing changed or the character has no record.</summary>
+    public void BackfillCurrentCharacterIdentity()
+    {
+        User? u = _data.User(_data.ExecutorId());
+        string? nickname = NonBlank(u?.Nickname);
+        if (u == null || nickname == null)
+        {
+            return;
+        }
+
+        string? hash = StatsIdentity.CharacterIdentityHash(u.Server, nickname);
+        if (hash == null)
+        {
+            return;
+        }
+
+        Dictionary<string, CharConsent> map = LoadCharacters();
+        if (!map.TryGetValue(hash, out CharConsent? entry))
+        {
+            return; // only label characters that already have a consent record (don't create one here)
+        }
+
+        string? job = NonBlank(_ownCharacter().Job) ?? (u.Job is { } jc ? jc.ClassName() : null);
+        bool changed = entry.Nickname != nickname
+            || (u.Server > 0 && entry.Server != u.Server)
+            || (job != null && entry.Job != job);
+        if (!changed)
+        {
+            return;
+        }
+
+        entry.Nickname = nickname;
+        if (u.Server > 0) entry.Server = u.Server;
+        if (job != null) entry.Job = job;
+        map[hash] = entry;
+        _props.SetProperty(KeyCharacters, JsonSerializer.Serialize(map));
     }
 
     /// <summary>Set a SPECIFIC character's public flag. The current character routes through the normal

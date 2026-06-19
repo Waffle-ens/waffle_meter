@@ -9,7 +9,7 @@
         Topmost="True"
         ResizeMode="CanResize"
         SizeToContent="Manual"
-        Width="320" Height="400" MinWidth="260" MinHeight="160"
+        Width="320" Height="640" MaxHeight="640" MinWidth="260" MinHeight="160"
         Left="40" Top="40"
         FontFamily="Segoe UI">
     <Window.Resources>
