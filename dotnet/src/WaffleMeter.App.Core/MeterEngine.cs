@@ -32,6 +32,11 @@ public sealed class MeterEngine : IDisposable
     /// <summary>Raised if the capture helper reports a failure (driver load denied, etc.).</summary>
     public event Action<string>? CaptureError;
 
+    /// <summary>Raised (on the consumer thread) right after a reset clears the meter, BEFORE the cleared
+    /// report is pushed — so the UI can drop its own derived state (e.g. the recent-combat party tracker)
+    /// without a one-frame flash of the stale party.</summary>
+    public event Action? ResetCompleted;
+
     public MeterEngine(MeterServices services, IPacketCaptureBackend backend, int reportIntervalMs = 500)
     {
         _services = services;
@@ -134,6 +139,7 @@ public sealed class MeterEngine : IDisposable
                     // never let a reset failure kill the consumer
                 }
 
+                ResetCompleted?.Invoke(); // let the UI drop derived party state before the cleared report
                 ReportUpdated?.Invoke(_services.GetReport());
             }
 

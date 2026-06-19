@@ -57,7 +57,7 @@ public sealed class DataManagerSoftResetTests
     }
 
     [Fact]
-    public void SoftReset_keeps_party_roster_and_mob_instance_map()
+    public void SoftReset_clears_party_roster_but_keeps_mob_instance_map()
     {
         var dm = new DataManager { Clock = () => 1_000_000 };
         dm.SaveNickname(1, "플러시", isExecutor: true, server: 2003, jobByte: 0);
@@ -66,8 +66,9 @@ public sealed class DataManagerSoftResetTests
 
         dm.ResetBattleRecords();
 
-        Assert.NotEmpty(dm.PartyRoster(300_000));     // roster survives (0x9702 won't re-fire without a zone load)
-        Assert.Equal(2301008, dm.GetMobId(100));      // spawned-mob map survives (0x3640 won't re-fire either)
+        Assert.Empty(dm.PartyRoster(300_000));         // roster cleared — a stale party must not preview on reset
+        Assert.NotNull(dm.User(1));                    // ...but the recognized user itself survives
+        Assert.Equal(2301008, dm.GetMobId(100));       // spawned-mob map survives (0x3640 won't re-fire in-dungeon)
     }
 
     [Fact]

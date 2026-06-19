@@ -592,6 +592,8 @@ public sealed class DataManager : ICaptureGameData
         _activeBattleMobCode = null;
         _pendingStart = null;
         _lastDummyHitTime = 0;
+        _partyRoster.Clear();
+        _partyRosterAtMs = 0;
     }
 
     /// <summary>
@@ -614,10 +616,12 @@ public sealed class DataManager : ICaptureGameData
         _activeBattleMobCode = null;
         _pendingStart = null;
         _lastDummyHitTime = 0;
+        _partyRoster.Clear();     // drop the 0x9702 party snapshot — a stale party (e.g. after leaving the dungeon
+        _partyRosterAtMs = 0;     // and returning to town) must not preview on reset; it re-fills on party formation
         // PRESERVE (do NOT flush): _userRepository (recognized chars + executor), _mobIdRepository (boss
         // instance→code, needed for the next StartBattle in a no-respawn dungeon), _mobHpRepository,
-        // _summonRepository, _useBuffRepository, _partyRoster/_partyRosterAtMs, _officialLookupAttempts,
-        // and the load-once catalogs (_mobs/_skillRepository/_buffRepository/_buffBlacklist).
+        // _summonRepository, _useBuffRepository, _officialLookupAttempts, and the load-once catalogs
+        // (_mobs/_skillRepository/_buffRepository/_buffBlacklist).
     }
 
     private static User CopyUser(User u) => new(u.Id, u.Nickname, u.Server, u.Job, u.IsExecutor, u.Power) { JobSource = u.JobSource };

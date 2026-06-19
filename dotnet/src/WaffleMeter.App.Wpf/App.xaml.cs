@@ -305,6 +305,13 @@ public partial class App : Application
                 .OrderByDescending(u => u.Id == execUid)
                 .ThenByDescending(u => u.Power)
                 .ToList();
+            // Don't surface a solo "party" preview (just self, no real party) — e.g. in town after a reset, where
+            // self is still recognized but the party roster has been cleared. Self only joins a real party preview.
+            if (partyRoster.Count == 1 && partyRoster[0].Id == execUid)
+            {
+                partyRoster.Clear();
+            }
+
             viewModel.SetRoster(partyRoster);
             viewModel.Update(report);
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
@@ -316,6 +323,10 @@ public partial class App : Application
             MaybePromptConsent(services, window);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));
+        // A reset clears the data-layer party roster; also drop the UI-side recent-combat party tracker so a stale
+        // party (e.g. after returning to town) doesn't re-preview on reset. Fires before the cleared report, so
+        // there's no one-frame flash of the old party.
+        _engine.ResetCompleted += () => Dispatcher.Invoke(() => _partyLastCombatMs.Clear());
 
         viewModel.Status = "캡처 헬퍼 시작 중…";
         // Launch + connect entirely off the UI thread. EnsureServing registers/triggers the elevated helper
