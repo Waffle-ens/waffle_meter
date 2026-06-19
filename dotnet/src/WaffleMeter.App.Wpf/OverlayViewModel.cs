@@ -167,6 +167,14 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     // history-replay path never refreshes). 0 = not recognized.
     private int _selfId;
 
+    // The recognized executor's known identity (nickname/server/job/power), forwarded to OverlayRowBuilder for
+    // lost-executor recovery: if 본인 re-instances and the new id's own-load packet never arrives, this names
+    // and self-colors the bare row that would otherwise be hidden by the blank-row filter.
+    private string? _selfNickname;
+    private int _selfServer;
+    private JobClass? _selfJob;
+    private int _selfPower;
+
     private IReadOnlyList<User> _roster = [];
 
     /// <summary>App supplies the pre-combat party roster (recently-seen known players) each tick. It is
@@ -179,9 +187,13 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     /// <summary>App calls this each tick from StatsBuilder.OwnCharacter() so the indicator appears the
     /// moment the own character is recognized (and names it when known). <paramref name="selfId"/> is the
     /// recognized 본인 uid, used to keep the self row on the "내 캐릭터" color in 직업 강조 mode.</summary>
-    public void SetRecognized(bool detected, string? nickname, int selfId = 0)
+    public void SetRecognized(bool detected, string? nickname, int selfId = 0, int server = 0, JobClass? job = null, int power = 0)
     {
         _selfId = detected ? selfId : 0;
+        _selfNickname = detected ? nickname : null;
+        _selfServer = detected ? server : 0;
+        _selfJob = detected ? job : null;
+        _selfPower = detected ? power : 0;
         RecognizedVisibility = detected ? Visibility.Visible : Visibility.Collapsed;
         RecognizedStatus = !detected
             ? string.Empty
@@ -306,7 +318,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         // DISPLAYABLE combat row exists via hasCombatRows (so an all-bare mid-join can't render a boss bar/timer
         // over the placeholder). Self-coloring uses the frozen report.ExecutorId, else the live _selfId.
         IReadOnlyList<OverlayRowBuilder.Row> display = OverlayRowBuilder.Build(
-            report, _roster, _selfId, total, _settings.ShowPreCombatRoster, out bool hasCombatRows);
+            report, _roster, _selfId, total, _settings.ShowPreCombatRoster, out bool hasCombatRows,
+            selfNickname: _selfNickname, selfServer: _selfServer, selfJob: _selfJob, selfPower: _selfPower);
 
         double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);
 

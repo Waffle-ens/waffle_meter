@@ -309,7 +309,10 @@ public partial class App : Application
             viewModel.Update(report);
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
             StatsOwnCharacter own = services.StatsBuilder.OwnCharacter();
-            viewModel.SetRecognized(own.Detected, own.Nickname, own.Id);
+            // Pass the executor's known job (from its User) so the VM can recover 본인 when it re-instances and
+            // its new id's own-load packet (0x3633) is missing — see OverlayRowBuilder lost-executor recovery.
+            JobClass? ownJob = own.Detected ? services.Data.User(own.Id)?.Job : null;
+            viewModel.SetRecognized(own.Detected, own.Nickname, own.Id, own.Server, ownJob, own.Power);
             MaybePromptConsent(services, window);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));

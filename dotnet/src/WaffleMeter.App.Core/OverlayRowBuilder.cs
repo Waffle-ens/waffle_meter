@@ -25,10 +25,17 @@ public static class OverlayRowBuilder
     /// null for an unmatched uid), and whether it is the local player ("본인").</summary>
     public readonly record struct Row(int Uid, DpsInformation Info, User? User, bool IsSelf);
 
+    // Minimum share of the top dealer's metric a bare actor must have to be a self-recovery candidate, so an
+    // incidental low-damage bare entity (pet/NPC) is never mistaken for the local player.
+    private const double SelfRecoveryMinShare = 0.2;
+
     /// <summary>
     /// Builds the ordered display rows for one report. <paramref name="liveSelfId"/> is the live-recognized
     /// 본인 uid (used only when the report carries no frozen <see cref="DpsReport.ExecutorId"/>).
     /// <paramref name="roster"/> is the pre-combat party (already executor-first / power-desc, App-supplied).
+    /// The <paramref name="selfNickname"/>/<paramref name="selfServer"/>/<paramref name="selfJob"/>/
+    /// <paramref name="selfPower"/> are the recognized executor's known identity, used only for lost-executor
+    /// recovery (below); pass them whenever 본인 is recognized.
     /// </summary>
     public static IReadOnlyList<Row> Build(
         DpsReport report,
@@ -37,7 +44,11 @@ public static class OverlayRowBuilder
         bool useTotalDamage,
         bool showPreCombatRoster,
         out bool hasCombatRows,
-        int topN = 8)
+        int topN = 8,
+        string? selfNickname = null,
+        int selfServer = 0,
+        JobClass? selfJob = null,
+        int selfPower = 0)
     {
         double Metric(DpsInformation info) => useTotalDamage ? info.Amount : info.Dps;
 
@@ -45,13 +56,59 @@ public static class OverlayRowBuilder
         int selfId = report.ExecutorId != 0 ? report.ExecutorId : liveSelfId;
         bool IsSelf(int uid, User? user) => user?.IsExecutor == true || (selfId != 0 && uid == selfId);
 
-        // COMBAT rows: drop a row whose player has no nickname (a bare mid-join provisional actor). Gate on
-        // nickname ALONE — never Power (arrives async, would transiently hide known party members) nor Server.
-        List<Row> entries = report.Information
+        // Raw COMBAT rows (pre blank-row filter), metric-sorted.
+        List<Row> rawCombat = report.Information
             .Select(kv => new Row(kv.Key, kv.Value, report.Contributors.FirstOrDefault(c => c.Id == kv.Key), false))
-            .Where(e => !string.IsNullOrWhiteSpace(e.User?.Nickname))
             .OrderByDescending(e => Metric(e.Info))
             .ToList();
+
+        // Lost-executor recovery: when 본인 re-instances (new entity id) and the new id's own-load packet
+        // (0x3633) never arrives — e.g. moving to the next boss while the prior encounter is unresolved, so the
+        // game never broadcasts the new identity — 본인 fights as a bare actor that the blank-row filter would
+        // hide, dropping the local player's whole DPS. Recover it, but ONLY under 5 guards so normal play and
+        // skipped fights are untouched: (1) GATE = the recognized executor uid dealt NO damage in this fight
+        // (in a normal fight 본인 damages under its registered uid, so this is false and we never get here);
+        // (2) the candidate is bare (no 0x3633/0x3645); (3) its own job-locked skills match the known executor
+        // job; (4) it is a MAJOR dealer (≥ SelfRecoveryMinShare of the top); (5) it is the UNIQUE such candidate.
+        // Done on a display-only copy (no state mutation), recomputed every tick, so it self-corrects the moment
+        // the real 본인 id appears.
+        int? recoveredUid = null;
+        if (selfId != 0 && selfJob is { } knownJob && !string.IsNullOrWhiteSpace(selfNickname)
+            && rawCombat.All(e => e.Uid != selfId))
+        {
+            double topMetric = rawCombat.Count > 0 ? rawCombat.Max(e => Metric(e.Info)) : 0.0;
+            List<Row> candidates = rawCombat
+                .Where(e => string.IsNullOrWhiteSpace(e.User?.Nickname)
+                            && e.User?.Job == knownJob
+                            && topMetric > 0 && Metric(e.Info) >= topMetric * SelfRecoveryMinShare)
+                .ToList();
+            if (candidates.Count == 1)
+            {
+                recoveredUid = candidates[0].Uid;
+            }
+        }
+
+        // COMBAT rows: keep named rows + the recovered 본인 (named from the known identity on a copy); drop other
+        // bare rows. Gate on nickname ALONE — never Power (arrives async, would transiently hide known party
+        // members) nor Server.
+        var entries = new List<Row>();
+        foreach (Row e in rawCombat)
+        {
+            if (recoveredUid is { } ru && e.Uid == ru)
+            {
+                User disp = (e.User ?? new User(e.Uid)).Copy(); // display-only: never mutate the live User
+                disp.Nickname = selfNickname;
+                if (selfServer > 0) disp.Server = selfServer;
+                disp.Job ??= selfJob;
+                disp.IsExecutor = true;
+                if (selfPower > 0 && disp.Power <= 0) disp.Power = selfPower;
+                entries.Add(e with { User = disp });
+            }
+            else if (!string.IsNullOrWhiteSpace(e.User?.Nickname))
+            {
+                entries.Add(e);
+            }
+        }
 
         // Drives the target-info bar + combat timer: count of DISPLAYABLE combat rows, not report.Information.
         hasCombatRows = entries.Count > 0;

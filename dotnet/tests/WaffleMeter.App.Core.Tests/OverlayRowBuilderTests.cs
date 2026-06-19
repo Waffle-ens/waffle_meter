@@ -132,4 +132,90 @@ public sealed class OverlayRowBuilderTests
         Assert.Equal(9, display.Count);                       // top 8 + self appended
         Assert.Contains(display, r => r.Uid == 1 && r.IsSelf);
     }
+
+    // Lost-executor recovery: 본인 re-instanced (new entity id) and the new id's own-load (0x3633) never
+    // arrived, so 본인 fights bare. Build a report where the recognized executor (15482) dealt no damage and a
+    // bare GLADIATOR (4162) is a major dealer; selfJob=GLADIATOR is the known executor job.
+    private static DpsReport LostExecutorReport(JobClass bareJob, double bareAmount)
+    {
+        var report = new DpsReport { ExecutorId = 15482 }; // recognized 본인 uid, but it deals nothing here
+        report.Contributors.Add(new User(101, "다즈비", 1005));
+        report.Information[101] = new DpsInformation(6000, 600, 30, 10);
+        report.Contributors.Add(new User(102, "설핏", 1001));
+        report.Information[102] = new DpsInformation(5000, 500, 25, 8);
+        report.Contributors.Add(new User(4162) { Job = bareJob }); // 본인's new bare id (job from own skills)
+        report.Information[4162] = new DpsInformation(bareAmount, bareAmount / 10, 20, 7);
+        return report;
+    }
+
+    private static IReadOnlyList<OverlayRowBuilder.Row> BuildWithSelf(DpsReport report, int liveSelfId = 15482) =>
+        OverlayRowBuilder.Build(report, [], liveSelfId, useTotalDamage: true, showPreCombatRoster: false, out _,
+            selfNickname: "하아앙", selfServer: 2003, selfJob: JobClass.GLADIATOR, selfPower: 0);
+
+    [Fact]
+    public void Lost_executor_is_recovered_as_self_named_and_self_colored_without_mutating_the_live_user()
+    {
+        DpsReport report = LostExecutorReport(JobClass.GLADIATOR, bareAmount: 4000); // ≥20% of top 6000 -> major
+        var bareUser = report.Contributors.First(u => u.Id == 4162);
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelf(report);
+
+        OverlayRowBuilder.Row self = Assert.Single(rows.Where(r => r.Uid == 4162));
+        Assert.True(self.IsSelf);                       // self-colored
+        Assert.Equal("하아앙", self.User!.Nickname);     // named from the known executor identity
+        Assert.Equal(3, rows.Count);                    // recovered self + the two named, none hidden
+        Assert.Null(bareUser.Nickname);                 // display-only copy — the live User is untouched
+    }
+
+    [Fact]
+    public void No_recovery_when_the_executor_uid_is_present_in_the_fight()
+    {
+        // Normal fight: 본인's registered uid IS dealing damage -> the gate is false -> recovery never runs;
+        // a separate bare same-job actor is simply hidden by the blank-row filter.
+        var report = new DpsReport { ExecutorId = 101 };
+        report.Contributors.Add(new User(101, "하아앙", 2003) { IsExecutor = true });
+        report.Information[101] = new DpsInformation(6000, 600, 60, 10);
+        report.Contributors.Add(new User(4162) { Job = JobClass.GLADIATOR });
+        report.Information[4162] = new DpsInformation(4000, 400, 40, 7);
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelf(report, liveSelfId: 101);
+
+        Assert.Single(rows);
+        Assert.Equal(101, rows[0].Uid);
+    }
+
+    [Fact]
+    public void No_recovery_when_two_same_job_bare_dealers_are_ambiguous()
+    {
+        DpsReport report = LostExecutorReport(JobClass.GLADIATOR, bareAmount: 4000);
+        report.Contributors.Add(new User(7777) { Job = JobClass.GLADIATOR }); // a SECOND bare gladiator
+        report.Information[7777] = new DpsInformation(3800, 380, 19, 6);
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelf(report);
+
+        Assert.Equal(2, rows.Count);                                 // only the two named; ambiguous -> no recovery
+        Assert.DoesNotContain(rows, r => r.Uid == 4162 || r.Uid == 7777);
+    }
+
+    [Fact]
+    public void No_recovery_when_the_bare_dealer_job_mismatches_self()
+    {
+        DpsReport report = LostExecutorReport(JobClass.SORCERER, bareAmount: 4000); // not 본인's GLADIATOR
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelf(report);
+
+        Assert.Equal(2, rows.Count);
+        Assert.DoesNotContain(rows, r => r.Uid == 4162);
+    }
+
+    [Fact]
+    public void No_recovery_when_the_bare_dealer_is_minor()
+    {
+        DpsReport report = LostExecutorReport(JobClass.GLADIATOR, bareAmount: 500); // ~8% of top 6000 -> below 20%
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelf(report);
+
+        Assert.Equal(2, rows.Count);
+        Assert.DoesNotContain(rows, r => r.Uid == 4162);
+    }
 }
