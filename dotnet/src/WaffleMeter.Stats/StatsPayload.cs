@@ -71,7 +71,11 @@ public sealed record StatsParticipantPayload(
     int Power,
     StatsResultPayload Result,
     IReadOnlyList<StatsSkillPayload> Skills,
-    IReadOnlyList<StatsBuffPayload> Buffs);
+    IReadOnlyList<StatsBuffPayload> Buffs,
+    // 8-인 공대 sub-party: PartyNumber 1 = uploader's party (slots 1-4), 2 = the other party (slots 5-8);
+    // PartySlot is the raw 1-8 roster slot. Both null for a non-raid (4-인 이하) or an unmatched participant.
+    int? PartyNumber = null,
+    int? PartySlot = null);
 
 public sealed record StatsResultPayload(
     long TotalDamage,

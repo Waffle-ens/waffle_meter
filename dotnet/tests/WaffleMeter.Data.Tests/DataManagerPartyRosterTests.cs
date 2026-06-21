@@ -20,7 +20,7 @@ public sealed class DataManagerPartyRosterTests
         dm.SaveNickname(2, "Wildz", isExecutor: false, server: 1014, jobByte: 0);
         dm.SaveUserPower(2, 5000);
 
-        dm.SavePartyRoster(new List<(string, int)> { ("Wildz", 1014), ("플러시", 2003), ("아직없음", 1010) });
+        dm.SavePartyRoster(new List<(string, int, int)> { ("Wildz", 1014, 2), ("플러시", 2003, 1), ("아직없음", 1010, 3) });
 
         IReadOnlyList<User> roster = dm.PartyRoster(300_000);
 
@@ -35,7 +35,7 @@ public sealed class DataManagerPartyRosterTests
         long now = 1_000_000;
         var dm = new DataManager { Clock = () => now };
         dm.SaveNickname(1, "플러시", isExecutor: true, server: 2003, jobByte: 0);
-        dm.SavePartyRoster(new List<(string, int)> { ("플러시", 2003) });
+        dm.SavePartyRoster(new List<(string, int, int)> { ("플러시", 2003, 1) });
 
         now += 300_001; // past the freshness window
         Assert.Empty(dm.PartyRoster(300_000));

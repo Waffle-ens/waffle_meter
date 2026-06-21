@@ -58,7 +58,7 @@ public sealed class DataManager : ICaptureGameData
     private readonly Dictionary<int, long> _officialLookupAttempts = new();
     // Latest full party/raid roster snapshot (0x9702 packet): each member's (nickname, server) + when it
     // arrived. Matched to known uids on demand for the pre-combat party preview (see PartyRoster).
-    private readonly List<(string Nickname, int Server)> _partyRoster = new();
+    private readonly List<(string Nickname, int Server, int Slot)> _partyRoster = new();
     private long _partyRosterAtMs;
 
     /// <summary>Injectable clock (default wall clock; app behavior unchanged). Mirrors the Kotlin seam.</summary>
@@ -184,7 +184,7 @@ public sealed class DataManager : ICaptureGameData
     public User? FindUserByNicknameAndServer(string nickname, int server) =>
         _userRepository.FindByNicknameAndServer(nickname, server);
 
-    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server)> members)
+    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members)
     {
         _partyRoster.Clear();
         _partyRoster.AddRange(members);
@@ -204,7 +204,7 @@ public sealed class DataManager : ICaptureGameData
 
         int exec = _userRepository.Executor();
         var result = new List<User>();
-        foreach ((string nickname, int server) in _partyRoster)
+        foreach ((string nickname, int server, int _) in _partyRoster)
         {
             User? user = _userRepository.FindByNicknameAndServer(nickname, server);
             if (user != null && !string.IsNullOrWhiteSpace(user.Nickname))
@@ -546,6 +546,7 @@ public sealed class DataManager : ICaptureGameData
             BuffRates = buffRates,         // frozen so the detail (history replay) matches the web
             BossBuffRates = bossBuffRates,
             SkillDetailsSnapshot = skillDetails, // frozen so the replayed detail's skill table + summary aren't empty
+            PartySlots = CurrentPartySlots(),    // frozen 0x9702 sub-party slots (1-4/5-8) for the 8-인 공대 stats upload
         };
 
         var log = new DpsLog
@@ -622,6 +623,30 @@ public sealed class DataManager : ICaptureGameData
         // instance→code, needed for the next StartBattle in a no-respawn dungeon), _mobHpRepository,
         // _summonRepository, _useBuffRepository, _officialLookupAttempts, and the load-once catalogs
         // (_mobs/_skillRepository/_buffRepository/_buffBlacklist).
+    }
+
+    /// <summary>Current 0x9702 roster mapped to recognized uids (uid -&gt; slot 1-8), frozen into a saved
+    /// report (<see cref="SaveBattleLog"/>) so the stats upload can tag each participant's sub-party for an
+    /// 8-인 공대 — slots 1-4 = party 1, 5-8 = party 2. Members with slot 0 (header unmatched) or no recognized
+    /// uid are skipped; empty for a non-raid / unknown roster (the upload then omits party tags).</summary>
+    private Dictionary<int, int> CurrentPartySlots()
+    {
+        var slots = new Dictionary<int, int>();
+        foreach ((string nickname, int server, int slot) in _partyRoster)
+        {
+            if (slot <= 0)
+            {
+                continue;
+            }
+
+            User? user = _userRepository.FindByNicknameAndServer(nickname, server);
+            if (user != null)
+            {
+                slots[user.Id] = slot;
+            }
+        }
+
+        return slots;
     }
 
     private static User CopyUser(User u) => new(u.Id, u.Nickname, u.Server, u.Job, u.IsExecutor, u.Power) { JobSource = u.JobSource };

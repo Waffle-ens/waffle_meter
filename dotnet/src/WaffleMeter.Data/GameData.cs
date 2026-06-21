@@ -42,5 +42,5 @@ public sealed class GameData : ICaptureGameData
     public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) { }
     public void RequestOfficialCharacterLookup(int uid) { }
     public void TouchDummyBattle(int target, long epoch) { }
-    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server)> members) { }
+    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
 }

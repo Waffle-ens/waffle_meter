@@ -631,7 +631,7 @@ public sealed class StreamProcessor
             return;
         }
 
-        var members = new List<(string Nickname, int Server)>();
+        var members = new List<(string Nickname, int Server, int Slot)>();
         var seen = new HashSet<string>();
         for (int n = offset + 2; n + 3 < packet.Length; n++)
         {
@@ -655,7 +655,7 @@ public sealed class StreamProcessor
 
             if (seen.Add(name + " " + server.ToString(CultureInfo.InvariantCulture)))
             {
-                members.Add((name, server));
+                members.Add((name, server, MemberSlot(packet, n)));
             }
 
             n += 2 + len; // skip past this record (the loop's n++ steps over the final byte)
@@ -669,18 +669,35 @@ public sealed class StreamProcessor
         _data.SavePartyRoster(members);
 
         var sb = new StringBuilder();
-        foreach ((string nick, int srv) in members)
+        foreach ((string nick, int srv, int slot) in members)
         {
             if (sb.Length > 0)
             {
                 sb.Append(',');
             }
 
-            sb.Append(nick).Append('[').Append(srv).Append(']');
+            sb.Append(nick).Append('[').Append(srv);
+            if (slot > 0)
+            {
+                sb.Append('#').Append(slot);
+            }
+
+            sb.Append(']');
         }
 
         _sink.Meta("party_roster", ("count", members.Count), ("members", sb.ToString()));
     }
+
+    // Sub-group slot (1-8) for a 0x9702 member, read from the fixed header preceding the matched server:
+    // [7A/7E marker][slot 1-8][handle u16][00 00 00 00][server u16]. Slots 1-4 = party 1, 5-8 = party 2 for
+    // an 8-인 공대 (see DataManager.CurrentPartySlots). 0 = header didn't match (slot unknown).
+    private static int MemberSlot(byte[] packet, int serverOffset) =>
+        serverOffset >= 8
+        && packet[serverOffset - 4] == 0 && packet[serverOffset - 3] == 0
+        && packet[serverOffset - 2] == 0 && packet[serverOffset - 1] == 0
+        && packet[serverOffset - 7] is >= 1 and <= 8
+            ? packet[serverOffset - 7]
+            : 0;
 
     // Valid Aion2 server-id range for a party member record (same range our nickname snapshots use, so a
     // matched member's server lines up with its 0x3645/0x3633 identity). Tight enough to reject the random

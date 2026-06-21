@@ -61,7 +61,7 @@ public sealed class DataManagerSoftResetTests
     {
         var dm = new DataManager { Clock = () => 1_000_000 };
         dm.SaveNickname(1, "플러시", isExecutor: true, server: 2003, jobByte: 0);
-        dm.SavePartyRoster(new List<(string, int)> { ("플러시", 2003) });
+        dm.SavePartyRoster(new List<(string, int, int)> { ("플러시", 2003, 1) });
         dm.SaveMobId(100, 2301008);
 
         dm.ResetBattleRecords();

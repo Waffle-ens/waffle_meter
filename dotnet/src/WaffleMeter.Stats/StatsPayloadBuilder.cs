@@ -225,6 +225,9 @@ public sealed class StatsPayloadBuilder
         Func<int, string?> actorIdentity)
     {
         var result = new List<StatsParticipantPayload>();
+        // 8-인 공대: a slot 5-8 means a 2nd party exists. Tag each participant's sub-party (slots 1-4 → party 1
+        // = uploader's party, 5-8 → party 2); for a non-raid roster the tags stay null and are omitted on send.
+        bool isRaid = log.Report.PartySlots.Values.Any(s => s > 4);
         foreach (User user in participants)
         {
             if (!log.Report.Information.TryGetValue(user.Id, out DpsInformation? info))
@@ -233,6 +236,8 @@ public sealed class StatsPayloadBuilder
             }
 
             long totalDamage = RoundToLong(info.Amount);
+            int? partySlot = isRaid && log.Report.PartySlots.TryGetValue(user.Id, out int slot) ? slot : null;
+            int? partyNumber = partySlot is int s ? (s - 1) / 4 + 1 : null;
             Dictionary<string, AnalyzedSkill> skills = log.SkillDetails.GetValueOrDefault(user.Id) ?? new Dictionary<string, AnalyzedSkill>();
             RateSummary rates = SummarizeRates(skills.Values);
             string? identityHash = NonBlank(user.Nickname) is { } nickname
@@ -242,6 +247,8 @@ public sealed class StatsPayloadBuilder
             result.Add(new StatsParticipantPayload(
                 IdentityHash: identityHash,
                 IsUploader: user.Id == ownId,
+                PartyNumber: partyNumber,
+                PartySlot: partySlot,
                 Job: user.Job?.ClassName(),
                 Power: user.Power,
                 Result: BuildResultPayload(info, rates),

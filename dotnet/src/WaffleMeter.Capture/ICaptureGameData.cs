@@ -32,9 +32,11 @@ public interface ICaptureGameData
     void RequestOfficialCharacterLookup(int uid);
     void TouchDummyBattle(int target, long epoch);
 
-    /// <summary>Full party/raid roster snapshot (each member's nickname + server) from the 0x9702 roster
-    /// packet. Lets the data layer match members to known uids for the pre-combat party preview.</summary>
-    void SavePartyRoster(IReadOnlyList<(string Nickname, int Server)> members);
+    /// <summary>Full party/raid roster snapshot (each member's nickname + server + sub-group slot 1-8)
+    /// from the 0x9702 roster packet. Lets the data layer match members to known uids for the pre-combat
+    /// party preview, and (for an 8-인 공대) tag each player's sub-party — slots 1-4 = party 1, 5-8 = party 2.
+    /// Slot is 0 when the record header that carries it wasn't matched.</summary>
+    void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members);
 }
 
 /// <summary>No catalog / empty runtime map; all writes no-op (default capture-only context).</summary>
@@ -58,5 +60,5 @@ public sealed class NullCaptureGameData : ICaptureGameData
     public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) { }
     public void RequestOfficialCharacterLookup(int uid) { }
     public void TouchDummyBattle(int target, long epoch) { }
-    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server)> members) { }
+    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
 }
