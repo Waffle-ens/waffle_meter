@@ -413,8 +413,15 @@ public sealed class DpsCalculator
         var report = new DpsReport
         {
             Contributors = CopyContributors(),
-            BattleStart = dmStart != 0L && _cachedBattleStart != 0L ? Math.Min(dmStart, _cachedBattleStart)
-                : dmStart != 0L ? dmStart : _cachedBattleStart,
+            // Duration basis MUST match the FINAL/saved report (RefreshRecentReportFromCache, which uses
+            // _cachedBattleStart only): once any damage exists, count from the first DAMAGE timestamp
+            // (_cachedBattleStart), falling back to the battle-start toggle wall-clock (CurrentBattleStart)
+            // only before the first hit. This previously took Math.Min(dmStart, _cachedBattleStart); on a
+            // re-pull (notably after a 전멸) the start toggle fires at re-aggro/run-back WELL BEFORE damage
+            // resumes, so Math.Min picked the earlier toggle and the live duration absorbed the whole
+            // pre-damage gap — deflating the in-progress DPS until the battle ended and the toggle start was
+            // dropped (the "전투 중엔 낮게 표시되다 끝나면 정상" report). The end report is unchanged.
+            BattleStart = _cachedBattleStart != 0L ? _cachedBattleStart : dmStart,
             BattleEnd = Math.Max(dmEnd, _cachedBattleEnd),
             Packets = reportPackets,
             ExecutorId = _dm.ExecutorId(), // carry 본인 uid into the live report so self-coloring survives the
