@@ -203,10 +203,19 @@ public sealed class DataManager : ICaptureGameData
         }
 
         int exec = _userRepository.Executor();
+        User? execUser = exec > 0 ? _userRepository.Get(exec) : null;
         var result = new List<User>();
         foreach ((string nickname, int server, int _) in _partyRoster)
         {
-            User? user = _userRepository.FindByNicknameAndServer(nickname, server);
+            // Prefer the LIVE executor for the self's roster entry: the self re-registers under a fresh uid each
+            // zone load (0x3633) leaving stale name+server duplicates, so FindByNicknameAndServer (FirstOrDefault)
+            // would otherwise return a stale self uid (Id != exec, IsExecutor=false) and the preview's own row
+            // would fail self-recognition. Mirrors ResolveRosterMemberUid so the data layer is self-consistent.
+            User? user = execUser != null
+                         && string.Equals(execUser.Nickname, nickname, StringComparison.Ordinal)
+                         && execUser.Server == server
+                ? execUser
+                : _userRepository.FindByNicknameAndServer(nickname, server);
             if (user != null && !string.IsNullOrWhiteSpace(user.Nickname))
             {
                 result.Add(user);
@@ -546,7 +555,7 @@ public sealed class DataManager : ICaptureGameData
             BuffRates = buffRates,         // frozen so the detail (history replay) matches the web
             BossBuffRates = bossBuffRates,
             SkillDetailsSnapshot = skillDetails, // frozen so the replayed detail's skill table + summary aren't empty
-            PartySlots = CurrentPartySlots(),    // frozen 0x9702 sub-party slots (1-4/5-8) for the 8-인 공대 stats upload
+            PartySlots = CurrentPartySlots(data.Contributors), // frozen 0x9702 sub-party slots (1-4/5-8), keyed to the actual battle uids
         };
 
         var log = new DpsLog
@@ -625,12 +634,15 @@ public sealed class DataManager : ICaptureGameData
         // (_mobs/_skillRepository/_buffRepository/_buffBlacklist).
     }
 
-    /// <summary>Current 0x9702 roster mapped to recognized uids (uid -&gt; slot 1-8), frozen into a saved
-    /// report (<see cref="SaveBattleLog"/>) so the stats upload can tag each participant's sub-party for an
-    /// 8-인 공대 — slots 1-4 = party 1, 5-8 = party 2. Members with slot 0 (header unmatched) or no recognized
+    /// <summary>Current 0x9702 roster mapped to the uids the stats payload tags (uid -&gt; slot 1-8), frozen into
+    /// a saved report (<see cref="SaveBattleLog"/>) so the stats upload can tag each participant's sub-party for
+    /// an 8-인 공대 — slots 1-4 = party 1, 5-8 = party 2. Members with slot 0 (header unmatched) or no recognized
     /// uid are skipped; empty for a non-raid / unknown roster (the upload then omits party tags).</summary>
-    private Dictionary<int, int> CurrentPartySlots()
+    private Dictionary<int, int> CurrentPartySlots(IReadOnlyList<User> contributors)
     {
+        int executorId = _userRepository.Executor();
+        User? executor = executorId > 0 ? _userRepository.Get(executorId) : null;
+
         var slots = new Dictionary<int, int>();
         foreach ((string nickname, int server, int slot) in _partyRoster)
         {
@@ -639,14 +651,45 @@ public sealed class DataManager : ICaptureGameData
                 continue;
             }
 
-            User? user = _userRepository.FindByNicknameAndServer(nickname, server);
-            if (user != null)
+            int? uid = ResolveRosterMemberUid(nickname, server, executor, contributors);
+            if (uid != null)
             {
-                slots[user.Id] = slot;
+                slots[uid.Value] = slot;
             }
         }
 
         return slots;
+    }
+
+    /// <summary>Resolve a 0x9702 roster member (name+server) to the uid the stats payload actually tags. The
+    /// executor re-registers under a FRESH uid on every zone/instance load (0x3633), but its prior User objects
+    /// linger in the repository, so a plain name+server lookup (<see cref="UserRepository.FindByNicknameAndServer"/>
+    /// returns FirstOrDefault) often returns a STALE self uid — the slot then keys to a non-participant and the
+    /// uploader's own row never gets its slot (the 8-인 공대 sub-party split stays off). The same hazard hits any
+    /// party member seen under more than one uid. So resolve against the uids the payload actually tags: first a
+    /// battle contributor (the recognized+damaging self and every dealer match here, by their live combat uid),
+    /// then the live executor (a recognized self that dealt no damage — keeps its slot for isRaid even if it isn't
+    /// among the contributors, and never a stale repository uid), and only then fall back to the repository for a
+    /// roster member who didn't deal damage (keeps the party-2 slots present so the sub-party detection still
+    /// fires). Contributor-first means a same-name dealer always wins over a possibly-lagging executor pointer.</summary>
+    private int? ResolveRosterMemberUid(string nickname, int server, User? executor, IReadOnlyList<User> contributors)
+    {
+        foreach (User contributor in contributors)
+        {
+            if (string.Equals(contributor.Nickname, nickname, StringComparison.Ordinal) && contributor.Server == server)
+            {
+                return contributor.Id;
+            }
+        }
+
+        if (executor != null
+            && string.Equals(executor.Nickname, nickname, StringComparison.Ordinal)
+            && executor.Server == server)
+        {
+            return executor.Id;
+        }
+
+        return _userRepository.FindByNicknameAndServer(nickname, server)?.Id;
     }
 
     private static User CopyUser(User u) => new(u.Id, u.Nickname, u.Server, u.Job, u.IsExecutor, u.Power) { JobSource = u.JobSource };

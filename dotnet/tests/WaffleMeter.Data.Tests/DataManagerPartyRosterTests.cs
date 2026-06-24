@@ -30,6 +30,28 @@ public sealed class DataManagerPartyRosterTests
     }
 
     [Fact]
+    public void PartyRoster_resolves_self_to_the_live_executor_despite_stale_duplicates()
+    {
+        // The self re-registers under a fresh uid on every zone load (0x3633), leaving stale name+server
+        // duplicates. The preview's own row must be the CURRENT executor (uid 300), not a stale self (100/200),
+        // or it loses self-recognition (IsExecutor=false on the demoted prior selves).
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SaveNickname(100, "플러시", isExecutor: true, server: 2003, jobByte: 0); // stale self
+        dm.SaveNickname(200, "플러시", isExecutor: true, server: 2003, jobByte: 0); // stale self
+        dm.SaveNickname(300, "플러시", isExecutor: true, server: 2003, jobByte: 0); // current executor
+        dm.SaveNickname(2, "Wildz", isExecutor: false, server: 1014, jobByte: 0);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("Wildz", 1014, 2), ("플러시", 2003, 1) });
+
+        IReadOnlyList<User> roster = dm.PartyRoster(300_000);
+
+        Assert.Equal(2, roster.Count);
+        Assert.Equal(300, roster[0].Id);    // current executor, first
+        Assert.True(roster[0].IsExecutor);
+        Assert.Equal(2, roster[1].Id);
+    }
+
+    [Fact]
     public void PartyRoster_is_empty_when_the_snapshot_is_stale()
     {
         long now = 1_000_000;
