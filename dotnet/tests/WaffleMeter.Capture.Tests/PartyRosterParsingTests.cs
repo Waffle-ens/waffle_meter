@@ -57,14 +57,20 @@ public sealed class PartyRosterParsingTests
     }
 
     // Full member record incl. the fixed header the parser reads the sub-group slot from:
-    // [7A marker][slot 1-8][handle u16][00 00 00 00][server u16][len][name].
-    private static void AddMemberWithHeader(List<byte> body, string name, int server, int slot)
+    // [marker][slot 1-8][handle 6-byte LE][server u16][len][name]. The handle is a full SIX-byte field; its
+    // magnitude is exactly what broke the old slot reader (high bytes != 0 when handle >= 0x10000), so it is
+    // parameterized here. marker 0x7A/0x7E = existing member, 0x3A = just joined this snapshot.
+    private static void AddMemberWithHeader(List<byte> body, string name, int server, int slot,
+        byte marker = 0x7A, long handle = 0x0DB1)
     {
         byte[] nm = Encoding.UTF8.GetBytes(name);
-        body.Add(0x7A);                                                  // record marker (7A/7E)
-        body.Add((byte)slot);                                           // sub-group slot 1-8
-        body.Add(0xB1); body.Add(0x0D);                                 // handle (any non-party-range u16)
-        body.Add(0x00); body.Add(0x00); body.Add(0x00); body.Add(0x00); // the 4 zero bytes MemberSlot keys on
+        body.Add(marker);                                              // record marker
+        body.Add((byte)slot);                                         // sub-group slot 1-8
+        for (int i = 0; i < 6; i++)                                   // 6-byte LE handle
+        {
+            body.Add((byte)((handle >> (8 * i)) & 0xFF));
+        }
+
         body.Add((byte)(server & 0xFF));
         body.Add((byte)((server >> 8) & 0xFF));
         body.Add((byte)nm.Length);
@@ -151,6 +157,30 @@ public sealed class PartyRosterParsingTests
         Assert.Equal(new[] { 1, 2, 5, 8 }, new[] { data.Last[0].Slot, data.Last[1].Slot, data.Last[2].Slot, data.Last[3].Slot });
         Assert.Contains(("Me", 2003, 1), data.Last);   // slot 1 -> party 1
         Assert.Contains(("Dd", 2005, 8), data.Last);   // slot 8 -> party 2
+    }
+
+    [Fact]
+    public void ParsePartyRoster_recovers_slot_for_large_handles_and_3A_marker()
+    {
+        var data = new RecordingData();
+        var proc = new StreamProcessor(new NullSink(), data, null);
+
+        // Real 06-23 members the old four-zero guard dropped to slot 0: their 6-byte handle exceeds 0x10000
+        // (so the handle's high bytes are non-zero), and 플러시 carries the 0x3A "just joined" marker. The old
+        // reader only recovered 가별 (handle fits in 2 bytes); now all three resolve.
+        var body = new List<byte> { 0x02, 0x97, 0xb4, 0x36, 0x05, 0x00, 0x04 };
+        AddMemberWithHeader(body, "가별", 2016, 1, marker: 0x7E, handle: 0x8287);    // 2-byte handle (old logic PASS)
+        AddMemberWithHeader(body, "커스틴", 1007, 2, marker: 0x7A, handle: 0x17F86); // 3-byte handle (old logic FAIL)
+        AddMemberWithHeader(body, "플러시", 2003, 3, marker: 0x3A, handle: 0x1D381); // 3-byte handle + 3A marker
+
+        proc.OnPacketReceived(Packet(body), 1000);
+
+        Assert.NotNull(data.Last);
+        Assert.Equal(3, data.Last!.Count);
+        Assert.Equal(new[] { 1, 2, 3 }, new[] { data.Last[0].Slot, data.Last[1].Slot, data.Last[2].Slot });
+        Assert.Contains(("가별", 2016, 1), data.Last);
+        Assert.Contains(("커스틴", 1007, 2), data.Last);
+        Assert.Contains(("플러시", 2003, 3), data.Last);
     }
 
     [Fact]

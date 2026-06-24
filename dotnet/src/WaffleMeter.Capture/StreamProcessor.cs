@@ -688,13 +688,20 @@ public sealed class StreamProcessor
         _sink.Meta("party_roster", ("count", members.Count), ("members", sb.ToString()));
     }
 
-    // Sub-group slot (1-8) for a 0x9702 member, read from the fixed header preceding the matched server:
-    // [7A/7E marker][slot 1-8][handle u16][00 00 00 00][server u16]. Slots 1-4 = party 1, 5-8 = party 2 for
-    // an 8-인 공대 (see DataManager.CurrentPartySlots). 0 = header didn't match (slot unknown).
+    // Sub-group slot (1-8) for a 0x9702 member, read from the fixed-width record header preceding the matched
+    // server: [marker][slot 1-8][handle 6-byte LE][server u16]. The handle is a SIX-byte field, so the slot
+    // byte is at serverOffset-7 and the record marker at serverOffset-8. Slots 1-4 = party 1, 5-8 = party 2 for
+    // an 8-인 공대 (see DataManager.CurrentPartySlots). The marker is 0x7A/0x7E for an existing member and 0x3A
+    // for one that just joined this snapshot. 0 = header didn't match (slot unknown).
+    //
+    // The earlier guard required packet[serverOffset-4..-1] == 00 00 00 00, but those four bytes are the HIGH
+    // four bytes of the 6-byte handle — only zero when the handle < 0x10000. Most real members have a larger
+    // handle, so that test dropped them to slot 0 (production captures: it resolved only ~54% of members, so an
+    // 8-인 공대 never reached a full 1-8 set and the stats web's sub-party split stayed off). Anchoring on the
+    // marker instead recovers every member; the byte-scan has already validated the server+name at serverOffset.
     private static int MemberSlot(byte[] packet, int serverOffset) =>
         serverOffset >= 8
-        && packet[serverOffset - 4] == 0 && packet[serverOffset - 3] == 0
-        && packet[serverOffset - 2] == 0 && packet[serverOffset - 1] == 0
+        && packet[serverOffset - 8] is 0x7A or 0x7E or 0x3A
         && packet[serverOffset - 7] is >= 1 and <= 8
             ? packet[serverOffset - 7]
             : 0;
