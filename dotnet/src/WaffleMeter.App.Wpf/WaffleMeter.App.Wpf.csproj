@@ -48,6 +48,10 @@
          (see Fonts\README.md); the FontFamilyConverter resolves them by family name, else falls back. -->
     <Resource Include="Fonts\*.ttf" />
     <Resource Include="Fonts\*.otf" />
+    <!-- Alarm notification sound. Source: Pixabay (Pixabay Content License — commercial use OK, no
+         attribution required), by "universfield"; embedded as a Resource so it is not redistributed on a
+         standalone basis. Converted to 16-bit PCM WAV for SoundPlayer + per-sample volume. See README.txt. -->
+    <Resource Include="Assets\Sounds\notification.wav" />
     <!-- Job icons (filename = Korean class name, e.g. 검성.png) for the party join-request panel;
          embedded so they paint instantly on a software-rendered overlay. JoinIcons resolves them by
          pack URI. (Also pulls bossIcon/lock/logo — harmless, only the 8 class icons are referenced.) -->

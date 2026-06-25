@@ -14,6 +14,33 @@
             <local:InverseBooleanToVisibilityConverter x:Key="BoolToVisInverse"/>
             <local:StringEqualsToVisibilityConverter x:Key="NavVis"/>
             <local:FontFamilyConverter x:Key="FontConv"/>
+            <!-- day-of-week toggle chip for custom alarms: matches the meter chip aesthetic (dim when off,
+                 subtle accent fill + accent border/text when on), instead of the default square CheckBox. -->
+            <Style x:Key="DayChip" TargetType="ToggleButton">
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Width" Value="32"/>
+                <Setter Property="Height" Value="28"/>
+                <Setter Property="Margin" Value="0,0,5,0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="b" CornerRadius="6" BorderThickness="1" Opacity="0.5"
+                                    Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}">
+                                <TextBlock x:Name="t" Text="{TemplateBinding Content}" Foreground="{DynamicResource Skin.Fg}"
+                                           FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="b" Property="Opacity" Value="1.0"/>
+                                    <Setter TargetName="b" Property="Background" Value="{DynamicResource Skin.AccentSoft}"/>
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                    <Setter TargetName="t" Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
             <!-- HotkeyCaptureBox is a TextBox subclass, so the implicit TextBox style (Skin.Controls)
                  doesn't auto-apply; inherit it so the hotkey inputs match the other dark controls. -->
             <Style TargetType="{x:Type local:HotkeyCaptureBox}" BasedOn="{StaticResource {x:Type TextBox}}"/>
@@ -151,18 +178,18 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBox Grid.Column="0" Text="{Binding NewAlarmTitle, UpdateSourceTrigger=PropertyChanged}"
-                                             VerticalContentAlignment="Center" Height="30" Margin="0,0,8,0"/>
-                                    <ComboBox Grid.Column="1" Width="60" Height="30" ItemsSource="{Binding Hours}" SelectedItem="{Binding NewAlarmHour}" Margin="0,0,4,0"/>
-                                    <ComboBox Grid.Column="2" Width="60" Height="30" ItemsSource="{Binding Minutes}" SelectedItem="{Binding NewAlarmMinute}"/>
+                                             Height="32" Padding="8,4" VerticalContentAlignment="Center" Margin="0,0,8,0"/>
+                                    <ComboBox Grid.Column="1" Width="60" Height="32" ItemsSource="{Binding Hours}" SelectedItem="{Binding NewAlarmHour}" Margin="0,0,4,0"/>
+                                    <ComboBox Grid.Column="2" Width="60" Height="32" ItemsSource="{Binding Minutes}" SelectedItem="{Binding NewAlarmMinute}"/>
                                 </Grid>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <CheckBox Content="일" IsChecked="{Binding DaySun}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
-                                    <CheckBox Content="월" IsChecked="{Binding DayMon}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
-                                    <CheckBox Content="화" IsChecked="{Binding DayTue}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
-                                    <CheckBox Content="수" IsChecked="{Binding DayWed}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
-                                    <CheckBox Content="목" IsChecked="{Binding DayThu}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
-                                    <CheckBox Content="금" IsChecked="{Binding DayFri}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
-                                    <CheckBox Content="토" IsChecked="{Binding DaySat}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
+                                    <ToggleButton Content="일" Style="{StaticResource DayChip}" IsChecked="{Binding DaySun}"/>
+                                    <ToggleButton Content="월" Style="{StaticResource DayChip}" IsChecked="{Binding DayMon}"/>
+                                    <ToggleButton Content="화" Style="{StaticResource DayChip}" IsChecked="{Binding DayTue}"/>
+                                    <ToggleButton Content="수" Style="{StaticResource DayChip}" IsChecked="{Binding DayWed}"/>
+                                    <ToggleButton Content="목" Style="{StaticResource DayChip}" IsChecked="{Binding DayThu}"/>
+                                    <ToggleButton Content="금" Style="{StaticResource DayChip}" IsChecked="{Binding DayFri}"/>
+                                    <ToggleButton Content="토" Style="{StaticResource DayChip}" IsChecked="{Binding DaySat}"/>
                                 </StackPanel>
                                 <Grid>
                                     <TextBlock Text="요일 미선택 시 매일 알림" Style="{StaticResource SettingDesc}" VerticalAlignment="Center"/>
