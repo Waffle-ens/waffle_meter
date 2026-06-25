@@ -47,9 +47,23 @@ public sealed class InverseBooleanToVisibilityConverter : IValueConverter
 /// </summary>
 public sealed class FontFamilyConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object? parameter, CultureInfo culture)
+    public object Convert(object value, Type targetType, object? parameter, CultureInfo culture) =>
+        FontResolver.Resolve(value as string ?? "Malgun Gothic");
+
+    public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>
+/// Resolves a font-family name to a <see cref="FontFamily"/>: a BUNDLED font (Fonts/*.ttf embedded as
+/// Resource) by its internal family name first, else the same name as an installed system font with safe
+/// Korean-capable fallbacks (Malgun Gothic, Segoe UI). Shared by <see cref="FontFamilyConverter"/> (the
+/// app-wide meter font) and <see cref="GlyphFallback"/> (the per-nickname glyph check).
+/// </summary>
+public static class FontResolver
+{
+    public static FontFamily Resolve(string name)
     {
-        string name = value as string ?? "Malgun Gothic";
         try
         {
             // Embedded (Fonts/*.ttf as Resource) first — but only if it actually resolved to a
@@ -69,9 +83,6 @@ public sealed class FontFamilyConverter : IValueConverter
 
         return new FontFamily($"{name}, Malgun Gothic, Segoe UI");
     }
-
-    public object ConvertBack(object value, Type targetType, object? parameter, CultureInfo culture) =>
-        throw new NotSupportedException();
 }
 
 /// <summary>

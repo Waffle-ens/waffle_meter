@@ -339,10 +339,12 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             // 직업 강조 mode: this player's job bar (self keeps _userBar; unresolved job -> _normalBar).
             Brush jobBar = e.User?.Job is JobClass jcb && _jobBars.TryGetValue(jcb, out Brush? jbr) ? jbr : _normalBar;
 
+            string displayName = MeterFormat.DisplayName(e.User?.Nickname, nameMode, isUser);
             var row = new RowViewModel(
                 Id: e.Uid,
                 Rank: i + 1,
-                Name: MeterFormat.DisplayName(e.User?.Nickname, nameMode, isUser),
+                Name: displayName,
+                NameFontFamily: GlyphFallback.ForName(_settings.FontFamily, displayName),
                 ServerTag: serverTag,
                 ServerTagVisibility: serverTag.Length == 0 ? Visibility.Collapsed : Visibility.Visible,
                 PowerText: power > 0 ? MeterFormat.FormatPower(power) : string.Empty,
@@ -456,6 +458,7 @@ public sealed record RowViewModel(
     int Id,
     int Rank,
     string Name,
+    System.Windows.Media.FontFamily NameFontFamily,
     string ServerTag,
     Visibility ServerTagVisibility,
     string PowerText,
