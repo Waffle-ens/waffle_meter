@@ -51,6 +51,9 @@ public partial class App : Application
     private int _lastConsentBackfillId; // executor uid whose name was last persisted into its consent record
     private UpdateToast? _updateToast;
     private UpdateToastViewModel? _updateToastVm;
+    private AlarmToast? _alarmToast;
+    private AlarmToastViewModel? _alarmToastVm;
+    private AlarmController? _alarms;
 
     /// <summary>Auto-reset event the FIRST instance owns (set by <see cref="Program"/>); a later launch
     /// opens it by name and signals it instead of spawning a colliding UI. We wait on it and surface the
@@ -396,6 +399,19 @@ public partial class App : Application
         _updateToast.Park();
         _controller?.RegisterOverlay(_updateToast);
         _updateToast.CloseRequested += () => _updateToast.Park();
+
+        // 슈고 페스타 (top-of-hour event) reminder: a transient toast + an app-scoped clock that fires it.
+        _alarmToastVm = new AlarmToastViewModel();
+        _alarmToast = new AlarmToast { DataContext = _alarmToastVm };
+        _alarmToast.Show();
+        _alarmToast.Park();
+        _controller?.RegisterOverlay(_alarmToast);
+        _alarmToast.CloseRequested += () => _alarmToast.Park();
+        _alarms = new AlarmController(
+            _settings,
+            lead => Dispatcher.Invoke(() => ShowShugoAlarm(lead)),
+            alarm => Dispatcher.Invoke(() => ShowCustomAlarm(alarm)));
+        _alarms.Start();
         _updateService = new UpdateService(prerelease: false);
         UpdateService updateService = _updateService;
         // Free the single-instance guard the instant an update-restart commits, so Velopack's relaunched
@@ -957,10 +973,55 @@ public partial class App : Application
         }
     }
 
+    /// <summary>Show the 슈고 페스타 reminder toast (docked under the meter) + play the alarm chime.</summary>
+    private void ShowShugoAlarm(int lead)
+    {
+        if (_alarmToast is null || _alarmToastVm is null)
+        {
+            return;
+        }
+
+        _alarmToastVm.SetShugo(lead);
+        if (_overlayWindow is { } w)
+        {
+            _alarmToast.Left = w.Left;
+            _alarmToast.Top = w.Top + w.ActualHeight + 8;
+        }
+
+        _alarmToast.Present(true);
+        if (_settings is { AlarmSoundEnabled: true } s)
+        {
+            AlarmSound.Play(s.AlarmVolume);
+        }
+    }
+
+    /// <summary>Show a user custom-alarm toast (docked under the meter) + play the alarm chime.</summary>
+    private void ShowCustomAlarm(CustomAlarm alarm)
+    {
+        if (_alarmToast is null || _alarmToastVm is null)
+        {
+            return;
+        }
+
+        _alarmToastVm.SetCustom(alarm.Title);
+        if (_overlayWindow is { } w)
+        {
+            _alarmToast.Left = w.Left;
+            _alarmToast.Top = w.Top + w.ActualHeight + 8;
+        }
+
+        _alarmToast.Present(true);
+        if (_settings is { AlarmSoundEnabled: true } s)
+        {
+            AlarmSound.Play(s.AlarmVolume);
+        }
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _controller?.Stop(); // unhook the foreground WinEvent + stop the poll
+        _alarms?.Stop();
         _tray?.Dispose();
         _hotkeys?.Dispose();
         _engine?.Dispose();

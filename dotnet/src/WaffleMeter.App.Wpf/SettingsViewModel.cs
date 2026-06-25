@@ -27,6 +27,17 @@ public sealed class ConsentCharacterRow
     public Visibility CurrentBadgeVisibility { get; init; }
 }
 
+/// <summary>One row of the custom-alarm list (immutable; the collection is rebuilt on change). The enable
+/// toggle binds one-way and routes the change through a Click handler.</summary>
+public sealed class CustomAlarmRow
+{
+    public string Id { get; init; } = "";
+    public string Title { get; init; } = "";
+    public string TimeText { get; init; } = "";
+    public string DaysText { get; init; } = "";
+    public bool Enabled { get; init; }
+}
+
 /// <summary>
 /// Backs the tabbed settings window. Display/overlay settings apply live via <see cref="MeterSettings"/>
 /// (the overlay reads them each tick); hotkeys are buffered and committed on Save; Cancel reverts the
@@ -83,7 +94,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public IReadOnlyList<SettingOption> NameDisplays { get; } = new[]
     {
         new SettingOption("모두 표기", "all"),
-        new SettingOption("나만 표기", "me_only"),
+        new SettingOption("나만 표기 (방송용 익명)", "me_only"),
         new SettingOption("모두 숨김", "hidden"),
     };
 
@@ -164,6 +175,112 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool ShowJoinPanel { get => _settings.ShowJoinPanel; set { _settings.ShowJoinPanel = value; OnPropertyChanged(); } }
     public bool ShowPreCombatRoster { get => _settings.ShowPreCombatRoster; set { _settings.ShowPreCombatRoster = value; OnPropertyChanged(); } }
     // (Light mode is now a skin — "light" in the Skin list — not a separate overlayTheme toggle.)
+
+    // ---- alarms (live; persisted immediately, not part of the Cancel snapshot) ----
+    public bool ShugoAlarmEnabled { get => _settings.ShugoAlarmEnabled; set { _settings.ShugoAlarmEnabled = value; OnPropertyChanged(); } }
+    public bool ShugoLead10 { get => _settings.ShugoLead10; set { _settings.ShugoLead10 = value; OnPropertyChanged(); } }
+    public bool ShugoLead5 { get => _settings.ShugoLead5; set { _settings.ShugoLead5 = value; OnPropertyChanged(); } }
+    public bool ShugoLead1 { get => _settings.ShugoLead1; set { _settings.ShugoLead1 = value; OnPropertyChanged(); } }
+    public bool ShugoLeadStart { get => _settings.ShugoLeadStart; set { _settings.ShugoLeadStart = value; OnPropertyChanged(); } }
+    public bool AlarmSoundEnabled { get => _settings.AlarmSoundEnabled; set { _settings.AlarmSoundEnabled = value; OnPropertyChanged(); } }
+    public double AlarmVolume { get => _settings.AlarmVolume; set { _settings.AlarmVolume = value; OnPropertyChanged(); } }
+
+    /// <summary>Settings "소리 테스트" button: play the alarm chime at the current volume.</summary>
+    public void TestAlarmSound() => AlarmSound.Play(_settings.AlarmVolume);
+
+    // ---- custom alarms (CRUD list) ----
+    public IReadOnlyList<int> Hours { get; } = Enumerable.Range(0, 24).ToList();
+    public IReadOnlyList<int> Minutes { get; } = Enumerable.Range(0, 60).ToList();
+
+    public ObservableCollection<CustomAlarmRow> CustomAlarmRows { get; } = new();
+    public bool HasCustomAlarms => CustomAlarmRows.Count > 0;
+
+    private string _newAlarmTitle = "알람";
+    public string NewAlarmTitle { get => _newAlarmTitle; set => Set(ref _newAlarmTitle, value); }
+    private int _newAlarmHour = 12;
+    public int NewAlarmHour { get => _newAlarmHour; set => Set(ref _newAlarmHour, value); }
+    private int _newAlarmMinute;
+    public int NewAlarmMinute { get => _newAlarmMinute; set => Set(ref _newAlarmMinute, value); }
+
+    private bool _daySun, _dayMon, _dayTue, _dayWed, _dayThu, _dayFri, _daySat;
+    public bool DaySun { get => _daySun; set => Set(ref _daySun, value); }
+    public bool DayMon { get => _dayMon; set => Set(ref _dayMon, value); }
+    public bool DayTue { get => _dayTue; set => Set(ref _dayTue, value); }
+    public bool DayWed { get => _dayWed; set => Set(ref _dayWed, value); }
+    public bool DayThu { get => _dayThu; set => Set(ref _dayThu, value); }
+    public bool DayFri { get => _dayFri; set => Set(ref _dayFri, value); }
+    public bool DaySat { get => _daySat; set => Set(ref _daySat, value); }
+
+    /// <summary>Rebuild the displayed alarm rows from settings (call on open + after each change).</summary>
+    public void RefreshCustomAlarms()
+    {
+        CustomAlarmRows.Clear();
+        foreach (CustomAlarm a in _settings.CustomAlarms)
+        {
+            CustomAlarmRows.Add(ToRow(a));
+        }
+
+        OnPropertyChanged(nameof(HasCustomAlarms));
+    }
+
+    public void AddCustomAlarm()
+    {
+        var days = new List<int>();
+        if (_daySun) days.Add(0);
+        if (_dayMon) days.Add(1);
+        if (_dayTue) days.Add(2);
+        if (_dayWed) days.Add(3);
+        if (_dayThu) days.Add(4);
+        if (_dayFri) days.Add(5);
+        if (_daySat) days.Add(6);
+
+        var alarm = new CustomAlarm
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Enabled = true,
+            Title = string.IsNullOrWhiteSpace(NewAlarmTitle) ? "알람" : NewAlarmTitle.Trim(),
+            Hour = Math.Clamp(NewAlarmHour, 0, 23),
+            Minute = Math.Clamp(NewAlarmMinute, 0, 59),
+            Days = days,
+        };
+        _settings.CustomAlarms = _settings.CustomAlarms.Append(alarm).ToList();
+        RefreshCustomAlarms();
+    }
+
+    public void DeleteCustomAlarm(string id)
+    {
+        _settings.CustomAlarms = _settings.CustomAlarms.Where(a => a.Id != id).ToList();
+        RefreshCustomAlarms();
+    }
+
+    public void SetCustomAlarmEnabled(string id, bool on)
+    {
+        _settings.CustomAlarms = _settings.CustomAlarms
+            .Select(a => a.Id == id ? a with { Enabled = on } : a)
+            .ToList();
+        RefreshCustomAlarms();
+    }
+
+    private static readonly string[] DayLabels = { "일", "월", "화", "수", "목", "금", "토" };
+
+    private static CustomAlarmRow ToRow(CustomAlarm a) => new()
+    {
+        Id = a.Id,
+        Title = a.Title,
+        TimeText = $"{a.Hour:00}:{a.Minute:00}",
+        DaysText = FormatDays(a.Days),
+        Enabled = a.Enabled,
+    };
+
+    private static string FormatDays(IReadOnlyList<int> days)
+    {
+        if (days.Count is 0 or 7)
+        {
+            return "매일";
+        }
+
+        return string.Join("·", days.OrderBy(d => d).Where(d => d is >= 0 and <= 6).Select(d => DayLabels[d]));
+    }
 
     public bool IsAutoHide
     {
@@ -396,6 +513,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ApplyInfo(_services.Consent.GetInfo(syncRemote: false, _services.Version));
         RefreshCharacterStatus();
         RefreshConsentCharacters();
+        RefreshCustomAlarms();
         CaptureConfig config = _services.BuildCaptureConfig();
         ServerIp = config.ServerIp;
         ServerPort = config.ServerPort;

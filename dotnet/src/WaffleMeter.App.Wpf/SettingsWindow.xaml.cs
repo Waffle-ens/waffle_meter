@@ -74,6 +74,26 @@ public partial class SettingsWindow : Window
 
     private void OnCheckUpdate(object sender, RoutedEventArgs e) => _viewModel.CheckForUpdate();
 
+    private void OnTestAlarmSound(object sender, RoutedEventArgs e) => _viewModel.TestAlarmSound();
+
+    private void OnAddCustomAlarm(object sender, RoutedEventArgs e) => _viewModel.AddCustomAlarm();
+
+    private void OnDeleteCustomAlarm(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: CustomAlarmRow row })
+        {
+            _viewModel.DeleteCustomAlarm(row.Id);
+        }
+    }
+
+    private void OnToggleCustomAlarm(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.CheckBox { DataContext: CustomAlarmRow row } cb)
+        {
+            _viewModel.SetCustomAlarmEnabled(row.Id, cb.IsChecked == true);
+        }
+    }
+
     private void OnResetMeterPosition(object sender, RoutedEventArgs e) => _viewModel.ResetMeterPosition();
 
     private void OnResetJoinPosition(object sender, RoutedEventArgs e) => _viewModel.ResetJoinPosition();

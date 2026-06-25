@@ -49,6 +49,14 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _captureBackend = ReadEnum("captureBackend", "windivert", CaptureBackends);
         _targetInfoDisplayMode = ReadEnum("targetInfoDisplayMode", "hp_full_percent", TargetInfoDisplayModes);
         _barStyle = ReadEnum("barStyle", "fill", BarStyles);
+        _shugoAlarmEnabled = ReadBool("alarms.shugoEnabled", false);
+        _shugoLead10 = ReadBool("alarms.shugoLead10", false);
+        _shugoLead5 = ReadBool("alarms.shugoLead5", true);
+        _shugoLead1 = ReadBool("alarms.shugoLead1", false);
+        _shugoLeadStart = ReadBool("alarms.shugoStart", true);
+        _alarmSoundEnabled = ReadBool("alarms.soundEnabled", true);
+        _alarmVolume = ReadDouble("alarms.volume", 0.5);
+        _customAlarms = CustomAlarmCodec.Decode(_props.GetProperty("alarms.custom")).ToList();
     }
 
     private string _displayMode;
@@ -117,6 +125,42 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private string _captureBackend;
     public string CaptureBackend { get => _captureBackend; set => SetProp(ref _captureBackend, "captureBackend", value); }
+
+    // ---- alarms (슈고 페스타 reminder) ----
+    private bool _shugoAlarmEnabled;
+    /// <summary>Master toggle for the 슈고 페스타 (top-of-hour event) reminder alarm.</summary>
+    public bool ShugoAlarmEnabled { get => _shugoAlarmEnabled; set => SetBool(ref _shugoAlarmEnabled, "alarms.shugoEnabled", value); }
+
+    private bool _shugoLead10;
+    public bool ShugoLead10 { get => _shugoLead10; set => SetBool(ref _shugoLead10, "alarms.shugoLead10", value); }
+
+    private bool _shugoLead5;
+    public bool ShugoLead5 { get => _shugoLead5; set => SetBool(ref _shugoLead5, "alarms.shugoLead5", value); }
+
+    private bool _shugoLead1;
+    public bool ShugoLead1 { get => _shugoLead1; set => SetBool(ref _shugoLead1, "alarms.shugoLead1", value); }
+
+    private bool _shugoLeadStart;
+    public bool ShugoLeadStart { get => _shugoLeadStart; set => SetBool(ref _shugoLeadStart, "alarms.shugoStart", value); }
+
+    private bool _alarmSoundEnabled;
+    public bool AlarmSoundEnabled { get => _alarmSoundEnabled; set => SetBool(ref _alarmSoundEnabled, "alarms.soundEnabled", value); }
+
+    private double _alarmVolume;
+    public double AlarmVolume { get => _alarmVolume; set => SetDouble(ref _alarmVolume, "alarms.volume", value); }
+
+    private List<CustomAlarm> _customAlarms;
+    /// <summary>User-defined recurring reminders. Persisted as one Base64(JSON) value (alarms.custom).</summary>
+    public IReadOnlyList<CustomAlarm> CustomAlarms
+    {
+        get => _customAlarms;
+        set
+        {
+            _customAlarms = value.ToList();
+            _props.SetProperty("alarms.custom", CustomAlarmCodec.Encode(_customAlarms));
+            OnPropertyChanged();
+        }
+    }
 
     /// <summary>Resolve the masking mode enum for the meter rows.</summary>
     public NameDisplay NameDisplayMode => _nameDisplay switch

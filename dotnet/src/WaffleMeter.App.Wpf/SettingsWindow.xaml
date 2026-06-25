@@ -59,6 +59,7 @@
             <ListBox Grid.Column="0" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource NavItem}"
                      SelectedValuePath="Tag" SelectedValue="{Binding SelectedNav}" Margin="6,0,6,0">
                 <ListBoxItem Tag="display" Content="화면"/>
+                <ListBoxItem Tag="alarms" Content="알림"/>
                 <ListBoxItem Tag="theme" Content="테마 색상"/>
                 <ListBoxItem Tag="hotkeys" Content="단축키"/>
                 <ListBoxItem Tag="advanced" Content="고급"/>
@@ -68,6 +69,139 @@
 
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="16,0,12,0">
                 <Grid>
+                    <!-- ===== 알림 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=alarms}">
+                        <TextBlock Text="슈고 페스타 알림" Style="{StaticResource SectionHeader}"/>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="슈고 페스타 알림" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="매시 정각 이벤트 전에 알림 토스트를 띄웁니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShugoAlarmEnabled}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="10분 전 알림" Style="{StaticResource SettingTitle}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShugoLead10}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="5분 전 알림" Style="{StaticResource SettingTitle}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShugoLead5}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="1분 전 알림" Style="{StaticResource SettingTitle}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShugoLead1}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="시작 알림" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="이벤트가 시작되는 정각에 알립니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShugoLeadStart}"/>
+                        </Grid>
+
+                        <TextBlock Text="소리" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="알림 소리" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="알림이 뜰 때 짧은 효과음을 재생합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AlarmSoundEnabled}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="알림 음량" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="알림 효과음의 크기입니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding AlarmVolume}"/>
+                        </Grid>
+
+                        <Button Content="소리 테스트" Click="OnTestAlarmSound" HorizontalAlignment="Left"
+                                Height="30" Padding="14,0" Cursor="Hand" Margin="0,2,0,4"/>
+
+                        <TextBlock Text="커스텀 알람" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
+
+                        <!-- add form -->
+                        <Border Background="{DynamicResource Skin.ControlBg}" BorderBrush="{DynamicResource Skin.ControlBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Text="{Binding NewAlarmTitle, UpdateSourceTrigger=PropertyChanged}"
+                                             VerticalContentAlignment="Center" Height="30" Margin="0,0,8,0"/>
+                                    <ComboBox Grid.Column="1" Width="60" Height="30" ItemsSource="{Binding Hours}" SelectedItem="{Binding NewAlarmHour}" Margin="0,0,4,0"/>
+                                    <ComboBox Grid.Column="2" Width="60" Height="30" ItemsSource="{Binding Minutes}" SelectedItem="{Binding NewAlarmMinute}"/>
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <CheckBox Content="일" IsChecked="{Binding DaySun}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
+                                    <CheckBox Content="월" IsChecked="{Binding DayMon}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
+                                    <CheckBox Content="화" IsChecked="{Binding DayTue}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
+                                    <CheckBox Content="수" IsChecked="{Binding DayWed}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
+                                    <CheckBox Content="목" IsChecked="{Binding DayThu}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
+                                    <CheckBox Content="금" IsChecked="{Binding DayFri}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
+                                    <CheckBox Content="토" IsChecked="{Binding DaySat}" Foreground="{DynamicResource Skin.Fg}" Margin="0,0,10,0"/>
+                                </StackPanel>
+                                <Grid>
+                                    <TextBlock Text="요일 미선택 시 매일 알림" Style="{StaticResource SettingDesc}" VerticalAlignment="Center"/>
+                                    <Button Content="추가" Click="OnAddCustomAlarm" HorizontalAlignment="Right" Height="28" Padding="16,0" Cursor="Hand"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- list -->
+                        <TextBlock Text="등록된 알람이 없습니다." Style="{StaticResource SettingDesc}" Margin="2,0,0,4"
+                                   Visibility="{Binding HasCustomAlarms, Converter={StaticResource BoolToVisInverse}}"/>
+                        <ItemsControl ItemsSource="{Binding CustomAlarmRows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource Skin.ControlBg}" BorderBrush="{DynamicResource Skin.ControlBorder}"
+                                            BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding TimeText}" Foreground="{DynamicResource Skin.Fg}"
+                                                       FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Title}" Foreground="{DynamicResource Skin.Fg}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding DaysText}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10"/>
+                                            </StackPanel>
+                                            <CheckBox Grid.Column="2" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding Enabled, Mode=OneWay}"
+                                                      Click="OnToggleCustomAlarm" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <Button Grid.Column="3" Content="삭제" Click="OnDeleteCustomAlarm" Height="26" Padding="10,0" Cursor="Hand" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
                     <!-- ===== 화면 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=display}">
                         <TextBlock Text="표시 설정" Style="{StaticResource SectionHeader}"/>
