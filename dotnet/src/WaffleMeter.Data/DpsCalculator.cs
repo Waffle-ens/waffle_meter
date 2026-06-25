@@ -262,7 +262,7 @@ public sealed class DpsCalculator
 
         var report = new DpsReport
         {
-            Contributors = CopyContributors(),
+            Contributors = FreezeContributors(),
             BattleStart = battleStart,
             BattleEnd = battleEnd,
             Packets = null,
@@ -469,6 +469,15 @@ public sealed class DpsCalculator
     }
 
     private List<User> CopyContributors() => [.. _cachedContributors];
+
+    // Deep-copy the contributors so a FINISHED/standby battle's displayed identity (nickname/server/job/power)
+    // is FROZEN at battle end — mirroring SaveBattleLog's CopyUser freeze. Without this, the standby report
+    // (built by RefreshRecentReportFromCache and returned by GetDps in the idle state) shares the live
+    // repository User objects; when the game later reissues a RETIRED entity uid to a DIFFERENT nearby player
+    // (minutes after the fight) and DataManager.SaveNickname mutates that User in place, the still-displayed
+    // finished-battle row repaints to the wrong player. The IN-COMBAT report (CopyContributors on the
+    // live-target path) deliberately keeps the shared refs so identity correction still flows during the fight.
+    private List<User> FreezeContributors() => [.. _cachedContributors.Select(u => u.Copy())];
 
     private Dictionary<int, Dictionary<string, AnalyzedSkill>> BuildSkillDetails(DpsReport data)
     {

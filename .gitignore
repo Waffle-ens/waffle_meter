@@ -80,3 +80,6 @@ dotnet/run-test2/
 /bridge/*.wixpdb
 /bridge/*.cab
 /bridge/*.log
+
+### Throwaway local diagnostic replay tool (corpus DPS/identity divergence) — kept local, not tracked
+/dotnet/tools/WaffleMeter.IdentityDivergeCli/
