@@ -580,26 +580,10 @@ public sealed class DpsCalculator
         {
             int actorId = group.Key.ActorId;
             BuffDisplay display = group.First().Display!.Value;
-            var clamped = group
-                .Select(x => (First: Math.Max(x.UseBuff.BuffStart, start), Second: Math.Min(x.UseBuff.BuffEnd, end)))
-                .OrderBy(iv => iv.First)
-                .ToList();
-
-            var merged = new List<(long First, long Second)>();
-            foreach ((long First, long Second) interval in clamped)
-            {
-                if (merged.Count == 0 || interval.First > merged[^1].Second)
-                {
-                    merged.Add(interval);
-                }
-                else
-                {
-                    (long First, long Second) last = merged[^1];
-                    merged[^1] = (last.First, Math.Max(last.Second, interval.Second));
-                }
-            }
-
-            double rate = (double)merged.Sum(iv => iv.Second - iv.First) / totalDuration * 100.0;
+            // Merge overlapping/refreshed applications so a stacked buff isn't double-counted (see BuffUptime).
+            long covered = BuffUptime.CoveredMs(
+                group.Select(x => (x.UseBuff.BuffStart, x.UseBuff.BuffEnd)), start, end);
+            double rate = (double)covered / totalDuration * 100.0;
             result.Add(new OperatingData(display.Code, display.Name, display.Summary, display.Effect, rate, actorId));
         }
 
