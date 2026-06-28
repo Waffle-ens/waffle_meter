@@ -42,6 +42,9 @@ jobs:
     env:
       # secrets/vars can't be referenced in step-level `if:`, so surface the signing gate as an env flag.
       SIGN_ENABLED: ${{ vars.SIGNPATH_ORG_ID != '' }}
+      # Anti-analysis obfuscation gate (OFF until repo VARIABLE `OBFUSCATE` = 'true'). Kept off by default
+      # so it can't silently break a release; enable + test before relying on it (docs/replay-feature-plan.md §7).
+      OBFUSCATE_ENABLED: ${{ vars.OBFUSCATE == 'true' }}
       SIGNPATH_PROJECT_SLUG: waffle_meter
       SIGNPATH_POLICY_SLUG: release-signing
     steps:
@@ -70,11 +73,21 @@ jobs:
         run: dotnet tool install -g vpk
 
       # Both exes publish into the SAME folder so CaptureHost.exe + WinDivert + json sit beside the UI.
+      # Release hardening: ship no PDBs and no +gitSHA InformationalVersion suffix (decompilation hygiene,
+      # docs/replay-feature-plan.md §7). Affects only the shipped artifacts, not local/test builds.
       - name: Publish WPF app
-        run: dotnet publish dotnet/src/WaffleMeter.App.Wpf/WaffleMeter.App.Wpf.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -o publish
+        run: dotnet publish dotnet/src/WaffleMeter.App.Wpf/WaffleMeter.App.Wpf.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -p:DebugType=none -p:DebugSymbols=false -p:IncludeSourceRevisionInInformationalVersion=false -o publish
 
       - name: Publish capture helper (into the same folder)
-        run: dotnet publish dotnet/tools/WaffleMeter.CaptureHost/WaffleMeter.CaptureHost.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -o publish
+        run: dotnet publish dotnet/tools/WaffleMeter.CaptureHost/WaffleMeter.CaptureHost.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -p:DebugType=none -p:DebugSymbols=false -p:IncludeSourceRevisionInInformationalVersion=false -o publish
+
+      # ---- Anti-analysis: obfuscate the rename-safe app DLLs in publish/ before signing/packing.
+      # OFF by default (env gate above); never touches App.Wpf (BAML) or the Stats JSON DTOs (see config). ----
+      - name: Obfuscate app assemblies (Obfuscar)
+        if: env.OBFUSCATE_ENABLED == 'true'
+        run: |
+          dotnet tool install -g Obfuscar.GlobalTool
+          obfuscar.console .github/obfuscar.xml
 
       # WinDivert.dll/.sys come from dotnet/third-party/windivert via CaptureHost.csproj (bundled on publish).
 
