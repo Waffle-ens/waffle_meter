@@ -42,6 +42,16 @@ public partial class SettingsWindow : Window
 
     private void OnSaveServer(object sender, RoutedEventArgs e) => _viewModel.SaveServer();
 
+    // ✕ next to a hotkey box → unassign that hotkey (Tag points at the box). The box's two-way Combo
+    // binding propagates the null to the view model's pending combo; committed on Save like a rebind.
+    private void OnClearHotkey(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).Tag is HotkeyCaptureBox box)
+        {
+            box.Unassign();
+        }
+    }
+
     // Win10 1809+/Win11 immersive dark title bar so the OS chrome matches the dark client area.
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);

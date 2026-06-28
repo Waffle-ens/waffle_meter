@@ -44,6 +44,29 @@
             <!-- HotkeyCaptureBox is a TextBox subclass, so the implicit TextBox style (Skin.Controls)
                  doesn't auto-apply; inherit it so the hotkey inputs match the other dark controls. -->
             <Style TargetType="{x:Type local:HotkeyCaptureBox}" BasedOn="{StaticResource {x:Type TextBox}}"/>
+            <!-- 단축키 미지정(지우기) 버튼. The X is drawn as a vector Path, NOT a glyph: the bound theme
+                 font (e.g. NEXON Lv2 Gothic) lacks U+2715/✕, so a text "✕" renders as a tofu/fallback. -->
+            <Style x:Key="HotkeyClearButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="Width" Value="28"/>
+                <Setter Property="Margin" Value="6,0,0,0"/>
+                <Setter Property="ToolTip" Value="미지정 (단축키 사용 안 함)"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1" CornerRadius="5">
+                                <Path HorizontalAlignment="Center" VerticalAlignment="Center" Width="10" Height="10" Stretch="None"
+                                      Stroke="{DynamicResource Skin.Fg}" StrokeThickness="1.5"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M0,0 L10,10 M10,0 L0,10"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Background" Value="{DynamicResource Skin.ControlHover}"/></Trigger>
+                                <Trigger Property="IsPressed" Value="True"><Setter TargetName="b" Property="Background" Value="{DynamicResource Skin.ControlBg}"/></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
             <!-- Reusable hover-help "?" dot (same visual as the 단축키 help marker). Put a Border with
                  this style next to a control and give it a Border.ToolTip for the explanation. -->
             <Style x:Key="HelpDot" TargetType="Border">
@@ -527,21 +550,36 @@
                                 </Border.ToolTip>
                             </Border>
                         </StackPanel>
-                        <TextBlock Text="단일 키 또는 Ctrl/Alt 조합으로 지정할 수 있습니다. (수식키 없는 단일 키는 권장하지 않습니다 — ⓘ 참고)" Style="{StaticResource SettingDesc}" Margin="0,0,0,12"/>
+                        <TextBlock Text="단일 키 또는 Ctrl/Alt 조합으로 지정할 수 있습니다. (수식키 없는 단일 키는 권장하지 않습니다 — ⓘ 참고)  각 항목 오른쪽의 지우기 버튼을 누르면 미지정(사용 안 함)으로 둘 수 있습니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,12"/>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="전투 초기화" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
-                            <local:HotkeyCaptureBox Grid.Column="1" Combo="{Binding PendingReset, Mode=TwoWay}"/>
+                            <Grid Grid.Column="1">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <local:HotkeyCaptureBox x:Name="ResetHotkeyBox" Grid.Column="0" Combo="{Binding PendingReset, Mode=TwoWay}"/>
+                                <Button Grid.Column="1" Style="{StaticResource HotkeyClearButton}"
+                                        Click="OnClearHotkey" Tag="{Binding ElementName=ResetHotkeyBox}"/>
+                            </Grid>
                         </Grid>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="표시 / 숨김" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
-                            <local:HotkeyCaptureBox Grid.Column="1" Combo="{Binding PendingVisibility, Mode=TwoWay}"/>
+                            <Grid Grid.Column="1">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <local:HotkeyCaptureBox x:Name="VisibilityHotkeyBox" Grid.Column="0" Combo="{Binding PendingVisibility, Mode=TwoWay}"/>
+                                <Button Grid.Column="1" Style="{StaticResource HotkeyClearButton}"
+                                        Click="OnClearHotkey" Tag="{Binding ElementName=VisibilityHotkeyBox}"/>
+                            </Grid>
                         </Grid>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="클릭 통과 / 잠금" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
-                            <local:HotkeyCaptureBox Grid.Column="1" Combo="{Binding PendingClickThrough, Mode=TwoWay}"/>
+                            <Grid Grid.Column="1">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <local:HotkeyCaptureBox x:Name="ClickThroughHotkeyBox" Grid.Column="0" Combo="{Binding PendingClickThrough, Mode=TwoWay}"/>
+                                <Button Grid.Column="1" Style="{StaticResource HotkeyClearButton}"
+                                        Click="OnClearHotkey" Tag="{Binding ElementName=ClickThroughHotkeyBox}"/>
+                            </Grid>
                         </Grid>
                     </StackPanel>
 

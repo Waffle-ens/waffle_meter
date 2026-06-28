@@ -9,7 +9,8 @@ namespace WaffleMeter.App.Wpf;
 /// Interactive hotkey rebinding box: focus to capture, press a key. A single key (no modifier) is
 /// allowed, as are Ctrl/Alt combos; Shift/Win are ignored as modifiers and pure modifier presses are
 /// skipped (wait for the real key). Maps the WPF key to a Win32 VK so the stored combo matches the JS
-/// keyCode. Two-way <see cref="Combo"/> binds to the view model's pending hotkey.
+/// keyCode. Two-way <see cref="Combo"/> binds to the view model's pending hotkey. A null combo means
+/// "unassigned" — shown as "미지정"; <see cref="Unassign"/> (wired to the row's ✕ button) resets to it.
 /// </summary>
 public sealed class HotkeyCaptureBox : TextBox
 {
@@ -36,6 +37,11 @@ public sealed class HotkeyCaptureBox : TextBox
         set => SetValue(ComboProperty, value);
     }
 
+    /// <summary>Unassign the hotkey (set it to "미지정"). The two-way binding propagates the null to the
+    /// view model; the bound action then registers no global hotkey. (Named to avoid hiding the inherited
+    /// <see cref="System.Windows.Controls.TextBox.Clear"/>, which clears text rather than the combo.)</summary>
+    public void Unassign() => Combo = null;
+
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         e.Handled = true;
@@ -58,5 +64,5 @@ public sealed class HotkeyCaptureBox : TextBox
     private static void OnComboChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((HotkeyCaptureBox)d).UpdateText();
 
-    private void UpdateText() => Text = Combo != null ? HotkeyFormat.Format(Combo.Modifiers, Combo.VkCode) : string.Empty;
+    private void UpdateText() => Text = Combo != null ? HotkeyFormat.Format(Combo.Modifiers, Combo.VkCode) : "미지정";
 }

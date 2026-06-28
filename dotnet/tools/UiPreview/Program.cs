@@ -199,7 +199,9 @@ internal static class Program
         vm.ToggleLogging(); Check("Logging stop", !services.DebugLogger.IsRunning);
 
         vm.PendingReset = new HotkeyCombo(0, 0x71); vm.Commit(); // F2
-        Check("Hotkey commit", hotkeys.Reset.VkCode == 0x71);
+        Check("Hotkey commit", hotkeys.Reset?.VkCode == 0x71);
+        vm.PendingReset = null; vm.Commit(); // 미지정 round-trip
+        Check("Hotkey unassign", hotkeys.Reset is null);
 
         vm.ResetDefaults();
         Check("ResetDefaults", settings.DisplayMode == "dps_percent" && settings.RowHeight == 36 && skin.Current == "dark");

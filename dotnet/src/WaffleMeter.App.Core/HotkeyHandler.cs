@@ -40,11 +40,12 @@ public sealed record HotkeyCombo(int Modifiers, int VkCode)
 }
 
 /// <summary>
-/// Verbatim port of Kotlin <c>config.HotkeyHandler</c>: registers three global hotkeys (reset
+/// Verbatim port of Kotlin <c>config.HotkeyHandler</c>: registers up to three global hotkeys (reset
 /// combat / toggle visibility / toggle click-through) and pumps a message loop on a dedicated thread,
 /// dispatching to callbacks. Combos persist via <see cref="PropertyHandler"/> (keys hotkey/hideHotkey/
-/// clickThroughHotkey) with the same defaults (Ctrl+R / Ctrl+H / Ctrl+T). The WPF app wires the
-/// callbacks to overlay actions.
+/// clickThroughHotkey) with the same defaults (Ctrl+R / Ctrl+H / Ctrl+T). Any combo may be left
+/// unassigned (<c>null</c>, persisted as "<c>none</c>"), in which case no global hotkey is registered
+/// for that action. The WPF app wires the callbacks to overlay actions.
 /// </summary>
 public sealed class HotkeyHandler : IDisposable
 {
@@ -70,14 +71,18 @@ public sealed class HotkeyHandler : IDisposable
     private const string KeyVisibility = "hideHotkey";
     private const string KeyClickThrough = "clickThroughHotkey";
 
+    // Persisted marker for an explicitly-unassigned hotkey. Distinct from "property never set" (→ default)
+    // and from a corrupt/unparseable value (→ default): an unassigned combo registers no global hotkey.
+    private const string NoneSentinel = "none";
+
     private static readonly HotkeyCombo DefaultReset = new(ModControl, 0x52);        // Ctrl+R
     private static readonly HotkeyCombo DefaultVisibility = new(ModControl, 0x48);   // Ctrl+H
     private static readonly HotkeyCombo DefaultClickThrough = new(ModControl, 0x54); // Ctrl+T
 
     private readonly PropertyHandler _props;
-    private volatile HotkeyCombo _reset;
-    private volatile HotkeyCombo _visibility;
-    private volatile HotkeyCombo _clickThrough;
+    private volatile HotkeyCombo? _reset;
+    private volatile HotkeyCombo? _visibility;
+    private volatile HotkeyCombo? _clickThrough;
     private Thread? _listener;
     private volatile bool _running;
     private readonly Dictionary<int, long> _lastHotkeyTick = new(); // per-id leading-edge debounce; listener-thread-only
@@ -94,18 +99,19 @@ public sealed class HotkeyHandler : IDisposable
         _clickThrough = Load(KeyClickThrough, DefaultClickThrough);
     }
 
-    public HotkeyCombo Reset => _reset;
-    public HotkeyCombo Visibility => _visibility;
-    public HotkeyCombo ClickThrough => _clickThrough;
+    public HotkeyCombo? Reset => _reset;
+    public HotkeyCombo? Visibility => _visibility;
+    public HotkeyCombo? ClickThrough => _clickThrough;
 
-    public void SetReset(int modifiers, int vkCode) => Update(v => _reset = v, KeyReset, new HotkeyCombo(modifiers, vkCode));
-    public void SetVisibility(int modifiers, int vkCode) => Update(v => _visibility = v, KeyVisibility, new HotkeyCombo(modifiers, vkCode));
-    public void SetClickThrough(int modifiers, int vkCode) => Update(v => _clickThrough = v, KeyClickThrough, new HotkeyCombo(modifiers, vkCode));
+    /// <summary>Set (or with <c>null</c>, unassign) the reset hotkey; persists and re-registers live.</summary>
+    public void SetReset(HotkeyCombo? combo) => Update(v => _reset = v, KeyReset, combo);
+    public void SetVisibility(HotkeyCombo? combo) => Update(v => _visibility = v, KeyVisibility, combo);
+    public void SetClickThrough(HotkeyCombo? combo) => Update(v => _clickThrough = v, KeyClickThrough, combo);
 
-    private void Update(Action<HotkeyCombo> assign, string key, HotkeyCombo value)
+    private void Update(Action<HotkeyCombo?> assign, string key, HotkeyCombo? value)
     {
         assign(value);
-        _props.SetProperty(key, value.ToString());
+        _props.SetProperty(key, value?.ToString() ?? NoneSentinel);
         if (_running)
         {
             Stop();
@@ -113,10 +119,20 @@ public sealed class HotkeyHandler : IDisposable
         }
     }
 
-    private HotkeyCombo Load(string key, HotkeyCombo fallback)
+    private HotkeyCombo? Load(string key, HotkeyCombo fallback)
     {
         string? raw = _props.GetProperty(key);
-        return raw != null ? HotkeyCombo.TryParse(raw) ?? fallback : fallback;
+        if (raw == null)
+        {
+            return fallback; // never set → default
+        }
+
+        if (raw == NoneSentinel)
+        {
+            return null; // explicitly unassigned → no hotkey (do NOT fall back to the default)
+        }
+
+        return HotkeyCombo.TryParse(raw) ?? fallback;
     }
 
     public void Start()
@@ -133,13 +149,24 @@ public sealed class HotkeyHandler : IDisposable
 
     private void ListenLoop()
     {
-        bool reset = RegisterHotKey(IntPtr.Zero, ResetId, (uint)_reset.Modifiers, (uint)_reset.VkCode);
-        bool visibility = RegisterHotKey(IntPtr.Zero, VisibilityId, (uint)_visibility.Modifiers, (uint)_visibility.VkCode);
-        bool clickThrough = RegisterHotKey(IntPtr.Zero, ClickThroughId, (uint)_clickThrough.Modifiers, (uint)_clickThrough.VkCode);
-        if (!reset && !visibility && !clickThrough)
+        // Register only the assigned combos (a null combo = unassigned → no global hotkey; RegisterHotKey
+        // is short-circuited past for nulls). Registration may also fail when a combo is already owned by
+        // another app. Either way we DON'T tear the thread down: the message loop stays alive so a later
+        // SetX (which does Stop()/Start() only while _running) can re-register — even from the all-unassigned
+        // state. The loop just idles (PeekMessage + sleep) when nothing is registered.
+        if (_reset is { } r)
         {
-            _running = false;
-            return;
+            RegisterHotKey(IntPtr.Zero, ResetId, (uint)r.Modifiers, (uint)r.VkCode);
+        }
+
+        if (_visibility is { } v)
+        {
+            RegisterHotKey(IntPtr.Zero, VisibilityId, (uint)v.Modifiers, (uint)v.VkCode);
+        }
+
+        if (_clickThrough is { } c)
+        {
+            RegisterHotKey(IntPtr.Zero, ClickThroughId, (uint)c.Modifiers, (uint)c.VkCode);
         }
 
         try

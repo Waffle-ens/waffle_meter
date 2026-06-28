@@ -63,7 +63,7 @@ public sealed class HotkeyHandlerTests : IDisposable
     public void Set_persists_and_reloads()
     {
         var handler = new HotkeyHandler(new PropertyHandler(_temp));
-        handler.SetReset(HotkeyHandler.ModAlt, 0x41); // Alt+A — not started, so no listener
+        handler.SetReset(new HotkeyCombo(HotkeyHandler.ModAlt, 0x41)); // Alt+A — not started, so no listener
 
         var reopened = new HotkeyHandler(new PropertyHandler(_temp));
         Assert.Equal(new HotkeyCombo(HotkeyHandler.ModAlt, 0x41), reopened.Reset);
@@ -77,5 +77,30 @@ public sealed class HotkeyHandlerTests : IDisposable
 
         var handler = new HotkeyHandler(props);
         Assert.Equal(new HotkeyCombo(HotkeyHandler.ModControl, 0x52), handler.Reset);
+    }
+
+    [Fact]
+    public void Unassigned_persists_and_reloads_as_null()
+    {
+        var handler = new HotkeyHandler(new PropertyHandler(_temp));
+        handler.SetReset(null); // 미지정 — no global hotkey for reset
+
+        var reopened = new HotkeyHandler(new PropertyHandler(_temp));
+        Assert.Null(reopened.Reset);
+        // the other two stay at their defaults (only reset was unassigned)
+        Assert.Equal(new HotkeyCombo(HotkeyHandler.ModControl, 0x48), reopened.Visibility);
+        Assert.Equal(new HotkeyCombo(HotkeyHandler.ModControl, 0x54), reopened.ClickThrough);
+    }
+
+    [Fact]
+    public void Unassigned_marker_does_not_fall_back_to_default()
+    {
+        // "none" is the explicit-unassigned marker: it must NOT be treated like a corrupt value and
+        // revert to the default (that would make a hotkey impossible to turn off).
+        var props = new PropertyHandler(_temp);
+        props.SetProperty("hotkey", "none");
+
+        var handler = new HotkeyHandler(props);
+        Assert.Null(handler.Reset);
     }
 }

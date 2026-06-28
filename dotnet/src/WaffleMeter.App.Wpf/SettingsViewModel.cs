@@ -296,13 +296,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set { _settings.TaskbarMode = value; _controller.SetTaskbarMode(value); OnPropertyChanged(); }
     }
 
-    // ---- hotkey rebinding (buffered, committed on Save) ----
-    private HotkeyCombo _pendingReset;
-    public HotkeyCombo PendingReset { get => _pendingReset; set => Set(ref _pendingReset, value); }
-    private HotkeyCombo _pendingVisibility;
-    public HotkeyCombo PendingVisibility { get => _pendingVisibility; set => Set(ref _pendingVisibility, value); }
-    private HotkeyCombo _pendingClickThrough;
-    public HotkeyCombo PendingClickThrough { get => _pendingClickThrough; set => Set(ref _pendingClickThrough, value); }
+    // ---- hotkey rebinding (buffered, committed on Save; null = 미지정/unassigned) ----
+    private HotkeyCombo? _pendingReset;
+    public HotkeyCombo? PendingReset { get => _pendingReset; set => Set(ref _pendingReset, value); }
+    private HotkeyCombo? _pendingVisibility;
+    public HotkeyCombo? PendingVisibility { get => _pendingVisibility; set => Set(ref _pendingVisibility, value); }
+    private HotkeyCombo? _pendingClickThrough;
+    public HotkeyCombo? PendingClickThrough { get => _pendingClickThrough; set => Set(ref _pendingClickThrough, value); }
 
     // ---- stats consent ----
     private bool _consentAccepted;
@@ -522,9 +522,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <summary>Commit buffered hotkeys (Save).</summary>
     public void Commit()
     {
-        _hotkeys.SetReset(PendingReset.Modifiers, PendingReset.VkCode);
-        _hotkeys.SetVisibility(PendingVisibility.Modifiers, PendingVisibility.VkCode);
-        _hotkeys.SetClickThrough(PendingClickThrough.Modifiers, PendingClickThrough.VkCode);
+        _hotkeys.SetReset(PendingReset);
+        _hotkeys.SetVisibility(PendingVisibility);
+        _hotkeys.SetClickThrough(PendingClickThrough);
     }
 
     /// <summary>Revert live-applied settings + pending hotkeys (Cancel).</summary>
