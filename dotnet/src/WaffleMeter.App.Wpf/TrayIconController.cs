@@ -13,7 +13,7 @@ public sealed class TrayIconController : IDisposable
 {
     private readonly WinForms.NotifyIcon _icon;
 
-    public TrayIconController(OverlayWindow window, OverlayController controller, Action exit)
+    public TrayIconController(OverlayWindow window, OverlayController controller, Action exit, Action? openReplay = null)
     {
         _icon = new WinForms.NotifyIcon
         {
@@ -29,6 +29,12 @@ public sealed class TrayIconController : IDisposable
             window.SetClickThrough(false);
             controller.Present();
         }));
+        // Only present when movement recording is enabled (replay.recordMovement=true); App passes null otherwise.
+        if (openReplay is not null)
+        {
+            menu.Items.Add("전투 리플레이 (직전 전투)", null, (_, _) => window.Dispatcher.Invoke(openReplay));
+        }
+
         menu.Items.Add(new WinForms.ToolStripSeparator());
         menu.Items.Add("종료", null, (_, _) =>
         {

@@ -329,7 +329,7 @@ public partial class ReplayWindow : Window
             return;
         }
 
-        HoverInfo.Text = $"{Name(hit.Track)}{JobSuffix(hit.Track)} · 고도 {hit.CurrentZ * ZScale:F0} m";
+        HoverInfo.Text = $"{TrackName(hit.Track)}{JobSuffix(hit.Track)} · 고도 {hit.CurrentZ * ZScale:F0} m";
     }
 
     private void MapCanvas_MouseLeave(object sender, MouseEventArgs e) => HoverInfo.Text = "";
@@ -363,7 +363,7 @@ public partial class ReplayWindow : Window
             row.Children.Add(new Ellipse { Width = 9, Height = 9, Fill = v.Color, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
             row.Children.Add(new TextBlock
             {
-                Text = $"{Name(v.Track)}{JobSuffix(v.Track)} — {v.CurrentZ * ZScale:F0} m",
+                Text = $"{TrackName(v.Track)}{JobSuffix(v.Track)} — {v.CurrentZ * ZScale:F0} m",
                 Foreground = new SolidColorBrush(Color.FromRgb(0xC8, 0xCC, 0xD2)),
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -399,7 +399,7 @@ public partial class ReplayWindow : Window
         return best;
     }
 
-    private static string Name(ReplayTrack t) => string.IsNullOrEmpty(t.Nickname) ? (t.IsTarget ? "보스" : $"#{t.Uid}") : t.Nickname!;
+    private static string TrackName(ReplayTrack t) => string.IsNullOrEmpty(t.Nickname) ? (t.IsTarget ? "보스" : $"#{t.Uid}") : t.Nickname!;
 
     private static string JobSuffix(ReplayTrack t) => t.IsSelf ? " (나)" : !string.IsNullOrEmpty(t.Job) ? $" · {t.Job}" : "";
 
