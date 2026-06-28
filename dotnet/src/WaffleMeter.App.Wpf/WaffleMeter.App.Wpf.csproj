@@ -75,6 +75,7 @@
     <ProjectReference Include="..\WaffleMeter.App.Core\WaffleMeter.App.Core.csproj" />
     <ProjectReference Include="..\WaffleMeter.Capture.Live\WaffleMeter.Capture.Live.csproj" />
     <ProjectReference Include="..\WaffleMeter.Data\WaffleMeter.Data.csproj" />
+    <ProjectReference Include="..\WaffleMeter.Replay\WaffleMeter.Replay.csproj" />
     <ProjectReference Include="..\WaffleMeter.Services\WaffleMeter.Services.csproj" />
   </ItemGroup>
 
