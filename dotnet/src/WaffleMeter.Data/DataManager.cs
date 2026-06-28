@@ -181,6 +181,13 @@ public sealed class DataManager : ICaptureGameData
     public User? User(int uid) => _userRepository.Get(uid);
     public int ExecutorId() => _userRepository.Executor();
 
+    /// <summary>Raised when the connected character is switched to a DIFFERENT character (a real char
+    /// switch — different nickname, or a different known server — NOT the same character re-instancing
+    /// under a fresh uid on a zone load). Lets the UI drop its own per-character derived preview state
+    /// (the recent-combat party tracker) so the previous character doesn't linger as a stale idle row.
+    /// Fires on the packet-consumer thread.</summary>
+    public event Action? ExecutorIdentityChanged;
+
     public User? FindUserByNicknameAndServer(string nickname, int server) =>
         _userRepository.FindByNicknameAndServer(nickname, server);
 
@@ -308,13 +315,45 @@ public sealed class DataManager : ICaptureGameData
         int executor = _userRepository.Executor();
         if (executor != uid)
         {
+            // Capture both identities BEFORE flipping the flag so we can tell a real character SWITCH (a
+            // different character connects) from the same character RE-INSTANCING under a fresh uid on a
+            // zone/instance load. The new executor's nickname is already set (SaveNickname writes it before
+            // calling here); the prior executor User is still present (the 3-cap eviction never removes it).
+            User? oldExec = executor != 0 ? _userRepository.Get(executor) : null;
+            User? newExec = _userRepository.Get(uid);
+
             if (executor != 0)
             {
-                _userRepository.Get(executor)!.IsExecutor = false;
+                oldExec!.IsExecutor = false;
             }
 
             _userRepository.Executor(uid);
-            _userRepository.Get(uid)!.IsExecutor = true;
+            newExec!.IsExecutor = true;
+
+            // A character switch (콘팡 -> 마이농) must drop the previous character's pre-combat preview state
+            // — the 0x9702 party snapshot here, and the UI-side recent-combat tracker via the event below — so
+            // the previous character doesn't linger as a stale idle 0/s row under the new character. A
+            // same-character re-instance (same name+server, fresh uid on a zone load) KEEPS it: the party about
+            // to form in the new zone is still ours. Both nicknames must be non-blank (an unknown identity never
+            // triggers a clear), and the server is compared ONLY when both are known (>0): a truncated 0x3633
+            // leaves Server=-1, which must not read as a cross-server switch (that would false-clear a
+            // legitimate dungeon party preview on every truncated re-instance).
+            bool identityChanged = false;
+            if (oldExec != null && newExec != null
+                && !string.IsNullOrWhiteSpace(oldExec.Nickname)
+                && !string.IsNullOrWhiteSpace(newExec.Nickname))
+            {
+                bool nameChanged = !string.Equals(oldExec.Nickname, newExec.Nickname, StringComparison.Ordinal);
+                bool serverChanged = oldExec.Server > 0 && newExec.Server > 0 && oldExec.Server != newExec.Server;
+                identityChanged = nameChanged || serverChanged;
+            }
+
+            if (identityChanged)
+            {
+                _partyRoster.Clear();
+                _partyRosterAtMs = 0;
+                ExecutorIdentityChanged?.Invoke();
+            }
         }
     }
 

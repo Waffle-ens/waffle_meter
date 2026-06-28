@@ -69,4 +69,87 @@ public sealed class DataManagerPartyRosterTests
         var dm = new DataManager { Clock = () => 1_000_000 };
         Assert.Empty(dm.PartyRoster(300_000));
     }
+
+    [Fact]
+    public void PartyRoster_is_cleared_on_a_character_switch()
+    {
+        // 콘팡 connects, a roster snapshot is taken (so the preview surfaces it), then the user switches to a
+        // DIFFERENT character 마이농 (same server). The previous character's roster must not linger.
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SaveNickname(1, "콘팡", isExecutor: true, server: 2003, jobByte: 0);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("콘팡", 2003, 1) });
+        Assert.Single(dm.PartyRoster(300_000)); // sanity: 콘팡 previews before the switch
+
+        dm.SaveNickname(2, "마이농", isExecutor: true, server: 2003, jobByte: 0); // switch
+
+        Assert.Empty(dm.PartyRoster(300_000)); // stale 콘팡 roster dropped
+    }
+
+    [Fact]
+    public void PartyRoster_is_cleared_on_a_cross_server_same_name_switch()
+    {
+        // Same nickname on a DIFFERENT (known) server = a cross-server alt switch, also a real switch.
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SaveNickname(1, "콘팡", isExecutor: true, server: 2003, jobByte: 0);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("콘팡", 2003, 1) });
+
+        dm.SaveNickname(2, "콘팡", isExecutor: true, server: 2004, jobByte: 0); // cross-server alt
+
+        Assert.Empty(dm.PartyRoster(300_000));
+    }
+
+    [Fact]
+    public void PartyRoster_survives_a_same_character_reinstance_same_server()
+    {
+        // Same character re-instancing under a fresh uid on a zone load (town -> dungeon) must KEEP the roster
+        // that was saved first — the party about to form in the new zone is still ours. (The existing
+        // self-resolution test saves the roster LAST, so it does not exercise this clear-then-read order.)
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SaveNickname(1, "콘팡", isExecutor: true, server: 2003, jobByte: 0);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("콘팡", 2003, 1) });
+
+        dm.SaveNickname(2, "콘팡", isExecutor: true, server: 2003, jobByte: 0); // re-instance, same identity
+
+        IReadOnlyList<User> roster = dm.PartyRoster(300_000);
+        Assert.Single(roster);
+        Assert.Equal("콘팡", roster[0].Nickname);
+    }
+
+    [Fact]
+    public void PartyRoster_survives_a_same_character_reinstance_with_unknown_server()
+    {
+        // A truncated 0x3633 own-load yields Server=-1 (User ctor default). A same-name re-instance whose new
+        // load is truncated must NOT be read as a cross-server switch — the naive oldServer != newServer check
+        // would false-clear a legitimate dungeon party preview here. The server>0 guard preserves it.
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SaveNickname(1, "콘팡", isExecutor: true, server: 2003, jobByte: 0);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("콘팡", 2003, 1) });
+
+        dm.SaveNickname(2, "콘팡", isExecutor: true, server: -1, jobByte: 0); // truncated re-instance
+
+        IReadOnlyList<User> roster = dm.PartyRoster(300_000);
+        Assert.Single(roster);
+        Assert.Equal("콘팡", roster[0].Nickname);
+    }
+
+    [Fact]
+    public void ExecutorIdentityChanged_fires_once_on_a_switch_and_never_on_a_reinstance()
+    {
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        int fired = 0;
+        dm.ExecutorIdentityChanged += () => fired++;
+
+        dm.SaveNickname(1, "콘팡", isExecutor: true, server: 2003, jobByte: 0);  // first connect (no prior executor)
+        dm.SaveNickname(2, "콘팡", isExecutor: true, server: 2003, jobByte: 0);  // re-instance, same identity
+        dm.SaveNickname(3, "콘팡", isExecutor: true, server: -1, jobByte: 0);    // truncated re-instance
+        Assert.Equal(0, fired);
+
+        dm.SaveNickname(4, "마이농", isExecutor: true, server: 2003, jobByte: 0); // real switch
+        Assert.Equal(1, fired);
+    }
 }

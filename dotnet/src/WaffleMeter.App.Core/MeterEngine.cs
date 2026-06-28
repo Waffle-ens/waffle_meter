@@ -37,6 +37,12 @@ public sealed class MeterEngine : IDisposable
     /// without a one-frame flash of the stale party.</summary>
     public event Action? ResetCompleted;
 
+    /// <summary>Raised (on the consumer thread) when the connected character is switched to a DIFFERENT
+    /// character (not a same-character zone re-instance) — so the UI can drop its own per-character derived
+    /// state (the recent-combat party tracker) that would otherwise linger as a stale idle preview row under
+    /// the new character. Forwards <see cref="DataManager.ExecutorIdentityChanged"/>.</summary>
+    public event Action? ExecutorChanged;
+
     public MeterEngine(MeterServices services, IPacketCaptureBackend backend, int reportIntervalMs = 500)
     {
         _services = services;
@@ -64,6 +70,10 @@ public sealed class MeterEngine : IDisposable
         {
             _services.ConnectionExcludeRequested += key => exclusion.ExcludeConnection(key);
         }
+
+        // Forward a character switch up to the UI so it can drop per-character derived preview state (the
+        // data layer already drops its 0x9702 roster snapshot in lockstep).
+        _services.Data.ExecutorIdentityChanged += () => ExecutorChanged?.Invoke();
     }
 
     /// <summary>Requests a meter reset: clears the saved battles + live data but PRESERVES recognized

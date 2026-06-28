@@ -354,6 +354,11 @@ public partial class App : Application
         // party (e.g. after returning to town) doesn't re-preview on reset. Fires before the cleared report, so
         // there's no one-frame flash of the old party.
         _engine.ResetCompleted += () => Dispatcher.Invoke(() => _partyLastCombatMs.Clear());
+        // A character switch (a DIFFERENT character connects) likewise drops the UI-side recent-combat tracker so
+        // the previous character doesn't linger as a stale 0/s idle preview row under the new one (the data layer
+        // drops its 0x9702 roster snapshot in lockstep). Mirrors the ResetCompleted ordering — queued from the
+        // consumer thread before the next idle report, so there's no one-frame flash.
+        _engine.ExecutorChanged += () => Dispatcher.Invoke(() => _partyLastCombatMs.Clear());
 
         viewModel.Status = "캡처 헬퍼 시작 중…";
         // Launch + connect entirely off the UI thread. EnsureServing registers/triggers the elevated helper
