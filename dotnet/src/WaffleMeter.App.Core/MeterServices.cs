@@ -133,7 +133,7 @@ public sealed class MeterServices
         // Movement/positional replay (opt-in, default OFF): a parallel tap that records per-battle position
         // timelines. Never on the DPS path; resolves entity ids via Data for non-contributor (support) movers.
         Movement = props.GetProperty("replay.recordMovement", "false") == "true"
-            ? new MovementCaptureService(new DataManagerIdentitySource(Data))
+            ? new MovementCaptureService(new DataManagerIdentitySource(Data), Path.Combine(props.AppDirectory(), "replays"))
             : null;
 
         // Stats stack. Break the consent <-> builder cycle with a deferred reference. The install key signs
@@ -153,7 +153,8 @@ public sealed class MeterServices
         {
             UploadQueue.OfferIfEligible(log);
             NotifyBattleListChanged();
-            Movement?.OnBattleLogged(log); // build the battle's position replay (kills AND wipes/직전 전투)
+            // build the battle's position replay (kills AND wipes/직전 전투), scoped to the party/raid roster
+            Movement?.OnBattleLogged(log, Data.PartyMemberIdentities(30 * 60 * 1000L));
         };
     }
 
