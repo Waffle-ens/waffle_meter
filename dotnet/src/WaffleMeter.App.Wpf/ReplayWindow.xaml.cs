@@ -25,6 +25,10 @@ public partial class ReplayWindow : Window
     private const double DotRadius = 6;
     private const double TrailMs = 6000;
     private const double HitRadius = 16;
+    // Position broadcasts arrive ~20Hz when an entity is in range; a larger gap means it went out of
+    // capture range (AoI) or a phase/teleport happened — we do NOT know the path, so HOLD the last known
+    // position instead of drawing a fake straight-line glide across the map (the "엉뚱한 위치" artifact).
+    private const double MaxInterpGapMs = 1500;
 
     private readonly ReplayRecording _rec;
     private readonly DispatcherTimer _timer;
@@ -188,7 +192,7 @@ public partial class ReplayWindow : Window
 
         foreach (TrackVisual v in _visuals)
         {
-            if (!TryInterpolate(v, _currentMs, out double wx, out double wy, out double wz))
+            if (!TryInterpolate(v, _currentMs, out double wx, out double wy, out double wz, out bool stale))
             {
                 v.Dot.Visibility = Visibility.Collapsed;
                 v.Trail.Points = new PointCollection();
@@ -200,26 +204,45 @@ public partial class ReplayWindow : Window
             Canvas.SetLeft(v.Dot, p.X - DotRadius);
             Canvas.SetTop(v.Dot, p.Y - DotRadius);
             v.Dot.Visibility = Visibility.Visible;
+            v.Dot.Opacity = stale ? 0.35 : 1.0; // dim when we're holding a stale position (out of range / gap)
             v.Screen = p;
             v.CurrentZ = wz;
             v.HasScreen = true;
 
-            // trail: points within [currentMs - TrailMs, currentMs]
-            var pts = new PointCollection();
-            foreach (ReplayPoint rp in v.Track.Points)
+            // Trail: the contiguous recent run ending at the playhead, broken at any gap > MaxInterpGapMs
+            // (so a glide line is never drawn across a gap). Walk back from the latest point <= currentMs.
+            IReadOnlyList<ReplayPoint> tp = v.Track.Points;
+            int end = -1;
+            for (int i = 0; i < tp.Count && tp[i].TMs <= _currentMs; i++)
             {
-                if (rp.TMs > _currentMs)
+                end = i;
+            }
+
+            var pts = new PointCollection();
+            if (end >= 0)
+            {
+                var rev = new List<Point>();
+                for (int i = end; i >= 0; i--)
                 {
-                    break;
+                    if (i < end && (tp[i + 1].TMs - tp[i].TMs > MaxInterpGapMs || _currentMs - tp[i].TMs > TrailMs))
+                    {
+                        break;
+                    }
+
+                    rev.Add(ToScreen(tp[i].X, tp[i].Y, tf));
                 }
 
-                if (rp.TMs >= _currentMs - TrailMs)
+                for (int i = rev.Count - 1; i >= 0; i--)
                 {
-                    pts.Add(ToScreen(rp.X, rp.Y, tf));
+                    pts.Add(rev[i]);
                 }
             }
 
-            pts.Add(p);
+            if (!stale)
+            {
+                pts.Add(p); // connect the trail to the live interpolated dot only when not in a gap
+            }
+
             v.Trail.Points = pts;
         }
 
@@ -233,10 +256,13 @@ public partial class ReplayWindow : Window
         TimeText.Text = $"{Fmt(_currentMs)} / {Fmt(_rec.DurationMs)}";
     }
 
-    // linear interpolation at ms; clamps to the first/last known point (entities persist between updates).
-    private static bool TryInterpolate(TrackVisual v, double ms, out double x, out double y, out double z)
+    // Position at ms. Interpolates between two samples only when they are close in time; across a large
+    // gap (out-of-range / phase / teleport) it HOLDS the earlier known position and reports stale=true,
+    // rather than gliding along a fake straight line. Clamps to the first/last sample at the ends.
+    private static bool TryInterpolate(TrackVisual v, double ms, out double x, out double y, out double z, out bool stale)
     {
         x = y = z = 0;
+        stale = false;
         IReadOnlyList<ReplayPoint> pts = v.Track.Points;
         if (pts.Count == 0)
         {
@@ -250,7 +276,9 @@ public partial class ReplayWindow : Window
 
         if (ms >= pts[^1].TMs)
         {
-            x = pts[^1].X; y = pts[^1].Y; z = pts[^1].Z; return true;
+            x = pts[^1].X; y = pts[^1].Y; z = pts[^1].Z;
+            stale = ms - pts[^1].TMs > MaxInterpGapMs; // held past the last known sample
+            return true;
         }
 
         int lo = 0, hi = v.Times.Length - 1;
@@ -269,6 +297,13 @@ public partial class ReplayWindow : Window
 
         ReplayPoint a = pts[lo], b = pts[hi];
         double span = b.TMs - a.TMs;
+        if (span > MaxInterpGapMs)
+        {
+            x = a.X; y = a.Y; z = a.Z; // hold the last known position through the gap
+            stale = true;
+            return true;
+        }
+
         double f = span <= 0 ? 0 : (ms - a.TMs) / span;
         x = a.X + (b.X - a.X) * f;
         y = a.Y + (b.Y - a.Y) * f;

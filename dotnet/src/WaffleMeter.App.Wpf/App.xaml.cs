@@ -521,7 +521,14 @@ public partial class App : Application
             return;
         }
 
+        // Prefer the live last battle; after a restart that is empty, so fall back to the newest saved
+        // recording on disk (history replay survives restart).
         WaffleMeter.Replay.ReplayRecording? rec = services.Movement?.LastRecording;
+        if (rec is null || rec.PointCount == 0)
+        {
+            rec = TryLoadNewestSavedReplay(services);
+        }
+
         if (rec is null || rec.PointCount == 0)
         {
             return; // no recorded battle with movement yet
@@ -537,6 +544,28 @@ public partial class App : Application
         };
         _replayWindow = win;
         win.Show();
+    }
+
+    private static WaffleMeter.Replay.ReplayRecording? TryLoadNewestSavedReplay(WaffleMeter.App.Core.MeterServices services)
+    {
+        try
+        {
+            string dir = System.IO.Path.Combine(services.Props.AppDirectory(), "replays");
+            if (!System.IO.Directory.Exists(dir))
+            {
+                return null;
+            }
+
+            System.IO.FileInfo? f = new System.IO.DirectoryInfo(dir)
+                .GetFiles("replay-*.json")
+                .OrderByDescending(x => x.LastWriteTime)
+                .FirstOrDefault();
+            return f is null ? null : WaffleMeter.Replay.ReplaySerializer.Deserialize(System.IO.File.ReadAllText(f.FullName));
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void ExitApp()

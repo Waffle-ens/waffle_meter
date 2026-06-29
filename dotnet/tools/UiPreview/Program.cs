@@ -135,8 +135,8 @@ internal static class Program
         ReplayWindow? win = null;
         try
         {
-            ReplayRecording rec = SampleReplay(now);
-            win = new ReplayWindow(rec, autoPlay: false, startMs: rec.DurationMs * 0.6);
+            ReplayRecording rec = LoadRealOrSynthetic(now);
+            win = new ReplayWindow(rec, autoPlay: false, startMs: rec.DurationMs * 0.5);
             win.Width = 940;
             win.Height = 660;
             win.Left = -10000;
@@ -169,6 +169,30 @@ internal static class Program
         {
             win?.Close();
         }
+    }
+
+    /// <summary>Prefer the newest real persisted recording (shows true sampling gaps), else synthetic.</summary>
+    private static ReplayRecording LoadRealOrSynthetic(long now)
+    {
+        try
+        {
+            string dir = Path.Combine(Environment.GetEnvironmentVariable("APPDATA") ?? "", "waffle_meter.v1.4", "replays");
+            if (Directory.Exists(dir))
+            {
+                FileInfo? f = new DirectoryInfo(dir).GetFiles("*.json").OrderByDescending(x => x.LastWriteTime).FirstOrDefault();
+                if (f != null)
+                {
+                    Console.WriteLine($"  [info] replay.png using real recording {f.Name}");
+                    return ReplaySerializer.Deserialize(File.ReadAllText(f.FullName));
+                }
+            }
+        }
+        catch
+        {
+            // fall back to synthetic
+        }
+
+        return SampleReplay(now);
     }
 
     /// <summary>A synthetic battle replay (5 players walking patterns + a drifting boss) for the preview.</summary>
