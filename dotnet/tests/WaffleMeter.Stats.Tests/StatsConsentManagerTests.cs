@@ -373,6 +373,25 @@ public sealed class StatsConsentManagerTests : IDisposable
     }
 
     [Fact]
+    public void Successful_public_toggle_clears_a_stale_ownership_notice()
+    {
+        StatsApiClient grantingAccept = ApiReturning(
+            """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":false,"granted":true,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}""");
+        _data.SaveNickname(1, "Alice", isExecutor: true, server: 3, jobByte: 0);
+        Manager(grantingAccept).Set("accepted", uploadEnabled: true, publicCharacter: false);
+        string aliceHash = StatsIdentity.CharacterIdentityHash(3, "Alice")!;
+        _data.SaveNickname(2, "Bob", isExecutor: true, server: 3, jobByte: 0);
+
+        // A prior blocked public attempt left the ownership notice in the global sync status.
+        _props.SetProperty("statsConsentSyncStatus", StatsConsentManager.PublicRequiresOwnership);
+        Assert.Equal(StatsConsentManager.PublicRequiresOwnership, Manager(ApiFailing()).GetInfo().SyncStatus);
+
+        // A successful public toggle on the granted character must clear it (no stale notice).
+        Manager(AcceptApi(true)).SetCharacterPublic(aliceHash, publicCharacter: true);
+        Assert.Equal("synced", Manager(ApiFailing()).GetInfo().SyncStatus);
+    }
+
+    [Fact]
     public void Accept_public_requires_ownership_rolls_back_to_private()
     {
         GiveExecutor(); // Hero, server 3, current

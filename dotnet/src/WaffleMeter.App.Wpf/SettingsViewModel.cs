@@ -378,10 +378,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 : "이름 없음 (이전 기록)";
             string job = string.IsNullOrWhiteSpace(c.Job) ? string.Empty : c.Job! + " · ";
 
-            // 공개 토글 게이트 (W18-UI): 하나라도 접속 중(CharacterDetected)이고, 이 캐릭터로 전투를 업로드한
-            // 적이 있어야(Grant) 공개로 전환 가능. 현재 접속 캐릭터(IsCurrent)는 서버가 최종 판정하므로 시도 허용.
+            // 공개 토글 게이트 (W18-UI): 일괄편집은 하나라도 접속 중일 때만(CharacterDetected) 활성화하고,
+            // 개별 공개 토글은 CanSetPublic && Grant일 때만 활성. 현재 접속 캐릭터라도 grant가 없으면 이 토글은
+            // 비활성이며, 상단 "캐릭터 공개" 체크박스(=Accept 경로, 서버가 최종 판정·실패 시 롤백)로 시도한다.
             // 비공개화·동의 철회는 게이트 없음. (CanSetPublic=false인 이전 기록 행은 목록에서 이미 숨겨짐.)
-            bool canEditPublic = CharacterDetected && c.CanSetPublic && (c.Grant || c.IsCurrent);
+            bool canEditPublic = CharacterDetected && c.CanSetPublic && c.Grant;
             string tooltip = canEditPublic
                 ? "공개하면 통계 사이트에 닉네임·서버가 표시됩니다."
                 : !CharacterDetected

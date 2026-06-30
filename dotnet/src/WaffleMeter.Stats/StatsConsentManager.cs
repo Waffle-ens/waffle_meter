@@ -411,6 +411,7 @@ public sealed class StatsConsentManager
                 accepted && response.PublicCharacter, response.ConsentVersion ?? ConsentVersion,
                 ParseRemoteTime(response.UpdatedAt) ?? _clock(), entry.Nickname, entry.Server, entry.Job,
                 grant: response.Granted);
+            RememberSync("synced", null); // clear any stale public_requires_ownership notice from a prior action
         }
         catch (Exception e) when (publicCharacter && IsPublicOwnershipRejection(e))
         {
