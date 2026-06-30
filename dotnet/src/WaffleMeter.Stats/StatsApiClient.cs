@@ -172,21 +172,33 @@ public sealed class StatsApiClient
 
         if (signed && _signer != null && installId != null)
         {
-            // §2.1 signed write. canonicalString (UTF-8, LF-joined):
-            //   {METHOD}\n{PATH}\n{X-WM-Install-Id}\n{X-WM-Timestamp}\n{X-WM-Nonce}\n{base64(sha256(rawBody))}
-            // PATH excludes the query string; rawBody is the exact transmitted bytes (UTF-8 of `body`, or
-            // sha256("") when empty). Signature/key are standard base64; the nonce is base64url.
-            long timestamp = _clock();
-            string timestampStr = timestamp.ToString(CultureInfo.InvariantCulture);
-            string nonce = _nonceProvider();
-            string path = new Uri(url).AbsolutePath;
-            string bodyHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(body ?? string.Empty)));
-            string canonical = string.Join('\n', method, path, installId, timestampStr, nonce, bodyHash);
-            headers["X-WM-Install-Id"] = installId;
-            headers["X-WM-Install-Key"] = _signer.PublicKeyB64();
-            headers["X-WM-Timestamp"] = timestampStr;
-            headers["X-WM-Nonce"] = nonce;
-            headers["X-WM-Signature"] = _signer.Sign(canonical);
+            try
+            {
+                // §2.1 signed write. canonicalString (UTF-8, LF-joined):
+                //   {METHOD}\n{PATH}\n{X-WM-Install-Id}\n{X-WM-Timestamp}\n{X-WM-Nonce}\n{base64(sha256(rawBody))}
+                // PATH excludes the query string; rawBody is the exact transmitted bytes (UTF-8 of `body`, or
+                // sha256("") when empty). Signature/key are standard base64; the nonce is base64url.
+                long timestamp = _clock();
+                string timestampStr = timestamp.ToString(CultureInfo.InvariantCulture);
+                string nonce = _nonceProvider();
+                string path = new Uri(url).AbsolutePath;
+                string bodyHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(body ?? string.Empty)));
+                string canonical = string.Join('\n', method, path, installId, timestampStr, nonce, bodyHash);
+                // Compute both (the throwing calls) BEFORE touching headers, so a failure leaves a clean
+                // UNSIGNED request rather than a half-signed one.
+                string installKey = _signer.PublicKeyB64();
+                string signature = _signer.Sign(canonical);
+                headers["X-WM-Install-Id"] = installId;
+                headers["X-WM-Install-Key"] = installKey;
+                headers["X-WM-Timestamp"] = timestampStr;
+                headers["X-WM-Nonce"] = nonce;
+                headers["X-WM-Signature"] = signature;
+            }
+            catch
+            {
+                // Signing is best-effort: a key/DPAPI failure must NEVER block an upload or a revoke (the
+                // server accepts unsigned writes in every rollout mode, §2.5/§2.6). Send the request unsigned.
+            }
         }
 
         StatsHttpResponse response = _request(method, url, body, headers);

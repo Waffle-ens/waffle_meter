@@ -241,6 +241,34 @@ public sealed class StatsApiClientTests
         Assert.Contains("public_requires_ownership", ex.ResponseBody);
     }
 
+    private sealed class ThrowingSigner : IStatsSigner
+    {
+        public string PublicKeyB64() => throw new InvalidOperationException("dpapi_down");
+        public string Sign(string canonical) => throw new InvalidOperationException("dpapi_down");
+    }
+
+    [Fact]
+    public void A_throwing_signer_falls_back_to_an_unsigned_write()
+    {
+        var captured = new Capture();
+        StatsApiClient.RequestFunc fake = (method, url, body, headers) =>
+        {
+            captured.Method = method;
+            captured.Url = url;
+            captured.Body = body;
+            captured.Headers = headers;
+            return new StatsHttpResponse(200, """{"ok":true,"identityHash":"h","exists":true,"consentState":"revoked"}""");
+        };
+        var client = new StatsApiClient(() => "install-1", fake, new ThrowingSigner());
+
+        // Upload/revoke must never be blocked by a signing failure (server accepts unsigned writes).
+        client.PostConsentEvent(new ConsentEventRequest("revoked", "2026-06-04", IdentityHash: "h"), clientVersion: "1.7.9");
+
+        Assert.DoesNotContain("X-WM-Signature", captured.Headers!.Keys); // clean unsigned request
+        Assert.DoesNotContain("X-WM-Install-Key", captured.Headers.Keys);
+        Assert.Equal("install-1", captured.Headers["x-install-id"]); // request still went out
+    }
+
     private static StatsUploadPayload SamplePayload(string battleHash, string consentVersion)
     {
         var result = new StatsResultPayload(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
