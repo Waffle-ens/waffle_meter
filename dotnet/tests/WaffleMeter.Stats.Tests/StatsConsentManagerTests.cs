@@ -335,4 +335,72 @@ public sealed class StatsConsentManagerTests : IDisposable
         Assert.Equal("accepted", hero.State); // grant-only: consent state untouched
         Assert.True(Manager(ApiFailing()).HasGrant(hash));
     }
+
+    [Fact]
+    public void SetCharacterPublic_blocks_public_transition_without_grant()
+    {
+        // Alice accepts private, no grant. Switch to Bob so Alice is non-current.
+        _data.SaveNickname(1, "Alice", isExecutor: true, server: 3, jobByte: 0);
+        Manager(AcceptApi(false)).Set("accepted", uploadEnabled: true, publicCharacter: false);
+        string aliceHash = StatsIdentity.CharacterIdentityHash(3, "Alice")!;
+        _data.SaveNickname(2, "Bob", isExecutor: true, server: 3, jobByte: 0);
+
+        // AcceptApi(true) WOULD make her public if the gate let the request through — it must not.
+        Manager(AcceptApi(true)).SetCharacterPublic(aliceHash, publicCharacter: true);
+
+        StatsConsentManager.CharacterConsentInfo alice =
+            Manager(ApiFailing()).ListCharacters().Single(c => c.IdentityHash == aliceHash);
+        Assert.False(alice.PublicCharacter); // gate blocked the public transition (no grant)
+        Assert.False(alice.Grant);
+    }
+
+    [Fact]
+    public void SetCharacterPublic_allows_public_transition_with_grant()
+    {
+        StatsApiClient grantingAccept = ApiReturning(
+            """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":false,"granted":true,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}""");
+        _data.SaveNickname(1, "Alice", isExecutor: true, server: 3, jobByte: 0);
+        Manager(grantingAccept).Set("accepted", uploadEnabled: true, publicCharacter: false);
+        string aliceHash = StatsIdentity.CharacterIdentityHash(3, "Alice")!;
+        Assert.True(Manager(ApiFailing()).HasGrant(aliceHash));
+        _data.SaveNickname(2, "Bob", isExecutor: true, server: 3, jobByte: 0);
+
+        Manager(AcceptApi(true)).SetCharacterPublic(aliceHash, publicCharacter: true);
+
+        StatsConsentManager.CharacterConsentInfo alice =
+            Manager(ApiFailing()).ListCharacters().Single(c => c.IdentityHash == aliceHash);
+        Assert.True(alice.PublicCharacter); // grant present -> public transition allowed
+    }
+
+    [Fact]
+    public void Accept_public_requires_ownership_rolls_back_to_private()
+    {
+        GiveExecutor(); // Hero, server 3, current
+        // Server refuses public=true (400) but accepts public=false (200) — drives the ReAcceptPrivate fallback.
+        var api = new StatsApiClient(() => "install-1", (_, _, body, _) =>
+            body != null && body.Contains("\"public\":true")
+                ? new StatsHttpResponse(400, """{"ok":false,"error":{"code":"public_requires_ownership","message":"no grant"}}""")
+                : new StatsHttpResponse(200, """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":false,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}"""));
+
+        StatsConsentManager.Info info = Manager(api).Set("accepted", uploadEnabled: true, publicCharacter: true);
+
+        Assert.Equal("accepted", info.State);
+        Assert.False(info.PublicCharacter); // rolled back to private
+        Assert.Equal(StatsConsentManager.PublicRequiresOwnership, info.SyncStatus);
+        Assert.True(info.UploadEnabled); // consent still landed; uploads stay on
+    }
+
+    [Fact]
+    public void Revoke_is_never_gated_even_when_sync_fails()
+    {
+        GiveExecutor();
+        Manager(AcceptApi(false)).Set("accepted", uploadEnabled: true, publicCharacter: false);
+
+        // Revoke must persist locally regardless of the server (fail-safe, offline-capable).
+        StatsConsentManager.Info info = Manager(ApiFailing()).Set("revoked", false, false);
+
+        Assert.Equal("revoked", info.State);
+        Assert.False(info.UploadEnabled);
+        Assert.False(Manager(ApiFailing()).IsUploadAllowed());
+    }
 }

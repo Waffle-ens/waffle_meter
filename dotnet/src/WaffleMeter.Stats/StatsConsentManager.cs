@@ -138,12 +138,20 @@ public sealed class StatsConsentManager
             return LocalInfo();
         }
 
+        // W18 gate (§2.4): the public transition is only attempted; the server is the authority. The current
+        // executor is always allowed to ATTEMPT (handoff "로컬 Grant 또는 현재 executor"), so Accept never
+        // pre-blocks — a missing grant surfaces as the server's public_requires_ownership, handled below.
         try
         {
             ConsentStatusResponse response = _api.PostConsentEvent(
                 new ConsentEventRequest(State.accepted.ToString(), ConsentVersion, Character: character),
                 clientVersion);
             return ApplyRemote(response, requestedUpload: uploadEnabled);
+        }
+        catch (Exception e) when (publicCharacter && IsPublicOwnershipRejection(e))
+        {
+            // Public refused (no grant). Re-accept as private so the user stays consented, then inform. "롤백+안내".
+            return ReAcceptPrivate(character, uploadEnabled, clientVersion);
         }
         catch (Exception e)
         {
@@ -156,6 +164,29 @@ public sealed class StatsConsentManager
                 syncError: Summarize(e));
             return LocalInfo();
         }
+    }
+
+    /// <summary>Fallback when an accept+public was refused for lack of grant: re-accept the same character as
+    /// PRIVATE (needs no grant, §2.4) so consent still lands, then stamp the public_requires_ownership status
+    /// so the UI rolls the toggle back and shows the notice.</summary>
+    private Info ReAcceptPrivate(ConsentEventCharacter character, bool uploadEnabled, string clientVersion)
+    {
+        ConsentEventCharacter privateChar = character with { PublicCharacter = false };
+        try
+        {
+            ConsentStatusResponse response = _api.PostConsentEvent(
+                new ConsentEventRequest(State.accepted.ToString(), ConsentVersion, Character: privateChar), clientVersion);
+            ApplyRemote(response, requestedUpload: uploadEnabled);
+        }
+        catch (Exception e)
+        {
+            SaveLocal(State.accepted, uploadEnabled: false, publicCharacter: false,
+                syncStatus: "sync_failed", identityHash: privateChar.IdentityHash, syncError: Summarize(e));
+            return LocalInfo();
+        }
+
+        RememberSync(PublicRequiresOwnership, null);
+        return LocalInfo();
     }
 
     private Info Revoke(string clientVersion)
@@ -362,6 +393,14 @@ public sealed class StatsConsentManager
             return;
         }
 
+        // W18 gate (§2.4): turning a NON-current character public needs this install's grant. Making it
+        // private is always allowed (privacy reduction). Block the ungranted public attempt + inform.
+        if (publicCharacter && !entry.Grant)
+        {
+            RememberSync(PublicRequiresOwnership, null);
+            return;
+        }
+
         var character = new ConsentEventCharacter(identityHash, entry.Nickname!, entry.Server, publicCharacter, entry.Job, 0);
         try
         {
@@ -373,9 +412,16 @@ public sealed class StatsConsentManager
                 ParseRemoteTime(response.UpdatedAt) ?? _clock(), entry.Nickname, entry.Server, entry.Job,
                 grant: response.Granted);
         }
+        catch (Exception e) when (publicCharacter && IsPublicOwnershipRejection(e))
+        {
+            // Grant cache was stale; the server refused. Roll the toggle back to private + inform.
+            UpsertCharacter(identityHash, State.accepted, entry.UploadEnabled, publicCharacter: false,
+                entry.ConsentVersion ?? ConsentVersion, _clock(), entry.Nickname, entry.Server, entry.Job);
+            RememberSync(PublicRequiresOwnership, null);
+        }
         catch
         {
-            // leave the entry unchanged on a failed sync; the list re-reads the old state
+            // leave the entry unchanged on a generic failed sync; the list re-reads the old state
         }
     }
 
@@ -629,6 +675,15 @@ public sealed class StatsConsentManager
     };
 
     private static string? NonBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    /// <summary>Server error code (§2.4) returned when a public transition lacks the required grant. Surfaced
+    /// to the UI as a sync status so it can roll the toggle back + show a localized notice. ASCII-only — never
+    /// store a Korean message in the global sync keys (the EUC-KR settings re-decode would corrupt it).</summary>
+    public const string PublicRequiresOwnership = "public_requires_ownership";
+
+    private static bool IsPublicOwnershipRejection(Exception e) =>
+        (e is StatsApiException sae && sae.ResponseBody?.Contains(PublicRequiresOwnership, StringComparison.Ordinal) == true)
+        || (e.Message?.Contains(PublicRequiresOwnership, StringComparison.Ordinal) == true);
 
     private static State? TryState(string? value)
     {
