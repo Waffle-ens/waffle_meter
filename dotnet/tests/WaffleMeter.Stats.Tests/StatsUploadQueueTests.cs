@@ -157,6 +157,27 @@ public sealed class StatsUploadQueueTests : IDisposable
     }
 
     [Fact]
+    public void Successful_signed_upload_with_granted_caches_the_grant()
+    {
+        // Report response carries granted:true -> the queue must cache the uploader character's grant so the
+        // public toggle unlocks without a separate consent round-trip (§2.2, W17 upload path).
+        StatsApiClient api = new(() => "install-1", (_, url, _, _) =>
+            url.Contains("/api/v1/reports")
+                ? new StatsHttpResponse(200, """{"ok":true,"reportId":"r1","duplicate":false,"granted":true}""")
+                : new StatsHttpResponse(200, """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":false,"consentVersion":"2026-06-04"}"""));
+        var builder = new StatsPayloadBuilder(_dm, () => false);
+        var consent = new StatsConsentManager(_props, _dm, api, () => builder.OwnCharacter());
+        consent.Set("accepted", uploadEnabled: true, publicCharacter: false);
+        using var queue = new StatsUploadQueue(consent, builder, api, _dm, _props,
+            dispatch: job => job(), killRecheckDelay: () => { }, clock: () => 1);
+
+        queue.OfferIfEligible(BossLog(remainHp: 0));
+
+        Assert.Equal(1, queue.Status().Uploaded);
+        Assert.True(consent.HasGrant(StatsIdentity.CharacterIdentityHash(3, "Me")!));
+    }
+
+    [Fact]
     public void Records_failure_when_report_upload_throws()
     {
         StatsApiClient api = new(() => "install-1", (_, url, _, _) =>
