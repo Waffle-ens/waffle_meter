@@ -203,7 +203,8 @@ public sealed class StatsConsentManager
             remoteExists: response.Exists,
             syncError: null,
             serverUpdatedAt: response.UpdatedAt,
-            lastSeenAt: response.LastSeenAt);
+            lastSeenAt: response.LastSeenAt,
+            grant: response.Granted);
         return LocalInfo();
     }
 
@@ -255,7 +256,10 @@ public sealed class StatsConsentManager
     /// <summary>One locally-remembered character's consent, for the per-character management UI.</summary>
     public sealed record CharacterConsentInfo(
         string IdentityHash, string? Nickname, int Server, string? Job, string State,
-        bool UploadEnabled, bool PublicCharacter, long UpdatedAt, bool IsCurrent, bool CanSetPublic);
+        bool UploadEnabled, bool PublicCharacter, long UpdatedAt, bool IsCurrent, bool CanSetPublic,
+        // True once this install holds the server-side grant for this character (cached from an upload/accept
+        // response). The "공개" toggle needs grant; see W18 (Grant || IsCurrent allows the attempt).
+        bool Grant = false);
 
     /// <summary>All locally-remembered characters and their consent (the management list), current character
     /// first then most-recently-updated. <c>CanSetPublic</c> is false for a legacy entry that has no stored
@@ -287,7 +291,7 @@ public sealed class StatsConsentManager
                 bool named = !string.IsNullOrWhiteSpace(nickname) && server > 0;
                 return new CharacterConsentInfo(
                     kv.Key, nickname, server, job, c.State, c.UploadEnabled, c.PublicCharacter,
-                    c.UpdatedAt, isCurrent, CanSetPublic: isCurrent || named);
+                    c.UpdatedAt, isCurrent, CanSetPublic: isCurrent || named, Grant: c.Grant);
             })
             // Hide name-less legacy records (consented in a prior session before names were stored): a list of
             // "이름 없음 (이전 기록)" rows is confusing. The consent record stays (uploads honor the prior decision);
@@ -366,7 +370,8 @@ public sealed class StatsConsentManager
             bool accepted = (TryState(response.ConsentState) ?? State.unknown) == State.accepted && response.Exists;
             UpsertCharacter(identityHash, accepted ? State.accepted : State.declined, entry.UploadEnabled,
                 accepted && response.PublicCharacter, response.ConsentVersion ?? ConsentVersion,
-                ParseRemoteTime(response.UpdatedAt) ?? _clock(), entry.Nickname, entry.Server, entry.Job);
+                ParseRemoteTime(response.UpdatedAt) ?? _clock(), entry.Nickname, entry.Server, entry.Job,
+                grant: response.Granted);
         }
         catch
         {
@@ -481,7 +486,7 @@ public sealed class StatsConsentManager
     }
 
     private void UpsertCharacter(string identityHash, State state, bool uploadEnabled, bool publicCharacter,
-        string version, long updatedAt, string? nickname = null, int server = 0, string? job = null)
+        string version, long updatedAt, string? nickname = null, int server = 0, string? job = null, bool grant = false)
     {
         Dictionary<string, CharConsent> map = LoadCharacters();
         CharConsent entry = map.TryGetValue(identityHash, out CharConsent? existing) ? existing : new CharConsent();
@@ -495,9 +500,39 @@ public sealed class StatsConsentManager
         if (!string.IsNullOrWhiteSpace(nickname)) entry.Nickname = nickname;
         if (server > 0) entry.Server = server;
         if (!string.IsNullOrWhiteSpace(job)) entry.Job = job;
+        if (grant) entry.Grant = true; // monotone: a response can confer grant, never withdraw it
         map[identityHash] = entry;
         _props.SetProperty(KeyCharacters, JsonSerializer.Serialize(map));
     }
+
+    /// <summary>Mark a character as granted (server confirmed this install owns it). Called after a successful
+    /// signed upload whose response carries <c>granted</c>. Grant-only: never changes consent state, and only
+    /// ever sets the flag true (the server grant set is monotone). No-op if already granted.</summary>
+    public void MarkGranted(string identityHash)
+    {
+        if (string.IsNullOrWhiteSpace(identityHash))
+        {
+            return;
+        }
+
+        Dictionary<string, CharConsent> map = LoadCharacters();
+        CharConsent entry = map.TryGetValue(identityHash, out CharConsent? existing) ? existing : new CharConsent();
+        if (entry.Grant)
+        {
+            return; // already granted — avoid a redundant settings write from the upload thread
+        }
+
+        entry.Grant = true;
+        map[identityHash] = entry;
+        _props.SetProperty(KeyCharacters, JsonSerializer.Serialize(map));
+    }
+
+    /// <summary>True when this install holds the server-side grant for <paramref name="identityHash"/> (cached).
+    /// Used by the public-transition gate (§2.4) and the management UI.</summary>
+    public bool HasGrant(string identityHash) =>
+        !string.IsNullOrWhiteSpace(identityHash)
+        && LoadCharacters().TryGetValue(identityHash, out CharConsent? entry)
+        && entry.Grant;
 
     private sealed class CharConsent
     {
@@ -512,6 +547,10 @@ public sealed class StatsConsentManager
         [JsonPropertyName("nickname")] public string? Nickname { get; set; }
         [JsonPropertyName("server")] public int Server { get; set; }
         [JsonPropertyName("job")] public string? Job { get; set; }
+        // Character grant (§2.2): true once this install uploaded/accepted with this character so the server
+        // granted ownership — gates the "공개" toggle. Cache only; the server is the authority. Grant is a
+        // monotone TOFU set on the server, so locally we only ever set it true, never clear it.
+        [JsonPropertyName("grant")] public bool Grant { get; set; }
     }
 
     private void SaveLocal(
@@ -525,7 +564,8 @@ public sealed class StatsConsentManager
         bool remoteExists = false,
         string? syncError = null,
         string? serverUpdatedAt = null,
-        string? lastSeenAt = null)
+        string? lastSeenAt = null,
+        bool grant = false)
     {
         string? resolvedIdentity = ReferenceEquals(identityHash, KeepCurrentIdentity) ? CurrentIdentityHash() : identityHash;
         string version = consentVersion ?? ConsentVersion;
@@ -555,7 +595,7 @@ public sealed class StatsConsentManager
             User? u = _data.User(_data.ExecutorId());
             string? job = NonBlank(_ownCharacter().Job) ?? (u?.Job is { } jc ? jc.ClassName() : null);
             UpsertCharacter(mapKey, state, uploadEnabled, publicCharacter, version, updated,
-                NonBlank(u?.Nickname), u?.Server ?? 0, job);
+                NonBlank(u?.Nickname), u?.Server ?? 0, job, grant);
         }
     }
 

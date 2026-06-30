@@ -205,6 +205,13 @@ public sealed class StatsUploadQueue : IDisposable
                         _uploadedHashes.Add(payload.BattleHash);
                     }
 
+                    // The signed upload earned/confirmed this install's grant for the uploader character —
+                    // cache it so the "공개" toggle unlocks without waiting for a consent round-trip (§2.2).
+                    if (response.Granted)
+                    {
+                        _consent.MarkGranted(payload.Character.IdentityHash);
+                    }
+
                     Interlocked.Increment(ref _uploaded);
                     string reason = response.Duplicate ? "uploaded_duplicate" : "uploaded";
                     UpdateLast(_api.ReportEndpoint(), $"{reason}:{response.ReportId ?? "no_report_id"}");

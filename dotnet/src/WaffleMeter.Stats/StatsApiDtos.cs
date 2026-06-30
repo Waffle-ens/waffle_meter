@@ -14,7 +14,11 @@ public sealed record ConsentStatusResponse(
     string? ConsentVersion = null,
     string? UpdatedAt = null,
     string? LastSeenAt = null,
-    string? CharacterId = null);
+    string? CharacterId = null,
+    // SHARED CONTRACT §2.2/§3.3: on a SIGNED consent event the server echoes whether the signing install
+    // holds this character's grant. Defaulted false so a pre-rollout server that omits it is harmless
+    // (forward-compatible). Unsigned reads can't carry a real grant, so this stays false there.
+    [property: JsonPropertyName("granted")] bool Granted = false);
 
 public sealed record ConsentEventRequest(
     string ConsentState,
@@ -33,4 +37,7 @@ public sealed record ConsentEventCharacter(
 public sealed record ReportUploadResponse(
     bool Ok,
     string? ReportId = null,
-    bool Duplicate = false);
+    bool Duplicate = false,
+    // SHARED CONTRACT §2.2/§3.3: true once this signed upload's uploader character earned/holds a grant for
+    // the signing install. Defaulted false → forward-compatible with a pre-rollout server.
+    [property: JsonPropertyName("granted")] bool Granted = false);

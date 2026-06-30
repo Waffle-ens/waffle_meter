@@ -304,4 +304,35 @@ public sealed class StatsConsentManagerTests : IDisposable
         Assert.Equal("Hero", only.Nickname);
         Assert.True(only.IsCurrent);
     }
+
+    [Fact]
+    public void Accept_caches_grant_from_response()
+    {
+        GiveExecutor();
+        StatsApiClient api = ApiReturning(
+            """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":false,"granted":true,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}""");
+        Manager(api).Set("accepted", uploadEnabled: true, publicCharacter: false);
+
+        string hash = StatsIdentity.CharacterIdentityHash(3, "Hero")!;
+        Assert.True(Manager(ApiFailing()).HasGrant(hash));
+        Assert.True(Manager(ApiFailing()).ListCharacters().Single(c => c.IdentityHash == hash).Grant);
+    }
+
+    [Fact]
+    public void MarkGranted_caches_grant_without_changing_state()
+    {
+        GiveExecutor();
+        // AcceptApi(false) carries no "granted" field -> grant starts false.
+        Manager(AcceptApi(false)).Set("accepted", uploadEnabled: true, publicCharacter: false);
+        string hash = StatsIdentity.CharacterIdentityHash(3, "Hero")!;
+        Assert.False(Manager(ApiFailing()).HasGrant(hash));
+
+        Manager(ApiFailing()).MarkGranted(hash);
+
+        StatsConsentManager.CharacterConsentInfo hero =
+            Manager(ApiFailing()).ListCharacters().Single(c => c.IdentityHash == hash);
+        Assert.True(hero.Grant);
+        Assert.Equal("accepted", hero.State); // grant-only: consent state untouched
+        Assert.True(Manager(ApiFailing()).HasGrant(hash));
+    }
 }
