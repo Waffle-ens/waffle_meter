@@ -16,4 +16,10 @@
     <ProjectReference Include="..\WaffleMeter.Services\WaffleMeter.Services.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- DPAPI (ProtectedData) for at-rest wrapping of the install signing key's PKCS#8 private key
+         (StatsInstallKey, CurrentUser scope). Windows-only, which the app already is. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
+  </ItemGroup>
+
 </Project>
