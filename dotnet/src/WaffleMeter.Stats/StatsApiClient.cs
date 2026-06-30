@@ -1,10 +1,29 @@
+using System.Buffers.Text;
+using System.Globalization;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace WaffleMeter.Stats;
 
 /// <summary>One HTTP response (status + body), the unit the injected transport returns.</summary>
 public sealed record StatsHttpResponse(int StatusCode, string Body);
+
+/// <summary>Thrown on a non-OK stats response. Carries the HTTP status + raw body so callers can branch
+/// on a server error code (e.g. <c>public_requires_ownership</c>) without re-parsing. Derives from
+/// <see cref="InvalidOperationException"/> so existing <c>Assert.Throws&lt;InvalidOperationException&gt;</c>
+/// call sites keep working.</summary>
+public sealed class StatsApiException : InvalidOperationException
+{
+    public int StatusCode { get; }
+    public string? ResponseBody { get; }
+
+    public StatsApiException(string message, int statusCode, string? responseBody) : base(message)
+    {
+        StatusCode = statusCode;
+        ResponseBody = responseBody;
+    }
+}
 
 /// <summary>
 /// Verbatim port of Kotlin <c>stats.StatsApiClient</c>: talks to the telemetry backend
@@ -32,11 +51,27 @@ public sealed class StatsApiClient
 
     private readonly RequestFunc _request;
     private readonly Func<string> _installIdProvider;
+    private readonly IStatsSigner? _signer;
+    private readonly Func<long> _clock;
+    private readonly Func<string> _nonceProvider;
 
-    public StatsApiClient(Func<string> installIdProvider, RequestFunc? request = null)
+    /// <param name="signer">Per-install ECDSA signer (§2.1). Injected so it can be faked in tests; when
+    /// null, write requests go out unsigned (the server treats signature-absence as non-fatal in every
+    /// rollout mode). The live app always supplies a real <see cref="StatsInstallKey"/>.</param>
+    /// <param name="clock">epoch-ms source for <c>X-WM-Timestamp</c> (injectable for deterministic tests).</param>
+    /// <param name="nonceProvider">per-request <c>X-WM-Nonce</c> (base64url) source (injectable for tests).</param>
+    public StatsApiClient(
+        Func<string> installIdProvider,
+        RequestFunc? request = null,
+        IStatsSigner? signer = null,
+        Func<long>? clock = null,
+        Func<string>? nonceProvider = null)
     {
         _installIdProvider = installIdProvider;
         _request = request ?? DefaultRequest;
+        _signer = signer;
+        _clock = clock ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        _nonceProvider = nonceProvider ?? DefaultNonce;
     }
 
     public string ReportEndpoint() => ReportEndpointUrl;
@@ -51,11 +86,12 @@ public sealed class StatsApiClient
     public ConsentStatusResponse GetConsentStatus(string identityHash)
     {
         string encoded = WebUtility.UrlEncode(identityHash);
-        StatsHttpResponse response = Request("GET", $"{ConsentStatusEndpoint}?identityHash={encoded}", null, null, null, null);
+        // Read path — unsigned per §2.1 (only writes are signed).
+        StatsHttpResponse response = Request("GET", $"{ConsentStatusEndpoint}?identityHash={encoded}", null, null, null, null, signed: false);
         ConsentStatusResponse parsed = StatsJson.Deserialize<ConsentStatusResponse>(response.Body);
         if (!parsed.Ok)
         {
-            throw new InvalidOperationException("consent_status_not_ok");
+            throw new StatsApiException("consent_status_not_ok", response.StatusCode, response.Body);
         }
 
         return parsed;
@@ -73,11 +109,12 @@ public sealed class StatsApiClient
             StatsJson.Serialize(request),
             clientVersion,
             installId ?? _installIdProvider(),
-            consentVersion ?? StatsConsentManager.ConsentVersion);
+            consentVersion ?? StatsConsentManager.ConsentVersion,
+            signed: true);
         ConsentStatusResponse parsed = StatsJson.Deserialize<ConsentStatusResponse>(response.Body);
         if (!parsed.Ok)
         {
-            throw new InvalidOperationException("consent_event_not_ok");
+            throw new StatsApiException("consent_event_not_ok", response.StatusCode, response.Body);
         }
 
         return parsed;
@@ -91,11 +128,12 @@ public sealed class StatsApiClient
             StatsJson.Serialize(payload),
             clientVersion,
             installId ?? _installIdProvider(),
-            payload.ConsentVersion);
+            payload.ConsentVersion,
+            signed: true);
         ReportUploadResponse parsed = StatsJson.Deserialize<ReportUploadResponse>(response.Body);
         if (!parsed.Ok)
         {
-            throw new InvalidOperationException("report_upload_not_ok");
+            throw new StatsApiException("report_upload_not_ok", response.StatusCode, response.Body);
         }
 
         return parsed;
@@ -107,7 +145,8 @@ public sealed class StatsApiClient
         string? body,
         string? clientVersion,
         string? installId,
-        string? consentVersion)
+        string? consentVersion,
+        bool signed)
     {
         var headers = new Dictionary<string, string> { ["Accept"] = "application/json" };
         if (clientVersion != null)
@@ -131,6 +170,25 @@ public sealed class StatsApiClient
             headers["Content-Type"] = "application/json";
         }
 
+        if (signed && _signer != null && installId != null)
+        {
+            // §2.1 signed write. canonicalString (UTF-8, LF-joined):
+            //   {METHOD}\n{PATH}\n{X-WM-Install-Id}\n{X-WM-Timestamp}\n{X-WM-Nonce}\n{base64(sha256(rawBody))}
+            // PATH excludes the query string; rawBody is the exact transmitted bytes (UTF-8 of `body`, or
+            // sha256("") when empty). Signature/key are standard base64; the nonce is base64url.
+            long timestamp = _clock();
+            string timestampStr = timestamp.ToString(CultureInfo.InvariantCulture);
+            string nonce = _nonceProvider();
+            string path = new Uri(url).AbsolutePath;
+            string bodyHash = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(body ?? string.Empty)));
+            string canonical = string.Join('\n', method, path, installId, timestampStr, nonce, bodyHash);
+            headers["X-WM-Install-Id"] = installId;
+            headers["X-WM-Install-Key"] = _signer.PublicKeyB64();
+            headers["X-WM-Timestamp"] = timestampStr;
+            headers["X-WM-Nonce"] = nonce;
+            headers["X-WM-Signature"] = _signer.Sign(canonical);
+        }
+
         StatsHttpResponse response = _request(method, url, body, headers);
         if (response.StatusCode is < 200 or > 299)
         {
@@ -140,11 +198,13 @@ public sealed class StatsApiClient
                 summary = "empty_response";
             }
 
-            throw new InvalidOperationException($"HTTP {response.StatusCode}: {summary}");
+            throw new StatsApiException($"HTTP {response.StatusCode}: {summary}", response.StatusCode, response.Body);
         }
 
         return response;
     }
+
+    private static string DefaultNonce() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(16));
 
     private static StatsHttpResponse DefaultRequest(string method, string url, string? body, IReadOnlyDictionary<string, string> headers)
     {
