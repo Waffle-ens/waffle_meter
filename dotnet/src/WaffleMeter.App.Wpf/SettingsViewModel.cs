@@ -24,6 +24,7 @@ public sealed class ConsentCharacterRow
     public bool IsPublic { get; init; }
     public bool CanSetPublic { get; init; }
     public bool CanRevoke { get; init; }
+    public string PublicToggleTooltip { get; init; } = "";
     public Visibility CurrentBadgeVisibility { get; init; }
 }
 
@@ -315,6 +316,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool CharacterDetected { get => _characterDetected; private set => Set(ref _characterDetected, value); }
     private string _consentStatus = string.Empty;
     public string ConsentStatus { get => _consentStatus; private set => Set(ref _consentStatus, value); }
+    private string _consentNotice = string.Empty;
+    /// <summary>Localized notice for the last consent action (e.g. a public transition refused for lack of
+    /// ownership, rolled back to private). Empty when there is nothing to say.</summary>
+    public string ConsentNotice
+    {
+        get => _consentNotice;
+        private set { Set(ref _consentNotice, value); OnPropertyChanged(nameof(HasConsentNotice)); }
+    }
+    public bool HasConsentNotice => !string.IsNullOrEmpty(_consentNotice);
 
     public string UploadStatus
     {
@@ -367,14 +377,26 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 ? (c.Server > 0 ? $"{c.Nickname} [{ServerNames.GetServerLabel(c.Server)}]" : c.Nickname!)
                 : "이름 없음 (이전 기록)";
             string job = string.IsNullOrWhiteSpace(c.Job) ? string.Empty : c.Job! + " · ";
+
+            // 공개 토글 게이트 (W18-UI): 하나라도 접속 중(CharacterDetected)이고, 이 캐릭터로 전투를 업로드한
+            // 적이 있어야(Grant) 공개로 전환 가능. 현재 접속 캐릭터(IsCurrent)는 서버가 최종 판정하므로 시도 허용.
+            // 비공개화·동의 철회는 게이트 없음. (CanSetPublic=false인 이전 기록 행은 목록에서 이미 숨겨짐.)
+            bool canEditPublic = CharacterDetected && c.CanSetPublic && (c.Grant || c.IsCurrent);
+            string tooltip = canEditPublic
+                ? "공개하면 통계 사이트에 닉네임·서버가 표시됩니다."
+                : !CharacterDetected
+                    ? "캐릭터가 접속해 있어야 공개 설정을 바꿀 수 있어요."
+                    : "이 기기에서 이 캐릭터로 전투를 업로드한 적이 있어야 공개로 전환할 수 있어요.";
+
             ConsentCharacters.Add(new ConsentCharacterRow
             {
                 IdentityHash = c.IdentityHash,
                 Label = label,
                 SubLabel = job + (c.PublicCharacter ? "공개" : "비공개 (익명 집계)"),
                 IsPublic = c.PublicCharacter,
-                CanSetPublic = c.CanSetPublic,
-                CanRevoke = true,
+                CanSetPublic = canEditPublic,
+                CanRevoke = true, // 동의 철회는 항상 활성 (오프라인 포함)
+                PublicToggleTooltip = tooltip,
                 CurrentBadgeVisibility = c.IsCurrent ? Visibility.Visible : Visibility.Collapsed,
             });
         }
@@ -392,8 +414,23 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public void RefreshCharacterStatus()
     {
-        CharacterDetected = _services.StatsBuilder.OwnCharacter().Detected;
+        bool detected = _services.StatsBuilder.OwnCharacter().Detected;
+        bool changed = detected != CharacterDetected;
+        CharacterDetected = detected;
         OnPropertyChanged(nameof(UploadStatus));
+        // Per-character public-toggle enablement depends on CharacterDetected; re-evaluate the rows when it flips.
+        if (changed)
+        {
+            RefreshConsentCharacters();
+        }
+    }
+
+    /// <summary>Re-read local consent state (no network) and rebuild the management list — call on the UI
+    /// thread after any consent action so the rolled-back public flag + notice show.</summary>
+    public void RefreshConsentState()
+    {
+        ApplyInfo(_services.Consent.GetInfo(syncRemote: false, _services.Version));
+        RefreshConsentCharacters();
     }
 
     private void ApplyInfo(StatsConsentManager.Info info)
@@ -402,8 +439,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         UploadEnabled = info.UploadEnabled;
         PublicCharacter = info.PublicCharacter;
         ConsentStatus = info.SyncError is { } error ? $"{info.State} · {info.SyncStatus} ({error})" : $"{info.State} · {info.SyncStatus}";
+        ConsentNotice = NoticeFor(info.SyncStatus);
         OnPropertyChanged(nameof(UploadStatus));
     }
+
+    // The manager surfaces server outcomes as ASCII status codes (Korean can't live in the EUC-KR settings
+    // keys); localize the user-facing ones here.
+    private static string NoticeFor(string syncStatus) => syncStatus == StatsConsentManager.PublicRequiresOwnership
+        ? "이 기기에서 이 캐릭터로 전투를 업로드한 적이 있어야 공개로 전환할 수 있어요. (지금은 비공개로 동의되었습니다.)"
+        : string.Empty;
 
     // ---- server ----
     private string _serverIp = string.Empty;

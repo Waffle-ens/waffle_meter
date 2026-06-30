@@ -110,9 +110,9 @@ public partial class SettingsWindow : Window
 
     private void OnResetHistoryPosition(object sender, RoutedEventArgs e) => _viewModel.ResetHistoryPosition();
 
-    private void OnApplyConsent(object sender, RoutedEventArgs e) => RunBackground(_viewModel.ApplyConsent);
+    private void OnApplyConsent(object sender, RoutedEventArgs e) => RunThenRefresh(_viewModel.ApplyConsent);
 
-    private void OnRefreshConsent(object sender, RoutedEventArgs e) => RunBackground(_viewModel.RefreshConsentFromServer);
+    private void OnRefreshConsent(object sender, RoutedEventArgs e) => RunThenRefresh(_viewModel.RefreshConsentFromServer);
 
     private void OnOpenMyStats(object sender, RoutedEventArgs e) => _viewModel.OpenMyStats();
 
@@ -133,7 +133,9 @@ public partial class SettingsWindow : Window
         }
     }
 
-    // The per-character action hits the backend (off the UI thread); the list rebuild must run on the UI thread.
+    // Consent actions hit the backend (off the UI thread); the local-state re-read + list rebuild must run on
+    // the UI thread (ObservableCollection mutation). RefreshConsentState also surfaces the rolled-back public
+    // flag + the public_requires_ownership notice.
     private void RunThenRefresh(Action network) => Task.Run(() =>
     {
         try
@@ -142,22 +144,9 @@ public partial class SettingsWindow : Window
         }
         catch
         {
-            // surfaced on the next list refresh
+            // surfaced via ConsentStatus / the list on the refresh below
         }
 
-        Dispatcher.Invoke(_viewModel.RefreshConsentCharacters);
-    });
-
-    // Consent apply/refresh hit the backend; keep them off the UI thread.
-    private static void RunBackground(Action work) => Task.Run(() =>
-    {
-        try
-        {
-            work();
-        }
-        catch
-        {
-            // surfaced via ConsentStatus on the next sync
-        }
+        Dispatcher.Invoke(_viewModel.RefreshConsentState);
     });
 }

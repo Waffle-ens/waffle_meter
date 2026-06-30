@@ -12,6 +12,7 @@
                 <ResourceDictionary Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Themes/Skin.Controls.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             <local:InverseBooleanToVisibilityConverter x:Key="BoolToVisInverse"/>
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <local:StringEqualsToVisibilityConverter x:Key="NavVis"/>
             <local:FontFamilyConverter x:Key="FontConv"/>
             <!-- day-of-week toggle chip for custom alarms: matches the meter chip aesthetic (dim when off,
@@ -686,6 +687,7 @@
                                                 <TextBlock Text="공개" FontSize="10" HorizontalAlignment="Center" Foreground="{DynamicResource Skin.MutedFg}"/>
                                                 <CheckBox Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Center"
                                                           IsChecked="{Binding IsPublic, Mode=OneWay}" IsEnabled="{Binding CanSetPublic}"
+                                                          ToolTip="{Binding PublicToggleTooltip}" ToolTipService.ShowOnDisabled="True"
                                                           Click="OnToggleCharacterPublic"/>
                                             </StackPanel>
                                             <Button Grid.Column="2" Content="동의 철회" Click="OnRevokeCharacter" IsEnabled="{Binding CanRevoke}" VerticalAlignment="Center"/>
@@ -696,6 +698,8 @@
                         </ItemsControl>
                         <TextBlock Text="아직 동의한 캐릭터가 없습니다." Style="{StaticResource SettingDesc}"
                                    Visibility="{Binding HasConsentCharacters, Converter={StaticResource BoolToVisInverse}, FallbackValue=Visible}"/>
+                        <TextBlock Text="{Binding ConsentNotice}" TextWrapping="Wrap" Foreground="#FFCC8800" FontSize="12" Margin="0,8,0,0"
+                                   Visibility="{Binding HasConsentNotice, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
 
                         <TextBlock Text="내 전투 기록" Style="{StaticResource SectionHeader}" Margin="0,18,0,8"/>
                         <Button Content="내 캐릭터 통계 보기" Click="OnOpenMyStats" IsEnabled="{Binding CharacterDetected}" HorizontalAlignment="Left"/>
