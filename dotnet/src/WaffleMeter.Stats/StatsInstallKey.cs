@@ -92,6 +92,12 @@ public sealed class StatsInstallKey : IStatsSigner
             byte[] wrapped = ProtectedData.Protect(fresh, optionalEntropy: null, DataProtectionScope.CurrentUser);
             _props.SetProperty(KeyPrivate, Convert.ToBase64String(wrapped));
         }
+        catch
+        {
+            // Persisting the wrapped key failed (DPAPI hiccup, settings file locked, disk full). The freshly
+            // generated key is still usable in memory this session, so sign with it now and just re-generate
+            // next run — never fail a write because the key couldn't be saved (guardrail: writes always work).
+        }
         finally
         {
             CryptographicOperations.ZeroMemory(fresh);

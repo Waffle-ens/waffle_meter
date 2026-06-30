@@ -90,9 +90,25 @@ public sealed class PropertyHandler
 
     public string AppDirectory() => Path.GetDirectoryName(_settingFilePath)!;
 
-    public string? GetProperty(string key) => EncodeToEucKr(_props.GetProperty(key));
+    // Reads take the same gate as writes: the underlying JavaProperties dictionary isn't thread-safe, and
+    // settings are now written off the UI thread too (e.g. the stats upload queue caching a character grant),
+    // so an unlocked read could race a concurrent write and throw/tear. EncodeToEucKr is pure (no _props
+    // access), so holding the lock across it is brief and deadlock-free.
+    public string? GetProperty(string key)
+    {
+        lock (_gate)
+        {
+            return EncodeToEucKr(_props.GetProperty(key));
+        }
+    }
 
-    public string? GetProperty(string key, string defaultValue) => EncodeToEucKr(_props.GetProperty(key, defaultValue));
+    public string? GetProperty(string key, string defaultValue)
+    {
+        lock (_gate)
+        {
+            return EncodeToEucKr(_props.GetProperty(key, defaultValue));
+        }
+    }
 
     public void SetProperty(string key, string value)
     {
