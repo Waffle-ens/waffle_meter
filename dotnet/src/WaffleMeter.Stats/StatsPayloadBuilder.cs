@@ -179,6 +179,9 @@ public sealed class StatsPayloadBuilder
             IdentityHashVersion: StatsIdentity.IdentityHashVersion,
             ConsentVersion: StatsConsentManager.ConsentVersion,
             UploadedAt: _clock(),
+            // character.public is informational only: the server IGNORES it on /reports (§2.3, fail-closed) —
+            // an upload never makes a character public. Going public happens solely through the consent accept
+            // path with a valid grant (§2.4). We send the current local flag for parity but never rely on it.
             Character: new StatsCharacterPayload(
                 ownIdentityHash,
                 ownNickname,
