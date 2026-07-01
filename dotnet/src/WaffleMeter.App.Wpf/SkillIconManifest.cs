@@ -1,9 +1,10 @@
 namespace WaffleMeter.App.Wpf;
 
 /// <summary>
-/// The 332 skill-icon codes that ship as PNGs (port of generated/skillIconManifest.ts; derived from
-/// the dist/skill-icons filenames). Used by <see cref="JoinIcons.Skill"/> to resolve a skill code to a
-/// bundled icon (with the floor-base fallback from getSkillIconSrc).
+/// The 388 skill-icon codes that ship as PNGs (332 port of generated/skillIconManifest.ts from the
+/// dist/skill-icons filenames + 56 권성/Fighter icons datamined for the 2026-07-01 patch). Used by
+/// <see cref="JoinIcons.Skill"/> to resolve a skill code to a bundled icon (floor-base fallback from
+/// getSkillIconSrc).
 /// </summary>
 internal static class SkillIconManifest
 {
@@ -37,5 +38,11 @@ internal static class SkillIconManifest
         18120000, 18130000, 18140000, 18150000, 18160000, 18170000, 18190000, 18200000, 18210000, 18220000, 18230000, 18240000,
         18250000, 18290000, 18300000, 18330000, 18370000, 18400000, 18410000, 18420000, 18440000, 18700000, 18710000, 18720000,
         18730000, 18740000, 18750000, 18760000, 18770000, 18780000, 18790000, 18800000,
+        // 권성 (Fighter, 2026-07-01 패치) — in-game verified code↔icon mapping (56 icons)
+        19010000, 19020000, 19030000, 19040000, 19050000, 19060000, 19070000, 19080000, 19090000, 19100000, 19110000, 19120000,
+        19130000, 19150000, 19160000, 19170000, 19180000, 19190000, 19200000, 19220000, 19230000, 19240000, 19250000, 19260000,
+        19270000, 19280000, 19290000, 19300000, 19310000, 19320000, 19330000, 19350000, 19360000, 19370000, 19390000, 19400000,
+        19410000, 19420000, 19430000, 19460000, 19510000, 19520000, 19530000, 19540000, 19550000, 19560000, 19710000, 19720000,
+        19730000, 19740000, 19750000, 19760000, 19770000, 19780000, 19790000, 19800000,
     };
 }
