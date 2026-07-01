@@ -128,6 +128,12 @@ public static class DamageParsing
         Add(rawCode);
         Add(rawCode / 10);
         Add(rawCode / 100);
+        // Rank-variant collapse: skill codes are CC XX YYYY (class·skill·rank); the game sends the
+        // equipped rank (e.g. 고결한 기운 17440050), but skills.json often only has the base 17440000.
+        // The candidates above (÷10, ÷100) never reach the base, so an unmapped variant fell through as a
+        // raw code (shown as a number, unmapped on the stats web). Floor to the base skill so it resolves
+        // to the real name/icon. Added LAST so a variant that IS in skills.json still matches itself first.
+        Add((rawCode / 10000) * 10000);
 
         foreach (int c in candidates)
         {
