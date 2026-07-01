@@ -36,8 +36,19 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
     {
     }
 
+    // WINDIVERT_PARAM enum (kernel queue tuning). Defaults are 4096 packets / 2000 ms / 4 MB — small
+    // enough that a zone-entry / login packet burst can overflow the queue before the receive loop drains
+    // it. Load-time SINGLE packets (own-nickname 0x3633, boss-spawn 0x3641) fire inside those bursts and
+    // have no re-send, so a queue overflow intermittently loses self-recognition and first-boss registration.
+    private const int ParamQueueLength = 0;   // packets — max 16384
+    private const int ParamQueueTime = 1;     // ms — max 16000
+    private const int ParamQueueSize = 2;     // bytes — max 33554432 (32 MB)
+
     [DllImport("WinDivert.dll", SetLastError = true, CharSet = CharSet.Ansi)]
     private static extern IntPtr WinDivertOpen(string filter, int layer, short priority, ulong flags);
+
+    [DllImport("WinDivert.dll", SetLastError = true)]
+    private static extern bool WinDivertSetParam(IntPtr handle, int param, ulong value);
 
     [DllImport("WinDivert.dll", SetLastError = true)]
     private static extern bool WinDivertRecv(IntPtr handle, byte[] pPacket, uint packetLen, out uint pRecvLen, ref WinDivertAddress pAddr);
@@ -64,6 +75,13 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
             throw new Win32Exception(Marshal.GetLastWin32Error(),
                 "WinDivertOpen failed — run elevated, ensure WinDivert.dll/.sys are present, and check HVCI/driver policy.");
         }
+
+        // Max out the kernel SNIFF queue so a zone-entry / login burst can't overflow it before RecvLoop
+        // drains it (see the WINDIVERT_PARAM note above). Best-effort — on failure the driver keeps its
+        // defaults, so we don't gate startup on it.
+        WinDivertSetParam(_handle, ParamQueueLength, 16384);
+        WinDivertSetParam(_handle, ParamQueueTime, 16000);
+        WinDivertSetParam(_handle, ParamQueueSize, 33554432);
 
         _running = true;
         _thread = new Thread(RecvLoop) { IsBackground = true, Name = "windivert-capture" };
