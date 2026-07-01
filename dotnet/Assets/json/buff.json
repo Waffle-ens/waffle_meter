@@ -43126,5 +43126,725 @@
     "icon_view": false,
     "summary": "치명타 적중 시 일정 확률로 추가 피해",
     "effect": "치명타 적중 시 50%의 확률로 추가 피해"
+  },
+  "190000002": {
+    "name": "연환권 사용가능",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "연환권 사용가능",
+    "effect": "연환권 사용가능"
+  },
+  "190000003": {
+    "name": "연환권 사용가능",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "연환권 사용가능",
+    "effect": "연환권 사용가능"
+  },
+  "190000004": {
+    "name": "연속 공격",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "연속 공격",
+    "effect": "연속 공격"
+  },
+  "190000006": {
+    "name": "연속 공격 10",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "연속 공격",
+    "effect": "연속 공격"
+  },
+  "190000007": {
+    "name": "연속 공격 20",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "연속 공격",
+    "effect": "연속 공격"
+  },
+  "190000008": {
+    "name": "연속 공격 30",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "연속 공격",
+    "effect": "연속 공격"
+  },
+  "190000009": {
+    "name": "연속 공격 40",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "연속 공격",
+    "effect": "연속 공격"
+  },
+  "190000010": {
+    "name": "연속 공격 50",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "연속 공격",
+    "effect": "연속 공격"
+  },
+  "190100571": {
+    "name": "연격",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "치명타 피해 증폭 증가",
+    "effect": "치명타 피해 증폭 <desc_point>{abe:1901005711:value02:divide100}%</> 증가, 최대 5중첩 가능"
+  },
+  "190400101": {
+    "name": "비각",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "막기 증가",
+    "effect": "막기 {abe:1904001011:value02} 증가"
+  },
+  "191300001": {
+    "name": "폭주",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가"
+  },
+  "191300101": {
+    "name": "폭주",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가"
+  },
+  "191300201": {
+    "name": "폭주",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
+  },
+  "191300301": {
+    "name": "폭주",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+  },
+  "191300401": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+  },
+  "191300501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191301201": {
+    "name": "폭주",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
+  },
+  "191301301": {
+    "name": "폭주",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+  },
+  "191301401": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+  },
+  "191301501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191302301": {
+    "name": "폭주",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+  },
+  "191302401": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+  },
+  "191302501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191303401": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+  },
+  "191303501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191304501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191312301": {
+    "name": "폭주",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+  },
+  "191312401": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+  },
+  "191312501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191313401": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+  },
+  "191313501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191314501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191323401": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+  },
+  "191323501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191324501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "191334501": {
+    "name": "폭주",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <chat_combat>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100}% 감소"
+  },
+  "190700001": {
+    "name": "질풍격-환영각 사용가능 버프",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "질풍격-환영각 사용가능 버프",
+    "effect": "질풍격-환영각 사용가능 버프"
+  },
+  "190700102": {
+    "name": "질풍격-회전각 사용가능 버프",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "질풍격-환영각 사용가능 버프",
+    "effect": "질풍격-환영각 사용가능 버프"
+  },
+  "190700411": {
+    "name": "질풍격",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전방 피해 증폭 증가",
+    "effect": "전방 피해 증폭 {abe:1907004111:value02:divide100}% 증가"
+  },
+  "190800006": {
+    "name": "질풍격[폭주]",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "질풍격[폭주]",
+    "effect": "질풍격[폭주]"
+  },
+  "190700201": {
+    "name": "질풍격",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "상태이상 저항 감소",
+    "effect": "상태이상 저항 {abe:1907002011:value02:divide100abs}% 감소"
+  },
+  "190900311": {
+    "name": "당기기",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "당기기",
+    "effect": "당겨짐 (시전자 앞 0m)"
+  },
+  "191900501": {
+    "name": "폭렬권 [지연 피해]",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "폭렬권 지연 피해",
+    "effect": "3초 후 지연 피해"
+  },
+  "192700001": {
+    "name": "선풍각",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "밀려남",
+    "effect": "밀려남"
+  },
+  "192800001": {
+    "name": "격노",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "피해 증폭 증가",
+    "effect": "PVE 피해 증폭 {abe:1928000011:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1928000012:value02:divide100}% 증가"
+  },
+  "192800101": {
+    "name": "격노",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "피해 증폭 증가, 이동속도 증가",
+    "effect": "PVE 피해 증폭 {abe:1928000011:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1928000012:value02:divide100}% 증가\n이동속도 {abe:1928001013:value02:divide100}% 증가"
+  },
+  "192800201": {
+    "name": "격노",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "피해 증폭 증가, 이동속도 증가, 치명타 증가",
+    "effect": "PVE 피해 증폭 {abe:1928000011:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1928000012:value02:divide100}% 증가\n이동속도 {abe:1928001013:value02:divide100}% 증가\n치명타 {abe:1928002014:value02} 증가"
+  },
+  "192800301": {
+    "name": "격노",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "피해 증폭 증가, 이동속도 증가, 치명타 증가, [폭주 증폭] 효과 1.5배",
+    "effect": "PVE 피해 증폭 {abe:1928000011:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1928000012:value02:divide100}% 증가\n이동속도 {abe:1928001013:value02:divide100}% 증가\n치명타 {abe:1928002014:value02} 증가\n[폭주 증폭] 효과 1.5배"
+  },
+  "192800401": {
+    "name": "격노",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "피해 증폭 증가, 이동속도 증가, 치명타 증가, [폭주 증폭] 효과 1.5배",
+    "effect": "PVE 피해 증폭 {abe:1928000011:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1928000012:value02:divide100}% 증가\n이동속도 {abe:1928001013:value02:divide100}% 증가\n치명타 {abe:1928002014:value02} 증가\n[폭주 증폭] 효과 1.5배\n치명타 피해 증폭 {abe:1928004015:value02:divide100}% 증가"
+  },
+  "192900101": {
+    "name": "공파참",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "명중 증가",
+    "effect": "명중 {abe:1929001011:value02} 증가"
+  },
+  "192900301": {
+    "name": "공파참",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "명중, PVE 피해 증폭, PVP 피해 증폭 증가",
+    "effect": "명중 {abe:1929001011:value02} 증가\nPVE 피해 증폭 {abe:1929003012:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1929003013:value02:divide100}% 증가"
+  },
+  "193100001": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "8회 중첩 시 폭발 피해",
+    "effect": "8회 중첩 시 폭발 피해"
+  },
+  "193100002": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "8회 중첩 시 폭발 피해",
+    "effect": "8회 중첩 시 폭발 피해"
+  },
+  "193100201": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "5회 중첩 시 폭발 피해",
+    "effect": "5회 중첩 시 폭발 피해"
+  },
+  "193100202": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "5회 중첩 시 폭발 피해",
+    "effect": "5회 중첩 시 폭발 피해"
+  },
+  "193100301": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "5회 중첩 시 폭발 피해, [정면 돌파] 추가 피해 1.5배",
+    "effect": "5회 중첩 시 폭발 피해\n[정면 돌파] 추가 피해 1.5배"
+  },
+  "193100302": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "5회 중첩 시 폭발 피해",
+    "effect": "5회 중첩 시 폭발 피해"
+  },
+  "193100401": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "5회 중첩 시 폭발 피해, [정면 돌파] 추가 피해 1.5배, 피해량 증가",
+    "effect": "5회 중첩 시 폭발 피해\n[정면 돌파] 추가 피해 1.5배\n폭발 피해량 증가"
+  },
+  "193100402": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "5회 중첩 시 폭발 피해",
+    "effect": "5회 중첩 시 폭발 피해"
+  },
+  "193100501": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "5회 중첩 시 폭발 피해, [정면 돌파] 추가 피해 1.5배, 피해량 증가, 2회 폭발",
+    "effect": "5회 중첩 시 폭발 피해\n[정면 돌파] 추가 피해 1.5배\n폭발 피해량 증가\n2회 폭발"
+  },
+  "193100502": {
+    "name": "파쇄",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "5회 중첩 시 폭발 피해",
+    "effect": "5회 중첩 시 폭발 피해"
+  },
+  "193200001": {
+    "name": "혈류 차단",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "받는 치유량 감소",
+    "effect": "받는 치유량 {abe:1932000011:value02:divide100}% 감소"
+  },
+  "193300001": {
+    "name": "분신",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "확률로 분신 소환 공격",
+    "effect": "15% 확률로 분신 소환 공격"
+  },
+  "193300101": {
+    "name": "분신",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "확률로 분신 소환 공격",
+    "effect": "25% 확률로 분신 소환 공격"
+  },
+  "193300201": {
+    "name": "분신",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "확률로 분신 소환 공격, 강타 증가",
+    "effect": "25% 확률로 분신 소환 공격\n강타 7% 증가"
+  },
+  "193300301": {
+    "name": "분신",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "확률로 분신 소환 공격, 강타 증가, [위세] 효과 1.5배 증가",
+    "effect": "25% 확률로 분신 소환 공격\n강타 7% 증가\n[위세] 효과 1.5배 증가"
+  },
+  "193300501": {
+    "name": "분신",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "확률로 분신 소환 공격, 강타 증가, [위세] 효과 1.5배 증가",
+    "effect": "25% 확률로 분신 소환 공격\n강타 7% 증가\n[위세] 효과 1.5배 증가"
+  },
+  "193400001": {
+    "name": "순환 [공통]",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "순환 [공통]",
+    "effect": "순환 [공통]"
+  },
+  "193400002": {
+    "name": "순환 [일반]",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "순환 [일반]",
+    "effect": "순환 [일반]"
+  },
+  "193400003": {
+    "name": "순환 [폭주]",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "순환 [폭주]",
+    "effect": "순환 [폭주]"
+  },
+  "193500001": {
+    "name": "집중 막기",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "막기 피해 감소 및 확정 무기 막기",
+    "effect": "막기 피해 100% 감소\n확정 무기 막기"
+  },
+  "193600001": {
+    "name": "저지 불가",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "생명력 10% 이하 불사",
+    "effect": "생명력 10% 이하 불사"
+  },
+  "193600101": {
+    "name": "저지 불가",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "생명력 10% 이하 불사, 상태이상 저항 증가",
+    "effect": "생명력 10% 이하 불사\n상태이상 저항 {abe:1936001012:value02:divide100}% 증가"
+  },
+  "193600201": {
+    "name": "저지 불가",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "생명력 10% 이하 불사, 상태이상 저항 증가, 효과 종료시 생명력 회복",
+    "effect": "생명력 10% 이하 불사\n상태이상 저항 {abe:1936001012:value02:divide100}% 증가\n효과 종료시 최대 생명력의 10% 회복"
+  },
+  "193600301": {
+    "name": "저지 불가",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "생명력 20% 이하 불사, 상태이상 저항 증가, 효과 종료시 생명력 회복",
+    "effect": "생명력 20% 이하 불사\n상태이상 저항 {abe:1936001012:value02:divide100}% 증가\n효과 종료시 최대 생명력의 10% 회복"
+  },
+  "193600401": {
+    "name": "저지 불가",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "생명력 20% 이하 불사, 상태이상 저항 증가, 효과 종료시 생명력 회복, 상태이상 면역",
+    "effect": "생명력 20% 이하 불사\n상태이상 저항 {abe:1936001012:value02:divide100}% 증가\n효과 종료시 최대 생명력의 10% 회복\n상태이상 면역"
+  },
+  "193900001": {
+    "name": "무력화 [공통]",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "무력화 [공통]",
+    "effect": "무력화 [공통]"
+  },
+  "194000002": {
+    "name": "영역 소환",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "[역행] 사용 시 영역으로 복귀",
+    "effect": "[역행] 사용 시 영역으로 복귀"
+  },
+  "194000004": {
+    "name": "영역 소환",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "[역행] 사용 시 영역으로 복귀",
+    "effect": "[역행] 사용 시 영역으로 복귀"
+  },
+  "194000006": {
+    "name": "영역 소환",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "[역행] 사용 시 영역으로 복귀",
+    "effect": "[역행] 사용 시 영역으로 복귀"
+  },
+  "197100001": {
+    "name": "전선 유지",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "막기 증가, 막기 성공 시 생명력 회복",
+    "effect": "막기 {abe:1971000011:value02} 증가\n막기 성공 시 생명력 <chat_combat>{se_dmg:1971000111:SkillUIHPHealMin}~{se_dmg:1971000111:SkillUIHPHealMax}</>회복"
+  },
+  "197200001": {
+    "name": "정면 돌파",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "명중 증가, 치명타 증가, 전방 공격 시 확률로 추가 피해",
+    "effect": "명중 {abe:1972000012:value02} 증가\n치명타 <chat_combat>{abe:1972000013:value02}</> 증가\n전방 공격 시 {abe:1972000011:value02:divide100}%의 확률로 추가 피해"
+  },
+  "197300001": {
+    "name": "정신 전환",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "최대 정신력을 최대 생명력으로 전환, 정신력 자연 회복을 생명력 자연 회복으로 전환",
+    "effect": "최대 정신력의 <chat_combat>{abe:1973000011:value02:divide100}%</>를 최대 생명력으로 전환\n정신력 자연 회복량의 <chat_combat>{abe:1973000012:value02:divide100}%</>를 생명력 자연 회복으로 전환"
+  },
+  "197400001": {
+    "name": "위세",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "전방 피해 증폭, PVE 피해 증폭, PVP 피해 증폭 증가",
+    "effect": "전방 피해 증폭 <chat_combat>{abe:1974000011:value02:divide100}%</> 증가\nPVE 피해 증폭 <chat_combat>{abe:1974000012:value02:divide100}%</> 증가\nPVP 피해 증폭이 <chat_combat>{abe:1974000013:value02:divide100}%</> 증가"
+  },
+  "197500001": {
+    "name": "폭주 증폭",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "[일반 상태] 공격력, 방어력 증가, [폭주 상태] 공격력, 방어력 증가",
+    "effect": "[일반 상태] 공격력 <chat_combat>{abe:1975000012:value02:divide100}%</> 증가\n[일반 상태] 방어력 <chat_combat>{abe:1975000011:value02:divide100}%</> 증가\n[폭주 상태] 공격력 <chat_combat>{abe:1975000013:value02:divide100}%</> 증가\n[폭주 상태] 방어력 <chat_combat>{abe:1975000014:value02:divide100}%</> 증가"
+  },
+  "197600001": {
+    "name": "충격 적중",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "충격계 적중, 강타 증가",
+    "effect": "충격계 적중 <chat_combat>{abe:1976000011:value02:divide100}%</> 증가\n강타 <chat_combat>{abe:1976000012:value02:divide100}%</> 증가"
+  },
+  "197700001": {
+    "name": "거대한 분노",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "최대 분노 증가, [폭주 상태] 분노 소모량 감소",
+    "effect": "최대 분노 <chat_combat>{abe:1977000011:value02}</> 증가\n[폭주 상태] 중 소모되는 분노량 감소"
+  },
+  "197800001": {
+    "name": "충격타",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "대상이 충격계 또는 그로기 상태일 때 추가 피해",
+    "effect": "대상이 충격계 또는 그로기 상태일 때 추가 피해"
+  },
+  "197900001": {
+    "name": "회생의 계약",
+    "type": "DeBuff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "상태이상 저항 증가, 행동 불가 중 피격 시 상태이상 저항 증가 중첩, 생명력 10% 이하일 때 최대 생명력의 일정 비율만큼 회복",
+    "effect": "상태이상 저항 <chat_combat>{abe:1979000012:value02:divide100}%</> 증가\n기절, 넘어짐, 공중 속박, 빙결, 공포 상태에서 피격 시 상태이상 저항 {abe:1979000021:value02:divide100}% 증가 (최대 10회 중첩)\n생명력이 10% 이하일 때 최대 생명력의 <chat_combat>{se:1979000111:effect_value02:divide100}%</> 즉시 회복"
+  },
+  "198000001": {
+    "name": "우세",
+    "type": "Buff",
+    "icon": "",
+    "icon_view": true,
+    "summary": "생명력이 50% 이상인 대상에게 공격을 적중시킬 때마다 추가 피해",
+    "effect": "생명력이 50% 이상인 대상에게 공격을 적중시킬 때마다 추가 피해"
   }
 }

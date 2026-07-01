@@ -269,7 +269,7 @@ public sealed record DetailModel(
     }
 
     private static DetailBuffRow ToBuffRow(OperatingData b) =>
-        new(b.Code, b.Name, Math.Clamp(b.OperatingRate, 0.0, 100.0), CleanText(b.Effect ?? b.Summary));
+        new(b.Code, b.Name, Math.Clamp(b.OperatingRate, 0.0, 100.0), ReadableBuffText(b.Effect, b.Summary));
 
     private static int Normalize(int code) =>
         code is >= 11_000_000 and <= 19_999_999 ? code / 10_000 * 10_000 : code;
@@ -277,6 +277,27 @@ public sealed record DetailModel(
     private static int PctInt(int num, int den) =>
         den > 0 ? (int)Math.Round((double)num / den * 100, MidpointRounding.AwayFromZero) : 0;
 
-    private static string CleanText(string? text) =>
-        string.IsNullOrWhiteSpace(text) ? string.Empty : text.Trim();
+    // The datamined buff `effect` is the most informative (has the actual +N% values) but frequently
+    // carries game markup — <desc_point>/<chat_combat> tags wrapping {abe:..}/{se:..} value references
+    // that only the client can resolve. The `summary` is the human-readable version ("이동 속도 증가").
+    // So: prefer a markup-free effect (keeps the numbers), else the clean summary (clear intent), else
+    // the effect with markup stripped. Makes every buff/debuff tooltip readable — old and new alike.
+    private static string ReadableBuffText(string? effect, string? summary)
+    {
+        if (!string.IsNullOrWhiteSpace(effect) && !HasMarkup(effect)) return effect.Trim();
+        if (!string.IsNullOrWhiteSpace(summary) && !HasMarkup(summary)) return summary.Trim();
+        return StripMarkup(effect ?? summary);
+    }
+
+    private static bool HasMarkup(string s) => s.Contains('<') || s.Contains('{');
+
+    private static string StripMarkup(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        string s = System.Text.RegularExpressions.Regex.Replace(text, "<[^>]*>", "");       // <desc_point>, <chat_combat>, </>
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\{[^}]*\}\s*%?", "");          // {abe:..}/{se:..} value refs (+ trailing %)
+        s = System.Text.RegularExpressions.Regex.Replace(s, "[ \t]{2,}", " ");
+        s = System.Text.RegularExpressions.Regex.Replace(s, " +(?=[,.\n])", "");             // stray space before punctuation
+        return s.Trim();
+    }
 }
