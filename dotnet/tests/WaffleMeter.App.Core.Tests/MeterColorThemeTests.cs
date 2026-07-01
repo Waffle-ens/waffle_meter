@@ -19,7 +19,8 @@ public sealed class MeterColorThemeTests : IDisposable
         "\"meterStatPercent\":\"#8ee6cf\",\"bossRightValue\":\"#fecdd3\",\"combatTimeColor\":\"#cbd5e1\"," +
         "\"barColorMode\":\"self\",\"jobBarGladiator\":\"#22d3ee\",\"jobBarTemplar\":\"#60a5fa\"," +
         "\"jobBarRanger\":\"#34d399\",\"jobBarAssassin\":\"#84cc16\",\"jobBarSorcerer\":\"#a78bfa\"," +
-        "\"jobBarCleric\":\"#f59e0b\",\"jobBarElementalist\":\"#d946ef\",\"jobBarChanter\":\"#f97316\"}";
+        "\"jobBarCleric\":\"#f59e0b\",\"jobBarElementalist\":\"#d946ef\",\"jobBarChanter\":\"#f97316\"," +
+        "\"jobBarFighter\":\"#f43f5e\"}";
 
     public MeterColorThemeTests()
     {

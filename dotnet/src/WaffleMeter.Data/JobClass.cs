@@ -14,6 +14,7 @@ public enum JobClass
     CLERIC,
     ELEMENTALIST,
     CHANTER,
+    FIGHTER,
 }
 
 public static class JobClassInfo
@@ -28,6 +29,7 @@ public static class JobClassInfo
         JobClass.CLERIC => "치유성",
         JobClass.ELEMENTALIST => "정령성",
         JobClass.CHANTER => "호법성",
+        JobClass.FIGHTER => "권성",
         _ => "",
     };
 
@@ -42,6 +44,7 @@ public static class JobClassInfo
         >= 16000000 and <= 16999999 => JobClass.ELEMENTALIST,
         >= 17000000 and <= 17999999 => JobClass.CLERIC,
         >= 18000000 and <= 18999999 => JobClass.CHANTER,
+        >= 19000000 and <= 19999999 => JobClass.FIGHTER,
         _ => null,
     };
 
@@ -56,6 +59,7 @@ public static class JobClassInfo
         25 or 26 or 27 or 28 => JobClass.SORCERER,
         5 or 6 or 7 or 8 => JobClass.GLADIATOR,
         9 or 10 or 11 or 12 => JobClass.TEMPLAR,
+        45 or 46 or 47 or 48 => JobClass.FIGHTER,
         _ => null,
     };
 
@@ -70,6 +74,7 @@ public static class JobClassInfo
         JobClass.CLERIC => 17010000,
         JobClass.ELEMENTALIST => 16010000,
         JobClass.CHANTER => 18010000,
+        JobClass.FIGHTER => 19010000,
         _ => 0,
     };
 }

@@ -44,6 +44,7 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
     public const string DefaultJobBarCleric = "#f59e0b";       // 치유성 amber
     public const string DefaultJobBarElementalist = "#d946ef"; // 정령성 fuchsia
     public const string DefaultJobBarChanter = "#f97316";      // 호법성 orange
+    public const string DefaultJobBarFighter = "#f43f5e";      // 권성 rose-red
 
     private readonly PropertyHandler _props;
     private bool _loading;
@@ -66,6 +67,7 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
     private string _barColorMode = null!;
     private string _jobBarGladiator = null!, _jobBarTemplar = null!, _jobBarRanger = null!, _jobBarAssassin = null!;
     private string _jobBarSorcerer = null!, _jobBarCleric = null!, _jobBarElementalist = null!, _jobBarChanter = null!;
+    private string _jobBarFighter = null!;
 
     public string UserBarFrom { get => _userBarFrom; set => Set(ref _userBarFrom, value); }
     public string UserBarTo { get => _userBarTo; set => Set(ref _userBarTo, value); }
@@ -96,6 +98,7 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
     public string JobBarCleric { get => _jobBarCleric; set => Set(ref _jobBarCleric, value); }
     public string JobBarElementalist { get => _jobBarElementalist; set => Set(ref _jobBarElementalist, value); }
     public string JobBarChanter { get => _jobBarChanter; set => Set(ref _jobBarChanter, value); }
+    public string JobBarFighter { get => _jobBarFighter; set => Set(ref _jobBarFighter, value); }
 
     /// <summary>The configured bar color (hex/rgba) for a job in 직업 강조 mode.</summary>
     public string JobBar(JobClass job) => job switch
@@ -108,7 +111,8 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
         JobClass.CLERIC => _jobBarCleric,
         JobClass.ELEMENTALIST => _jobBarElementalist,
         JobClass.CHANTER => _jobBarChanter,
-        _ => DefaultServerDefaultColor, // all 8 enum values are covered; neutral white for safety
+        JobClass.FIGHTER => _jobBarFighter,
+        _ => DefaultServerDefaultColor, // neutral white fallback for any unmapped job
     };
 
     /// <summary>Raised on any color change (and reset) so views rebuild brushes.</summary>
@@ -147,6 +151,7 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
         _jobBarCleric = DefaultJobBarCleric;
         _jobBarElementalist = DefaultJobBarElementalist;
         _jobBarChanter = DefaultJobBarChanter;
+        _jobBarFighter = DefaultJobBarFighter;
     }
 
     private void Load()
@@ -188,6 +193,7 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
             if (dto.JobBarCleric is { }) { _jobBarCleric = dto.JobBarCleric; }
             if (dto.JobBarElementalist is { }) { _jobBarElementalist = dto.JobBarElementalist; }
             if (dto.JobBarChanter is { }) { _jobBarChanter = dto.JobBarChanter; }
+            if (dto.JobBarFighter is { }) { _jobBarFighter = dto.JobBarFighter; }
         }
         catch
         {
@@ -221,6 +227,7 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
             JobBarCleric = _jobBarCleric,
             JobBarElementalist = _jobBarElementalist,
             JobBarChanter = _jobBarChanter,
+            JobBarFighter = _jobBarFighter,
         };
         _props.SetProperty("theme", JsonSerializer.Serialize(dto));
     }
@@ -278,5 +285,6 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
         [JsonPropertyName("jobBarCleric")] public string? JobBarCleric { get; set; }
         [JsonPropertyName("jobBarElementalist")] public string? JobBarElementalist { get; set; }
         [JsonPropertyName("jobBarChanter")] public string? JobBarChanter { get; set; }
+        [JsonPropertyName("jobBarFighter")] public string? JobBarFighter { get; set; }
     }
 }

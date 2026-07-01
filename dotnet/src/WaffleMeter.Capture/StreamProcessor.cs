@@ -699,10 +699,11 @@ public sealed class StreamProcessor
     // handle, so that test dropped them to slot 0 (production captures: it resolved only ~54% of members, so an
     // 8-인 공대 never reached a full 1-8 set and the stats web's sub-party split stayed off). Anchoring on the
     // marker instead recovers every member; the byte-scan has already validated the server+name at serverOffset.
+    // 2026-07-01 patch raised party 4→5 and raid 8→10 (two parties of 5), so slots now span 1-10.
     private static int MemberSlot(byte[] packet, int serverOffset) =>
         serverOffset >= 8
         && packet[serverOffset - 8] is 0x7A or 0x7E or 0x3A
-        && packet[serverOffset - 7] is >= 1 and <= 8
+        && packet[serverOffset - 7] is >= 1 and <= 10
             ? packet[serverOffset - 7]
             : 0;
 
@@ -726,23 +727,34 @@ public sealed class StreamProcessor
         offset += userInfo.Length;
         if (offset >= packet.Length) return;
 
-        if (packet.Length < offset + 10) return;
-        int spliterIdx = FindArrayIndex(packet[offset..(offset + 10)], 0x07);
-        if (spliterIdx == -1) return;
-        offset += spliterIdx + 1;
-
-        VarIntOutput nameLengthInfo = PacketPrimitives.ReadVarInt(packet, offset);
-        offset += nameLengthInfo.Length;
-        if (nameLengthInfo.Length > 71) return;
-        if (offset >= packet.Length) return;
+        // Locate the own nickname. The pre-2026-07-01 own-load packet placed a 0x07 spliter in the 10 bytes
+        // after the uid, immediately before the [varint len][nickname]. The 2026-07-01 patch DROPPED the
+        // 0x07 spliter (a fixed 5-byte prefix now precedes the name length), so anchoring on 0x07 returns -1
+        // and the own character is never recognized (root cause of "내 캐릭터를 인식 못함"). Probe the next few
+        // offsets for a valid [varint len][UTF-8 nickname] instead — the same robust approach as
+        // SearchOtherNickname — which handles both the old (0x07) and new (fixed-prefix) layouts.
+        string? nickname = null;
+        int nameEndOffset = -1;
+        for (int probe = 0; probe < 12; probe++)
+        {
+            int p = offset + probe;
+            if (p >= packet.Length) break;
+            VarIntOutput nl = PacketPrimitives.ReadVarInt(packet, p);
+            if (nl.Length is <= 0 or > 71) continue;
+            if (nl.Value is < 1 or > 71) continue;
+            int q = p + nl.Length;
+            if (q + nl.Value > packet.Length) continue;
+            string candidate = Encoding.UTF8.GetString(packet[q..(q + nl.Value)]);
+            if (!IsValidNickname(candidate)) continue;
+            nickname = candidate;
+            nameEndOffset = q + nl.Value;
+            break;
+        }
+        if (nickname is null || nameEndOffset < 0) return;
 
         int server = -1;
         int job = -1;
-        byte[] np = packet[offset..(offset + nameLengthInfo.Value)];
-        string nickname = Encoding.UTF8.GetString(np);
-        if (!IsValidNickname(nickname)) return;
-
-        offset += nameLengthInfo.Value;
+        offset = nameEndOffset;
         if (packet.Length >= offset + 2)
         {
             server = PacketPrimitives.ParseUInt16Le(packet, offset);

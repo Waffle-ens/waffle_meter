@@ -42111,6 +42111,30 @@
     "summary": "지속 피해 상태, 강타 저항 감소, 공격력 감소, 방어력 감소",
     "effect": "강타 저항 <desc_point>{abe:1740002012:value02:divide100abs}%</> 감소\n공격력 <desc_point>{abe:1740003014:value02:divide100abs}%</> 감소\n방어력 <desc_point>{abe:1740003015:value02:divide100abs}%</> 감소\n지속 피해"
   },
+  "174000271": {
+    "name": "대지의 축복",
+    "type": "Buff",
+    "icon": "Skill/ICON_CL_SKILL_040",
+    "icon_view": true,
+    "summary": "강타 증가",
+    "effect": "강타 증가"
+  },
+  "174000371": {
+    "name": "대지의 축복",
+    "type": "Buff",
+    "icon": "Skill/ICON_CL_SKILL_040",
+    "icon_view": true,
+    "summary": "강타 증가, 공격력 증가, 방어력 증가",
+    "effect": "강타 증가\n공격력 증가\n방어력 증가"
+  },
+  "174000571": {
+    "name": "대지의 축복",
+    "type": "Buff",
+    "icon": "Skill/ICON_CL_SKILL_040",
+    "icon_view": true,
+    "summary": "강타 증가, 공격력 증가, 방어력 증가, 추가 피해 부여",
+    "effect": "강타 증가\n공격력 증가\n방어력 증가\n공격 적중 시 추가 피해"
+  },
   "174100001": {
     "name": "보호의 빛",
     "type": "Buff",

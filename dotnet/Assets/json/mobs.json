@@ -32010,5 +32010,215 @@
     "code": 2980259,
     "name": "망령 지젤",
     "boss": true
+  },
+  {
+    "code": 2300282,
+    "name": "이격의라후",
+    "boss": true
+  },
+  {
+    "code": 2300283,
+    "name": "심연의날개케투",
+    "boss": true
+  },
+  {
+    "code": 2300284,
+    "name": "중상심연융합로",
+    "boss": true
+  },
+  {
+    "code": 2300290,
+    "name": "영겁의루드라",
+    "boss": true
+  },
+  {
+    "code": 2300473,
+    "name": "어미잃은 변견 카푸",
+    "boss": true
+  },
+  {
+    "code": 2300474,
+    "name": "대강령술사 다칸",
+    "boss": true
+  },
+  {
+    "code": 2300475,
+    "name": "돌아온 추방자 가르가움",
+    "boss": true
+  },
+  {
+    "code": 2300491,
+    "name": "어미잃은 변견 카푸",
+    "boss": true
+  },
+  {
+    "code": 2300492,
+    "name": "대강령술사 다칸",
+    "boss": true
+  },
+  {
+    "code": 2300493,
+    "name": "돌아온 추방자 가르가움",
+    "boss": true
+  },
+  {
+    "code": 2300527,
+    "name": "어미잃은 변견 카푸",
+    "boss": true
+  },
+  {
+    "code": 2300528,
+    "name": "대강령술사 다칸",
+    "boss": true
+  },
+  {
+    "code": 2300529,
+    "name": "돌아온 추방자 가르가움",
+    "boss": true
+  },
+  {
+    "code": 2300544,
+    "name": "어미잃은 변견 카푸",
+    "boss": true
+  },
+  {
+    "code": 2300545,
+    "name": "대강령술사 다칸",
+    "boss": true
+  },
+  {
+    "code": 2300546,
+    "name": "돌아온 추방자 가르가움",
+    "boss": true
+  },
+  {
+    "code": 2301601,
+    "name": "의지의 투르겐",
+    "boss": true
+  },
+  {
+    "code": 2301602,
+    "name": "금기의 마수 그리오사",
+    "boss": true
+  },
+  {
+    "code": 2301603,
+    "name": "바실루스",
+    "boss": true
+  },
+  {
+    "code": 2301701,
+    "name": "의지의 투르겐",
+    "boss": true
+  },
+  {
+    "code": 2301702,
+    "name": "금기의 마수 그리오사",
+    "boss": true
+  },
+  {
+    "code": 2301703,
+    "name": "바실루스",
+    "boss": true
+  },
+  {
+    "code": 2301721,
+    "name": "의지의 투르겐",
+    "boss": true
+  },
+  {
+    "code": 2301722,
+    "name": "금기의 마수 그리오사",
+    "boss": true
+  },
+  {
+    "code": 2301723,
+    "name": "바실루스",
+    "boss": true
+  },
+  {
+    "code": 2311101,
+    "name": "에몬",
+    "boss": true
+  },
+  {
+    "code": 2311102,
+    "name": "파이디온",
+    "boss": true
+  },
+  {
+    "code": 2311103,
+    "name": "엘라이드",
+    "boss": true
+  },
+  {
+    "code": 2702359,
+    "name": "엘로엔",
+    "boss": true
+  },
+  {
+    "code": 2702461,
+    "name": "칼릭스",
+    "boss": true
+  },
+  {
+    "code": 2702462,
+    "name": "칼릭스",
+    "boss": true
+  },
+  {
+    "code": 2702475,
+    "name": "칼릭스",
+    "boss": true
+  },
+  {
+    "code": 2702488,
+    "name": "칼릭스",
+    "boss": true
+  },
+  {
+    "code": 2702501,
+    "name": "칼릭스",
+    "boss": true
+  },
+  {
+    "code": 2702611,
+    "name": "칼릭스",
+    "boss": true
+  },
+  {
+    "code": 2702623,
+    "name": "칼릭스",
+    "boss": true
+  },
+  {
+    "code": 2702648,
+    "name": "엘로엔",
+    "boss": true
+  },
+  {
+    "code": 2702659,
+    "name": "엘로엔",
+    "boss": true
+  },
+  {
+    "code": 2702670,
+    "name": "엘로엔",
+    "boss": true
+  },
+  {
+    "code": 2702681,
+    "name": "엘로엔",
+    "boss": true
+  },
+  {
+    "code": 2702692,
+    "name": "엘로엔",
+    "boss": true
+  },
+  {
+    "code": 2702703,
+    "name": "엘로엔",
+    "boss": true
   }
 ]

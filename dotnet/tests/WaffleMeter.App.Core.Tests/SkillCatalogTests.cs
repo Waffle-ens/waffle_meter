@@ -43,7 +43,7 @@ public class SkillCatalogTests
     [Fact]
     public void GroupedByJob_splits_normal_and_stigma()
     {
-        Assert.Equal(8, SkillCatalog.GroupedByJob.Count);
+        Assert.Equal(9, SkillCatalog.GroupedByJob.Count);
         GroupedJobSkills sorc = SkillCatalog.GroupedByJob.First(g => g.Job == "마도성");
         Assert.Contains(15210000, sorc.NormalSkills);  // 불꽃 화살 (normal)
         Assert.Contains(15360000, sorc.StigmaSkills);   // 신성 폭발 (stigma)

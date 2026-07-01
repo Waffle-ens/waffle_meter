@@ -17,6 +17,7 @@ public static class SkillCatalog
     {
         ["검성"] = 11, ["수호성"] = 12, ["살성"] = 13, ["궁성"] = 14,
         ["마도성"] = 15, ["정령성"] = 16, ["치유성"] = 17, ["호법성"] = 18,
+        ["권성"] = 19,
     };
 
     public static readonly IReadOnlyList<SkillMeta> Skills = new SkillMeta[]
