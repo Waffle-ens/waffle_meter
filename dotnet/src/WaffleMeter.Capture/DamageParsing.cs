@@ -83,7 +83,13 @@ public static class DamageParsing
 
         if (packet.Length >= 10)
         {
-            int flagByte = packet[0] & 0xFF;
+            // The 2026-07-01 patch rotated the special-flag byte RIGHT by 1 bit (BACK 0x01→0x80,
+            // PERFECT 0x08→0x04, DOUBLE 0x10→0x08, …). Verified against pre/post captures: every observed
+            // bit-combo maps by exactly a 1-bit circular rotation. Rotate LEFT by 1 to restore the original
+            // bit layout so the flag masks below stay meaningful. (BACK had moved onto 0x80, whose decode is
+            // commented out, which is why back-attacks read as 0% after the patch.)
+            int raw = packet[0] & 0xFF;
+            int flagByte = ((raw << 1) | (raw >> 7)) & 0xFF;
             if ((flagByte & 0x01) != 0) flags.Add(SpecialDamage.BACK);
             if ((flagByte & 0x02) != 0) flags.Add(SpecialDamage.UNKNOWN);
             if ((flagByte & 0x04) != 0) flags.Add(SpecialDamage.PARRY);

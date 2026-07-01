@@ -21,22 +21,33 @@ public class DamageParsingTests
         Assert.Empty(DamageParsing.ParseSpecialDamageFlags(new byte[9]));
     }
 
+    // NOTE: the 2026-07-01 patch rotated the on-wire flag byte RIGHT by 1 bit, so these inputs are the
+    // post-patch RAW bytes; the parser rotates LEFT by 1 before applying the masks. (raw = decoded ror 1.)
+
     [Fact]
     public void Special_flags_decode_individual_bits_when_size_at_least_10()
     {
         var p = new byte[10];
-        p[0] = 0x04; // PARRY
+        p[0] = 0x80; // ror(BACK 0x01) — back-attack; regressed to 0% before the rotate fix
+        Assert.Equal(new[] { SpecialDamage.BACK }, DamageParsing.ParseSpecialDamageFlags(p));
+
+        p[0] = 0x02; // ror(PARRY 0x04)
         Assert.Equal(new[] { SpecialDamage.PARRY }, DamageParsing.ParseSpecialDamageFlags(p));
 
-        p[0] = 0x08; // PERFECT
+        p[0] = 0x04; // ror(PERFECT 0x08)
         Assert.Equal(new[] { SpecialDamage.PERFECT }, DamageParsing.ParseSpecialDamageFlags(p));
+
+        p[0] = 0x08; // ror(DOUBLE 0x10) — 강타; regressed to 0% before the rotate fix
+        Assert.Equal(new[] { SpecialDamage.DOUBLE }, DamageParsing.ParseSpecialDamageFlags(p));
     }
 
     [Fact]
     public void Special_flags_decode_multiple_bits_in_order_and_ignore_0x80()
     {
         var p = new byte[12];
-        p[0] = 0x01 | 0x10 | 0x40 | 0x80; // BACK + DOUBLE + Restoration (+ 0x80 ignored)
+        // ror(BACK 0x01 | DOUBLE 0x10 | Restoration 0x40 | POWER_SHARD 0x80) = ror(0xD1) = 0xE8.
+        // Decodes back to 0xD1; the 0x80 (POWER_SHARD) bit stays ignored.
+        p[0] = 0xE8;
         Assert.Equal(
             new[] { SpecialDamage.BACK, SpecialDamage.DOUBLE, SpecialDamage.Restoration },
             DamageParsing.ParseSpecialDamageFlags(p));
