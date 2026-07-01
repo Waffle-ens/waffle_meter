@@ -1,0 +1,164 @@
+﻿[
+    {
+        "key":  "MusphelHolyGrail",
+        "nameKo":  "무스펠의 성배",
+        "image":  "MusphelHolyGrail.png",
+        "imageWidth":  2048,
+        "imageHeight":  2048,
+        "worldMinX":  -32440.87109375,
+        "worldMinY":  -60088.44140625,
+        "worldMaxX":  69559.12890625,
+        "worldMaxY":  41911.55859375,
+        "bossCodes":  [
+                          2301059,
+                          2301060,
+                          2301089,
+                          2301090
+                      ]
+    },
+    {
+        "key":  "DaevaCitadel",
+        "nameKo":  "타락한 데바의 성",
+        "image":  "DaevaCitadel.png",
+        "imageWidth":  2048,
+        "imageHeight":  2048,
+        "worldMinX":  -46055.525390625,
+        "worldMinY":  -48968.876953125,
+        "worldMaxX":  55944.474609375,
+        "worldMaxY":  53031.123046875,
+        "bossCodes":  [
+                          2301601,
+                          2301602,
+                          2301603,
+                          2301701,
+                          2301702,
+                          2301703,
+                          2301721,
+                          2301722,
+                          2301723
+                      ]
+    },
+    {
+        "key":  "FafniteGully",
+        "nameKo":  "심연의 뿔 암굴",
+        "image":  "FafniteGully.png",
+        "imageWidth":  2048,
+        "imageHeight":  2048,
+        "worldMinX":  -23331.728149414062,
+        "worldMinY":  -64554.7001953125,
+        "worldMaxX":  78668.27185058594,
+        "worldMaxY":  37445.2998046875,
+        "bossCodes":  [
+                          2300473,
+                          2300474,
+                          2300475,
+                          2300491,
+                          2300492,
+                          2300493,
+                          2300527,
+                          2300528,
+                          2300529,
+                          2300544,
+                          2300545,
+                          2300546
+                      ]
+    },
+    {
+        "key":  "SunkenTemple",
+        "nameKo":  "가라앉은 생명의 신전",
+        "image":  "SunkenTemple.png",
+        "imageWidth":  2048,
+        "imageHeight":  2048,
+        "worldMinX":  -46610.5810546875,
+        "worldMinY":  -57164.800048828125,
+        "worldMaxX":  55389.4189453125,
+        "worldMaxY":  44835.199951171875,
+        "bossCodes":  [
+                          2311101,
+                          2311102,
+                          2311103
+                      ]
+    },
+    {
+        "key":  "TYPE_AWAKEN_005",
+        "nameKo":  "잊힌 저장소",
+        "image":  "TYPE_AWAKEN_005.png",
+        "imageWidth":  2048,
+        "imageHeight":  2048,
+        "worldMinX":  -54509.44580078125,
+        "worldMinY":  -65116.488037109375,
+        "worldMaxX":  47490.55419921875,
+        "worldMaxY":  36883.511962890625,
+        "bossCodes":  [
+                          2702461,
+                          2702462,
+                          2702475,
+                          2702488,
+                          2702501,
+                          2702611,
+                          2702623
+                      ]
+    },
+    {
+        "key":  "TYPE_AWAKEN_006",
+        "nameKo":  "죽은 자의 침실",
+        "image":  "TYPE_AWAKEN_006.png",
+        "imageWidth":  2048,
+        "imageHeight":  2048,
+        "worldMinX":  -23211.0810546875,
+        "worldMinY":  -25762.7861328125,
+        "worldMaxX":  27788.9189453125,
+        "worldMaxY":  25237.2138671875,
+        "bossCodes":  [
+                          2702359,
+                          2702648,
+                          2702659,
+                          2702670,
+                          2702681,
+                          2702692,
+                          2702703
+                      ]
+    },
+    {
+        "key":  "Fire_Temple",
+        "nameKo":  "불의 신전",
+        "image":  "Fire_Temple.png",
+        "imageWidth":  2048,
+        "imageHeight":  2048,
+        "worldMinX":  -51000.0,
+        "worldMinY":  -51000.0,
+        "worldMaxX":  51000.0,
+        "worldMaxY":  51000.0,
+        "bossCodes":  [
+
+                      ]
+    },
+    {
+        "key":  "HornCave",
+        "nameKo":  "사나운 뿔 암굴",
+        "image":  "HornCave.png",
+        "imageWidth":  2048,
+        "imageHeight":  2048,
+        "worldMinX":  -39859.634765625,
+        "worldMinY":  -59695.634765625,
+        "worldMaxX":  62140.365234375,
+        "worldMaxY":  42304.365234375,
+        "bossCodes":  [
+
+                      ]
+    },
+    {
+        "key":  "MirrorHeart",
+        "nameKo":  "붉은 연심의 거울",
+        "image":  "MirrorHeart.png",
+        "imageWidth":  2048,
+        "imageHeight":  2048,
+        "worldMinX":  -45617.966796875,
+        "worldMinY":  -55834.134765625,
+        "worldMaxX":  56382.033203125,
+        "worldMaxY":  46165.865234375,
+        "bossCodes":  [
+
+                      ]
+    }
+]

@@ -63,6 +63,11 @@
   <ItemGroup>
     <!-- Reference catalogs the overlay needs for mob/skill/buff names; copied next to the exe. -->
     <Content Include="..\..\Assets\json\*.json" Link="json\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Dungeon/raid background maps for the positional replay (data-mined, boss mobCode -> map + world
+         anchor). Only the 9 dungeon maps ship (~9MB); field maps are huge and combat replay doesn't need
+         them. Copied next to the exe as Maps\; ReplayMapCatalog loads them on demand. -->
+    <Content Include="..\..\Assets\Maps\*.png" Link="Maps\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\Assets\Maps\map-manifest.json" Link="Maps\map-manifest.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- Tray icon (NotifyIcon needs an .ico file at runtime). -->
     <Content Include="..\..\Assets\waffle.ico" Link="waffle.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

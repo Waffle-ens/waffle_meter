@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using WaffleMeter.Replay;
@@ -25,15 +26,22 @@ public partial class ReplayWindow : Window
     private const double DotRadius = 6;
     private const double TrailMs = 6000;
     private const double HitRadius = 16;
-    // Position broadcasts arrive ~20Hz when an entity is in range; a larger gap means it went out of
-    // capture range (AoI) or a phase/teleport happened — we do NOT know the path, so HOLD the last known
-    // position instead of drawing a fake straight-line glide across the map (the "엉뚱한 위치" artifact).
+    // With the dense 0x371D delta stream decoded, in-battle position points arrive ~10Hz (measured p90 gap
+    // ~0.3s), so a real move never has a multi-second gap. HOLD (don't fake-glide) only across the much
+    // larger gaps that mean the entity left capture range (AoI) or phased/teleported — measured at tens of
+    // seconds. This threshold sits well above the normal ~0.3s cadence, so real movement glides while the
+    // cross-map straight-line teleport artifact is still suppressed.
     private const double MaxInterpGapMs = 1500;
+
+    private static readonly ReplayMapCatalog MapCatalog = ReplayMapCatalog.Load();
 
     private readonly ReplayRecording _rec;
     private readonly DispatcherTimer _timer;
     private readonly Stopwatch _stopwatch = new();
     private readonly List<TrackVisual> _visuals = new();
+
+    private ReplayMapInfo? _map;
+    private Image? _mapImage;
 
     private double _currentMs;
     private double _speed = 1.0;
@@ -71,7 +79,9 @@ public partial class ReplayWindow : Window
 
     private void BuildScene()
     {
-        HeaderText.Text = _rec.TargetName is { Length: > 0 } name ? $"전투 리플레이 — {name}" : "전투 리플레이";
+        _map = MapCatalog.ForBoss(_rec.TargetCode);
+        string? title = _rec.TargetName is { Length: > 0 } name ? name : _map?.NameKo;
+        HeaderText.Text = title is { Length: > 0 } ? $"전투 리플레이 — {title}" : "전투 리플레이";
         BossBadge.Text = _rec.BossDefeated ? "처치 완료" : "직전 전투 (미처치)";
         ScrubSlider.Maximum = Math.Max(1, _rec.DurationMs);
 
@@ -81,6 +91,11 @@ public partial class ReplayWindow : Window
         MapCanvas.Children.Clear();
         LegendPanel.Children.Clear();
         _visuals.Clear();
+        _mapImage = LoadMapImage();
+        if (_mapImage != null)
+        {
+            MapCanvas.Children.Add(_mapImage); // bottom of the z-order; dots/trails are added on top below
+        }
 
         int colorIdx = 0;
         foreach (ReplayTrack t in _rec.Tracks.OrderByDescending(t => t.Points.Count))
@@ -132,8 +147,14 @@ public partial class ReplayWindow : Window
         LegendPanel.Children.Add(row);
     }
 
-    // ---- transform: world (x,y) -> canvas, Y flipped, uniform scale, fit with padding ----
-    private (double Scale, double MinX, double MaxY, double PadX, double PadY) Transform()
+    // The world->canvas projection. Two modes:
+    //  - Map mode (a dungeon map matched the boss): keep the map's own coordinate frame — world +Y goes
+    //    DOWN the image (FlipY=false) — and fit the *action* (recording bounds, padded) into the canvas so
+    //    the background aligns under the dots. Vx/Vy is the top-left world corner of the view.
+    //  - Relative mode (no map): auto-fit the point cloud with world +Y UP (FlipY=true), Vx=minX, Vy=maxY.
+    private readonly record struct Proj(double Scale, double Vx, double Vy, double OffX, double OffY, bool FlipY);
+
+    private Proj Transform()
     {
         const double pad = 28;
         double cw = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 800;
@@ -141,7 +162,26 @@ public partial class ReplayWindow : Window
         (float MinX, float MinY, float MaxX, float MaxY)? b = _rec.Bounds();
         if (b is not { } bb)
         {
-            return (1, 0, 0, cw / 2, ch / 2);
+            return new Proj(1, 0, 0, cw / 2, ch / 2, FlipY: true);
+        }
+
+        if (_map is { } map)
+        {
+            // View = the action, padded for context, clamped to the map's world extent.
+            double padW = Math.Max(0.15 * Math.Max(bb.MaxX - bb.MinX, bb.MaxY - bb.MinY), 1500);
+            double vMinX = Math.Max(map.WorldMinX, bb.MinX - padW);
+            double vMaxX = Math.Min(map.WorldMaxX, bb.MaxX + padW);
+            double vMinY = Math.Max(map.WorldMinY, bb.MinY - padW);
+            double vMaxY = Math.Min(map.WorldMaxY, bb.MaxY + padW);
+            double vw = Math.Max(1, vMaxX - vMinX);
+            double vh = Math.Max(1, vMaxY - vMinY);
+            double s = Math.Min((cw - 2 * pad) / vw, (ch - 2 * pad) / vh);
+            if (s <= 0 || double.IsInfinity(s))
+            {
+                s = 1;
+            }
+
+            return new Proj(s, vMinX, vMinY, (cw - vw * s) / 2, (ch - vh * s) / 2, FlipY: false);
         }
 
         double w = Math.Max(1, bb.MaxX - bb.MinX);
@@ -152,14 +192,55 @@ public partial class ReplayWindow : Window
             scale = 1;
         }
 
-        // center the content
-        double padX = (cw - w * scale) / 2;
-        double padY = (ch - h * scale) / 2;
-        return (scale, bb.MinX, bb.MaxY, padX, padY);
+        return new Proj(scale, bb.MinX, bb.MaxY, (cw - w * scale) / 2, (ch - h * scale) / 2, FlipY: true);
     }
 
-    private Point ToScreen(double wx, double wy, (double Scale, double MinX, double MaxY, double PadX, double PadY) tf)
-        => new(tf.PadX + (wx - tf.MinX) * tf.Scale, tf.PadY + (tf.MaxY - wy) * tf.Scale);
+    private static Point ToScreen(double wx, double wy, Proj p)
+        => p.FlipY
+            ? new Point(p.OffX + (wx - p.Vx) * p.Scale, p.OffY + (p.Vy - wy) * p.Scale)
+            : new Point(p.OffX + (wx - p.Vx) * p.Scale, p.OffY + (wy - p.Vy) * p.Scale);
+
+    // Build the map background element (bottom of the canvas). Returns null when there is no matched map or
+    // the image can't be loaded — the replay then falls back to the relative plot with no background.
+    private Image? LoadMapImage()
+    {
+        if (_map is not { } map)
+        {
+            return null;
+        }
+
+        try
+        {
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.UriSource = new Uri(map.ImagePath, UriKind.Absolute);
+            bmp.EndInit();
+            bmp.Freeze();
+            return new Image { Source = bmp, Opacity = 0.92, IsHitTestVisible = false, Stretch = Stretch.Fill };
+        }
+        catch
+        {
+            _map = null; // don't try to project against a map we couldn't draw
+            return null;
+        }
+    }
+
+    // Position the map image so its full world extent aligns with the current projection (it overhangs the
+    // canvas and is clipped). world (min,min) -> image top-left because +Y maps down (FlipY=false here).
+    private void PlaceMapImage(Proj tf)
+    {
+        if (_mapImage is null || _map is not { } map)
+        {
+            return;
+        }
+
+        Point tl = ToScreen(map.WorldMinX, map.WorldMinY, tf);
+        Canvas.SetLeft(_mapImage, tl.X);
+        Canvas.SetTop(_mapImage, tl.Y);
+        _mapImage.Width = Math.Max(1, (map.WorldMaxX - map.WorldMinX) * tf.Scale);
+        _mapImage.Height = Math.Max(1, (map.WorldMaxY - map.WorldMinY) * tf.Scale);
+    }
 
     private void OnTick(object? sender, EventArgs e)
     {
@@ -188,7 +269,8 @@ public partial class ReplayWindow : Window
             return;
         }
 
-        (double Scale, double MinX, double MaxY, double PadX, double PadY) tf = Transform();
+        Proj tf = Transform();
+        PlaceMapImage(tf);
 
         foreach (TrackVisual v in _visuals)
         {
