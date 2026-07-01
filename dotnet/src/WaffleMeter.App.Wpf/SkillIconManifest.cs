@@ -1,8 +1,8 @@
 namespace WaffleMeter.App.Wpf;
 
 /// <summary>
-/// The 388 skill-icon codes that ship as PNGs (332 port of generated/skillIconManifest.ts from the
-/// dist/skill-icons filenames + 56 권성/Fighter icons datamined for the 2026-07-01 patch). Used by
+/// The 389 skill-icon codes that ship as PNGs (332 port of generated/skillIconManifest.ts from the
+/// dist/skill-icons filenames + 57 권성/Fighter icons datamined for the 2026-07-01 patch). Used by
 /// <see cref="JoinIcons.Skill"/> to resolve a skill code to a bundled icon (floor-base fallback from
 /// getSkillIconSrc).
 /// </summary>
@@ -42,7 +42,8 @@ internal static class SkillIconManifest
         19010000, 19020000, 19030000, 19040000, 19050000, 19060000, 19070000, 19080000, 19090000, 19100000, 19110000, 19120000,
         19130000, 19150000, 19160000, 19170000, 19180000, 19190000, 19200000, 19220000, 19230000, 19240000, 19250000, 19260000,
         19270000, 19280000, 19290000, 19300000, 19310000, 19320000, 19330000, 19350000, 19360000, 19370000, 19390000, 19400000,
-        19410000, 19420000, 19430000, 19460000, 19510000, 19520000, 19530000, 19540000, 19550000, 19560000, 19710000, 19720000,
+        19410000, 19420000, 19430000, 19450000, 19460000, 19510000, 19520000, 19530000, 19540000, 19550000, 19560000, 19710000,
+        19720000,
         19730000, 19740000, 19750000, 19760000, 19770000, 19780000, 19790000, 19800000,
     };
 }
