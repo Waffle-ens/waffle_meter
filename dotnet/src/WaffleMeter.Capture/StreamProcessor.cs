@@ -404,11 +404,20 @@ public sealed class StreamProcessor
 
         int andResult = switchInfo.Value & Mask;
         int start = offset;
+        // Size of the special-damage region that sits between the type field and the [power][damage]
+        // varints, keyed by switchVariable & 0x0F. The 2026-07-01 patch grew the region for switch-type 6
+        // by ONE byte (its fixed prefix went 2→3 bytes: pre `08 00 …` → post `8C 00 02 …`), so with the
+        // old size 10 the parser stopped one byte short and read the REAL damage varint as the "power"
+        // field and a much smaller field as the damage — undercounting every switch-6 hit (the dominant
+        // hit type; ~80% of boss damage). 10→11 realigns it: verified against pre/post captures, per-target
+        // credited damage then matches boss HP consumed within ~1% for four independent bosses.
+        // (switch-types 5/7 never occur in the capture corpus — switchVariable & 0x0F is only ever 4 or 6 —
+        // so their sizes are left as the ported defaults, unverifiable but never exercised.)
         int tempV = andResult switch
         {
             4 => 8,
             5 => 12,
-            6 => 10,
+            6 => 11,
             7 => 14,
             _ => -1,
         };
@@ -436,6 +445,10 @@ public sealed class StreamProcessor
         offset += damageInfo.Length;
         if (offset >= packet.Length) return;
 
+        // Multi-hit trailer: [count][count identical per-hit varints]. Read only to flag the hit as
+        // multi-hit for the UI (pdp.Loop). It is NOT summed into pdp.Damage — the damage varint above is
+        // already the full total for the hit (the repeats are a per-hit breakdown, not additional damage);
+        // summing them double-counts (verified: adding the repeats overshoots boss HP consumed by ~20-25%).
         MultiHitOutput multiHitInfo = DamageParsing.TryParseMultiHit(packet, offset);
         pdp.Loop = multiHitInfo.Time;
 
@@ -456,7 +469,8 @@ public sealed class StreamProcessor
         _sink.Damage("direct", pdp, true, null, null);
     }
 
-    /// <summary>Damage-over-time (opcode 0x3805). Verbatim port of Kotlin parseDoTPacket (367-448).</summary>
+    /// <summary>Damage-over-time (opcode 0x3805). Based on Kotlin parseDoTPacket (367-448); the
+    /// post-2026-07-01 flag gate + sentinel handling diverge — see the inline notes below.</summary>
     private void ParseDoTPacket(byte[] packet, bool extraFlag, long arrivedAt)
     {
         int offset = 0;
@@ -480,8 +494,13 @@ public sealed class StreamProcessor
         if (packet.Length < offset) return;
         pdp.TargetId = targetInfo.Value;
 
-        int unknownBitFlagByte = packet[offset];
-        if ((unknownBitFlagByte & 0x02) == 0) return;
+        // The byte after the target is a DoT flag byte (0x00/0x08/0x09/0x0A/0x0B/0x30 observed). It is
+        // consumed but NOT gated on: the previous `& 0x02` gate dropped ~1/3 of real DoT ticks (every
+        // flag-0x08 tick and the non-self flag-0x09 ticks lack bit 0x02). DoT-ness is opcode-determined
+        // (0x3805) — every tick's damage counts. Non-tick variants are filtered structurally instead: the
+        // actor == target guard below drops the self-referential application/refresh frames (all flag 0x00
+        // and 0x30, most 0x09/0x0B), and the damage sanity cap at the end drops the sentinel frames whose
+        // damage field is 0xFFFFFFFF/0x7FFFFFFF (DoT apply/expire markers, not ticks).
         offset++;
         if (packet.Length < offset) return;
 
@@ -504,6 +523,14 @@ public sealed class StreamProcessor
         VarIntOutput damageInfo = PacketPrimitives.ReadVarInt(packet, offset);
         if (damageInfo.Length < 0) return;
         pdp.Damage = damageInfo.Value;
+
+        // Same sanity cap as the direct-damage path: reject the sentinel/garbage frames (damage field
+        // 0xFFFFFFFF → parses to a ~2.1B varint) that the removed flag gate no longer filters out.
+        if (pdp.Damage >= 10000000)
+        {
+            _sink.Damage("dot", pdp, false, "damage_guard", null);
+            return;
+        }
 
         pdp.Timestamp = arrivedAt;
         _data.SaveDamage(pdp, _data.CurrentEpoch());
