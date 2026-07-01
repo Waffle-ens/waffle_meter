@@ -538,7 +538,10 @@ public sealed class DpsCalculator
         }
 
         Add(code);
-        if (code is >= 110_000_000 and <= 190_999_999)
+        // Job-buff codes 11xxxxxxx(검성)..19xxxxxxx(권성, 2026-07-01 패치). Upper bound raised from
+        // 190_999_999 to 199_999_999 so 권성 buff codes floor to their base skill code (else 권성
+        // buffs at higher ranks fail to resolve a name and get dropped from the buff/debuff view).
+        if (code is >= 110_000_000 and <= 199_999_999)
         {
             Add((code / 100_000) * 10_000);
             Add((code / 10_000) * 1_000);

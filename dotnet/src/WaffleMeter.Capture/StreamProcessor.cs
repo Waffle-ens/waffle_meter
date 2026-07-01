@@ -1071,7 +1071,10 @@ public sealed class StreamProcessor
             int skillCode = PacketPrimitives.ParseUInt32Le(packet, offset);
             offset += 4;
 
-            if (skillCode < 110000000 || skillCode > 190000000)
+            // Job-buff codes are <2-digit job prefix><...>: 11xxxxxxx(검성)..19xxxxxxx(권성, 2026-07-01 패치).
+            // The upper bound was 190_000_000 (8 classes, max 18x); 권성 buffs are 190_000_000..199_999_999,
+            // so it must reach 199_999_999 or every 권성 buff/debuff is dropped here.
+            if (skillCode < 110000000 || skillCode > 199999999)
             {
                 if (skillCode >= 30000000 || skillCode < 20000000)
                 {
