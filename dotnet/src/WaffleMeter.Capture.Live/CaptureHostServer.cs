@@ -35,6 +35,42 @@ public static class CaptureHostServer
         object writeLock = new();
         bool clientGone = false;
 
+        // Batched pipe delivery. Each captured segment is a tiny frame, and writing + flushing
+        // (FlushFileBuffers, a blocking kernel round-trip) once PER packet taxes the elevated helper even at
+        // idle traffic — a constant per-packet syscall drip that steals CPU from the game (the confirmed cause
+        // of the in-game frame drops). Instead, append frames to an in-memory buffer and hand them to the pipe
+        // as ONE write+flush on a short cadence (or when the buffer crosses a size threshold under a burst).
+        // The wire bytes are byte-for-byte identical — only the flush granularity changes — so the reader,
+        // which frames on the length prefix, is unaffected.
+        const int FlushIntervalMs = 10;
+        const int FlushThresholdBytes = 48 * 1024;
+        var sendBuf = new MemoryStream(64 * 1024);
+
+        // Deliver everything buffered so far as a single write+flush. Safe to call from any thread (the lock
+        // is reentrant, so callers may already hold writeLock).
+        void FlushBuffered()
+        {
+            lock (writeLock)
+            {
+                if (clientGone || sendBuf.Length == 0)
+                {
+                    return;
+                }
+
+                try
+                {
+                    pipe.Write(sendBuf.GetBuffer(), 0, (int)sendBuf.Length);
+                    pipe.Flush();
+                }
+                catch (IOException)
+                {
+                    clientGone = true;
+                }
+
+                sendBuf.SetLength(0);
+            }
+        }
+
         void Send(byte type, ReadOnlySpan<byte> body)
         {
             if (clientGone)
@@ -46,11 +82,18 @@ public static class CaptureHostServer
             {
                 try
                 {
-                    CaptureWireProtocol.WriteFrame(pipe, type, body);
+                    CaptureWireProtocol.WriteFrame(sendBuf, type, body);
                 }
                 catch (IOException)
                 {
                     clientGone = true;
+                    return;
+                }
+
+                // Force delivery under a burst so the buffer (and added latency) stay bounded.
+                if (sendBuf.Length >= FlushThresholdBytes)
+                {
+                    FlushBuffered();
                 }
             }
         }
@@ -70,11 +113,27 @@ public static class CaptureHostServer
         {
             log?.Invoke($"capture start FAILED: {ex.GetType().Name}: {ex.Message}");
             Send(CaptureWireProtocol.FrameError, Encoding.UTF8.GetBytes(ex.Message));
+            FlushBuffered(); // control frame must reach the client before we tear down
             backend.Dispose();
             return;
         }
 
         Send(CaptureWireProtocol.FrameStarted, ReadOnlySpan<byte>.Empty);
+        FlushBuffered(); // deliver the start ack immediately (not on the batch cadence)
+
+        // Deliver buffered segment frames on a fixed cadence so DPS stays near real-time even when traffic is
+        // below the size threshold. The 500 ms report interval dwarfs this, so there is no visible added delay.
+        bool flushRunning = true;
+        var flushThread = new Thread(() =>
+        {
+            while (Volatile.Read(ref flushRunning) && !clientGone)
+            {
+                Thread.Sleep(FlushIntervalMs);
+                FlushBuffered();
+            }
+        })
+        { IsBackground = true, Name = "capture-pipe-flush" };
+        flushThread.Start();
 
         // Heartbeat so the operator can see whether the filter is actually matching traffic.
         using var stats = new System.Timers.Timer(2000) { AutoReset = true };
@@ -112,6 +171,9 @@ public static class CaptureHostServer
         }
         finally
         {
+            flushRunning = false;
+            flushThread.Join(200);
+            FlushBuffered(); // deliver anything buffered at teardown
             backend.Stop();
             backend.Dispose();
         }
