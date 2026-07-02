@@ -140,6 +140,10 @@ public sealed class DpsCalculator
         {
             analyzedSkill.Times++;
             analyzedSkill.DamageAmount += packet.Damage;
+            // A special-flag region exists only for switch-type 5/6/7 (region size ≥ 10); switch-type 4 hits
+            // (heals/buffs/passives) have no flag byte, so back/강타/완벽/페리 are unmeasurable on them. Count the
+            // flag-bearing hits so those rates use them as the denominator instead of every hit.
+            if ((packet.SwitchVariable & 0x0F) is 5 or 6 or 7) analyzedSkill.FlaggedTimes++;
             if (packet.IsCrit) analyzedSkill.CritTimes++;
             if (packet.Specials.Contains(SpecialDamage.BACK)) analyzedSkill.BackTimes++;
             if (packet.Specials.Contains(SpecialDamage.PARRY)) analyzedSkill.ParryTimes++;

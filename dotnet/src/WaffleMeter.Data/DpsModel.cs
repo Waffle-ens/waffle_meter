@@ -105,6 +105,13 @@ public sealed class AnalyzedSkill
     public int ParryTimes { get; set; }
     public int ShardTimes { get; set; }
     public int MultiHitTimes { get; set; }
+
+    /// <summary>Direct hits that carried a special-flag region (switch-type 6, region size ≥ 10). Only these
+    /// hits can encode a back/강타/완벽/페리 판정 — switch-type-4 hits (heals/buffs/passives) have no flag byte,
+    /// so back etc. are structurally unmeasurable on them. Used as the denominator for those rates so
+    /// non-directional hits don't dilute them (crit stays over <see cref="Times"/> — it's a separate field
+    /// present on every hit).</summary>
+    public int FlaggedTimes { get; set; }
     public string? Name { get; set; }
 
     public AnalyzedSkill Copy() => new()
@@ -121,6 +128,7 @@ public sealed class AnalyzedSkill
         ParryTimes = ParryTimes,
         ShardTimes = ShardTimes,
         MultiHitTimes = MultiHitTimes,
+        FlaggedTimes = FlaggedTimes,
         Name = Name,
     };
 }

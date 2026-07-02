@@ -6,8 +6,8 @@ namespace WaffleMeter.App.Core.Tests;
 
 public sealed class DetailModelTests
 {
-    private static AnalyzedSkill Skill(int code, string name, int dmg, int hits, int crit = 0, int dot = 0, int dotTimes = 0) =>
-        new() { SkillCode = code, Name = name, DamageAmount = dmg, Times = hits, CritTimes = crit, DotDamageAmount = dot, DotTimes = dotTimes };
+    private static AnalyzedSkill Skill(int code, string name, int dmg, int hits, int crit = 0, int dot = 0, int dotTimes = 0, int back = 0, int flagged = 0) =>
+        new() { SkillCode = code, Name = name, DamageAmount = dmg, Times = hits, CritTimes = crit, DotDamageAmount = dot, DotTimes = dotTimes, BackTimes = back, FlaggedTimes = flagged };
 
     private static DetailModel Compute(
         Dictionary<string, AnalyzedSkill> skills,
@@ -124,6 +124,22 @@ public sealed class DetailModelTests
         Assert.Contains(model.Skills, g => g.Merged.Name == "대지의 징벌");
         Assert.Contains(model.Skills, g => g.Merged.Name == "대지의 축복");
         Assert.All(model.Skills, g => Assert.False(g.HasChildren));
+    }
+
+    [Fact]
+    public void Back_rate_summary_divides_by_flag_bearing_hits_not_all_hits()
+    {
+        // An attack (40 flag-bearing hits, all back) + a heal (60 hits, none flag-bearing). The summary 백어택
+        // rate must be over the 40 flag-bearing hits (100%), NOT all 100 hits (40%, diluted by the heal that
+        // structurally can't back-attack). Crit stays over all hits (it's a per-hit field on every hit).
+        var model = Compute(new Dictionary<string, AnalyzedSkill>
+        {
+            ["1"] = Skill(1, "단죄", dmg: 4000, hits: 40, crit: 20, back: 40, flagged: 40),
+            ["2"] = Skill(2, "치유의 빛", dmg: 2000, hits: 60, crit: 0, back: 0, flagged: 0),
+        });
+
+        Assert.Equal(100.0, model.BackPct); // 40 / 40 flag-bearing (was 40.0 over all 100 hits)
+        Assert.Equal(20.0, model.CritPct);  // 20 / 100 all hits (crit denominator unchanged)
     }
 
     [Fact]

@@ -69,6 +69,7 @@ public sealed record DetailModel(
         public int Perfect;
         public int Back;
         public int Parry;
+        public int Flagged; // direct hits that carried a special-flag region (sw6) — the back/강타/완벽/페리 denominator
     }
 
     public static DetailModel Compute(
@@ -111,6 +112,7 @@ public sealed record DetailModel(
                     Perfect = s.PerfectTimes,
                     Back = s.BackTimes,
                     Parry = s.ParryTimes,
+                    Flagged = s.FlaggedTimes,
                 });
             }
 
@@ -120,11 +122,15 @@ public sealed record DetailModel(
             }
         }
 
-        // totals: pcts over non-DOT hits; total damage includes DOT.
+        // totals: total damage includes DOT. Crit is a per-hit field present on EVERY hit, so its rate is over
+        // all non-DOT hits. Back/강타(double)/완벽(perfect)/페리(parry) come from the special-flag byte, which
+        // exists ONLY on flag-bearing (sw6) hits — non-directional hits (heals/buffs/passives, sw4) have no
+        // flag byte, so those judgments are unmeasurable on them and must NOT dilute the denominator.
         long totalDamage = raws.Sum(r => r.Damage);
         int totalHits = raws.Where(r => !r.IsDot).Sum(r => r.Hits);
-        double TotalPct(Func<Raw, int> sel) =>
-            totalHits > 0 ? Math.Round((double)raws.Where(r => !r.IsDot).Sum(sel) / totalHits * 1000, MidpointRounding.AwayFromZero) / 10.0 : 0.0;
+        int totalFlagged = raws.Where(r => !r.IsDot).Sum(r => r.Flagged);
+        double TotalPct(Func<Raw, int> sel, int den) =>
+            den > 0 ? Math.Round((double)raws.Where(r => !r.IsDot).Sum(sel) / den * 1000, MidpointRounding.AwayFromZero) / 10.0 : 0.0;
 
         raws.Sort((a, b) => b.Damage.CompareTo(a.Damage));
         IReadOnlyList<DetailSkillGroup> groups = BuildGroups(raws, totalDamage);
@@ -132,11 +138,11 @@ public sealed record DetailModel(
         return new DetailModel(
             totalDamage,
             contribution,
-            TotalPct(r => r.Crit),
-            TotalPct(r => r.Strong),
-            TotalPct(r => r.Perfect),
-            TotalPct(r => r.Back),
-            TotalPct(r => r.Parry),
+            TotalPct(r => r.Crit, totalHits),
+            TotalPct(r => r.Strong, totalFlagged),
+            TotalPct(r => r.Perfect, totalFlagged),
+            TotalPct(r => r.Back, totalFlagged),
+            TotalPct(r => r.Parry, totalFlagged),
             combatMs,
             groups,
             BuildOwnBuffs(ownBuffs, uid, job),
@@ -234,6 +240,7 @@ public sealed record DetailModel(
             m.Perfect += r.Perfect;
             m.Back += r.Back;
             m.Parry += r.Parry;
+            m.Flagged += r.Flagged;
         }
 
         return m;
