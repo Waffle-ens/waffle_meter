@@ -116,20 +116,23 @@ public sealed class OverlayRowBuilderTests
     }
 
     [Fact]
-    public void Self_outside_the_top_eight_is_still_appended()
+    public void Self_outside_the_top_ten_is_still_appended()
     {
+        // 10 named dealers (a full 5+5 raid) plus self as the lowest — self falls outside the top 10 cap and
+        // must still be appended so 본인 always shows.
         var rows = new (int, string?, double)[]
         {
             (10, "A", 100), (11, "B", 90), (12, "C", 80), (13, "D", 70),
             (14, "E", 60), (15, "F", 50), (16, "G", 40), (17, "H", 30),
+            (18, "I", 20), (19, "J", 15),
             (1, "Me", 5),
         };
         DpsReport report = CombatReport(rows);
-        report.Contributors[8].IsExecutor = true; // uid 1 = self, lowest damage
+        report.Contributors[10].IsExecutor = true; // uid 1 = self, lowest damage
 
         IReadOnlyList<OverlayRowBuilder.Row> display = OverlayRowBuilder.Build(report, [], 1, true, false, out _);
 
-        Assert.Equal(9, display.Count);                       // top 8 + self appended
+        Assert.Equal(11, display.Count);                      // top 10 + self appended
         Assert.Contains(display, r => r.Uid == 1 && r.IsSelf);
     }
 

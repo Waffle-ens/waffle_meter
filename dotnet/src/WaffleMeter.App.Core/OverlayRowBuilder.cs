@@ -44,7 +44,9 @@ public static class OverlayRowBuilder
         bool useTotalDamage,
         bool showPreCombatRoster,
         out bool hasCombatRows,
-        int topN = 8,
+        // Max raid is 10 (two parties of 5) since the 2026-07-01 patch; was 8 (4+4). At 8 a 10-인 공대 lost
+        // its two lowest dealers off the bottom of the meter (all 10 are still tracked — this only caps display).
+        int topN = 10,
         string? selfNickname = null,
         int selfServer = 0,
         JobClass? selfJob = null,

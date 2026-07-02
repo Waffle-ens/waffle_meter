@@ -10,7 +10,7 @@ namespace WaffleMeter.App.Wpf;
 
 /// <summary>
 /// Overlay view model. <see cref="Update"/> runs on the dispatcher and reconciles the ranked row
-/// list from the live DPS report, mirroring the React MeterList/MeterRow: sort by metric desc, top 8,
+/// list from the live DPS report, mirroring the React MeterList/MeterRow: sort by metric desc, top 10,
 /// always append self, per-row progress ratio + fill color by contribution tier, masked name + power
 /// badge. Row clicks raise <see cref="SelectionToggled"/> (App opens/closes the detail window).
 /// </summary>
@@ -298,7 +298,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         CombatStatusText = inCombat ? "전투 중" : "대기 중";
         CombatStatusBrush = inCombat ? CombatActiveBrush : CombatTimeBrush;
 
-        // metric = amount (total mode) or dps. Sort desc, take 8, always include self.
+        // metric = amount (total mode) or dps. Sort desc, take 10 (max raid = 5+5), always include self.
         bool total = _settings.UseTotalDamage;
         bool entire = _settings.UseEntireContribution;
         NameDisplay nameMode = _settings.NameDisplayMode;
