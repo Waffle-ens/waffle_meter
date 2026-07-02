@@ -14,9 +14,10 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- Public replay tests cover only the open contract (model + serializer). The engine tests (which
+       encode the reverse-engineered wire format in fixtures) live in the private waffle_meter_replay repo. -->
   <ItemGroup>
-    <ProjectReference Include="..\..\src\WaffleMeter.Replay\WaffleMeter.Replay.csproj" />
-    <ProjectReference Include="..\..\src\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
+    <ProjectReference Include="..\..\src\WaffleMeter.Replay.Abstractions\WaffleMeter.Replay.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

@@ -86,16 +86,19 @@
     <ProjectReference Include="..\WaffleMeter.Services\WaffleMeter.Services.csproj" />
   </ItemGroup>
 
-  <!-- Dev convenience: build the private replay engine and drop its DLL beside the app so a local
-       `dotnet build`/run has working replay. Only WaffleMeter.Replay.dll is copied — its deps
-       (Abstractions/Capture/Data/LZ4) are already app dependencies. Skipped during publish (the release
-       workflow injects the engine DLL from the private repo — release-dotnet.yml) and when the engine
-       project isn't present (open-source build without the private module). -->
+  <!-- Dev convenience: build the private replay engine (from the SIBLING waffle_meter_replay checkout)
+       and drop its DLL beside the app so a local `dotnet build`/run has working replay. Only
+       WaffleMeter.Replay.dll is copied — its deps (Abstractions/Capture/Data/LZ4) are already app
+       dependencies. Skipped during publish (the release workflow injects the engine DLL — see
+       release-dotnet.yml) and when the sibling engine repo isn't present (open-source build without the
+       private module — replay is then simply unavailable at runtime, per ReplayEngineLoader). -->
+  <PropertyGroup>
+    <ReplayEngineProject>..\..\..\..\waffle_meter_replay\dotnet\src\WaffleMeter.Replay\WaffleMeter.Replay.csproj</ReplayEngineProject>
+  </PropertyGroup>
   <Target Name="CopyReplayEngineForDev" AfterTargets="Build"
-          Condition="'$(_IsPublishing)' != 'true' and '$(DesignTimeBuild)' != 'true' and Exists('..\WaffleMeter.Replay\WaffleMeter.Replay.csproj')">
-    <MSBuild Projects="..\WaffleMeter.Replay\WaffleMeter.Replay.csproj"
-             Targets="Build" Properties="Configuration=$(Configuration)" />
-    <Copy SourceFiles="..\WaffleMeter.Replay\bin\$(Configuration)\net10.0\WaffleMeter.Replay.dll"
+          Condition="'$(_IsPublishing)' != 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(ReplayEngineProject)')">
+    <MSBuild Projects="$(ReplayEngineProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
+    <Copy SourceFiles="..\..\..\..\waffle_meter_replay\dotnet\src\WaffleMeter.Replay\bin\$(Configuration)\net10.0\WaffleMeter.Replay.dll"
           DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
 

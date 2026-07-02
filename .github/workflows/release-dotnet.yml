@@ -83,37 +83,29 @@ jobs:
 
       # ---- Inject the PRIVATE replay engine DLL into publish/ (before obfuscate/sign/pack).
       # The engine (0x37xx decode + reconstruction — the reverse-engineered secret) is NOT referenced by
-      # the app at compile time; it is discovered at runtime by ReplayEngineLoader. That lets the source
-      # live in a private repo while the DLL is bolted into the shipped release here, so every real user
-      # still gets replay. Source order:
-      #   1. Private repo (secret REPLAY_REPO_TOKEN set): clone + build. Once you extract the engine to the
-      #      private repo, DELETE dotnet/src/WaffleMeter.Replay from THIS repo (and scrub history) so the
-      #      secret is never public — the clone path below takes over.
-      #   2. In-repo engine project (interim, pre-migration): build it directly.
-      #   3. Neither (e.g. a fork with no token and no engine): skip — release ships without replay.
-      # Placed before the obfuscate/sign steps so the engine DLL is obfuscated + signed like our other DLLs.
+      # the app at compile time; it is discovered at runtime by ReplayEngineLoader. The source lives in the
+      # private waffle_meter_replay repo; here we clone it as a SIBLING of this checkout (its csproj
+      # references the public assemblies via ../../../../waffle_meter, so sibling layout is required),
+      # build the engine, and drop the DLL into publish/. Without the token (e.g. a fork) the step skips and
+      # the release ships without replay. Placed before obfuscate/sign so the engine DLL is hardened + signed.
       - name: Inject replay engine (private module)
         shell: pwsh
         env:
           REPLAY_REPO_TOKEN: ${{ secrets.REPLAY_REPO_TOKEN }}
           REPLAY_REPO: ${{ github.repository_owner }}/waffle_meter_replay
         run: |
-          $proj = $null
-          if ($env:REPLAY_REPO_TOKEN) {
-            Write-Host "cloning private replay engine: $env:REPLAY_REPO"
-            git clone --depth 1 "https://x-access-token:$($env:REPLAY_REPO_TOKEN)@github.com/$($env:REPLAY_REPO).git" _engine_src
-            $proj = (Get-ChildItem _engine_src -Recurse -Filter WaffleMeter.Replay.csproj | Select-Object -First 1).FullName
-          } elseif (Test-Path dotnet/src/WaffleMeter.Replay/WaffleMeter.Replay.csproj) {
-            Write-Host "::warning::building the IN-REPO replay engine (interim). Move it to a private repo + set REPLAY_REPO_TOKEN so the source isn't public."
-            $proj = "dotnet/src/WaffleMeter.Replay/WaffleMeter.Replay.csproj"
+          if (-not $env:REPLAY_REPO_TOKEN) {
+            Write-Host "::warning::REPLAY_REPO_TOKEN not set — this release ships WITHOUT replay"
+            exit 0
           }
-          if ($proj -and (Test-Path $proj)) {
-            dotnet publish $proj -c Release -p:WaffleVersion=${{ env.VERSION }} -p:DebugType=none -p:DebugSymbols=false -p:IncludeSourceRevisionInInformationalVersion=false -o _engine_out
-            Copy-Item _engine_out/WaffleMeter.Replay.dll publish/ -Force
-            Write-Host "replay engine injected -> publish/WaffleMeter.Replay.dll"
-          } else {
-            Write-Host "::warning::no replay engine available — this release ships WITHOUT replay"
-          }
+          # Clone the private engine as a sibling of this checkout so its ../../../../waffle_meter refs resolve.
+          $sibling = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) "waffle_meter_replay"
+          Write-Host "cloning private replay engine $env:REPLAY_REPO -> $sibling"
+          git clone --depth 1 "https://x-access-token:$($env:REPLAY_REPO_TOKEN)@github.com/$($env:REPLAY_REPO).git" "$sibling"
+          $proj = Join-Path $sibling "dotnet/src/WaffleMeter.Replay/WaffleMeter.Replay.csproj"
+          dotnet publish $proj -c Release -p:WaffleVersion=${{ env.VERSION }} -p:DebugType=none -p:DebugSymbols=false -p:IncludeSourceRevisionInInformationalVersion=false -o _engine_out
+          Copy-Item _engine_out/WaffleMeter.Replay.dll publish/ -Force
+          Write-Host "replay engine injected -> publish/WaffleMeter.Replay.dll"
 
       # ---- Anti-analysis: obfuscate the rename-safe app DLLs in publish/ before signing/packing.
       # OFF by default (env gate above); never touches App.Wpf (BAML) or the Stats JSON DTOs (see config). ----
