@@ -80,9 +80,24 @@
     <ProjectReference Include="..\WaffleMeter.App.Core\WaffleMeter.App.Core.csproj" />
     <ProjectReference Include="..\WaffleMeter.Capture.Live\WaffleMeter.Capture.Live.csproj" />
     <ProjectReference Include="..\WaffleMeter.Data\WaffleMeter.Data.csproj" />
-    <ProjectReference Include="..\WaffleMeter.Replay\WaffleMeter.Replay.csproj" />
+    <!-- Public replay contract only (model + ReplayWindow consumes it). The engine DLL is discovered at
+         runtime; a dev build target copies it beside the app locally (below), CI injects it at release. -->
+    <ProjectReference Include="..\WaffleMeter.Replay.Abstractions\WaffleMeter.Replay.Abstractions.csproj" />
     <ProjectReference Include="..\WaffleMeter.Services\WaffleMeter.Services.csproj" />
   </ItemGroup>
+
+  <!-- Dev convenience: build the private replay engine and drop its DLL beside the app so a local
+       `dotnet build`/run has working replay. Only WaffleMeter.Replay.dll is copied — its deps
+       (Abstractions/Capture/Data/LZ4) are already app dependencies. Skipped during publish (the release
+       workflow injects the engine DLL from the private repo — release-dotnet.yml) and when the engine
+       project isn't present (open-source build without the private module). -->
+  <Target Name="CopyReplayEngineForDev" AfterTargets="Build"
+          Condition="'$(_IsPublishing)' != 'true' and '$(DesignTimeBuild)' != 'true' and Exists('..\WaffleMeter.Replay\WaffleMeter.Replay.csproj')">
+    <MSBuild Projects="..\WaffleMeter.Replay\WaffleMeter.Replay.csproj"
+             Targets="Build" Properties="Configuration=$(Configuration)" />
+    <Copy SourceFiles="..\WaffleMeter.Replay\bin\$(Configuration)\net10.0\WaffleMeter.Replay.dll"
+          DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
 
   <!-- Dev convenience: build + copy the elevated capture host beside the app so a plain `dotnet build`
        run can launch it (no more "캡처 헬퍼 시작 실패: NotFound"). Skipped during publish — the release

@@ -21,11 +21,12 @@ public sealed class MeterServices
     public DataManager Data { get; }
     public DpsCalculator Calculator { get; }
 
-    /// <summary>Movement/positional replay recorder, or null unless <c>replay.recordMovement=true</c>.
-    /// Records per-battle position timelines for the WCL-style replay. A PARALLEL tap on the assembled
-    /// packet stream — fully decoupled from and unable to regress the parity-critical DPS path. Off by
-    /// default. See docs/replay-feature-plan.md.</summary>
-    public MovementCaptureService? Movement { get; }
+    /// <summary>Movement/positional replay engine, or null unless <c>replay.recordMovement=true</c> AND the
+    /// private engine DLL is present (discovered at runtime — see <see cref="ReplayEngineLoader"/>). Records
+    /// per-battle position timelines for the WCL-style replay. A PARALLEL tap on the assembled packet stream
+    /// — fully decoupled from and unable to regress the parity-critical DPS path. Off by default. See
+    /// docs/replay-feature-plan.md.</summary>
+    public IReplayEngine? Movement { get; }
     public OfficialCharacterLookup OfficialLookup { get; }
     public StatsApiClient StatsApi { get; }
     public StatsConsentManager Consent { get; }
@@ -132,8 +133,10 @@ public sealed class MeterServices
 
         // Movement/positional replay (opt-in, default OFF): a parallel tap that records per-battle position
         // timelines. Never on the DPS path; resolves entity ids via Data for non-contributor (support) movers.
+        // The engine is a private, runtime-loaded DLL — absent in an open-source build, in which case
+        // TryLoad returns null and replay stays unavailable (the flag still reads false-safe).
         Movement = props.GetProperty("replay.recordMovement", "false") == "true"
-            ? new MovementCaptureService(new DataManagerIdentitySource(Data), Path.Combine(props.AppDirectory(), "replays"))
+            ? ReplayEngineLoader.TryLoad()?.Create(new DataManagerIdentitySource(Data), Path.Combine(props.AppDirectory(), "replays"))
             : null;
 
         // Stats stack. Break the consent <-> builder cycle with a deferred reference. The install key signs
