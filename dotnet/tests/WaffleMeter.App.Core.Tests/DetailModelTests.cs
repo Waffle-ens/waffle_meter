@@ -72,6 +72,61 @@ public sealed class DetailModelTests
     }
 
     [Fact]
+    public void Dot_only_skill_still_emits_its_지속_row()
+    {
+        // 대지의 징벌's DoT normalizes to a different rank code than its direct hits, so it arrives as a
+        // DoT-ONLY skill (DamageAmount 0, DotDamageAmount > 0). It must still show its "- 지속" row (the bug
+        // was the old DamageAmount<=0 skip dropping it), with no 판정 (DoT has no crit/강타/백어택).
+        var model = Compute(new Dictionary<string, AnalyzedSkill>
+        {
+            ["17400040"] = Skill(17400040, "대지의 징벌", dmg: 0, hits: 0, dot: 5000, dotTimes: 600),
+        });
+
+        DetailSkillGroup dot = Assert.Single(model.Skills);
+        Assert.True(dot.Merged.IsDot);
+        Assert.Equal("대지의 징벌 - 지속", dot.Merged.Name);
+        Assert.Equal(600, dot.Merged.Hits);
+        Assert.Equal(5000, dot.Merged.Damage);
+        Assert.Null(dot.Merged.BackPct);
+    }
+
+    [Fact]
+    public void Same_name_split_codes_merge_into_one_row()
+    {
+        // 심판의 번개's direct cast (17041250) and field ticks (17040250) are two codes with the same name;
+        // they merge into ONE row (mirrors the reference meter's single 심판의 번개 row).
+        var model = Compute(new Dictionary<string, AnalyzedSkill>
+        {
+            ["17041250"] = Skill(17041250, "심판의 번개", dmg: 2000, hits: 20, crit: 10),
+            ["17040250"] = Skill(17040250, "심판의 번개", dmg: 1600, hits: 15),
+        });
+
+        DetailSkillGroup merged = Assert.Single(model.Skills);
+        Assert.True(merged.HasChildren);
+        Assert.Equal("심판의 번개", merged.Merged.Name);
+        Assert.Equal(3600, merged.Merged.Damage);
+        Assert.Equal(35, merged.Merged.Hits);
+        Assert.Equal(2, merged.Children.Count);
+    }
+
+    [Fact]
+    public void Different_names_sharing_a_slot_stay_separate()
+    {
+        // 대지의 징벌 (17400000) and 대지의 축복 (17400058) share the 17_40 slot but are DISTINCT skills — the
+        // name-merge must key on NAME, not base code, so they never fold together.
+        var model = Compute(new Dictionary<string, AnalyzedSkill>
+        {
+            ["17400000"] = Skill(17400000, "대지의 징벌", dmg: 1000, hits: 40),
+            ["17400058"] = Skill(17400058, "대지의 축복", dmg: 2000, hits: 300),
+        });
+
+        Assert.Equal(2, model.Skills.Count);
+        Assert.Contains(model.Skills, g => g.Merged.Name == "대지의 징벌");
+        Assert.Contains(model.Skills, g => g.Merged.Name == "대지의 축복");
+        Assert.All(model.Skills, g => Assert.False(g.HasChildren));
+    }
+
+    [Fact]
     public void Own_buffs_categorize_mine_party_other()
     {
         var own = new List<OperatingData>

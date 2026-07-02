@@ -85,7 +85,11 @@ public sealed record DetailModel(
         foreach (KeyValuePair<string, AnalyzedSkill> entry in skills)
         {
             AnalyzedSkill s = entry.Value;
-            if (s.DamageAmount <= 0)
+            // Keep a skill that dealt EITHER direct or DoT damage. A DoT-ONLY skill (DamageAmount 0,
+            // DotDamageAmount > 0) is real: 대지의 징벌's DoT normalizes to a different rank code (…40) than its
+            // direct hits (…50/57 → base …00), so its DoT arrives as its own DoT-only AnalyzedSkill. The old
+            // `DamageAmount <= 0` skip dropped it, which is why the 대지의 징벌 지속피해 row was missing.
+            if (s.DamageAmount <= 0 && s.DotDamageAmount <= 0)
             {
                 continue;
             }
@@ -93,19 +97,22 @@ public sealed record DetailModel(
             int code = int.TryParse(entry.Key, out int parsed) ? parsed : s.SkillCode;
             string name = string.IsNullOrWhiteSpace(s.Name) ? code.ToString() : s.Name!;
 
-            raws.Add(new Raw
+            if (s.DamageAmount > 0)
             {
-                Code = code,
-                Name = name,
-                Hits = s.Times,
-                Damage = s.DamageAmount,
-                IsDot = false,
-                Crit = s.CritTimes,
-                Strong = s.DoubleTimes,
-                Perfect = s.PerfectTimes,
-                Back = s.BackTimes,
-                Parry = s.ParryTimes,
-            });
+                raws.Add(new Raw
+                {
+                    Code = code,
+                    Name = name,
+                    Hits = s.Times,
+                    Damage = s.DamageAmount,
+                    IsDot = false,
+                    Crit = s.CritTimes,
+                    Strong = s.DoubleTimes,
+                    Perfect = s.PerfectTimes,
+                    Back = s.BackTimes,
+                    Parry = s.ParryTimes,
+                });
+            }
 
             if (s.DotDamageAmount > 0)
             {
@@ -174,13 +181,42 @@ public sealed record DetailModel(
             }
         }
 
+        // Merge remaining rows that resolve to the SAME display name. The game splits some skills into two
+        // damage codes — e.g. 심판의 번개's direct cast (17041250) and its field ticks (17040250) — that both
+        // resolve to 심판의 번개 yet don't share a normalized code, so they showed as two rows. Merge by NAME,
+        // NOT by base code, so two DISTINCT skills that share a slot (대지의 징벌 vs 대지의 축복, both 17_40) stay
+        // separate. DoT ("- 지속") rows carry their own name, so they remain their own rows (as before).
+        var remaining = new List<Raw>();
         for (int i = 0; i < raws.Count; i++)
         {
             if (!used[i])
             {
-                DetailSkillRow row = ToRow(raws[i], totalDamage);
+                remaining.Add(raws[i]);
+            }
+        }
+
+        foreach (IGrouping<string, Raw> byName in remaining.Where(r => !r.IsDot).GroupBy(r => r.Name))
+        {
+            List<Raw> sameName = byName.ToList();
+            if (sameName.Count >= 2)
+            {
+                Raw merged = Merge(sameName);
+                groups.Add(new DetailSkillGroup(
+                    ToRow(merged, totalDamage),
+                    sameName.Select(r => ToRow(r, totalDamage)).ToList(),
+                    HasChildren: true));
+            }
+            else
+            {
+                DetailSkillRow row = ToRow(sameName[0], totalDamage);
                 groups.Add(new DetailSkillGroup(row, new[] { row }, HasChildren: false));
             }
+        }
+
+        foreach (Raw dot in remaining.Where(r => r.IsDot))
+        {
+            DetailSkillRow row = ToRow(dot, totalDamage);
+            groups.Add(new DetailSkillGroup(row, new[] { row }, HasChildren: false));
         }
 
         return groups.OrderByDescending(g => g.Merged.Damage).ToList();
