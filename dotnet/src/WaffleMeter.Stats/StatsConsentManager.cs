@@ -131,16 +131,22 @@ public sealed class StatsConsentManager
 
     private Info Accept(bool uploadEnabled, bool publicCharacter, string clientVersion)
     {
-        ConsentEventCharacter? character = CurrentConsentCharacter(publicCharacter);
+        // A character's shared public flag may only be CHANGED (turned ON or OFF) by an install that OWNS
+        // the character (holds its grant). A non-owning install (e.g. a PC방/재설치 install with no grant)
+        // must NOT touch the flag: it sends the accept with `public` OMITTED so the server PRESERVES whatever
+        // it has, and therefore can never downgrade a character another install legitimately made public.
+        // (Privacy fail-safe is unaffected: 철회/revoke is always allowed and needs no grant.)
+        string? currentHash = CurrentIdentityHash();
+        bool owns = currentHash != null && HasGrant(currentHash);
+        bool? publicIntent = publicCharacter ? true : (owns ? false : (bool?)null);
+
+        ConsentEventCharacter? character = CurrentConsentCharacter(publicIntent);
         if (character == null)
         {
             SaveLocal(State.accepted, uploadEnabled: false, publicCharacter: publicCharacter, syncStatus: "identity_missing");
             return LocalInfo();
         }
 
-        // W18 gate (§2.4): the public transition is only attempted; the server is the authority. The current
-        // executor is always allowed to ATTEMPT (handoff "로컬 Grant 또는 현재 executor"), so Accept never
-        // pre-blocks — a missing grant surfaces as the server's public_requires_ownership, handled below.
         try
         {
             ConsentStatusResponse response = _api.PostConsentEvent(
@@ -150,8 +156,10 @@ public sealed class StatsConsentManager
         }
         catch (Exception e) when (publicCharacter && IsPublicOwnershipRejection(e))
         {
-            // Public refused (no grant). Re-accept as private so the user stays consented, then inform. "롤백+안내".
-            return ReAcceptPrivate(character, uploadEnabled, clientVersion);
+            // Public refused (no grant). Re-affirm consent WITHOUT asserting public (omit → server preserves),
+            // never downgrading a shared row, then surface the ownership notice. Replaces the old destructive
+            // "re-accept as private" rollback that overwrote public=false and un-published the character.
+            return AcceptPublicUnmanaged(character, uploadEnabled, clientVersion);
         }
         catch (Exception e)
         {
@@ -166,26 +174,34 @@ public sealed class StatsConsentManager
         }
     }
 
-    /// <summary>Fallback when an accept+public was refused for lack of grant: re-accept the same character as
-    /// PRIVATE (needs no grant, §2.4) so consent still lands, then stamp the public_requires_ownership status
-    /// so the UI rolls the toggle back and shows the notice.</summary>
-    private Info ReAcceptPrivate(ConsentEventCharacter character, bool uploadEnabled, string clientVersion)
+    /// <summary>Fallback when accept+public was refused for lack of grant: re-affirm consent with the public
+    /// flag OMITTED (public=null) so the server PRESERVES the character's existing public state — never
+    /// downgrading a row an owning install already made public. Reflect the server's real state locally, and
+    /// only stamp the public_requires_ownership notice when the character is genuinely still private (there is
+    /// nothing to warn about if another owning install has already made it public).</summary>
+    private Info AcceptPublicUnmanaged(ConsentEventCharacter character, bool uploadEnabled, string clientVersion)
     {
-        ConsentEventCharacter privateChar = character with { PublicCharacter = false };
+        ConsentEventCharacter consentOnly = character with { PublicCharacter = null };
+        bool serverPublic;
         try
         {
             ConsentStatusResponse response = _api.PostConsentEvent(
-                new ConsentEventRequest(State.accepted.ToString(), ConsentVersion, Character: privateChar), clientVersion);
+                new ConsentEventRequest(State.accepted.ToString(), ConsentVersion, Character: consentOnly), clientVersion);
             ApplyRemote(response, requestedUpload: uploadEnabled);
+            serverPublic = (TryState(response.ConsentState) ?? State.unknown) == State.accepted
+                && response.Exists && response.PublicCharacter;
         }
         catch (Exception e)
         {
             SaveLocal(State.accepted, uploadEnabled: false, publicCharacter: false,
-                syncStatus: "sync_failed", identityHash: privateChar.IdentityHash, syncError: Summarize(e));
+                syncStatus: "sync_failed", identityHash: consentOnly.IdentityHash, syncError: Summarize(e));
             return LocalInfo();
         }
 
-        RememberSync(PublicRequiresOwnership, null);
+        if (!serverPublic)
+        {
+            RememberSync(PublicRequiresOwnership, null);
+        }
         return LocalInfo();
     }
 
@@ -239,7 +255,7 @@ public sealed class StatsConsentManager
         return LocalInfo();
     }
 
-    private ConsentEventCharacter? CurrentConsentCharacter(bool publicCharacter)
+    private ConsentEventCharacter? CurrentConsentCharacter(bool? publicCharacter)
     {
         User? user = _data.User(_data.ExecutorId());
         string? nickname = NonBlank(user?.Nickname);

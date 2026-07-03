@@ -43,6 +43,19 @@ public sealed class StatsConsentManagerTests : IDisposable
     private static StatsApiClient ApiFailing() =>
         new(() => "install-1", (_, _, _, _) => new StatsHttpResponse(500, "server_down"));
 
+    // Records every request body the manager sends, so tests can assert exactly what went on the wire —
+    // in particular whether the "public" key was sent true, sent false, or OMITTED (server-preserve).
+    private static (StatsApiClient api, List<string?> bodies) RecordingApi(Func<string?, StatsHttpResponse> respond)
+    {
+        var bodies = new List<string?>();
+        var api = new StatsApiClient(() => "install-1", (_, _, body, _) =>
+        {
+            bodies.Add(body);
+            return respond(body);
+        });
+        return (api, bodies);
+    }
+
     private void GiveExecutor() => _data.SaveNickname(1, "Hero", isExecutor: true, server: 3, jobByte: 0);
 
     [Fact]
@@ -392,10 +405,34 @@ public sealed class StatsConsentManagerTests : IDisposable
     }
 
     [Fact]
-    public void Accept_public_requires_ownership_rolls_back_to_private()
+    public void Accept_public_requires_ownership_reaffirms_without_downgrading_public()
     {
-        GiveExecutor(); // Hero, server 3, current
-        // Server refuses public=true (400) but accepts public=false (200) — drives the ReAcceptPrivate fallback.
+        GiveExecutor(); // Hero, server 3, current — NO grant cached.
+        // Refuse public=true (400). The omitted-public re-affirm returns the character still PUBLIC (another
+        // owning install published it): the fix must NOT downgrade it — the second request omits "public".
+        (StatsApiClient api, List<string?> bodies) = RecordingApi(body =>
+            body != null && body.Contains("\"public\":true")
+                ? new StatsHttpResponse(400, """{"ok":false,"error":{"code":"public_requires_ownership","message":"no grant"}}""")
+                : new StatsHttpResponse(200, """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":true,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}"""));
+
+        StatsConsentManager.Info info = Manager(api).Set("accepted", uploadEnabled: true, publicCharacter: true);
+
+        // Two requests: the refused public:true attempt, then a re-affirm that OMITS public entirely.
+        Assert.Equal(2, bodies.Count);
+        Assert.Contains("\"public\":true", bodies[0]);
+        Assert.DoesNotContain("\"public\"", bodies[1]); // omitted -> server preserves, never downgraded
+        // Server kept it public, so no ownership nag and public stays true (matches the shared server row).
+        Assert.Equal("accepted", info.State);
+        Assert.True(info.PublicCharacter);
+        Assert.Equal("synced", info.SyncStatus);
+        Assert.True(info.UploadEnabled);
+    }
+
+    [Fact]
+    public void Accept_public_requires_ownership_when_still_private_stamps_notice()
+    {
+        GiveExecutor();
+        // Refuse public:true; the omitted-public re-affirm returns a still-PRIVATE character.
         var api = new StatsApiClient(() => "install-1", (_, _, body, _) =>
             body != null && body.Contains("\"public\":true")
                 ? new StatsHttpResponse(400, """{"ok":false,"error":{"code":"public_requires_ownership","message":"no grant"}}""")
@@ -404,9 +441,43 @@ public sealed class StatsConsentManagerTests : IDisposable
         StatsConsentManager.Info info = Manager(api).Set("accepted", uploadEnabled: true, publicCharacter: true);
 
         Assert.Equal("accepted", info.State);
-        Assert.False(info.PublicCharacter); // rolled back to private
+        Assert.False(info.PublicCharacter); // never became public (no owning install has published it)
         Assert.Equal(StatsConsentManager.PublicRequiresOwnership, info.SyncStatus);
         Assert.True(info.UploadEnabled); // consent still landed; uploads stay on
+    }
+
+    [Fact]
+    public void Accept_private_without_grant_omits_public_to_preserve_server_state()
+    {
+        GiveExecutor(); // Hero, current, NO grant.
+        (StatsApiClient api, List<string?> bodies) = RecordingApi(_ =>
+            new StatsHttpResponse(200, """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":false,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}"""));
+
+        Manager(api).Set("accepted", uploadEnabled: true, publicCharacter: false);
+
+        // A non-owning install accepting privately must NOT assert public=false (which would un-publish a
+        // character an owning install made public). It omits the key so the server preserves it.
+        string? body = Assert.Single(bodies);
+        Assert.DoesNotContain("\"public\"", body);
+    }
+
+    [Fact]
+    public void Accept_private_with_grant_sends_explicit_public_false()
+    {
+        GiveExecutor(); // Hero, current.
+        // Earn a grant first, then a deliberate make-private from the OWNING install must send public:false.
+        Manager(ApiReturning(
+            """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":true,"granted":true,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}"""))
+            .Set("accepted", uploadEnabled: true, publicCharacter: true);
+        Assert.True(Manager(ApiFailing()).HasGrant(StatsIdentity.CharacterIdentityHash(3, "Hero")!));
+
+        (StatsApiClient api, List<string?> bodies) = RecordingApi(_ =>
+            new StatsHttpResponse(200, """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":false,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}"""));
+
+        Manager(api).Set("accepted", uploadEnabled: true, publicCharacter: false);
+
+        string? body = Assert.Single(bodies);
+        Assert.Contains("\"public\":false", body); // owning install may deliberately make it private
     }
 
     [Fact]

@@ -30,7 +30,11 @@ public sealed record ConsentEventCharacter(
     string IdentityHash,
     string Nickname,
     int Server,
-    [property: JsonPropertyName("public")] bool PublicCharacter,
+    // Nullable: null OMITS the "public" key (StatsJson ignores nulls) so the server PRESERVES the
+    // character's existing public flag. A non-owning install sends null to avoid ever downgrading a
+    // character another install legitimately made public; only an owning (granted) install asserts
+    // true/false. See StatsConsentManager.Accept.
+    [property: JsonPropertyName("public")] bool? PublicCharacter,
     string? Job = null,
     int Power = 0);
 
