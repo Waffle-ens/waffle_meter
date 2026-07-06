@@ -138,6 +138,11 @@ public sealed class MeterServices
         Movement = props.GetProperty("replay.recordMovement", "false") == "true"
             ? ReplayEngineLoader.TryLoad()?.Create(new DataManagerIdentitySource(Data), Path.Combine(props.AppDirectory(), "replays"))
             : null;
+        if (props.GetProperty("replay.recordMovement", "false") == "true")
+        {
+            // Startup marker so a "replay missing" report distinguishes flag-off from engine-DLL-absent.
+            ReplayDiag.Note(props, Movement != null ? "engine loaded" : "engine DLL MISSING — replay unavailable");
+        }
 
         // Stats stack. Break the consent <-> builder cycle with a deferred reference. The install key signs
         // every write (reports / consent events) from the first run per §2.1/§2.5 — the server takes signed
@@ -156,8 +161,14 @@ public sealed class MeterServices
         {
             UploadQueue.OfferIfEligible(log);
             NotifyBattleListChanged();
-            // build the battle's position replay (kills AND wipes/직전 전투), scoped to the party/raid roster
-            Movement?.OnBattleLogged(log, Data.PartyMemberIdentities(30 * 60 * 1000L));
+            if (Movement is { } replay)
+            {
+                // Build the battle's position replay (kills AND wipes/직전 전투), scoped to the party/raid
+                // roster, and drop the one-line diagnostic that live-verifies the replay open questions
+                // (wipe fire, AoI coverage, self density, BossDefeated inference).
+                ReplayRecording rec = replay.OnBattleLogged(log, Data.PartyMemberIdentities(30 * 60 * 1000L));
+                ReplayDiag.Log(props, log.Report, rec);
+            }
         };
     }
 
