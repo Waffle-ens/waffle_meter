@@ -32,6 +32,11 @@ public partial class ReplayWindow : Window
     // seconds. This threshold sits well above the normal ~0.3s cadence, so real movement glides while the
     // cross-map straight-line teleport artifact is still suppressed.
     private const double MaxInterpGapMs = 1500;
+    // Teleport guard: a recall/blink can land two samples FAR apart while still close in TIME (well under
+    // MaxInterpGapMs), which would otherwise draw a straight line racing across the map. Anything beyond
+    // this world-unit distance inside one interp window is not walkable (sprint tops out well under
+    // ~2000 units / 1.5s on measured tracks; observed teleports jump tens of thousands) — snap, don't glide.
+    private const double MaxStepDistWorld = 2500;
 
     private static readonly ReplayMapCatalog MapCatalog = ReplayMapCatalog.Load();
 
@@ -306,7 +311,8 @@ public partial class ReplayWindow : Window
                 var rev = new List<Point>();
                 for (int i = end; i >= 0; i--)
                 {
-                    if (i < end && (tp[i + 1].TMs - tp[i].TMs > MaxInterpGapMs || _currentMs - tp[i].TMs > TrailMs))
+                    if (i < end && (tp[i + 1].TMs - tp[i].TMs > MaxInterpGapMs || _currentMs - tp[i].TMs > TrailMs
+                                    || Teleport(tp[i], tp[i + 1])))
                     {
                         break;
                     }
@@ -379,9 +385,9 @@ public partial class ReplayWindow : Window
 
         ReplayPoint a = pts[lo], b = pts[hi];
         double span = b.TMs - a.TMs;
-        if (span > MaxInterpGapMs)
+        if (span > MaxInterpGapMs || Teleport(a, b))
         {
-            x = a.X; y = a.Y; z = a.Z; // hold the last known position through the gap
+            x = a.X; y = a.Y; z = a.Z; // hold the last known position through the gap/teleport
             stale = true;
             return true;
         }
@@ -391,6 +397,14 @@ public partial class ReplayWindow : Window
         y = a.Y + (b.Y - a.Y) * f;
         z = a.Z + (b.Z - a.Z) * f;
         return true;
+    }
+
+    /// <summary>Two consecutive samples farther apart than any legit move can cover in one interp window
+    /// — a recall/blink. Callers snap across it instead of drawing a map-crossing glide line.</summary>
+    private static bool Teleport(ReplayPoint a, ReplayPoint b)
+    {
+        double dx = b.X - a.X, dy = b.Y - a.Y;
+        return dx * dx + dy * dy > MaxStepDistWorld * MaxStepDistWorld;
     }
 
     // ---- controls ----
