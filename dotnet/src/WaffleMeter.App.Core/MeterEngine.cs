@@ -161,6 +161,19 @@ public sealed class MeterEngine : IDisposable
 
             Thread.Sleep(5);
         }
+
+        // Shutdown drain (still the owner thread): a battle that ended without reaching its save — the
+        // user quits right after a wipe, or the end toggle was lost — would otherwise vanish, taking its
+        // position replay with it. ResetDataStorage saves the pending battle iff non-empty & unsaved
+        // (kills ride the normal save path long before this), then Stop()'s Join reaps the thread.
+        try
+        {
+            _services.Calculator.ResetDataStorage();
+        }
+        catch
+        {
+            // never let the shutdown save throw out of the consumer thread
+        }
     }
 
     public void Stop()
