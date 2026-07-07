@@ -168,6 +168,28 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Visibility _aetherVisibility = Visibility.Collapsed;
     public Visibility AetherVisibility { get => _aetherVisibility; private set => Set(ref _aetherVisibility, value); }
 
+    private string _shugoKeyText = string.Empty;
+    /// <summary>Shugo-festa key balance as "base(+bonus)", shown in the footer's resource badges.</summary>
+    public string ShugoKeyText { get => _shugoKeyText; private set => Set(ref _shugoKeyText, value); }
+
+    private Visibility _shugoKeyVisibility = Visibility.Collapsed;
+    public Visibility ShugoKeyVisibility { get => _shugoKeyVisibility; private set => Set(ref _shugoKeyVisibility, value); }
+
+    /// <summary>Push the latest shugo-festa key balance. Hidden when the setting is off or no value exists.</summary>
+    public void SetShugoKey(int baseVal, int bonus, bool hasValue)
+    {
+        if (!_settings.ShowAetherStatus || !hasValue)
+        {
+            ShugoKeyVisibility = Visibility.Collapsed;
+            return;
+        }
+
+        ShugoKeyText = bonus > 0
+            ? $"{baseVal:N0}(+{bonus:N0})"
+            : baseVal.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+        ShugoKeyVisibility = Visibility.Visible;
+    }
+
     private string _pingText = string.Empty;
     /// <summary>Server latency badge ("NNms", or with a "(local)" suffix on a VPN/booster hop).</summary>
     public string PingText { get => _pingText; private set => Set(ref _pingText, value); }
