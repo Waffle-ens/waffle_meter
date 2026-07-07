@@ -77,6 +77,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
         _buffUiHidden = _props.GetProperty("buffUi.hidden") ?? "";
         _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
+        _buffUiVoice = _props.GetProperty("buffUi.voice") ?? "";
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
     }
 
@@ -299,6 +300,14 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Comma-separated base skill codes ever seen on the local player / party — the accumulated
     /// catalog the per-job picker lists (so jobs stay populated across sessions).</summary>
     public string BuffUiObserved { get => _buffUiObserved; set => SetProp(ref _buffUiObserved, "buffUi.observed", value); }
+
+    private string _buffUiVoice;
+    /// <summary>Comma-separated base skill codes set to "오버레이+음성" in the per-job picker — these fire the
+    /// start/end voice alert. A code is Off if in <see cref="BuffUiHidden"/>, Voice if here, else Overlay-only.</summary>
+    public string BuffUiVoice { get => _buffUiVoice; set => SetProp(ref _buffUiVoice, "buffUi.voice", value); }
+
+    /// <summary>The voice-enabled base-code set (parsed from <see cref="BuffUiVoice"/>).</summary>
+    public HashSet<int> BuffUiVoiceCodes => ParseCodeSet(_buffUiVoice);
 
     private string _aetherLastValue;
     /// <summary>The last observed aether balance as "base,bonus,total,unixMs", persisted so it can be shown

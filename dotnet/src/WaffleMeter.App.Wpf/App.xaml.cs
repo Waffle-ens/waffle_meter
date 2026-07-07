@@ -1227,8 +1227,9 @@ public partial class App : Application
         _buffOverlayVm.Update(buffs);
     }
 
-    // Speak "이름 온" when a tracked buff starts and "이름 오프" just before it ends (each once, gated by the
-    // per-direction toggles). Independent of the visual overlay so voice can be used on its own.
+    // Speak "이름 온" when a buff set to "오버레이+음성" starts and "이름 오프" just before it ends (each once,
+    // gated by the global start/end toggles). Per-buff voice is chosen in the 버프 알림 tab; independent of the
+    // visual overlay so voice can be used on its own.
     private void AnnounceBuffTransitions(IReadOnlyList<(int Code, string Name, long RemainingMs, long DurationMs, bool ByOther)> buffs)
     {
         if (_settings is not { } s || (!s.BuffTtsOnStart && !s.BuffTtsOnEnd))
@@ -1238,9 +1239,12 @@ public partial class App : Application
             return;
         }
 
+        HashSet<int> voiceCodes = s.BuffUiVoiceCodes; // base codes set to 오버레이+음성
         foreach ((int code, string name, long remainingMs, long durationMs, _) in buffs)
         {
-            if (_buffStartAnnounced.Add(code) && s.BuffTtsOnStart)
+            bool voice = voiceCodes.Contains(WaffleMeter.Data.DataManager.BuffBaseCode(code));
+
+            if (_buffStartAnnounced.Add(code) && voice && s.BuffTtsOnStart)
             {
                 TtsSpeech.Speak($"{name} 온", s.AlarmVolume);
             }
@@ -1248,7 +1252,7 @@ public partial class App : Application
             // Pre-warn the end once it's inside the lead window (skip very short buffs so it doesn't double up
             // with the start announcement).
             if (durationMs > BuffEndTtsLeadMs * 2 && remainingMs > 0 && remainingMs <= BuffEndTtsLeadMs
-                && _buffEndAnnounced.Add(code) && s.BuffTtsOnEnd)
+                && _buffEndAnnounced.Add(code) && voice && s.BuffTtsOnEnd)
             {
                 TtsSpeech.Speak($"{name} 오프", s.AlarmVolume);
             }

@@ -130,6 +130,9 @@
                 <ListBoxItem Tag="combat">
                     <StackPanel><TextBlock Text="전투 보조" Style="{StaticResource NavTitle}"/><TextBlock Text="버프 오버레이" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="buffalerts">
+                    <StackPanel><TextBlock Text="버프 알림" Style="{StaticResource NavTitle}"/><TextBlock Text="직업별 버프 표시·음성" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="alarms">
                     <StackPanel><TextBlock Text="알림" Style="{StaticResource NavTitle}"/><TextBlock Text="슈고 페스타 · 사용자 알람" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
@@ -591,30 +594,80 @@
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowOtherPlayerBuffs}"/>
                         </Grid>
+                        <TextBlock Text="직업별 버프 표시·음성 설정은 왼쪽 '버프 알림' 탭에 있습니다." Style="{StaticResource SettingDesc}" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- ===== 버프 알림 (직업별 표시/음성) ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=buffalerts}">
+                        <TextBlock Text="버프 알림" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="직업별로 각 버프를 오버레이/음성 중 어떻게 알릴지 고릅니다. (소비 아이템·물약은 제외)" Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="버프 시작 음성 알림" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="버프가 켜지면 '스킬명 온'을 음성으로 알립니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="버프 시작 음성" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="'오버레이+음성' 버프가 켜지면 '스킬명 온'을 읽어줍니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffTtsOnStart}"/>
                         </Grid>
-                        <Grid Margin="0,0,0,4">
+                        <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="버프 종료 음성 알림" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="버프가 끝나기 직전 '스킬명 오프'를 음성으로 알립니다. (음성 지연을 고려해 살짝 먼저 나옵니다)" Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="버프 종료 음성" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="'오버레이+음성' 버프가 끝나기 직전 '스킬명 오프'를 읽어줍니다. (음성 지연 고려해 살짝 먼저)" Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffTtsOnEnd}"/>
                         </Grid>
-                        <Grid Margin="0,10,0,4">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="직업별 버프 선택" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="직업별로 오버레이에 표시할 버프를 고릅니다. (소비 아이템·물약은 제외됩니다)" Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <Button Grid.Column="1" Content="버프 목록" MinWidth="92" Click="OnOpenBuffPicker" VerticalAlignment="Center"/>
-                        </Grid>
+
+                        <TextBlock Text="아직 표시된 버프가 없습니다. 전투를 진행하면 여기에 버프가 나타납니다."
+                                   Foreground="{DynamicResource Skin.MutedFg}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   Visibility="{Binding BuffPicker.IsEmpty, Converter={StaticResource BoolToVis}}"/>
+                        <ItemsControl ItemsSource="{Binding BuffPicker.Groups}" Margin="0,4,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Skin.SoftBorder}" Padding="0,8,0,10" Margin="0,0,0,4">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Job}" FontWeight="Bold" FontSize="13"
+                                                           Foreground="{DynamicResource Skin.Accent}" VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <Button Content="전체 끔" Padding="8,2" FontSize="11" Margin="0,0,4,0"
+                                                            DataContext="{Binding}" Tag="g|0" Click="OnBuffGroupMode"/>
+                                                    <Button Content="전체 오버레이" Padding="8,2" FontSize="11" Margin="0,0,4,0"
+                                                            DataContext="{Binding}" Tag="g|1" Click="OnBuffGroupMode"/>
+                                                    <Button Content="전체 음성" Padding="8,2" FontSize="11"
+                                                            DataContext="{Binding}" Tag="g|2" Click="OnBuffGroupMode"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="2,3">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.Column="0" Width="26" Height="26" CornerRadius="5" Margin="0,0,9,0"
+                                                                    Background="{DynamicResource Skin.RowBg}">
+                                                                <Image Source="{Binding IconSource}" Width="24" Height="24"/>
+                                                            </Border>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource Skin.Fg}" FontSize="12"/>
+                                                            <ComboBox Grid.Column="2" Width="128" SelectedIndex="{Binding Mode, Mode=TwoWay}" VerticalAlignment="Center">
+                                                                <ComboBoxItem Content="알림끔"/>
+                                                                <ComboBoxItem Content="오버레이만"/>
+                                                                <ComboBoxItem Content="오버레이+음성"/>
+                                                            </ComboBox>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
 
                     <!-- ===== 테마 색상 ===== -->

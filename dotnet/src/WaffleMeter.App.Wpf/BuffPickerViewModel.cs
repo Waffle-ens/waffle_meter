@@ -7,21 +7,23 @@ using WaffleMeter.Data;
 
 namespace WaffleMeter.App.Wpf;
 
-/// <summary>Per-job buff picker: lists every buff observed on the local player / party, grouped by job,
-/// with an icon and a show/hide toggle. Unchecked buffs go into the persisted hidden set, which the
-/// combat-assist overlay suppresses. Consumable/item buffs never reach this list (the data layer keeps only
-/// job-skill codes), so this is a pure "which of my class buffs do I want to see" control.</summary>
+/// <summary>Per-job buff picker: every buff observed on the local player / party, grouped by job, each with a
+/// 3-way mode — 알림끔 (hidden) / 오버레이만 (shown) / 오버레이+음성 (shown + voice alert). Consumable/item buffs
+/// never reach this list (the data layer keeps only job-skill codes). Modes persist to two sets: hidden codes
+/// (Off) and voice codes (Voice); a code in neither is Overlay-only.</summary>
 public sealed class BuffPickerViewModel : INotifyPropertyChanged
 {
     private readonly DataManager _data;
     private readonly MeterSettings _settings;
     private readonly HashSet<int> _hidden;
+    private readonly HashSet<int> _voice;
 
     public BuffPickerViewModel(DataManager data, MeterSettings settings)
     {
         _data = data;
         _settings = settings;
         _hidden = MeterSettings.ParseCodeSet(settings.BuffUiHidden);
+        _voice = MeterSettings.ParseCodeSet(settings.BuffUiVoice);
         Rebuild();
         _data.BuffCatalogChanged += OnCatalogChanged;
     }
@@ -53,7 +55,7 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
             var group = new BuffJobGroup(g.Key);
             foreach ((int baseCode, string name, _, _) in g.OrderBy(c => c.BaseCode))
             {
-                group.Items.Add(new BuffPickerItem(baseCode, name, !_hidden.Contains(baseCode), OnItemToggled));
+                group.Items.Add(new BuffPickerItem(baseCode, name, ModeOf(baseCode), OnItemModeChanged));
             }
 
             Groups.Add(group);
@@ -62,34 +64,37 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
         IsEmpty = catalog.Count == 0;
     }
 
-    private void OnItemToggled(int baseCode, bool show)
-    {
-        if (show)
-        {
-            _hidden.Remove(baseCode);
-        }
-        else
-        {
-            _hidden.Add(baseCode);
-        }
+    private int ModeOf(int baseCode) => _hidden.Contains(baseCode) ? BuffPickerItem.Off
+        : _voice.Contains(baseCode) ? BuffPickerItem.Voice
+        : BuffPickerItem.Overlay;
 
+    private void OnItemModeChanged(int baseCode, int mode)
+    {
+        Apply(baseCode, mode);
         Persist();
     }
 
-    /// <summary>Toggle every buff in one job group on/off at once.</summary>
-    public void SetGroup(BuffJobGroup group, bool show)
+    private void Apply(int baseCode, int mode)
+    {
+        _hidden.Remove(baseCode);
+        _voice.Remove(baseCode);
+        if (mode == BuffPickerItem.Off)
+        {
+            _hidden.Add(baseCode);
+        }
+        else if (mode == BuffPickerItem.Voice)
+        {
+            _voice.Add(baseCode);
+        }
+    }
+
+    /// <summary>Set every buff in one job group to the same mode at once.</summary>
+    public void SetGroup(BuffJobGroup group, int mode)
     {
         foreach (BuffPickerItem item in group.Items)
         {
-            item.SetShownSilently(show);
-            if (show)
-            {
-                _hidden.Remove(item.BaseCode);
-            }
-            else
-            {
-                _hidden.Add(item.BaseCode);
-            }
+            item.SetModeSilently(mode);
+            Apply(item.BaseCode, mode);
         }
 
         Persist();
@@ -98,6 +103,7 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
     private void Persist()
     {
         _settings.BuffUiHidden = string.Join(",", _hidden);
+        _settings.BuffUiVoice = string.Join(",", _voice);
         _data.SetHiddenBuffBases(_hidden);
     }
 
@@ -124,51 +130,55 @@ public sealed class BuffJobGroup
     public ObservableCollection<BuffPickerItem> Items { get; } = new();
 }
 
-/// <summary>One toggleable buff row: icon + name + a show/hide checkbox.</summary>
+/// <summary>One buff row: icon + name + a 3-way mode (bound to a ComboBox SelectedIndex).</summary>
 public sealed class BuffPickerItem : INotifyPropertyChanged
 {
-    private readonly Action<int, bool> _onToggled;
+    public const int Off = 0;      // 알림끔
+    public const int Overlay = 1;  // 오버레이만
+    public const int Voice = 2;    // 오버레이+음성
+
+    private readonly Action<int, int> _onModeChanged;
     private bool _suppress;
 
-    public BuffPickerItem(int baseCode, string name, bool shown, Action<int, bool> onToggled)
+    public BuffPickerItem(int baseCode, string name, int mode, Action<int, int> onModeChanged)
     {
         BaseCode = baseCode;
         Name = name;
         IconSource = JoinIcons.Skill(baseCode);
-        _shown = shown;
-        _onToggled = onToggled;
+        _mode = mode;
+        _onModeChanged = onModeChanged;
     }
 
     public int BaseCode { get; }
     public string Name { get; }
     public ImageSource? IconSource { get; }
 
-    private bool _shown;
-    public bool Shown
+    private int _mode;
+    /// <summary>0 = 알림끔, 1 = 오버레이만, 2 = 오버레이+음성 (bound to ComboBox.SelectedIndex).</summary>
+    public int Mode
     {
-        get => _shown;
+        get => _mode;
         set
         {
-            if (_shown == value)
+            if (_mode == value)
             {
                 return;
             }
 
-            _shown = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Shown)));
+            _mode = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Mode)));
             if (!_suppress)
             {
-                _onToggled(BaseCode, value);
+                _onModeChanged(BaseCode, value);
             }
         }
     }
 
-    /// <summary>Set the toggle without firing the per-item callback (used by the group-level toggle, which
-    /// persists once for the whole group).</summary>
-    public void SetShownSilently(bool value)
+    /// <summary>Set the mode without firing the per-item callback (group toggle persists once for the group).</summary>
+    public void SetModeSilently(int value)
     {
         _suppress = true;
-        Shown = value;
+        Mode = value;
         _suppress = false;
     }
 

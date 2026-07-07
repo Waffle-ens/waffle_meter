@@ -25,7 +25,7 @@ public partial class SettingsWindow : Window
             _viewModel.RefreshLogging();
         };
         _statusTimer.Start();
-        Closed += (_, _) => _statusTimer.Stop();
+        Closed += (_, _) => { _statusTimer.Stop(); _viewModel.DisposeBuffPicker(); };
     }
 
     // Reset the scroll to the top when switching category — the content is one shared ScrollViewer, so a
@@ -111,11 +111,14 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OnOpenBuffPicker(object sender, RoutedEventArgs e)
+    private void OnBuffGroupMode(object sender, RoutedEventArgs e)
     {
-        BuffPickerWindow picker = _viewModel.CreateBuffPicker();
-        picker.Owner = this;
-        picker.ShowDialog();
+        // Tag = "group|mode": set every buff in a job group to a mode at once.
+        if (sender is FrameworkElement { Tag: string tag } && tag.Split('|') is [_, var modeStr]
+            && int.TryParse(modeStr, out int mode) && ((FrameworkElement)sender).DataContext is BuffJobGroup group)
+        {
+            _viewModel.BuffPicker.SetGroup(group, mode);
+        }
     }
 
     private void OnOpenFieldBossPicker(object sender, RoutedEventArgs e)

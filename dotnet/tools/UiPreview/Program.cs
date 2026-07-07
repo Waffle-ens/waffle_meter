@@ -113,18 +113,7 @@ internal static class Program
                 buffBgVm.Update(new List<(int, string, long, long, bool)>());
                 Capture(() => new BuffOverlayPanel(buffBgVm), palette, Path.Combine(outDir, "buffoverlay_bg_Dark.png"));
 
-                // Per-job buff picker: seed a small observed catalog so the grouped list renders.
-                var pickerData = new DataManager();
-                pickerData.LoadBuffNames(new (int, string, string)[]
-                {
-                    (11100000, "파멸의 맹타", "검성"), (11110000, "집중 막기", "검성"), (11800000, "살기 파열", "검성"),
-                    (11390000, "격노 폭발", "검성"), (14050000, "송곳 화살", "궁성"), (14060000, "그리폰 화살", "궁성"),
-                    (19310000, "파쇄", "권성"), (19400000, "영역 소환", "권성"), (19660000, "권성 버프", "권성"),
-                });
-                pickerData.SeedObservedBuffBases(new[] { 11100000, 11110000, 11800000, 11390000, 14050000, 14060000, 19310000, 19400000, 19660000 });
-                var pickerVm = new BuffPickerViewModel(pickerData, settings);
-                Capture(() => new BuffPickerWindow(pickerVm), palette, Path.Combine(outDir, "buffpicker_Dark.png"));
-
+                // (the per-job buff picker is now embedded in the settings 버프 알림 tab, not a standalone window)
                 var bossPickerVm = new FieldBossPickerViewModel(settings);
                 Capture(() => new FieldBossPickerWindow(bossPickerVm), palette, Path.Combine(outDir, "fieldbosspicker_Dark.png"));
 

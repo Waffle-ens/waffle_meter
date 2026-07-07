@@ -178,8 +178,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool BuffTtsOnEnd { get => _settings.BuffTtsOnEnd; set { _settings.BuffTtsOnEnd = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }
 
-    /// <summary>Build the per-job buff picker dialog view model, bound to the live data catalog + settings.</summary>
-    public BuffPickerWindow CreateBuffPicker() => new(new BuffPickerViewModel(_services.Data, _settings));
+    private BuffPickerViewModel? _buffPicker;
+    /// <summary>The per-job buff picker, embedded in the 버프 알림 settings tab. Built lazily and disposed when
+    /// the window closes (see <see cref="DisposeBuffPicker"/>).</summary>
+    public BuffPickerViewModel BuffPicker => _buffPicker ??= new BuffPickerViewModel(_services.Data, _settings);
+
+    /// <summary>Release the picker's catalog subscription when the settings window closes.</summary>
+    public void DisposeBuffPicker() => _buffPicker?.Dispose();
 
     /// <summary>Wired by App: trigger an update check (results surface in the toast).</summary>
     public Action? CheckUpdateRequested { get; set; }
