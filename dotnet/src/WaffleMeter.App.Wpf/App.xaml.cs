@@ -356,6 +356,8 @@ public partial class App : Application
             viewModel.Update(report);
             (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
             viewModel.SetAether(aBase, aBonus, aHas); // live aether badge (read each tick; fires even when idle)
+            (int sBase, int sBonus, int _, bool sHas) = services.Data.CurrentShugoKey;
+            viewModel.SetShugoKey(sBase, sBonus, sHas); // live shugo-festa key badge
             viewModel.SetPing(services.CurrentPing()); // live server-latency badge
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
             StatsOwnCharacter own = services.StatsBuilder.OwnCharacter();

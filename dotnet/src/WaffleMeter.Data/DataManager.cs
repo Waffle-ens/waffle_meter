@@ -345,6 +345,71 @@ public sealed class DataManager : ICaptureGameData
         AetherStatusChanged?.Invoke();
     }
 
+    // ---- shugo-festa key (슈고 페스타 보상 열쇠), shown in the footer next to aether ----
+    // Rides the same 0x610x packets as aether (different key byte); same threading + back-compute semantics.
+    private readonly object _shugoKeyGate = new();
+    private int _shugoKeyBase;
+    private int _shugoKeyBonus;
+    private int _shugoKeyTotal;
+    private bool _shugoKeyHasValue;
+
+    /// <summary>Raised (packet-consumer thread) when the shugo-key count changes, so the overlay can refresh.</summary>
+    public event Action? ShugoKeyChanged;
+
+    /// <summary>The local player's current shugo-festa key count, or (0,0,false) until one has been seen.</summary>
+    public (int Base, int Bonus, int Total, bool HasValue) CurrentShugoKey
+    {
+        get { lock (_shugoKeyGate) { return (_shugoKeyBase, _shugoKeyBonus, _shugoKeyTotal, _shugoKeyHasValue); } }
+    }
+
+    public void SaveShugoKey(bool split, int baseVal, int bonus, int total)
+    {
+        lock (_shugoKeyGate)
+        {
+            if (split)
+            {
+                _shugoKeyBase = baseVal;
+                _shugoKeyBonus = bonus;
+            }
+            else
+            {
+                int delta = total - _shugoKeyTotal;
+                if (delta >= 0)
+                {
+                    _shugoKeyBase += delta;
+                }
+                else
+                {
+                    int drop = -delta;
+                    int fromBase = Math.Min(_shugoKeyBase, drop);
+                    _shugoKeyBase -= fromBase;
+                    _shugoKeyBonus = Math.Max(0, _shugoKeyBonus - (drop - fromBase));
+                }
+            }
+
+            _shugoKeyTotal = total;
+            _shugoKeyHasValue = true;
+        }
+
+        ShugoKeyChanged?.Invoke();
+    }
+
+    private void ClearShugoKey()
+    {
+        lock (_shugoKeyGate)
+        {
+            if (!_shugoKeyHasValue && _shugoKeyBase == 0 && _shugoKeyBonus == 0 && _shugoKeyTotal == 0)
+            {
+                return;
+            }
+
+            _shugoKeyBase = _shugoKeyBonus = _shugoKeyTotal = 0;
+            _shugoKeyHasValue = false;
+        }
+
+        ShugoKeyChanged?.Invoke();
+    }
+
     // ---- field-boss respawn timers (boss code -> target Unix-ms), from the 0x9101 broadcast ----
     // Written on the packet-consumer thread, read (snapshot) on the UI thread → guard with a lock.
     private readonly Dictionary<int, long> _fieldBossTimers = new();
@@ -559,6 +624,7 @@ public sealed class DataManager : ICaptureGameData
                 _partyRoster.Clear();
                 _partyRosterAtMs = 0;
                 ClearAetherStatus(); // the aether balance is the previous character's — drop it on a real switch
+                ClearShugoKey();     // the shugo-festa key count, likewise
                 ClearOwnerBuffs();   // the previous character's buffs, likewise
                 ExecutorIdentityChanged?.Invoke();
             }
@@ -964,6 +1030,7 @@ public sealed class DataManager : ICaptureGameData
         _partyRoster.Clear();
         _partyRosterAtMs = 0;
         ClearAetherStatus();
+        ClearShugoKey();
         ClearOwnerBuffs();
     }
 

@@ -38,6 +38,11 @@ public interface ICaptureGameData
     /// value. No-op in capture-only mode.</summary>
     void SaveAetherStatus(bool split, int baseVal, int bonus, int total);
 
+    /// <summary>Shugo-festa key (슈고 페스타 보상 열쇠) count update from the 0x610x family (same packets as
+    /// aether; a different key byte). <paramref name="split"/> semantics mirror <see cref="SaveAetherStatus"/>.
+    /// No-op in capture-only mode.</summary>
+    void SaveShugoKey(bool split, int baseVal, int bonus, int total);
+
     /// <summary>Field-boss respawn timers (boss code → target Unix-ms) from the 0x9101 broadcast. No-op in
     /// capture-only mode.</summary>
     void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers);
@@ -72,5 +77,6 @@ public sealed class NullCaptureGameData : ICaptureGameData
     public void TouchDummyBattle(int target, long epoch) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
     public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
+    public void SaveShugoKey(bool split, int baseVal, int bonus, int total) { }
     public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 }

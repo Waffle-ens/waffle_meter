@@ -297,6 +297,7 @@ public sealed class StreamProcessor
                 case AetherKeyA:
                 case AetherKeyB:
                     ParseAetherStatus(packet, opcodeOffset + 2);
+                    ParseShugoKey(packet, opcodeOffset + 2);
                     break;
                 case FieldBossTimerKey:
                     ParseFieldBossTimers(packet, opcodeOffset + 2, arrivedAt);
@@ -1165,6 +1166,20 @@ public sealed class StreamProcessor
 
         _data.SaveAetherStatus(a.Split, a.Base, a.Bonus, a.Total);
         _sink.Meta("aether", ("split", a.Split), ("base", a.Base), ("bonus", a.Bonus), ("total", a.Total));
+    }
+
+    /// <summary>Shugo-festa key (슈고 페스타 보상 열쇠) status, riding the same 0x610B/0x610C packets as aether
+    /// (a different key byte selects it). Tried alongside aether so both resources update from one packet.</summary>
+    private void ParseShugoKey(byte[] packet, int bodyStart)
+    {
+        ShugoKeyParse s = ShugoKeyParser.TryParse(packet, bodyStart);
+        if (!s.Ok)
+        {
+            return;
+        }
+
+        _data.SaveShugoKey(s.Split, s.Base, s.Bonus, s.Total);
+        _sink.Meta("shugokey", ("split", s.Split), ("base", s.Base), ("bonus", s.Bonus), ("total", s.Total));
     }
 
     /// <summary>Field-boss respawn timers 0x9101. Extracts boss-code → target-time records and forwards them
