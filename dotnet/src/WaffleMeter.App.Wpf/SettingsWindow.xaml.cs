@@ -118,6 +118,13 @@ public partial class SettingsWindow : Window
         picker.ShowDialog();
     }
 
+    private void OnOpenFieldBossPicker(object sender, RoutedEventArgs e)
+    {
+        FieldBossPickerWindow picker = _viewModel.CreateFieldBossPicker();
+        picker.Owner = this;
+        picker.ShowDialog();
+    }
+
     private void OnResetMeterPosition(object sender, RoutedEventArgs e) => _viewModel.ResetMeterPosition();
 
     private void OnResetJoinPosition(object sender, RoutedEventArgs e) => _viewModel.ResetJoinPosition();

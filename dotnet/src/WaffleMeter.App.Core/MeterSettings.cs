@@ -62,6 +62,8 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _fieldBossLead5 = ReadBool("alarms.fieldBossLead5", false);
         _fieldBossLead10 = ReadBool("alarms.fieldBossLead10", true);
         _fieldBossLead30 = ReadBool("alarms.fieldBossLead30", false);
+        _fieldBossAlarmMuteInCombat = ReadBool("alarms.fieldBossMuteInCombat", false);
+        _fieldBossDisabled = _props.GetProperty("alarms.fieldBossDisabled") ?? "";
         _refreshIntervalMs = ReadInt("refreshIntervalMs", 500);
         _maxVisibleRows = ReadInt("maxVisibleRows", 10);
         _lowSpecMode = ReadBool("lowSpecMode", false);
@@ -197,6 +199,20 @@ public sealed class MeterSettings : INotifyPropertyChanged
             return s;
         }
     }
+
+    private bool _fieldBossAlarmMuteInCombat;
+    /// <summary>Suppress the field-boss reminder while the meter is recording an active combat (so a dungeon
+    /// fight isn't interrupted by a respawn toast). A suppressed alert can still fire once the fight ends if
+    /// it's still inside its lead window.</summary>
+    public bool FieldBossAlarmMuteInCombat { get => _fieldBossAlarmMuteInCombat; set => SetBool(ref _fieldBossAlarmMuteInCombat, "alarms.fieldBossMuteInCombat", value); }
+
+    private string _fieldBossDisabled;
+    /// <summary>Comma-separated boss codes the user unchecked in the boss picker; the reminder skips these.
+    /// Empty = alert for every boss.</summary>
+    public string FieldBossDisabled { get => _fieldBossDisabled; set => SetProp(ref _fieldBossDisabled, "alarms.fieldBossDisabled", value); }
+
+    /// <summary>The disabled boss-code set (parsed from <see cref="FieldBossDisabled"/>).</summary>
+    public HashSet<int> FieldBossDisabledCodes => ParseCodeSet(_fieldBossDisabled);
 
     private List<CustomAlarm> _customAlarms;
     /// <summary>User-defined recurring reminders. Persisted as one Base64(JSON) value (alarms.custom).</summary>

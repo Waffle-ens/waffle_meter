@@ -243,12 +243,28 @@
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding FieldBossAlarmEnabled}"/>
                         </Grid>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                             <TextBlock Text="미리 알림" Style="{StaticResource SettingTitle}" VerticalAlignment="Center" Margin="0,0,12,0"/>
                             <CheckBox Content="5분 전" IsChecked="{Binding FieldBossLead5}" Foreground="{DynamicResource Skin.Fg}" VerticalAlignment="Center" Margin="0,0,14,0"/>
                             <CheckBox Content="10분 전" IsChecked="{Binding FieldBossLead10}" Foreground="{DynamicResource Skin.Fg}" VerticalAlignment="Center" Margin="0,0,14,0"/>
                             <CheckBox Content="30분 전" IsChecked="{Binding FieldBossLead30}" Foreground="{DynamicResource Skin.Fg}" VerticalAlignment="Center"/>
                         </StackPanel>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="전투 중 알림 숨김" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="미터에 전투가 기록되는 동안에는 필드보스 알림을 띄우지 않습니다. (전투 종료 후 시간이 남아있으면 표시)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding FieldBossAlarmMuteInCombat}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="알림 받을 보스 선택" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="원하는 필드보스만 알림을 받도록 선택합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="보스 선택…" Click="OnOpenFieldBossPicker" VerticalAlignment="Center"/>
+                        </Grid>
 
                         <TextBlock Text="커스텀 알람" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
 

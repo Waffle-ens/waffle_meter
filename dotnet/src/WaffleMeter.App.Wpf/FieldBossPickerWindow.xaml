@@ -1,0 +1,111 @@
+<Window x:Class="WaffleMeter.App.Wpf.FieldBossPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="필드보스 알림 선택" Width="380" Height="560"
+        WindowStartupLocation="CenterOwner" FontFamily="Segoe UI"
+        Background="{DynamicResource Skin.WindowBg}" Foreground="{DynamicResource Skin.Fg}">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Themes/Skin.Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Compact skinned checkbox: accent box + checkmark when on (matches the meter chrome). -->
+            <Style TargetType="CheckBox">
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <Border x:Name="box" Width="17" Height="17" CornerRadius="4" BorderThickness="1"
+                                        Background="{DynamicResource Skin.ControlBg}" BorderBrush="{DynamicResource Skin.ControlBorder}"
+                                        VerticalAlignment="Center">
+                                    <Path x:Name="check" Data="M 3.5,8.5 L 7,11.5 L 13,4.5" Stroke="White" StrokeThickness="1.8"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="None" Visibility="Collapsed"/>
+                                </Border>
+                                <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="box" Property="Background" Value="{DynamicResource Skin.Accent}"/>
+                                    <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                    <Setter TargetName="check" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="ChipButton" TargetType="Button">
+                <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+                <Setter Property="Background" Value="{DynamicResource Skin.StatBg}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
+                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="Padding" Value="8,2"/>
+                <Setter Property="Margin" Value="4,0,0,0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <DockPanel Margin="16,14">
+        <TextBlock DockPanel.Dock="Top" Text="알림을 받을 필드보스를 선택하세요."
+                   Foreground="{DynamicResource Skin.Fg}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
+        <TextBlock DockPanel.Dock="Top" Text="체크된 보스만 리스폰 알림을 표시합니다."
+                   Foreground="{DynamicResource Skin.MutedFg}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+        <Button DockPanel.Dock="Bottom" Content="닫기" HorizontalAlignment="Right" MinWidth="82" Margin="0,12,0,0"
+                Click="OnClose"/>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+            <ItemsControl ItemsSource="{Binding Groups}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Skin.SoftBorder}" Padding="0,8,0,10" Margin="0,0,0,4">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Realm}" FontWeight="Bold" FontSize="13"
+                                               Foreground="{DynamicResource Skin.Accent}" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button Content="전체 켜기" Style="{StaticResource ChipButton}" Tag="{Binding}" Click="OnEnableAll"/>
+                                        <Button Content="전체 끄기" Style="{StaticResource ChipButton}" Tag="{Binding}" Click="OnDisableAll"/>
+                                    </StackPanel>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding Items}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <CheckBox IsChecked="{Binding Alerted, Mode=TwoWay}" Margin="2,4" Padding="0"
+                                                      Content="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="12"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

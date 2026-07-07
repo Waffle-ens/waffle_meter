@@ -9,6 +9,16 @@ public class FieldBossAlarmTests
     private const long Now = 1_783_000_000_000L;
 
     [Fact]
+    public void Catalog_lists_every_boss_split_by_realm()
+    {
+        var all = FieldBossCatalog.All();
+        Assert.Equal(24, all.Count);
+        Assert.Equal(12, all.Count(b => b.Realm == "천족"));
+        Assert.Equal(12, all.Count(b => b.Realm == "마족"));
+        Assert.All(all, b => Assert.False(string.IsNullOrWhiteSpace(b.Name)));
+    }
+
+    [Fact]
     public void A_lead_is_due_inside_its_one_minute_window()
     {
         var timers = new Dictionary<int, long> { [2406034] = Now + 10 * 60_000L - 5_000 }; // 9m55s out

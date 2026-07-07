@@ -19,6 +19,7 @@ public sealed class AlarmController
     private readonly Func<DateTime> _now;
     private readonly Func<IReadOnlyDictionary<int, long>>? _fieldBossTimers;
     private readonly Action<FieldBossAlarm.Due>? _onFieldBoss;
+    private readonly Func<bool>? _combatActive;
     private readonly DispatcherTimer _timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
     private string _lastMinute = string.Empty;
     // dedup: each (boss, respawn, lead) fires once. Value = the respawn target ms, so entries can be pruned
@@ -32,7 +33,8 @@ public sealed class AlarmController
         Action<CustomAlarm> onCustom,
         Func<DateTime>? now = null,
         Func<IReadOnlyDictionary<int, long>>? fieldBossTimers = null,
-        Action<FieldBossAlarm.Due>? onFieldBoss = null)
+        Action<FieldBossAlarm.Due>? onFieldBoss = null,
+        Func<bool>? combatActive = null)
     {
         _settings = settings;
         _onShugo = onShugo;
@@ -40,6 +42,7 @@ public sealed class AlarmController
         _now = now ?? (() => DateTime.Now);
         _fieldBossTimers = fieldBossTimers;
         _onFieldBoss = onFieldBoss;
+        _combatActive = combatActive;
         _timer.Tick += (_, _) => Poll();
     }
 
@@ -97,8 +100,23 @@ public sealed class AlarmController
             }
         }
 
+        // Suppress while recording an active combat, if enabled — skip WITHOUT marking the alert shown, so it
+        // can still fire once the fight ends (as long as it's still inside its lead window).
+        bool muteForCombat = _settings.FieldBossAlarmMuteInCombat && _combatActive?.Invoke() == true;
+        HashSet<int> disabled = _settings.FieldBossDisabledCodes;
+
         foreach (FieldBossAlarm.Due d in FieldBossAlarm.DueAlerts(_fieldBossTimers(), nowMs, _settings.FieldBossLeads))
         {
+            if (disabled.Contains(d.Code))
+            {
+                continue; // unchecked in the boss picker
+            }
+
+            if (muteForCombat)
+            {
+                continue; // don't fire mid-fight; also don't dedup so it can fire after the fight
+            }
+
             if (_shownFieldBoss.TryAdd(FieldBossAlarm.Key(d), d.TargetMs))
             {
                 _onFieldBoss(d);

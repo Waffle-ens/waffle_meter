@@ -55,6 +55,7 @@ public partial class App : Application
     private AlarmToast? _alarmToast;
     private AlarmToastViewModel? _alarmToastVm;
     private AlarmController? _alarms;
+    private volatile bool _combatActive; // recent damage activity — gates the "mute field-boss alarm in combat" option
     private BuffOverlayPanel? _buffOverlay;
     private BuffOverlayViewModel? _buffOverlayVm;
     private System.Windows.Threading.DispatcherTimer? _buffTimer;
@@ -260,6 +261,11 @@ public partial class App : Application
         _engine.ReportUpdated += report => Dispatcher.Invoke(() =>
         {
             _lastReport = report;
+            // Combat-active = recent damage; a few seconds of grace covers the gaps between hits in a fight.
+            // Set from the LIVE report before any early-return (history replay) so the field-boss "mute in
+            // combat" gate always reflects real combat, not the displayed (frozen) battle.
+            _combatActive = report.Information.Count > 0
+                && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - report.BattleEnd < 5000;
             // While viewing a saved battle, hold the overlay until a NEW battle begins (React resets the
             // selected history when isInCombat); the open detail follows the SAME displayed battle (below).
             if (_viewingHistory)
@@ -443,7 +449,8 @@ public partial class App : Application
             lead => Dispatcher.Invoke(() => ShowShugoAlarm(lead)),
             alarm => Dispatcher.Invoke(() => ShowCustomAlarm(alarm)),
             fieldBossTimers: () => services.Data.CurrentFieldBossTimers,
-            onFieldBoss: due => Dispatcher.Invoke(() => ShowFieldBossAlarm(due)));
+            onFieldBoss: due => Dispatcher.Invoke(() => ShowFieldBossAlarm(due)),
+            combatActive: () => _combatActive);
         _alarms.Start();
 
         // Per-job buff picker: seed the observed catalog + hidden selection from persisted settings, and

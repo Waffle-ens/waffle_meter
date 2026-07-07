@@ -217,6 +217,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool FieldBossLead5 { get => _settings.FieldBossLead5; set { _settings.FieldBossLead5 = value; OnPropertyChanged(); } }
     public bool FieldBossLead10 { get => _settings.FieldBossLead10; set { _settings.FieldBossLead10 = value; OnPropertyChanged(); } }
     public bool FieldBossLead30 { get => _settings.FieldBossLead30; set { _settings.FieldBossLead30 = value; OnPropertyChanged(); } }
+    public bool FieldBossAlarmMuteInCombat { get => _settings.FieldBossAlarmMuteInCombat; set { _settings.FieldBossAlarmMuteInCombat = value; OnPropertyChanged(); } }
+
+    /// <summary>Build the field-boss alarm selection dialog, bound to the persisted disabled set.</summary>
+    public FieldBossPickerWindow CreateFieldBossPicker() => new(new FieldBossPickerViewModel(_settings));
 
     // ---- custom alarms (CRUD list) ----
     public IReadOnlyList<int> Hours { get; } = Enumerable.Range(0, 24).ToList();

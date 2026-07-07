@@ -119,6 +119,9 @@ internal static class Program
                 var pickerVm = new BuffPickerViewModel(pickerData, settings);
                 Capture(() => new BuffPickerWindow(pickerVm), palette, Path.Combine(outDir, "buffpicker_Dark.png"));
 
+                var bossPickerVm = new FieldBossPickerViewModel(settings);
+                Capture(() => new FieldBossPickerWindow(bossPickerVm), palette, Path.Combine(outDir, "fieldbosspicker_Dark.png"));
+
                 Capture(() => new CloseActionDialog(), palette, Path.Combine(outDir, "closedialog_Dark.png"));
                 Capture(() => new StatsConsentModal("콘팡 · 마도성"), palette, Path.Combine(outDir, "consent_Dark.png"));
 

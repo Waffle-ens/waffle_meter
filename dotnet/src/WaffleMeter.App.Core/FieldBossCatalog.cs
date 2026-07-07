@@ -43,4 +43,11 @@ public static class FieldBossCatalog
 
     /// <summary>True when the code is a known field boss (drives whether an unknown timer is surfaced).</summary>
     public static bool IsKnown(int code) => Names.ContainsKey(code);
+
+    /// <summary>The realm a boss belongs to, from its code band (21xxxxx elyos / 24xxxxx asmodian).</summary>
+    public static string Realm(int code) => code / 100000 == 21 ? "천족" : code / 100000 == 24 ? "마족" : "기타";
+
+    /// <summary>Every known boss as (code, name, realm), in catalog order — for the boss-selection picker.</summary>
+    public static IReadOnlyList<(int Code, string Name, string Realm)> All()
+        => Names.Select(kv => (kv.Key, kv.Value, Realm(kv.Key))).ToList();
 }
