@@ -828,8 +828,12 @@ public partial class App : Application
             _historyPanel.Park();
         };
 
-        // Saved-battle snapshots arrive on the consumer thread; cache them on the UI thread.
-        services.BattleListChanged += battles => Dispatcher.Invoke(() => _historyViewModel.SetBattles(battles));
+        // Saved-battle snapshots arrive on the consumer thread; cache them on the UI thread. BeginInvoke
+        // (not Invoke) so the consumer never blocks on the UI thread — during app shutdown the UI thread is
+        // itself joining the consumer, and a synchronous Invoke there would mutually deadlock (and stall the
+        // shutdown save). A history-panel refresh is not latency-critical; if the dispatcher is already
+        // shutting down the post simply doesn't run.
+        services.BattleListChanged += battles => Dispatcher.BeginInvoke(() => _historyViewModel.SetBattles(battles));
 
         // Clicking a saved battle replays it in the meter until the next live battle starts.
         _historyViewModel.BattleSelected += report =>

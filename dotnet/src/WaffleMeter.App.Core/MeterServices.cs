@@ -159,16 +159,28 @@ public sealed class MeterServices
         // the history-panel snapshot (both run on the consumer thread inside the save).
         Calculator.OnBattleLogged = log =>
         {
-            UploadQueue.OfferIfEligible(log);
-            NotifyBattleListChanged();
+            // Build the position replay FIRST so its durable file is on disk before anything that could
+            // block: NotifyBattleListChanged marshals to the UI thread, which during app-shutdown is
+            // itself waiting on this (consumer) thread — writing the replay first means the artifact
+            // survives even if that notify can't complete. Isolated in try/catch because the replay engine
+            // is an optional private module and must never break the parity-critical save/upload path.
             if (Movement is { } replay)
             {
-                // Build the battle's position replay (kills AND wipes/직전 전투), scoped to the party/raid
-                // roster, and drop the one-line diagnostic that live-verifies the replay open questions
-                // (wipe fire, AoI coverage, self density, BossDefeated inference).
-                ReplayRecording rec = replay.OnBattleLogged(log, Data.PartyMemberIdentities(30 * 60 * 1000L));
-                ReplayDiag.Log(props, log.Report, rec);
+                try
+                {
+                    // kills AND wipes/직전 전투, scoped to the party/raid roster; the diag line live-verifies
+                    // the open questions (wipe fire, AoI coverage, self density, BossDefeated inference).
+                    ReplayRecording rec = replay.OnBattleLogged(log, Data.PartyMemberIdentities(30 * 60 * 1000L));
+                    ReplayDiag.Log(props, log.Report, rec);
+                }
+                catch
+                {
+                    // a replay failure must never disturb the DPS save/upload path or the consumer thread
+                }
             }
+
+            UploadQueue.OfferIfEligible(log);
+            NotifyBattleListChanged();
         };
     }
 

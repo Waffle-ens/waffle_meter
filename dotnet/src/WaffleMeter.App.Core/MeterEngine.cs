@@ -165,7 +165,9 @@ public sealed class MeterEngine : IDisposable
         // Shutdown drain (still the owner thread): a battle that ended without reaching its save — the
         // user quits right after a wipe, or the end toggle was lost — would otherwise vanish, taking its
         // position replay with it. ResetDataStorage saves the pending battle iff non-empty & unsaved
-        // (kills ride the normal save path long before this), then Stop()'s Join reaps the thread.
+        // (kills ride the normal save path long before this). Its OnBattleLogged writes the replay file
+        // first and only then posts the history refresh via Dispatcher.BeginInvoke (non-blocking), so this
+        // thread never waits on the UI thread that is itself joining us. Stop()'s Join then reaps us.
         try
         {
             _services.Calculator.ResetDataStorage();
@@ -185,8 +187,13 @@ public sealed class MeterEngine : IDisposable
 
         _running = false;
         _backend.Stop();
-        _consumer?.Join(1000);
+        // Generous join: the consumer runs the shutdown drain (save + replay-file write) as its last act
+        // before exiting, so wait long enough for that IO to finish rather than kill it mid-write. It
+        // returns as soon as the thread ends, so a clean no-save exit is still instant.
+        _consumer?.Join(ShutdownDrainTimeoutMs);
     }
+
+    private const int ShutdownDrainTimeoutMs = 5000;
 
     public void Dispose()
     {
