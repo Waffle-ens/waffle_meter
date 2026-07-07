@@ -597,7 +597,7 @@
                                 <TextBlock Text="직업별 버프 선택" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="직업별로 오버레이에 표시할 버프를 고릅니다. (소비 아이템·물약은 제외됩니다)" Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
-                            <Button Grid.Column="1" Content="버프 목록…" Click="OnOpenBuffPicker" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="버프 목록" MinWidth="92" Click="OnOpenBuffPicker" VerticalAlignment="Center"/>
                         </Grid>
                     </StackPanel>
 

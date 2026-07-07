@@ -170,6 +170,27 @@ public static class SkillCatalog
         new(18420000, "호법성", "수호의 축복", true),
         new(18700000, "호법성", "강습 충격", true),
         new(18440000, "호법성", "결계의 주문", true),
+        // 권성 (prefix 19) — the new job (2026-07-01 patch). Stigma set matches the client's
+        // SpecializedSkillParts (InitEquipSlotType != None); normals lead the badge sort by observed volume.
+        new(19720000, "권성", "정면 돌파", false),
+        new(19800000, "권성", "경량화", false),
+        new(19780000, "권성", "충격타", false),
+        new(19710000, "권성", "전선 유지", false),
+        new(19040000, "권성", "비각", false),
+        new(19010000, "권성", "연격", false),
+        new(19310000, "권성", "파쇄", true),
+        new(19330000, "권성", "분신", true),
+        new(19290000, "권성", "공파참", true),
+        new(19300000, "권성", "진각", true),
+        new(19280000, "권성", "격노", true),
+        new(19390000, "권성", "권기 방출", true),
+        new(19400000, "권성", "영역 소환", true),
+        new(19380000, "권성", "강습 타격", true),
+        new(19370000, "권성", "전력", true),
+        new(19360000, "권성", "저지 불가", true),
+        new(19350000, "권성", "집중 막기", true),
+        new(19320000, "권성", "혈류 차단", true),
+        new(19460000, "권성", "순보", true),
     };
 
     private static readonly Dictionary<int, SkillMeta> Map = Skills.ToDictionary(s => s.Code);
