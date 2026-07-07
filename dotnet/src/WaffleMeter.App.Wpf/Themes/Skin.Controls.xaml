@@ -90,6 +90,43 @@
         </Setter>
     </Style>
 
+    <!-- compact checkbox: a small rounded box with an accent fill + checkmark when on, matching the meter
+         chrome (the default OS checkbox looks out of place). Applies to any plain CheckBox in a window that
+         merges this dictionary; the keyed ToggleSwitch above still wins where it's explicitly applied. -->
+    <Style TargetType="CheckBox">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Border x:Name="box" Width="17" Height="17" CornerRadius="4" BorderThickness="1"
+                                Background="{DynamicResource Skin.ControlBg}" BorderBrush="{DynamicResource Skin.ControlBorder}"
+                                VerticalAlignment="Center">
+                            <Path x:Name="check" Data="M 3.5,8.5 L 7,11.5 L 13,4.5" Stroke="White" StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="None" Visibility="Collapsed"/>
+                        </Border>
+                        <ContentPresenter x:Name="content" Margin="7,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="box" Property="Background" Value="{DynamicResource Skin.Accent}"/>
+                            <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                            <Setter TargetName="check" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                        </Trigger>
+                        <Trigger Property="Content" Value="{x:Null}">
+                            <Setter TargetName="content" Property="Margin" Value="0"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- buttons -->
     <Style TargetType="Button">
         <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
