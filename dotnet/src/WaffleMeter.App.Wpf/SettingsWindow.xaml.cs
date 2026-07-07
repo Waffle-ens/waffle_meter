@@ -28,6 +28,11 @@ public partial class SettingsWindow : Window
         Closed += (_, _) => _statusTimer.Stop();
     }
 
+    // Reset the scroll to the top when switching category — the content is one shared ScrollViewer, so a
+    // long section left it scrolled down and a shorter one would otherwise open into blank space.
+    private void OnNavChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        => ContentScroll?.ScrollToTop();
+
     private void OnSave(object sender, RoutedEventArgs e)
     {
         _viewModel.Commit(); // commit buffered hotkeys; other settings already applied live

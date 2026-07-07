@@ -108,17 +108,46 @@
             </Grid.ColumnDefinitions>
 
             <ListBox Grid.Column="0" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource NavItem}"
-                     SelectedValuePath="Tag" SelectedValue="{Binding SelectedNav}" Margin="6,0,6,0">
-                <ListBoxItem Tag="display" Content="화면"/>
-                <ListBoxItem Tag="alarms" Content="알림"/>
-                <ListBoxItem Tag="theme" Content="테마 색상"/>
-                <ListBoxItem Tag="hotkeys" Content="단축키"/>
-                <ListBoxItem Tag="advanced" Content="고급"/>
-                <ListBoxItem Tag="stats" Content="공개 설정"/>
-                <ListBoxItem Tag="diag" Content="진단"/>
+                     SelectedValuePath="Tag" SelectedValue="{Binding SelectedNav}" Margin="6,0,6,0"
+                     SelectionChanged="OnNavChanged">
+                <ListBox.Resources>
+                    <!-- 2-line nav item: title + a dim one-line summary of what the section holds -->
+                    <Style x:Key="NavTitle" TargetType="TextBlock">
+                        <Setter Property="FontSize" Value="13"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+                    </Style>
+                    <Style x:Key="NavSub" TargetType="TextBlock">
+                        <Setter Property="FontSize" Value="10.5"/>
+                        <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+                        <Setter Property="Margin" Value="0,1,0,0"/>
+                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                    </Style>
+                </ListBox.Resources>
+                <ListBoxItem Tag="display">
+                    <StackPanel><TextBlock Text="화면" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 형식 · 최적화 · 오드" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="alarms">
+                    <StackPanel><TextBlock Text="알림" Style="{StaticResource NavTitle}"/><TextBlock Text="슈고 페스타 · 사용자 알람" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="theme">
+                    <StackPanel><TextBlock Text="테마 색상" Style="{StaticResource NavTitle}"/><TextBlock Text="스킨 · 색상 프리셋" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="hotkeys">
+                    <StackPanel><TextBlock Text="단축키" Style="{StaticResource NavTitle}"/><TextBlock Text="초기화 · 표시 · 클릭 통과" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="advanced">
+                    <StackPanel><TextBlock Text="고급" Style="{StaticResource NavTitle}"/><TextBlock Text="캡처 방식 · 렌더링 호환" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="stats">
+                    <StackPanel><TextBlock Text="공개 설정" Style="{StaticResource NavTitle}"/><TextBlock Text="익명 통계 · 내 캐릭터" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="diag">
+                    <StackPanel><TextBlock Text="진단" Style="{StaticResource NavTitle}"/><TextBlock Text="로그 · 문제 해결" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
             </ListBox>
 
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="16,0,12,0">
+            <ScrollViewer x:Name="ContentScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="16,0,12,0">
                 <Grid>
                     <!-- ===== 알림 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=alarms}">
