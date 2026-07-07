@@ -95,12 +95,16 @@ public partial class App : Application
         // Velopack lifecycle hooks run earlier, in Program.Main (before this App is constructed).
         base.OnStartup(e);
 
-        // Decided overlay render mode: software rendering (no GPU compositing) keeps the overlay off
-        // the game's GPU path; WS_EX_NOACTIVATE on the window keeps it from stealing foreground.
-        // Mirrors the proven Kotlin prism-sw + NOACTIVATE approach.
-        RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
+        var props = new PropertyHandler();
+        // Overlay render mode. Default = software (no GPU compositing): keeps the overlay off the game's
+        // GPU path (with WS_EX_NOACTIVATE it also never steals foreground) AND is the friendliest to
+        // variable-refresh-rate (FreeSync/G-Sync) displays, where a GPU-composited transparent overlay can
+        // break the game's flip/independent-present path and cause stutter. A user whose setup does better
+        // with GPU rendering can turn the compat mode off. Process-global + read once → needs a restart.
+        bool vrrCompat = props.GetProperty("vrrCompatMode") != "false";
+        RenderOptions.ProcessRenderMode = vrrCompat ? RenderMode.SoftwareOnly : RenderMode.Default;
 
-        var services = new MeterServices(new PropertyHandler());
+        var services = new MeterServices(props);
         TryLoadCatalogs(services);
 
         // Apply the persisted skin (palette) into Application.Resources before any window is built.

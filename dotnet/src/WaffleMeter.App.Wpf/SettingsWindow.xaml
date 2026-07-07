@@ -649,6 +649,16 @@
                         </Grid>
                         <!-- 서버 IP/포트는 자동 감지되며 사용자가 직접 설정할 일이 없어 UI에서 숨김
                              (값/저장 경로는 SettingsViewModel.ServerIp/Port/SaveServer에 그대로 보존). -->
+
+                        <TextBlock Text="렌더링 / 호환성" Style="{StaticResource SectionHeader}" Margin="0,6,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="FreeSync / G-Sync 호환 모드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="가변 주사율 디스플레이에서 오버레이가 화면 끊김을 일으키지 않도록 소프트웨어 렌더링을 사용합니다 (권장). 끄면 GPU 렌더링을 시도합니다. (재시작 후 적용)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding VrrCompatMode}"/>
+                        </Grid>
                     </StackPanel>
 
                     <!-- ===== 공개 설정 ===== -->

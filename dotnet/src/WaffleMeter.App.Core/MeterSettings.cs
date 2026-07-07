@@ -61,6 +61,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _maxVisibleRows = ReadInt("maxVisibleRows", 10);
         _lowSpecMode = ReadBool("lowSpecMode", false);
         _showAetherStatus = ReadBool("showAetherStatus", true);
+        _vrrCompatMode = ReadBool("vrrCompatMode", true);
     }
 
     private string _displayMode;
@@ -192,6 +193,12 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private bool _showAetherStatus;
     /// <summary>Show the aether (오드) balance badge next to the recognized character.</summary>
     public bool ShowAetherStatus { get => _showAetherStatus; set => SetBool(ref _showAetherStatus, "showAetherStatus", value); }
+
+    private bool _vrrCompatMode;
+    /// <summary>FreeSync/G-Sync compatibility: render the overlay in software (default) so a GPU-composited
+    /// transparent window can't disturb a variable-refresh display. Read at startup (process-global) — a
+    /// change needs an app restart.</summary>
+    public bool VrrCompatMode { get => _vrrCompatMode; set => SetBool(ref _vrrCompatMode, "vrrCompatMode", value); }
 
     /// <summary>Resolve the masking mode enum for the meter rows.</summary>
     public NameDisplay NameDisplayMode => _nameDisplay switch
