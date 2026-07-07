@@ -241,6 +241,12 @@ public sealed class MeterServices
         {
             Data.LoadBuffBlacklist(ReferenceJson.LoadBuffBlacklist(blacklist));
         }
+
+        string buffNames = Path.Combine(jsonDir, "buff_names.json");
+        if (File.Exists(buffNames))
+        {
+            Data.LoadBuffNames(ReferenceJson.LoadBuffNames(buffNames));
+        }
     }
 
     /// <summary>Feeds one captured segment through its per-connection stream (Kotlin Main.kt consumer).</summary>

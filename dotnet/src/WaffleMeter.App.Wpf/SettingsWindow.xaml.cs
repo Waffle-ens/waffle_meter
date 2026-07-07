@@ -111,6 +111,13 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void OnOpenBuffPicker(object sender, RoutedEventArgs e)
+    {
+        BuffPickerWindow picker = _viewModel.CreateBuffPicker();
+        picker.Owner = this;
+        picker.ShowDialog();
+    }
+
     private void OnResetMeterPosition(object sender, RoutedEventArgs e) => _viewModel.ResetMeterPosition();
 
     private void OnResetJoinPosition(object sender, RoutedEventArgs e) => _viewModel.ResetJoinPosition();

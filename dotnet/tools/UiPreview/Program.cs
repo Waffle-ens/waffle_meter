@@ -100,11 +100,11 @@ internal static class Program
                 Capture(() => new DetailWindow { DataContext = details }, palette, Path.Combine(outDir, "detail_Dark.png"));
 
                 var buffVm = new BuffOverlayViewModel();
-                buffVm.Update(new List<(int, string, long, bool)>
+                buffVm.Update(new List<(int, string, long, long, bool)>
                 {
-                    (18290000, "회전격", 12_000, false),
-                    (11400000, "축복", 45_000, true),
-                    (13050000, "섬광베기", 6_000, false),
+                    (18290000, "회전격", 12_000, 30_000, false),
+                    (11400000, "축복", 45_000, 60_000, true),
+                    (13050000, "섬광베기", 6_000, 20_000, false),
                 });
                 Capture(() => new BuffOverlayPanel(buffVm), palette, Path.Combine(outDir, "buffoverlay_Dark.png"));
 

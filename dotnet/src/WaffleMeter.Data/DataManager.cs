@@ -109,6 +109,95 @@ public sealed class DataManager : ICaptureGameData
 
     public bool IsBuffBlacklisted(int code) => _buffBlacklist.Contains(code);
 
+    // ---- per-job buff picker (combat-assist overlay) ----
+    // Names + job for each base skill code (110000000-buff / 11000000-skill share a base), for the picker UI.
+    private readonly Dictionary<int, (string Name, string Job)> _buffNames = new();
+    // Base skill codes ever seen on the local player / party — the catalog the picker lists.
+    private readonly HashSet<int> _observedBuffBases = new();
+    // Base skill codes the user unchecked — the overlay suppresses these.
+    private readonly HashSet<int> _hiddenBuffBases = new();
+    private readonly object _buffPickerGate = new();
+
+    /// <summary>Runtime job-buff code (110000000..199999999) -> its base skill code (8-digit), the key both
+    /// the name table and the picker/hidden sets use. Mirrors JoinIcons' buff→base mapping.</summary>
+    public static int BuffBaseCode(int code) => code is >= 110_000_000 and <= 199_999_999 ? code / 100_000 * 10_000 : code;
+
+    /// <summary>buff_names.json: base skill code -> (name, job) for the per-job buff picker.</summary>
+    public void LoadBuffNames(IEnumerable<(int Code, string Name, string Job)> names)
+    {
+        lock (_buffPickerGate)
+        {
+            foreach ((int code, string name, string job) in names)
+            {
+                _buffNames[code] = (name, job);
+            }
+        }
+    }
+
+    /// <summary>Replace the hidden-buff set (base codes the user unchecked in the picker).</summary>
+    public void SetHiddenBuffBases(IEnumerable<int> baseCodes)
+    {
+        lock (_buffPickerGate)
+        {
+            _hiddenBuffBases.Clear();
+            foreach (int c in baseCodes)
+            {
+                _hiddenBuffBases.Add(c);
+            }
+        }
+    }
+
+    /// <summary>Seed the observed catalog from a persisted set (so the picker isn't empty on launch).</summary>
+    public void SeedObservedBuffBases(IEnumerable<int> baseCodes)
+    {
+        lock (_buffPickerGate)
+        {
+            foreach (int c in baseCodes)
+            {
+                _observedBuffBases.Add(c);
+            }
+        }
+    }
+
+    private bool IsBuffHidden(int runtimeCode)
+    {
+        lock (_buffPickerGate)
+        {
+            return _hiddenBuffBases.Contains(BuffBaseCode(runtimeCode));
+        }
+    }
+
+    /// <summary>The picker catalog: every observed job buff, grouped-ready as (base code, name, job, hidden).
+    /// Name/job come from the bundled table; unknown codes fall back to the code + "기타".</summary>
+    public IReadOnlyList<(int BaseCode, string Name, string Job, bool Hidden)> BuffPickerCatalog()
+    {
+        lock (_buffPickerGate)
+        {
+            var list = new List<(int, string, string, bool)>(_observedBuffBases.Count);
+            foreach (int b in _observedBuffBases)
+            {
+                (string name, string job) = _buffNames.TryGetValue(b, out (string Name, string Job) v)
+                    ? v
+                    : ($"스킬 {b}", "기타");
+                list.Add((b, name, job, _hiddenBuffBases.Contains(b)));
+            }
+
+            return list;
+        }
+    }
+
+    /// <summary>The current observed base-code set (for persistence).</summary>
+    public IReadOnlyCollection<int> ObservedBuffBases()
+    {
+        lock (_buffPickerGate)
+        {
+            return _observedBuffBases.ToList();
+        }
+    }
+
+    /// <summary>Raised when a new base buff code is observed (so the picker can refresh its catalog).</summary>
+    public event Action? BuffCatalogChanged;
+
     // ---- ICaptureGameData (parser-facing) ----
 
     public Mob? GetMob(int code) => _mobs.GetValueOrDefault(code);
@@ -585,43 +674,102 @@ public sealed class DataManager : ICaptureGameData
         SaveUseBuff(uid, new UseBuff(skillCode, buffStart, buffEnd, duration, actorId));
 
         // Live combat-assist overlay: track buffs currently ON the local player (recipient == executor), so
-        // the overlay can show what's active + how long is left. Kept separate from the uptime repository.
+        // the overlay can show what's active + how long is left. Job-skill buffs only — consumable/item buffs
+        // (food/drink/scroll/potion, in the lower item-code band) and blacklisted buffs are excluded.
         int owner = _userRepository.Executor();
-        if (owner != 0 && uid == owner && !IsBuffBlacklisted(skillCode))
+        if (owner != 0 && uid == owner && IsJobBuffCode(skillCode) && !IsBuffBlacklisted(skillCode))
         {
-            lock (_ownerBuffGate)
-            {
-                _ownerBuffs[skillCode] = (buffEnd, actorId);
-            }
+            RecordObservedBuff(skillCode); // populate the per-job picker catalog
 
-            LiveBuffsChanged?.Invoke();
+            if (!IsBuffHidden(skillCode)) // respect the user's per-job picker selection
+            {
+                lock (_ownerBuffGate)
+                {
+                    _ownerBuffs[skillCode] = (buffEnd, actorId, duration);
+                }
+
+                LiveBuffsChanged?.Invoke();
+            }
+        }
+        else if (IsJobBuffCode(skillCode) && !IsBuffBlacklisted(skillCode) && IsPartyMember(uid))
+        {
+            // A party member's job buff — not shown on the (self-only) overlay, but catalogued so the picker
+            // lists other jobs' buffs too (self + party coverage).
+            RecordObservedBuff(skillCode);
         }
     }
 
+    private void RecordObservedBuff(int runtimeCode)
+    {
+        int baseCode = BuffBaseCode(runtimeCode);
+        bool added;
+        lock (_buffPickerGate)
+        {
+            added = _observedBuffBases.Add(baseCode);
+        }
+
+        if (added)
+        {
+            BuffCatalogChanged?.Invoke();
+        }
+    }
+
+    private bool IsPartyMember(int uid)
+    {
+        User? u = _userRepository.Get(uid);
+        if (u?.Nickname is not { Length: > 0 } nick)
+        {
+            return false;
+        }
+
+        IReadOnlyList<(string Nickname, int Server)> party = PartyMemberIdentities(30 * 60 * 1000L);
+        foreach ((string Nickname, int Server) m in party)
+        {
+            if (m.Nickname == nick && m.Server == u.Server)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>A class-skill buff code (11xxxxxxx 검성 .. 19xxxxxxx 권성), as opposed to an item/consumable
+    /// buff in the lower code band (food/drink/scroll/potion) which the overlay excludes.</summary>
+    private static bool IsJobBuffCode(int code) => code is >= 110_000_000 and <= 199_999_999;
+
     // ---- live owner-buff store (for the combat-assist overlay) ----
-    private readonly Dictionary<int, (long End, int Actor)> _ownerBuffs = new(); // skill code -> (expiry, applier)
+    private readonly Dictionary<int, (long End, int Actor, long Duration)> _ownerBuffs = new(); // code -> (expiry, applier, duration)
     private readonly object _ownerBuffGate = new();
 
     /// <summary>Raised when a buff on the local player is applied/refreshed.</summary>
     public event Action? LiveBuffsChanged;
 
     /// <summary>The buffs currently active on the local player at <paramref name="nowMs"/>, longest remaining
-    /// first. <c>ByOther</c> = applied by someone else (not the local player).</summary>
-    public IReadOnlyList<(int Code, string Name, long RemainingMs, bool ByOther)> ActiveOwnerBuffs(long nowMs)
+    /// first. <c>DurationMs</c> is the buff's full duration (for the countdown ring); <c>ByOther</c> = applied
+    /// by someone else (not the local player).</summary>
+    public IReadOnlyList<(int Code, string Name, long RemainingMs, long DurationMs, bool ByOther)> ActiveOwnerBuffs(long nowMs)
     {
         int owner = _userRepository.Executor();
-        var result = new List<(int, string, long, bool)>();
+        var result = new List<(int, string, long, long, bool)>();
         lock (_ownerBuffGate)
         {
-            foreach (KeyValuePair<int, (long End, int Actor)> kv in _ownerBuffs)
+            foreach (KeyValuePair<int, (long End, int Actor, long Duration)> kv in _ownerBuffs)
             {
                 if (kv.Value.End <= nowMs)
                 {
                     continue; // expired
                 }
 
-                string name = Buff(kv.Key)?.Name ?? Skill(kv.Key)?.Name ?? $"버프 {kv.Key}";
-                result.Add((kv.Key, name, kv.Value.End - nowMs, owner != 0 && kv.Value.Actor != owner));
+                if (IsBuffHidden(kv.Key))
+                {
+                    continue; // unchecked in the per-job picker — hide immediately, don't wait for expiry
+                }
+
+                string name = _buffNames.TryGetValue(BuffBaseCode(kv.Key), out (string Name, string Job) bn)
+                    ? bn.Name
+                    : Buff(kv.Key)?.Name ?? Skill(kv.Key)?.Name ?? $"버프 {kv.Key}";
+                result.Add((kv.Key, name, kv.Value.End - nowMs, kv.Value.Duration, owner != 0 && kv.Value.Actor != owner));
             }
         }
 

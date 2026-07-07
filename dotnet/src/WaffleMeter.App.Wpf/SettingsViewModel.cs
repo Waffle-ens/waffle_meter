@@ -176,6 +176,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool BuffUiOnlyWhenActive { get => _settings.BuffUiOnlyWhenActive; set { _settings.BuffUiOnlyWhenActive = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }
 
+    /// <summary>Build the per-job buff picker dialog view model, bound to the live data catalog + settings.</summary>
+    public BuffPickerWindow CreateBuffPicker() => new(new BuffPickerViewModel(_services.Data, _settings));
+
     /// <summary>Wired by App: trigger an update check (results surface in the toast).</summary>
     public Action? CheckUpdateRequested { get; set; }
     public void CheckForUpdate() => CheckUpdateRequested?.Invoke();

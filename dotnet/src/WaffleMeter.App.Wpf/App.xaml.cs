@@ -444,6 +444,13 @@ public partial class App : Application
             onFieldBoss: due => Dispatcher.Invoke(() => ShowFieldBossAlarm(due)));
         _alarms.Start();
 
+        // Per-job buff picker: seed the observed catalog + hidden selection from persisted settings, and
+        // persist the growing catalog back as new buffs are seen.
+        services.Data.SeedObservedBuffBases(MeterSettings.ParseCodeSet(_settings.BuffUiObserved));
+        services.Data.SetHiddenBuffBases(MeterSettings.ParseCodeSet(_settings.BuffUiHidden));
+        services.Data.BuffCatalogChanged += () => Dispatcher.BeginInvoke(() =>
+            _settings.BuffUiObserved = string.Join(",", services.Data.ObservedBuffBases()));
+
         // Combat-assist overlay: the local player's active buff slots, refreshed twice a second.
         _buffOverlayVm = new BuffOverlayViewModel();
         _buffOverlay = new BuffOverlayPanel(_buffOverlayVm);
@@ -1136,14 +1143,16 @@ public partial class App : Application
             return;
         }
 
-        if (!_settings.ShowBuffUi)
+        // Follow the meter: off when disabled, or when the meter is hidden / the game isn't focused (so the
+        // buff overlay drops off screen together with the meter on alt-tab).
+        if (!_settings.ShowBuffUi || _controller is { MeterShown: false })
         {
             SetBuffOverlayShown(false);
             return;
         }
 
         long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        IReadOnlyList<(int Code, string Name, long RemainingMs, bool ByOther)> buffs = services.Data.ActiveOwnerBuffs(nowMs);
+        IReadOnlyList<(int Code, string Name, long RemainingMs, long DurationMs, bool ByOther)> buffs = services.Data.ActiveOwnerBuffs(nowMs);
         if (!_settings.ShowOtherPlayerBuffs)
         {
             buffs = buffs.Where(b => !b.ByOther).ToList();

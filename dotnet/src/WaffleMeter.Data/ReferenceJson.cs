@@ -84,6 +84,27 @@ public static class ReferenceJson
         return buffs;
     }
 
+    /// <summary>buff_names.json: object keyed by base skill code -> { "n": name, "j": job }. Used to label
+    /// the per-job buff picker offline (no live packet needed).</summary>
+    public static List<(int Code, string Name, string Job)> LoadBuffNames(string path)
+    {
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
+        var result = new List<(int, string, string)>();
+        foreach (JsonProperty prop in doc.RootElement.EnumerateObject())
+        {
+            if (!int.TryParse(prop.Name, NumberStyles.Integer, CultureInfo.InvariantCulture, out int code))
+            {
+                continue;
+            }
+
+            string name = prop.Value.TryGetProperty("n", out JsonElement n) && n.ValueKind == JsonValueKind.String ? n.GetString() ?? "" : "";
+            string job = prop.Value.TryGetProperty("j", out JsonElement j) && j.ValueKind == JsonValueKind.String ? j.GetString() ?? "" : "";
+            result.Add((code, name, job));
+        }
+
+        return result;
+    }
+
     /// <summary>buff_blacklist.json: { "blacklist": [int, ...] }.</summary>
     public static List<int> LoadBuffBlacklist(string path)
     {

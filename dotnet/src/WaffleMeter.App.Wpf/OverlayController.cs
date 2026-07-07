@@ -62,6 +62,10 @@ public sealed class OverlayController
     public bool IsAutoHide { get; private set; }
     public bool TaskbarMode { get; private set; }
 
+    /// <summary>True while the meter is actually on screen (game foreground + not tray-hidden). Secondary
+    /// overlays (e.g. the combat-assist buff overlay) mirror this so they hide when the game loses focus.</summary>
+    public bool MeterShown { get; private set; } = true;
+
     public void Start()
     {
         _timer.Start();
@@ -201,11 +205,13 @@ public sealed class OverlayController
 
         if (!IsVisible)
         {
+            MeterShown = false;
             return; // parked/hidden owns visibility while hidden
         }
 
         if (!IsAutoHide)
         {
+            MeterShown = true;
             // "항상 표시": hold HWND_TOPMOST regardless of foreground. (The old Present(fg == Aion) demoted to
             // non-topmost on every Self/Other/Unknown excursion, thrashing z-order = the intermittent flicker.)
             _window.Present();
@@ -230,6 +236,7 @@ public sealed class OverlayController
         {
             case Foreground.Aion:
                 _parkPending = 0;
+                MeterShown = true;
                 _window.Present();
                 _window.ReassertTopmostIfBuried(); // re-claim if the game re-topped above us
                 ReassertOverlaysIfBuried();        // ...and any open panel/detail window (e.g. left open across an alt-tab)
@@ -239,6 +246,7 @@ public sealed class OverlayController
                 // shown and topmost — do NOT demote. The old Present(false) demotion was a reclaim-race source;
                 // owned dialogs (Owner = meter) already render above the topmost meter, so nothing is covered.
                 _parkPending = 0;
+                MeterShown = true;
                 _window.Present();
                 _window.ReassertTopmostIfBuried();
                 ReassertOverlaysIfBuried();
@@ -253,6 +261,7 @@ public sealed class OverlayController
                 // overlay, and re-issue the fade only ONCE when the grace elapses (Fade is itself idempotent).
                 if (_parkPending < ParkGraceTicks && ++_parkPending == ParkGraceTicks)
                 {
+                    MeterShown = false;
                     _window.Fade();
                 }
 

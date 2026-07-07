@@ -56,7 +56,7 @@ public static class JoinIcons
             int? baseCode = code switch
             {
                 >= 11_000_000 and <= 19_999_999 => code / 10_000 * 10_000,        // skill code
-                >= 110_000_000 and <= 190_999_999 => code / 100_000 * 10_000,     // buff code
+                >= 110_000_000 and <= 199_999_999 => code / 100_000 * 10_000,     // buff code (incl. 권성 19x)
                 _ => null,
             };
             if (baseCode is int b && SkillIconManifest.Codes.Contains(b))

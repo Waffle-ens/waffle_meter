@@ -9,34 +9,38 @@
     <local:OverlayPanelWindow.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </local:OverlayPanelWindow.Resources>
-    <Border CornerRadius="8" BorderThickness="1" Padding="8,6" MouseLeftButtonDown="OnDragHandle"
-            Background="{DynamicResource Skin.PanelBg}" BorderBrush="{DynamicResource Skin.Border}">
-        <StackPanel Orientation="Horizontal">
-            <TextBlock Text="버프 없음" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11" VerticalAlignment="Center"
-                       Margin="4,2" Visibility="{Binding EmptyVisibility}"/>
-            <ItemsControl ItemsSource="{Binding Slots}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Width="46" Margin="2,0" Padding="2,2" CornerRadius="6"
-                                Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
-                                ToolTip="{Binding Name}">
-                            <StackPanel>
-                                <Grid HorizontalAlignment="Center">
-                                    <Image Source="{Binding IconSource}" Width="34" Height="34"/>
-                                    <!-- subtle accent dot when the buff was applied by another player -->
-                                    <Ellipse Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                             Fill="{DynamicResource Skin.Accent}" Visibility="{Binding ByOther, Converter={StaticResource BoolToVis}}"/>
-                                </Grid>
-                                <TextBlock Text="{Binding RemainingText}" Foreground="{DynamicResource Skin.Fg}" FontSize="11" FontWeight="SemiBold"
-                                           HorizontalAlignment="Center" Margin="0,1,0,0"/>
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </StackPanel>
-    </Border>
+    <!-- No panel chrome: max transparency, just floating icons. The transparent Grid is hit-testable so a
+         drag can start anywhere on the overlay (including the gaps between icons). -->
+    <Grid Background="Transparent" MouseLeftButtonDown="OnDragHandle" Margin="2">
+        <TextBlock Text="버프 없음" Foreground="#CCFFFFFF" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"
+                   Margin="6,3" Visibility="{Binding EmptyVisibility}">
+            <TextBlock.Effect><DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="0" Opacity="0.9"/></TextBlock.Effect>
+        </TextBlock>
+        <ItemsControl ItemsSource="{Binding Slots}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Margin="3,0" ToolTip="{Binding Name}">
+                        <Grid Width="40" Height="40" HorizontalAlignment="Center">
+                            <Image Source="{Binding IconSource}" Width="36" Height="36"/>
+                            <!-- Cooldown/duration ring: full circle at cast, sweeps down toward nothing as the
+                                 buff runs out, so the border "disappears" as the timer drops. -->
+                            <Path Data="{Binding Ring}" Stroke="#FFE9B54A" StrokeThickness="3"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <!-- accent dot when a party member applied the buff -->
+                            <Ellipse Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,1,1,0"
+                                     Fill="{DynamicResource Skin.Accent}" Visibility="{Binding ByOther, Converter={StaticResource BoolToVis}}"/>
+                        </Grid>
+                        <TextBlock Text="{Binding RemainingText}" Foreground="White" FontSize="11" FontWeight="Bold"
+                                   HorizontalAlignment="Center" Margin="0,1,0,0">
+                            <TextBlock.Effect><DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="0" Opacity="0.95"/></TextBlock.Effect>
+                        </TextBlock>
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
 </local:OverlayPanelWindow>

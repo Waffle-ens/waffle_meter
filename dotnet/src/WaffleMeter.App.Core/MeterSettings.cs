@@ -71,6 +71,8 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showBuffUi = ReadBool("buffUi.show", false);
         _buffUiOnlyWhenActive = ReadBool("buffUi.onlyWhenActive", false);
         _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
+        _buffUiHidden = _props.GetProperty("buffUi.hidden") ?? "";
+        _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
     }
 
     private string _displayMode;
@@ -258,6 +260,31 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private bool _showOtherPlayerBuffs;
     /// <summary>Include buffs applied by other players (off = only the local player's own buffs).</summary>
     public bool ShowOtherPlayerBuffs { get => _showOtherPlayerBuffs; set => SetBool(ref _showOtherPlayerBuffs, "buffUi.showOther", value); }
+
+    private string _buffUiHidden;
+    /// <summary>Comma-separated base skill codes the user unchecked in the per-job buff picker; the overlay
+    /// suppresses any live buff whose base code is in this set. Empty = show all (job) buffs.</summary>
+    public string BuffUiHidden { get => _buffUiHidden; set => SetProp(ref _buffUiHidden, "buffUi.hidden", value); }
+
+    private string _buffUiObserved;
+    /// <summary>Comma-separated base skill codes ever seen on the local player / party — the accumulated
+    /// catalog the per-job picker lists (so jobs stay populated across sessions).</summary>
+    public string BuffUiObserved { get => _buffUiObserved; set => SetProp(ref _buffUiObserved, "buffUi.observed", value); }
+
+    /// <summary>Parse a CSV setting into a base-code set.</summary>
+    public static HashSet<int> ParseCodeSet(string csv)
+    {
+        var set = new HashSet<int>();
+        foreach (string part in csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (int.TryParse(part, NumberStyles.Integer, Inv, out int c))
+            {
+                set.Add(c);
+            }
+        }
+
+        return set;
+    }
 
     /// <summary>Resolve the masking mode enum for the meter rows.</summary>
     public NameDisplay NameDisplayMode => _nameDisplay switch
