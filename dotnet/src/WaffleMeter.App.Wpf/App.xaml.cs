@@ -453,6 +453,13 @@ public partial class App : Application
         services.Data.BuffCatalogChanged += () => Dispatcher.BeginInvoke(() =>
             _settings.BuffUiObserved = string.Join(",", services.Data.ObservedBuffBases()));
 
+        // Aether badge: restore the last value so it shows immediately (the game only broadcasts the resource
+        // on its own schedule — zone load etc. — so without this it's blank for the first minutes). Restore
+        // BEFORE wiring the persister so the restore doesn't refresh the saved timestamp. The shugo-festa key
+        // is deliberately not persisted — a stale key count would be misleading, so it waits for a broadcast.
+        RestoreAetherFromSettings(services);
+        services.Data.AetherStatusChanged += () => Dispatcher.BeginInvoke(() => PersistAether(services));
+
         // Combat-assist overlay: the local player's active buff slots, refreshed twice a second.
         _buffOverlayVm = new BuffOverlayViewModel();
         _buffOverlay = new BuffOverlayPanel(_buffOverlayVm);
@@ -1095,6 +1102,51 @@ public partial class App : Application
         {
             // run with empty catalogs; the overlay still shows
         }
+    }
+
+    // The aether badge is worth showing immediately from a cached value; older than this it's likely stale
+    // (values change between sessions), so we skip the restore and wait for a fresh broadcast instead.
+    private const long AetherRestoreMaxAgeMs = 12L * 60 * 60 * 1000; // 12h
+
+    /// <summary>Seed the aether balance from the persisted "base,bonus,total,unixMs" value, if it's recent
+    /// enough. Clamped for sanity. Never overrides a live value (RestoreAetherStatus is onlyIfEmpty).</summary>
+    private void RestoreAetherFromSettings(MeterServices services)
+    {
+        string[] parts = _settings!.AetherLastValue.Split(',');
+        if (parts.Length != 4
+            || !int.TryParse(parts[0], out int b) || !int.TryParse(parts[1], out int bonus)
+            || !int.TryParse(parts[2], out int total) || !long.TryParse(parts[3], out long savedAtMs))
+        {
+            return;
+        }
+
+        long ageMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - savedAtMs;
+        if (ageMs < 0 || ageMs > AetherRestoreMaxAgeMs)
+        {
+            return; // too old (or a clock skew) — wait for a fresh broadcast rather than show a stale value
+        }
+
+        b = Math.Clamp(b, 0, 10000);
+        bonus = Math.Clamp(bonus, 0, 10000);
+        total = Math.Clamp(total, 0, 20000);
+        if (b == 0 && bonus == 0 && total == 0)
+        {
+            return;
+        }
+
+        services.Data.RestoreAetherStatus(b, bonus, total);
+    }
+
+    /// <summary>Persist the current aether value (with a timestamp) so the next launch can restore it. On a
+    /// character switch the value is cleared (HasValue=false) → we drop the persisted value so a different
+    /// character's balance isn't restored next time.</summary>
+    private void PersistAether(MeterServices services)
+    {
+        (int b, int bonus, int total, bool has) = services.Data.CurrentAether;
+        _settings!.AetherLastValue = has
+            ? string.Concat(b.ToString(CultureInfo.InvariantCulture), ",", bonus.ToString(CultureInfo.InvariantCulture), ",",
+                total.ToString(CultureInfo.InvariantCulture), ",", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture))
+            : string.Empty;
     }
 
     /// <summary>Show the 슈고 페스타 reminder toast (docked under the meter) + play the alarm chime.</summary>

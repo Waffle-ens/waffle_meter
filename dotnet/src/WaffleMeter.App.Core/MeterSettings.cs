@@ -73,6 +73,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
         _buffUiHidden = _props.GetProperty("buffUi.hidden") ?? "";
         _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
+        _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
     }
 
     private string _displayMode;
@@ -270,6 +271,14 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Comma-separated base skill codes ever seen on the local player / party — the accumulated
     /// catalog the per-job picker lists (so jobs stay populated across sessions).</summary>
     public string BuffUiObserved { get => _buffUiObserved; set => SetProp(ref _buffUiObserved, "buffUi.observed", value); }
+
+    private string _aetherLastValue;
+    /// <summary>The last observed aether balance as "base,bonus,total,unixMs", persisted so it can be shown
+    /// immediately on the next launch (the game only broadcasts the resource on its own schedule — zone load
+    /// etc. — so without this the badge is blank for the first minutes). Restored only within a staleness
+    /// window and cleared on a character switch. The shugo-festa key is deliberately NOT persisted: a stale
+    /// key count would be misleading, so it always waits for a fresh broadcast.</summary>
+    public string AetherLastValue { get => _aetherLastValue; set => SetProp(ref _aetherLastValue, "aether.lastValue", value); }
 
     /// <summary>Parse a CSV setting into a base-code set.</summary>
     public static HashSet<int> ParseCodeSet(string csv)

@@ -329,6 +329,27 @@ public sealed class DataManager : ICaptureGameData
         AetherStatusChanged?.Invoke(); // outside the lock (avoid holding it during event dispatch)
     }
 
+    /// <summary>Seed the aether balance from a persisted value at startup so the badge isn't blank until the
+    /// game's next resource broadcast. Overwritten by the first live broadcast; cleared on a character switch.
+    /// A live broadcast is never overridden (guarded by <paramref name="onlyIfEmpty"/>).</summary>
+    public void RestoreAetherStatus(int baseVal, int bonus, int total, bool onlyIfEmpty = true)
+    {
+        lock (_aetherGate)
+        {
+            if (onlyIfEmpty && _aetherHasValue)
+            {
+                return; // a live value already arrived — don't clobber it with the restored one
+            }
+
+            _aetherBase = baseVal;
+            _aetherBonus = bonus;
+            _aetherTotal = total;
+            _aetherHasValue = true;
+        }
+
+        AetherStatusChanged?.Invoke();
+    }
+
     private void ClearAetherStatus()
     {
         lock (_aetherGate)

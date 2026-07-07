@@ -41,6 +41,27 @@ public sealed class DataManagerAetherTests
     }
 
     [Fact]
+    public void Restore_seeds_the_balance_when_empty()
+    {
+        var dm = new DataManager();
+        dm.RestoreAetherStatus(240, 295, 535);
+
+        (int b, int bonus, int total, bool has) = dm.CurrentAether;
+        Assert.True(has);
+        Assert.Equal((240, 295, 535), (b, bonus, total));
+    }
+
+    [Fact]
+    public void Restore_does_not_clobber_a_live_value()
+    {
+        var dm = new DataManager();
+        dm.SaveAetherStatus(split: true, baseVal: 100, bonus: 50, total: 150); // live broadcast arrived first
+        dm.RestoreAetherStatus(240, 295, 535); // a late restore must not override it
+
+        Assert.Equal((100, 50, 150), (dm.CurrentAether.Base, dm.CurrentAether.Bonus, dm.CurrentAether.Total));
+    }
+
+    [Fact]
     public void Total_only_gain_adds_to_base()
     {
         var dm = new DataManager();
