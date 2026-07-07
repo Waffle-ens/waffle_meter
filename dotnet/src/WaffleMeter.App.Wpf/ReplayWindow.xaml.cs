@@ -24,7 +24,6 @@ public partial class ReplayWindow : Window
     // capture), so this is a raw display for now. Adjust ZScale once the unit is known.
     private const double ZScale = 1.0;
     private const double DotRadius = 6;
-    private const double TrailMs = 6000;
     private const double HitRadius = 16;
     // With the dense 0x371D delta stream decoded, in-battle position points arrive ~10Hz (measured p90 gap
     // ~0.3s), so a real move never has a multi-second gap. HOLD (don't fake-glide) only across the much
@@ -82,7 +81,14 @@ public partial class ReplayWindow : Window
 
     private void BuildScene()
     {
+        // Boss-tagged map first (dungeons); else fall back to the zone map that contains the fight (field
+        // bosses aren't tagged to a specific map).
         _map = MapCatalog.ForBoss(_rec.TargetCode);
+        if (_map is null && _rec.Bounds() is { } b)
+        {
+            _map = MapCatalog.ForBounds((b.MinX + b.MaxX) / 2, (b.MinY + b.MaxY) / 2);
+        }
+
         string? title = _rec.TargetName is { Length: > 0 } name ? name : _map?.NameKo;
         HeaderText.Text = title is { Length: > 0 } ? $"전투 리플레이 — {title}" : "전투 리플레이";
         BossBadge.Text = _rec.BossDefeated ? "처치 완료" : "직전 전투 (미처치)";
@@ -107,7 +113,6 @@ public partial class ReplayWindow : Window
                 : t.IsSelf ? Brushes.Gold
                 : JobBrush(t.Job, colorIdx++);
 
-            var trail = new Polyline { Stroke = color, StrokeThickness = 1.6, Opacity = 0.5, IsHitTestVisible = false };
             var dot = new Ellipse
             {
                 Width = DotRadius * 2,
@@ -119,11 +124,10 @@ public partial class ReplayWindow : Window
                 Visibility = Visibility.Collapsed,
             };
 
-            MapCanvas.Children.Add(trail);
             MapCanvas.Children.Add(dot);
 
             long[] times = t.Points.Select(p => (long)p.TMs).ToArray();
-            _visuals.Add(new TrackVisual(t, color, dot, trail, times));
+            _visuals.Add(new TrackVisual(t, color, dot, times));
 
             AddLegendRow(t, color);
         }
@@ -280,56 +284,19 @@ public partial class ReplayWindow : Window
             if (!TryInterpolate(v, _currentMs, out double wx, out double wy, out double wz, out bool stale))
             {
                 v.Dot.Visibility = Visibility.Collapsed;
-                v.Trail.Points = new PointCollection();
                 v.HasScreen = false;
                 continue;
             }
 
+            // Just the moving dot (no trailing path) — the boss + characters glide linearly between samples.
             Point p = ToScreen(wx, wy, tf);
             Canvas.SetLeft(v.Dot, p.X - DotRadius);
             Canvas.SetTop(v.Dot, p.Y - DotRadius);
             v.Dot.Visibility = Visibility.Visible;
-            v.Dot.Opacity = stale ? 0.35 : 1.0; // dim when we're holding a stale position (out of range / gap)
+            v.Dot.Opacity = stale ? 0.5 : 1.0; // slight dim while holding a stale position (out of range / gap)
             v.Screen = p;
             v.CurrentZ = wz;
             v.HasScreen = true;
-
-            // Trail: the contiguous recent run ending at the playhead, broken at any gap > MaxInterpGapMs
-            // (so a glide line is never drawn across a gap). Walk back from the latest point <= currentMs.
-            IReadOnlyList<ReplayPoint> tp = v.Track.Points;
-            int end = -1;
-            for (int i = 0; i < tp.Count && tp[i].TMs <= _currentMs; i++)
-            {
-                end = i;
-            }
-
-            var pts = new PointCollection();
-            if (end >= 0)
-            {
-                var rev = new List<Point>();
-                for (int i = end; i >= 0; i--)
-                {
-                    if (i < end && (tp[i + 1].TMs - tp[i].TMs > MaxInterpGapMs || _currentMs - tp[i].TMs > TrailMs
-                                    || Teleport(tp[i], tp[i + 1])))
-                    {
-                        break;
-                    }
-
-                    rev.Add(ToScreen(tp[i].X, tp[i].Y, tf));
-                }
-
-                for (int i = rev.Count - 1; i >= 0; i--)
-                {
-                    pts.Add(rev[i]);
-                }
-            }
-
-            if (!stale)
-            {
-                pts.Add(p); // connect the trail to the live interpolated dot only when not in a gap
-            }
-
-            v.Trail.Points = pts;
         }
 
         if (!_suppressScrub)
@@ -544,12 +511,11 @@ public partial class ReplayWindow : Window
 
     private static Brush JobBrush(string? job, int idx) => new SolidColorBrush(Palette[idx % Palette.Length]);
 
-    private sealed class TrackVisual(ReplayTrack track, Brush color, Ellipse dot, Polyline trail, long[] times)
+    private sealed class TrackVisual(ReplayTrack track, Brush color, Ellipse dot, long[] times)
     {
         public ReplayTrack Track { get; } = track;
         public Brush Color { get; } = color;
         public Ellipse Dot { get; } = dot;
-        public Polyline Trail { get; } = trail;
         public long[] Times { get; } = times;
         public Point Screen { get; set; }
         public bool HasScreen { get; set; }
