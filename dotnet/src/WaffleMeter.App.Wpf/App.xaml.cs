@@ -1251,34 +1251,37 @@ public partial class App : Application
         if (_buffOverlay is not null)
         {
             bool show = _settings.ShowBuffUi && (_controller?.MeterShown ?? true);
-            if (_lastBuffShown != show)
+            if (show)
             {
-                _lastBuffShown = show;
+                _buffOverlay.SetClickThrough(_controller?.MeterClickThrough ?? false);
+                _buffOverlay.Present(true);
+                _buffOverlay.ReassertTopmostIfBuried(); // re-claim over the game every tick (belt-and-suspenders)
+            }
+            else
+            {
+                _buffOverlay.Fade();
+            }
+
+            // buff-overlay-diag: log when the visibility OR the topmost/z-order state changes.
+            string diag = $"show={show} meterShown={_controller?.MeterShown} slots={_buffOverlayVm.Slots.Count} op={_buffOverlay.Opacity:0.0} {_buffOverlay.DiagTopmost()}";
+            if (_lastBuffDiag != diag)
+            {
+                _lastBuffDiag = diag;
                 try
                 {
                     File.AppendAllText(
                         Path.Combine(Environment.GetEnvironmentVariable("APPDATA") ?? ".", "waffle_meter.v1.4", "buff-overlay-diag.log"),
-                        $"{DateTime.Now:HH:mm:ss.fff} show={show} meterShown={_controller?.MeterShown} showBuffUi={_settings.ShowBuffUi} slots={_buffOverlayVm.Slots.Count} op={_buffOverlay.Opacity:0.0} L={_buffOverlay.Left:0} T={_buffOverlay.Top:0} W={_buffOverlay.ActualWidth:0}{Environment.NewLine}");
+                        $"{DateTime.Now:HH:mm:ss.fff} {diag}{Environment.NewLine}");
                 }
                 catch
                 {
                     // diagnostics must never disturb the overlay
                 }
             }
-
-            if (show)
-            {
-                _buffOverlay.SetClickThrough(_controller?.MeterClickThrough ?? false);
-                _buffOverlay.Present(true);
-            }
-            else
-            {
-                _buffOverlay.Fade();
-            }
         }
     }
 
-    private bool? _lastBuffShown; // buff-overlay-diag: log only on a visibility change
+    private string _lastBuffDiag = ""; // buff-overlay-diag: log only on a change
 
     // Speak "이름 온" when a buff set to "오버레이+음성" starts and "이름 오프" just before it ends (each once,
     // gated by the global start/end toggles). Per-buff voice is chosen in the 버프 알림 tab; independent of the

@@ -111,26 +111,27 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
         SyncInputStyle();
     }
 
-    /// <summary>Show the panel (topMost tracks the game). Idempotent: a no-op when already presented the same
-    /// way, so it can be driven every poll tick without re-issuing SetWindowPos (which would flicker).</summary>
+    /// <summary>Show the panel (topMost tracks the game). Mirrors OverlayWindow.Present: re-applies the WPF
+    /// Topmost/Opacity EVERY call (cheap no-ops when unchanged) so WPF keeps maintaining HWND_TOPMOST — the
+    /// old idempotent early-return skipped this, letting WPF's Topmost drift and the window fall behind the
+    /// game. The SetWindowPos(SwpShowWindow) re-claim fires only on the parked/faded → present transition.</summary>
     public void Present(bool topMost)
     {
-        if (!_faded && _presentedTopMost == topMost)
-        {
-            return; // already presented — nothing to do
-        }
-
+        bool needShow = _faded || _presentedTopMost != topMost; // transition out of faded/parked
         _faded = false;
         Topmost = topMost;
         Opacity = 1.0;
         _presentedTopMost = topMost; // arm ReassertTopmostIfBuried while shown
         SyncInputStyle();
-        if (_handle != IntPtr.Zero)
+        if (needShow && _handle != IntPtr.Zero)
         {
             SetWindowPos(_handle, topMost ? HwndTopMost : HwndTop, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
         }
 
-        OnPresented();
+        if (needShow)
+        {
+            OnPresented();
+        }
     }
 
     /// <summary>Auto-hide WITHOUT touching z-order: Opacity 0 + forced click-through, but STILL HWND_TOPMOST
@@ -185,6 +186,16 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
             return; // parked/faded/dragging or not topmost-presented — nothing to re-claim
         }
 
+        // WPF Topmost desync: the property reads true but the HWND lost WS_EX_TOPMOST, and a raw
+        // SetWindowPos(HWND_TOPMOST) alone is silently reverted by WPF. Only when the bit is actually LOST,
+        // toggle the property so WPF re-applies HWND_TOPMOST (synchronous → no visible flicker). Doing this
+        // only on bit-loss (not on every "a foreign window is above" bury) avoids toggling every tick.
+        if ((GetWindowLong(_handle, GwlExStyle) & WsExTopmost) == 0)
+        {
+            Topmost = false;
+            Topmost = true;
+        }
+
         if (IsBuried())
         {
             ForceTopmost();
@@ -194,6 +205,20 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     /// <summary>Buried if our own WS_EX_TOPMOST bit is missing (a WPF owned-window / z-order shuffle demoted
     /// us), or a foreign visible window sits above us. Our own windows (meter / sibling panels / tooltips,
     /// same process) are skipped so they never trigger a needless re-assert.</summary>
+    /// <summary>Diagnostic snapshot of the topmost/z-order state (for the buff-overlay-diag log).</summary>
+    public string DiagTopmost()
+    {
+        if (_handle == IntPtr.Zero)
+        {
+            return "noHandle";
+        }
+
+        bool tmBit = (GetWindowLong(_handle, GwlExStyle) & WsExTopmost) != 0;
+        IntPtr owner = GetWindow(_handle, GwOwner);
+        bool ownerTm = owner != IntPtr.Zero && (GetWindowLong(owner, GwlExStyle) & WsExTopmost) != 0;
+        return $"tmBit={tmBit} buried={IsBuried()} presentedTM={_presentedTopMost} faded={_faded} wpfTopmost={Topmost} owner={owner != IntPtr.Zero} ownerTm={ownerTm}";
+    }
+
     private bool IsBuried()
     {
         if ((GetWindowLong(_handle, GwlExStyle) & WsExTopmost) == 0)
