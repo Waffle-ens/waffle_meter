@@ -100,6 +100,7 @@ internal static class Program
                 Capture(() => new DetailWindow { DataContext = details }, palette, Path.Combine(outDir, "detail_Dark.png"));
 
                 var buffVm = new BuffOverlayViewModel();
+                buffVm.SetTextColor("#FFD54A"); // amber text (verifies the color option)
                 buffVm.Update(new List<(int, string, long, long, bool)>
                 {
                     (18290000, "회전격", 12_000, 30_000, false),

@@ -1221,8 +1221,10 @@ public partial class App : Application
     private readonly HashSet<int> _buffEndAnnounced = new();   // codes we've spoken "오프" for (dedup the pre-warn)
 
     // Refresh the combat-assist overlay each tick: pull the local player's active buffs, fire the start/end
-    // voice alerts, and update the slot content. The window's visibility is owned by the controller (companion
-    // lockstep with the meter), so this no longer parks/presents it.
+    // voice alerts, update the slot content, AND reconcile the window's visibility. This 500ms timer always
+    // runs (unlike the controller poll, which skips the companion during the startup grace — the cause of the
+    // buff overlay staying hidden until settings was opened), so it is the reliable visibility driver. Present
+    // / Fade are idempotent, so it never fights the controller (both key off MeterShown).
     private void RefreshBuffOverlay(MeterServices services)
     {
         if (_buffOverlayVm is null || _settings is null)
@@ -1239,12 +1241,44 @@ public partial class App : Application
 
         AnnounceBuffTransitions(buffs);
 
-        // Update the visual slots + the transparent/opaque background + icon size per the settings (the
-        // controller shows the window; if the toggle is off it's parked and this is a cheap no-op update).
         _buffOverlayVm.ShowBackground = !_settings.BuffUiTransparent;
         _buffOverlayVm.SetIconSize(_settings.BuffUiIconSize);
+        _buffOverlayVm.SetTextColor(_settings.BuffUiTextColor);
         _buffOverlayVm.Update(buffs);
+
+        // Visibility: show whenever the toggle is on AND the meter is on screen (MeterShown starts true and is
+        // kept current by the controller poll). Mirror the meter's click-through when shown.
+        if (_buffOverlay is not null)
+        {
+            bool show = _settings.ShowBuffUi && (_controller?.MeterShown ?? true);
+            if (_lastBuffShown != show)
+            {
+                _lastBuffShown = show;
+                try
+                {
+                    File.AppendAllText(
+                        Path.Combine(Environment.GetEnvironmentVariable("APPDATA") ?? ".", "waffle_meter.v1.4", "buff-overlay-diag.log"),
+                        $"{DateTime.Now:HH:mm:ss.fff} show={show} meterShown={_controller?.MeterShown} showBuffUi={_settings.ShowBuffUi} slots={_buffOverlayVm.Slots.Count} op={_buffOverlay.Opacity:0.0} L={_buffOverlay.Left:0} T={_buffOverlay.Top:0} W={_buffOverlay.ActualWidth:0}{Environment.NewLine}");
+                }
+                catch
+                {
+                    // diagnostics must never disturb the overlay
+                }
+            }
+
+            if (show)
+            {
+                _buffOverlay.SetClickThrough(_controller?.MeterClickThrough ?? false);
+                _buffOverlay.Present(true);
+            }
+            else
+            {
+                _buffOverlay.Fade();
+            }
+        }
     }
+
+    private bool? _lastBuffShown; // buff-overlay-diag: log only on a visibility change
 
     // Speak "이름 온" when a buff set to "오버레이+음성" starts and "이름 오프" just before it ends (each once,
     // gated by the global start/end toggles). Per-buff voice is chosen in the 버프 알림 tab; independent of the

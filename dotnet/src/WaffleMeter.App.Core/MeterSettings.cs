@@ -72,6 +72,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _vrrCompatMode = ReadBool("vrrCompatMode", true);
         _showBuffUi = ReadBool("buffUi.show", false);
         _buffUiIconSize = ReadInt("buffUi.iconSize", 40);
+        _buffUiTextColor = _props.GetProperty("buffUi.textColor") ?? "#FFFFFF";
         _buffUiTransparent = ReadBool("buffUi.transparent", true);
         _buffTtsOnStart = ReadBool("buffUi.ttsOnStart", false);
         _buffTtsOnEnd = ReadBool("buffUi.ttsOnEnd", false);
@@ -278,6 +279,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private int _buffUiIconSize;
     /// <summary>Buff overlay icon size in px (34 = small, 40 = large). Drives a uniform scale of the whole slot.</summary>
     public int BuffUiIconSize { get => _buffUiIconSize; set => SetInt(ref _buffUiIconSize, "buffUi.iconSize", value); }
+
+    private string _buffUiTextColor;
+    /// <summary>Buff overlay countdown-text color (hex). White by default; changeable since white can be hard
+    /// to read against a bright game scene with the transparent background.</summary>
+    public string BuffUiTextColor { get => _buffUiTextColor; set => SetProp(ref _buffUiTextColor, "buffUi.textColor", value); }
 
     private bool _buffUiTransparent;
     /// <summary>Transparent background (default): the overlay is just floating icons, invisible when empty.

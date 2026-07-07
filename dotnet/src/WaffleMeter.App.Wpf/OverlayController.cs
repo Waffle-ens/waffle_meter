@@ -66,6 +66,9 @@ public sealed class OverlayController
     /// overlays (e.g. the combat-assist buff overlay) mirror this so they hide when the game loses focus.</summary>
     public bool MeterShown { get; private set; } = true;
 
+    /// <summary>The meter's current click-through state, mirrored onto the buff overlay.</summary>
+    public bool MeterClickThrough => _window.ClickThrough;
+
     // Companion overlay (the combat-assist buff overlay): presented/parked in exact lockstep with the meter
     // window, gated by its enabled predicate — so when the toggle is on it is ALWAYS shown whenever the meter
     // is, and never disappears on its own. Edge-tracked so a steady state doesn't re-issue SetWindowPos.

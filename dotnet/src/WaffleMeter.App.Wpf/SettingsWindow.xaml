@@ -600,6 +600,14 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="지속시간 글씨 색상" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="남은 시간 글씨 색상을 바꿉니다. (투명 배경에서 흰색이 잘 안 보일 때 유용)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding BuffTextColor, Mode=TwoWay}" VerticalAlignment="Center"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="다른 캐릭터가 준 버프 표시" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="끄면 본인이 직접 받은 버프만 표시합니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>

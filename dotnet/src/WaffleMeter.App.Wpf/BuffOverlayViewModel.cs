@@ -26,6 +26,33 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
     /// <summary>Set the buff icon size in px; drives <see cref="IconScale"/> off the 40px native design.</summary>
     public void SetIconSize(int px) => IconScale = Math.Clamp(px, 20, 72) / 40.0;
 
+    private Brush _textBrush = Brushes.White;
+    /// <summary>Countdown-text color (from the setting). White by default.</summary>
+    public Brush TextBrush { get => _textBrush; private set => Set(ref _textBrush, value); }
+
+    private string _textColorHex = "";
+    /// <summary>Set the countdown-text color from a hex string; falls back to white on a bad value.</summary>
+    public void SetTextColor(string hex)
+    {
+        if (_textColorHex == hex)
+        {
+            return;
+        }
+
+        _textColorHex = hex;
+        try
+        {
+            var c = (Color)ColorConverter.ConvertFromString(string.IsNullOrWhiteSpace(hex) ? "#FFFFFF" : hex)!;
+            var b = new SolidColorBrush(c);
+            b.Freeze();
+            TextBrush = b;
+        }
+        catch
+        {
+            TextBrush = Brushes.White;
+        }
+    }
+
     private bool _showBackground;
     /// <summary>When true, draw a panel background + border + placeholder so the (possibly empty) window is
     /// visible and draggable; when false the overlay is just floating icons on a transparent background.</summary>

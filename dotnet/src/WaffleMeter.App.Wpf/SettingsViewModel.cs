@@ -180,6 +180,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         get => _settings.BuffUiIconSize <= 34 ? 0 : 1;
         set { _settings.BuffUiIconSize = value == 0 ? 34 : 40; OnPropertyChanged(); }
     }
+
+    /// <summary>Buff overlay countdown-text color (hex), bound to the color-swatch picker.</summary>
+    public string BuffTextColor { get => _settings.BuffUiTextColor; set { _settings.BuffUiTextColor = value; OnPropertyChanged(); } }
     public bool BuffTtsOnStart { get => _settings.BuffTtsOnStart; set { _settings.BuffTtsOnStart = value; OnPropertyChanged(); } }
     public bool BuffTtsOnEnd { get => _settings.BuffTtsOnEnd; set { _settings.BuffTtsOnEnd = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }

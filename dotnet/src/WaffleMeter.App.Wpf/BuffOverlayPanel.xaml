@@ -48,7 +48,9 @@
                             <Ellipse Width="9" Height="9" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
                                      Fill="{DynamicResource Skin.Accent}" Visibility="{Binding ByOther, Converter={StaticResource BoolToVis}}"/>
                         </Grid>
-                        <TextBlock Text="{Binding RemainingText}" Foreground="White" FontSize="12" FontWeight="Bold"
+                        <TextBlock Text="{Binding RemainingText}"
+                                   Foreground="{Binding DataContext.TextBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                   FontSize="12" FontWeight="Bold"
                                    HorizontalAlignment="Center" Margin="0,1,0,0">
                             <TextBlock.Effect><DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="0" Opacity="0.95"/></TextBlock.Effect>
                         </TextBlock>
