@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PUBLIC contract for the positional-replay feature. Holds only the non-secret surface: the on-disk /
+    wire model (ReplayRecording/Track/Point), its (de)serializer, the identity resolver, and the
+    IReplayEngine interface + ReplayEngineLoader that the app binds to. The actual reverse-engineered
+    engine (0x37xx decode + reconstruction) lives in the separate, obfuscated WaffleMeter.Replay assembly,
+    discovered at RUNTIME via the loader — so this contract can ship in the open-source repo while the
+    engine ships as a private DLL injected at release. See docs/replay-feature-plan.md §7.
+    Namespace stays WaffleMeter.Replay (same as the engine) so existing consumers are unchanged.
+  -->
+  <PropertyGroup>
+    <RootNamespace>WaffleMeter.Replay</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WaffleMeter.Data\WaffleMeter.Data.csproj" />
+  </ItemGroup>
+
+</Project>

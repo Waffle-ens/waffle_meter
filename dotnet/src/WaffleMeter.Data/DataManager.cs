@@ -338,6 +338,20 @@ public sealed class DataManager : ICaptureGameData
             .ToList();
     }
 
+    /// <summary>The (nickname, server) of every current party/raid roster member (the 0x9702 snapshot),
+    /// if it arrived within <paramref name="withinMs"/>; empty otherwise. Unlike <see cref="PartyRoster"/>
+    /// this returns the raw roster identities (no uid resolution / drop), used to scope the movement replay
+    /// to party/raid members only — works for any party size (slots aren't required, unlike CurrentPartySlots).</summary>
+    public IReadOnlyList<(string Nickname, int Server)> PartyMemberIdentities(long withinMs)
+    {
+        if (_partyRoster.Count == 0 || Clock() - _partyRosterAtMs > withinMs)
+        {
+            return Array.Empty<(string, int)>();
+        }
+
+        return _partyRoster.Select(m => (m.Nickname, m.Server)).ToList();
+    }
+
     public void SaveUserPower(int uid, int power)
     {
         if (power <= 0) return;

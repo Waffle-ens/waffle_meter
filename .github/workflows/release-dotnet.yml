@@ -42,6 +42,9 @@ jobs:
     env:
       # secrets/vars can't be referenced in step-level `if:`, so surface the signing gate as an env flag.
       SIGN_ENABLED: ${{ vars.SIGNPATH_ORG_ID != '' }}
+      # Anti-analysis obfuscation gate (OFF until repo VARIABLE `OBFUSCATE` = 'true'). Kept off by default
+      # so it can't silently break a release; enable + test before relying on it (docs/replay-feature-plan.md §7).
+      OBFUSCATE_ENABLED: ${{ vars.OBFUSCATE == 'true' }}
       SIGNPATH_PROJECT_SLUG: waffle_meter
       SIGNPATH_POLICY_SLUG: release-signing
     steps:
@@ -70,11 +73,47 @@ jobs:
         run: dotnet tool install -g vpk
 
       # Both exes publish into the SAME folder so CaptureHost.exe + WinDivert + json sit beside the UI.
+      # Release hardening: ship no PDBs and no +gitSHA InformationalVersion suffix (decompilation hygiene,
+      # docs/replay-feature-plan.md §7). Affects only the shipped artifacts, not local/test builds.
       - name: Publish WPF app
-        run: dotnet publish dotnet/src/WaffleMeter.App.Wpf/WaffleMeter.App.Wpf.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -o publish
+        run: dotnet publish dotnet/src/WaffleMeter.App.Wpf/WaffleMeter.App.Wpf.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -p:DebugType=none -p:DebugSymbols=false -p:IncludeSourceRevisionInInformationalVersion=false -o publish
 
       - name: Publish capture helper (into the same folder)
-        run: dotnet publish dotnet/tools/WaffleMeter.CaptureHost/WaffleMeter.CaptureHost.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -o publish
+        run: dotnet publish dotnet/tools/WaffleMeter.CaptureHost/WaffleMeter.CaptureHost.csproj -c Release -r win-x64 --self-contained true -p:WaffleVersion=${{ env.VERSION }} -p:DebugType=none -p:DebugSymbols=false -p:IncludeSourceRevisionInInformationalVersion=false -o publish
+
+      # ---- Inject the PRIVATE replay engine DLL into publish/ (before obfuscate/sign/pack).
+      # The engine (0x37xx decode + reconstruction — the reverse-engineered secret) is NOT referenced by
+      # the app at compile time; it is discovered at runtime by ReplayEngineLoader. The source lives in the
+      # private waffle_meter_replay repo; here we clone it as a SIBLING of this checkout (its csproj
+      # references the public assemblies via ../../../../waffle_meter, so sibling layout is required),
+      # build the engine, and drop the DLL into publish/. Without the token (e.g. a fork) the step skips and
+      # the release ships without replay. Placed before obfuscate/sign so the engine DLL is hardened + signed.
+      - name: Inject replay engine (private module)
+        shell: pwsh
+        env:
+          REPLAY_REPO_TOKEN: ${{ secrets.REPLAY_REPO_TOKEN }}
+          REPLAY_REPO: ${{ github.repository_owner }}/waffle_meter_replay
+        run: |
+          if (-not $env:REPLAY_REPO_TOKEN) {
+            Write-Host "::warning::REPLAY_REPO_TOKEN not set — this release ships WITHOUT replay"
+            exit 0
+          }
+          # Clone the private engine as a sibling of this checkout so its ../../../../waffle_meter refs resolve.
+          $sibling = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) "waffle_meter_replay"
+          Write-Host "cloning private replay engine $env:REPLAY_REPO -> $sibling"
+          git clone --depth 1 "https://x-access-token:$($env:REPLAY_REPO_TOKEN)@github.com/$($env:REPLAY_REPO).git" "$sibling"
+          $proj = Join-Path $sibling "dotnet/src/WaffleMeter.Replay/WaffleMeter.Replay.csproj"
+          dotnet publish $proj -c Release -p:WaffleVersion=${{ env.VERSION }} -p:DebugType=none -p:DebugSymbols=false -p:IncludeSourceRevisionInInformationalVersion=false -o _engine_out
+          Copy-Item _engine_out/WaffleMeter.Replay.dll publish/ -Force
+          Write-Host "replay engine injected -> publish/WaffleMeter.Replay.dll"
+
+      # ---- Anti-analysis: obfuscate the rename-safe app DLLs in publish/ before signing/packing.
+      # OFF by default (env gate above); never touches App.Wpf (BAML) or the Stats JSON DTOs (see config). ----
+      - name: Obfuscate app assemblies (Obfuscar)
+        if: env.OBFUSCATE_ENABLED == 'true'
+        run: |
+          dotnet tool install -g Obfuscar.GlobalTool
+          obfuscar.console .github/obfuscar.xml
 
       # WinDivert.dll/.sys come from dotnet/third-party/windivert via CaptureHost.csproj (bundled on publish).
 

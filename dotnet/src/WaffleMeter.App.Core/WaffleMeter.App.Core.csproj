@@ -14,6 +14,9 @@
     <ProjectReference Include="..\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
     <ProjectReference Include="..\WaffleMeter.Capture.Live\WaffleMeter.Capture.Live.csproj" />
     <ProjectReference Include="..\WaffleMeter.Data\WaffleMeter.Data.csproj" />
+    <!-- Only the PUBLIC replay contract. The engine (WaffleMeter.Replay.dll) is discovered at runtime by
+         ReplayEngineLoader, never referenced at compile time, so the app builds without the private module. -->
+    <ProjectReference Include="..\WaffleMeter.Replay.Abstractions\WaffleMeter.Replay.Abstractions.csproj" />
     <ProjectReference Include="..\WaffleMeter.Services\WaffleMeter.Services.csproj" />
     <ProjectReference Include="..\WaffleMeter.Stats\WaffleMeter.Stats.csproj" />
   </ItemGroup>

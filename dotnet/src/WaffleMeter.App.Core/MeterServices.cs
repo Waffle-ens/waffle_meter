@@ -1,6 +1,7 @@
 using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
+using WaffleMeter.Replay;
 using WaffleMeter.Services;
 using WaffleMeter.Stats;
 
@@ -19,6 +20,13 @@ public sealed class MeterServices
     public PropertyHandler Props { get; }
     public DataManager Data { get; }
     public DpsCalculator Calculator { get; }
+
+    /// <summary>Movement/positional replay engine, or null unless <c>replay.recordMovement=true</c> AND the
+    /// private engine DLL is present (discovered at runtime — see <see cref="ReplayEngineLoader"/>). Records
+    /// per-battle position timelines for the WCL-style replay. A PARALLEL tap on the assembled packet stream
+    /// — fully decoupled from and unable to regress the parity-critical DPS path. Off by default. See
+    /// docs/replay-feature-plan.md.</summary>
+    public IReplayEngine? Movement { get; }
     public OfficialCharacterLookup OfficialLookup { get; }
     public StatsApiClient StatsApi { get; }
     public StatsConsentManager Consent { get; }
@@ -161,6 +169,19 @@ public sealed class MeterServices
         _processor = new StreamProcessor(DebugLogger, Data, new JoinRequestSinkAdapter(JoinRequests, Data));
         Calculator = new DpsCalculator(Data, FlushAllStreams);
 
+        // Movement/positional replay (opt-in, default OFF): a parallel tap that records per-battle position
+        // timelines. Never on the DPS path; resolves entity ids via Data for non-contributor (support) movers.
+        // The engine is a private, runtime-loaded DLL — absent in an open-source build, in which case
+        // TryLoad returns null and replay stays unavailable (the flag still reads false-safe).
+        Movement = props.GetProperty("replay.recordMovement", "false") == "true"
+            ? ReplayEngineLoader.TryLoad()?.Create(new DataManagerIdentitySource(Data), Path.Combine(props.AppDirectory(), "replays"))
+            : null;
+        if (props.GetProperty("replay.recordMovement", "false") == "true")
+        {
+            // Startup marker so a "replay missing" report distinguishes flag-off from engine-DLL-absent.
+            ReplayDiag.Note(props, Movement != null ? "engine loaded" : "engine DLL MISSING — replay unavailable");
+        }
+
         // Stats stack. Break the consent <-> builder cycle with a deferred reference. The install key signs
         // every write (reports / consent events) from the first run per §2.1/§2.5 — the server takes signed
         // writes in warn mode and gates public transitions on the resulting grant.
@@ -176,6 +197,26 @@ public sealed class MeterServices
         // the history-panel snapshot (both run on the consumer thread inside the save).
         Calculator.OnBattleLogged = log =>
         {
+            // Build the position replay FIRST so its durable file is on disk before anything that could
+            // block: NotifyBattleListChanged marshals to the UI thread, which during app-shutdown is
+            // itself waiting on this (consumer) thread — writing the replay first means the artifact
+            // survives even if that notify can't complete. Isolated in try/catch because the replay engine
+            // is an optional private module and must never break the parity-critical save/upload path.
+            if (Movement is { } replay)
+            {
+                try
+                {
+                    // kills AND wipes/직전 전투, scoped to the party/raid roster; the diag line live-verifies
+                    // the open questions (wipe fire, AoI coverage, self density, BossDefeated inference).
+                    ReplayRecording rec = replay.OnBattleLogged(log, Data.PartyMemberIdentities(30 * 60 * 1000L));
+                    ReplayDiag.Log(props, log.Report, rec);
+                }
+                catch
+                {
+                    // a replay failure must never disturb the DPS save/upload path or the consumer thread
+                }
+            }
+
             UploadQueue.OfferIfEligible(log);
             NotifyBattleListChanged();
         };
@@ -266,6 +307,7 @@ public sealed class MeterServices
                     return; // duplicate capture of the game stream — already counted on the primary
                 }
 
+                Movement?.Scan(packet, at); // parallel positional-replay tap (no-op unless enabled)
                 _processor.OnPacketReceived(packet, at);
             });
             created = new StreamState(new PacketAlignmenter(), assembler);
@@ -334,6 +376,7 @@ public sealed class MeterServices
         }
 
         _primaryGameKey = null; // a user reset re-selects the primary game stream from scratch
+        Movement?.Reset(); // drop buffered movement + stored replays on a user reset
     }
 
     /// <summary>The live DPS report (must be called on the same thread as <see cref="Feed"/>).</summary>

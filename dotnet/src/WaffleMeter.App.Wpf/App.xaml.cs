@@ -35,6 +35,7 @@ public partial class App : Application
     private SkillSettingsFlyout? _skillFlyout;
     private bool _skillFlyoutVisible;
     private SettingsWindow? _settingsWindow; // single instance; the ⚙ button toggles it (open/close), not stacks
+    private ReplayWindow? _replayWindow; // single instance; the tray item toggles it (open/close)
     private HistoryPanel? _historyPanel;
     private BattleHistoryViewModel? _historyViewModel;
     private bool _historyPanelPositioned;
@@ -150,7 +151,8 @@ public partial class App : Application
         {
             _controller.SetTaskbarMode(true); // restore persisted taskbar/alt-tab mode
         }
-        _tray = new TrayIconController(window, _controller, () => Dispatcher.Invoke(ExitApp));
+        _tray = new TrayIconController(window, _controller, () => Dispatcher.Invoke(ExitApp),
+            services.Movement != null ? () => OpenReplay(services, window) : null);
         window.PositionChanged += (left, top) => SavePosition(services.Props, left, top);
 
         // Single-instance: surface this (running) instance when a later launch signals us, so relaunching
@@ -556,6 +558,63 @@ public partial class App : Application
         thread.Start();
     }
 
+    // Open the positional replay for the last battle (the 직전 전투). Toggle: a second invocation closes it
+    // so the next reopens with the latest recording. Only reachable when replay.recordMovement=true.
+    private void OpenReplay(WaffleMeter.App.Core.MeterServices services, Window owner)
+    {
+        if (_replayWindow != null)
+        {
+            _replayWindow.Close();
+            return;
+        }
+
+        // Prefer the live last battle; after a restart that is empty, so fall back to the newest saved
+        // recording on disk (history replay survives restart).
+        WaffleMeter.Replay.ReplayRecording? rec = services.Movement?.LastRecording;
+        if (rec is null || rec.PointCount == 0)
+        {
+            rec = TryLoadNewestSavedReplay(services);
+        }
+
+        if (rec is null || rec.PointCount == 0)
+        {
+            return; // no recorded battle with movement yet
+        }
+
+        var win = new ReplayWindow(rec) { Owner = owner };
+        win.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_replayWindow, win))
+            {
+                _replayWindow = null;
+            }
+        };
+        _replayWindow = win;
+        win.Show();
+    }
+
+    private static WaffleMeter.Replay.ReplayRecording? TryLoadNewestSavedReplay(WaffleMeter.App.Core.MeterServices services)
+    {
+        try
+        {
+            string dir = System.IO.Path.Combine(services.Props.AppDirectory(), "replays");
+            if (!System.IO.Directory.Exists(dir))
+            {
+                return null;
+            }
+
+            System.IO.FileInfo? f = new System.IO.DirectoryInfo(dir)
+                .GetFiles("replay-*.json")
+                .OrderByDescending(x => x.LastWriteTime)
+                .FirstOrDefault();
+            return f is null ? null : WaffleMeter.Replay.ReplaySerializer.Deserialize(System.IO.File.ReadAllText(f.FullName));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private void ExitApp()
     {
         _tray?.Dispose();
@@ -816,8 +875,12 @@ public partial class App : Application
             _historyPanel.Park();
         };
 
-        // Saved-battle snapshots arrive on the consumer thread; cache them on the UI thread.
-        services.BattleListChanged += battles => Dispatcher.Invoke(() => _historyViewModel.SetBattles(battles));
+        // Saved-battle snapshots arrive on the consumer thread; cache them on the UI thread. BeginInvoke
+        // (not Invoke) so the consumer never blocks on the UI thread — during app shutdown the UI thread is
+        // itself joining the consumer, and a synchronous Invoke there would mutually deadlock (and stall the
+        // shutdown save). A history-panel refresh is not latency-critical; if the dispatcher is already
+        // shutting down the post simply doesn't run.
+        services.BattleListChanged += battles => Dispatcher.BeginInvoke(() => _historyViewModel.SetBattles(battles));
 
         // Clicking a saved battle replays it in the meter until the next live battle starts.
         _historyViewModel.BattleSelected += report =>

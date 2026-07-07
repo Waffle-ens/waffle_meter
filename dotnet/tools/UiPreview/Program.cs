@@ -7,6 +7,7 @@ using WaffleMeter.App.Core;
 using WaffleMeter.App.Wpf;
 using WaffleMeter.Capture;
 using WaffleMeter.Data;
+using WaffleMeter.Replay;
 using WaffleMeter.Services;
 
 namespace WaffleMeter.Tools.UiPreview;
@@ -131,8 +132,187 @@ internal static class Program
             }
         }
 
+        CaptureReplay(LoadRealOrSynthetic(now), Path.Combine(outDir, "replay.png"), "replay.png");
+        CaptureReplay(SampleMapReplay(now), Path.Combine(outDir, "replay-map.png"), "replay-map.png");
+
         Console.WriteLine(outDir);
         app.Shutdown();
+    }
+
+    /// <summary>Render the positional-replay window (paused mid-battle so paths/trails show) to PNG.</summary>
+    private static void CaptureReplay(ReplayRecording rec, string path, string label)
+    {
+        ReplayWindow? win = null;
+        try
+        {
+            win = new ReplayWindow(rec, autoPlay: false, startMs: rec.DurationMs * 0.5);
+            win.Width = 940;
+            win.Height = 660;
+            win.Left = -10000;
+            win.Top = -10000;
+            win.Show();
+            Drain(win.Dispatcher);
+
+            var content = (FrameworkElement)win.Content;
+            int w = (int)Math.Ceiling(content.ActualWidth);
+            int h = (int)Math.Ceiling(content.ActualHeight);
+            if (w <= 0 || h <= 0)
+            {
+                Console.WriteLine($"  [skip] {label} measured {w}x{h}");
+                return;
+            }
+
+            var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(content);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(rtb));
+            using FileStream fs = File.Create(path);
+            encoder.Save(fs);
+            Console.WriteLine($"  [ok]   {label} {w}x{h}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  [fail] {label}: {ex.Message}");
+        }
+        finally
+        {
+            win?.Close();
+        }
+    }
+
+    /// <summary>A synthetic battle anchored in a real dungeon's WORLD coordinates (무스펠의 성배, boss code
+    /// 2301059) so the preview exercises the map-background projection: dots must land on the map art.</summary>
+    private static ReplayRecording SampleMapReplay(long now)
+    {
+        string[] names = { "콘팡", "쌈", "강까", "노까", "빛의사제" };
+        string[] jobs = { "권성", "검성", "궁성", "치유성", "호법성" };
+        const int dur = 120_000;
+        // A pull staged near the center of 무스펠 (world X ~18k, Y ~ -9k), spanning a few thousand units.
+        const double baseX = 20000, baseY = -8000;
+        var tracks = new List<ReplayTrack>();
+
+        for (int k = 0; k < names.Length; k++)
+        {
+            var pts = new List<ReplayPoint>();
+            double cx = baseX + (k * 700), cy = baseY + ((k % 2) * 900), r = 1200 + (k * 260);
+            for (int t = 0; t <= dur; t += 400)
+            {
+                double a = (t / 1000.0) * (0.4 + (k * 0.05));
+                float x = (float)(cx + (Math.Cos(a) * r) + (Math.Sin(t / 7000.0) * 500));
+                float y = (float)(cy + (Math.Sin(a) * r) + (Math.Cos(t / 9000.0) * 500));
+                float z = (float)(2000 + (200 * Math.Sin((t / 15000.0) + k)));
+                pts.Add(new ReplayPoint(t, x, y, z));
+            }
+
+            tracks.Add(new ReplayTrack
+            {
+                Uid = 100 + k,
+                Nickname = names[k],
+                Server = 2003,
+                Job = jobs[k],
+                IsSelf = k == 0,
+                PartySlot = k + 1,
+                Points = pts,
+                SourceOpcode = 0x371C,
+                SourceOffset = 2,
+            });
+        }
+
+        var boss = new List<ReplayPoint>();
+        for (int t = 0; t <= dur; t += 800)
+        {
+            boss.Add(new ReplayPoint(t, (float)(baseX + (Math.Sin(t / 20000.0) * 700)), (float)(baseY + (Math.Cos(t / 20000.0) * 700)), 2000f));
+        }
+
+        tracks.Add(new ReplayTrack { Uid = 999, Nickname = "칼드릭스", IsTarget = true, Points = boss, SourceOpcode = 0x372F, SourceOffset = 1 });
+
+        return new ReplayRecording
+        {
+            StartMs = now - dur,
+            EndMs = now,
+            BossDefeated = true,
+            TargetName = "칼드릭스",
+            TargetCode = 2301059, // 무스펠의 성배 -> matches the bundled map
+            Tracks = tracks,
+        };
+    }
+
+    /// <summary>Prefer the newest real persisted recording (shows true sampling gaps), else synthetic.</summary>
+    private static ReplayRecording LoadRealOrSynthetic(long now)
+    {
+        try
+        {
+            string dir = Path.Combine(Environment.GetEnvironmentVariable("APPDATA") ?? "", "waffle_meter.v1.4", "replays");
+            if (Directory.Exists(dir))
+            {
+                FileInfo? f = new DirectoryInfo(dir).GetFiles("*.json").OrderByDescending(x => x.LastWriteTime).FirstOrDefault();
+                if (f != null)
+                {
+                    Console.WriteLine($"  [info] replay.png using real recording {f.Name}");
+                    return ReplaySerializer.Deserialize(File.ReadAllText(f.FullName));
+                }
+            }
+        }
+        catch
+        {
+            // fall back to synthetic
+        }
+
+        return SampleReplay(now);
+    }
+
+    /// <summary>A synthetic battle replay (5 players walking patterns + a drifting boss) for the preview.</summary>
+    private static ReplayRecording SampleReplay(long now)
+    {
+        string[] names = { "콘팡", "쌈", "강까", "노까", "빛의사제" };
+        string[] jobs = { "마도성", "검성", "궁성", "치유성", "호법성" };
+        const int dur = 120_000;
+        var tracks = new List<ReplayTrack>();
+
+        for (int k = 0; k < names.Length; k++)
+        {
+            var pts = new List<ReplayPoint>();
+            double cx = 200 + (k * 45), cy = 220 + ((k % 2) * 70), r = 60 + (k * 16);
+            for (int t = 0; t <= dur; t += 500)
+            {
+                double a = (t / 1000.0) * (0.4 + (k * 0.05));
+                float x = (float)(cx + (Math.Cos(a) * r) + (Math.Sin(t / 7000.0) * 30));
+                float y = (float)(cy + (Math.Sin(a) * r) + (Math.Cos(t / 9000.0) * 30));
+                float z = (float)(50 + (12 * Math.Sin((t / 15000.0) + k)));
+                pts.Add(new ReplayPoint(t, x, y, z));
+            }
+
+            tracks.Add(new ReplayTrack
+            {
+                Uid = 100 + k,
+                Nickname = names[k],
+                Server = 2003,
+                Job = jobs[k],
+                IsSelf = k == 0,
+                PartySlot = k + 1,
+                Points = pts,
+                SourceOpcode = 0x371C,
+                SourceOffset = 2,
+            });
+        }
+
+        var boss = new List<ReplayPoint>();
+        for (int t = 0; t <= dur; t += 1000)
+        {
+            boss.Add(new ReplayPoint(t, (float)(280 + (Math.Sin(t / 20000.0) * 24)), (float)(260 + (Math.Cos(t / 20000.0) * 24)), 60f));
+        }
+
+        tracks.Add(new ReplayTrack { Uid = 999, Nickname = "크로메데", IsTarget = true, Points = boss, SourceOpcode = 0x372F, SourceOffset = 1 });
+
+        return new ReplayRecording
+        {
+            StartMs = now - dur,
+            EndMs = now,
+            BossDefeated = true,
+            TargetName = "크로메데의 심연",
+            TargetCode = 500,
+            Tracks = tracks,
+        };
     }
 
     /// <summary>Drive every SettingsViewModel control/command against an ISOLATED settings file and assert
