@@ -88,7 +88,10 @@ jobs:
       # references the public assemblies via ../../../../waffle_meter, so sibling layout is required),
       # build the engine, and drop the DLL into publish/. Without the token (e.g. a fork) the step skips and
       # the release ships without replay. Placed before obfuscate/sign so the engine DLL is hardened + signed.
+      # Gated OFF by default (repo VARIABLE SHIP_REPLAY must be 'true'): the movement-replay feature is still
+      # WIP, so releases ship WITHOUT it until it's finished. Set the variable to re-enable once ready.
       - name: Inject replay engine (private module)
+        if: vars.SHIP_REPLAY == 'true'
         shell: pwsh
         env:
           REPLAY_REPO_TOKEN: ${{ secrets.REPLAY_REPO_TOKEN }}

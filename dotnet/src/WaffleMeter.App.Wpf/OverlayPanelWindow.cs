@@ -205,20 +205,6 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     /// <summary>Buried if our own WS_EX_TOPMOST bit is missing (a WPF owned-window / z-order shuffle demoted
     /// us), or a foreign visible window sits above us. Our own windows (meter / sibling panels / tooltips,
     /// same process) are skipped so they never trigger a needless re-assert.</summary>
-    /// <summary>Diagnostic snapshot of the topmost/z-order state (for the buff-overlay-diag log).</summary>
-    public string DiagTopmost()
-    {
-        if (_handle == IntPtr.Zero)
-        {
-            return "noHandle";
-        }
-
-        bool tmBit = (GetWindowLong(_handle, GwlExStyle) & WsExTopmost) != 0;
-        IntPtr owner = GetWindow(_handle, GwOwner);
-        bool ownerTm = owner != IntPtr.Zero && (GetWindowLong(owner, GwlExStyle) & WsExTopmost) != 0;
-        return $"tmBit={tmBit} buried={IsBuried()} presentedTM={_presentedTopMost} faded={_faded} wpfTopmost={Topmost} owner={owner != IntPtr.Zero} ownerTm={ownerTm}";
-    }
-
     private bool IsBuried()
     {
         if ((GetWindowLong(_handle, GwlExStyle) & WsExTopmost) == 0)

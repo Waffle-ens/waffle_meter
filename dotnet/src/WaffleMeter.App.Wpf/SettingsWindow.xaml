@@ -461,7 +461,7 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="오드 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="인식된 캐릭터 옆에 오드(아이테르) 잔량을 표시합니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="인식된 캐릭터 옆에 오드 잔량을 표시합니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowAetherStatus}"/>
                         </Grid>
