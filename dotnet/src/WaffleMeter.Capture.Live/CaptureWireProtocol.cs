@@ -24,6 +24,7 @@ public static class CaptureWireProtocol
     public const byte FrameSegment = 0x01; // body = encoded CapturedSegment
     public const byte FrameError = 0x02;   // body = UTF-8 message (capture failed; helper will close)
     public const byte FrameStarted = 0x03; // body = empty (backend started OK)
+    public const byte FramePing = 0x04;    // body = [ConnKey 12B][double ms 8B LE][byte isLoopback]
 
     // client -> server
     public const byte FrameStart = 0x10;   // body = encoded Start (backend + CaptureConfig)
@@ -140,6 +141,21 @@ public static class CaptureWireProtocol
         BinaryPrimitives.ReadUInt16LittleEndian(body[4..]),
         BinaryPrimitives.ReadUInt32LittleEndian(body[6..]),
         BinaryPrimitives.ReadUInt16LittleEndian(body[10..]));
+
+    // FramePing body: [ConnKey 12B][double ms 8B LE][byte isLoopback]
+    public static byte[] EncodePing(in ConnKey key, double ms, bool isLoopback)
+    {
+        var buffer = new byte[12 + 8 + 1];
+        EncodeConnKey(key).CopyTo(buffer, 0);
+        BinaryPrimitives.WriteDoubleLittleEndian(buffer.AsSpan(12), ms);
+        buffer[20] = (byte)(isLoopback ? 1 : 0);
+        return buffer;
+    }
+
+    public static (ConnKey Key, double Ms, bool IsLoopback) DecodePing(ReadOnlySpan<byte> body) => (
+        DecodeConnKey(body),
+        BinaryPrimitives.ReadDoubleLittleEndian(body[12..]),
+        body[20] != 0);
 
     public static byte[] EncodeStart(string backend, CaptureConfig config)
     {

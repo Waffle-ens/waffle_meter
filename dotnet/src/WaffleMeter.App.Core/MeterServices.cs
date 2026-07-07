@@ -71,9 +71,41 @@ public sealed class MeterServices
     private readonly Dictionary<string, StreamState> _streams = new();
     private readonly HashSet<string> _excludedKeys = new();
     private readonly bool _dedupeGameStreams;
-    private string? _primaryGameKey;
+    // volatile: the ping handler (pipe read thread) compares against this; the consumer thread writes it.
+    private volatile string? _primaryGameKey;
     private long _primaryGameAt;
     private long _processed;
+
+    // Passive server-latency (ping), matched to the primary game stream. Written by the pipe read thread,
+    // read by the UI thread; the values are a display convenience so a rare torn read self-corrects.
+    private double _latestPingMs;
+    private long _lastPingAtMs;
+    private volatile bool _pingLoopback;
+
+    /// <summary>Accept a passive RTT sample from the capture helper (any thread). Kept only when its inbound
+    /// connection matches the primary game stream, so non-game connections' latency is ignored.</summary>
+    public void AcceptPing(ConnKey key, double ms, bool isLoopback)
+    {
+        string streamKey = $"{Dotted(key.SrcIp)}:{key.SrcPort}-{Dotted(key.DstIp)}:{key.DstPort}";
+        if (streamKey != _primaryGameKey)
+        {
+            return;
+        }
+
+        _latestPingMs = ms;
+        _lastPingAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        _pingLoopback = isLoopback;
+    }
+
+    /// <summary>The current server latency for display, or null when none is fresh (older than 10 s).
+    /// <c>IsLocalHop</c> = the measured hop is a VPN/booster relay, not the real server.</summary>
+    public (double Ms, bool IsLocalHop)? CurrentPing()
+    {
+        long age = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _lastPingAtMs;
+        return _lastPingAtMs != 0 && age <= 10_000 ? (_latestPingMs, _pingLoopback) : null;
+    }
+
+    private static string Dotted(uint ip) => $"{(ip >> 24) & 0xFF}.{(ip >> 16) & 0xFF}.{(ip >> 8) & 0xFF}.{ip & 0xFF}";
 
     /// <summary>Raised (consumer thread) when a connection is classified as high-volume non-game noise,
     /// so the capture helper can drop it at the source. <see cref="MeterEngine"/> forwards it to the

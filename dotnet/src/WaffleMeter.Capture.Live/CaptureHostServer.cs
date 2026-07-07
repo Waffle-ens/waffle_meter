@@ -105,6 +105,14 @@ public static class CaptureHostServer
             Send(CaptureWireProtocol.FrameSegment, CaptureWireProtocol.EncodeSegment(seg));
         };
 
+        // Forward passive RTT samples (throttled at the source) so the app can show server latency. Optional:
+        // only a backend that supports it (WinDivert) raises this; old helper + new app degrades to "--ms".
+        if (backend is WinDivertBackend rttBackend)
+        {
+            rttBackend.RttResolved += (key, ms, isLoopback) =>
+                Send(CaptureWireProtocol.FramePing, CaptureWireProtocol.EncodePing(key, ms, isLoopback));
+        }
+
         try
         {
             backend.Start(config);

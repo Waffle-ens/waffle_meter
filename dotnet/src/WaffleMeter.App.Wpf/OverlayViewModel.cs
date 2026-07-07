@@ -168,6 +168,28 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Visibility _aetherVisibility = Visibility.Collapsed;
     public Visibility AetherVisibility { get => _aetherVisibility; private set => Set(ref _aetherVisibility, value); }
 
+    private string _pingText = string.Empty;
+    /// <summary>Server latency badge ("NNms", or with a "(local)" suffix on a VPN/booster hop).</summary>
+    public string PingText { get => _pingText; private set => Set(ref _pingText, value); }
+
+    private Visibility _pingVisibility = Visibility.Collapsed;
+    public Visibility PingVisibility { get => _pingVisibility; private set => Set(ref _pingVisibility, value); }
+
+    /// <summary>Push the latest server latency (read each report tick). Hidden when the setting is off or no
+    /// fresh sample exists.</summary>
+    public void SetPing((double Ms, bool IsLocalHop)? ping)
+    {
+        if (!_settings.ShowLatencyIndicator || ping is not { } p)
+        {
+            PingVisibility = Visibility.Collapsed;
+            return;
+        }
+
+        int ms = Math.Clamp((int)Math.Round(p.Ms), 0, 999);
+        PingText = p.IsLocalHop ? $"{ms}ms (local)" : $"{ms}ms";
+        PingVisibility = Visibility.Visible;
+    }
+
     /// <summary>Push the latest aether balance (read from the data layer each report tick). Hidden when the
     /// setting is off or no value has been seen.</summary>
     public void SetAether(int baseVal, int bonus, bool hasValue)

@@ -66,6 +66,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _maxVisibleRows = ReadInt("maxVisibleRows", 10);
         _lowSpecMode = ReadBool("lowSpecMode", false);
         _showAetherStatus = ReadBool("showAetherStatus", true);
+        _showLatencyIndicator = ReadBool("showLatencyIndicator", false);
         _vrrCompatMode = ReadBool("vrrCompatMode", true);
         _showBuffUi = ReadBool("buffUi.show", false);
         _buffUiOnlyWhenActive = ReadBool("buffUi.onlyWhenActive", false);
@@ -233,6 +234,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private bool _showAetherStatus;
     /// <summary>Show the aether (오드) balance badge next to the recognized character.</summary>
     public bool ShowAetherStatus { get => _showAetherStatus; set => SetBool(ref _showAetherStatus, "showAetherStatus", value); }
+
+    private bool _showLatencyIndicator;
+    /// <summary>Show the passive server-latency (ping) badge next to the recognized character.</summary>
+    public bool ShowLatencyIndicator { get => _showLatencyIndicator; set => SetBool(ref _showLatencyIndicator, "showLatencyIndicator", value); }
 
     private bool _vrrCompatMode;
     /// <summary>FreeSync/G-Sync compatibility: render the overlay in software (default) so a GPU-composited

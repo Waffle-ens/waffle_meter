@@ -31,10 +31,20 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
     private const ulong FlagRecvOnly = 0x0004; // WinDivert 2.x RECV_ONLY (0x0008 is SEND_ONLY — the bug that captured 0)
     private static readonly IntPtr InvalidHandle = new(-1);
 
+    // WINDIVERT_ADDRESS (2.x): INT64 Timestamp @0, UINT8 Layer @8, UINT8 Event @9, then a flags bitfield
+    // byte @10 (bit1 = Outbound, bit2 = Loopback). We only read the flags byte for RTT direction; the rest
+    // is the 64-byte opaque tail. Verified live (the offline corpus carries no address bits).
     [StructLayout(LayoutKind.Sequential, Size = 64)]
     private struct WinDivertAddress
     {
+        public long Timestamp;
+        public byte Layer;
+        public byte Event;
+        public byte Flags;
     }
+
+    private const byte AddrOutbound = 0x02;
+    private const byte AddrLoopback = 0x04;
 
     // WINDIVERT_PARAM enum (kernel queue tuning). Defaults are 4096 packets / 2000 ms / 4 MB — small
     // enough that a zone-entry / login packet burst can overflow the queue before the receive loop drains
@@ -64,6 +74,17 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
     private volatile bool _running;
 
     public event Action<CapturedSegment>? SegmentReceived;
+
+    // ---- passive RTT (server latency) — a parallel, isolated tap; NEVER on the segment/damage path ----
+    /// <summary>Raised when an inbound ack resolves a round-trip time. The ConnKey is the inbound
+    /// (server→client) 4-tuple so the app can match it to the game stream. isLoopback = a VPN/booster local
+    /// hop (not the real server RTT).</summary>
+    public event Action<ConnKey, double, bool>? RttResolved;
+
+    private readonly Dictionary<ulong, PassiveRttEstimator> _rtt = new();
+    private readonly Dictionary<ulong, long> _lastPingMs = new();
+    private static readonly long RttTicksPerSecond = System.Diagnostics.Stopwatch.Frequency;
+    private const long PingThrottleMs = 250; // don't emit a ping frame more than ~4x/sec per connection
 
     public void Start(CaptureConfig config)
     {
@@ -143,7 +164,7 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
                     continue;
                 }
 
-                Parse(buffer, (int)recvLen);
+                Parse(buffer, (int)recvLen, addr.Flags);
             }
         }
     }
@@ -173,7 +194,7 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
         return true;
     }
 
-    private void Parse(byte[] buffer, int len)
+    private void Parse(byte[] buffer, int len, byte flags)
     {
         if ((buffer[0] >> 4) != 4)
         {
@@ -187,6 +208,10 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
             {
                 return;
             }
+
+            // Passive RTT tap — runs BEFORE the payload gate (a data ack can ride an empty-payload segment)
+            // and is fully isolated: it never touches the segment/damage path and can't throw into it.
+            FeedRtt(ip, tcp, flags);
 
             byte[]? payload = tcp.PayloadData;
             if (payload is null || payload.Length == 0)
@@ -208,6 +233,67 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
         {
             // malformed packet — skip
         }
+    }
+
+    // Feed one TCP segment to the per-connection RTT estimator. Outbound (client→server) data segments are
+    // tracked; an inbound (server→client) ack resolves the RTT. Best-effort and self-contained.
+    private void FeedRtt(IPv4Packet ip, TcpPacket tcp, byte flags)
+    {
+        if (RttResolved is null)
+        {
+            return;
+        }
+
+        try
+        {
+            uint src = ToU32(ip.SourceAddress.GetAddressBytes());
+            uint dst = ToU32(ip.DestinationAddress.GetAddressBytes());
+            ulong conn = Canonical(src, tcp.SourcePort, dst, tcp.DestinationPort);
+            if (!_rtt.TryGetValue(conn, out PassiveRttEstimator? est))
+            {
+                if (_rtt.Count >= 128)
+                {
+                    _rtt.Clear(); // bound the map (connections are few; a hard clear is fine and rare)
+                    _lastPingMs.Clear();
+                }
+
+                est = new PassiveRttEstimator(RttTicksPerSecond);
+                _rtt[conn] = est;
+            }
+
+            long ts = System.Diagnostics.Stopwatch.GetTimestamp();
+            bool outbound = (flags & AddrOutbound) != 0;
+            if (outbound)
+            {
+                est.TrackOutbound(tcp.SequenceNumber, tcp.PayloadData?.Length ?? 0, ts);
+            }
+            else if (est.TryResolveInbound(tcp.AcknowledgmentNumber, ts, out double ms))
+            {
+                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                if (!_lastPingMs.TryGetValue(conn, out long last) || nowMs - last >= PingThrottleMs)
+                {
+                    _lastPingMs[conn] = nowMs;
+                    // inbound direction (src=server, dst=client) — matches the app's game-stream key
+                    RttResolved?.Invoke(new ConnKey(src, tcp.SourcePort, dst, tcp.DestinationPort), ms, (flags & AddrLoopback) != 0);
+                }
+            }
+        }
+        catch
+        {
+            // RTT is best-effort — never disturb capture
+        }
+    }
+
+    private static uint ToU32(byte[] ip) =>
+        ip.Length >= 4 ? ((uint)ip[0] << 24) | ((uint)ip[1] << 16) | ((uint)ip[2] << 8) | ip[3] : 0;
+
+    // A direction-independent connection id: the two endpoints ordered, so outbound and inbound of the same
+    // connection map to the same estimator.
+    private static ulong Canonical(uint aIp, int aPort, uint bIp, int bPort)
+    {
+        ulong a = ((ulong)aIp << 16) | (ushort)aPort;
+        ulong b = ((ulong)bIp << 16) | (ushort)bPort;
+        return a <= b ? (a * 2862933555777941757UL) ^ b : (b * 2862933555777941757UL) ^ a;
     }
 
     /// <summary>

@@ -27,6 +27,10 @@ public sealed class NamedPipeCaptureClient : IPacketCaptureBackend, ISupportsCon
     /// <summary>Raised if the helper reports a capture failure (e.g. driver load denied).</summary>
     public event Action<string>? CaptureError;
 
+    /// <summary>Raised when the helper forwards a passive RTT sample (server-latency). ConnKey is the inbound
+    /// (server→client) 4-tuple; the app matches it to the game stream. isLoopback = VPN/booster local hop.</summary>
+    public event Action<ConnKey, double, bool>? PingResolved;
+
     public event Action<CapturedSegment>? SegmentReceived;
 
     public NamedPipeCaptureClient(
@@ -197,6 +201,10 @@ public sealed class NamedPipeCaptureClient : IPacketCaptureBackend, ISupportsCon
                         break;
                     case CaptureWireProtocol.FrameStarted:
                         break; // ack only
+                    case CaptureWireProtocol.FramePing:
+                        (ConnKey key, double ms, bool loop) = CaptureWireProtocol.DecodePing(frame.Value.Body);
+                        PingResolved?.Invoke(key, ms, loop);
+                        break;
                 }
             }
         }

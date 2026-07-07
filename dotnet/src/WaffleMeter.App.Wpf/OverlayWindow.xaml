@@ -297,6 +297,11 @@
                         <TextBlock Text="{Binding AetherText}" Foreground="#7EE7FF" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
+                <!-- server latency (ping) badge -->
+                <Border Margin="6,0,0,0" Padding="5,1" CornerRadius="4" VerticalAlignment="Center"
+                        Background="{DynamicResource Skin.StatBg}" Visibility="{Binding PingVisibility}">
+                    <TextBlock Text="{Binding PingText}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </Border>
             </StackPanel>
         </Grid>
     </Border>

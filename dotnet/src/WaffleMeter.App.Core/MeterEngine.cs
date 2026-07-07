@@ -73,6 +73,9 @@ public sealed class MeterEngine : IDisposable
         if (backend is NamedPipeCaptureClient pipe)
         {
             pipe.CaptureError += msg => CaptureError?.Invoke(msg);
+            // Passive server latency: the helper resolves it per connection; the services layer keeps only
+            // the sample matching the primary game stream. Thread-safe (volatile primary key + display fields).
+            pipe.PingResolved += (key, ms, loop) => _services.AcceptPing(key, ms, loop);
         }
 
         // P2P/streaming noise guard: when the services classifier marks a connection as non-game noise,
