@@ -12,7 +12,10 @@ public static class FieldBossAlarm
     /// <summary>One due reminder: a boss, its respawn target, and the lead (minutes-before) that just hit.</summary>
     public readonly record struct Due(int Code, long TargetMs, int LeadMinutes);
 
-    /// <summary>Alerts due at <paramref name="nowMs"/> for the given timers and enabled lead minutes.</summary>
+    /// <summary>Alerts due at <paramref name="nowMs"/> for the given timers and enabled lead minutes. A lead
+    /// is edge-windowed (fires only while remaining is inside its 1-minute band), so if the machine sleeps
+    /// through a lead's whole window that lead is skipped — a smaller enabled lead still fires after wake.
+    /// Acceptable for a reminder; latch on "crossed below" instead if precise-across-sleep alerts matter.</summary>
     public static IReadOnlyList<Due> DueAlerts(
         IReadOnlyDictionary<int, long> timers, long nowMs, IReadOnlyCollection<int> leadMinutes)
     {

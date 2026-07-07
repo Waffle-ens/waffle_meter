@@ -211,7 +211,7 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
 
             // Passive RTT tap — runs BEFORE the payload gate (a data ack can ride an empty-payload segment)
             // and is fully isolated: it never touches the segment/damage path and can't throw into it.
-            FeedRtt(ip, tcp, flags);
+            FeedRtt(buffer, len, tcp, flags);
 
             byte[]? payload = tcp.PayloadData;
             if (payload is null || payload.Length == 0)
@@ -236,18 +236,30 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
     }
 
     // Feed one TCP segment to the per-connection RTT estimator. Outbound (client→server) data segments are
-    // tracked; an inbound (server→client) ack resolves the RTT. Best-effort and self-contained.
-    private void FeedRtt(IPv4Packet ip, TcpPacket tcp, byte flags)
+    // tracked; an inbound (server→client) ack resolves the RTT. Best-effort, self-contained, and — on this
+    // latency-sensitive capture thread — allocation-free: it reads the 4-tuple + payload length straight from
+    // the header bytes (no IPAddress.GetAddressBytes / TcpPacket.PayloadData materialization).
+    private void FeedRtt(byte[] b, int len, TcpPacket tcp, byte flags)
     {
-        if (RttResolved is null)
+        if (RttResolved is null || len < 20)
         {
             return;
         }
 
         try
         {
-            uint src = ToU32(ip.SourceAddress.GetAddressBytes());
-            uint dst = ToU32(ip.DestinationAddress.GetAddressBytes());
+            int ihl = (b[0] & 0x0F) * 4;
+            if (ihl < 20 || len < ihl + 20)
+            {
+                return;
+            }
+
+            uint src = ((uint)b[12] << 24) | ((uint)b[13] << 16) | ((uint)b[14] << 8) | b[15];
+            uint dst = ((uint)b[16] << 24) | ((uint)b[17] << 16) | ((uint)b[18] << 8) | b[19];
+            int totalLen = (b[2] << 8) | b[3];
+            int tcpHeaderLen = ((b[ihl + 12] >> 4) & 0x0F) * 4;
+            int payloadLen = Math.Max(0, Math.Min(totalLen, len) - ihl - tcpHeaderLen);
+
             ulong conn = Canonical(src, tcp.SourcePort, dst, tcp.DestinationPort);
             if (!_rtt.TryGetValue(conn, out PassiveRttEstimator? est))
             {
@@ -265,7 +277,7 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
             bool outbound = (flags & AddrOutbound) != 0;
             if (outbound)
             {
-                est.TrackOutbound(tcp.SequenceNumber, tcp.PayloadData?.Length ?? 0, ts);
+                est.TrackOutbound(tcp.SequenceNumber, payloadLen, ts);
             }
             else if (est.TryResolveInbound(tcp.AcknowledgmentNumber, ts, out double ms))
             {
@@ -283,9 +295,6 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
             // RTT is best-effort — never disturb capture
         }
     }
-
-    private static uint ToU32(byte[] ip) =>
-        ip.Length >= 4 ? ((uint)ip[0] << 24) | ((uint)ip[1] << 16) | ((uint)ip[2] << 8) | ip[3] : 0;
 
     // A direction-independent connection id: the two endpoints ordered, so outbound and inbound of the same
     // connection map to the same estimator.

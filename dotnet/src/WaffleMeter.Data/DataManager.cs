@@ -189,6 +189,9 @@ public sealed class DataManager : ICaptureGameData
     public event Action? ExecutorIdentityChanged;
 
     // ---- aether (오드) resource, the local player's balance shown next to the recognized character ----
+    // Written on the packet-consumer thread, read (composite) on the UI thread → guard so a read can't
+    // observe a torn base/bonus/total mid-update.
+    private readonly object _aetherGate = new();
     private int _aetherBase;
     private int _aetherBonus;
     private int _aetherTotal;
@@ -198,11 +201,15 @@ public sealed class DataManager : ICaptureGameData
     public event Action? AetherStatusChanged;
 
     /// <summary>The local player's current aether balance, or (0,0,false) until one has been seen.</summary>
-    public (int Base, int Bonus, int Total, bool HasValue) CurrentAether =>
-        (_aetherBase, _aetherBonus, _aetherTotal, _aetherHasValue);
+    public (int Base, int Bonus, int Total, bool HasValue) CurrentAether
+    {
+        get { lock (_aetherGate) { return (_aetherBase, _aetherBonus, _aetherTotal, _aetherHasValue); } }
+    }
 
     public void SaveAetherStatus(bool split, int baseVal, int bonus, int total)
     {
+        lock (_aetherGate)
+        {
         if (split)
         {
             _aetherBase = baseVal;
@@ -228,18 +235,24 @@ public sealed class DataManager : ICaptureGameData
 
         _aetherTotal = total;
         _aetherHasValue = true;
-        AetherStatusChanged?.Invoke();
+        } // _aetherGate
+
+        AetherStatusChanged?.Invoke(); // outside the lock (avoid holding it during event dispatch)
     }
 
     private void ClearAetherStatus()
     {
-        if (!_aetherHasValue && _aetherBase == 0 && _aetherBonus == 0 && _aetherTotal == 0)
+        lock (_aetherGate)
         {
-            return;
+            if (!_aetherHasValue && _aetherBase == 0 && _aetherBonus == 0 && _aetherTotal == 0)
+            {
+                return; // nothing to clear — skip the change event
+            }
+
+            _aetherBase = _aetherBonus = _aetherTotal = 0;
+            _aetherHasValue = false;
         }
 
-        _aetherBase = _aetherBonus = _aetherTotal = 0;
-        _aetherHasValue = false;
         AetherStatusChanged?.Invoke();
     }
 

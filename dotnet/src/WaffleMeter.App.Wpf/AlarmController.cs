@@ -21,7 +21,10 @@ public sealed class AlarmController
     private readonly Action<FieldBossAlarm.Due>? _onFieldBoss;
     private readonly DispatcherTimer _timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
     private string _lastMinute = string.Empty;
-    private readonly HashSet<string> _shownFieldBoss = new(); // dedup: each (boss, respawn, lead) fires once
+    // dedup: each (boss, respawn, lead) fires once. Value = the respawn target ms, so entries can be pruned
+    // once the respawn has passed — bounding the map without a blanket clear (which would re-fire other
+    // alerts still inside their lead window).
+    private readonly Dictionary<string, long> _shownFieldBoss = new();
 
     public AlarmController(
         MeterSettings settings,
@@ -83,16 +86,21 @@ public sealed class AlarmController
         }
 
         long nowMs = new DateTimeOffset(now).ToUnixTimeMilliseconds();
+
+        // Prune entries whose respawn has passed: they can never be due again (DueAlerts skips remaining<=0),
+        // so dropping them bounds the map without ever clearing a still-active lead marker.
+        if (_shownFieldBoss.Count > 0)
+        {
+            foreach (string key in _shownFieldBoss.Where(kv => kv.Value <= nowMs).Select(kv => kv.Key).ToList())
+            {
+                _shownFieldBoss.Remove(key);
+            }
+        }
+
         foreach (FieldBossAlarm.Due d in FieldBossAlarm.DueAlerts(_fieldBossTimers(), nowMs, _settings.FieldBossLeads))
         {
-            if (_shownFieldBoss.Add(FieldBossAlarm.Key(d)))
+            if (_shownFieldBoss.TryAdd(FieldBossAlarm.Key(d), d.TargetMs))
             {
-                if (_shownFieldBoss.Count > 4096)
-                {
-                    _shownFieldBoss.Clear(); // bound the dedup set over a long session
-                    _shownFieldBoss.Add(FieldBossAlarm.Key(d));
-                }
-
                 _onFieldBoss(d);
             }
         }

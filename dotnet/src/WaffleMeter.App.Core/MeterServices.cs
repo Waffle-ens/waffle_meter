@@ -73,6 +73,10 @@ public sealed class MeterServices
     private readonly bool _dedupeGameStreams;
     // volatile: the ping handler (pipe read thread) compares against this; the consumer thread writes it.
     private volatile string? _primaryGameKey;
+    // The most recent stream that carried a game packet, maintained regardless of the dedupe toggle. The
+    // ping matcher uses this (falling back from _primaryGameKey) so server latency still works when
+    // capture.dedupeGameStreams=false leaves _primaryGameKey unset.
+    private volatile string? _lastGameStreamKey;
     private long _primaryGameAt;
     private long _processed;
 
@@ -87,7 +91,9 @@ public sealed class MeterServices
     public void AcceptPing(ConnKey key, double ms, bool isLoopback)
     {
         string streamKey = $"{Dotted(key.SrcIp)}:{key.SrcPort}-{Dotted(key.DstIp)}:{key.DstPort}";
-        if (streamKey != _primaryGameKey)
+        // Match the game stream: the dedupe-elected primary when present, else the most recent game stream
+        // (so ping still works with capture.dedupeGameStreams=false, which never sets _primaryGameKey).
+        if (streamKey != (_primaryGameKey ?? _lastGameStreamKey))
         {
             return;
         }
@@ -223,6 +229,7 @@ public sealed class MeterServices
                     if (isGame)
                     {
                         created.GameSignal++; // content signal: this connection carries the game stream — protect it
+                        _lastGameStreamKey = streamKey; // for the ping matcher (independent of the dedupe toggle)
                     }
                 }
 
