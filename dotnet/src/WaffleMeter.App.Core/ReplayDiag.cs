@@ -108,9 +108,14 @@ public static class ReplayDiag
     private static void Append(PropertyHandler props, string line)
     {
         string path = Path.Combine(props.AppDirectory(), "replay-diag.log");
+        // Rotate (not silently drop) at the cap: keep the trace bounded to ~2x MaxBytes while never losing
+        // the most recent lines — a silent stop would look identical to "replay never fired" during an
+        // investigation. The previous file is preserved once as .old.
         if (new FileInfo(path) is { Exists: true, Length: > MaxBytes })
         {
-            return; // safety cap: stop before the trace grows without bound
+            string old = path + ".old";
+            File.Delete(old);
+            File.Move(path, old);
         }
 
         File.AppendAllText(
