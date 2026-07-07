@@ -91,6 +91,8 @@ public partial class SettingsWindow : Window
 
     private void OnTestAlarmSound(object sender, RoutedEventArgs e) => _viewModel.TestAlarmSound();
 
+    private void OnTestTts(object sender, RoutedEventArgs e) => _viewModel.TestTts();
+
     private void OnAddCustomAlarm(object sender, RoutedEventArgs e) => _viewModel.AddCustomAlarm();
 
     private void OnDeleteCustomAlarm(object sender, RoutedEventArgs e)

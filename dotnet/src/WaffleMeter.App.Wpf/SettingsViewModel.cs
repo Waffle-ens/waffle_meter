@@ -196,10 +196,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool ShugoLead1 { get => _settings.ShugoLead1; set { _settings.ShugoLead1 = value; OnPropertyChanged(); } }
     public bool ShugoLeadStart { get => _settings.ShugoLeadStart; set { _settings.ShugoLeadStart = value; OnPropertyChanged(); } }
     public bool AlarmSoundEnabled { get => _settings.AlarmSoundEnabled; set { _settings.AlarmSoundEnabled = value; OnPropertyChanged(); } }
+    public bool TtsEnabled { get => _settings.TtsEnabled; set { _settings.TtsEnabled = value; OnPropertyChanged(); } }
     public double AlarmVolume { get => _settings.AlarmVolume; set { _settings.AlarmVolume = value; OnPropertyChanged(); } }
 
     /// <summary>Settings "소리 테스트" button: play the alarm chime at the current volume.</summary>
     public void TestAlarmSound() => AlarmSound.Play(_settings.AlarmVolume);
+
+    /// <summary>Settings "음성 테스트" button: speak a sample line (falls back to the chime if TTS fails).</summary>
+    public void TestTts() => TtsSpeech.Speak("슈고 페스타. 5분 뒤 시작합니다.", _settings.AlarmVolume);
 
     // ---- custom alarms (CRUD list) ----
     public IReadOnlyList<int> Hours { get; } = Enumerable.Range(0, 24).ToList();

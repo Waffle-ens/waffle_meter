@@ -1011,7 +1011,23 @@ public partial class App : Application
         }
 
         _alarmToast.Present(true);
-        if (_settings is { AlarmSoundEnabled: true } s)
+        PlayAlert(_alarmToastVm.SpokenText);
+    }
+
+    /// <summary>Sound an alert: speak it with TTS if enabled (which falls back to the chime on failure),
+    /// otherwise play the chime when the sound setting is on.</summary>
+    private void PlayAlert(string spokenText)
+    {
+        if (_settings is not { } s)
+        {
+            return;
+        }
+
+        if (s.TtsEnabled)
+        {
+            TtsSpeech.Speak(spokenText, s.AlarmVolume);
+        }
+        else if (s.AlarmSoundEnabled)
         {
             AlarmSound.Play(s.AlarmVolume);
         }
@@ -1033,10 +1049,7 @@ public partial class App : Application
         }
 
         _alarmToast.Present(true);
-        if (_settings is { AlarmSoundEnabled: true } s)
-        {
-            AlarmSound.Play(s.AlarmVolume);
-        }
+        PlayAlert(_alarmToastVm.SpokenText);
     }
 
     protected override void OnExit(ExitEventArgs e)

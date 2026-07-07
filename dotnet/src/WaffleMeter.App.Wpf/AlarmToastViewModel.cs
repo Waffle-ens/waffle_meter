@@ -16,6 +16,9 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
     private string _title = string.Empty;
     public string Title { get => _title; private set => Set(ref _title, value); }
 
+    /// <summary>The alert read aloud by TTS — the title plus its one-line detail.</summary>
+    public string SpokenText => $"{Title}. {Description}";
+
     private string _description = string.Empty;
     public string Description { get => _description; private set => Set(ref _description, value); }
 

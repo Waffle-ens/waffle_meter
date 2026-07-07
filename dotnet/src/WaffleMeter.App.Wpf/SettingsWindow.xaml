@@ -215,8 +215,21 @@
                             <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding AlarmVolume}"/>
                         </Grid>
 
-                        <Button Content="소리 테스트" Click="OnTestAlarmSound" HorizontalAlignment="Left"
-                                Height="30" Padding="14,0" Cursor="Hand" Margin="0,2,0,4"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="음성 알림 (한국어)" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="알림 내용을 한국어 음성으로 읽어줍니다. 인터넷이 필요하며, 실패하면 효과음으로 대체됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TtsEnabled}"/>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,4">
+                            <Button Content="소리 테스트" Click="OnTestAlarmSound" HorizontalAlignment="Left"
+                                    Height="30" Padding="14,0" Cursor="Hand" Margin="0,0,8,0"/>
+                            <Button Content="음성 테스트" Click="OnTestTts" HorizontalAlignment="Left"
+                                    Height="30" Padding="14,0" Cursor="Hand"/>
+                        </StackPanel>
 
                         <TextBlock Text="커스텀 알람" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
 

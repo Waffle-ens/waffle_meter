@@ -55,6 +55,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _shugoLead1 = ReadBool("alarms.shugoLead1", false);
         _shugoLeadStart = ReadBool("alarms.shugoStart", true);
         _alarmSoundEnabled = ReadBool("alarms.soundEnabled", true);
+        _ttsEnabled = ReadBool("alarms.ttsEnabled", false);
         _alarmVolume = ReadDouble("alarms.volume", 0.5);
         _customAlarms = CustomAlarmCodec.Decode(_props.GetProperty("alarms.custom")).ToList();
         _refreshIntervalMs = ReadInt("refreshIntervalMs", 500);
@@ -150,6 +151,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private bool _alarmSoundEnabled;
     public bool AlarmSoundEnabled { get => _alarmSoundEnabled; set => SetBool(ref _alarmSoundEnabled, "alarms.soundEnabled", value); }
+
+    private bool _ttsEnabled;
+    /// <summary>Speak alerts with an online Korean neural voice instead of (or before falling back to) the
+    /// chime. Opt-in: the voice endpoint is unofficial and every failure degrades to the local sound.</summary>
+    public bool TtsEnabled { get => _ttsEnabled; set => SetBool(ref _ttsEnabled, "alarms.ttsEnabled", value); }
 
     private double _alarmVolume;
     public double AlarmVolume { get => _alarmVolume; set => SetDouble(ref _alarmVolume, "alarms.volume", value); }
