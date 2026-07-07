@@ -20,6 +20,7 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     private const int WsExLayered = 0x00080000;
     private const int WsExAppWindow = 0x00040000;
     private const int WsExTopmost = 0x00000008;
+    private const int WsExTransparent = 0x00000020; // click-through (input passes through to the window below)
 
     private const uint SwpNoSize = 0x0001;
     private const uint SwpNoMove = 0x0002;
@@ -42,6 +43,8 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     private IntPtr _handle;
     private bool _dragging;
     private bool? _presentedTopMost; // last applied present state; null = parked -> ReassertTopmostIfBuried no-ops
+    private bool _faded;             // auto-hidden (opacity 0) but STILL topmost — mirrors OverlayWindow.Fade
+    private bool _clickThrough;      // user click-through: input passes through even while presented
 
     /// <summary>Raised after a drag completes with the new Left/Top (App persists it).</summary>
     public event Action<double, double>? PositionChanged;
@@ -82,7 +85,11 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
         }
 
         int current = GetWindowLong(_handle, GwlExStyle);
-        int next = (current | WsExToolWindow | WsExLayered | WsExNoActivate) & ~WsExAppWindow;
+        int baseStyle = (current | WsExToolWindow | WsExLayered | WsExNoActivate) & ~WsExAppWindow;
+        // Click-through while the user enabled it, OR while faded (invisible-but-topmost must let clicks fall
+        // through its footprint) — mirrors OverlayWindow.SyncInputStyle.
+        bool transparent = _clickThrough || _faded;
+        int next = transparent ? baseStyle | WsExTransparent : baseStyle & ~WsExTransparent;
         if (next == current)
         {
             return;
@@ -92,9 +99,28 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
         SetWindowPos(_handle, IntPtr.Zero, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpFrameChanged);
     }
 
-    /// <summary>Show the panel (topMost tracks the game).</summary>
+    /// <summary>Apply the user's click-through setting (input passes through even while shown).</summary>
+    public void SetClickThrough(bool enable)
+    {
+        if (_clickThrough == enable)
+        {
+            return;
+        }
+
+        _clickThrough = enable;
+        SyncInputStyle();
+    }
+
+    /// <summary>Show the panel (topMost tracks the game). Idempotent: a no-op when already presented the same
+    /// way, so it can be driven every poll tick without re-issuing SetWindowPos (which would flicker).</summary>
     public void Present(bool topMost)
     {
+        if (!_faded && _presentedTopMost == topMost)
+        {
+            return; // already presented — nothing to do
+        }
+
+        _faded = false;
         Topmost = topMost;
         Opacity = 1.0;
         _presentedTopMost = topMost; // arm ReassertTopmostIfBuried while shown
@@ -107,10 +133,29 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
         OnPresented();
     }
 
-    /// <summary>Hide the panel (HWND + ex-style survive).</summary>
+    /// <summary>Auto-hide WITHOUT touching z-order: Opacity 0 + forced click-through, but STILL HWND_TOPMOST
+    /// (mirrors OverlayWindow.Fade). Idempotent. Used for the buff overlay so it hides/returns in lockstep with
+    /// the meter — no HWND_BOTTOM demote (which caused the reclaim-race "gone and won't come back").</summary>
+    public void Fade()
+    {
+        if (_faded)
+        {
+            return; // already faded — steady-state no-op
+        }
+
+        _faded = true;
+        Opacity = 0.0;
+        // Topmost + z-order are intentionally left alone — only opacity + hit-testing (via SyncInputStyle).
+        SyncInputStyle();
+        OnParked();
+    }
+
+    /// <summary>Hide the panel (HWND + ex-style survive). Full hide: opacity 0 AND dropped from the topmost
+    /// band (used when a panel is closed). The buff overlay uses <see cref="Fade"/> instead.</summary>
     public void Park()
     {
         OnParked();
+        _faded = false;
         Opacity = 0.0;
         Topmost = false;
         _presentedTopMost = null; // parked -> ReassertTopmostIfBuried no-ops until the next Present
@@ -135,9 +180,9 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     /// </summary>
     public void ReassertTopmostIfBuried()
     {
-        if (_handle == IntPtr.Zero || _presentedTopMost != true || _dragging)
+        if (_handle == IntPtr.Zero || _faded || _presentedTopMost != true || _dragging)
         {
-            return;
+            return; // parked/faded/dragging or not topmost-presented — nothing to re-claim
         }
 
         if (IsBuried())

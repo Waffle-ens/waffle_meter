@@ -71,9 +71,8 @@ public sealed class OverlayController
     // is, and never disappears on its own. Edge-tracked so a steady state doesn't re-issue SetWindowPos.
     private OverlayPanelWindow? _companion;
     private Func<bool>? _companionEnabled;
-    private bool? _companionShown;
 
-    /// <summary>Register a companion overlay to present/park in lockstep with the meter (gated by
+    /// <summary>Register a companion overlay to present/fade in lockstep with the meter (gated by
     /// <paramref name="enabled"/>). Unlike a plain registered overlay, its visibility fully tracks the meter.</summary>
     public void SetCompanion(OverlayPanelWindow overlay, Func<bool> enabled)
     {
@@ -81,6 +80,9 @@ public sealed class OverlayController
         _companionEnabled = enabled;
     }
 
+    // Reconcile the companion to the meter's state EVERY relevant tick (Present/Fade/SetClickThrough are all
+    // internally idempotent), so there is no cached "shown" flag that can desync — the reported "gone and even
+    // settings won't bring it back" was exactly that stale-flag desync. Also mirrors the meter's click-through.
     private void SyncCompanion(bool meterPresent)
     {
         if (_companion is null)
@@ -88,20 +90,14 @@ public sealed class OverlayController
             return;
         }
 
-        bool want = meterPresent && _companionEnabled?.Invoke() == true;
-        if (_companionShown == want)
+        if (meterPresent && _companionEnabled?.Invoke() == true)
         {
-            return;
-        }
-
-        _companionShown = want;
-        if (want)
-        {
+            _companion.SetClickThrough(_window.ClickThrough);
             _companion.Present(true);
         }
         else
         {
-            _companion.Park();
+            _companion.Fade();
         }
     }
 

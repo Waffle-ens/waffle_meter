@@ -166,7 +166,11 @@ public partial class App : Application
         {
             OnReset = () => { _viewingHistory = false; _engine?.RequestReset(); }, // clears saved battles + live data, keeps recognized characters (consumer thread)
             OnVisibility = () => Dispatcher.Invoke(controller.ToggleVisibility),
-            OnClickThrough = () => Dispatcher.Invoke(() => window.SetClickThrough(!window.ClickThrough)),
+            OnClickThrough = () => Dispatcher.Invoke(() =>
+            {
+                window.SetClickThrough(!window.ClickThrough);
+                _buffOverlay?.SetClickThrough(window.ClickThrough); // buff overlay follows the meter at once
+            }),
         };
         _hotkeys.Start();
 
