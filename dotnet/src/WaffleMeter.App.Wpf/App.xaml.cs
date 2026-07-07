@@ -432,7 +432,9 @@ public partial class App : Application
         _alarms = new AlarmController(
             _settings,
             lead => Dispatcher.Invoke(() => ShowShugoAlarm(lead)),
-            alarm => Dispatcher.Invoke(() => ShowCustomAlarm(alarm)));
+            alarm => Dispatcher.Invoke(() => ShowCustomAlarm(alarm)),
+            fieldBossTimers: () => services.Data.CurrentFieldBossTimers,
+            onFieldBoss: due => Dispatcher.Invoke(() => ShowFieldBossAlarm(due)));
         _alarms.Start();
         _updateService = new UpdateService(prerelease: false);
         UpdateService updateService = _updateService;
@@ -1004,6 +1006,26 @@ public partial class App : Application
         }
 
         _alarmToastVm.SetShugo(lead);
+        if (_overlayWindow is { } w)
+        {
+            _alarmToast.Left = w.Left;
+            _alarmToast.Top = w.Top + w.ActualHeight + 8;
+        }
+
+        _alarmToast.Present(true);
+        PlayAlert(_alarmToastVm.SpokenText);
+    }
+
+    /// <summary>Show a field-boss respawn reminder toast (docked under the meter) + alert sound/voice.</summary>
+    private void ShowFieldBossAlarm(FieldBossAlarm.Due due)
+    {
+        if (_alarmToast is null || _alarmToastVm is null)
+        {
+            return;
+        }
+
+        DateTime respawn = DateTimeOffset.FromUnixTimeMilliseconds(due.TargetMs).LocalDateTime;
+        _alarmToastVm.SetFieldBoss(FieldBossCatalog.Name(due.Code), due.LeadMinutes, respawn);
         if (_overlayWindow is { } w)
         {
             _alarmToast.Left = w.Left;

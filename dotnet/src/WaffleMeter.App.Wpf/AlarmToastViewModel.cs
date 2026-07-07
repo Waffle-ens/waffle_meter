@@ -37,6 +37,15 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
         IconBrush = Amber;
     }
 
+    /// <summary>Set the toast for a field-boss respawn reminder.</summary>
+    public void SetFieldBoss(string bossName, int leadMinutes, DateTime respawn)
+    {
+        Title = bossName;
+        Description = $"{leadMinutes}분 뒤 리젠 · {respawn:HH:mm}";
+        IconGlyph = GlyphBell;
+        IconBrush = Amber;
+    }
+
     /// <summary>Set the toast for a user custom alarm.</summary>
     public void SetCustom(string title)
     {

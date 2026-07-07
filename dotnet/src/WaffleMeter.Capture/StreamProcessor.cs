@@ -86,6 +86,8 @@ public sealed class StreamProcessor
     // marker-based body layout; both are handled by the one resource parser.
     private const int AetherKeyA = 0x0B | (0x61 << 8);         // 0x610B
     private const int AetherKeyB = 0x0C | (0x61 << 8);         // 0x610C
+    // Field-boss respawn-timer broadcast (0x91 category). Carries a table of boss-code → target-time records.
+    private const int FieldBossTimerKey = 0x01 | (0x91 << 8);  // 0x9101
 
     private static readonly Dictionary<int, string> OpcodeNames = new()
     {
@@ -108,6 +110,7 @@ public sealed class StreamProcessor
         [Key(0x02, 0x97)] = "PartyRoster",
         [AetherKeyA] = "AetherStatus",
         [AetherKeyB] = "AetherStatus",
+        [FieldBossTimerKey] = "FieldBossTimer",
     };
 
     private static readonly byte[] PowerMarker = { 0xF4, 0xCB, 0x1F };
@@ -294,6 +297,9 @@ public sealed class StreamProcessor
                 case AetherKeyA:
                 case AetherKeyB:
                     ParseAetherStatus(packet, opcodeOffset + 2);
+                    break;
+                case FieldBossTimerKey:
+                    ParseFieldBossTimers(packet, opcodeOffset + 2, arrivedAt);
                     break;
             }
         }
@@ -1159,6 +1165,20 @@ public sealed class StreamProcessor
 
         _data.SaveAetherStatus(a.Split, a.Base, a.Bonus, a.Total);
         _sink.Meta("aether", ("split", a.Split), ("base", a.Base), ("bonus", a.Bonus), ("total", a.Total));
+    }
+
+    /// <summary>Field-boss respawn timers 0x9101. Extracts boss-code → target-time records and forwards them
+    /// to the data layer, which drives the lead-time alert.</summary>
+    private void ParseFieldBossTimers(byte[] packet, int bodyStart, long arrivedAt)
+    {
+        IReadOnlyList<(int Code, long TargetMs)> timers = FieldBossTimerParser.Parse(packet, bodyStart, arrivedAt);
+        if (timers.Count == 0)
+        {
+            return;
+        }
+
+        _data.SaveFieldBossTimers(timers);
+        _sink.Meta("fieldboss", ("count", timers.Count));
     }
 
     /// <summary>Kotlin isValidNickname (867-876).</summary>

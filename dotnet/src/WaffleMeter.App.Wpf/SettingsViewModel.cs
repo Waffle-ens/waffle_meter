@@ -205,6 +205,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <summary>Settings "음성 테스트" button: speak a sample line (falls back to the chime if TTS fails).</summary>
     public void TestTts() => TtsSpeech.Speak("슈고 페스타. 5분 뒤 시작합니다.", _settings.AlarmVolume);
 
+    // ---- field-boss respawn reminder ----
+    public bool FieldBossAlarmEnabled { get => _settings.FieldBossAlarmEnabled; set { _settings.FieldBossAlarmEnabled = value; OnPropertyChanged(); } }
+    public bool FieldBossLead5 { get => _settings.FieldBossLead5; set { _settings.FieldBossLead5 = value; OnPropertyChanged(); } }
+    public bool FieldBossLead10 { get => _settings.FieldBossLead10; set { _settings.FieldBossLead10 = value; OnPropertyChanged(); } }
+    public bool FieldBossLead30 { get => _settings.FieldBossLead30; set { _settings.FieldBossLead30 = value; OnPropertyChanged(); } }
+
     // ---- custom alarms (CRUD list) ----
     public IReadOnlyList<int> Hours { get; } = Enumerable.Range(0, 24).ToList();
     public IReadOnlyList<int> Minutes { get; } = Enumerable.Range(0, 60).ToList();

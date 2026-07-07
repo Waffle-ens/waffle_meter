@@ -231,6 +231,22 @@
                                     Height="30" Padding="14,0" Cursor="Hand"/>
                         </StackPanel>
 
+                        <TextBlock Text="필드보스 리젠 알림" Style="{StaticResource SectionHeader}" Margin="0,10,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="필드보스 알림" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="필드보스 리젠 시각이 감지되면 리젠 전에 알려줍니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding FieldBossAlarmEnabled}"/>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <TextBlock Text="미리 알림" Style="{StaticResource SettingTitle}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <CheckBox Content="5분 전" IsChecked="{Binding FieldBossLead5}" Foreground="{DynamicResource Skin.Fg}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                            <CheckBox Content="10분 전" IsChecked="{Binding FieldBossLead10}" Foreground="{DynamicResource Skin.Fg}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                            <CheckBox Content="30분 전" IsChecked="{Binding FieldBossLead30}" Foreground="{DynamicResource Skin.Fg}" VerticalAlignment="Center"/>
+                        </StackPanel>
+
                         <TextBlock Text="커스텀 알람" Style="{StaticResource SectionHeader}" Margin="0,8,0,10"/>
 
                         <!-- add form -->

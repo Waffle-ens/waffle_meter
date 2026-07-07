@@ -243,6 +243,41 @@ public sealed class DataManager : ICaptureGameData
         AetherStatusChanged?.Invoke();
     }
 
+    // ---- field-boss respawn timers (boss code -> target Unix-ms), from the 0x9101 broadcast ----
+    // Written on the packet-consumer thread, read (snapshot) on the UI thread → guard with a lock.
+    private readonly Dictionary<int, long> _fieldBossTimers = new();
+    private readonly object _fieldBossGate = new();
+
+    /// <summary>Raised (packet-consumer thread) when the field-boss timer table changes.</summary>
+    public event Action? FieldBossTimersChanged;
+
+    /// <summary>A thread-safe snapshot of the current field-boss respawn timers (code -> target Unix-ms).</summary>
+    public IReadOnlyDictionary<int, long> CurrentFieldBossTimers
+    {
+        get { lock (_fieldBossGate) { return new Dictionary<int, long>(_fieldBossTimers); } }
+    }
+
+    public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers)
+    {
+        bool changed = false;
+        lock (_fieldBossGate)
+        {
+            foreach ((int code, long targetMs) in timers)
+            {
+                if (!_fieldBossTimers.TryGetValue(code, out long existing) || existing != targetMs)
+                {
+                    _fieldBossTimers[code] = targetMs;
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+        {
+            FieldBossTimersChanged?.Invoke();
+        }
+    }
+
     public User? FindUserByNicknameAndServer(string nickname, int server) =>
         _userRepository.FindByNicknameAndServer(nickname, server);
 

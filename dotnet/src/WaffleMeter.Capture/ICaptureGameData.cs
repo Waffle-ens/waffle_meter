@@ -38,6 +38,10 @@ public interface ICaptureGameData
     /// value. No-op in capture-only mode.</summary>
     void SaveAetherStatus(bool split, int baseVal, int bonus, int total);
 
+    /// <summary>Field-boss respawn timers (boss code → target Unix-ms) from the 0x9101 broadcast. No-op in
+    /// capture-only mode.</summary>
+    void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers);
+
     /// <summary>Full party/raid roster snapshot (each member's nickname + server + sub-group slot 1-8)
     /// from the 0x9702 roster packet. Lets the data layer match members to known uids for the pre-combat
     /// party preview, and (for an 8-인 공대) tag each player's sub-party — slots 1-4 = party 1, 5-8 = party 2.
@@ -68,4 +72,5 @@ public sealed class NullCaptureGameData : ICaptureGameData
     public void TouchDummyBattle(int target, long epoch) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
     public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
+    public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 }

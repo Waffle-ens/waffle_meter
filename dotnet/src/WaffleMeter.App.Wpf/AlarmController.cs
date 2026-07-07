@@ -17,15 +17,26 @@ public sealed class AlarmController
     private readonly Action<int> _onShugo;
     private readonly Action<CustomAlarm> _onCustom;
     private readonly Func<DateTime> _now;
+    private readonly Func<IReadOnlyDictionary<int, long>>? _fieldBossTimers;
+    private readonly Action<FieldBossAlarm.Due>? _onFieldBoss;
     private readonly DispatcherTimer _timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
     private string _lastMinute = string.Empty;
+    private readonly HashSet<string> _shownFieldBoss = new(); // dedup: each (boss, respawn, lead) fires once
 
-    public AlarmController(MeterSettings settings, Action<int> onShugo, Action<CustomAlarm> onCustom, Func<DateTime>? now = null)
+    public AlarmController(
+        MeterSettings settings,
+        Action<int> onShugo,
+        Action<CustomAlarm> onCustom,
+        Func<DateTime>? now = null,
+        Func<IReadOnlyDictionary<int, long>>? fieldBossTimers = null,
+        Action<FieldBossAlarm.Due>? onFieldBoss = null)
     {
         _settings = settings;
         _onShugo = onShugo;
         _onCustom = onCustom;
         _now = now ?? (() => DateTime.Now);
+        _fieldBossTimers = fieldBossTimers;
+        _onFieldBoss = onFieldBoss;
         _timer.Tick += (_, _) => Poll();
     }
 
@@ -36,6 +47,11 @@ public sealed class AlarmController
     private void Poll()
     {
         DateTime now = _now();
+
+        // Field-boss reminder: evaluate EVERY second (not the minute gate) so a lead fires at the right
+        // time, de-duplicated by (boss, respawn, lead) so it fires once.
+        EvaluateFieldBoss(now);
+
         string minute = now.ToString("yyyyMMddHHmm", CultureInfo.InvariantCulture);
         if (minute == _lastMinute)
         {
@@ -55,6 +71,29 @@ public sealed class AlarmController
             if (CustomAlarmSchedule.IsDue(alarm, now))
             {
                 _onCustom(alarm);
+            }
+        }
+    }
+
+    private void EvaluateFieldBoss(DateTime now)
+    {
+        if (!_settings.FieldBossAlarmEnabled || _fieldBossTimers is null || _onFieldBoss is null)
+        {
+            return;
+        }
+
+        long nowMs = new DateTimeOffset(now).ToUnixTimeMilliseconds();
+        foreach (FieldBossAlarm.Due d in FieldBossAlarm.DueAlerts(_fieldBossTimers(), nowMs, _settings.FieldBossLeads))
+        {
+            if (_shownFieldBoss.Add(FieldBossAlarm.Key(d)))
+            {
+                if (_shownFieldBoss.Count > 4096)
+                {
+                    _shownFieldBoss.Clear(); // bound the dedup set over a long session
+                    _shownFieldBoss.Add(FieldBossAlarm.Key(d));
+                }
+
+                _onFieldBoss(d);
             }
         }
     }

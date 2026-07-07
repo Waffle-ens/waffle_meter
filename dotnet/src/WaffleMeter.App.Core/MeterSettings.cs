@@ -58,6 +58,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _ttsEnabled = ReadBool("alarms.ttsEnabled", false);
         _alarmVolume = ReadDouble("alarms.volume", 0.5);
         _customAlarms = CustomAlarmCodec.Decode(_props.GetProperty("alarms.custom")).ToList();
+        _fieldBossAlarmEnabled = ReadBool("alarms.fieldBossEnabled", false);
+        _fieldBossLead5 = ReadBool("alarms.fieldBossLead5", false);
+        _fieldBossLead10 = ReadBool("alarms.fieldBossLead10", true);
+        _fieldBossLead30 = ReadBool("alarms.fieldBossLead30", false);
         _refreshIntervalMs = ReadInt("refreshIntervalMs", 500);
         _maxVisibleRows = ReadInt("maxVisibleRows", 10);
         _lowSpecMode = ReadBool("lowSpecMode", false);
@@ -159,6 +163,33 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private double _alarmVolume;
     public double AlarmVolume { get => _alarmVolume; set => SetDouble(ref _alarmVolume, "alarms.volume", value); }
+
+    // ---- field-boss respawn reminder ----
+    private bool _fieldBossAlarmEnabled;
+    /// <summary>Master toggle for the field-boss respawn-timer reminder (driven by the 0x9101 broadcast).</summary>
+    public bool FieldBossAlarmEnabled { get => _fieldBossAlarmEnabled; set => SetBool(ref _fieldBossAlarmEnabled, "alarms.fieldBossEnabled", value); }
+
+    private bool _fieldBossLead5;
+    public bool FieldBossLead5 { get => _fieldBossLead5; set => SetBool(ref _fieldBossLead5, "alarms.fieldBossLead5", value); }
+
+    private bool _fieldBossLead10;
+    public bool FieldBossLead10 { get => _fieldBossLead10; set => SetBool(ref _fieldBossLead10, "alarms.fieldBossLead10", value); }
+
+    private bool _fieldBossLead30;
+    public bool FieldBossLead30 { get => _fieldBossLead30; set => SetBool(ref _fieldBossLead30, "alarms.fieldBossLead30", value); }
+
+    /// <summary>The enabled field-boss lead minutes (empty = none).</summary>
+    public IReadOnlyCollection<int> FieldBossLeads
+    {
+        get
+        {
+            var s = new HashSet<int>();
+            if (_fieldBossLead5) s.Add(5);
+            if (_fieldBossLead10) s.Add(10);
+            if (_fieldBossLead30) s.Add(30);
+            return s;
+        }
+    }
 
     private List<CustomAlarm> _customAlarms;
     /// <summary>User-defined recurring reminders. Persisted as one Base64(JSON) value (alarms.custom).</summary>

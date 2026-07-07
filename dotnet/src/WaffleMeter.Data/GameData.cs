@@ -44,4 +44,5 @@ public sealed class GameData : ICaptureGameData
     public void TouchDummyBattle(int target, long epoch) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
     public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
+    public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 }

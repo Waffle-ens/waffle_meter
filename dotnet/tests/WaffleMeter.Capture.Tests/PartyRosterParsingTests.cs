@@ -19,6 +19,7 @@ public sealed class PartyRosterParsingTests
 
         public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) => Last = members;
         public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
+        public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 
         public Mob? GetMob(int code) => null;
         public int? GetMobId(int instanceId) => null;
