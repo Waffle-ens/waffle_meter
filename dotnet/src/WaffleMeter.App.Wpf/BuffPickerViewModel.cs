@@ -55,13 +55,23 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
             var group = new BuffJobGroup(g.Key);
             foreach ((int baseCode, string name, _, _) in g.OrderBy(c => c.BaseCode))
             {
-                group.Items.Add(new BuffPickerItem(baseCode, name, ModeOf(baseCode), OnItemModeChanged));
+                // Skip buffs with no bundled icon — they clutter the list and can't render an icon.
+                ImageSource? icon = JoinIcons.Skill(baseCode);
+                if (icon is null)
+                {
+                    continue;
+                }
+
+                group.Items.Add(new BuffPickerItem(baseCode, name, ModeOf(baseCode), OnItemModeChanged, icon));
             }
 
-            Groups.Add(group);
+            if (group.Items.Count > 0)
+            {
+                Groups.Add(group);
+            }
         }
 
-        IsEmpty = catalog.Count == 0;
+        IsEmpty = Groups.Count == 0;
     }
 
     private int ModeOf(int baseCode) => _hidden.Contains(baseCode) ? BuffPickerItem.Off
@@ -140,11 +150,11 @@ public sealed class BuffPickerItem : INotifyPropertyChanged
     private readonly Action<int, int> _onModeChanged;
     private bool _suppress;
 
-    public BuffPickerItem(int baseCode, string name, int mode, Action<int, int> onModeChanged)
+    public BuffPickerItem(int baseCode, string name, int mode, Action<int, int> onModeChanged, ImageSource? icon)
     {
         BaseCode = baseCode;
         Name = name;
-        IconSource = JoinIcons.Skill(baseCode);
+        IconSource = icon;
         _mode = mode;
         _onModeChanged = onModeChanged;
     }

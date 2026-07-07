@@ -300,7 +300,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- 오드 (aether): a cyan diamond icon + base(+bonus) -->
                     <Border Margin="6,0,0,0" Padding="5,1" CornerRadius="4" VerticalAlignment="Center"
-                            Background="{DynamicResource Skin.StatBg}" Visibility="{Binding AetherVisibility}" ToolTip="오드 (아이테르)">
+                            Background="{DynamicResource Skin.StatBg}" Visibility="{Binding AetherVisibility}" ToolTip="오드">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="M 5,0 L 10,5 L 5,10 L 0,5 Z" Fill="#7EE7FF" Width="10" Height="10" Stretch="Uniform"
                                   VerticalAlignment="Center" Margin="0,0,4,0"/>
