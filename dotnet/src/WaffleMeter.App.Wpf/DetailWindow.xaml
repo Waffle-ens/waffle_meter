@@ -151,6 +151,67 @@
                        HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
+                    <!-- 파티원 개요: 이 전투 참가자 전원의 직업/서버/파티/전투력/기여도 (읽기 전용) -->
+                    <Expander Header="파티원" IsExpanded="True" Visibility="{Binding HasMembers, Converter={StaticResource BoolToVis}}"
+                              Style="{StaticResource DetailExpander}">
+                        <ItemsControl ItemsSource="{Binding Members}" Margin="4,4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="4" Padding="8,4" Margin="0,1" Background="{DynamicResource Skin.RowBg}">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <!-- highlight the member whose breakdown is currently shown -->
+                                                    <DataTrigger Binding="{Binding IsViewed}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource Skin.RowHover}"/>
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                                        <Setter Property="BorderThickness" Value="2,0,0,0"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="54"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="150"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Image Source="{Binding JobIcon}" Width="22" Height="22" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="13" FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding ServerTag}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11"
+                                                           VerticalAlignment="Center" Margin="6,0,0,0" Visibility="{Binding ServerTagVisibility}"/>
+                                                <Border Margin="6,0,0,0" Padding="4,0" CornerRadius="3" VerticalAlignment="Center"
+                                                        Background="{DynamicResource Skin.StatBg}" Visibility="{Binding SlotVisibility}">
+                                                    <TextBlock Text="{Binding SlotText}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" VerticalAlignment="Center"/>
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding PowerText}" Style="{StaticResource Stat}" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource Skin.MutedFg}" Visibility="{Binding PowerVisibility}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding ContribText}" Style="{StaticResource Stat}" VerticalAlignment="Center"
+                                                       Foreground="{Binding DataContext.ContributionBrush, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                            <Grid Grid.Column="3" Height="22" Margin="8,0,0,0">
+                                                <Border CornerRadius="4" ClipToBounds="True">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
+                                                            <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Border Grid.Column="0" Background="{DynamicResource Skin.Accent}"/>
+                                                    </Grid>
+                                                </Border>
+                                                <TextBlock Text="{Binding AmountText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,7,0"
+                                                           Foreground="{DynamicResource Skin.Fg}" FontWeight="Bold" FontSize="11.5"/>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+
                     <Expander Header="버프 가동률" IsEnabled="{Binding HasBuffs}" Style="{StaticResource DetailExpander}">
                         <ItemsControl ItemsSource="{Binding Buffs}" Margin="8,4">
                             <ItemsControl.ItemTemplate>

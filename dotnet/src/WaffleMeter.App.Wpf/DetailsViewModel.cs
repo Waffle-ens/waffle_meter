@@ -62,6 +62,14 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     public ObservableCollection<BuffSectionVM> Buffs { get; } = new();
     public ObservableCollection<BuffSectionVM> Debuffs { get; } = new();
 
+    /// <summary>Every combat participant this battle, for the party overview in the detail window: job /
+    /// server / sub-party slot / power / contribution. Sorted by damage desc; the viewed actor is flagged.</summary>
+    public ObservableCollection<PartyMemberVM> Members { get; } = new();
+
+    private bool _hasMembers;
+    /// <summary>True when there is more than one participant (so a one-person fight hides the party section).</summary>
+    public bool HasMembers { get => _hasMembers; private set => Set(ref _hasMembers, value); }
+
     private string _totalDamageText = "0";
     public string TotalDamageText { get => _totalDamageText; private set => Set(ref _totalDamageText, value); }
     private string _contributionText = "0.0%";
@@ -123,8 +131,10 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
             Skills.Clear();
             Buffs.Clear();
             Debuffs.Clear();
+            Members.Clear();
             HasBuffs = false;
             HasDebuffs = false;
+            HasMembers = false;
             TotalDamageText = ContributionText = CritText = StrongText =
                 PerfectText = BackText = ParryText = CombatTimeText = "-";
             return;
@@ -168,6 +178,45 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         Rebuild(Debuffs, model.Debuffs);
         HasBuffs = Buffs.Count > 0;
         HasDebuffs = Debuffs.Count > 0;
+        RebuildMembers(report);
+    }
+
+    // The party overview: every named participant with damage, ranked, styled like a meter row.
+    private void RebuildMembers(DpsReport report)
+    {
+        int selfId = report.ExecutorId;
+        double top = report.Information.Values.Count > 0 ? report.Information.Values.Max(i => i.Amount) : 0;
+
+        List<PartyMemberVM> members = report.Contributors
+            .Where(u => !string.IsNullOrWhiteSpace(u.Nickname) && report.Information.ContainsKey(u.Id))
+            .Select(u =>
+            {
+                DpsInformation info = report.Information[u.Id];
+                bool isUser = u.IsExecutor || (selfId != 0 && u.Id == selfId);
+                report.PartySlots.TryGetValue(u.Id, out int slot);
+                return new PartyMemberVM(
+                    uid: u.Id,
+                    name: u.Nickname!,
+                    jobIcon: JoinIcons.Job(u.Job?.ClassName()),
+                    serverTag: ServerNames.GetServerLabel(u.Server),
+                    slot: slot,
+                    power: u.Power,
+                    amount: info.Amount,
+                    contribution: info.Contribution,
+                    barRatio: top > 0 ? info.Amount / top : 0,
+                    isUser: isUser,
+                    isViewed: u.Id == _uid);
+            })
+            .OrderByDescending(m => m.Amount)
+            .ToList();
+
+        Members.Clear();
+        foreach (PartyMemberVM m in members)
+        {
+            Members.Add(m);
+        }
+
+        HasMembers = Members.Count > 1;
     }
 
     private void ReconcileSkills(IReadOnlyList<DetailSkillGroup> groups)
@@ -294,6 +343,52 @@ public sealed class SkillRowVM
     public Brush BarBrush => DetailsViewModel.SkillBar;
 
     private static string Pct(int? value) => value.HasValue ? value.Value + "%" : "-";
+}
+
+/// <summary>One participant row in the detail window's party overview (read-only).</summary>
+public sealed class PartyMemberVM
+{
+    private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+
+    public PartyMemberVM(int uid, string name, ImageSource? jobIcon, string serverTag, int slot,
+        int power, double amount, double contribution, double barRatio, bool isUser, bool isViewed)
+    {
+        Uid = uid;
+        Name = name;
+        JobIcon = jobIcon;
+        ServerTag = serverTag;
+        ServerTagVisibility = string.IsNullOrEmpty(serverTag) ? Visibility.Collapsed : Visibility.Visible;
+        // 8-인 공대 sub-party: slots 1-4 = party 1, 5-8 = party 2 (0 = unmatched / non-raid).
+        SlotText = slot is >= 1 and <= 8 ? (slot <= 4 ? "1파티" : "2파티") : string.Empty;
+        SlotVisibility = SlotText.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        PowerText = power > 0 ? MeterFormat.FormatPower(power) : string.Empty;
+        PowerVisibility = power > 0 ? Visibility.Visible : Visibility.Collapsed;
+        Amount = amount;
+        AmountText = amount.ToString("N0", Inv);
+        ContribText = MeterFormat.FormatPercent(contribution);
+        BarRatio = Math.Clamp(barRatio, 0, 1);
+        BarRest = 1.0 - BarRatio;
+        IsUser = isUser;
+        IsViewed = isViewed;
+    }
+
+    public int Uid { get; }
+    public string Name { get; }
+    public ImageSource? JobIcon { get; }
+    public string ServerTag { get; }
+    public Visibility ServerTagVisibility { get; }
+    public string SlotText { get; }
+    public Visibility SlotVisibility { get; }
+    public string PowerText { get; }
+    public Visibility PowerVisibility { get; }
+    public double Amount { get; }
+    public string AmountText { get; }
+    public string ContribText { get; }
+    public double BarRatio { get; }
+    public double BarRest { get; }
+    public bool IsUser { get; }
+    /// <summary>True for the member whose breakdown the window is currently showing.</summary>
+    public bool IsViewed { get; }
 }
 
 public sealed record BuffSectionVM(string Label, IReadOnlyList<BuffRowVM> Rows);
