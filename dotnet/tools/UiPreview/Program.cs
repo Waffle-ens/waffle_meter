@@ -108,6 +108,17 @@ internal static class Program
                 });
                 Capture(() => new BuffOverlayPanel(buffVm), palette, Path.Combine(outDir, "buffoverlay_Dark.png"));
 
+                // Per-job buff picker: seed a small observed catalog so the grouped list renders.
+                var pickerData = new DataManager();
+                pickerData.LoadBuffNames(new (int, string, string)[]
+                {
+                    (11100000, "파멸의 맹타", "검성"), (11110000, "집중 막기", "검성"), (11800000, "살기 파열", "검성"),
+                    (11390000, "격노 폭발", "검성"), (14050000, "송곳 화살", "궁성"), (14060000, "그리폰 화살", "궁성"),
+                });
+                pickerData.SeedObservedBuffBases(new[] { 11100000, 11110000, 11800000, 11390000, 14050000, 14060000 });
+                var pickerVm = new BuffPickerViewModel(pickerData, settings);
+                Capture(() => new BuffPickerWindow(pickerVm), palette, Path.Combine(outDir, "buffpicker_Dark.png"));
+
                 Capture(() => new CloseActionDialog(), palette, Path.Combine(outDir, "closedialog_Dark.png"));
                 Capture(() => new StatsConsentModal("콘팡 · 마도성"), palette, Path.Combine(outDir, "consent_Dark.png"));
 

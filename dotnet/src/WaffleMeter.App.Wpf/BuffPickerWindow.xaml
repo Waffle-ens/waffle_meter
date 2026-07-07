@@ -5,15 +5,80 @@
         WindowStartupLocation="CenterOwner" FontFamily="Segoe UI"
         Background="{DynamicResource Skin.WindowBg}" Foreground="{DynamicResource Skin.Fg}">
     <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisConv"/>
-    </Window.Resources>
-    <DockPanel Margin="14">
-        <TextBlock DockPanel.Dock="Top" Text="오버레이에 표시할 버프를 직업별로 선택하세요."
-                   Foreground="{DynamicResource Skin.MutedFg}" FontSize="12" Margin="0,0,0,4"/>
-        <TextBlock DockPanel.Dock="Top" Text="목록은 전투에서 본인·파티원에게 실제로 적용된 버프가 쌓이며 채워집니다. (소비 아이템·물약 제외)"
-                   Foreground="{DynamicResource Skin.MutedFg}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Themes/Skin.Controls.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConv"/>
 
-        <Button DockPanel.Dock="Bottom" Content="닫기" HorizontalAlignment="Right" MinWidth="80" Margin="0,10,0,0"
+            <!-- Compact skinned checkbox: a small rounded box with an accent fill + checkmark when on, to
+                 match the meter chrome (the default OS checkbox looked out of place in a dense list). -->
+            <Style TargetType="CheckBox">
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <StackPanel Orientation="Horizontal" Background="Transparent">
+                                <Border x:Name="box" Width="17" Height="17" CornerRadius="4" BorderThickness="1"
+                                        Background="{DynamicResource Skin.ControlBg}" BorderBrush="{DynamicResource Skin.ControlBorder}"
+                                        VerticalAlignment="Center">
+                                    <Path x:Name="check" Data="M 3.5,8.5 L 7,11.5 L 13,4.5" Stroke="White" StrokeThickness="1.8"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="None" Visibility="Collapsed"/>
+                                </Border>
+                                <ContentPresenter Margin="7,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="box" Property="Background" Value="{DynamicResource Skin.Accent}"/>
+                                    <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                    <Setter TargetName="check" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="box" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Subtle chip button for the per-group 전체 표시/숨김 actions. -->
+            <Style x:Key="ChipButton" TargetType="Button">
+                <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+                <Setter Property="Background" Value="{DynamicResource Skin.StatBg}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
+                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="Padding" Value="8,2"/>
+                <Setter Property="Margin" Value="4,0,0,0"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="b" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <DockPanel Margin="16,14">
+        <TextBlock DockPanel.Dock="Top" Text="오버레이에 표시할 버프를 직업별로 선택하세요."
+                   Foreground="{DynamicResource Skin.Fg}" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,4"/>
+        <TextBlock DockPanel.Dock="Top" Text="목록은 전투에서 본인·파티원에게 실제로 적용된 버프가 쌓이며 채워집니다. (소비 아이템·물약 제외)"
+                   Foreground="{DynamicResource Skin.MutedFg}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+        <Button DockPanel.Dock="Bottom" Content="닫기" HorizontalAlignment="Right" MinWidth="82" Margin="0,12,0,0"
                 Click="OnClose"/>
 
         <TextBlock Text="아직 표시된 버프가 없습니다. 전투를 진행하면 여기에 버프가 나타납니다."
@@ -21,37 +86,34 @@
                    HorizontalAlignment="Center" TextAlignment="Center" Margin="20"
                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisConv}}"/>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
             <ItemsControl ItemsSource="{Binding Groups}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Skin.SoftBorder}" Padding="0,6,0,8" Margin="0,0,0,6">
+                        <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Skin.SoftBorder}" Padding="0,8,0,10" Margin="0,0,0,4">
                             <StackPanel>
-                                <Grid Margin="0,0,0,4">
+                                <Grid Margin="0,0,0,6">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{Binding Job}" FontWeight="Bold" FontSize="13"
                                                Foreground="{DynamicResource Skin.Accent}" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                        <Button Content="전체 표시" Padding="6,1" FontSize="11" Margin="0,0,4,0"
-                                                Tag="{Binding}" Click="OnShowAll"/>
-                                        <Button Content="전체 숨김" Padding="6,1" FontSize="11"
-                                                Tag="{Binding}" Click="OnHideAll"/>
+                                        <Button Content="전체 표시" Style="{StaticResource ChipButton}" Tag="{Binding}" Click="OnShowAll"/>
+                                        <Button Content="전체 숨김" Style="{StaticResource ChipButton}" Tag="{Binding}" Click="OnHideAll"/>
                                     </StackPanel>
                                 </Grid>
                                 <ItemsControl ItemsSource="{Binding Items}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid Margin="2,2">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <CheckBox Grid.Column="0" IsChecked="{Binding Shown, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                                <Image Grid.Column="1" Source="{Binding IconSource}" Width="24" Height="24" Margin="0,0,8,0"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource Skin.Fg}" FontSize="12"/>
-                                            </Grid>
+                                            <CheckBox IsChecked="{Binding Shown, Mode=TwoWay}" Margin="2,3" Padding="0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Border Width="26" Height="26" CornerRadius="5" Margin="0,0,9,0"
+                                                            Background="{DynamicResource Skin.RowBg}">
+                                                        <Image Source="{Binding IconSource}" Width="24" Height="24"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource Skin.Fg}" FontSize="12"/>
+                                                </StackPanel>
+                                            </CheckBox>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>

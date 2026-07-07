@@ -64,7 +64,12 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
 public sealed class BuffSlotVM : INotifyPropertyChanged
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-    private const double RingRadius = 18; // matches the 40px icon slot in XAML
+    // The ring is drawn on a fixed 40x40 canvas (matching the XAML slot) with absolute coordinates, so a
+    // shrinking arc stays centered instead of drifting as its bounding box changes. Radius 18.5 frames the
+    // 34px (radius 17) circular icon just outside its edge.
+    private const double Canvas = 40;
+    private const double Center = Canvas / 2; // 20
+    private const double RingRadius = 18.5;
 
     public BuffSlotVM(int code, string name, long remainingMs, long durationMs, bool byOther)
     {
@@ -95,8 +100,8 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
         Ring = BuildRing(durationMs > 0 ? Math.Clamp((double)remainingMs / durationMs, 0, 1) : 0);
     }
 
-    // A clockwise arc from 12 o'clock spanning 360°·progress, around the icon's center. Progress 1 = full
-    // ring, →0 = no ring. Returned as a frozen geometry for cheap software rendering.
+    // A clockwise arc from 12 o'clock spanning 360°·progress, centered on the fixed canvas (so it frames the
+    // circular icon). Progress 1 = full ring, →0 = no ring. Frozen for cheap software rendering.
     private static Geometry? BuildRing(double progress)
     {
         if (progress <= 0.001)
@@ -104,10 +109,9 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
             return null;
         }
 
-        const double cx = RingRadius, cy = RingRadius;
         if (progress >= 0.999)
         {
-            var full = new EllipseGeometry(new Point(cx, cy), RingRadius, RingRadius);
+            var full = new EllipseGeometry(new Point(Center, Center), RingRadius, RingRadius);
             full.Freeze();
             return full;
         }
@@ -115,8 +119,8 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
         double sweep = 360.0 * progress;
         double a0 = -90 * Math.PI / 180.0;                 // start at 12 o'clock
         double a1 = (-90 + sweep) * Math.PI / 180.0;       // clockwise
-        var start = new Point(cx + RingRadius * Math.Cos(a0), cy + RingRadius * Math.Sin(a0));
-        var end = new Point(cx + RingRadius * Math.Cos(a1), cy + RingRadius * Math.Sin(a1));
+        var start = new Point(Center + RingRadius * Math.Cos(a0), Center + RingRadius * Math.Sin(a0));
+        var end = new Point(Center + RingRadius * Math.Cos(a1), Center + RingRadius * Math.Sin(a1));
         var fig = new PathFigure { StartPoint = start, IsClosed = false, IsFilled = false };
         fig.Segments.Add(new ArcSegment(end, new Size(RingRadius, RingRadius), 0, sweep > 180, SweepDirection.Clockwise, true));
         var geo = new PathGeometry();
