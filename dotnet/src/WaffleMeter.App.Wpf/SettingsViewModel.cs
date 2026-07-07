@@ -174,6 +174,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool VrrCompatMode { get => _settings.VrrCompatMode; set { _settings.VrrCompatMode = value; OnPropertyChanged(); } }
     public bool ShowBuffUi { get => _settings.ShowBuffUi; set { _settings.ShowBuffUi = value; OnPropertyChanged(); } }
     public bool BuffUiTransparent { get => _settings.BuffUiTransparent; set { _settings.BuffUiTransparent = value; OnPropertyChanged(); } }
+    /// <summary>Buff icon size as a 0/1 ComboBox index: 0 = 작게 (34px), 1 = 크게 (40px).</summary>
+    public int BuffIconSizeIndex
+    {
+        get => _settings.BuffUiIconSize <= 34 ? 0 : 1;
+        set { _settings.BuffUiIconSize = value == 0 ? 34 : 40; OnPropertyChanged(); }
+    }
     public bool BuffTtsOnStart { get => _settings.BuffTtsOnStart; set { _settings.BuffTtsOnStart = value; OnPropertyChanged(); } }
     public bool BuffTtsOnEnd { get => _settings.BuffTtsOnEnd; set { _settings.BuffTtsOnEnd = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }

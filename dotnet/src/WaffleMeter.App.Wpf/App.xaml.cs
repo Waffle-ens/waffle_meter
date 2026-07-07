@@ -1239,9 +1239,10 @@ public partial class App : Application
 
         AnnounceBuffTransitions(buffs);
 
-        // Update the visual slots + the transparent/opaque background per the setting (the controller shows
-        // the window; if the toggle is off it's parked and this is a cheap no-op update).
+        // Update the visual slots + the transparent/opaque background + icon size per the settings (the
+        // controller shows the window; if the toggle is off it's parked and this is a cheap no-op update).
         _buffOverlayVm.ShowBackground = !_settings.BuffUiTransparent;
+        _buffOverlayVm.SetIconSize(_settings.BuffUiIconSize);
         _buffOverlayVm.Update(buffs);
     }
 

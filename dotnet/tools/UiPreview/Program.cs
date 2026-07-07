@@ -108,6 +108,17 @@ internal static class Program
                 });
                 Capture(() => new BuffOverlayPanel(buffVm), palette, Path.Combine(outDir, "buffoverlay_Dark.png"));
 
+                // small icon size (34px = scale 0.85)
+                var buffSmallVm = new BuffOverlayViewModel();
+                buffSmallVm.SetIconSize(34);
+                buffSmallVm.Update(new List<(int, string, long, long, bool)>
+                {
+                    (18290000, "회전격", 12_000, 30_000, false),
+                    (11400000, "축복", 45_000, 60_000, true),
+                    (13050000, "섬광베기", 6_000, 20_000, false),
+                });
+                Capture(() => new BuffOverlayPanel(buffSmallVm), palette, Path.Combine(outDir, "buffoverlay_small_Dark.png"));
+
                 // opaque/findable mode (투명 배경 off) — background + border so an empty window is locatable
                 var buffBgVm = new BuffOverlayViewModel { ShowBackground = true };
                 buffBgVm.Update(new List<(int, string, long, long, bool)>());

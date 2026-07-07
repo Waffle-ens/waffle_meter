@@ -589,6 +589,17 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="아이콘 크기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="버프 오버레이 아이콘 크기를 고릅니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="132" VerticalAlignment="Center" SelectedIndex="{Binding BuffIconSizeIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="작게 (34px)"/>
+                                <ComboBoxItem Content="크게 (40px)"/>
+                            </ComboBox>
+                        </Grid>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="다른 캐릭터가 준 버프 표시" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="끄면 본인이 직접 받은 버프만 표시합니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>

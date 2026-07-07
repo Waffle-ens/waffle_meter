@@ -18,6 +18,14 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
 
     public ObservableCollection<BuffSlotVM> Slots { get; } = new();
 
+    private double _iconScale = 1.0;
+    /// <summary>Uniform scale applied to each slot (icon + ring + text). The native design is the 40px icon,
+    /// so scale = size/40 (40 → 1.0, 34 → 0.85). Set from the icon-size setting.</summary>
+    public double IconScale { get => _iconScale; private set => Set(ref _iconScale, value); }
+
+    /// <summary>Set the buff icon size in px; drives <see cref="IconScale"/> off the 40px native design.</summary>
+    public void SetIconSize(int px) => IconScale = Math.Clamp(px, 20, 72) / 40.0;
+
     private bool _showBackground;
     /// <summary>When true, draw a panel background + border + placeholder so the (possibly empty) window is
     /// visible and draggable; when false the overlay is just floating icons on a transparent background.</summary>

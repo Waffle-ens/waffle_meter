@@ -78,6 +78,7 @@ public sealed class OverlayController
     {
         _companion = overlay;
         _companionEnabled = enabled;
+        SyncCompanion(MeterShown); // reconcile at once (MeterShown starts true) so it shows without a poll delay
     }
 
     // Reconcile the companion to the meter's state EVERY relevant tick (Present/Fade/SetClickThrough are all
@@ -266,7 +267,11 @@ public sealed class OverlayController
             }
             else
             {
-                return; // startup grace: don't park before the game has ever been focused
+                // Startup grace: don't park the meter before the game has ever been focused — it stays shown,
+                // so the buff overlay must show with it (this early-return used to skip the companion, leaving
+                // the buff overlay hidden at launch until the game was focused / settings was opened).
+                SyncCompanion(true);
+                return;
             }
         }
 

@@ -26,6 +26,11 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Margin="3,0" ToolTip="{Binding Name}">
+                        <StackPanel.LayoutTransform>
+                            <!-- Uniform icon-size scale (from the 버프 알림 size setting), applied to the whole slot. -->
+                            <ScaleTransform ScaleX="{Binding DataContext.IconScale, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            ScaleY="{Binding DataContext.IconScale, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
+                        </StackPanel.LayoutTransform>
                         <Grid Width="46" Height="46" HorizontalAlignment="Center">
                             <!-- Circular skill icon, clipped so the cooldown ring frames it cleanly (no overlap). -->
                             <Image Source="{Binding IconSource}" Width="40" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center">

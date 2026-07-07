@@ -71,6 +71,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showLatencyIndicator = ReadBool("showLatencyIndicator", false);
         _vrrCompatMode = ReadBool("vrrCompatMode", true);
         _showBuffUi = ReadBool("buffUi.show", false);
+        _buffUiIconSize = ReadInt("buffUi.iconSize", 40);
         _buffUiTransparent = ReadBool("buffUi.transparent", true);
         _buffTtsOnStart = ReadBool("buffUi.ttsOnStart", false);
         _buffTtsOnEnd = ReadBool("buffUi.ttsOnEnd", false);
@@ -273,6 +274,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Show the combat-assist overlay: a small window of the local player's active buff slots
     /// (remaining time), separate from the meter.</summary>
     public bool ShowBuffUi { get => _showBuffUi; set => SetBool(ref _showBuffUi, "buffUi.show", value); }
+
+    private int _buffUiIconSize;
+    /// <summary>Buff overlay icon size in px (34 = small, 40 = large). Drives a uniform scale of the whole slot.</summary>
+    public int BuffUiIconSize { get => _buffUiIconSize; set => SetInt(ref _buffUiIconSize, "buffUi.iconSize", value); }
 
     private bool _buffUiTransparent;
     /// <summary>Transparent background (default): the overlay is just floating icons, invisible when empty.
