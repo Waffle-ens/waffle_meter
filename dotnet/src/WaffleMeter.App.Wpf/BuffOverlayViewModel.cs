@@ -103,12 +103,12 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
 public sealed class BuffSlotVM : INotifyPropertyChanged
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-    // The ring is drawn on a fixed 40x40 canvas (matching the XAML slot) with absolute coordinates, so a
-    // shrinking arc stays centered instead of drifting as its bounding box changes. Radius 18.5 frames the
-    // 34px (radius 17) circular icon just outside its edge.
-    private const double Canvas = 40;
-    private const double Center = Canvas / 2; // 20
-    private const double RingRadius = 18.5;
+    // The ring is drawn on a fixed 46x46 canvas (matching the XAML slot) with absolute coordinates, so a
+    // shrinking arc stays centered instead of drifting as its bounding box changes. Radius 21.5 frames the
+    // 40px (radius 20) circular icon just outside its edge.
+    private const double Canvas = 46;
+    private const double Center = Canvas / 2; // 23
+    private const double RingRadius = 21.5;
 
     public BuffSlotVM(int code, string name, long remainingMs, long durationMs, bool byOther)
     {

@@ -26,24 +26,24 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Margin="3,0" ToolTip="{Binding Name}">
-                        <Grid Width="40" Height="40" HorizontalAlignment="Center">
+                        <Grid Width="46" Height="46" HorizontalAlignment="Center">
                             <!-- Circular skill icon, clipped so the cooldown ring frames it cleanly (no overlap). -->
-                            <Image Source="{Binding IconSource}" Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Image.Clip><EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17"/></Image.Clip>
+                            <Image Source="{Binding IconSource}" Width="40" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Image.Clip><EllipseGeometry Center="20,20" RadiusX="20" RadiusY="20"/></Image.Clip>
                             </Image>
                             <!-- Faint full-circle track so the icon always reads as framed. -->
-                            <Ellipse Width="37" Height="37" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            <Ellipse Width="43" Height="43" HorizontalAlignment="Center" VerticalAlignment="Center"
                                      Stroke="#40000000" StrokeThickness="2.5"/>
                             <!-- Cooldown/duration ring: a bright arc that frames the icon and sweeps toward nothing as
-                                 the buff runs out, so the border "disappears" as the timer drops. Fixed 40x40 canvas
+                                 the buff runs out, so the border "disappears" as the timer drops. Fixed 46x46 canvas
                                  with absolute coords keeps the shrinking arc centered. -->
-                            <Path Data="{Binding Ring}" Stroke="#FFE9B54A" StrokeThickness="2.5" Width="40" Height="40"
+                            <Path Data="{Binding Ring}" Stroke="#FFE9B54A" StrokeThickness="2.5" Width="46" Height="46"
                                   Stretch="None" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             <!-- accent dot when a party member applied the buff -->
-                            <Ellipse Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,3,3,0"
+                            <Ellipse Width="9" Height="9" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
                                      Fill="{DynamicResource Skin.Accent}" Visibility="{Binding ByOther, Converter={StaticResource BoolToVis}}"/>
                         </Grid>
-                        <TextBlock Text="{Binding RemainingText}" Foreground="White" FontSize="11" FontWeight="Bold"
+                        <TextBlock Text="{Binding RemainingText}" Foreground="White" FontSize="12" FontWeight="Bold"
                                    HorizontalAlignment="Center" Margin="0,1,0,0">
                             <TextBlock.Effect><DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="0" Opacity="0.95"/></TextBlock.Effect>
                         </TextBlock>
