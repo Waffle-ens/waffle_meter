@@ -67,6 +67,52 @@ public sealed class MeterSettingsTests : IDisposable
     }
 
     [Fact]
+    public void Display_performance_defaults_and_effective_values()
+    {
+        var s = new MeterSettings(new PropertyHandler(_temp));
+        Assert.Equal(500, s.RefreshIntervalMs);
+        Assert.Equal(10, s.MaxVisibleRows);
+        Assert.False(s.LowSpecMode);
+        Assert.Equal(500, s.EffectiveRefreshIntervalMs);
+        Assert.Equal(10, s.EffectiveMaxVisibleRows);
+    }
+
+    [Fact]
+    public void Low_spec_mode_pins_the_interval_ignoring_the_slider()
+    {
+        var s = new MeterSettings(new PropertyHandler(_temp)) { RefreshIntervalMs = 100 };
+        Assert.Equal(100, s.EffectiveRefreshIntervalMs); // slider honored when not low-spec
+        s.LowSpecMode = true;
+        Assert.Equal(500, s.EffectiveRefreshIntervalMs); // pinned, slider ignored
+    }
+
+    [Fact]
+    public void Effective_values_clamp_out_of_range_persisted_input()
+    {
+        var props = new PropertyHandler(_temp);
+        props.SetProperty("refreshIntervalMs", "50");   // below floor
+        props.SetProperty("maxVisibleRows", "99");      // above cap
+        var s = new MeterSettings(props);
+        Assert.Equal(100, s.EffectiveRefreshIntervalMs); // clamped to [100,1000]
+        Assert.Equal(10, s.EffectiveMaxVisibleRows);     // clamped to [1,10]
+    }
+
+    [Fact]
+    public void Display_performance_round_trips()
+    {
+        var props = new PropertyHandler(_temp);
+        _ = new MeterSettings(props) { RefreshIntervalMs = 300, MaxVisibleRows = 5, LowSpecMode = true };
+        Assert.Equal("300", props.GetProperty("refreshIntervalMs"));
+        Assert.Equal("5", props.GetProperty("maxVisibleRows"));
+        Assert.Equal("true", props.GetProperty("lowSpecMode"));
+
+        var reopened = new MeterSettings(new PropertyHandler(_temp));
+        Assert.Equal(300, reopened.RefreshIntervalMs);
+        Assert.Equal(5, reopened.MaxVisibleRows);
+        Assert.True(reopened.LowSpecMode);
+    }
+
+    [Fact]
     public void Coerces_unknown_enum_to_default()
     {
         var props = new PropertyHandler(_temp);

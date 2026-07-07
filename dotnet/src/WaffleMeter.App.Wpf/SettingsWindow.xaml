@@ -346,6 +346,37 @@
                             <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="24" Maximum="80" Value="{Binding RowHeight}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                         </Grid>
 
+                        <!-- 표시 최적화: 저사양/프레임 드랍 완화 -->
+                        <TextBlock Text="표시 최적화" Style="{StaticResource SectionHeader}" Margin="0,6,0,10"/>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding MaxVisibleRows, StringFormat='표시 인원 — {0}명'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="딜 순위 상위 인원만 표시합니다 (본인은 순위와 무관하게 항상 표시). 전체 집계는 그대로 유지됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="1" Maximum="10" Value="{Binding MaxVisibleRows}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding RefreshIntervalMs, StringFormat='갱신 주기 — {0}ms'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="값이 클수록 숫자 반영은 느려지지만 전투 중 CPU·화면 부담이 줄어듭니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="100" Maximum="1000" Value="{Binding RefreshIntervalMs}"
+                                    TickFrequency="100" IsSnapToTickEnabled="True" IsEnabled="{Binding RefreshSliderEnabled}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="저사양 모드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="켜면 갱신 주기를 500ms로 고정해 게임 프레임을 우선합니다. 딜 집계 방식은 그대로 유지됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LowSpecMode}"/>
+                        </Grid>
+
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">

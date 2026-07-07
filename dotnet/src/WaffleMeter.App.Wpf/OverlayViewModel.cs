@@ -319,6 +319,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         // over the placeholder). Self-coloring uses the frozen report.ExecutorId, else the live _selfId.
         IReadOnlyList<OverlayRowBuilder.Row> display = OverlayRowBuilder.Build(
             report, _roster, _selfId, total, _settings.ShowPreCombatRoster, out bool hasCombatRows,
+            topN: _settings.EffectiveMaxVisibleRows,
             selfNickname: _selfNickname, selfServer: _selfServer, selfJob: _selfJob, selfPower: _selfPower);
 
         double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);

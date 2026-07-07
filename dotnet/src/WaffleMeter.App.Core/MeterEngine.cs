@@ -18,13 +18,24 @@ public sealed class MeterEngine : IDisposable
     private readonly MeterServices _services;
     private readonly IPacketCaptureBackend _backend;
     private readonly Channel<CapturedSegment> _channel;
-    private readonly int _reportIntervalMs;
+    // Volatile: the consumer thread reads it every loop; the UI thread writes it live from settings. A stale
+    // read at worst delays the interval change by one loop (~5 ms), which is harmless.
+    private volatile int _reportIntervalMs;
     private Thread? _consumer;
     private volatile bool _running;
     private volatile bool _resetRequested;
     private volatile bool _disposed;
 
     public MeterServices Services => _services;
+
+    /// <summary>How often (ms) the consumer recomputes + pushes the report. Settable live from settings;
+    /// clamped to [100, 1000]. Larger = less CPU/UI churn during combat (frame-drop relief) at the cost of
+    /// coarser live DPS. A reset still pushes immediately regardless of this.</summary>
+    public int ReportIntervalMs
+    {
+        get => _reportIntervalMs;
+        set => _reportIntervalMs = Math.Clamp(value, 100, 1000);
+    }
 
     /// <summary>Raised (on the consumer thread) every report interval with the latest DPS report.</summary>
     public event Action<DpsReport>? ReportUpdated;
@@ -47,7 +58,7 @@ public sealed class MeterEngine : IDisposable
     {
         _services = services;
         _backend = backend;
-        _reportIntervalMs = reportIntervalMs;
+        ReportIntervalMs = reportIntervalMs; // clamp through the setter
         // Bounded (not unbounded) so a sustained capture flood the single consumer can't drain cannot grow
         // the queue without limit (UI-heap bloat -> paging -> system-wide slowdown over long uptime).
         // DropOldest keeps the writer non-blocking and discards the oldest pending segment when full; the

@@ -37,6 +37,36 @@ public sealed class OverlayRowBuilderTests
     }
 
     [Fact]
+    public void TopN_caps_the_displayed_rows()
+    {
+        DpsReport report = CombatReport(
+            (1, "일", 1000), (2, "이", 900), (3, "삼", 800), (4, "사", 700), (5, "오", 600));
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = OverlayRowBuilder.Build(
+            report, [], liveSelfId: 0, useTotalDamage: true, showPreCombatRoster: false, out _, topN: 3);
+
+        Assert.Equal(3, rows.Count);                         // capped
+        Assert.Equal(new[] { 1, 2, 3 }, rows.Select(r => r.Uid)); // top 3 by amount
+    }
+
+    [Fact]
+    public void Self_is_shown_even_below_the_topN_cap()
+    {
+        // self (uid 5) is the lowest dealer, outside a top-2 cap — must still appear.
+        DpsReport report = CombatReport(
+            (1, "일", 1000), (2, "이", 900), (3, "삼", 800), (5, "본인", 100));
+        report.Contributors.First(c => c.Id == 5).IsExecutor = true;
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = OverlayRowBuilder.Build(
+            report, [], liveSelfId: 5, useTotalDamage: true, showPreCombatRoster: false, out _, topN: 2);
+
+        Assert.Contains(rows, r => r.Uid == 5);              // self always included
+        Assert.Contains(rows, r => r.Uid == 1);              // plus the top-2
+        Assert.Contains(rows, r => r.Uid == 2);
+        Assert.DoesNotContain(rows, r => r.Uid == 3);        // a non-self below the cap is dropped
+    }
+
+    [Fact]
     public void Only_named_combat_rows_show_even_if_the_bare_actor_deals_more()
     {
         DpsReport report = CombatReport((1, "플러시", 500), (13601, null, 1000));

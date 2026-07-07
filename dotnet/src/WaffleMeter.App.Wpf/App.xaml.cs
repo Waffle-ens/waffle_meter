@@ -236,6 +236,17 @@ public partial class App : Application
         // captureBackend setting: "windivert" (default, embedded) or "npcap" (needs Npcap installed).
         string backend = services.Props.GetProperty("captureBackend") ?? "windivert";
         _engine = new MeterEngine(services, new NamedPipeCaptureClient(backend, connectTimeoutMs: 10_000));
+        // Frame-drop relief: apply the persisted refresh interval, and keep it in sync live. Low-spec mode
+        // pins it (EffectiveRefreshIntervalMs); the slider is otherwise honored.
+        MeterEngine engine = _engine;
+        _engine.ReportIntervalMs = _settings.EffectiveRefreshIntervalMs;
+        _settings.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(MeterSettings.RefreshIntervalMs) or nameof(MeterSettings.LowSpecMode))
+            {
+                engine.ReportIntervalMs = _settings.EffectiveRefreshIntervalMs;
+            }
+        };
         _engine.ReportUpdated += report => Dispatcher.Invoke(() =>
         {
             _lastReport = report;

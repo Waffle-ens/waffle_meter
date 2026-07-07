@@ -57,6 +57,9 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _alarmSoundEnabled = ReadBool("alarms.soundEnabled", true);
         _alarmVolume = ReadDouble("alarms.volume", 0.5);
         _customAlarms = CustomAlarmCodec.Decode(_props.GetProperty("alarms.custom")).ToList();
+        _refreshIntervalMs = ReadInt("refreshIntervalMs", 500);
+        _maxVisibleRows = ReadInt("maxVisibleRows", 10);
+        _lowSpecMode = ReadBool("lowSpecMode", false);
     }
 
     private string _displayMode;
@@ -161,6 +164,29 @@ public sealed class MeterSettings : INotifyPropertyChanged
             OnPropertyChanged();
         }
     }
+
+    // ---- display performance (refresh rate / row cap / low-spec) ----
+    private int _refreshIntervalMs;
+    /// <summary>How often (ms) the meter recomputes + repaints the report. Larger = less CPU/UI churn during
+    /// combat, at the cost of coarser live DPS. Clamped to [100, 1000] where it is consumed.</summary>
+    public int RefreshIntervalMs { get => _refreshIntervalMs; set => SetInt(ref _refreshIntervalMs, "refreshIntervalMs", value); }
+
+    private int _maxVisibleRows;
+    /// <summary>How many dealer rows the meter shows (1-10). Self is always shown even below the cap. All
+    /// participants stay tracked; this only caps the display.</summary>
+    public int MaxVisibleRows { get => _maxVisibleRows; set => SetInt(ref _maxVisibleRows, "maxVisibleRows", value); }
+
+    private bool _lowSpecMode;
+    /// <summary>Frame-drop relief: pins the refresh interval to a low-churn value and force-disables any
+    /// display-only embellishments, prioritizing the game's frame rate. See <see cref="EffectiveRefreshIntervalMs"/>.</summary>
+    public bool LowSpecMode { get => _lowSpecMode; set => SetBool(ref _lowSpecMode, "lowSpecMode", value); }
+
+    /// <summary>The refresh interval actually applied: low-spec pins it to 500 ms (ignoring the slider);
+    /// otherwise the slider value clamped to [100, 1000].</summary>
+    public int EffectiveRefreshIntervalMs => _lowSpecMode ? 500 : Math.Clamp(_refreshIntervalMs, 100, 1000);
+
+    /// <summary>The row cap actually applied, clamped to [1, 10].</summary>
+    public int EffectiveMaxVisibleRows => Math.Clamp(_maxVisibleRows, 1, 10);
 
     /// <summary>Resolve the masking mode enum for the meter rows.</summary>
     public NameDisplay NameDisplayMode => _nameDisplay switch
