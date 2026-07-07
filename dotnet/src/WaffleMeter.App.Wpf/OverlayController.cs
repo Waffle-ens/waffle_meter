@@ -418,7 +418,8 @@ public sealed class OverlayController
             string path = DiagLogPath();
             if (new FileInfo(path) is { Exists: true, Length: > 1_000_000 })
             {
-                return; // safety cap: stop before the trace grows without bound
+                File.WriteAllText(path, ""); // rotate: reset when too large, keep logging RECENT foreground
+                                             // history (the old hard stop left an 18-day-stale log = no data)
             }
 
             File.AppendAllText(
