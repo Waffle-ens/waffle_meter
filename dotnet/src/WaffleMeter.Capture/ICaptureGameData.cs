@@ -32,6 +32,12 @@ public interface ICaptureGameData
     void RequestOfficialCharacterLookup(int uid);
     void TouchDummyBattle(int target, long epoch);
 
+    /// <summary>Aether (오드) resource update from the 0x610x family. <paramref name="split"/> true =
+    /// <paramref name="baseVal"/>/<paramref name="bonus"/> were both carried; false = only
+    /// <paramref name="total"/> is meaningful and the data layer back-computes base/bonus from its previous
+    /// value. No-op in capture-only mode.</summary>
+    void SaveAetherStatus(bool split, int baseVal, int bonus, int total);
+
     /// <summary>Full party/raid roster snapshot (each member's nickname + server + sub-group slot 1-8)
     /// from the 0x9702 roster packet. Lets the data layer match members to known uids for the pre-combat
     /// party preview, and (for an 8-인 공대) tag each player's sub-party — slots 1-4 = party 1, 5-8 = party 2.
@@ -61,4 +67,5 @@ public sealed class NullCaptureGameData : ICaptureGameData
     public void RequestOfficialCharacterLookup(int uid) { }
     public void TouchDummyBattle(int target, long epoch) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
+    public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
 }

@@ -60,6 +60,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _refreshIntervalMs = ReadInt("refreshIntervalMs", 500);
         _maxVisibleRows = ReadInt("maxVisibleRows", 10);
         _lowSpecMode = ReadBool("lowSpecMode", false);
+        _showAetherStatus = ReadBool("showAetherStatus", true);
     }
 
     private string _displayMode;
@@ -187,6 +188,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     /// <summary>The row cap actually applied, clamped to [1, 10].</summary>
     public int EffectiveMaxVisibleRows => Math.Clamp(_maxVisibleRows, 1, 10);
+
+    private bool _showAetherStatus;
+    /// <summary>Show the aether (오드) balance badge next to the recognized character.</summary>
+    public bool ShowAetherStatus { get => _showAetherStatus; set => SetBool(ref _showAetherStatus, "showAetherStatus", value); }
 
     /// <summary>Resolve the masking mode enum for the meter rows.</summary>
     public NameDisplay NameDisplayMode => _nameDisplay switch

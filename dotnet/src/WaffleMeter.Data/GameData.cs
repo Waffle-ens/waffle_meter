@@ -43,4 +43,5 @@ public sealed class GameData : ICaptureGameData
     public void RequestOfficialCharacterLookup(int uid) { }
     public void TouchDummyBattle(int target, long epoch) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
+    public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
 }

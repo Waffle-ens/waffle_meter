@@ -344,6 +344,8 @@ public partial class App : Application
 
             viewModel.SetRoster(partyRoster);
             viewModel.Update(report);
+            (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
+            viewModel.SetAether(aBase, aBonus, aHas); // live aether badge (read each tick; fires even when idle)
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
             StatsOwnCharacter own = services.StatsBuilder.OwnCharacter();
             // Pass the executor's known job (from its User) so the VM can recover 본인 when it re-instances and

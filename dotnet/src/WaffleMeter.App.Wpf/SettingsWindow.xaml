@@ -380,6 +380,15 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="오드 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="인식된 캐릭터 옆에 오드(아이테르) 잔량을 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowAetherStatus}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="아이온 활성화 시 표시" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="AION2 창이 활성화된 동안에만 미터기를 표시합니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>

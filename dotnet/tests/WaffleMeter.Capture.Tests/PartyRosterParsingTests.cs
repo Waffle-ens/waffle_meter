@@ -18,6 +18,7 @@ public sealed class PartyRosterParsingTests
         public IReadOnlyList<(string Nickname, int Server, int Slot)>? Last;
 
         public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) => Last = members;
+        public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
 
         public Mob? GetMob(int code) => null;
         public int? GetMobId(int instanceId) => null;

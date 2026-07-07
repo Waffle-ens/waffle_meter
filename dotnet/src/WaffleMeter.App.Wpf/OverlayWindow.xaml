@@ -289,6 +289,14 @@
                 <TextBlock Text="{Binding Status}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" VerticalAlignment="Center"/>
                 <TextBlock Text="{Binding RecognizedStatus}" Foreground="{Binding CombatStatusBrush}" FontSize="10" FontWeight="SemiBold"
                            VerticalAlignment="Center" Margin="6,0,0,0" Visibility="{Binding RecognizedVisibility}"/>
+                <!-- aether (오드) balance badge — beside the recognized character -->
+                <Border Margin="8,0,0,0" Padding="5,1" CornerRadius="4" VerticalAlignment="Center"
+                        Background="{DynamicResource Skin.StatBg}" Visibility="{Binding AetherVisibility}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="오드" Foreground="#7EE7FF" FontSize="9" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                        <TextBlock Text="{Binding AetherText}" Foreground="#7EE7FF" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Grid>
     </Border>

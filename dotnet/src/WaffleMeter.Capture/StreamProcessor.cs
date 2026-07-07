@@ -82,6 +82,10 @@ public sealed class StreamProcessor
     private const int InstanceStartKey = 0x18 | (0x97 << 8);   // 0x9718
     private const int ExitPartyKey = 0x1D | (0x97 << 8);       // 0x971D
     private const int PartyRosterKey = 0x02 | (0x97 << 8);     // 0x9702 — full party/raid roster snapshot
+    // Resource-status family (0x61 category) carrying the aether (오드) balance. Two opcodes ride the same
+    // marker-based body layout; both are handled by the one resource parser.
+    private const int AetherKeyA = 0x0B | (0x61 << 8);         // 0x610B
+    private const int AetherKeyB = 0x0C | (0x61 << 8);         // 0x610C
 
     private static readonly Dictionary<int, string> OpcodeNames = new()
     {
@@ -102,6 +106,8 @@ public sealed class StreamProcessor
         [Key(0x18, 0x97)] = "InstanceStart",
         [Key(0x1D, 0x97)] = "ExitParty",
         [Key(0x02, 0x97)] = "PartyRoster",
+        [AetherKeyA] = "AetherStatus",
+        [AetherKeyB] = "AetherStatus",
     };
 
     private static readonly byte[] PowerMarker = { 0xF4, 0xCB, 0x1F };
@@ -284,6 +290,10 @@ public sealed class StreamProcessor
                     break;
                 case PartyRosterKey:
                     ParsePartyRoster(packet, lengthInfo, extraFlag);
+                    break;
+                case AetherKeyA:
+                case AetherKeyB:
+                    ParseAetherStatus(packet, opcodeOffset + 2);
                     break;
             }
         }
@@ -1134,6 +1144,21 @@ public sealed class StreamProcessor
         {
             // swallowed (matches Kotlin's try/catch around parseBuffPacket)
         }
+    }
+
+    /// <summary>Aether (오드) resource status 0x610B/0x610C. Gated behind the opcode so the marker scan can't
+    /// false-match a coincidental byte run in an unrelated packet (the compact marker prefix occurs in HP /
+    /// damage payloads too).</summary>
+    private void ParseAetherStatus(byte[] packet, int bodyStart)
+    {
+        AetherParse a = AetherStatusParser.TryParse(packet, bodyStart);
+        if (!a.Ok)
+        {
+            return;
+        }
+
+        _data.SaveAetherStatus(a.Split, a.Base, a.Bonus, a.Total);
+        _sink.Meta("aether", ("split", a.Split), ("base", a.Base), ("bonus", a.Bonus), ("total", a.Total));
     }
 
     /// <summary>Kotlin isValidNickname (867-876).</summary>

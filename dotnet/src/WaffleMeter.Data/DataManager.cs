@@ -188,6 +188,61 @@ public sealed class DataManager : ICaptureGameData
     /// Fires on the packet-consumer thread.</summary>
     public event Action? ExecutorIdentityChanged;
 
+    // ---- aether (오드) resource, the local player's balance shown next to the recognized character ----
+    private int _aetherBase;
+    private int _aetherBonus;
+    private int _aetherTotal;
+    private bool _aetherHasValue;
+
+    /// <summary>Raised (packet-consumer thread) when the aether balance changes, so the overlay can refresh.</summary>
+    public event Action? AetherStatusChanged;
+
+    /// <summary>The local player's current aether balance, or (0,0,false) until one has been seen.</summary>
+    public (int Base, int Bonus, int Total, bool HasValue) CurrentAether =>
+        (_aetherBase, _aetherBonus, _aetherTotal, _aetherHasValue);
+
+    public void SaveAetherStatus(bool split, int baseVal, int bonus, int total)
+    {
+        if (split)
+        {
+            _aetherBase = baseVal;
+            _aetherBonus = bonus;
+        }
+        else
+        {
+            // Total-only: back-compute base/bonus from the previous split by absorbing the delta into base
+            // first, then bonus (matching the game's spend order). The total is always authoritative.
+            int delta = total - _aetherTotal;
+            if (delta >= 0)
+            {
+                _aetherBase += delta;
+            }
+            else
+            {
+                int drop = -delta;
+                int fromBase = Math.Min(_aetherBase, drop);
+                _aetherBase -= fromBase;
+                _aetherBonus = Math.Max(0, _aetherBonus - (drop - fromBase));
+            }
+        }
+
+        _aetherTotal = total;
+        _aetherHasValue = true;
+        AetherStatusChanged?.Invoke();
+    }
+
+    private void ClearAetherStatus()
+    {
+        if (!_aetherHasValue && _aetherBase == 0 && _aetherBonus == 0 && _aetherTotal == 0)
+        {
+            return;
+        }
+
+        _aetherBase = _aetherBonus = _aetherTotal = 0;
+        _aetherHasValue = false;
+        AetherStatusChanged?.Invoke();
+    }
+
     public User? FindUserByNicknameAndServer(string nickname, int server) =>
         _userRepository.FindByNicknameAndServer(nickname, server);
 
@@ -352,6 +407,7 @@ public sealed class DataManager : ICaptureGameData
             {
                 _partyRoster.Clear();
                 _partyRosterAtMs = 0;
+                ClearAetherStatus(); // the aether balance is the previous character's — drop it on a real switch
                 ExecutorIdentityChanged?.Invoke();
             }
         }
@@ -643,6 +699,7 @@ public sealed class DataManager : ICaptureGameData
         _lastDummyHitTime = 0;
         _partyRoster.Clear();
         _partyRosterAtMs = 0;
+        ClearAetherStatus();
     }
 
     /// <summary>

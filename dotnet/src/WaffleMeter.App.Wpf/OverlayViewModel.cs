@@ -160,6 +160,30 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Visibility _recognizedVisibility = Visibility.Collapsed;
     public Visibility RecognizedVisibility { get => _recognizedVisibility; private set => Set(ref _recognizedVisibility, value); }
 
+    private string _aetherText = string.Empty;
+    /// <summary>The aether (오드) balance as "base(+bonus)" (bonus dropped when 0), shown beside the recognized
+    /// character when enabled and a value exists.</summary>
+    public string AetherText { get => _aetherText; private set => Set(ref _aetherText, value); }
+
+    private Visibility _aetherVisibility = Visibility.Collapsed;
+    public Visibility AetherVisibility { get => _aetherVisibility; private set => Set(ref _aetherVisibility, value); }
+
+    /// <summary>Push the latest aether balance (read from the data layer each report tick). Hidden when the
+    /// setting is off or no value has been seen.</summary>
+    public void SetAether(int baseVal, int bonus, bool hasValue)
+    {
+        if (!_settings.ShowAetherStatus || !hasValue)
+        {
+            AetherVisibility = Visibility.Collapsed;
+            return;
+        }
+
+        AetherText = bonus > 0
+            ? $"{baseVal:N0}(+{bonus:N0})"
+            : baseVal.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+        AetherVisibility = Visibility.Visible;
+    }
+
     // The recognized 본인 (executor) uid, mirrored LIVE from StatsBuilder.OwnCharacter().Id. The fallback
     // self signal for row coloring, used only when the report being shown carries no frozen executor id
     // (i.e. a live/in-progress report — see DpsReport.ExecutorId). A saved/history report self-identifies
