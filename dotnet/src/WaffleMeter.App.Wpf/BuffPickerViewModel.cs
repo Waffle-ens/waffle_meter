@@ -160,9 +160,9 @@ public sealed class BuffPickerItem : INotifyPropertyChanged
         get => _mode;
         set
         {
-            if (_mode == value)
+            if (_mode == value || value is < Off or > Voice)
             {
-                return;
+                return; // ignore the transient -1 a ComboBox can push during template init
             }
 
             _mode = value;
