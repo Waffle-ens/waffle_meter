@@ -78,6 +78,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffUiHidden = _props.GetProperty("buffUi.hidden") ?? "";
         _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
         _buffUiVoice = _props.GetProperty("buffUi.voice") ?? "";
+        _buffUiDefaultsApplied = ReadBool("buffUi.defaultsApplied", false);
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
     }
 
@@ -308,6 +309,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     /// <summary>The voice-enabled base-code set (parsed from <see cref="BuffUiVoice"/>).</summary>
     public HashSet<int> BuffUiVoiceCodes => ParseCodeSet(_buffUiVoice);
+
+    private bool _buffUiDefaultsApplied;
+    /// <summary>Set once the catalog's default-off toggle buffs have been merged into the hidden set, so the
+    /// one-time default isn't re-applied over the user's later choices.</summary>
+    public bool BuffUiDefaultsApplied { get => _buffUiDefaultsApplied; set => SetBool(ref _buffUiDefaultsApplied, "buffUi.defaultsApplied", value); }
 
     private string _aetherLastValue;
     /// <summary>The last observed aether balance as "base,bonus,total,unixMs", persisted so it can be shown

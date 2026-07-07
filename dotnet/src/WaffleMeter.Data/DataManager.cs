@@ -114,6 +114,11 @@ public sealed class DataManager : ICaptureGameData
     private readonly Dictionary<int, (string Name, string Job)> _buffNames = new();
     // Base skill codes ever seen on the local player / party — the catalog the picker lists.
     private readonly HashSet<int> _observedBuffBases = new();
+    // Curated self-buff bases from the bundled catalog (datamine-verified) — listed in the picker even before
+    // they're observed, so a buff can be configured up front.
+    private readonly HashSet<int> _knownBuffBases = new();
+    // Bases that should default to Off (toggle/aura buffs that stay on indefinitely) — applied on first run.
+    private readonly HashSet<int> _defaultOffBuffBases = new();
     // Base skill codes the user unchecked — the overlay suppresses these.
     private readonly HashSet<int> _hiddenBuffBases = new();
     private readonly object _buffPickerGate = new();
@@ -159,6 +164,37 @@ public sealed class DataManager : ICaptureGameData
         }
     }
 
+    /// <summary>buff_catalog.json: curated self-buff bases (datamine-verified) that the picker lists even
+    /// before they're observed, plus the default-off (toggle/aura) subset. Names are merged into the table.</summary>
+    public void LoadBuffCatalog(IEnumerable<(int Code, string Name, string Job)> catalog, IEnumerable<int> defaultOff)
+    {
+        lock (_buffPickerGate)
+        {
+            foreach ((int code, string name, string job) in catalog)
+            {
+                _knownBuffBases.Add(code);
+                if (!_buffNames.ContainsKey(code) && !string.IsNullOrEmpty(name))
+                {
+                    _buffNames[code] = (name, string.IsNullOrEmpty(job) ? "기타" : job);
+                }
+            }
+
+            foreach (int c in defaultOff)
+            {
+                _defaultOffBuffBases.Add(c);
+            }
+        }
+    }
+
+    /// <summary>The toggle/aura buffs that should default to Off (applied once on first run by the app).</summary>
+    public IReadOnlyCollection<int> DefaultOffBuffBases()
+    {
+        lock (_buffPickerGate)
+        {
+            return _defaultOffBuffBases.ToList();
+        }
+    }
+
     private bool IsBuffHidden(int runtimeCode)
     {
         lock (_buffPickerGate)
@@ -173,8 +209,10 @@ public sealed class DataManager : ICaptureGameData
     {
         lock (_buffPickerGate)
         {
-            var list = new List<(int, string, string, bool)>(_observedBuffBases.Count);
-            foreach (int b in _observedBuffBases)
+            var bases = new HashSet<int>(_observedBuffBases);
+            bases.UnionWith(_knownBuffBases); // curated catalog + anything actually observed
+            var list = new List<(int, string, string, bool)>(bases.Count);
+            foreach (int b in bases)
             {
                 (string name, string job) = _buffNames.TryGetValue(b, out (string Name, string Job) v)
                     ? v

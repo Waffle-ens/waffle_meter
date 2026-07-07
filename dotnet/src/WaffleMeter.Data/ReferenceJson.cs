@@ -105,6 +105,43 @@ public static class ReferenceJson
         return result;
     }
 
+    /// <summary>buff_catalog.json: { "buffs": { code: { "n": name, "j": job } }, "defaultOff": [code, ...] }.
+    /// Curated self-buff bases (datamine-verified) the picker lists up front + the default-off toggle subset.</summary>
+    public static (List<(int Code, string Name, string Job)> Catalog, List<int> DefaultOff) LoadBuffCatalog(string path)
+    {
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
+        var catalog = new List<(int, string, string)>();
+        var defaultOff = new List<int>();
+        JsonElement root = doc.RootElement;
+        if (root.TryGetProperty("buffs", out JsonElement buffs) && buffs.ValueKind == JsonValueKind.Object)
+        {
+            foreach (JsonProperty prop in buffs.EnumerateObject())
+            {
+                if (!int.TryParse(prop.Name, NumberStyles.Integer, CultureInfo.InvariantCulture, out int code))
+                {
+                    continue;
+                }
+
+                string name = prop.Value.TryGetProperty("n", out JsonElement n) && n.ValueKind == JsonValueKind.String ? n.GetString() ?? "" : "";
+                string job = prop.Value.TryGetProperty("j", out JsonElement j) && j.ValueKind == JsonValueKind.String ? j.GetString() ?? "" : "";
+                catalog.Add((code, name, job));
+            }
+        }
+
+        if (root.TryGetProperty("defaultOff", out JsonElement arr) && arr.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement e in arr.EnumerateArray())
+            {
+                if (e.ValueKind == JsonValueKind.Number && e.TryGetInt32(out int c))
+                {
+                    defaultOff.Add(c);
+                }
+            }
+        }
+
+        return (catalog, defaultOff);
+    }
+
     /// <summary>buff_blacklist.json: { "blacklist": [int, ...] }.</summary>
     public static List<int> LoadBuffBlacklist(string path)
     {
