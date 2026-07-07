@@ -443,6 +443,7 @@ public sealed class DataManager : ICaptureGameData
                 _partyRoster.Clear();
                 _partyRosterAtMs = 0;
                 ClearAetherStatus(); // the aether balance is the previous character's — drop it on a real switch
+                ClearOwnerBuffs();   // the previous character's buffs, likewise
                 ExecutorIdentityChanged?.Invoke();
             }
         }
@@ -552,8 +553,61 @@ public sealed class DataManager : ICaptureGameData
 
     public void SaveUseBuff(int uid, UseBuff useBuff) => _useBuffRepository.Save(uid, useBuff);
 
-    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) =>
+    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId)
+    {
         SaveUseBuff(uid, new UseBuff(skillCode, buffStart, buffEnd, duration, actorId));
+
+        // Live combat-assist overlay: track buffs currently ON the local player (recipient == executor), so
+        // the overlay can show what's active + how long is left. Kept separate from the uptime repository.
+        int owner = _userRepository.Executor();
+        if (owner != 0 && uid == owner && !IsBuffBlacklisted(skillCode))
+        {
+            lock (_ownerBuffGate)
+            {
+                _ownerBuffs[skillCode] = (buffEnd, actorId);
+            }
+
+            LiveBuffsChanged?.Invoke();
+        }
+    }
+
+    // ---- live owner-buff store (for the combat-assist overlay) ----
+    private readonly Dictionary<int, (long End, int Actor)> _ownerBuffs = new(); // skill code -> (expiry, applier)
+    private readonly object _ownerBuffGate = new();
+
+    /// <summary>Raised when a buff on the local player is applied/refreshed.</summary>
+    public event Action? LiveBuffsChanged;
+
+    /// <summary>The buffs currently active on the local player at <paramref name="nowMs"/>, longest remaining
+    /// first. <c>ByOther</c> = applied by someone else (not the local player).</summary>
+    public IReadOnlyList<(int Code, string Name, long RemainingMs, bool ByOther)> ActiveOwnerBuffs(long nowMs)
+    {
+        int owner = _userRepository.Executor();
+        var result = new List<(int, string, long, bool)>();
+        lock (_ownerBuffGate)
+        {
+            foreach (KeyValuePair<int, (long End, int Actor)> kv in _ownerBuffs)
+            {
+                if (kv.Value.End <= nowMs)
+                {
+                    continue; // expired
+                }
+
+                string name = Buff(kv.Key)?.Name ?? Skill(kv.Key)?.Name ?? $"버프 {kv.Key}";
+                result.Add((kv.Key, name, kv.Value.End - nowMs, owner != 0 && kv.Value.Actor != owner));
+            }
+        }
+
+        return result.OrderByDescending(r => r.Item3).ToList();
+    }
+
+    private void ClearOwnerBuffs()
+    {
+        lock (_ownerBuffGate)
+        {
+            _ownerBuffs.Clear();
+        }
+    }
 
     public void SaveMobHp(int instanceId, int hp) => MobHp(instanceId, hp);
 
@@ -735,6 +789,7 @@ public sealed class DataManager : ICaptureGameData
         _partyRoster.Clear();
         _partyRosterAtMs = 0;
         ClearAetherStatus();
+        ClearOwnerBuffs();
     }
 
     /// <summary>

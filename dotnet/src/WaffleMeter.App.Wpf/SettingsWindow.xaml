@@ -127,6 +127,9 @@
                 <ListBoxItem Tag="display">
                     <StackPanel><TextBlock Text="화면" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 형식 · 최적화 · 오드" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="combat">
+                    <StackPanel><TextBlock Text="전투 보조" Style="{StaticResource NavTitle}"/><TextBlock Text="버프 오버레이" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="alarms">
                     <StackPanel><TextBlock Text="알림" Style="{StaticResource NavTitle}"/><TextBlock Text="슈고 페스타 · 사용자 알람" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
@@ -532,6 +535,36 @@
                                 <TextBlock Text="최신 버전을 확인하고 백그라운드에서 내려받습니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <Button Grid.Column="1" Content="업데이트 확인" Click="OnCheckUpdate" VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ===== 전투 보조 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=combat}">
+                        <TextBlock Text="전투 보조 UI" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="내 캐릭터에게 적용된 버프와 남은 시간을 별도 창에 표시합니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="버프 오버레이 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="전투 보조 창을 켭니다. 창은 드래그로 옮길 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowBuffUi}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="버프 있을 때만 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="활성 버프가 없으면 창을 숨깁니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiOnlyWhenActive}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="다른 캐릭터가 준 버프 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="끄면 본인이 직접 받은 버프만 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowOtherPlayerBuffs}"/>
                         </Grid>
                     </StackPanel>
 

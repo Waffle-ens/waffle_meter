@@ -54,6 +54,10 @@ public partial class App : Application
     private AlarmToast? _alarmToast;
     private AlarmToastViewModel? _alarmToastVm;
     private AlarmController? _alarms;
+    private BuffOverlayPanel? _buffOverlay;
+    private BuffOverlayViewModel? _buffOverlayVm;
+    private System.Windows.Threading.DispatcherTimer? _buffTimer;
+    private bool _buffOverlayShown;
 
     /// <summary>Auto-reset event the FIRST instance owns (set by <see cref="Program"/>); a later launch
     /// opens it by name and signals it instead of spawning a colliding UI. We wait on it and surface the
@@ -436,6 +440,29 @@ public partial class App : Application
             fieldBossTimers: () => services.Data.CurrentFieldBossTimers,
             onFieldBoss: due => Dispatcher.Invoke(() => ShowFieldBossAlarm(due)));
         _alarms.Start();
+
+        // Combat-assist overlay: the local player's active buff slots, refreshed twice a second.
+        _buffOverlayVm = new BuffOverlayViewModel();
+        _buffOverlay = new BuffOverlayPanel(_buffOverlayVm);
+        LoadPanelPosition(services.Props, _buffOverlay, "buffOverlayX", "buffOverlayY");
+        ClampWhenLoaded(_buffOverlay);
+        _buffOverlay.Show();
+        _buffOverlay.Park();
+        _controller?.RegisterOverlay(_buffOverlay);
+        _buffOverlay.CloseRequested += () => { _settings.ShowBuffUi = false; };
+        _buffOverlay.PositionChanged += (left, top) =>
+        {
+            services.Props.SetProperty("buffOverlayX", left.ToString("0", CultureInfo.InvariantCulture));
+            services.Props.SetProperty("buffOverlayY", top.ToString("0", CultureInfo.InvariantCulture));
+        };
+        MeterServices svc = services;
+        _buffTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(500),
+        };
+        _buffTimer.Tick += (_, _) => RefreshBuffOverlay(svc);
+        _buffTimer.Start();
+
         _updateService = new UpdateService(prerelease: false);
         UpdateService updateService = _updateService;
         // Free the single-instance guard the instant an update-restart commits, so Velopack's relaunched
@@ -1034,6 +1061,54 @@ public partial class App : Application
 
         _alarmToast.Present(true);
         PlayAlert(_alarmToastVm.SpokenText);
+    }
+
+    // Refresh the combat-assist overlay each tick: pull the local player's active buffs, apply the
+    // "own buffs only" filter, update the slots, and present/park per the settings.
+    private void RefreshBuffOverlay(MeterServices services)
+    {
+        if (_buffOverlay is null || _buffOverlayVm is null || _settings is null)
+        {
+            return;
+        }
+
+        if (!_settings.ShowBuffUi)
+        {
+            SetBuffOverlayShown(false);
+            return;
+        }
+
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        IReadOnlyList<(int Code, string Name, long RemainingMs, bool ByOther)> buffs = services.Data.ActiveOwnerBuffs(nowMs);
+        if (!_settings.ShowOtherPlayerBuffs)
+        {
+            buffs = buffs.Where(b => !b.ByOther).ToList();
+        }
+
+        _buffOverlayVm.Update(buffs);
+
+        // "only when active" hides the panel while there is nothing to show. Present/park only on the edge
+        // so a steady state doesn't re-issue SetWindowPos every tick.
+        bool shouldShow = !_settings.BuffUiOnlyWhenActive || buffs.Count > 0;
+        SetBuffOverlayShown(shouldShow);
+    }
+
+    private void SetBuffOverlayShown(bool show)
+    {
+        if (_buffOverlay is null || _buffOverlayShown == show)
+        {
+            return;
+        }
+
+        _buffOverlayShown = show;
+        if (show)
+        {
+            _buffOverlay.Present(true);
+        }
+        else
+        {
+            _buffOverlay.Park();
+        }
     }
 
     /// <summary>Sound an alert: speak it with TTS if enabled (which falls back to the chime on failure),

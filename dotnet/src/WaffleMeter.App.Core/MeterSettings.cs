@@ -67,6 +67,9 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _lowSpecMode = ReadBool("lowSpecMode", false);
         _showAetherStatus = ReadBool("showAetherStatus", true);
         _vrrCompatMode = ReadBool("vrrCompatMode", true);
+        _showBuffUi = ReadBool("buffUi.show", false);
+        _buffUiOnlyWhenActive = ReadBool("buffUi.onlyWhenActive", false);
+        _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
     }
 
     private string _displayMode;
@@ -236,6 +239,20 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// transparent window can't disturb a variable-refresh display. Read at startup (process-global) — a
     /// change needs an app restart.</summary>
     public bool VrrCompatMode { get => _vrrCompatMode; set => SetBool(ref _vrrCompatMode, "vrrCompatMode", value); }
+
+    // ---- combat-assist overlay (live buff / cooldown slots) ----
+    private bool _showBuffUi;
+    /// <summary>Show the combat-assist overlay: a small window of the local player's active buff slots
+    /// (remaining time), separate from the meter.</summary>
+    public bool ShowBuffUi { get => _showBuffUi; set => SetBool(ref _showBuffUi, "buffUi.show", value); }
+
+    private bool _buffUiOnlyWhenActive;
+    /// <summary>Hide the combat-assist overlay while there is nothing to show.</summary>
+    public bool BuffUiOnlyWhenActive { get => _buffUiOnlyWhenActive; set => SetBool(ref _buffUiOnlyWhenActive, "buffUi.onlyWhenActive", value); }
+
+    private bool _showOtherPlayerBuffs;
+    /// <summary>Include buffs applied by other players (off = only the local player's own buffs).</summary>
+    public bool ShowOtherPlayerBuffs { get => _showOtherPlayerBuffs; set => SetBool(ref _showOtherPlayerBuffs, "buffUi.showOther", value); }
 
     /// <summary>Resolve the masking mode enum for the meter rows.</summary>
     public NameDisplay NameDisplayMode => _nameDisplay switch

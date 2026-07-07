@@ -98,6 +98,15 @@ internal static class Program
                 details.Refresh(SampleMeterReport(now));
                 Capture(() => new DetailWindow { DataContext = details }, palette, Path.Combine(outDir, "detail_Dark.png"));
 
+                var buffVm = new BuffOverlayViewModel();
+                buffVm.Update(new List<(int, string, long, bool)>
+                {
+                    (18290000, "회전격", 12_000, false),
+                    (11400000, "축복", 45_000, true),
+                    (13050000, "섬광베기", 6_000, false),
+                });
+                Capture(() => new BuffOverlayPanel(buffVm), palette, Path.Combine(outDir, "buffoverlay_Dark.png"));
+
                 Capture(() => new CloseActionDialog(), palette, Path.Combine(outDir, "closedialog_Dark.png"));
                 Capture(() => new StatsConsentModal("콘팡 · 마도성"), palette, Path.Combine(outDir, "consent_Dark.png"));
 

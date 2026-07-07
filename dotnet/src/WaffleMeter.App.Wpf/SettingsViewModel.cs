@@ -171,6 +171,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool ShowServerTag { get => _settings.ShowServerTag; set { _settings.ShowServerTag = value; OnPropertyChanged(); } }
     public bool ShowAetherStatus { get => _settings.ShowAetherStatus; set { _settings.ShowAetherStatus = value; OnPropertyChanged(); } }
     public bool VrrCompatMode { get => _settings.VrrCompatMode; set { _settings.VrrCompatMode = value; OnPropertyChanged(); } }
+    public bool ShowBuffUi { get => _settings.ShowBuffUi; set { _settings.ShowBuffUi = value; OnPropertyChanged(); } }
+    public bool BuffUiOnlyWhenActive { get => _settings.BuffUiOnlyWhenActive; set { _settings.BuffUiOnlyWhenActive = value; OnPropertyChanged(); } }
+    public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }
 
     /// <summary>Wired by App: trigger an update check (results surface in the toast).</summary>
     public Action? CheckUpdateRequested { get; set; }
