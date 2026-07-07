@@ -578,18 +578,34 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="버프 있을 때만 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="활성 버프가 없으면 창을 숨깁니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="투명 배경" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="켜면 아이콘만 떠서 배경이 투명합니다. 끄면 배경/테두리가 보여 버프가 없을 때도 창 위치를 찾아 옮길 수 있습니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiOnlyWhenActive}"/>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiTransparent}"/>
                         </Grid>
-                        <Grid Margin="0,0,0,4">
+                        <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="다른 캐릭터가 준 버프 표시" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="끄면 본인이 직접 받은 버프만 표시합니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowOtherPlayerBuffs}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="버프 시작 음성 알림" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="버프가 켜지면 '스킬명 온'을 음성으로 알립니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffTtsOnStart}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="버프 종료 음성 알림" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="버프가 끝나기 직전 '스킬명 오프'를 음성으로 알립니다. (음성 지연을 고려해 살짝 먼저 나옵니다)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffTtsOnEnd}"/>
                         </Grid>
                         <Grid Margin="0,10,0,4">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

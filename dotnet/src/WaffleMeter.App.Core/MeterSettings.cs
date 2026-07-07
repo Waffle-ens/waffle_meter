@@ -71,7 +71,9 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showLatencyIndicator = ReadBool("showLatencyIndicator", false);
         _vrrCompatMode = ReadBool("vrrCompatMode", true);
         _showBuffUi = ReadBool("buffUi.show", false);
-        _buffUiOnlyWhenActive = ReadBool("buffUi.onlyWhenActive", false);
+        _buffUiTransparent = ReadBool("buffUi.transparent", true);
+        _buffTtsOnStart = ReadBool("buffUi.ttsOnStart", false);
+        _buffTtsOnEnd = ReadBool("buffUi.ttsOnEnd", false);
         _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
         _buffUiHidden = _props.GetProperty("buffUi.hidden") ?? "";
         _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
@@ -270,9 +272,19 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// (remaining time), separate from the meter.</summary>
     public bool ShowBuffUi { get => _showBuffUi; set => SetBool(ref _showBuffUi, "buffUi.show", value); }
 
-    private bool _buffUiOnlyWhenActive;
-    /// <summary>Hide the combat-assist overlay while there is nothing to show.</summary>
-    public bool BuffUiOnlyWhenActive { get => _buffUiOnlyWhenActive; set => SetBool(ref _buffUiOnlyWhenActive, "buffUi.onlyWhenActive", value); }
+    private bool _buffUiTransparent;
+    /// <summary>Transparent background (default): the overlay is just floating icons, invisible when empty.
+    /// Turn OFF to show a panel background + border + placeholder so the window can be located and dragged
+    /// even before any buff is active.</summary>
+    public bool BuffUiTransparent { get => _buffUiTransparent; set => SetBool(ref _buffUiTransparent, "buffUi.transparent", value); }
+
+    private bool _buffTtsOnStart;
+    /// <summary>Speak "이름 온" when a tracked buff starts.</summary>
+    public bool BuffTtsOnStart { get => _buffTtsOnStart; set => SetBool(ref _buffTtsOnStart, "buffUi.ttsOnStart", value); }
+
+    private bool _buffTtsOnEnd;
+    /// <summary>Speak "이름 오프" shortly before a tracked buff ends (a lead compensates for TTS latency).</summary>
+    public bool BuffTtsOnEnd { get => _buffTtsOnEnd; set => SetBool(ref _buffTtsOnEnd, "buffUi.ttsOnEnd", value); }
 
     private bool _showOtherPlayerBuffs;
     /// <summary>Include buffs applied by other players (off = only the local player's own buffs).</summary>

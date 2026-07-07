@@ -66,6 +66,45 @@ public sealed class OverlayController
     /// overlays (e.g. the combat-assist buff overlay) mirror this so they hide when the game loses focus.</summary>
     public bool MeterShown { get; private set; } = true;
 
+    // Companion overlay (the combat-assist buff overlay): presented/parked in exact lockstep with the meter
+    // window, gated by its enabled predicate — so when the toggle is on it is ALWAYS shown whenever the meter
+    // is, and never disappears on its own. Edge-tracked so a steady state doesn't re-issue SetWindowPos.
+    private OverlayPanelWindow? _companion;
+    private Func<bool>? _companionEnabled;
+    private bool? _companionShown;
+
+    /// <summary>Register a companion overlay to present/park in lockstep with the meter (gated by
+    /// <paramref name="enabled"/>). Unlike a plain registered overlay, its visibility fully tracks the meter.</summary>
+    public void SetCompanion(OverlayPanelWindow overlay, Func<bool> enabled)
+    {
+        _companion = overlay;
+        _companionEnabled = enabled;
+    }
+
+    private void SyncCompanion(bool meterPresent)
+    {
+        if (_companion is null)
+        {
+            return;
+        }
+
+        bool want = meterPresent && _companionEnabled?.Invoke() == true;
+        if (_companionShown == want)
+        {
+            return;
+        }
+
+        _companionShown = want;
+        if (want)
+        {
+            _companion.Present(true);
+        }
+        else
+        {
+            _companion.Park();
+        }
+    }
+
     public void Start()
     {
         _timer.Start();
@@ -105,6 +144,7 @@ public sealed class OverlayController
             _window.Present();                 // un-fade if auto-hidden, then...
             _window.ReassertTopmostIfBuried(); // ...re-claim above the topmost the game just re-asserted
             ReassertOverlaysIfBuried();
+            SyncCompanion(true);               // the buff overlay returns with the meter on alt-tab return
         }
         catch
         {
@@ -206,6 +246,7 @@ public sealed class OverlayController
         if (!IsVisible)
         {
             MeterShown = false;
+            SyncCompanion(false); // tray-hidden → the buff overlay hides with the meter
             return; // parked/hidden owns visibility while hidden
         }
 
@@ -217,6 +258,7 @@ public sealed class OverlayController
             _window.Present();
             _window.ReassertTopmostIfBuried(); // re-claim if a borderless game re-asserted its own topmost above us
             ReassertOverlaysIfBuried();        // ...and any open panel/detail window buried the same way (alt-tab return)
+            SyncCompanion(true);
             return;
         }
 
@@ -240,6 +282,7 @@ public sealed class OverlayController
                 _window.Present();
                 _window.ReassertTopmostIfBuried(); // re-claim if the game re-topped above us
                 ReassertOverlaysIfBuried();        // ...and any open panel/detail window (e.g. left open across an alt-tab)
+                SyncCompanion(true);
                 break;
             case Foreground.Self:
                 // Our own window (settings / a panel / the meter's own popup) is foreground. Keep the overlay
@@ -250,6 +293,7 @@ public sealed class OverlayController
                 _window.Present();
                 _window.ReassertTopmostIfBuried();
                 ReassertOverlaysIfBuried();
+                SyncCompanion(true);
                 break;
             case Foreground.Unknown:
                 // Ambiguous: no foreground window (alt-tab / UAC secure desktop / lock), or an
@@ -263,6 +307,7 @@ public sealed class OverlayController
                 {
                     MeterShown = false;
                     _window.Fade();
+                    SyncCompanion(false); // the buff overlay fades off screen together with the meter
                 }
 
                 break;

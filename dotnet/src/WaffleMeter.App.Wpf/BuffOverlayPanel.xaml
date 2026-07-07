@@ -9,11 +9,14 @@
     <local:OverlayPanelWindow.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </local:OverlayPanelWindow.Resources>
-    <!-- No panel chrome: max transparency, just floating icons. The transparent Grid is hit-testable so a
-         drag can start anywhere on the overlay (including the gaps between icons). -->
-    <Grid Background="Transparent" MouseLeftButtonDown="OnDragHandle" Margin="2">
-        <TextBlock Text="버프 없음" Foreground="#CCFFFFFF" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"
-                   Margin="6,3" Visibility="{Binding EmptyVisibility}">
+    <!-- Background is transparent by default (just floating icons); the "투명 배경" setting turns on a panel
+         background + border + placeholder so the window can be found and dragged when empty. The Border is
+         hit-testable (Transparent, not null) so a drag can start anywhere on the overlay. -->
+    <Border Background="{Binding PanelBackground}" BorderBrush="{Binding PanelBorderBrush}"
+            BorderThickness="{Binding PanelBorderThickness}" CornerRadius="8" MouseLeftButtonDown="OnDragHandle" Padding="2">
+      <Grid Background="Transparent" MinWidth="60" MinHeight="20">
+        <TextBlock Text="버프 오버레이 (드래그해서 이동)" Foreground="#CCFFFFFF" FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Center"
+                   Margin="8,4" Visibility="{Binding EmptyVisibility}">
             <TextBlock.Effect><DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="0" Opacity="0.9"/></TextBlock.Effect>
         </TextBlock>
         <ItemsControl ItemsSource="{Binding Slots}">
@@ -48,5 +51,6 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
-    </Grid>
+      </Grid>
+    </Border>
 </local:OverlayPanelWindow>

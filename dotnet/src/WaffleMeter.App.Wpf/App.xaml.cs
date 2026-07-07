@@ -59,7 +59,6 @@ public partial class App : Application
     private BuffOverlayPanel? _buffOverlay;
     private BuffOverlayViewModel? _buffOverlayVm;
     private System.Windows.Threading.DispatcherTimer? _buffTimer;
-    private bool _buffOverlayShown;
 
     /// <summary>Auto-reset event the FIRST instance owns (set by <see cref="Program"/>); a later launch
     /// opens it by name and signals it instead of spawning a colliding UI. We wait on it and surface the
@@ -475,6 +474,9 @@ public partial class App : Application
         _buffOverlay.Show();
         _buffOverlay.Park();
         _controller?.RegisterOverlay(_buffOverlay);
+        // Present/park the buff overlay in exact lockstep with the meter (gated by the toggle) so it never
+        // disappears on its own — when the toggle is on it is always shown whenever the meter is.
+        _controller?.SetCompanion(_buffOverlay, () => _settings?.ShowBuffUi == true);
         _buffOverlay.CloseRequested += () => { _settings.ShowBuffUi = false; };
         _buffOverlay.PositionChanged += (left, top) =>
         {
@@ -1195,20 +1197,18 @@ public partial class App : Application
         PlayAlert(_alarmToastVm.SpokenText);
     }
 
-    // Refresh the combat-assist overlay each tick: pull the local player's active buffs, apply the
-    // "own buffs only" filter, update the slots, and present/park per the settings.
+    // ~0.8s pre-warn so the "오프" voice lands right around the buff's actual expiry (TTS init + speak latency).
+    private const long BuffEndTtsLeadMs = 800;
+    private readonly HashSet<int> _buffStartAnnounced = new(); // codes we've spoken "온" for (cleared when they end)
+    private readonly HashSet<int> _buffEndAnnounced = new();   // codes we've spoken "오프" for (dedup the pre-warn)
+
+    // Refresh the combat-assist overlay each tick: pull the local player's active buffs, fire the start/end
+    // voice alerts, and update the slot content. The window's visibility is owned by the controller (companion
+    // lockstep with the meter), so this no longer parks/presents it.
     private void RefreshBuffOverlay(MeterServices services)
     {
-        if (_buffOverlay is null || _buffOverlayVm is null || _settings is null)
+        if (_buffOverlayVm is null || _settings is null)
         {
-            return;
-        }
-
-        // Follow the meter: off when disabled, or when the meter is hidden / the game isn't focused (so the
-        // buff overlay drops off screen together with the meter on alt-tab).
-        if (!_settings.ShowBuffUi || _controller is { MeterShown: false })
-        {
-            SetBuffOverlayShown(false);
             return;
         }
 
@@ -1219,30 +1219,45 @@ public partial class App : Application
             buffs = buffs.Where(b => !b.ByOther).ToList();
         }
 
-        _buffOverlayVm.Update(buffs);
+        AnnounceBuffTransitions(buffs);
 
-        // "only when active" hides the panel while there is nothing to show. Present/park only on the edge
-        // so a steady state doesn't re-issue SetWindowPos every tick.
-        bool shouldShow = !_settings.BuffUiOnlyWhenActive || buffs.Count > 0;
-        SetBuffOverlayShown(shouldShow);
+        // Update the visual slots + the transparent/opaque background per the setting (the controller shows
+        // the window; if the toggle is off it's parked and this is a cheap no-op update).
+        _buffOverlayVm.ShowBackground = !_settings.BuffUiTransparent;
+        _buffOverlayVm.Update(buffs);
     }
 
-    private void SetBuffOverlayShown(bool show)
+    // Speak "이름 온" when a tracked buff starts and "이름 오프" just before it ends (each once, gated by the
+    // per-direction toggles). Independent of the visual overlay so voice can be used on its own.
+    private void AnnounceBuffTransitions(IReadOnlyList<(int Code, string Name, long RemainingMs, long DurationMs, bool ByOther)> buffs)
     {
-        if (_buffOverlay is null || _buffOverlayShown == show)
+        if (_settings is not { } s || (!s.BuffTtsOnStart && !s.BuffTtsOnEnd))
         {
+            _buffStartAnnounced.Clear();
+            _buffEndAnnounced.Clear();
             return;
         }
 
-        _buffOverlayShown = show;
-        if (show)
+        foreach ((int code, string name, long remainingMs, long durationMs, _) in buffs)
         {
-            _buffOverlay.Present(true);
+            if (_buffStartAnnounced.Add(code) && s.BuffTtsOnStart)
+            {
+                TtsSpeech.Speak($"{name} 온", s.AlarmVolume);
+            }
+
+            // Pre-warn the end once it's inside the lead window (skip very short buffs so it doesn't double up
+            // with the start announcement).
+            if (durationMs > BuffEndTtsLeadMs * 2 && remainingMs > 0 && remainingMs <= BuffEndTtsLeadMs
+                && _buffEndAnnounced.Add(code) && s.BuffTtsOnEnd)
+            {
+                TtsSpeech.Speak($"{name} 오프", s.AlarmVolume);
+            }
         }
-        else
-        {
-            _buffOverlay.Park();
-        }
+
+        // Codes no longer active can announce again next time they appear.
+        var current = buffs.Select(b => b.Code).ToHashSet();
+        _buffStartAnnounced.RemoveWhere(c => !current.Contains(c));
+        _buffEndAnnounced.RemoveWhere(c => !current.Contains(c));
     }
 
     /// <summary>Sound an alert: speak it with TTS if enabled (which falls back to the chime on failure),

@@ -11,11 +11,50 @@ namespace WaffleMeter.App.Wpf;
 /// timer from the data layer. Slots are reconciled in place (by code) so the icons don't flicker.</summary>
 public sealed class BuffOverlayViewModel : INotifyPropertyChanged
 {
+    // Panel chrome shown only when the transparent-background option is OFF, so the window can be located
+    // and dragged even with no active buffs. Frozen for cheap software rendering.
+    private static readonly Brush PanelBg = Freeze(new SolidColorBrush(Color.FromArgb(0xCC, 0x14, 0x18, 0x21)));
+    private static readonly Brush PanelBorder = Freeze(new SolidColorBrush(Color.FromArgb(0x99, 0x78, 0x84, 0x9B)));
+
     public ObservableCollection<BuffSlotVM> Slots { get; } = new();
 
-    private Visibility _emptyVisibility = Visibility.Visible;
-    /// <summary>Shown ("버프 없음" placeholder) when there are no active slots.</summary>
+    private bool _showBackground;
+    /// <summary>When true, draw a panel background + border + placeholder so the (possibly empty) window is
+    /// visible and draggable; when false the overlay is just floating icons on a transparent background.</summary>
+    public bool ShowBackground
+    {
+        get => _showBackground;
+        set
+        {
+            if (_showBackground == value)
+            {
+                return;
+            }
+
+            _showBackground = value;
+            PanelBackground = value ? PanelBg : Brushes.Transparent;
+            PanelBorderBrush = value ? PanelBorder : Brushes.Transparent;
+            PanelBorderThickness = value ? new Thickness(1) : new Thickness(0);
+            RecomputePlaceholder();
+        }
+    }
+
+    private Brush _panelBackground = Brushes.Transparent;
+    public Brush PanelBackground { get => _panelBackground; private set => Set(ref _panelBackground, value); }
+
+    private Brush _panelBorderBrush = Brushes.Transparent;
+    public Brush PanelBorderBrush { get => _panelBorderBrush; private set => Set(ref _panelBorderBrush, value); }
+
+    private Thickness _panelBorderThickness;
+    public Thickness PanelBorderThickness { get => _panelBorderThickness; private set => Set(ref _panelBorderThickness, value); }
+
+    private Visibility _emptyVisibility = Visibility.Collapsed;
+    /// <summary>Shown (placeholder) only when the background is on AND there are no active slots.</summary>
     public Visibility EmptyVisibility { get => _emptyVisibility; private set => Set(ref _emptyVisibility, value); }
+
+    private void RecomputePlaceholder() => EmptyVisibility = _showBackground && Slots.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    private static Brush Freeze(Brush b) { b.Freeze(); return b; }
 
     /// <summary>Replace the slot list from a fresh snapshot, reusing existing rows by code so only the
     /// countdown text + ring progress change on a normal tick.</summary>
@@ -43,7 +82,7 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
             }
         }
 
-        EmptyVisibility = Slots.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        RecomputePlaceholder();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

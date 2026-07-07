@@ -108,6 +108,11 @@ internal static class Program
                 });
                 Capture(() => new BuffOverlayPanel(buffVm), palette, Path.Combine(outDir, "buffoverlay_Dark.png"));
 
+                // opaque/findable mode (투명 배경 off) — background + border so an empty window is locatable
+                var buffBgVm = new BuffOverlayViewModel { ShowBackground = true };
+                buffBgVm.Update(new List<(int, string, long, long, bool)>());
+                Capture(() => new BuffOverlayPanel(buffBgVm), palette, Path.Combine(outDir, "buffoverlay_bg_Dark.png"));
+
                 // Per-job buff picker: seed a small observed catalog so the grouped list renders.
                 var pickerData = new DataManager();
                 pickerData.LoadBuffNames(new (int, string, string)[]
