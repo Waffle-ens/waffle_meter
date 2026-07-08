@@ -32,6 +32,12 @@ public interface ICaptureGameData
     void RequestOfficialCharacterLookup(int uid);
     void TouchDummyBattle(int target, long epoch);
 
+    /// <summary>Skill cooldown update: <paramref name="remainingMs"/> ms left on <paramref name="skillCode"/>'s
+    /// cooldown (0 = ready) as of <paramref name="arrivedAt"/> (capture wall-clock ms). <paramref name="actorId"/>
+    /// is the caster's entity id, or 0 for the self-only 0x3847 hotbar snapshot (no filter needed); the data
+    /// layer keeps only self cooldowns. Default no-op. Drives the buff overlay's cooldown gray-out.</summary>
+    void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId) { }
+
     /// <summary>Aether (오드) resource update from the 0x610x family. <paramref name="split"/> true =
     /// <paramref name="baseVal"/>/<paramref name="bonus"/> were both carried; false = only
     /// <paramref name="total"/> is meaningful and the data layer back-computes base/bonus from its previous

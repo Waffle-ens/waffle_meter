@@ -8,9 +8,10 @@ using WaffleMeter.Data;
 namespace WaffleMeter.App.Wpf;
 
 /// <summary>Per-job buff picker: every buff observed on the local player / party, grouped by job, each with a
-/// 3-way mode — 알림끔 (hidden) / 오버레이만 (shown) / 오버레이+음성 (shown + voice alert). Consumable/item buffs
-/// never reach this list (the data layer keeps only job-skill codes). Modes persist to two sets: hidden codes
-/// (Off) and voice codes (Voice); a code in neither is Overlay-only.</summary>
+/// 4-way mode — 알림끔 (off) / 오버레이만 (shown) / 오버레이+음성 (shown + voice) / 음성만 (voice, not shown).
+/// Consumable/item buffs never reach this list (the data layer keeps only job-skill codes). Modes persist to two
+/// sets: hidden codes and voice codes — hidden&voice = 음성만, hidden-only = 알림끔, voice-only = 오버레이+음성,
+/// neither = 오버레이만.</summary>
 public sealed class BuffPickerViewModel : INotifyPropertyChanged
 {
     private readonly DataManager _data;
@@ -74,9 +75,18 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
         IsEmpty = Groups.Count == 0;
     }
 
-    private int ModeOf(int baseCode) => _hidden.Contains(baseCode) ? BuffPickerItem.Off
-        : _voice.Contains(baseCode) ? BuffPickerItem.Voice
-        : BuffPickerItem.Overlay;
+    // States are two independent sets: hidden (not drawn) × voice (spoken). 음성만 = hidden AND voice.
+    private int ModeOf(int baseCode)
+    {
+        bool hidden = _hidden.Contains(baseCode);
+        bool voice = _voice.Contains(baseCode);
+        if (hidden)
+        {
+            return voice ? BuffPickerItem.VoiceOnly : BuffPickerItem.Off;
+        }
+
+        return voice ? BuffPickerItem.Voice : BuffPickerItem.Overlay;
+    }
 
     private void OnItemModeChanged(int baseCode, int mode)
     {
@@ -88,13 +98,19 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
     {
         _hidden.Remove(baseCode);
         _voice.Remove(baseCode);
-        if (mode == BuffPickerItem.Off)
+        switch (mode)
         {
-            _hidden.Add(baseCode);
-        }
-        else if (mode == BuffPickerItem.Voice)
-        {
-            _voice.Add(baseCode);
+            case BuffPickerItem.Off:
+                _hidden.Add(baseCode);
+                break;
+            case BuffPickerItem.Voice:
+                _voice.Add(baseCode);
+                break;
+            case BuffPickerItem.VoiceOnly:
+                _hidden.Add(baseCode); // hidden from the overlay ...
+                _voice.Add(baseCode);  // ... but still spoken
+                break;
+            // Overlay: in neither set.
         }
     }
 
@@ -115,6 +131,7 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
         _settings.BuffUiHidden = string.Join(",", _hidden);
         _settings.BuffUiVoice = string.Join(",", _voice);
         _data.SetHiddenBuffBases(_hidden);
+        _data.SetVoiceBuffBases(_voice);
     }
 
     public void Dispose() => _data.BuffCatalogChanged -= OnCatalogChanged;
@@ -143,9 +160,10 @@ public sealed class BuffJobGroup
 /// <summary>One buff row: icon + name + a 3-way mode (bound to a ComboBox SelectedIndex).</summary>
 public sealed class BuffPickerItem : INotifyPropertyChanged
 {
-    public const int Off = 0;      // 알림끔
-    public const int Overlay = 1;  // 오버레이만
-    public const int Voice = 2;    // 오버레이+음성
+    public const int Off = 0;        // 알림끔
+    public const int Overlay = 1;    // 오버레이만
+    public const int Voice = 2;      // 오버레이+음성
+    public const int VoiceOnly = 3;  // 음성만 (음성 알림만, 오버레이 표시 없음)
 
     private readonly Action<int, int> _onModeChanged;
     private bool _suppress;
@@ -170,7 +188,7 @@ public sealed class BuffPickerItem : INotifyPropertyChanged
         get => _mode;
         set
         {
-            if (_mode == value || value is < Off or > Voice)
+            if (_mode == value || value is < Off or > VoiceOnly)
             {
                 return; // ignore the transient -1 a ComboBox can push during template init
             }

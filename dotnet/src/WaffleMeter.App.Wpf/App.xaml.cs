@@ -474,6 +474,7 @@ public partial class App : Application
         }
 
         services.Data.SetHiddenBuffBases(hidden);
+        services.Data.SetVoiceBuffBases(MeterSettings.ParseCodeSet(_settings.BuffUiVoice)); // 음성만/오버레이+음성 buffs the store must keep
         services.Data.BuffCatalogChanged += () => Dispatcher.BeginInvoke(() =>
             _settings.BuffUiObserved = string.Join(",", services.Data.ObservedBuffBases()));
 
@@ -1217,8 +1218,8 @@ public partial class App : Application
 
     // ~0.8s pre-warn so the "오프" voice lands right around the buff's actual expiry (TTS init + speak latency).
     private const long BuffEndTtsLeadMs = 800;
-    private readonly HashSet<int> _buffStartAnnounced = new(); // codes we've spoken "온" for (cleared when they end)
-    private readonly HashSet<int> _buffEndAnnounced = new();   // codes we've spoken "오프" for (dedup the pre-warn)
+    private readonly HashSet<int> _buffStartAnnounced = new(); // base codes we've spoken "온" for (cleared when they end)
+    private readonly Dictionary<int, long> _buffEndAnnouncedFor = new(); // base code -> the End(ms) already "오프"-warned; a re-cast extends End and re-arms
 
     // Refresh the combat-assist overlay each tick: pull the local player's active buffs, fire the start/end
     // voice alerts, update the slot content, AND reconcile the window's visibility. This 500ms timer always
@@ -1233,18 +1234,19 @@ public partial class App : Application
         }
 
         long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        IReadOnlyList<(int Code, string Name, long RemainingMs, long DurationMs, bool ByOther)> buffs = services.Data.ActiveOwnerBuffs(nowMs);
+        IReadOnlyList<WaffleMeter.Data.OwnerBuffView> buffs = services.Data.ActiveOwnerBuffs(nowMs);
         if (!_settings.ShowOtherPlayerBuffs)
         {
             buffs = buffs.Where(b => !b.ByOther).ToList();
         }
 
+        // The announce list includes 음성만 (voice-only) buffs; the overlay draws only Overlay==true ones.
         AnnounceBuffTransitions(buffs);
 
         _buffOverlayVm.ShowBackground = !_settings.BuffUiTransparent;
         _buffOverlayVm.SetIconSize(_settings.BuffUiIconSize);
         _buffOverlayVm.SetTextColor(_settings.BuffUiTextColor);
-        _buffOverlayVm.Update(buffs);
+        _buffOverlayVm.Update(buffs.Where(b => b.Overlay).ToList(), _settings.BuffUiGrayOnCooldown);
 
         // Visibility: show whenever the toggle is on AND the meter is on screen (MeterShown starts true and is
         // kept current by the controller poll). Mirror the meter's click-through when shown, and re-claim
@@ -1265,41 +1267,54 @@ public partial class App : Application
         }
     }
 
-    // Speak "이름 온" when a buff set to "오버레이+음성" starts and "이름 오프" just before it ends (each once,
-    // gated by the global start/end toggles). Per-buff voice is chosen in the 버프 알림 tab; independent of the
-    // visual overlay so voice can be used on its own.
-    private void AnnounceBuffTransitions(IReadOnlyList<(int Code, string Name, long RemainingMs, long DurationMs, bool ByOther)> buffs)
+    // Speak "이름 온" when a buff set to "오버레이+음성" / "음성만" starts and "이름 오프" just before it ends (each
+    // once, gated by the global start/end toggles). Per-buff voice is chosen in the 버프 알림 tab; independent of
+    // the visual overlay so voice can be used on its own (음성만). Codes here are already BASE codes, so the same
+    // buff re-cast by another player is one entry — it takes over the earlier one WITHOUT a second start voice,
+    // and re-arms the end alert off the refreshed expiry. Alerts are queued durably so a burst of simultaneous
+    // buffs is spoken in sequence rather than the later ones being dropped.
+    private void AnnounceBuffTransitions(IReadOnlyList<WaffleMeter.Data.OwnerBuffView> buffs)
     {
         if (_settings is not { } s || (!s.BuffTtsOnStart && !s.BuffTtsOnEnd))
         {
             _buffStartAnnounced.Clear();
-            _buffEndAnnounced.Clear();
+            _buffEndAnnouncedFor.Clear();
             return;
         }
 
-        HashSet<int> voiceCodes = s.BuffUiVoiceCodes; // base codes set to 오버레이+음성
-        foreach ((int code, string name, long remainingMs, long durationMs, _) in buffs)
+        HashSet<int> voiceCodes = s.BuffUiVoiceCodes; // base codes set to 오버레이+음성 or 음성만
+        foreach (WaffleMeter.Data.OwnerBuffView b in buffs)
         {
-            bool voice = voiceCodes.Contains(WaffleMeter.Data.DataManager.BuffBaseCode(code));
-
-            if (_buffStartAnnounced.Add(code) && voice && s.BuffTtsOnStart)
+            if (!voiceCodes.Contains(b.Code))
             {
-                TtsSpeech.Speak($"{name} 온", s.AlarmVolume);
+                continue; // overlay-only (or off) buff — no voice
             }
 
-            // Pre-warn the end once it's inside the lead window (skip very short buffs so it doesn't double up
-            // with the start announcement).
-            if (durationMs > BuffEndTtsLeadMs * 2 && remainingMs > 0 && remainingMs <= BuffEndTtsLeadMs
-                && _buffEndAnnounced.Add(code) && voice && s.BuffTtsOnEnd)
+            // Start once per buff. A same-buff re-cast (base already announced) does NOT re-announce — the later
+            // cast silently takes over the earlier one.
+            if (s.BuffTtsOnStart && _buffStartAnnounced.Add(b.Code))
             {
-                TtsSpeech.Speak($"{name} 오프", s.AlarmVolume);
+                TtsSpeech.Speak($"{b.Name} 온", s.AlarmVolume, durable: true);
+            }
+
+            // Pre-warn the end once inside the lead window (skip very short buffs so it doesn't double up with
+            // the start). Keyed on the End(ms): a re-cast that extends the buff gives a new End and re-arms this,
+            // so the end alert fires off the REFRESHED duration.
+            if (s.BuffTtsOnEnd && b.DurationMs > BuffEndTtsLeadMs * 2 && b.RemainingMs > 0 && b.RemainingMs <= BuffEndTtsLeadMs
+                && (!_buffEndAnnouncedFor.TryGetValue(b.Code, out long warnedEnd) || warnedEnd != b.EndMs))
+            {
+                _buffEndAnnouncedFor[b.Code] = b.EndMs;
+                TtsSpeech.Speak($"{b.Name} 오프", s.AlarmVolume, durable: true);
             }
         }
 
         // Codes no longer active can announce again next time they appear.
         var current = buffs.Select(b => b.Code).ToHashSet();
         _buffStartAnnounced.RemoveWhere(c => !current.Contains(c));
-        _buffEndAnnounced.RemoveWhere(c => !current.Contains(c));
+        foreach (int c in _buffEndAnnouncedFor.Keys.Where(c => !current.Contains(c)).ToList())
+        {
+            _buffEndAnnouncedFor.Remove(c);
+        }
     }
 
     /// <summary>Sound an alert: speak it with TTS if enabled (which falls back to the chime on failure),

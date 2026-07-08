@@ -23,12 +23,15 @@ namespace WaffleMeter.App.Wpf;
 /// </summary>
 public static class TtsSpeech
 {
-    private const int MaxQueue = 4;
+    private const int MaxQueue = 16;
     private const int MaxRequestAgeMs = 4000;
     private const int CacheLimit = 32;
     private const int RequestTimeoutMs = 3500;
 
-    private sealed record Request(string Text, double Volume, long EnqueuedMs);
+    // Durable = a burst-of-many alert (e.g. several buffs turning on at once) that must be spoken in sequence,
+    // not dropped: it bypasses the stale-age skip so later items in the burst still play once the worker reaches
+    // them. Non-durable (default, e.g. a time-sensitive alarm reminder) keeps the "spoken late is worse" skip.
+    private sealed record Request(string Text, double Volume, long EnqueuedMs, bool Durable);
 
     private static readonly object Gate = new();
     private static BlockingCollection<Request>? _queue;
@@ -41,8 +44,10 @@ public static class TtsSpeech
     public static string Voice { get; set; } = EdgeTtsProtocol.DefaultVoice;
 
     /// <summary>Queue <paramref name="text"/> to be spoken at <paramref name="volume"/> (0..1). Returns
-    /// immediately; never throws.</summary>
-    public static void Speak(string text, double volume)
+    /// immediately; never throws. Set <paramref name="durable"/> for a burst that must all be spoken in order
+    /// (buff on/off alerts) — those bypass the stale-age skip so a later item isn't dropped while earlier ones
+    /// play.</summary>
+    public static void Speak(string text, double volume, bool durable = false)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -50,7 +55,7 @@ public static class TtsSpeech
         }
 
         EnsureWorker();
-        var req = new Request(text.Trim(), Math.Clamp(volume, 0, 1), Environment.TickCount64);
+        var req = new Request(text.Trim(), Math.Clamp(volume, 0, 1), Environment.TickCount64, durable);
         // Bounded + newest-wins: if full, drop the oldest so a fresh alert isn't starved by a backlog.
         while (!_queue!.TryAdd(req))
         {
@@ -85,9 +90,9 @@ public static class TtsSpeech
     {
         foreach (Request req in _queue!.GetConsumingEnumerable())
         {
-            if (Environment.TickCount64 - req.EnqueuedMs > MaxRequestAgeMs)
+            if (!req.Durable && Environment.TickCount64 - req.EnqueuedMs > MaxRequestAgeMs)
             {
-                continue; // too old — an alert spoken seconds late is worse than skipped
+                continue; // too old — a (non-durable) alert spoken seconds late is worse than skipped
             }
 
             try

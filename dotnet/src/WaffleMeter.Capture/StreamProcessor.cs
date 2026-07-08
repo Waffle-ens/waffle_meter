@@ -72,6 +72,13 @@ public sealed class StreamProcessor
     private const int SummonKey = 0x41 | (0x36 << 8);          // 0x3641 (was 0x3640)
     private const int BuffApplyKey = 0x2A | (0x38 << 8);       // 0x382A
     private const int BuffApply2Key = 0x2B | (0x38 << 8);      // 0x382B
+    // Skill cooldown snapshot (0x38 category): a table of {u32 skillCode, varint remainingMs} for the local
+    // player's hotbar (remaining 0 = ready). Drives the buff overlay's "grayed while on cooldown" option.
+    private const int CooldownKey = 0x47 | (0x38 << 8);        // 0x3847
+    // Per-cast cooldown START (multi-actor) — grays the overlay the instant a skill is cast, before the
+    // periodic 0x3847 snapshot catches up. remaining = the frame's LAST varint (ground-truth verified: 바이젤/
+    // 지원사격 39100ms, 축복의활 78200ms). Filtered to self.
+    private const int CooldownStartKey = 0x02 | (0x38 << 8);   // 0x3802
     private const int BattleToggleKey = 0x21 | (0x8D << 8);    // 0x8D21
     private const int RemainHpKey = 0x00 | (0x8D << 8);        // 0x8D00
     // Party join-request family (0x97 category — untouched by the 2026-06-10 0x36 shift).
@@ -99,6 +106,8 @@ public sealed class StreamProcessor
         [DoTKey] = "DoT",
         [BuffApplyKey] = "BuffApply",
         [BuffApply2Key] = "BuffApply2",
+        [CooldownKey] = "Cooldown",
+        [CooldownStartKey] = "CooldownStart",
         [BattleToggleKey] = "BattleToggle",
         [RemainHpKey] = "RemainHp",
         [Key(0x07, 0x97)] = "JoinRequest",
@@ -272,6 +281,12 @@ public sealed class StreamProcessor
                 case BuffApplyKey:
                 case BuffApply2Key:
                     ParseBuffPacket(packet, lengthInfo, extraFlag, arrivedAt);
+                    break;
+                case CooldownKey:
+                    ParseCooldownPacket(packet, lengthInfo, extraFlag, arrivedAt);
+                    break;
+                case CooldownStartKey:
+                    ParseCooldownStartPacket(packet, lengthInfo, extraFlag, arrivedAt);
                     break;
                 case JoinRequestKey:
                     ParseJoinRequest(packet, lengthInfo, extraFlag, arrivedAt);
@@ -1150,6 +1165,111 @@ public sealed class StreamProcessor
         catch
         {
             // swallowed (matches Kotlin's try/catch around parseBuffPacket)
+        }
+    }
+
+    /// <summary>Skill cooldown snapshot 0x3847: <c>[count][ {u32 LE skillCode, varint remainingMs} × count ]</c>
+    /// for the local player's hotbar (remaining 0 = ready). Emits each record to the data layer, which keys it
+    /// by base code for the buff overlay's "grayed while on cooldown" option. Raw code is passed through so the
+    /// data layer owns the normalization. Bounds-guarded + swallowing like the other 0x38 parsers.</summary>
+    private void ParseCooldownPacket(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, long arrivedAt)
+    {
+        try
+        {
+            int offset = lengthInfo.Length;
+            if (extraFlag)
+            {
+                offset++;
+            }
+
+            if (packet[offset] != 0x47 || packet[offset + 1] != 0x38)
+            {
+                return;
+            }
+
+            offset += 2;
+
+            int count = packet[offset];
+            offset++;
+            if (count is <= 0 or > 128)
+            {
+                return; // implausible record count — a misaligned / noise frame
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                int skillCode = PacketPrimitives.ParseUInt32Le(packet, offset);
+                offset += 4;
+
+                VarIntOutput remInfo = PacketPrimitives.ReadVarInt(packet, offset);
+                if (remInfo.Length < 0)
+                {
+                    return;
+                }
+
+                offset += remInfo.Length;
+
+                _data.SaveCooldown(skillCode, remInfo.Value, arrivedAt, 0); // 0x3847 = self hotbar snapshot
+                _sink.Meta("cooldown", ("skill", skillCode), ("remaining", remInfo.Value));
+            }
+        }
+        catch
+        {
+            // swallowed — a short/garbage buffer must never crash the consumer (matches the buff parser)
+        }
+    }
+
+    /// <summary>Per-cast cooldown START 0x3802 (multi-actor). Layout: <c>[actor v][00][u32 skillCode][counter]
+    /// [flag][…][varint remaining]</c> where remaining is the frame's LAST varint (0 on non-cast/ready frames,
+    /// the full cooldown on a cast — ground-truth: 바이젤/지원사격 39100ms, 축복의활 78200ms). Only cast frames
+    /// (remaining &gt; 0) are stored, filtered to self; 0x3847 handles the accurate decay/clear afterwards.</summary>
+    private void ParseCooldownStartPacket(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, long arrivedAt)
+    {
+        try
+        {
+            int opcodeOffset = lengthInfo.Length + (extraFlag ? 1 : 0);
+            if (packet[opcodeOffset] != 0x02 || packet[opcodeOffset + 1] != 0x38)
+            {
+                return;
+            }
+
+            VarIntOutput actor = PacketPrimitives.ReadVarInt(packet, opcodeOffset + 2);
+            if (actor.Length < 0)
+            {
+                return;
+            }
+
+            int skillOff = opcodeOffset + 2 + actor.Length + 1; // [00] then the u32 skill code
+            if (skillOff + 4 > packet.Length)
+            {
+                return;
+            }
+
+            int skillCode = PacketPrimitives.ParseUInt32Le(packet, skillOff);
+            if (skillCode is < 11_000_000 or > 19_999_999)
+            {
+                return; // job skills only (the band the buff overlay grays)
+            }
+
+            // remaining = the LAST varint of the frame. Walk back from the terminal byte over continuation bytes.
+            int start = packet.Length - 1;
+            int floor = Math.Max(skillOff + 4, packet.Length - 5);
+            while (start > floor && (packet[start - 1] & 0x80) != 0)
+            {
+                start--;
+            }
+
+            long remaining = PacketPrimitives.ReadVarInt(packet, start).Value;
+            if (remaining <= 0 || remaining > 3_600_000)
+            {
+                return; // ready/non-cast (0) or implausible — only cooldown STARTS gray instantly
+            }
+
+            _data.SaveCooldown(skillCode, remaining, arrivedAt, actor.Value);
+        }
+        catch
+        {
+            // swallowed — a short/garbage buffer must never crash the consumer
         }
     }
 

@@ -32,10 +32,16 @@
                                             ScaleY="{Binding DataContext.IconScale, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
                         </StackPanel.LayoutTransform>
                         <Grid Width="46" Height="46" HorizontalAlignment="Center">
-                            <!-- Circular skill icon, clipped so the cooldown ring frames it cleanly (no overlap). -->
-                            <Image Source="{Binding IconSource}" Width="40" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- Circular skill icon, clipped so the cooldown ring frames it cleanly (no overlap).
+                                 Dimmed (IconOpacity) while the granting skill is on cooldown. -->
+                            <Image Source="{Binding IconSource}" Width="40" Height="40" Opacity="{Binding IconOpacity}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Image.Clip><EllipseGeometry Center="20,20" RadiusX="20" RadiusY="20"/></Image.Clip>
                             </Image>
+                            <!-- Cooldown gray veil: a translucent gray disc over the icon while the skill is on
+                                 cooldown (the "쿨타임 회색" option), so it reads as not-yet-recastable. -->
+                            <Ellipse Width="40" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     Fill="#99424242" Visibility="{Binding CooldownVeil}"/>
                             <!-- Faint full-circle track so the icon always reads as framed. -->
                             <Ellipse Width="43" Height="43" HorizontalAlignment="Center" VerticalAlignment="Center"
                                      Stroke="#40000000" StrokeThickness="2.5"/>

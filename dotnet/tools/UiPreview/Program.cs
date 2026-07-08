@@ -101,28 +101,28 @@ internal static class Program
 
                 var buffVm = new BuffOverlayViewModel();
                 buffVm.SetTextColor("#FFD54A"); // amber text (verifies the color option)
-                buffVm.Update(new List<(int, string, long, long, bool)>
+                buffVm.Update(new List<WaffleMeter.Data.OwnerBuffView>
                 {
-                    (18290000, "회전격", 12_000, 30_000, false),
-                    (11400000, "축복", 45_000, 60_000, true),
-                    (13050000, "섬광베기", 6_000, 20_000, false),
-                });
+                    new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false),
+                    new(11400000, "축복", 45_000, 60_000, 45_000, true, true, false),
+                    new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, true), // on cooldown → grayed
+                }, grayOnCooldown: true);
                 Capture(() => new BuffOverlayPanel(buffVm), palette, Path.Combine(outDir, "buffoverlay_Dark.png"));
 
                 // small icon size (34px = scale 0.85)
                 var buffSmallVm = new BuffOverlayViewModel();
                 buffSmallVm.SetIconSize(34);
-                buffSmallVm.Update(new List<(int, string, long, long, bool)>
+                buffSmallVm.Update(new List<WaffleMeter.Data.OwnerBuffView>
                 {
-                    (18290000, "회전격", 12_000, 30_000, false),
-                    (11400000, "축복", 45_000, 60_000, true),
-                    (13050000, "섬광베기", 6_000, 20_000, false),
-                });
+                    new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false),
+                    new(11400000, "축복", 45_000, 60_000, 45_000, true, true, false),
+                    new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, false),
+                }, grayOnCooldown: false);
                 Capture(() => new BuffOverlayPanel(buffSmallVm), palette, Path.Combine(outDir, "buffoverlay_small_Dark.png"));
 
                 // opaque/findable mode (투명 배경 off) — background + border so an empty window is locatable
                 var buffBgVm = new BuffOverlayViewModel { ShowBackground = true };
-                buffBgVm.Update(new List<(int, string, long, long, bool)>());
+                buffBgVm.Update(new List<WaffleMeter.Data.OwnerBuffView>(), grayOnCooldown: false);
                 Capture(() => new BuffOverlayPanel(buffBgVm), palette, Path.Combine(outDir, "buffoverlay_bg_Dark.png"));
 
                 // (the per-job buff picker is now embedded in the settings 버프 알림 tab, not a standalone window)

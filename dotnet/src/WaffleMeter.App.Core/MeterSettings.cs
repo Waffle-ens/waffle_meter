@@ -76,6 +76,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffUiTransparent = ReadBool("buffUi.transparent", true);
         _buffTtsOnStart = ReadBool("buffUi.ttsOnStart", false);
         _buffTtsOnEnd = ReadBool("buffUi.ttsOnEnd", false);
+        _buffUiGrayOnCooldown = ReadBool("buffUi.grayOnCooldown", false);
         _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
         _buffUiHidden = _props.GetProperty("buffUi.hidden") ?? "";
         _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
@@ -298,6 +299,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private bool _buffTtsOnEnd;
     /// <summary>Speak "이름 오프" shortly before a tracked buff ends (a lead compensates for TTS latency).</summary>
     public bool BuffTtsOnEnd { get => _buffTtsOnEnd; set => SetBool(ref _buffTtsOnEnd, "buffUi.ttsOnEnd", value); }
+
+    private bool _buffUiGrayOnCooldown;
+    /// <summary>Gray out a buff overlay icon while the skill that grants it is still on cooldown (from the live
+    /// 0x3847 cooldown snapshot), so you can see at a glance when it's re-castable. Off by default.</summary>
+    public bool BuffUiGrayOnCooldown { get => _buffUiGrayOnCooldown; set => SetBool(ref _buffUiGrayOnCooldown, "buffUi.grayOnCooldown", value); }
 
     private bool _showOtherPlayerBuffs;
     /// <summary>Include buffs applied by other players (off = only the local player's own buffs).</summary>

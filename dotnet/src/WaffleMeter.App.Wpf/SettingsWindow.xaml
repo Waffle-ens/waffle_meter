@@ -642,6 +642,14 @@
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffTtsOnEnd}"/>
                         </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="쿨타임 중 아이콘 회색" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="버프를 거는 스킬이 쿨타임이면 오버레이 아이콘을 회색으로 흐리게 표시합니다. (재사용 가능 시점 확인용)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiGrayOnCooldown}"/>
+                        </Grid>
 
                         <TextBlock Text="아직 표시된 버프가 없습니다. 전투를 진행하면 여기에 버프가 나타납니다."
                                    Foreground="{DynamicResource Skin.MutedFg}" TextWrapping="Wrap" Margin="0,8,0,0"
@@ -660,8 +668,10 @@
                                                             DataContext="{Binding}" Tag="g|0" Click="OnBuffGroupMode"/>
                                                     <Button Content="전체 오버레이" Padding="8,2" FontSize="11" Margin="0,0,4,0"
                                                             DataContext="{Binding}" Tag="g|1" Click="OnBuffGroupMode"/>
-                                                    <Button Content="전체 음성" Padding="8,2" FontSize="11"
+                                                    <Button Content="전체 음성" Padding="8,2" FontSize="11" Margin="0,0,4,0"
                                                             DataContext="{Binding}" Tag="g|2" Click="OnBuffGroupMode"/>
+                                                    <Button Content="전체 음성만" Padding="8,2" FontSize="11"
+                                                            DataContext="{Binding}" Tag="g|3" Click="OnBuffGroupMode"/>
                                                 </StackPanel>
                                             </Grid>
                                             <ItemsControl ItemsSource="{Binding Items}">
@@ -683,6 +693,7 @@
                                                                 <ComboBoxItem Content="알림끔"/>
                                                                 <ComboBoxItem Content="오버레이만"/>
                                                                 <ComboBoxItem Content="오버레이+음성"/>
+                                                                <ComboBoxItem Content="음성만"/>
                                                             </ComboBox>
                                                         </Grid>
                                                     </DataTemplate>

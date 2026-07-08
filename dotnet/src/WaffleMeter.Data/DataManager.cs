@@ -121,6 +121,9 @@ public sealed class DataManager : ICaptureGameData
     private readonly HashSet<int> _defaultOffBuffBases = new();
     // Base skill codes the user unchecked — the overlay suppresses these.
     private readonly HashSet<int> _hiddenBuffBases = new();
+    // Base skill codes set to voice ("오버레이+음성" or "음성만") — the store keeps these even when hidden so a
+    // 음성만 buff still reaches the announce path (hidden AND voice = 음성만).
+    private readonly HashSet<int> _voiceBuffBases = new();
     private readonly object _buffPickerGate = new();
 
     /// <summary>Runtime job-buff code (110000000..199999999) -> its base skill code (8-digit), the key both
@@ -148,6 +151,19 @@ public sealed class DataManager : ICaptureGameData
             foreach (int c in baseCodes)
             {
                 _hiddenBuffBases.Add(c);
+            }
+        }
+    }
+
+    /// <summary>Replace the voice-buff set (base codes set to "오버레이+음성" or "음성만" in the picker).</summary>
+    public void SetVoiceBuffBases(IEnumerable<int> baseCodes)
+    {
+        lock (_buffPickerGate)
+        {
+            _voiceBuffBases.Clear();
+            foreach (int c in baseCodes)
+            {
+                _voiceBuffBases.Add(c);
             }
         }
     }
@@ -200,6 +216,14 @@ public sealed class DataManager : ICaptureGameData
         lock (_buffPickerGate)
         {
             return _hiddenBuffBases.Contains(BuffBaseCode(runtimeCode));
+        }
+    }
+
+    private bool IsBuffVoice(int runtimeCode)
+    {
+        lock (_buffPickerGate)
+        {
+            return _voiceBuffBases.Contains(BuffBaseCode(runtimeCode));
         }
     }
 
@@ -802,15 +826,38 @@ public sealed class DataManager : ICaptureGameData
         // the overlay can show what's active + how long is left. Job-skill buffs only — consumable/item buffs
         // (food/drink/scroll/potion, in the lower item-code band) and blacklisted buffs are excluded.
         int owner = _userRepository.Executor();
+
+        // Buff-tracking diagnostics (crowded-raid overlay failure investigation). Counts, per job-buff seen,
+        // whether it was accepted onto the self-overlay (uid==owner), or lost because the executor is unknown
+        // (owner==0, e.g. a self-recognition 0x3633 dropped on a flooded instance entry). Single-consumer
+        // thread, so plain increments. Read via BuffDiagSnapshot on the same thread.
+        if (IsJobBuffCode(skillCode) && !IsBuffBlacklisted(skillCode))
+        {
+            _diagJobBuffSeen++;
+            if (owner == 0)
+            {
+                _diagOwnerZeroJobBuff++;
+            }
+            else if (uid == owner)
+            {
+                _diagSelfBuffAccepted++;
+            }
+        }
+
         if (owner != 0 && uid == owner && IsJobBuffCode(skillCode) && !IsBuffBlacklisted(skillCode))
         {
             RecordObservedBuff(skillCode); // populate the per-job picker catalog
 
-            if (!IsBuffHidden(skillCode)) // respect the user's per-job picker selection
+            // Store unless fully Off (hidden AND not voice). A "음성만" buff (hidden + voice) is still stored so
+            // the announce path can speak it; the overlay drops it downstream via OwnerBuffView.Overlay.
+            if (!IsBuffHidden(skillCode) || IsBuffVoice(skillCode))
             {
+                int baseCode = BuffBaseCode(skillCode);
                 lock (_ownerBuffGate)
                 {
-                    _ownerBuffs[skillCode] = (buffEnd, actorId, duration);
+                    // Key by BASE code so the SAME buff re-cast by a different player/rank refreshes the one slot
+                    // in place (no duplicate icon, no duplicate start alert) — the later cast takes over.
+                    _ownerBuffs[baseCode] = (buffEnd, actorId, duration);
                 }
 
                 LiveBuffsChanged?.Invoke();
@@ -864,19 +911,80 @@ public sealed class DataManager : ICaptureGameData
     private static bool IsJobBuffCode(int code) => code is >= 110_000_000 and <= 199_999_999;
 
     // ---- live owner-buff store (for the combat-assist overlay) ----
-    private readonly Dictionary<int, (long End, int Actor, long Duration)> _ownerBuffs = new(); // code -> (expiry, applier, duration)
+    // Keyed by BASE skill code (level-independent) so a re-cast of the same buff refreshes one entry.
+    private readonly Dictionary<int, (long End, int Actor, long Duration)> _ownerBuffs = new(); // baseCode -> (expiry, applier, duration)
+    // Skill cooldowns from the 0x3847 snapshot, keyed by the SAME base code, so a buff slot can be grayed while
+    // its skill is on cooldown. Value = cooldown end (ms, capture clock); on-cooldown iff end > now.
+    private readonly Dictionary<int, long> _cooldowns = new(); // baseCode -> cooldown end (ms)
     private readonly object _ownerBuffGate = new();
+
+    /// <summary>Cooldown update from 0x3847 (self snapshot, <paramref name="actorId"/>=0) or 0x3802 (per-cast,
+    /// real actor). Stored under the buff overlay's base scheme (skill 8-digit -> /10000*10000, buff 9-digit ->
+    /// /100000*10000 — validated to line up with buff bases). remaining 0 = ready (end in the past). Only the
+    /// self's cooldowns are kept: actorId 0 (snapshot) or == executor. Consumer-thread writer.</summary>
+    public void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId)
+    {
+        if (actorId != 0 && actorId != _userRepository.Executor())
+        {
+            return; // another player's cooldown — not for the self overlay
+        }
+
+        int baseCode = skillCode is >= 11_000_000 and <= 19_999_999 ? skillCode / 10_000 * 10_000 : BuffBaseCode(skillCode);
+        lock (_ownerBuffGate)
+        {
+            _cooldowns[baseCode] = arrivedAt + Math.Max(0, remainingMs);
+        }
+    }
+
+    // Buff-tracking diagnostics (see SaveUseBuff). Written on the single consumer thread only.
+    private long _diagJobBuffSeen;        // job-buff apply/refresh frames seen (any recipient)
+    private long _diagSelfBuffAccepted;   // ... of those, target==executor -> counted onto the self overlay
+    private long _diagOwnerZeroJobBuff;   // ... seen while executor is unknown (owner==0): self-recognition lost
+
+    /// <summary>Snapshot of the buff-tracking diagnostic counters + current executor and live owner-buff store
+    /// size. Read on the consumer thread. Discriminates the crowded-raid overlay failure: healthy
+    /// <c>SelfAccepted</c> means self buff frames arrive and pass the gate (fault is downstream / refresh loss);
+    /// a spike in <c>OwnerZero</c> or <c>SelfAccepted</c> stalling to 0 while <c>JobBuffSeen</c> keeps rising
+    /// means the executor gate is blacking out self buffs.</summary>
+    public (long JobBuffSeen, long SelfAccepted, long OwnerZero, int Owner, int StoreCount, int CdStore, int CdActive, int BuffsOnCd) BuffDiagSnapshot(long nowMs)
+    {
+        int storeCount, cdStore, cdActive = 0, buffsOnCd = 0;
+        lock (_ownerBuffGate)
+        {
+            storeCount = _ownerBuffs.Count;
+            cdStore = _cooldowns.Count;
+            foreach (long cdEnd in _cooldowns.Values)
+            {
+                if (cdEnd > nowMs)
+                {
+                    cdActive++;
+                }
+            }
+
+            // active owner buffs whose skill is on cooldown right now — these are the ones that SHOULD gray.
+            foreach (KeyValuePair<int, (long End, int Actor, long Duration)> kv in _ownerBuffs)
+            {
+                if (kv.Value.End > nowMs && _cooldowns.TryGetValue(kv.Key, out long cd) && cd > nowMs)
+                {
+                    buffsOnCd++;
+                }
+            }
+        }
+
+        return (_diagJobBuffSeen, _diagSelfBuffAccepted, _diagOwnerZeroJobBuff, _userRepository.Executor(), storeCount, cdStore, cdActive, buffsOnCd);
+    }
 
     /// <summary>Raised when a buff on the local player is applied/refreshed.</summary>
     public event Action? LiveBuffsChanged;
 
     /// <summary>The buffs currently active on the local player at <paramref name="nowMs"/>, longest remaining
-    /// first. <c>DurationMs</c> is the buff's full duration (for the countdown ring); <c>ByOther</c> = applied
-    /// by someone else (not the local player).</summary>
-    public IReadOnlyList<(int Code, string Name, long RemainingMs, long DurationMs, bool ByOther)> ActiveOwnerBuffs(long nowMs)
+    /// first. <c>Code</c> is the base skill code; <c>DurationMs</c> is the full duration (for the countdown
+    /// ring); <c>ByOther</c> = applied by someone else; <c>Overlay</c> = draw it (false for a 음성만 buff, which
+    /// is returned only so the announce path can speak it). Fully-Off buffs (hidden + not voice) are excluded.</summary>
+    public IReadOnlyList<OwnerBuffView> ActiveOwnerBuffs(long nowMs)
     {
         int owner = _userRepository.Executor();
-        var result = new List<(int, string, long, long, bool)>();
+        var result = new List<OwnerBuffView>();
         lock (_ownerBuffGate)
         {
             foreach (KeyValuePair<int, (long End, int Actor, long Duration)> kv in _ownerBuffs)
@@ -886,19 +994,25 @@ public sealed class DataManager : ICaptureGameData
                     continue; // expired
                 }
 
-                if (IsBuffHidden(kv.Key))
+                bool hidden = IsBuffHidden(kv.Key);
+                if (hidden && !IsBuffVoice(kv.Key))
                 {
-                    continue; // unchecked in the per-job picker — hide immediately, don't wait for expiry
+                    continue; // Off — unchecked in the picker; hide immediately, don't wait for expiry
                 }
 
                 string name = _buffNames.TryGetValue(BuffBaseCode(kv.Key), out (string Name, string Job) bn)
                     ? bn.Name
                     : Buff(kv.Key)?.Name ?? Skill(kv.Key)?.Name ?? $"버프 {kv.Key}";
-                result.Add((kv.Key, name, kv.Value.End - nowMs, kv.Value.Duration, owner != 0 && kv.Value.Actor != owner));
+                bool onCooldown = _cooldowns.TryGetValue(kv.Key, out long cdEnd) && cdEnd > nowMs;
+                result.Add(new OwnerBuffView(
+                    kv.Key, name, kv.Value.End - nowMs, kv.Value.Duration, kv.Value.End,
+                    owner != 0 && kv.Value.Actor != owner,
+                    !hidden,  // Overlay: 음성만 (hidden + voice) is announced but not drawn
+                    onCooldown));
             }
         }
 
-        return result.OrderByDescending(r => r.Item3).ToList();
+        return result.OrderByDescending(r => r.RemainingMs).ToList();
     }
 
     private void ClearOwnerBuffs()
@@ -906,6 +1020,7 @@ public sealed class DataManager : ICaptureGameData
         lock (_ownerBuffGate)
         {
             _ownerBuffs.Clear();
+            _cooldowns.Clear();
         }
     }
 

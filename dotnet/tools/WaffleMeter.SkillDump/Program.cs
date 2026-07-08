@@ -129,6 +129,12 @@ static long UnionMs(IEnumerable<(long S, long E)> iv)
     return total + (curE - curS);
 }
 
+Console.WriteLine($"\n=== ⑥ aether / shugo-key (0x610x) parses ===");
+Console.WriteLine($"aether: {spy.Aethers.Count}");
+foreach (var a in spy.Aethers) Console.WriteLine($"   split={a.Split} base={a.Base} bonus={a.Bonus} total={a.Total}");
+Console.WriteLine($"shugokey: {spy.ShugoKeys.Count}");
+foreach (var s in spy.ShugoKeys) Console.WriteLine($"   split={s.Split} base={s.Base} bonus={s.Bonus} total={s.Total}");
+
 Console.WriteLine($"\n=== ⑤ buff/debuff intervals (SaveUseBuff) — top by apply-count ===");
 Console.WriteLine($"total buff-apply packets={spy.Buffs.Count}");
 Console.WriteLine($"{"code",-11} {"name",-18} {"applies",7} {"durs(ms)",-18} {"span(s)",8} {"cover(s)",8} {"cov%",5}");
@@ -140,6 +146,23 @@ foreach (var g in spy.Buffs.GroupBy(b => b.Code).OrderByDescending(gr => gr.Coun
     string durs = string.Join(",", g.Select(x => x.Dur).Distinct().OrderBy(x => x).Take(4));
     Console.WriteLine($"{g.Key,-11} {nm,-18} {g.Count(),7} {durs,-18} {span / 1000.0,8:F1} {cover / 1000.0,8:F1} {(span > 0 ? 100.0 * cover / span : 0),4:F0}%");
 }
+
+// ⑦ cooldown (0x3847) — validate the raw skillCode -> base normalization matches the buff overlay's bases.
+static int CdBase(int code) => code is >= 11_000_000 and <= 19_999_999 ? code / 10_000 * 10_000
+    : code is >= 110_000_000 and <= 199_999_999 ? code / 100_000 * 10_000 : code;
+Console.WriteLine($"\n=== ⑦ cooldown (0x3847) — base-matching validation ===");
+Console.WriteLine($"total cooldown records={spy.Cooldowns.Count}");
+var cdCodes = spy.Cooldowns.Select(c => c.Skill).Distinct().OrderBy(x => x).ToList();
+var cdBases = cdCodes.Select(CdBase).ToHashSet();
+var buffBases = spy.Buffs.Select(b => DataManager.BuffBaseCode(b.Code)).ToHashSet();
+var overlap = cdBases.Intersect(buffBases).OrderBy(x => x).ToList();
+Console.WriteLine($"distinct cooldown codes={cdCodes.Count}  cooldown bases={cdBases.Count}  buff bases={buffBases.Count}");
+Console.WriteLine($"OVERLAP (cd base ∩ buff base) = {overlap.Count}: {string.Join(", ", overlap.Take(30))}");
+Console.WriteLine($"remaining(ms) sample: {string.Join(", ", spy.Cooldowns.Where(c => c.Remaining > 0).Select(c => c.Remaining).Distinct().Take(12))}");
+Console.WriteLine("sample cooldown codes -> base (inJson / name / matchesBuff):");
+foreach (int c in cdCodes.Take(30))
+    Console.WriteLine($"   {c,-11} -> base {CdBase(c),-11} inJson={dm.SkillExists(c),-5} name={dm.Skill(c)?.Name ?? "?",-20} matchesBuff={buffBases.Contains(CdBase(c))}");
+
 return 0;
 
 sealed class Spy(DataManager dm) : IStreamProcessorSink, ICaptureGameData
@@ -194,9 +217,14 @@ sealed class Spy(DataManager dm) : IStreamProcessorSink, ICaptureGameData
     public void SaveSummon(int summonId, int ownerId) { }
     public void SaveMobHp(int instanceId, int hp) { }
     public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) => SaveUseBuffCapture(uid, skillCode, buffStart, buffEnd, duration, actorId);
+    public readonly List<(int Skill, long Remaining, long At)> Cooldowns = new();
+    public void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId) => Cooldowns.Add((skillCode, remainingMs, arrivedAt));
     public void RequestOfficialCharacterLookup(int uid) { }
     public void TouchDummyBattle(int target, long epoch) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
-    public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
+    public readonly List<(bool Split, int Base, int Bonus, int Total)> Aethers = new();
+    public readonly List<(bool Split, int Base, int Bonus, int Total)> ShugoKeys = new();
+    public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) => Aethers.Add((split, baseVal, bonus, total));
+    public void SaveShugoKey(bool split, int baseVal, int bonus, int total) => ShugoKeys.Add((split, baseVal, bonus, total));
     public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 }

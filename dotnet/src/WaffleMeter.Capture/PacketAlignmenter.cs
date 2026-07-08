@@ -32,6 +32,12 @@ public sealed class PacketAlignmenter
     private const long MaxHoldBytes = 2_000_000;
     private long _heldBytes;
 
+    /// <summary>Diagnostic only (non-behavioral): count of permanent-gap SKIPS — a capture-dropped segment
+    /// window that was discarded to re-sync the stream. A rising count during a crowded fight is direct
+    /// evidence of capture-layer loss on this stream (which, for the refresh-only buff overlay, shows up as
+    /// buffs expiring early / flickering / never appearing). Read via <c>MeterServices.AlignerGapSkips</c>.</summary>
+    public long GapSkips { get; private set; }
+
     /// <summary>
     /// Feed one captured segment. Returns the chunks (possibly none, possibly several) that
     /// became contiguous as a result, in sequence order.
@@ -83,6 +89,7 @@ public sealed class PacketAlignmenter
                 // unchanged below it (DPS parity preserved).
                 if (_heldBytes > MaxHoldBytes)
                 {
+                    GapSkips++; // diagnostic tally only; the re-sync behavior below is unchanged
                     _nextExpectedSeq = firstSeq;
                     continue;
                 }

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
+using WaffleMeter.Data;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -93,7 +94,7 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
 
     /// <summary>Replace the slot list from a fresh snapshot, reusing existing rows by code so only the
     /// countdown text + ring progress change on a normal tick.</summary>
-    public void Update(IReadOnlyList<(int Code, string Name, long RemainingMs, long DurationMs, bool ByOther)> buffs)
+    public void Update(IReadOnlyList<OwnerBuffView> buffs, bool grayOnCooldown)
     {
         // remove slots no longer present
         for (int i = Slots.Count - 1; i >= 0; i--)
@@ -104,16 +105,18 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
             }
         }
 
-        foreach ((int code, string name, long remainingMs, long durationMs, bool byOther) in buffs)
+        foreach (OwnerBuffView b in buffs)
         {
-            BuffSlotVM? existing = Slots.FirstOrDefault(s => s.Code == code);
+            bool onCooldown = grayOnCooldown && b.OnCooldown; // only gray when the option is on
+            BuffSlotVM? existing = Slots.FirstOrDefault(s => s.Code == b.Code);
             if (existing is null)
             {
-                Slots.Add(new BuffSlotVM(code, name, remainingMs, durationMs, byOther));
+                Slots.Add(new BuffSlotVM(b.Code, b.Name, b.RemainingMs, b.DurationMs, b.ByOther, onCooldown));
             }
             else
             {
-                existing.SetRemaining(remainingMs, durationMs);
+                existing.SetRemaining(b.RemainingMs, b.DurationMs);
+                existing.SetCooldown(onCooldown);
             }
         }
 
@@ -145,19 +148,35 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
     private const double Center = Canvas / 2; // 23
     private const double RingRadius = 21.5;
 
-    public BuffSlotVM(int code, string name, long remainingMs, long durationMs, bool byOther)
+    public BuffSlotVM(int code, string name, long remainingMs, long durationMs, bool byOther, bool onCooldown)
     {
         Code = code;
         Name = name;
         IconSource = JoinIcons.Skill(code);
         ByOther = byOther;
         SetRemaining(remainingMs, durationMs);
+        SetCooldown(onCooldown);
     }
 
     public int Code { get; }
     public string Name { get; }
     public ImageSource? IconSource { get; }
     public bool ByOther { get; }
+
+    private double _iconOpacity = 1.0;
+    /// <summary>Icon opacity — dimmed while the granting skill is on cooldown (the gray-out option).</summary>
+    public double IconOpacity { get => _iconOpacity; private set => Set(ref _iconOpacity, value); }
+
+    private Visibility _cooldownVeil = Visibility.Collapsed;
+    /// <summary>A translucent gray veil over the icon while the skill is on cooldown.</summary>
+    public Visibility CooldownVeil { get => _cooldownVeil; private set => Set(ref _cooldownVeil, value); }
+
+    /// <summary>Set/clear the on-cooldown gray-out (icon dimmed + veiled).</summary>
+    public void SetCooldown(bool onCooldown)
+    {
+        IconOpacity = onCooldown ? 0.4 : 1.0;
+        CooldownVeil = onCooldown ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private string _remainingText = string.Empty;
     public string RemainingText { get => _remainingText; private set => Set(ref _remainingText, value); }

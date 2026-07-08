@@ -256,6 +256,19 @@ public sealed class MeterServices
         }
     }
 
+    /// <summary>Diagnostic: total permanent-gap skips across the live streams — a capture-loss indicator for
+    /// the buff-tracking diagnosis. Called on the consumer thread (same thread that mutates <c>_streams</c>).</summary>
+    public long AlignerGapSkips()
+    {
+        long total = 0;
+        foreach (StreamState s in _streams.Values)
+        {
+            total += s.Aligner.GapSkips;
+        }
+
+        return total;
+    }
+
     /// <summary>Feeds one captured segment through its per-connection stream (Kotlin Main.kt consumer).</summary>
     public void Feed(CapturedSegment segment)
     {

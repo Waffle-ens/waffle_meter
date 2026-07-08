@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Threading.Channels;
 using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
@@ -25,6 +26,12 @@ public sealed class MeterEngine : IDisposable
     private volatile bool _running;
     private volatile bool _resetRequested;
     private volatile bool _disposed;
+
+    // Buff-tracking diagnostics: segment throughput counters (written on the backend's pipe-reader thread,
+    // read on the consumer thread -> Interlocked). Emitted with the buff-gate + aligner counters to buff-diag.log.
+    private long _segWritten;
+    private long _segRead;
+    private long _lastEmitWritten, _lastEmitRead, _lastEmitJobSeen, _lastEmitSelfAccepted, _lastEmitOwnerZero, _lastEmitGapSkips;
 
     public MeterServices Services => _services;
 
@@ -69,7 +76,11 @@ public sealed class MeterEngine : IDisposable
             SingleReader = true,
             FullMode = BoundedChannelFullMode.DropOldest,
         });
-        _backend.SegmentReceived += seg => _channel.Writer.TryWrite(seg);
+        _backend.SegmentReceived += seg =>
+        {
+            Interlocked.Increment(ref _segWritten);
+            _channel.Writer.TryWrite(seg); // DropOldest: returns true even when it silently sheds the oldest
+        };
         if (backend is NamedPipeCaptureClient pipe)
         {
             pipe.CaptureError += msg => CaptureError?.Invoke(msg);
@@ -119,10 +130,12 @@ public sealed class MeterEngine : IDisposable
         ChannelReader<CapturedSegment> reader = _channel.Reader;
         var stopwatch = Stopwatch.StartNew();
         long lastReport = 0;
+        long lastBuffDiag = 0;
         while (_running)
         {
             while (reader.TryRead(out CapturedSegment segment))
             {
+                Interlocked.Increment(ref _segRead);
                 // Defense-in-depth: with content-based capture, non-game / truncated TCP flows through
                 // here. The parser dispatch already guards itself, but a framing-level throw (aligner /
                 // assembler on garbage) must never kill the single consumer thread — swallow per-segment.
@@ -173,6 +186,12 @@ public sealed class MeterEngine : IDisposable
                 ReportUpdated?.Invoke(_services.GetReport());
             }
 
+            if (stopwatch.ElapsedMilliseconds - lastBuffDiag >= BuffDiagIntervalMs)
+            {
+                lastBuffDiag = stopwatch.ElapsedMilliseconds;
+                EmitBuffDiag();
+            }
+
             Thread.Sleep(5);
         }
 
@@ -189,6 +208,60 @@ public sealed class MeterEngine : IDisposable
         catch
         {
             // never let the shutdown save throw out of the consumer thread
+        }
+    }
+
+    // Cadence for the buff-tracking diagnostic line. 5s keeps buff-diag.log tiny while still resolving
+    // per-fight changes (a 10-man boss pull is tens of seconds).
+    private const long BuffDiagIntervalMs = 5000;
+
+    /// <summary>Emit one buff-tracking diagnostic line for the crowded-raid overlay investigation: self
+    /// job-buff frame arrival + executor-gate acceptance (<c>self/5s</c>, <c>ownerZero/5s</c>) versus capture
+    /// channel drops and aligner gap-skips. Consumer-thread only; never throws.</summary>
+    private void EmitBuffDiag()
+    {
+        try
+        {
+            long written = Interlocked.Read(ref _segWritten);
+            long read = Interlocked.Read(ref _segRead);
+            long queued = _channel.Reader.CanCount ? _channel.Reader.Count : -1;
+            // Segments written but neither read nor still queued were shed by the DropOldest channel (cumulative).
+            long drops = queued >= 0 ? Math.Max(0, written - read - queued) : -1;
+            long gapSkips = _services.AlignerGapSkips();
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            (long jobSeen, long selfAccepted, long ownerZero, int owner, int storeCount, int cdStore, int cdActive, int buffsOnCd) = _services.Data.BuffDiagSnapshot(nowMs);
+
+            long dWritten = written - _lastEmitWritten;
+            long dRead = read - _lastEmitRead;
+            long dJob = jobSeen - _lastEmitJobSeen;
+            long dSelf = selfAccepted - _lastEmitSelfAccepted;
+            long dOwnerZero = ownerZero - _lastEmitOwnerZero;
+            long dGap = gapSkips - _lastEmitGapSkips;
+
+            _lastEmitWritten = written;
+            _lastEmitRead = read;
+            _lastEmitJobSeen = jobSeen;
+            _lastEmitSelfAccepted = selfAccepted;
+            _lastEmitOwnerZero = ownerZero;
+            _lastEmitGapSkips = gapSkips;
+
+            // Skip a fully idle interval (no traffic, nothing queued) so the log only grows during play.
+            if (dWritten == 0 && dJob == 0 && dGap == 0 && queued <= 0)
+            {
+                return;
+            }
+
+            string line = string.Format(
+                CultureInfo.InvariantCulture,
+                "owner={0} store={1} | job/5s={2} self/5s={3} ownerZero/5s={4} (cum job={5} self={6} ownerZero={7}) | cd store={8} active={9} buffsOnCd={10} | seg wr/5s={11} rd/5s={12} queued={13} dropsCum={14} | gapSkip/5s={15} cum={16}",
+                owner, storeCount, dJob, dSelf, dOwnerZero, jobSeen, selfAccepted, ownerZero,
+                cdStore, cdActive, buffsOnCd,
+                dWritten, dRead, queued, drops, dGap, gapSkips);
+            BuffDiag.Write(line);
+        }
+        catch
+        {
+            // diagnostics must never disturb the consumer thread
         }
     }
 
