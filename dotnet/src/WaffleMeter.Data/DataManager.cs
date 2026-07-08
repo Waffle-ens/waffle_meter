@@ -282,6 +282,10 @@ public sealed class DataManager : ICaptureGameData
 
     public bool SkillExists(long code) => _skillRepository.Exist(code);
 
+    // A recognized player = a uid with an observed nickname. Excludes provisional (nickname-less) EnsureUser
+    // rows, so the summon-owner fallback validates only against real players.
+    public bool IsKnownUser(int uid) => !string.IsNullOrEmpty(_userRepository.Get(uid)?.Nickname);
+
     // ---- mob / hp ----
 
     public Mob? Mob(int mobCode) => _mobs.GetValueOrDefault(mobCode);

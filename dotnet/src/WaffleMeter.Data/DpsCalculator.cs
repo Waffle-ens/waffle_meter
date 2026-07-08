@@ -247,6 +247,7 @@ public sealed class DpsCalculator
 
     private void RefreshRecentReportFromCache(int targetId, MobInfo? fixedTarget)
     {
+        PurgeResolvedNonPlayers();
         long battleStart = _cachedBattleStart > 0L ? _cachedBattleStart : _recentData.BattleStart;
         long battleEnd = Math.Max(_cachedBattleEnd > 0L ? _cachedBattleEnd : _recentData.BattleEnd, battleStart);
 
@@ -412,6 +413,8 @@ public sealed class DpsCalculator
             reportPackets = data;
         }
 
+        PurgeResolvedNonPlayers();
+
         long dmStart = _dm.CurrentBattleStart();
         long dmEnd = _dm.CurrentBattleEnd();
         var report = new DpsReport
@@ -473,6 +476,29 @@ public sealed class DpsCalculator
     }
 
     private List<User> CopyContributors() => [.. _cachedContributors];
+
+    // A summon whose owner-map (0x3641 summon_map) or mob registration lands AFTER it has already dealt damage
+    // gets provisionally registered as a player by AccumulatePacket: its damage skill is job-locked (a summon
+    // casts its owner's class skill), it is un-folded (no summon→owner mapping yet), and it is not yet a known
+    // mob instance, so ResolveActor returns the raw entity id and the job-locked-skill gate lets EnsureUser
+    // create a nickname-less row. Once the game reveals that entity as a summon (SummonerId) or mob
+    // (IsMobInstance), retract the phantom so it never lingers as a non-party contributor. Only nickname-less
+    // provisional rows are eligible — a real player (0x3633/0x3645 nickname) and the executor are never a
+    // summon/mob, so they are never removed. Root cause of the 그리오사 "파티원 아닌 사람" phantom: a healer-summon
+    // (0x3641 tagged 07 02 01, missed by the fixed 07 02 06 owner scan — see StreamProcessor) that also raced
+    // its own spawn packet.
+    private void PurgeResolvedNonPlayers()
+    {
+        for (int i = _cachedContributors.Count - 1; i >= 0; i--)
+        {
+            User u = _cachedContributors[i];
+            if (!string.IsNullOrWhiteSpace(u.Nickname) || u.IsExecutor) continue;
+            if (_dm.SummonerId(u.Id) == null && !_dm.IsMobInstance(u.Id)) continue;
+            _cachedContributors.RemoveAt(i);
+            _cachedInfo.Remove(u.Id);
+            _cachedSkillDetails.Remove(u.Id);
+        }
+    }
 
     // Deep-copy the contributors so a FINISHED/standby battle's displayed identity (nickname/server/job/power)
     // is FROZEN at battle end — mirroring SaveBattleLog's CopyUser freeze. Without this, the standby report

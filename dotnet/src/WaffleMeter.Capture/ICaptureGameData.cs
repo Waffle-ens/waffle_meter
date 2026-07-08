@@ -20,6 +20,12 @@ public interface ICaptureGameData
     bool SkillExists(long code);
     long CurrentEpoch();
 
+    /// <summary>True if <paramref name="uid"/> is a recognized player (a nickname has been observed for it).
+    /// Used to validate the looser summon-owner fallback marker (07 02 01) — the same byte sequence occurs as
+    /// an unrelated field inside mob-spawn packets, so without this check it would mis-map a mob to a fixed
+    /// garbage "owner". Default false (capture-only contexts don't track users).</summary>
+    bool IsKnownUser(int uid) => false;
+
     // ---- write side effects (no-op in capture-only mode) ----
     void SaveDamage(ParsedDamagePacket pdp, long epoch);
     void StartBattle(int target);

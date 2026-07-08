@@ -13,6 +13,7 @@ public sealed class GameData : ICaptureGameData
     private readonly IReadOnlyDictionary<int, Mob> _mobs;
     private readonly HashSet<long> _skillCodes;
     private readonly Dictionary<int, int> _mobId = new();
+    private readonly HashSet<int> _knownUsers = new();
 
     public GameData(IReadOnlyDictionary<int, Mob> mobs, HashSet<long> skillCodes)
     {
@@ -29,13 +30,17 @@ public sealed class GameData : ICaptureGameData
 
     public bool SkillExists(long code) => _skillCodes.Contains(code);
 
+    // Track observed player uids so the summon-owner fallback can be validated during replay (matching the
+    // live DataManager, which answers from its user repository).
+    public bool IsKnownUser(int uid) => _knownUsers.Contains(uid);
+
     // Capture-only reference context: the DPS write side effects are no-ops here (they do not affect
     // the parser's emitted events). The full DataManager implements them to drive DPS.
     public long CurrentEpoch() => 0;
     public void SaveDamage(ParsedDamagePacket pdp, long epoch) { }
     public void StartBattle(int target) { }
     public void EndBattle(int target) { }
-    public void SaveNickname(int uid, string nickname, bool isExecutor, int server, int jobByte) { }
+    public void SaveNickname(int uid, string nickname, bool isExecutor, int server, int jobByte) => _knownUsers.Add(uid);
     public void SaveUserPower(int uid, int power) { }
     public void SaveSummon(int summonId, int ownerId) { }
     public void SaveMobHp(int instanceId, int hp) { }

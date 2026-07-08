@@ -1004,12 +1004,28 @@ public sealed class StreamProcessor
         if (keyIdx == -1) return;
         byte[] afterPacket = packet[(keyIdx + 8)..];
 
+        // The summon-owner sub-record is normally tagged 07 02 06. A summon whose 0x3641 carries an EXTRA
+        // sub-record (observed as an atypical 251-byte packet vs the uniform 209) tags its trailing owner
+        // entry 07 02 01 instead, so the fixed 07 02 06 scan missed it → SaveSummon never ran → the summon
+        // was left unmapped and surfaced as a standalone (non-party) contributor row (the 그리오사 phantom).
+        // The owner u16 sits 3 bytes past the 07 in either variant. The 07 02 01 sequence ALSO occurs as an
+        // unrelated field inside mob-spawn packets (where it would mis-read a fixed non-player value), so the
+        // fallback is accepted only when its owner resolves to a recognized player (a real summon's owner).
+        bool viaFallback = false;
         int opcodeIdx = FindArrayIndex(afterPacket, 0x07, 0x02, 0x06);
-        if (opcodeIdx == -1) return;
+        if (opcodeIdx == -1)
+        {
+            opcodeIdx = FindArrayIndex(afterPacket, 0x07, 0x02, 0x01);
+            if (opcodeIdx == -1) return;
+            viaFallback = true;
+        }
+
         offset = keyIdx + opcodeIdx + 11;
 
         if (offset + 2 > packet.Length) return;
         int realActorId = PacketPrimitives.ParseUInt16Le(packet, offset);
+
+        if (viaFallback && !_data.IsKnownUser(realActorId)) return;
 
         _data.SaveSummon(summonInfo.Value, realActorId);
         _sink.Meta("summon_map", ("summonId", summonInfo.Value), ("ownerId", realActorId));
