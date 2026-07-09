@@ -39,6 +39,77 @@ public sealed class CustomAlarmRow
     public bool Enabled { get; init; }
 }
 
+/// <summary>One buff-preset chip. <see cref="IsActive"/> is bound two-way to a RadioButton: checking one
+/// selects that slot, and the view-model then clears the others (the chips deliberately carry no GroupName —
+/// the bar is rendered on two tabs at once, and WPF would group all six buttons together).</summary>
+public sealed class BuffPresetSlotViewModel : INotifyPropertyChanged
+{
+    private readonly Action<int> _select;
+    private string _name;
+    private bool _isActive;
+
+    public BuffPresetSlotViewModel(int index, string name, bool isActive, Action<int> select)
+    {
+        Index = index;
+        _name = name;
+        _isActive = isActive;
+        _select = select;
+    }
+
+    public int Index { get; }
+
+    public string Name
+    {
+        get => _name;
+        internal set
+        {
+            if (_name == value)
+            {
+                return;
+            }
+
+            _name = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsActive
+    {
+        get => _isActive;
+        set
+        {
+            if (_isActive == value)
+            {
+                return;
+            }
+
+            _isActive = value;
+            OnPropertyChanged();
+            if (value)
+            {
+                _select(Index);
+            }
+        }
+    }
+
+    /// <summary>Reflect the store's active slot without re-triggering a selection.</summary>
+    internal void SyncActive(bool value)
+    {
+        if (_isActive == value)
+        {
+            return;
+        }
+
+        _isActive = value;
+        OnPropertyChanged(nameof(IsActive));
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
 /// <summary>
 /// Backs the tabbed settings window. Display/overlay settings apply live via <see cref="MeterSettings"/>
 /// (the overlay reads them each tick); hotkeys are buffered and committed on Save; Cancel reverts the
@@ -51,9 +122,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly SkinManager _skin;
     private readonly OverlayController _controller;
     private readonly HotkeyHandler _hotkeys;
+    private readonly BuffPresetManager _presets;
     private readonly Snapshot _snapshot;
 
-    public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, SkinManager skin, OverlayController controller, HotkeyHandler hotkeys)
+    public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, SkinManager skin, OverlayController controller, HotkeyHandler hotkeys, BuffPresetManager presets)
     {
         _services = services;
         _settings = settings;
@@ -61,11 +133,18 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _skin = skin;
         _controller = controller;
         _hotkeys = hotkeys;
+        _presets = presets;
         _snapshot = Snapshot.Capture(settings, controller);
 
         _pendingReset = hotkeys.Reset;
         _pendingVisibility = hotkeys.Visibility;
         _pendingClickThrough = hotkeys.ClickThrough;
+
+        IReadOnlyList<string> presetNames = _presets.Names;
+        for (int i = 0; i < BuffPresetManager.SlotCount; i++)
+        {
+            PresetSlots.Add(new BuffPresetSlotViewModel(i, presetNames[i], i == _presets.ActiveIndex, SelectPreset));
+        }
 
         Reload();
     }
@@ -192,6 +271,52 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <summary>The per-job buff picker, embedded in the 버프 알림 settings tab. Built lazily and disposed when
     /// the window closes (see <see cref="DisposeBuffPicker"/>).</summary>
     public BuffPickerViewModel BuffPicker => _buffPicker ??= new BuffPickerViewModel(_services.Data, _settings);
+
+    // ---- buff presets (three saved copies of the whole buff config; the active one IS the live settings) ----
+
+    /// <summary>The preset chips, shown on both the 전투 보조 and 버프 알림 tabs.</summary>
+    public ObservableCollection<BuffPresetSlotViewModel> PresetSlots { get; } = new();
+
+    /// <summary>The active slot's name, edited inline. Blank falls back to "프리셋 N".</summary>
+    public string ActivePresetName
+    {
+        get => _presets.ActiveName;
+        set
+        {
+            _presets.RenameSlot(_presets.ActiveIndex, value);
+            SyncPresetSlots();
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Apply a preset: push the slot into the live settings + the buff store, resync the picker, and
+    /// re-announce every bound buff property. That last step is not optional — <c>MeterSettings</c> setters
+    /// no-op on an unchanged value, so the manager's writes cannot be relied on to refresh these controls.</summary>
+    public void SelectPreset(int index)
+    {
+        _presets.SelectSlot(index);
+        _buffPicker?.Reload(); // else its stale cached sets would overwrite the preset on the next edit
+        SyncPresetSlots();
+
+        OnPropertyChanged(nameof(BuffUiTransparent));
+        OnPropertyChanged(nameof(BuffIconSizeIndex));
+        OnPropertyChanged(nameof(BuffTextColor));
+        OnPropertyChanged(nameof(BuffTtsOnStart));
+        OnPropertyChanged(nameof(BuffTtsOnEnd));
+        OnPropertyChanged(nameof(BuffUiGrayOnCooldown));
+        OnPropertyChanged(nameof(ShowOtherPlayerBuffs));
+        OnPropertyChanged(nameof(ActivePresetName));
+    }
+
+    private void SyncPresetSlots()
+    {
+        IReadOnlyList<string> names = _presets.Names;
+        foreach (BuffPresetSlotViewModel slot in PresetSlots)
+        {
+            slot.Name = names[slot.Index];
+            slot.SyncActive(slot.Index == _presets.ActiveIndex);
+        }
+    }
 
     /// <summary>Release the picker's catalog subscription when the settings window closes.</summary>
     public void DisposeBuffPicker() => _buffPicker?.Dispose();

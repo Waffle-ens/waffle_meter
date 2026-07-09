@@ -31,6 +31,20 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
 
     public ObservableCollection<BuffJobGroup> Groups { get; } = new();
 
+    /// <summary>Re-read the hidden/voice sets from settings and rebuild the rows. Call after a preset switch
+    /// has rewritten them underneath us: the cached sets are seeded once in the constructor, so a stale
+    /// picker would not only show the old modes but write them back over the applied preset on its next
+    /// <see cref="Persist"/>. Rebuilding seeds each row's mode through the field, not the property, so no
+    /// per-item callback fires and nothing is re-persisted here.</summary>
+    public void Reload()
+    {
+        _hidden.Clear();
+        _hidden.UnionWith(MeterSettings.ParseCodeSet(_settings.BuffUiHidden));
+        _voice.Clear();
+        _voice.UnionWith(MeterSettings.ParseCodeSet(_settings.BuffUiVoice));
+        Rebuild();
+    }
+
     private bool _isEmpty;
     /// <summary>True until at least one buff has been observed (shows the "play to populate" hint).</summary>
     public bool IsEmpty { get => _isEmpty; private set => Set(ref _isEmpty, value); }

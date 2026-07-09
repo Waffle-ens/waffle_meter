@@ -82,6 +82,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
         _buffUiVoice = _props.GetProperty("buffUi.voice") ?? "";
         _buffUiDefaultsApplied = ReadBool("buffUi.defaultsApplied", false);
+        _buffUiPresets = _props.GetProperty("buffUi.presets") ?? "";
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
     }
 
@@ -331,6 +332,13 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Set once the catalog's default-off toggle buffs have been merged into the hidden set, so the
     /// one-time default isn't re-applied over the user's later choices.</summary>
     public bool BuffUiDefaultsApplied { get => _buffUiDefaultsApplied; set => SetBool(ref _buffUiDefaultsApplied, "buffUi.defaultsApplied", value); }
+
+    private string _buffUiPresets;
+    /// <summary>The three buff-overlay preset slots + the active index, as one Base64(JSON) blob (see
+    /// <see cref="BuffPresetCodec"/>). Base64 because slot names are user-typed Korean and every read of a
+    /// settings value passes through the Latin-1 → EUC-KR re-decode, which would replace each Korean char
+    /// with '?'. Owned by <see cref="BuffPresetManager"/>; not itself part of any preset.</summary>
+    public string BuffUiPresets { get => _buffUiPresets; set => SetProp(ref _buffUiPresets, "buffUi.presets", value); }
 
     private string _aetherLastValue;
     /// <summary>The last observed aether balance as "base,bonus,total,unixMs", persisted so it can be shown

@@ -11,6 +11,7 @@
         SizeToContent="Height"
         Width="420" Height="300" MinWidth="320" MinHeight="150"
         Left="40" Top="40"
+        UseLayoutRounding="True"
         FontFamily="Segoe UI">
     <Window.Resources>
         <local:RatioToStarConverter x:Key="RatioToStar"/>

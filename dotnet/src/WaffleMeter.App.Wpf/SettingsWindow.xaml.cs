@@ -111,6 +111,17 @@ public partial class SettingsWindow : Window
         }
     }
 
+    // The preset-name box commits on focus loss (writing on every keystroke would rewrite settings.properties
+    // per character); Enter is the other way a user expects a rename to stick.
+    private void OnPresetNameKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter && sender is System.Windows.Controls.TextBox box)
+        {
+            box.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+            e.Handled = true;
+        }
+    }
+
     private void OnBuffGroupMode(object sender, RoutedEventArgs e)
     {
         // Tag = "group|mode": set every buff in a job group to a mode at once.

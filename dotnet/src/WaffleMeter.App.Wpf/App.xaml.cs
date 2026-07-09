@@ -58,6 +58,7 @@ public partial class App : Application
     private volatile bool _combatActive; // recent damage activity — gates the "mute field-boss alarm in combat" option
     private BuffOverlayPanel? _buffOverlay;
     private BuffOverlayViewModel? _buffOverlayVm;
+    private BuffPresetManager? _buffPresets;
     private System.Windows.Threading.DispatcherTimer? _buffTimer;
 
     /// <summary>Auto-reset event the FIRST instance owns (set by <see cref="Program"/>); a later launch
@@ -108,6 +109,19 @@ public partial class App : Application
         // with GPU rendering can turn the compat mode off. Process-global + read once → needs a restart.
         bool vrrCompat = props.GetProperty("vrrCompatMode") != "false";
         RenderOptions.ProcessRenderMode = vrrCompat ? RenderMode.SoftwareOnly : RenderMode.Default;
+
+        // Text stays on WPF's default TextFormattingMode.Ideal. Display mode would grid-fit the glyphs and
+        // visibly sharpen the 11-13 px UI text, but it also quantizes glyph advances to whole pixels, so every
+        // bundled font collapses onto the same horizontal rhythm — measured, the four bundled families grow
+        // 13% more alike, and moving one font from Ideal to Display shifts it about as far as swapping it for
+        // a different family. Keeping the typeface's own metrics is the deliberate choice here.
+        //
+        // Nor is there a way to soften the antialiasing instead: TextRenderingMode.Aliased and
+        // TextHintingMode.Fixed are both silently ignored under Ideal (verified — pixel-identical output),
+        // and Animated hinting only smears further. The one lever that sharpens without touching the
+        // typeface is snapping the text origin to a whole pixel, i.e. UseLayoutRounding on the meter
+        // overlay (OverlayWindow.xaml) — it cut the overlay's partially-covered glyph pixels from 33% to
+        // 29%. The settings window's origins already land on whole pixels, so it gains nothing there.
 
         var services = new MeterServices(props);
         TryLoadCatalogs(services);
@@ -190,7 +204,8 @@ public partial class App : Application
                 return;
             }
 
-            var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys);
+            // _buffPresets is assigned later in OnStartup, well before the overlay exists to raise this.
+            var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, _buffPresets!);
             svm.CheckUpdateRequested = () => _ = _updateService?.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
             var settingsWindow = new SettingsWindow(svm) { Owner = window };
@@ -477,6 +492,11 @@ public partial class App : Application
         services.Data.SetVoiceBuffBases(MeterSettings.ParseCodeSet(_settings.BuffUiVoice)); // 음성만/오버레이+음성 buffs the store must keep
         services.Data.BuffCatalogChanged += () => Dispatcher.BeginInvoke(() =>
             _settings.BuffUiObserved = string.Join(",", services.Data.ObservedBuffBases()));
+
+        // Buff presets: three saved copies of the whole buff config, the active one mirroring the live
+        // settings. Built strictly AFTER the default-off merge above — seeded any earlier, slot 1 would
+        // capture a hidden set the merge is about to change, and diverge from the running config.
+        _buffPresets = new BuffPresetManager(_settings, services.Data.SetHiddenBuffBases, services.Data.SetVoiceBuffBases);
 
         // Aether badge: restore the last value so it shows immediately (the game only broadcasts the resource
         // on its own schedule — zone load etc. — so without this it's blank for the first minutes). Restore
@@ -1360,6 +1380,7 @@ public partial class App : Application
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _controller?.Stop(); // unhook the foreground WinEvent + stop the poll
         _alarms?.Stop();
+        _buffPresets?.Dispose();
         _tray?.Dispose();
         _hotkeys?.Dispose();
         _engine?.Dispose();

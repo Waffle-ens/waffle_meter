@@ -42,6 +42,67 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+            <!-- Buff-preset slot chip: DayChip's look, sized to hold a slot name. No GroupName — the preset
+                 bar is rendered on two tabs at once and WPF groups by name across the whole window, which
+                 would make the two bars fight. The view-model clears the other chips instead. -->
+            <Style x:Key="PresetChip" TargetType="RadioButton">
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="MinWidth" Value="92"/>
+                <Setter Property="MaxWidth" Value="150"/>
+                <Setter Property="Height" Value="30"/>
+                <Setter Property="Margin" Value="0,0,6,0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="b" CornerRadius="6" BorderThickness="1" Opacity="0.5" Padding="10,0"
+                                    Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}">
+                                <TextBlock x:Name="t" Text="{TemplateBinding Content}" Foreground="{DynamicResource Skin.Fg}"
+                                           FontSize="12" TextTrimming="CharacterEllipsis"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="b" Property="Opacity" Value="1.0"/>
+                                    <Setter TargetName="b" Property="Background" Value="{DynamicResource Skin.AccentSoft}"/>
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                    <Setter TargetName="t" Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- The preset bar, shown on both buff tabs (a preset spans them), so it lives here once. -->
+            <DataTemplate x:Key="BuffPresetBar">
+                <Border CornerRadius="8" Padding="12,10" Margin="0,0,0,16"
+                        Background="{DynamicResource Skin.RowBg}" BorderThickness="1"
+                        BorderBrush="{DynamicResource Skin.SoftBorder}">
+                    <StackPanel>
+                        <TextBlock Text="버프 오버레이 프리셋" Style="{StaticResource SettingTitle}"/>
+                        <TextBlock Text="버프 오버레이 설정을 슬롯 3개에 저장합니다. 슬롯을 고르면 바로 적용되고, 이후 바꾼 설정은 그 슬롯에 자동 저장됩니다. (오버레이 켬/끔은 프리셋과 무관)"
+                                   Style="{StaticResource SettingDesc}" Margin="0,0,0,9"/>
+                        <ItemsControl ItemsSource="{Binding PresetSlots}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <RadioButton Style="{StaticResource PresetChip}" Content="{Binding Name}"
+                                                 IsChecked="{Binding IsActive, Mode=TwoWay}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="이름" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       FontSize="12" Foreground="{DynamicResource Skin.MutedFg}"/>
+                            <TextBox Grid.Column="1" Height="30" Padding="8,4" MaxLength="20"
+                                     VerticalContentAlignment="Center" KeyDown="OnPresetNameKeyDown"
+                                     Text="{Binding ActivePresetName, UpdateSourceTrigger=LostFocus}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </DataTemplate>
             <!-- HotkeyCaptureBox is a TextBox subclass, so the implicit TextBox style (Skin.Controls)
                  doesn't auto-apply; inherit it so the hotkey inputs match the other dark controls. -->
             <Style TargetType="{x:Type local:HotkeyCaptureBox}" BasedOn="{StaticResource {x:Type TextBox}}"/>
@@ -576,6 +637,7 @@
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=combat}">
                         <TextBlock Text="전투 보조 UI" Style="{StaticResource SectionHeader}"/>
                         <TextBlock Text="내 캐릭터에게 적용된 버프와 남은 시간을 별도 창에 표시합니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
+                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource BuffPresetBar}"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
@@ -626,6 +688,7 @@
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=buffalerts}">
                         <TextBlock Text="버프 알림" Style="{StaticResource SectionHeader}"/>
                         <TextBlock Text="직업별로 각 버프를 오버레이/음성 중 어떻게 알릴지 고릅니다. (소비 아이템·물약은 제외)" Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
+                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource BuffPresetBar}"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">

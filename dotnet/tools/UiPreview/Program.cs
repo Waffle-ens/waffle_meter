@@ -147,8 +147,10 @@ internal static class Program
                 Directory.CreateDirectory(sdir);
                 var sp = new PropertyHandler(sdir);
                 var ssvc = new MeterServices(sp);
-                var svm = new SettingsViewModel(ssvc, new MeterSettings(sp), new MeterColorTheme(sp), new SkinManager(sp),
-                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp)) { SelectedNav = "display" };
+                var ssettings = new MeterSettings(sp);
+                var spresets = new BuffPresetManager(ssettings, _ => { }, _ => { }); // temp props; no store to update
+                var svm = new SettingsViewModel(ssvc, ssettings, new MeterColorTheme(sp), new SkinManager(sp),
+                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp), spresets) { SelectedNav = "display" };
                 Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_display_Dark.png"), fixedSize: true);
             }
         }
@@ -354,7 +356,8 @@ internal static class Program
         var skin = new SkinManager(props);
         var controller = new OverlayController(new OverlayWindow(), props);
         var hotkeys = new HotkeyHandler(props);
-        var vm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys);
+        var presets = new BuffPresetManager(settings, _ => { }, _ => { });
+        var vm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, presets);
 
         int pass = 0, fail = 0;
         void Check(string name, bool ok)
