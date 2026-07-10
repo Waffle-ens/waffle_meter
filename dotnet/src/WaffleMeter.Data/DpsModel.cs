@@ -133,11 +133,45 @@ public sealed class AnalyzedSkill
     };
 }
 
-/// <summary>Buff uptime entry (Kotlin OperatingData).</summary>
-public sealed record OperatingData(int Code, string Name, string? Summary, string? Effect, double OperatingRate, int ActorId)
+/// <summary>
+/// Buff/debuff uptime entry (Kotlin OperatingData). One row per (base skill, name, caster) on one entity:
+/// the rank/aspect variants a skill emits are merged upstream, so <see cref="OperatingRate"/> is the union of
+/// every variant's applied intervals.
+/// </summary>
+/// <remarks>
+/// Whether a row is a buff or a debuff is decided by WHO it landed on, not by buff.json's <c>type</c> field.
+/// A player skill's debuff always goes on its target; nothing a player casts debuffs the caster. So a row in a
+/// participant's list is a buff/self-state and a row in the boss's list is a debuff — and the datamined type is
+/// not consulted, because it is demonstrably wrong (권성 폭주's codes are half-typed DeBuff while their text is a
+/// pure buff, and 검성 살기 파열's DeBuff-typed codes land on the caster 100% of the time).
+/// </remarks>
+/// <param name="Code">A representative runtime code, preferred from buff.json so icon lookups resolve.</param>
+/// <param name="BaseCode">The 8-digit base skill code the group collapsed to (see DataManager.BuffBaseCode).</param>
+/// <param name="JobPrefix">
+/// 11(검성)..19(권성) when the RAW runtime code sat in the 9-digit job-buff band, else 0. Derived from the raw
+/// code — not from <see cref="Code"/> or <see cref="BaseCode"/>, because 8-digit mob/consumable codes like
+/// 12000101(중독) would otherwise read as 수호성 and be mistaken for a self-buff.
+/// </param>
+public sealed record OperatingData(
+    int Code,
+    string Name,
+    string? Summary,
+    string? Effect,
+    double OperatingRate,
+    int ActorId,
+    int BaseCode = 0,
+    int JobPrefix = 0)
 {
     public OperatingData(int code, Buff? buff, double rate, int actorId)
         : this(code, buff?.Name ?? code.ToString(), buff?.Summary, buff?.Effect, rate, actorId) { }
+
+    /// <summary>
+    /// <see cref="JobPrefix"/>, or — for rows built without one — the prefix implied by a 9-digit job-buff
+    /// <see cref="Code"/>. 0 means "not a job buff", which callers must read as "cannot be a self-buff".
+    /// </summary>
+    public int EffectiveJobPrefix => JobPrefix != 0
+        ? JobPrefix
+        : Code is >= 110_000_000 and <= 199_999_999 ? Code / 10_000_000 : 0;
 }
 
 /// <summary>Target/boss info (Kotlin MobInfo).</summary>
@@ -162,7 +196,8 @@ public sealed class MobInfo
 /// <summary>Skill catalog entry (Kotlin Skill).</summary>
 public sealed record Skill(long Code, string? Name);
 
-/// <summary>Buff catalog entry (Kotlin Buff).</summary>
+/// <summary>Buff catalog entry (Kotlin Buff). buff.json's <c>type</c> field is deliberately not loaded — see
+/// <see cref="OperatingData"/> for why it can't be trusted.</summary>
 public sealed record Buff(int Code, string Name, string Summary, string Effect);
 
 /// <summary>An applied buff/debuff interval (Kotlin UseBuff).</summary>

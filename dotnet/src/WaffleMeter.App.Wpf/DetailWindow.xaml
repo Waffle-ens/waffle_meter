@@ -5,67 +5,114 @@
         Title="상세내역"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ResizeMode="CanResize"
-        Width="820" Height="600" MinWidth="520" MinHeight="320" Left="460" Top="40" FontFamily="Segoe UI">
+        Width="980" Height="640" MinWidth="720" MinHeight="360" Left="380" Top="40" FontFamily="Segoe UI">
     <Window.Resources>
         <local:RatioToStarConverter x:Key="RatioToStar"/>
         <local:FontFamilyConverter x:Key="FontConv"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- Value accents (fixed across skins — they carry meaning, not chrome): cyan reads "output",
+             magenta marks 강타. Mirrors the stats site's table so the two read the same at a glance. -->
+        <SolidColorBrush x:Key="ValueCyan" Color="#2DD4BF"/>
+        <SolidColorBrush x:Key="ValueMagenta" Color="#F472B6"/>
+
+        <!-- Damage-share fill behind a skill row. It fades to nothing rather than ending on an edge, so it reads
+             as a heat cue instead of a selection box — the site spends a whole column on 비중 instead. -->
+        <LinearGradientBrush x:Key="ShareFill" StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#802DD4BF" Offset="0"/>
+            <GradientStop Color="#4D2DD4BF" Offset="0.5"/>
+            <GradientStop Color="#002DD4BF" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- Gauge gloss: a soft top-light + bottom shade over the fill, so the bar reads as a lit surface
+             instead of a flat painted rectangle. -->
+        <LinearGradientBrush x:Key="BarGloss" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#4DFFFFFF" Offset="0"/>
+            <GradientStop Color="#12FFFFFF" Offset="0.5"/>
+            <GradientStop Color="#1A000000" Offset="1"/>
+        </LinearGradientBrush>
+
         <Style x:Key="Stat" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
             <Setter Property="TextAlignment" Value="Right"/>
             <Setter Property="FontSize" Value="12.5"/>
         </Style>
-        <Style x:Key="Head" TargetType="TextBlock" BasedOn="{StaticResource Stat}">
+
+        <!-- Table header cell -->
+        <Style x:Key="Head" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
-        <!-- Section expander styled to match the meter: a row-card header with a MDL2 chevron that flips
-             on expand, our row-bg/hover, and a disabled dim. -->
-        <Style x:Key="DetailExpander" TargetType="Expander">
-            <Setter Property="Margin" Value="0,3"/>
+        <!-- Table numeric cell: right-aligned like the stats site, so digits line up column-wise. -->
+        <Style x:Key="Cell" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="CellBold" TargetType="TextBlock" BasedOn="{StaticResource Cell}">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <Style x:Key="SumLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
+        </Style>
+        <Style x:Key="SumValue" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="15.5"/>
+        </Style>
+        <Style x:Key="SumTile" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Skin.RowBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Padding" Value="11,8"/>
+        </Style>
+
+        <!-- Tab strip: pill buttons instead of the classic tab headers (stats-site look). -->
+        <Style x:Key="PillTabs" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Expander">
-                        <Border Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
-                                BorderThickness="1" CornerRadius="6">
-                            <DockPanel>
-                                <ToggleButton DockPanel.Dock="Top" Focusable="False" OverridesDefaultStyle="True" Cursor="Hand"
-                                              Content="{TemplateBinding Header}"
-                                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
-                                    <ToggleButton.Template>
-                                        <ControlTemplate TargetType="ToggleButton">
-                                            <Border x:Name="hb" Background="Transparent" Padding="10,7" CornerRadius="6"
-                                                    TextElement.Foreground="{DynamicResource Skin.Fg}" TextElement.FontWeight="SemiBold" TextElement.FontSize="12">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <ContentPresenter Grid.Column="0" VerticalAlignment="Center"/>
-                                                    <TextBlock x:Name="chev" Grid.Column="1" Text="&#xE70D;" FontFamily="Segoe MDL2 Assets"
-                                                               FontSize="11" FontWeight="Normal" Foreground="{DynamicResource Skin.MutedFg}" VerticalAlignment="Center"/>
-                                                </Grid>
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsChecked" Value="False">
-                                                    <Setter TargetName="chev" Property="Text" Value="&#xE76C;"/>
-                                                </Trigger>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="hb" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </ToggleButton.Template>
-                                </ToggleButton>
-                                <ContentPresenter x:Name="content" DockPanel.Dock="Top"/>
-                            </DockPanel>
+                    <ControlTemplate TargetType="TabControl">
+                        <DockPanel>
+                            <TabPanel DockPanel.Dock="Top" IsItemsHost="True" Margin="0,0,0,8" HorizontalAlignment="Left"/>
+                            <ContentPresenter ContentSource="SelectedContent"/>
+                        </DockPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Pill" TargetType="TabItem">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="p" CornerRadius="6" Margin="0,0,7,0" Padding="13,7"
+                                Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
+                            <ContentPresenter x:Name="c" ContentSource="Header" VerticalAlignment="Center"
+                                              TextElement.Foreground="{DynamicResource Skin.MutedFg}"
+                                              TextElement.FontSize="12.5" TextElement.FontWeight="SemiBold"/>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsExpanded" Value="False">
-                                <Setter TargetName="content" Property="Visibility" Value="Collapsed"/>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="p" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="p" Property="Background" Value="{DynamicResource Skin.TabSelectedBg}"/>
+                                <Setter TargetName="p" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                <Setter TargetName="c" Property="TextElement.Foreground" Value="{DynamicResource Skin.Fg}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.45"/>
+                                <Setter Property="Opacity" Value="0.4"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -73,7 +120,7 @@
             </Setter>
         </Style>
 
-        <!-- Skill-chain expand toggle: dev's bordered +/- box (control-bg, accent glyph). -->
+        <!-- Skill-chain expand toggle: bordered +/- box (control-bg, accent glyph). -->
         <Style x:Key="ChainToggle" TargetType="ToggleButton">
             <Setter Property="Width" Value="18"/>
             <Setter Property="Height" Value="18"/>
@@ -100,323 +147,265 @@
             </Setter>
         </Style>
 
-        <!-- Skill-table damage cell: a proportional gradient bar with the damage + (%) overlaid right (dev). -->
-        <Style x:Key="SkillStatCell" TargetType="TextBlock" BasedOn="{StaticResource Stat}">
-            <Setter Property="TextAlignment" Value="Center"/>
+        <!-- 직접/지속 badge -->
+        <Style x:Key="TypeBadge" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Skin.StatBg}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="6,1"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
+
+        <!-- Buff/debuff uptime table. Bound to a flat list of BuffRowVM; each row carries its section
+             ("내 버프" / "파티원 버프" / "그 외", or the caster) as a subtitle, like the stats site. -->
+        <DataTemplate x:Key="UptimeTable">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+              <StackPanel>
+                <Border Background="{DynamicResource Skin.TableHeadBg}" CornerRadius="5" Margin="0,0,0,5">
+                    <Grid Margin="10,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="72"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="이름" Style="{StaticResource Head}" TextAlignment="Left"/>
+                        <TextBlock Grid.Column="1" Text="가동률" Style="{StaticResource Head}"/>
+                    </Grid>
+                </Border>
+                    <ItemsControl ItemsSource="{Binding}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="5" Padding="10,6" Margin="0,1" Background="{DynamicResource Skin.RowBg}"
+                                        ToolTip="{Binding Description}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="250"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="72"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Image Source="{Binding IconSource}" Width="24" Height="24" Margin="0,0,9,0" VerticalAlignment="Center"/>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="12.5" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding Subtitle}" Visibility="{Binding SubtitleVisibility}"
+                                                           Foreground="{DynamicResource Skin.MutedFg}" FontSize="10.5" Margin="0,1,0,0"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <!-- Inset track + gradient fill under a gloss, so the gauge reads as a lit bar. -->
+                                        <Grid Grid.Column="1" Height="11" VerticalAlignment="Center" Margin="12,0">
+                                            <Border Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                                    BorderThickness="1" CornerRadius="5.5"/>
+                                            <Grid Margin="1">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
+                                                    <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Background="{Binding BarBrush}" CornerRadius="4.5">
+                                                    <Border CornerRadius="4.5" Background="{StaticResource BarGloss}"/>
+                                                </Border>
+                                            </Grid>
+                                        </Grid>
+                                        <TextBlock Grid.Column="2" Text="{Binding RateText}" Style="{StaticResource CellBold}" Foreground="{Binding RateBrush}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+        </DataTemplate>
     </Window.Resources>
+
     <Border Background="{DynamicResource Skin.PanelBg}" CornerRadius="8" Padding="12"
             TextElement.FontFamily="{Binding FontFamily, Converter={StaticResource FontConv}}">
         <DockPanel>
-            <Grid DockPanel.Dock="Top" MouseLeftButtonDown="OnDragHandle" Background="Transparent" Margin="0,0,0,8">
+            <Grid DockPanel.Dock="Top" MouseLeftButtonDown="OnDragHandle" Background="Transparent" Margin="0,0,0,10">
                 <TextBlock Text="{Binding Title}" Foreground="{DynamicResource Skin.Fg}" FontWeight="Bold" FontSize="14"/>
                 <Button Content="&#xE8BB;" Click="OnClose" HorizontalAlignment="Right" Style="{StaticResource HeaderCloseButton}"/>
             </Grid>
 
-            <!-- 8-cell summary grid (dev: bordered cards, larger value text to fill the row) -->
-            <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="0,0,0,10">
-                <UniformGrid.Resources>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="{DynamicResource Skin.RowBg}"/>
-                        <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
-                        <Setter Property="BorderThickness" Value="1"/>
-                        <Setter Property="CornerRadius" Value="6"/>
-                        <Setter Property="Margin" Value="3"/>
-                        <Setter Property="Padding" Value="12,9"/>
-                    </Style>
-                    <Style x:Key="SumLabel" TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
-                        <Setter Property="FontSize" Value="12"/>
-                        <Setter Property="Margin" Value="0,0,0,4"/>
-                    </Style>
-                    <Style x:Key="SumValue" TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
-                        <Setter Property="FontWeight" Value="Bold"/>
-                        <Setter Property="FontSize" Value="16"/>
-                    </Style>
-                </UniformGrid.Resources>
-                <Border><StackPanel><TextBlock Text="누적 피해량" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding TotalDamageText}" Style="{StaticResource SumValue}" Foreground="{Binding AmountBrush}"/></StackPanel></Border>
-                <Border><StackPanel><TextBlock Text="피해량 기여도" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding ContributionText}" Style="{StaticResource SumValue}" Foreground="{Binding ContributionBrush}"/></StackPanel></Border>
-                <Border><StackPanel><TextBlock Text="치명타 비율" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding CritText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
-                <Border><StackPanel><TextBlock Text="강타 비율" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding StrongText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
-                <Border><StackPanel><TextBlock Text="완벽 비율" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding PerfectText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
-                <Border><StackPanel><TextBlock Text="백어택 비율" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding BackText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
-                <Border><StackPanel><TextBlock Text="보스 막기비율" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding ParryText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
-                <Border><StackPanel><TextBlock Text="전투시간" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding CombatTimeText}" Style="{StaticResource SumValue}" Foreground="{Binding DetailCombatTimeBrush}"/></StackPanel></Border>
+            <!-- Stat tiles: label above value, 5 per row (stats-site layout). -->
+            <UniformGrid DockPanel.Dock="Top" Columns="5" Margin="0,0,0,10">
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="총 피해" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding TotalDamageText}" Style="{StaticResource SumValue}" Foreground="{Binding AmountBrush}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="DPS" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding DpsText}" Style="{StaticResource SumValue}" Foreground="{StaticResource ValueCyan}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="기여도" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding ContributionText}" Style="{StaticResource SumValue}" Foreground="{Binding ContributionBrush}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="타수" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding HitsText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="전투시간" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding CombatTimeText}" Style="{StaticResource SumValue}" Foreground="{Binding DetailCombatTimeBrush}"/></StackPanel></Border>
+
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="치명" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding CritText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="강타" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding StrongText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="완벽" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding PerfectText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="후방" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding BackText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="막기" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding ParryText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
             </UniformGrid>
 
             <Grid>
-            <TextBlock Text="이 전투에는 표시할 데이터가 없어요." Visibility="{Binding NoDataVisibility}"
-                       Foreground="{DynamicResource Skin.MutedFg}" FontSize="13" Panel.ZIndex="1"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <!-- 파티원 개요: 이 전투 참가자 전원의 직업/서버/파티/전투력/기여도 (읽기 전용) -->
-                    <Expander Header="파티원" IsExpanded="True" Visibility="{Binding HasMembers, Converter={StaticResource BoolToVis}}"
-                              Style="{StaticResource DetailExpander}">
-                        <ItemsControl ItemsSource="{Binding Members}" Margin="4,4">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border CornerRadius="4" Padding="8,4" Margin="0,1" Background="{DynamicResource Skin.RowBg}">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Style.Triggers>
-                                                    <!-- highlight the member whose breakdown is currently shown -->
-                                                    <DataTrigger Binding="{Binding IsViewed}" Value="True">
-                                                        <Setter Property="Background" Value="{DynamicResource Skin.RowHover}"/>
-                                                        <Setter Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
-                                                        <Setter Property="BorderThickness" Value="2,0,0,0"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="54"/>
-                                                <ColumnDefinition Width="60"/>
-                                                <ColumnDefinition Width="150"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Image Source="{Binding JobIcon}" Width="22" Height="22" Margin="0,0,7,0" VerticalAlignment="Center"/>
-                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="13" FontWeight="SemiBold"
-                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{Binding ServerTag}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11"
-                                                           VerticalAlignment="Center" Margin="6,0,0,0" Visibility="{Binding ServerTagVisibility}"/>
-                                                <Border Margin="6,0,0,0" Padding="4,0" CornerRadius="3" VerticalAlignment="Center"
-                                                        Background="{DynamicResource Skin.StatBg}" Visibility="{Binding SlotVisibility}">
-                                                    <TextBlock Text="{Binding SlotText}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10" VerticalAlignment="Center"/>
-                                                </Border>
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="1" Text="{Binding PowerText}" Style="{StaticResource Stat}" VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource Skin.MutedFg}" Visibility="{Binding PowerVisibility}"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding ContribText}" Style="{StaticResource Stat}" VerticalAlignment="Center"
-                                                       Foreground="{Binding DataContext.ContributionBrush, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                                            <Grid Grid.Column="3" Height="22" Margin="8,0,0,0">
-                                                <Border CornerRadius="4" ClipToBounds="True">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
-                                                            <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <Border Grid.Column="0" Background="{DynamicResource Skin.Accent}"/>
-                                                    </Grid>
-                                                </Border>
-                                                <TextBlock Text="{Binding AmountText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,7,0"
-                                                           Foreground="{DynamicResource Skin.Fg}" FontWeight="Bold" FontSize="11.5"/>
-                                            </Grid>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Expander>
+                <TextBlock Text="이 전투에는 표시할 데이터가 없어요." Visibility="{Binding NoDataVisibility}"
+                           Foreground="{DynamicResource Skin.MutedFg}" FontSize="13" Panel.ZIndex="1"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"/>
 
-                    <Expander Header="버프 가동률" IsEnabled="{Binding HasBuffs}" Style="{StaticResource DetailExpander}">
-                        <ItemsControl ItemsSource="{Binding Buffs}" Margin="8,4">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,3">
-                                        <TextBlock Text="{Binding Label}" Foreground="{DynamicResource Skin.MutedFg}" FontWeight="SemiBold" FontSize="12.5" Margin="0,4"/>
-                                        <ItemsControl ItemsSource="{Binding Rows}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,3" ToolTip="{Binding Description}">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="172"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="52"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                                            <Image Source="{Binding IconSource}" Width="19" Height="19" Margin="0,0,7,0" VerticalAlignment="Center"/>
-                                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="12.5" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                        </StackPanel>
-                                                        <Grid Grid.Column="1" Height="11" VerticalAlignment="Center">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
-                                                                <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <Border Grid.Column="0" Background="{Binding Brush}" CornerRadius="2"/>
-                                                        </Grid>
-                                                        <TextBlock Grid.Column="2" Text="{Binding RateText}" Style="{StaticResource Stat}"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Expander>
-
-                    <Expander Header="디버프 가동률" IsEnabled="{Binding HasDebuffs}" Style="{StaticResource DetailExpander}">
-                        <ItemsControl ItemsSource="{Binding Debuffs}" Margin="8,4">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,3">
-                                        <TextBlock Text="{Binding Label}" Foreground="{DynamicResource Skin.MutedFg}" FontWeight="SemiBold" FontSize="12.5" Margin="0,4"/>
-                                        <ItemsControl ItemsSource="{Binding Rows}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Margin="0,3" ToolTip="{Binding Description}">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="172"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="52"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                                            <Image Source="{Binding IconSource}" Width="19" Height="19" Margin="0,0,7,0" VerticalAlignment="Center"/>
-                                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="12.5" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                                                        </StackPanel>
-                                                        <Grid Grid.Column="1" Height="11" VerticalAlignment="Center">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
-                                                                <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <Border Grid.Column="0" Background="{Binding Brush}" CornerRadius="2"/>
-                                                        </Grid>
-                                                        <TextBlock Grid.Column="2" Text="{Binding RateText}" Style="{StaticResource Stat}"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Expander>
-
-                    <Expander Header="스킬 피해량" IsExpanded="True" Style="{StaticResource DetailExpander}">
-                        <StackPanel Margin="4,4">
-                            <Border Background="{DynamicResource Skin.TableHeadBg}" CornerRadius="4" Margin="0,0,0,4">
-                            <Grid Margin="8,7">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="56"/>
-                                    <ColumnDefinition Width="48"/>
-                                    <ColumnDefinition Width="48"/>
-                                    <ColumnDefinition Width="48"/>
-                                    <ColumnDefinition Width="56"/>
-                                    <ColumnDefinition Width="48"/>
-                                    <ColumnDefinition Width="150"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="스킬명" Style="{StaticResource Head}" TextAlignment="Left"/>
-                                <TextBlock Grid.Column="1" Text="명중 횟수" Style="{StaticResource Head}" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="2" Text="치명타" Style="{StaticResource Head}" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="3" Text="강타" Style="{StaticResource Head}" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="4" Text="완벽" Style="{StaticResource Head}" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="5" Text="백어택" Style="{StaticResource Head}" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="6" Text="패리" Style="{StaticResource Head}" TextAlignment="Center"/>
-                                <TextBlock Grid.Column="7" Text="누적 피해량" Style="{StaticResource Head}" TextAlignment="Center"/>
-                            </Grid>
+                <TabControl x:Name="Tabs" Style="{StaticResource PillTabs}">
+                    <!-- ══════════════ 스킬 ══════════════ -->
+                    <TabItem Style="{StaticResource Pill}">
+                        <TabItem.Header>스킬</TabItem.Header>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                          <StackPanel>
+                            <Border Background="{DynamicResource Skin.TableHeadBg}" CornerRadius="5" Margin="0,0,0,5">
+                                <Grid Margin="10,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" MinWidth="150"/>
+                                        <ColumnDefinition Width="56"/>
+                                        <ColumnDefinition Width="52"/>
+                                        <ColumnDefinition Width="58"/>
+                                        <ColumnDefinition Width="58"/>
+                                        <ColumnDefinition Width="58"/>
+                                        <ColumnDefinition Width="58"/>
+                                        <ColumnDefinition Width="54"/>
+                                        <ColumnDefinition Width="66"/>
+                                        <ColumnDefinition Width="66"/>
+                                        <ColumnDefinition Width="72"/>
+                                        <ColumnDefinition Width="58"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="스킬" Style="{StaticResource Head}" TextAlignment="Left"/>
+                                    <TextBlock Grid.Column="1" Text="유형" Style="{StaticResource Head}" TextAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="타수" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="3" Text="치명" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="4" Text="강타" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="5" Text="완벽" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="6" Text="후방" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="7" Text="패리" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="8" Text="DPS" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="9" Text="평균" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="10" Text="누적" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="11" Text="비중" Style="{StaticResource Head}"/>
+                                </Grid>
                             </Border>
-                            <ItemsControl ItemsSource="{Binding Skills}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Margin="0,1">
-                                            <!-- main (merged) skill row: [± toggle][icon][name] | stats | proportional damage bar -->
-                                            <Border CornerRadius="4" Padding="8,5" Background="{DynamicResource Skin.RowBg}">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="56"/>
-                                                    <ColumnDefinition Width="48"/>
-                                                    <ColumnDefinition Width="48"/>
-                                                    <ColumnDefinition Width="48"/>
-                                                    <ColumnDefinition Width="56"/>
-                                                    <ColumnDefinition Width="48"/>
-                                                    <ColumnDefinition Width="150"/>
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <Grid Width="22" Margin="0,0,6,0">
-                                                        <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                                      Visibility="{Binding HasChildren, Converter={StaticResource BoolToVis}}"
-                                                                      Style="{StaticResource ChainToggle}"/>
-                                                    </Grid>
-                                                    <Image Source="{Binding Merged.IconSource}" Width="25" Height="25" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding Merged.Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="13.5"
-                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="1" Text="{Binding Merged.HitsText}" Style="{StaticResource SkillStatCell}"/>
-                                                <TextBlock Grid.Column="2" Text="{Binding Merged.CritText}" Style="{StaticResource SkillStatCell}"/>
-                                                <TextBlock Grid.Column="3" Text="{Binding Merged.StrongText}" Style="{StaticResource SkillStatCell}"/>
-                                                <TextBlock Grid.Column="4" Text="{Binding Merged.PerfectText}" Style="{StaticResource SkillStatCell}"/>
-                                                <TextBlock Grid.Column="5" Text="{Binding Merged.BackText}" Style="{StaticResource SkillStatCell}"/>
-                                                <TextBlock Grid.Column="6" Text="{Binding Merged.ParryText}" Style="{StaticResource SkillStatCell}"/>
-                                                <Grid Grid.Column="7" Height="27" Margin="6,0,0,0">
-                                                    <Border CornerRadius="5" ClipToBounds="True">
+                                <ItemsControl ItemsSource="{Binding Skills}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,1">
+                                                <!-- The row's damage share is a faint fill behind it, so ranking reads
+                                                     without spending a column on a bar (as the stats site does). -->
+                                                <Border CornerRadius="5" Background="{DynamicResource Skin.RowBg}" ClipToBounds="True">
+                                                    <Grid>
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="{Binding Merged.BarRatio, Converter={StaticResource RatioToStar}}"/>
                                                                 <ColumnDefinition Width="{Binding Merged.BarRest, Converter={StaticResource RatioToStar}}"/>
                                                             </Grid.ColumnDefinitions>
-                                                            <Border Grid.Column="0" Background="{Binding Merged.BarBrush}"/>
+                                                            <Border Grid.Column="0" Background="{StaticResource ShareFill}"/>
                                                         </Grid>
-                                                    </Border>
-                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,7,0">
-                                                        <TextBlock Text="{Binding Merged.DamageText}" Foreground="{DynamicResource Skin.Fg}" FontWeight="Bold" FontSize="12.5"/>
-                                                        <TextBlock Text="{Binding Merged.PercentText, StringFormat=({0})}" Foreground="{DynamicResource Skin.Fg}" Opacity="0.75" FontSize="11" Margin="5,0,0,0"/>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Grid>
-                                            </Border>
-                                            <!-- chain children: indented, accent left rail, smaller icon -->
-                                            <ItemsControl ItemsSource="{Binding Children}" Margin="0,1,0,0"
-                                                          Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border CornerRadius="4" Padding="8,4" Margin="24,1,0,0" BorderThickness="2,0,0,0"
-                                                                BorderBrush="{DynamicResource Skin.Accent}" Background="{DynamicResource Skin.RowHover}">
-                                                        <Grid>
+                                                        <Grid Margin="10,6">
                                                             <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="*" MinWidth="150"/>
                                                                 <ColumnDefinition Width="56"/>
-                                                                <ColumnDefinition Width="48"/>
-                                                                <ColumnDefinition Width="48"/>
-                                                                <ColumnDefinition Width="48"/>
-                                                                <ColumnDefinition Width="56"/>
-                                                                <ColumnDefinition Width="48"/>
-                                                                <ColumnDefinition Width="150"/>
+                                                                <ColumnDefinition Width="52"/>
+                                                                <ColumnDefinition Width="58"/>
+                                                                <ColumnDefinition Width="58"/>
+                                                                <ColumnDefinition Width="58"/>
+                                                                <ColumnDefinition Width="58"/>
+                                                                <ColumnDefinition Width="54"/>
+                                                                <ColumnDefinition Width="66"/>
+                                                                <ColumnDefinition Width="66"/>
+                                                                <ColumnDefinition Width="72"/>
+                                                                <ColumnDefinition Width="58"/>
                                                             </Grid.ColumnDefinitions>
                                                             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <Image Source="{Binding IconSource}" Width="21" Height="21" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="12.5"
+                                                                <Grid Width="22" Margin="0,0,4,0">
+                                                                    <ToggleButton IsChecked="{Binding IsExpanded, Mode=TwoWay}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                                  Visibility="{Binding HasChildren, Converter={StaticResource BoolToVis}}"
+                                                                                  Style="{StaticResource ChainToggle}"/>
+                                                                </Grid>
+                                                                <Image Source="{Binding Merged.IconSource}" Width="24" Height="24" Margin="0,0,9,0" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding Merged.Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="13" FontWeight="SemiBold"
                                                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                             </StackPanel>
-                                                            <TextBlock Grid.Column="1" Text="{Binding HitsText}" Style="{StaticResource SkillStatCell}"/>
-                                                            <TextBlock Grid.Column="2" Text="{Binding CritText}" Style="{StaticResource SkillStatCell}"/>
-                                                            <TextBlock Grid.Column="3" Text="{Binding StrongText}" Style="{StaticResource SkillStatCell}"/>
-                                                            <TextBlock Grid.Column="4" Text="{Binding PerfectText}" Style="{StaticResource SkillStatCell}"/>
-                                                            <TextBlock Grid.Column="5" Text="{Binding BackText}" Style="{StaticResource SkillStatCell}"/>
-                                                            <TextBlock Grid.Column="6" Text="{Binding ParryText}" Style="{StaticResource SkillStatCell}"/>
-                                                            <Grid Grid.Column="7" Height="22" Margin="6,0,0,0">
-                                                                <Border CornerRadius="4" ClipToBounds="True">
-                                                                    <Grid>
-                                                                        <Grid.ColumnDefinitions>
-                                                                            <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
-                                                                            <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
-                                                                        </Grid.ColumnDefinitions>
-                                                                        <Border Grid.Column="0" Background="{Binding BarBrush}"/>
-                                                                    </Grid>
-                                                                </Border>
-                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,7,0">
-                                                                    <TextBlock Text="{Binding DamageText}" Foreground="{DynamicResource Skin.Fg}" FontSize="11.5"/>
-                                                                    <TextBlock Text="{Binding PercentText, StringFormat=({0})}" Foreground="{DynamicResource Skin.Fg}" Opacity="0.7" FontSize="10.5" Margin="5,0,0,0"/>
-                                                                </StackPanel>
-                                                            </Grid>
+                                                            <Border Grid.Column="1" Style="{StaticResource TypeBadge}">
+                                                                <TextBlock Text="{Binding Merged.TypeText}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10.5"/>
+                                                            </Border>
+                                                            <TextBlock Grid.Column="2" Text="{Binding Merged.HitsText}" Style="{StaticResource Cell}"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding Merged.CritText}" Style="{StaticResource CellBold}" Foreground="{StaticResource ValueCyan}"/>
+                                                            <TextBlock Grid.Column="4" Text="{Binding Merged.StrongText}" Style="{StaticResource CellBold}" Foreground="{StaticResource ValueMagenta}"/>
+                                                            <TextBlock Grid.Column="5" Text="{Binding Merged.PerfectText}" Style="{StaticResource Cell}"/>
+                                                            <TextBlock Grid.Column="6" Text="{Binding Merged.BackText}" Style="{StaticResource Cell}"/>
+                                                            <TextBlock Grid.Column="7" Text="{Binding Merged.ParryText}" Style="{StaticResource Cell}"/>
+                                                            <TextBlock Grid.Column="8" Text="{Binding Merged.DpsText}" Style="{StaticResource Cell}"/>
+                                                            <TextBlock Grid.Column="9" Text="{Binding Merged.AvgText}" Style="{StaticResource Cell}"/>
+                                                            <TextBlock Grid.Column="10" Text="{Binding Merged.DamageText}" Style="{StaticResource CellBold}" Foreground="{StaticResource ValueCyan}"/>
+                                                            <TextBlock Grid.Column="11" Text="{Binding Merged.PercentText}" Style="{StaticResource CellBold}" Foreground="{StaticResource ValueCyan}"/>
                                                         </Grid>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Expander>
-                </StackPanel>
-            </ScrollViewer>
+                                                    </Grid>
+                                                </Border>
+
+                                                <!-- chain children: indented, accent left rail -->
+                                                <ItemsControl ItemsSource="{Binding Children}" Margin="0,1,0,0"
+                                                              Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border CornerRadius="5" Padding="10,4" Margin="26,1,0,0" BorderThickness="2,0,0,0"
+                                                                    BorderBrush="{DynamicResource Skin.Accent}" Background="{DynamicResource Skin.RowHover}">
+                                                                <Grid>
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*" MinWidth="124"/>
+                                                                        <ColumnDefinition Width="56"/>
+                                                                        <ColumnDefinition Width="52"/>
+                                                                        <ColumnDefinition Width="58"/>
+                                                                        <ColumnDefinition Width="58"/>
+                                                                        <ColumnDefinition Width="58"/>
+                                                                        <ColumnDefinition Width="58"/>
+                                                                        <ColumnDefinition Width="54"/>
+                                                                        <ColumnDefinition Width="66"/>
+                                                                        <ColumnDefinition Width="66"/>
+                                                                        <ColumnDefinition Width="72"/>
+                                                                        <ColumnDefinition Width="58"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                                        <Image Source="{Binding IconSource}" Width="20" Height="20" Margin="0,0,9,0" VerticalAlignment="Center"/>
+                                                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="12.5"
+                                                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                                    </StackPanel>
+                                                                    <Border Grid.Column="1" Style="{StaticResource TypeBadge}">
+                                                                        <TextBlock Text="{Binding TypeText}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10"/>
+                                                                    </Border>
+                                                                    <TextBlock Grid.Column="2" Text="{Binding HitsText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <TextBlock Grid.Column="3" Text="{Binding CritText}" Style="{StaticResource Cell}" FontSize="12" Foreground="{StaticResource ValueCyan}"/>
+                                                                    <TextBlock Grid.Column="4" Text="{Binding StrongText}" Style="{StaticResource Cell}" FontSize="12" Foreground="{StaticResource ValueMagenta}"/>
+                                                                    <TextBlock Grid.Column="5" Text="{Binding PerfectText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <TextBlock Grid.Column="6" Text="{Binding BackText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <TextBlock Grid.Column="7" Text="{Binding ParryText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <TextBlock Grid.Column="8" Text="{Binding DpsText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <TextBlock Grid.Column="9" Text="{Binding AvgText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <TextBlock Grid.Column="10" Text="{Binding DamageText}" Style="{StaticResource Cell}" FontSize="12" Foreground="{StaticResource ValueCyan}"/>
+                                                                    <TextBlock Grid.Column="11" Text="{Binding PercentText}" Style="{StaticResource Cell}" FontSize="12" Foreground="{StaticResource ValueCyan}"/>
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                          </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+
+                    <!-- ══════════════ 버프 업타임 ══════════════ -->
+                    <TabItem Style="{StaticResource Pill}" IsEnabled="{Binding HasBuffs}">
+                        <TabItem.Header>버프 업타임</TabItem.Header>
+                        <ContentControl Content="{Binding Buffs}" ContentTemplate="{StaticResource UptimeTable}"/>
+                    </TabItem>
+
+                    <!-- ══════════════ 디버프 업타임 ══════════════ -->
+                    <TabItem Style="{StaticResource Pill}" IsEnabled="{Binding HasDebuffs}">
+                        <TabItem.Header>디버프 업타임</TabItem.Header>
+                        <ContentControl Content="{Binding Debuffs}" ContentTemplate="{StaticResource UptimeTable}"/>
+                    </TabItem>
+
+                </TabControl>
             </Grid>
         </DockPanel>
     </Border>

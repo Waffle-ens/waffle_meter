@@ -550,10 +550,11 @@ public sealed class DpsCalculator
         return new Dictionary<string, AnalyzedSkill>(built);
     }
 
-    private readonly record struct BuffDisplay(int Code, string Name, string? Summary, string? Effect);
+    /// <param name="Catalogued">True when the runtime code itself is in buff.json (so its code resolves an icon
+    /// and a buff-value); false when only the skill NAME could be recovered and <see cref="Code"/> is the base.</param>
+    private readonly record struct BuffDisplay(int Code, string Name, string? Summary, string? Effect, bool Catalogued);
 
-    private static bool IsPlaceholderBuff(Buff buff) =>
-        string.IsNullOrWhiteSpace(buff.Name) || buff.Name.Equals("None", StringComparison.OrdinalIgnoreCase);
+    private static bool IsPlaceholderBuff(Buff buff) => DataManager.IsPlaceholderBuffName(buff.Name);
 
     private int? NormalizeBuffSkillCode(int code)
     {
@@ -594,7 +595,7 @@ public sealed class DpsCalculator
         if (buff != null)
         {
             if (IsPlaceholderBuff(buff)) return null;
-            return new BuffDisplay(code, buff.Name, buff.Summary, buff.Effect);
+            return new BuffDisplay(code, buff.Name, buff.Summary, buff.Effect, Catalogued: true);
         }
 
         int? skillCode = NormalizeBuffSkillCode(code);
@@ -602,10 +603,26 @@ public sealed class DpsCalculator
         Skill? skill = _dm.Skill(skillCode.Value);
         if (skill == null) return null;
         string? name = skill.Name;
-        if (string.IsNullOrWhiteSpace(name) || name.Equals("None", StringComparison.OrdinalIgnoreCase)) return null;
-        return new BuffDisplay(skillCode.Value, name, null, null);
+        if (DataManager.IsPlaceholderBuffName(name)) return null;
+        return new BuffDisplay(skillCode.Value, name!, null, null, Catalogued: false);
     }
 
+    /// <summary>
+    /// Buff/debuff uptime for one entity, one row per (base skill, name, caster).
+    /// </summary>
+    /// <remarks>
+    /// A skill fires several runtime codes at once — the buff it puts on the caster and the debuff it puts on the
+    /// target, each with its own rank variants. The ENTITY already separates buff from debuff (a player's list is
+    /// what landed on them; the boss's list is what landed on it), so this collapses everything one skill did to
+    /// one entity into a single row. Grouping is deliberately NOT by:
+    /// <list type="bullet">
+    /// <item>runtime code — 격노 폭발 puts 113900071 + 113900072 on its target, so each rank became its own row.</item>
+    /// <item>name alone — 지연 피해 is five unrelated skills across five bases (궁성 14170000, 마도성 15050000/15320000,
+    /// 정령성 16300000/16330000) that merely share a display name.</item>
+    /// <item>base alone — one base carries differently-named effects (16300000 holds 4원소, 피해 내성 감소, 지연 피해).</item>
+    /// </list>
+    /// The rate is the union of every member interval, not a sum or a max — applications overlap.
+    /// </remarks>
     public List<OperatingData> GetBuffOperatingRate(int uid, long start, long end)
     {
         long totalDuration = end - start;
@@ -615,22 +632,41 @@ public sealed class DpsCalculator
             .Where(b => !_dm.IsBuffBlacklisted(b.SkillCode))
             .Select(useBuff => (Display: ResolveBuffDisplay(useBuff.SkillCode), UseBuff: useBuff))
             .Where(x => x.Display != null)
-            .GroupBy(x => (x.Display!.Value.Code, x.UseBuff.ActorId));
+            .Select(x => (D: x.Display!.Value, U: x.UseBuff, Base: DataManager.BuffBaseCode(x.UseBuff.SkillCode)))
+            .GroupBy(x => (x.Base, x.D.Name, x.U.ActorId));
 
         var result = new List<OperatingData>();
         foreach (var group in groups)
         {
-            int actorId = group.Key.ActorId;
-            BuffDisplay display = group.First().Display!.Value;
-            // Merge overlapping/refreshed applications so a stacked buff isn't double-counted (see BuffUptime).
-            long covered = BuffUptime.CoveredMs(
-                group.Select(x => (x.UseBuff.BuffStart, x.UseBuff.BuffEnd)), start, end);
+            (int baseCode, string name, int actorId) = group.Key;
+            long covered = BuffUptime.CoveredMs(group.Select(x => (x.U.BuffStart, x.U.BuffEnd)), start, end);
             double rate = (double)covered / totalDuration * 100.0;
-            result.Add(new OperatingData(display.Code, display.Name, display.Summary, display.Effect, rate, actorId));
+
+            BuffDisplay display = RepresentativeOf(group, start, end);
+            // The raw packet code, not the display code: the fallback path collapses a 9-digit job buff to its
+            // 8-digit base, which would then read as "not a job buff" and misclassify a self-buff as 그 외.
+            int jobPrefix = group
+                .Select(x => DataManager.IsJobBuffCode(x.U.SkillCode) ? x.U.SkillCode / 10_000_000 : 0)
+                .FirstOrDefault(p => p != 0);
+
+            result.Add(new OperatingData(
+                display.Code, name, display.Summary, display.Effect, rate, actorId, baseCode, jobPrefix));
         }
 
         return result;
     }
+
+    /// <summary>The member that best stands for the merged group: catalogued codes first (they resolve an icon and
+    /// a stats-web buff value), then the longest-running one, then the lowest code so the choice is stable.</summary>
+    private static BuffDisplay RepresentativeOf(
+        IEnumerable<(BuffDisplay D, UseBuff U, int Base)> group, long start, long end) =>
+        group
+            .GroupBy(x => x.D.Code)
+            .OrderByDescending(g => g.First().D.Catalogued)
+            .ThenByDescending(g => BuffUptime.CoveredMs(g.Select(x => (x.U.BuffStart, x.U.BuffEnd)), start, end))
+            .ThenBy(g => g.Key)
+            .First()
+            .First().D;
 
     private Dictionary<int, List<OperatingData>> BuildBuffRates(DpsReport data)
     {

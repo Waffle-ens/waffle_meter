@@ -20,9 +20,14 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     // Brighter emerald gradient (was a flat, dull #55c42a→#3a9e20) so the damage bar reads clean + vivid
     // on the dark panel; white bold damage text is overlaid for contrast.
     internal static readonly Brush SkillBar = Frozen(new LinearGradientBrush(C("#FF4ADE80"), C("#FF15A34A"), 0.0));
-    private static readonly Brush GoodBuff = Frozen(new SolidColorBrush(C("#55c42a")));
-    private static readonly Brush WarnBuff = Frozen(new SolidColorBrush(C("#e6a817")));
-    private static readonly Brush BadBuff = Frozen(new SolidColorBrush(C("#e05252")));
+    // Uptime gauge: the bar is a left-to-right gradient (dark -> bright) so it reads as a lit gauge rather than
+    // a painted block; the matching solid is used for the % text, where a gradient would smear across glyphs.
+    private static readonly Brush GoodBar = Frozen(new LinearGradientBrush(C("#FF15803D"), C("#FF4ADE80"), 0.0));
+    private static readonly Brush WarnBar = Frozen(new LinearGradientBrush(C("#FFB45309"), C("#FFFBBF24"), 0.0));
+    private static readonly Brush BadBar = Frozen(new LinearGradientBrush(C("#FFB91C1C"), C("#FFF87171"), 0.0));
+    private static readonly Brush GoodBuff = Frozen(new SolidColorBrush(C("#4ade80")));
+    private static readonly Brush WarnBuff = Frozen(new SolidColorBrush(C("#fbbf24")));
+    private static readonly Brush BadBuff = Frozen(new SolidColorBrush(C("#f87171")));
 
     private readonly int _uid;
     private readonly DpsCalculator _calc;
@@ -59,19 +64,17 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     /// <summary>전투 시간 color (theme combatTimeColor).</summary>
     public Brush DetailCombatTimeBrush { get; }
     public ObservableCollection<SkillGroupVM> Skills { get; } = new();
-    public ObservableCollection<BuffSectionVM> Buffs { get; } = new();
-    public ObservableCollection<BuffSectionVM> Debuffs { get; } = new();
-
-    /// <summary>Every combat participant this battle, for the party overview in the detail window: job /
-    /// server / sub-party slot / power / contribution. Sorted by damage desc; the viewed actor is flagged.</summary>
-    public ObservableCollection<PartyMemberVM> Members { get; } = new();
-
-    private bool _hasMembers;
-    /// <summary>True when there is more than one participant (so a one-person fight hides the party section).</summary>
-    public bool HasMembers { get => _hasMembers; private set => Set(ref _hasMembers, value); }
+    public ObservableCollection<BuffRowVM> Buffs { get; } = new();
+    public ObservableCollection<BuffRowVM> Debuffs { get; } = new();
 
     private string _totalDamageText = "0";
     public string TotalDamageText { get => _totalDamageText; private set => Set(ref _totalDamageText, value); }
+
+    private string _dpsText = "0";
+    public string DpsText { get => _dpsText; private set => Set(ref _dpsText, value); }
+
+    private string _hitsText = "0";
+    public string HitsText { get => _hitsText; private set => Set(ref _hitsText, value); }
     private string _contributionText = "0.0%";
     public string ContributionText { get => _contributionText; private set => Set(ref _contributionText, value); }
     private string _critText = "0.0%";
@@ -131,10 +134,8 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
             Skills.Clear();
             Buffs.Clear();
             Debuffs.Clear();
-            Members.Clear();
             HasBuffs = false;
             HasDebuffs = false;
-            HasMembers = false;
             TotalDamageText = ContributionText = CritText = StrongText =
                 PerfectText = BackText = ParryText = CombatTimeText = "-";
             return;
@@ -160,10 +161,13 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         long combatMs = Math.Max(report.BattleEnd - report.BattleStart, 0);
 
         DetailModel model = DetailModel.Compute(
-            skills, own, boss, _uid, user?.Job, contribution, combatMs,
-            id => report.Contributors.FirstOrDefault(c => c.Id == id)?.Nickname);
+            skills, own, boss, _uid, user?.Job, contribution, combatMs);
 
-        TotalDamageText = model.TotalDamage.ToString("N0", Inv);
+        TotalDamageText = MeterFormat.FormatAmount(model.TotalDamage);
+        DpsText = model.CombatMs > 0
+            ? (model.TotalDamage / (model.CombatMs / 1000.0)).ToString("N0", Inv)
+            : "0";
+        HitsText = model.HitCount.ToString("N0", Inv);
         ContributionText = model.Contribution.ToString("F1", Inv) + "%";
         CritText = model.CritPct.ToString("F1", Inv) + "%";
         StrongText = model.StrongPct.ToString("F1", Inv) + "%";
@@ -173,60 +177,21 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         TimeSpan span = TimeSpan.FromMilliseconds(model.CombatMs);
         CombatTimeText = $"{(int)span.TotalMinutes}:{span.Seconds:D2}";
 
-        ReconcileSkills(model.Skills);
+        ReconcileSkills(model.Skills, model.CombatMs);
         Rebuild(Buffs, model.Buffs);
         Rebuild(Debuffs, model.Debuffs);
         HasBuffs = Buffs.Count > 0;
         HasDebuffs = Debuffs.Count > 0;
-        RebuildMembers(report);
     }
 
-    // The party overview: every named participant with damage, ranked, styled like a meter row.
-    private void RebuildMembers(DpsReport report)
-    {
-        int selfId = report.ExecutorId;
-        double top = report.Information.Values.Count > 0 ? report.Information.Values.Max(i => i.Amount) : 0;
-
-        List<PartyMemberVM> members = report.Contributors
-            .Where(u => !string.IsNullOrWhiteSpace(u.Nickname) && report.Information.ContainsKey(u.Id))
-            .Select(u =>
-            {
-                DpsInformation info = report.Information[u.Id];
-                bool isUser = u.IsExecutor || (selfId != 0 && u.Id == selfId);
-                report.PartySlots.TryGetValue(u.Id, out int slot);
-                return new PartyMemberVM(
-                    uid: u.Id,
-                    name: u.Nickname!,
-                    jobIcon: JoinIcons.Job(u.Job?.ClassName()),
-                    serverTag: ServerNames.GetServerLabel(u.Server),
-                    slot: slot,
-                    power: u.Power,
-                    amount: info.Amount,
-                    contribution: info.Contribution,
-                    barRatio: top > 0 ? info.Amount / top : 0,
-                    isUser: isUser,
-                    isViewed: u.Id == _uid);
-            })
-            .OrderByDescending(m => m.Amount)
-            .ToList();
-
-        Members.Clear();
-        foreach (PartyMemberVM m in members)
-        {
-            Members.Add(m);
-        }
-
-        HasMembers = Members.Count > 1;
-    }
-
-    private void ReconcileSkills(IReadOnlyList<DetailSkillGroup> groups)
+    private void ReconcileSkills(IReadOnlyList<DetailSkillGroup> groups, long combatMs)
     {
         // Preserve expansion of chain groups (unique main code) across live ticks.
         Dictionary<int, bool> expanded = Skills.Where(g => g.HasChildren).ToDictionary(g => g.Code, g => g.IsExpanded);
         Skills.Clear();
         foreach (DetailSkillGroup g in groups)
         {
-            var vm = new SkillGroupVM(g);
+            var vm = new SkillGroupVM(g, combatMs);
             if (g.HasChildren && expanded.TryGetValue(g.Merged.Code, out bool ex))
             {
                 vm.IsExpanded = ex;
@@ -236,16 +201,24 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         }
     }
 
-    private static void Rebuild(ObservableCollection<BuffSectionVM> target, IReadOnlyList<DetailBuffSection> sections)
+    // Sections are flattened into one table: the section label rides along as each row's subtitle
+    // ("내 버프" / "파티원 버프" / "그 외", or the caster's name for boss debuffs), which is how the stats
+    // site presents the same data. Keeping the label per row lets the rows sort as one list.
+    private static void Rebuild(ObservableCollection<BuffRowVM> target, IReadOnlyList<DetailBuffSection> sections)
     {
         target.Clear();
         foreach (DetailBuffSection s in sections)
         {
-            target.Add(new BuffSectionVM(s.Label, s.Rows.Select(r => new BuffRowVM(r)).ToList()));
+            foreach (DetailBuffRow r in s.Rows)
+            {
+                target.Add(new BuffRowVM(r, s.Label));
+            }
         }
     }
 
     internal static Brush BuffBrush(double rate) => rate >= 80 ? GoodBuff : rate >= 50 ? WarnBuff : BadBuff;
+
+    internal static Brush BuffBarBrush(double rate) => rate >= 80 ? GoodBar : rate >= 50 ? WarnBar : BadBar;
 
     private static Color C(string hex) => (Color)ColorConverter.ConvertFromString(hex)!;
     private static Brush Frozen(Brush b)
@@ -276,12 +249,12 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
 
 public sealed class SkillGroupVM : INotifyPropertyChanged
 {
-    public SkillGroupVM(DetailSkillGroup group)
+    public SkillGroupVM(DetailSkillGroup group, long combatMs)
     {
         Code = group.Merged.Code;
         HasChildren = group.HasChildren;
-        Merged = new SkillRowVM(group.Merged);
-        Children = group.Children.Select(r => new SkillRowVM(r)).ToList();
+        Merged = new SkillRowVM(group.Merged, combatMs);
+        Children = group.Children.Select(r => new SkillRowVM(r, combatMs)).ToList();
     }
 
     public int Code { get; }
@@ -311,10 +284,17 @@ public sealed class SkillGroupVM : INotifyPropertyChanged
 public sealed class SkillRowVM
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+    // DetailModel appends this to a DoT row's name so the old single-column table could tell them apart.
+    // The table now carries a 유형 badge, so the suffix would just repeat it.
+    private const string DotSuffix = " - 지속";
 
-    public SkillRowVM(DetailSkillRow row)
+    public SkillRowVM(DetailSkillRow row, long combatMs)
     {
-        Name = row.Name;
+        Name = row.IsDot && row.Name.EndsWith(DotSuffix, StringComparison.Ordinal)
+            ? row.Name[..^DotSuffix.Length]
+            : row.Name;
+        IsDot = row.IsDot;
+        TypeText = row.IsDot ? "지속" : "직접";
         IconSource = JoinIcons.Skill(row.Code);
         HitsText = row.Hits.ToString("N0", Inv);
         CritText = Pct(row.CritPct);
@@ -322,13 +302,17 @@ public sealed class SkillRowVM
         PerfectText = Pct(row.PerfectPct);
         BackText = Pct(row.BackPct);
         ParryText = Pct(row.ParryPct);
-        DamageText = row.Damage.ToString("N0", Inv);
+        DpsText = combatMs > 0 ? MeterFormat.FormatAmount(row.Damage / (combatMs / 1000.0)) : "-";
+        AvgText = row.Hits > 0 ? MeterFormat.FormatAmount((double)row.Damage / row.Hits) : "-";
+        DamageText = MeterFormat.FormatAmount(row.Damage);
         PercentText = (row.Ratio * 100).ToString("F1", Inv) + "%";
         BarRatio = row.Ratio;
         BarRest = 1.0 - row.Ratio;
     }
 
     public string Name { get; }
+    public bool IsDot { get; }
+    public string TypeText { get; }
     public ImageSource? IconSource { get; }
     public string HitsText { get; }
     public string CritText { get; }
@@ -336,6 +320,8 @@ public sealed class SkillRowVM
     public string PerfectText { get; }
     public string BackText { get; }
     public string ParryText { get; }
+    public string DpsText { get; }
+    public string AvgText { get; }
     public string DamageText { get; }
     public string PercentText { get; }
     public double BarRatio { get; }
@@ -345,74 +331,37 @@ public sealed class SkillRowVM
     private static string Pct(int? value) => value.HasValue ? value.Value + "%" : "-";
 }
 
-/// <summary>One participant row in the detail window's party overview (read-only).</summary>
-public sealed class PartyMemberVM
-{
-    private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-
-    public PartyMemberVM(int uid, string name, ImageSource? jobIcon, string serverTag, int slot,
-        int power, double amount, double contribution, double barRatio, bool isUser, bool isViewed)
-    {
-        Uid = uid;
-        Name = name;
-        JobIcon = jobIcon;
-        ServerTag = serverTag;
-        ServerTagVisibility = string.IsNullOrEmpty(serverTag) ? Visibility.Collapsed : Visibility.Visible;
-        // 8-인 공대 sub-party: slots 1-4 = party 1, 5-8 = party 2 (0 = unmatched / non-raid).
-        SlotText = slot is >= 1 and <= 8 ? (slot <= 4 ? "1파티" : "2파티") : string.Empty;
-        SlotVisibility = SlotText.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-        PowerText = power > 0 ? MeterFormat.FormatPower(power) : string.Empty;
-        PowerVisibility = power > 0 ? Visibility.Visible : Visibility.Collapsed;
-        Amount = amount;
-        AmountText = amount.ToString("N0", Inv);
-        ContribText = MeterFormat.FormatPercent(contribution);
-        BarRatio = Math.Clamp(barRatio, 0, 1);
-        BarRest = 1.0 - BarRatio;
-        IsUser = isUser;
-        IsViewed = isViewed;
-    }
-
-    public int Uid { get; }
-    public string Name { get; }
-    public ImageSource? JobIcon { get; }
-    public string ServerTag { get; }
-    public Visibility ServerTagVisibility { get; }
-    public string SlotText { get; }
-    public Visibility SlotVisibility { get; }
-    public string PowerText { get; }
-    public Visibility PowerVisibility { get; }
-    public double Amount { get; }
-    public string AmountText { get; }
-    public string ContribText { get; }
-    public double BarRatio { get; }
-    public double BarRest { get; }
-    public bool IsUser { get; }
-    /// <summary>True for the member whose breakdown the window is currently showing.</summary>
-    public bool IsViewed { get; }
-}
-
-public sealed record BuffSectionVM(string Label, IReadOnlyList<BuffRowVM> Rows);
 
 public sealed class BuffRowVM
 {
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-    public BuffRowVM(DetailBuffRow row)
+    public BuffRowVM(DetailBuffRow row, string subtitle)
     {
         Name = row.Name;
+        Subtitle = subtitle;
         RateText = row.Rate.ToString("F1", Inv) + "%";
         BarRatio = row.Rate / 100.0;
         BarRest = 1.0 - BarRatio;
-        Brush = DetailsViewModel.BuffBrush(row.Rate);
+        RateBrush = DetailsViewModel.BuffBrush(row.Rate);
+        BarBrush = DetailsViewModel.BuffBarBrush(row.Rate);
         Description = row.Description;
         IconSource = JoinIcons.Skill(row.Code); // buff/debuff share the skill-icon manifest
     }
 
     public string Name { get; }
+
+    /// <summary>The section this row came from ("내 버프" / "그 외"). Empty for boss debuffs — every row there
+    /// has the same caster (this player), so a subtitle would repeat on every line.</summary>
+    public string Subtitle { get; }
+
+    public Visibility SubtitleVisibility => Subtitle.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+
     public string RateText { get; }
     public double BarRatio { get; }
     public double BarRest { get; }
-    public Brush Brush { get; }
+    public Brush RateBrush { get; }
+    public Brush BarBrush { get; }
     public string Description { get; }
     public ImageSource? IconSource { get; }
 }

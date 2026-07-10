@@ -13,10 +13,8 @@ public sealed class DetailModelTests
         Dictionary<string, AnalyzedSkill> skills,
         List<OperatingData>? own = null,
         List<OperatingData>? boss = null,
-        JobClass? job = JobClass.GLADIATOR,
-        Func<int, string?>? names = null) =>
-        DetailModel.Compute(skills, own ?? new(), boss ?? new(), uid: 1, job, contribution: 60.0, combatMs: 30000,
-            names ?? (id => null));
+        JobClass? job = JobClass.GLADIATOR) =>
+        DetailModel.Compute(skills, own ?? new(), boss ?? new(), uid: 1, job, contribution: 60.0, combatMs: 30000);
 
     [Fact]
     public void Skips_zero_damage_and_emits_dot_row()
@@ -143,35 +141,70 @@ public sealed class DetailModelTests
     }
 
     [Fact]
-    public void Own_buffs_categorize_mine_party_other()
+    public void Own_buffs_keep_only_what_this_player_applied()
     {
+        // The window answers "what did I keep running?", so a buff another player cast on me is dropped —
+        // a chanter's 진언 at 90% on everyone says nothing about this player.
         var own = new List<OperatingData>
         {
-            new(110200500, "내버프", null, null, 95.5, 1),   // actor==uid, prefix 11 == GLADIATOR -> 내 버프
-            new(150000000, "타직업버프", null, null, 40.0, 1), // actor==uid, prefix 15 -> 그 외
-            new(110200500, "파티버프", null, null, 50.0, 2),   // actor 2 != uid -> 파티원 버프
+            new(110200500, "내버프", null, null, 95.5, 1),     // actor==uid, prefix 11 == GLADIATOR -> 내 버프
+            new(150000000, "타직업버프", null, null, 40.0, 1),  // actor==uid, prefix 15 (소모품/타직업) -> 그 외
+            new(110200500, "파티버프", null, null, 50.0, 2),    // actor 2 != uid -> dropped
         };
 
         DetailModel model = Compute(new(), own: own, job: JobClass.GLADIATOR);
 
-        Assert.Equal(new[] { "내 버프", "파티원 버프", "그 외" },
-            model.Buffs.Select(s => s.Label).OrderBy(l => l == "내 버프" ? 0 : l == "파티원 버프" ? 1 : 2).ToArray());
+        Assert.Equal(new[] { "내 버프", "그 외" }, model.Buffs.Select(s => s.Label).ToArray());
         Assert.Equal(95.5, model.Buffs.Single(s => s.Label == "내 버프").Rows[0].Rate);
+        Assert.DoesNotContain(model.Buffs.SelectMany(s => s.Rows), r => r.Name == "파티버프");
     }
 
     [Fact]
-    public void Boss_debuffs_group_by_actor_with_names()
+    public void Everything_on_the_player_lands_in_a_buff_section()
+    {
+        // A player skill's debuff goes on its target, never on its caster, so a row in a player's list is always
+        // a buff or a self-state. 살기 파열's three codes all land on the 검성 and merge upstream into one row.
+        var own = new List<OperatingData>
+        {
+            new(118000071, "살기 파열", null, null, 99.8, 1, 11800000, 11),
+            new(13270000, "맹수의 송곳니", null, null, 23.6, 1, 13270000, 13),
+        };
+
+        DetailModel model = Compute(new(), own: own, job: JobClass.GLADIATOR);
+
+        Assert.DoesNotContain(model.Buffs, s => s.Label == "받은 디버프");
+        Assert.Equal(99.8, model.Buffs.Single(s => s.Label == "내 버프").Rows[0].Rate);
+        Assert.Equal(23.6, model.Buffs.Single(s => s.Label == "그 외").Rows[0].Rate); // 살성 code on a 검성
+    }
+
+    [Fact]
+    public void A_self_buff_that_fell_back_to_its_base_code_stays_in_내_버프()
+    {
+        // The fallback path reports the 8-digit base as Code; 11800000 / 10_000_000 == 1 would land it in 그 외.
+        var own = new List<OperatingData>
+        {
+            new(11800000, "살기 파열", null, null, 60.0, 1, 11800000, 11),
+        };
+
+        DetailModel model = Compute(new(), own: own, job: JobClass.GLADIATOR);
+
+        Assert.Equal("내 버프", Assert.Single(model.Buffs).Label);
+    }
+
+    [Fact]
+    public void Boss_debuffs_keep_only_the_ones_this_player_applied()
     {
         var boss = new List<OperatingData>
         {
-            new(990000000, "디버프A", null, null, 80.0, 1),
-            new(990000001, "디버프B", null, null, 60.0, 2),
+            new(990000000, "내가건디버프", null, null, 80.0, 1),
+            new(990000001, "남이건디버프", null, null, 60.0, 2),
         };
 
-        DetailModel model = Compute(new(), boss: boss, names: id => id == 1 ? "Hero" : null);
+        DetailModel model = Compute(new(), boss: boss);
 
-        Assert.Equal(2, model.Debuffs.Count);
-        Assert.Contains(model.Debuffs, s => s.Label == "Hero");
-        Assert.Contains(model.Debuffs, s => s.Label == "플레이어 2");
+        // One unlabelled section: every row shares this player as the caster, so a subtitle would just repeat.
+        DetailBuffSection section = Assert.Single(model.Debuffs);
+        Assert.Equal(string.Empty, section.Label);
+        Assert.Equal("내가건디버프", Assert.Single(section.Rows).Name);
     }
 }

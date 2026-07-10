@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Buff/debuff uptime replay: feeds a packet-debug corpus through the real capture -> DataManager ->
+    DpsCalculator pipeline, then dumps every saved battle's buff rows exactly as the detail panel and the
+    stats payload see them. Used to verify the (baseCode, name, type, actor) merge against live captures.
+    Run via: dotnet run (project, Release), passing the corpus, the json dir, and optionally the payload flag.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>WaffleMeter.BuffReplayCli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
+    <ProjectReference Include="..\..\src\WaffleMeter.Data\WaffleMeter.Data.csproj" />
+    <ProjectReference Include="..\..\src\WaffleMeter.Stats\WaffleMeter.Stats.csproj" />
+  </ItemGroup>
+
+</Project>

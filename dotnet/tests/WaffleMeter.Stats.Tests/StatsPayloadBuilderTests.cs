@@ -161,6 +161,78 @@ public sealed class StatsPayloadBuilderTests
     }
 
     [Fact]
+    public void Buffs_carry_the_base_code_the_rank_variants_collapsed_to()
+    {
+        DataManager dm = TwoPlayerParty();
+        DpsLog log = SampleLog(dm);
+        log.BuffRates[1] =
+        [
+            new OperatingData(118000071, "살기 파열", null, null, 99.8, 1, 11800000, 11),
+        ];
+
+        StatsUploadPayload payload = BuildOk(dm, log);
+
+        StatsBuffPayload buff = Assert.Single(payload.Buffs);
+        Assert.Equal(118000071, buff.BuffCode); // raw runtime code — the web's rDPS looks buff values up by it
+        Assert.Equal(11800000, buff.BaseCode);
+    }
+
+    [Fact]
+    public void Category_stays_target_derived()
+    {
+        // "buff" for a player target, "debuff" for the boss. That IS the taxonomy: a player skill's debuff lands
+        // on its target, never on the caster. The stats web also pins participant rows with z.literal("buff"),
+        // so any other value rejects the whole upload.
+        DataManager dm = TwoPlayerParty();
+        StatsUploadPayload payload = BuildOk(dm, SampleLog(dm));
+
+        Assert.All(payload.Buffs, b => Assert.Equal("buff", b.Category));
+        Assert.All(payload.BossDebuffs, b => Assert.Equal("debuff", b.Category));
+        Assert.Equal(4, payload.SchemaVersion); // additive fields only — bumping this 400s the live web
+    }
+
+    [Fact]
+    public void A_self_buff_that_fell_back_to_its_base_code_is_still_classified_self()
+    {
+        // Regression: BuffSource used to read the job prefix off buffCode. The fallback path emits the 8-digit
+        // base (11800000 / 10_000_000 == 1), so the caster's own buff was labelled "other" — and the stats web
+        // drops every non-scroll "other" row, which is how these vanished from the web but not the meter.
+        DataManager dm = TwoPlayerParty();
+        DpsLog log = SampleLog(dm);
+        log.BuffRates[1] =
+        [
+            new OperatingData(11800000, "살기 파열", null, null, 60.0, 1, 11800000, 11),
+        ];
+
+        StatsUploadPayload payload = BuildOk(dm, log);
+
+        Assert.Equal("self", Assert.Single(payload.Buffs).Source);
+    }
+
+    [Fact]
+    public void An_eight_digit_mob_debuff_on_a_player_is_never_that_players_self_buff()
+    {
+        // 15003201(중독) is a mob effect whose 8-digit code leads with 15 — the 마도성 prefix. The ally IS 마도성,
+        // so deriving the prefix from the code (or from BaseCode, which is the code itself here) would report the
+        // mob's poison as her own class buff. Only the raw 9-digit job band may grant a prefix.
+        DataManager dm = TwoPlayerParty();
+        DpsLog log = SampleLog(dm);
+        log.BuffRates[2] =
+        [
+            new OperatingData(15003201, "중독", null, null, 30.0, 2, 15003201, JobPrefix: 0),
+        ];
+
+        StatsUploadPayload payload = BuildOk(dm, log);
+
+        StatsParticipantPayload ally = payload.Participants.Single(p => !p.IsUploader);
+        Assert.Equal("마도성", ally.Job);
+
+        StatsBuffPayload row = Assert.Single(ally.Buffs);
+        Assert.Equal("other", row.Source);
+        Assert.Equal(15003201, row.BaseCode);
+    }
+
+    [Fact]
     public void Party_composition_counts_jobs_and_synergy()
     {
         DataManager dm = TwoPlayerParty();

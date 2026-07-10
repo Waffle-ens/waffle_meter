@@ -63,6 +63,7 @@ public static class ReferenceJson
     /// <summary>
     /// buff.json / buff_custom.json: object keyed by code -> { name, summary, effect, ... }. A Buff
     /// is created only when BOTH summary and effect are present (Kotlin loadBuffJson). Last write wins.
+    /// The file's <c>type</c> field is skipped on purpose (see <see cref="OperatingData"/>).
     /// </summary>
     public static List<Buff> LoadBuffs(string path)
     {

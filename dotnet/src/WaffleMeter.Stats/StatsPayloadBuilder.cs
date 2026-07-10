@@ -428,7 +428,7 @@ public sealed class StatsPayloadBuilder
         string? actorIdentityHash)
     {
         string? source = scope == "participant" && ownerId != null
-            ? BuffSource(ownerId.Value, ownerJob, value.ActorId, value.Code)
+            ? BuffSource(ownerId.Value, ownerJob, value)
             : null;
         return new StatsBuffPayload(
             BuffCode: value.Code,
@@ -439,23 +439,29 @@ public sealed class StatsPayloadBuilder
             Source: source,
             ActorIdentityHash: actorIdentityHash,
             OwnerParticipantIndex: ownerParticipantIndex,
-            ActorParticipantIndex: actorParticipantIndex);
+            ActorParticipantIndex: actorParticipantIndex,
+            BaseCode: value.BaseCode > 0 ? value.BaseCode : null);
     }
 
-    // Same classification as the local meter's BuffRateSection.categorize():
-    //   self  = caster == owner AND buff-code job prefix == owner job
+    // Same classification as the local meter's DetailModel.BuildOwnBuffs():
+    //   self  = caster == owner AND the buff's job prefix == owner job
     //   other = caster == owner but prefix mismatch (consumable/scroll/other-job self-buff)
     //   party = caster != owner (another player applied it; same-job dupes split by actorIdentityHash)
-    private static string BuffSource(int ownerId, JobClass? ownerJob, int actorId, int buffCode)
+    //
+    // The prefix comes from OperatingData.EffectiveJobPrefix, which is derived from the RAW packet code. Reading
+    // it off the payload's buffCode would be wrong twice over: the fallback path emits an 8-digit base (11390000
+    // / 10_000_000 == 1, so a self-buff could never match), and an 8-digit mob code (12000101 = 중독) would
+    // otherwise read as 수호성 and turn a mob's debuff into that player's self-buff.
+    private static string BuffSource(int ownerId, JobClass? ownerJob, OperatingData value)
     {
-        if (actorId != ownerId)
+        if (value.ActorId != ownerId)
         {
             return "party";
         }
 
         int? ownerPrefix = ownerJob != null ? ownerJob.Value.BasicSkillCode() / 1_000_000 : null;
-        int codePrefix = buffCode / 10_000_000;
-        return ownerPrefix != null && codePrefix == ownerPrefix ? "self" : "other";
+        int codePrefix = value.EffectiveJobPrefix;
+        return ownerPrefix != null && codePrefix != 0 && codePrefix == ownerPrefix ? "self" : "other";
     }
 
     private sealed record RateSummary(

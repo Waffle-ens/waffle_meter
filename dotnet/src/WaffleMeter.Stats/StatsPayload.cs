@@ -101,6 +101,12 @@ public sealed record StatsSkillPayload(
     double PerfectRate,
     double Share);
 
+/// <param name="Category">
+/// Target-derived: "buff" for a player target, "debuff" for the boss. That IS the correct taxonomy — a player
+/// skill's debuff always lands on its target, never on the caster — so there is nothing better to send. The
+/// datamined per-code type is not shipped because it is wrong often enough to be dangerous.
+/// </param>
+/// <param name="BaseCode">The 8-digit base skill code this row's rank/aspect variants collapsed to.</param>
 public sealed record StatsBuffPayload(
     int BuffCode,
     string BuffName,
@@ -110,7 +116,8 @@ public sealed record StatsBuffPayload(
     string? Source = null,
     string? ActorIdentityHash = null,
     int? OwnerParticipantIndex = null,
-    int? ActorParticipantIndex = null);
+    int? ActorParticipantIndex = null,
+    int? BaseCode = null);
 
 public sealed record StatsUploadStatus(
     bool Enabled,

@@ -37,6 +37,7 @@ public sealed record DetailModel(
     double PerfectPct,
     double BackPct,
     double ParryPct,
+    int HitCount,
     long CombatMs,
     IReadOnlyList<DetailSkillGroup> Skills,
     IReadOnlyList<DetailBuffSection> Buffs,
@@ -79,8 +80,7 @@ public sealed record DetailModel(
         int uid,
         JobClass? job,
         double contribution,
-        long combatMs,
-        Func<int, string?> actorName)
+        long combatMs)
     {
         var raws = new List<Raw>();
         foreach (KeyValuePair<string, AnalyzedSkill> entry in skills)
@@ -143,10 +143,11 @@ public sealed record DetailModel(
             TotalPct(r => r.Perfect, totalFlagged),
             TotalPct(r => r.Back, totalFlagged),
             TotalPct(r => r.Parry, totalFlagged),
+            totalHits,
             combatMs,
             groups,
             BuildOwnBuffs(ownBuffs, uid, job),
-            BuildDebuffs(bossDebuffs, actorName));
+            BuildDebuffs(bossDebuffs, uid));
     }
 
     private static IReadOnlyList<DetailSkillGroup> BuildGroups(List<Raw> raws, long totalDamage)
@@ -259,21 +260,28 @@ public sealed record DetailModel(
         r.IsDot ? null : PctInt(r.Parry, r.Hits),
         totalDamage > 0 ? r.Damage / (double)totalDamage : 0.0);
 
+    /// <summary>
+    /// The buffs this player put up themselves — their own class buffs, then consumables (scrolls/potions).
+    /// Buffs another player cast on them are excluded: the window answers "what did I keep running?", and a
+    /// chanter's 진언 sitting at 90% on everyone tells the reader nothing about this player.
+    /// </summary>
     private static IReadOnlyList<DetailBuffSection> BuildOwnBuffs(IReadOnlyList<OperatingData> buffs, int uid, JobClass? job)
     {
         int jobPrefix = job != null ? JobClassInfo.BasicSkillCode(job.Value) / 1_000_000 : -1;
         var mine = new List<DetailBuffRow>();
-        var party = new List<DetailBuffRow>();
         var other = new List<DetailBuffRow>();
 
+        // Every row here landed on this player, so every row is a buff or a self-state — a player skill's debuff
+        // goes on its target, never on its caster. Debuffs live in the boss's list (BuildDebuffs).
         foreach (OperatingData b in buffs)
         {
-            DetailBuffRow row = ToBuffRow(b);
             if (b.ActorId != uid)
             {
-                party.Add(row);
+                continue;
             }
-            else if (b.Code / 10_000_000 == jobPrefix)
+
+            DetailBuffRow row = ToBuffRow(b);
+            if (jobPrefix > 0 && b.EffectiveJobPrefix == jobPrefix)
             {
                 mine.Add(row);
             }
@@ -285,20 +293,22 @@ public sealed record DetailModel(
 
         var sections = new List<DetailBuffSection>();
         AddSection(sections, "내 버프", mine);
-        AddSection(sections, "파티원 버프", party);
         AddSection(sections, "그 외", other);
         return sections;
     }
 
-    private static IReadOnlyList<DetailBuffSection> BuildDebuffs(IReadOnlyList<OperatingData> debuffs, Func<int, string?> actorName)
+    /// <summary>The boss debuffs THIS player applied. One unlabelled section — every row has the same caster.</summary>
+    private static IReadOnlyList<DetailBuffSection> BuildDebuffs(IReadOnlyList<OperatingData> debuffs, int uid)
     {
-        return debuffs
-            .GroupBy(d => d.ActorId)
-            .Select(g => new DetailBuffSection(
-                actorName(g.Key) is { Length: > 0 } n ? n : $"플레이어 {g.Key}",
-                g.Select(ToBuffRow).OrderByDescending(r => r.Rate).ToList()))
-            .OrderByDescending(s => s.Rows.Count > 0 ? s.Rows[0].Rate : 0.0)
+        var rows = debuffs
+            .Where(d => d.ActorId == uid)
+            .Select(ToBuffRow)
+            .OrderByDescending(r => r.Rate)
             .ToList();
+
+        var sections = new List<DetailBuffSection>();
+        AddSection(sections, string.Empty, rows);
+        return sections;
     }
 
     private static void AddSection(List<DetailBuffSection> sections, string label, List<DetailBuffRow> rows)

@@ -99,6 +99,9 @@ public sealed class DataManager : ICaptureGameData
         }
     }
 
+    public static bool IsPlaceholderBuffName(string? name) =>
+        string.IsNullOrWhiteSpace(name) || name.Equals("None", StringComparison.OrdinalIgnoreCase);
+
     public void LoadBuffBlacklist(IEnumerable<int> codes)
     {
         foreach (int c in codes)
@@ -911,8 +914,10 @@ public sealed class DataManager : ICaptureGameData
     }
 
     /// <summary>A class-skill buff code (11xxxxxxx 검성 .. 19xxxxxxx 권성), as opposed to an item/consumable
-    /// buff in the lower code band (food/drink/scroll/potion) which the overlay excludes.</summary>
-    private static bool IsJobBuffCode(int code) => code is >= 110_000_000 and <= 199_999_999;
+    /// buff in the lower code band (food/drink/scroll/potion) which the overlay excludes. Also the only safe
+    /// gate for reading a job prefix off a code: 8-digit mob/consumable codes (12000101 = 중독) sit in the same
+    /// leading digits as a class and would otherwise pass for that class's self-buff.</summary>
+    public static bool IsJobBuffCode(int code) => code is >= 110_000_000 and <= 199_999_999;
 
     // ---- live owner-buff store (for the combat-assist overlay) ----
     // Keyed by BASE skill code (level-independent) so a re-cast of the same buff refreshes one entry.

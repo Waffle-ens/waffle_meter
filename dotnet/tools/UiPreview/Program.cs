@@ -93,11 +93,25 @@ internal static class Program
                 idle.Update(new DpsReport { BattleStart = 0, BattleEnd = 5000 });
                 Capture(() => new OverlayWindow { DataContext = idle }, palette, Path.Combine(outDir, "meter_idle_Dark.png"));
 
-                // Detail window chrome (skill table is empty without packet data, but verifies re-theming).
+                // Detail window: one shot per tab (the sample report carries frozen skill/buff snapshots, so the
+                // tables render exactly as they do for a saved battle).
                 var calc = new WaffleMeter.Data.DpsCalculator(new WaffleMeter.Data.DataManager(), () => { });
                 var details = new DetailsViewModel(SampleMeterReport(now), 1, calc, "콘팡", theme, settings.FontFamily);
                 details.Refresh(SampleMeterReport(now));
-                Capture(() => new DetailWindow { DataContext = details }, palette, Path.Combine(outDir, "detail_Dark.png"));
+                string[] tabs = ["skills", "buffs", "debuffs"];
+                for (int t = 0; t < tabs.Length; t++)
+                {
+                    int index = t;
+                    Capture(
+                        () =>
+                        {
+                            var w = new DetailWindow { DataContext = details };
+                            ((System.Windows.Controls.TabControl)w.FindName("Tabs")).SelectedIndex = index;
+                            return w;
+                        },
+                        palette,
+                        Path.Combine(outDir, $"detail_{tabs[index]}_Dark.png"));
+                }
 
                 var buffVm = new BuffOverlayViewModel();
                 buffVm.SetTextColor("#FFD54A"); // amber text (verifies the color option)
@@ -519,9 +533,59 @@ internal static class Program
                 [3] = new DpsInformation(36_300_000, 249_953, 21.5, 21.5),
                 [4] = new DpsInformation(27_000_000, 185_861, 16.0, 16.0),
             },
+            // A SAVED report's frozen snapshots — what the detail window renders in history replay. Without
+            // these the skill table and both uptime tabs come out empty and the preview shows only chrome.
+            SkillDetailsSnapshot = new Dictionary<int, Dictionary<string, AnalyzedSkill>> { [1] = SampleSkills() },
+            BuffRates = new Dictionary<int, List<OperatingData>> { [1] = SampleBuffs() },
+            BossBuffRates = SampleBossDebuffs(),
         };
         return report;
     }
+
+    private static Dictionary<string, AnalyzedSkill> SampleSkills()
+    {
+        AnalyzedSkill S(int code, string name, int dmg, int hits, int crit, int strong, int perfect, int back,
+            int dot = 0, int dotTimes = 0) => new()
+        {
+            SkillCode = code, Name = name, DamageAmount = dmg, Times = hits, CritTimes = crit, DoubleTimes = strong,
+            PerfectTimes = perfect, BackTimes = back, FlaggedTimes = hits, DotDamageAmount = dot, DotTimes = dotTimes,
+        };
+
+        return new Dictionary<string, AnalyzedSkill>
+        {
+            ["15210000"] = S(15210000, "그리폰 화살", 2_500_000, 26, 22, 14, 19, 13),
+            ["15220000"] = S(15220000, "속사", 2_200_000, 56, 41, 32, 27, 28),
+            ["15230000"] = S(15230000, "송곳 화살", 1_900_000, 11, 8, 9, 9, 6),
+            ["15240000"] = S(15240000, "광풍 화살", 1_600_000, 6, 6, 2, 5, 3),
+            ["15250000"] = S(15250000, "폭발 화살", 1_400_000, 2, 2, 2, 1, 1),
+            ["15260000"] = S(15260000, "지원 사격", 1_300_000, 26, 26, 14, 18, 13),
+            ["15270000"] = S(15270000, "사냥꾼의 혼", 1_300_000, 14, 12, 7, 10, 7, dot: 420_000, dotTimes: 34),
+            ["15280000"] = S(15280000, "질풍 화살", 1_100_000, 7, 6, 5, 3, 4),
+            ["15290000"] = S(15290000, "파열 화살", 959_500, 4, 3, 1, 2, 2),
+            ["15300000"] = S(15300000, "조준 화살", 739_400, 3, 1, 0, 1, 1),
+        };
+    }
+
+    // uid 1 is 마도성 (job prefix 15): codes under 15xxxxxxx land in 내 버프, actor 4 (치유성) in 파티원 버프,
+    // and the consumable codes in 그 외 — one row per section so the preview exercises all three subtitles.
+    private static List<OperatingData> SampleBuffs() =>
+    [
+        new(152100461, "원소 강화", null, "공격력 증가", 93.2, 1, 15210000, 15),
+        new(153900471, "강화: 잔불", null, "불 속성 피해 증가", 40.6, 1, 15390000, 15),
+        new(150500301, "냉기의 로브", null, "받는 피해 감소", 20.5, 1, 15050000, 15),
+        new(181600411, "질주의 진언", null, "이동 속도 증가", 100.0, 4, 18160000, 18),
+        new(174000571, "대지의 축복", null, "생명력 회복", 96.0, 4, 17400000, 17),
+        new(22101051, "용기의 주문서", null, "공격력 증가", 100.0, 1, 22101051),
+        new(22104021, "가호의 주문서", null, "방어력 증가", 100.0, 1, 22104021),
+    ];
+
+    private static List<OperatingData> SampleBossDebuffs() =>
+    [
+        new(152800221, "불의 표식", null, "받는 불 속성 피해 증가", 88.6, 1, 15280000, 15),
+        new(153200301, "지연 피해", null, "지속 피해", 65.0, 1, 15320000, 15),
+        new(174000401, "대지의 징벌", null, "지속 피해", 96.0, 4, 17400000, 17),
+        new(152000421, "빙결 폭발", null, "물 속성 지속 피해", 32.2, 1, 15200000, 15),
+    ];
 
     private static (int, DpsReport) Battle(int idx, string mob, bool boss, long start, long end, params double[] amounts)
     {
