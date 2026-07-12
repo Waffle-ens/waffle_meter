@@ -206,10 +206,12 @@ public sealed class MeterServices
             {
                 try
                 {
-                    // kills AND wipes/직전 전투, scoped to the party/raid roster; the diag line live-verifies
-                    // the open questions (wipe fire, AoI coverage, self density, BossDefeated inference).
-                    ReplayRecording rec = replay.OnBattleLogged(log, Data.PartyMemberIdentities(30 * 60 * 1000L));
-                    ReplayDiag.Log(props, log.Report, rec);
+                    // kills AND wipes/직전 전투, scoped to the party/raid roster (empty roster = self+boss
+                    // only, so a shared field boss never records bystanders); the diag line live-verifies
+                    // the open questions (wipe fire, roster scoping, AoI coverage, self density).
+                    IReadOnlyList<(string Nickname, int Server)> roster = Data.PartyMemberIdentities(30 * 60 * 1000L);
+                    ReplayRecording rec = replay.OnBattleLogged(log, roster);
+                    ReplayDiag.Log(props, log.Report, rec, roster.Count);
                 }
                 catch
                 {

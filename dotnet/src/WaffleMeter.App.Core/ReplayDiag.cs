@@ -18,12 +18,14 @@ public static class ReplayDiag
 {
     private const long MaxBytes = 1_000_000;
 
-    /// <summary>Append the per-battle line for a just-built recording.</summary>
-    public static void Log(PropertyHandler props, DpsReport report, ReplayRecording rec)
+    /// <summary>Append the per-battle line for a just-built recording. <paramref name="rosterCount"/> =
+    /// party-roster size the replay was scoped to (0 = no roster → self+boss only; negative = unknown,
+    /// omitted from the line).</summary>
+    public static void Log(PropertyHandler props, DpsReport report, ReplayRecording rec, int rosterCount = -1)
     {
         try
         {
-            Append(props, Format(report, rec));
+            Append(props, Format(report, rec, rosterCount));
         }
         catch
         {
@@ -44,7 +46,7 @@ public static class ReplayDiag
     }
 
     // Pure so it is unit-testable without touching the filesystem.
-    public static string Format(DpsReport report, ReplayRecording rec)
+    public static string Format(DpsReport report, ReplayRecording rec, int rosterCount = -1)
     {
         List<ReplayTrack> players = rec.Tracks.Where(t => !t.IsTarget).ToList();
         int withPath = players.Count(t => t.Points.Count >= 3);
@@ -59,10 +61,15 @@ public static class ReplayDiag
             ? string.Create(CultureInfo.InvariantCulture, $"{t.RemainHp}/{t.MaxHp}")
             : "-";
 
+        // roster= verifies the party-only scoping live: 0 = no roster (tracks should be self+boss only).
+        string roster = rosterCount >= 0
+            ? string.Create(CultureInfo.InvariantCulture, $" roster={rosterCount}")
+            : "";
+
         return string.Create(
             CultureInfo.InvariantCulture,
             $"battle start={rec.StartMs} dur={rec.DurationMs / 1000}s target={rec.TargetName ?? "?"}({(rec.TargetCode?.ToString(CultureInfo.InvariantCulture) ?? "-")}) " +
-            $"defeated={rec.BossDefeated} hp={hp} contributors={report.Contributors.Count} " +
+            $"defeated={rec.BossDefeated} hp={hp} contributors={report.Contributors.Count}{roster} " +
             $"path={withPath}/{players.Count} self={selfStr} boss={(boss is null ? "none" : boss.Points.Count + "pt")} " +
             $"totalPts={rec.PointCount} playerP90={AggregateP90Ms(players)}ms");
     }

@@ -81,15 +81,19 @@ public partial class ReplayWindow : Window
 
     private void BuildScene()
     {
-        // Boss-tagged map first (dungeons); else fall back to the zone map that contains the fight (field
-        // bosses aren't tagged to a specific map).
+        // Boss-tagged dungeon map only. Coordinate containment cannot identify the map (instanced maps
+        // overlap in world space — see ReplayMapCatalog.ForBoss), so an untagged target (field boss,
+        // nightmare arena) gets the relative plot rather than a wrong background.
         _map = MapCatalog.ForBoss(_rec.TargetCode);
-        if (_map is null && _rec.Bounds() is { } b)
+
+        // Header carries the matched map's name so a wrong/missing background is visible at a glance
+        // (no map matched = relative plot, no dungeon name shown).
+        string? title = _rec.TargetName is { Length: > 0 } name ? name : _map?.NameKo;
+        if (title is { Length: > 0 } && _map is { } mapInfo && title != mapInfo.NameKo)
         {
-            _map = MapCatalog.ForBounds((b.MinX + b.MaxX) / 2, (b.MinY + b.MaxY) / 2);
+            title = $"{title} · {mapInfo.NameKo}";
         }
 
-        string? title = _rec.TargetName is { Length: > 0 } name ? name : _map?.NameKo;
         HeaderText.Text = title is { Length: > 0 } ? $"전투 리플레이 — {title}" : "전투 리플레이";
         BossBadge.Text = _rec.BossDefeated ? "처치 완료" : "직전 전투 (미처치)";
         ScrubSlider.Maximum = Math.Max(1, _rec.DurationMs);

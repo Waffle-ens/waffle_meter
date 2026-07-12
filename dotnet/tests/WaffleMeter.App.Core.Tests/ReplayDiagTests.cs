@@ -36,8 +36,9 @@ public sealed class ReplayDiagTests
             ],
         };
 
-        string line = ReplayDiag.Format(report, rec);
+        string line = ReplayDiag.Format(report, rec, rosterCount: 4);
 
+        Assert.Contains("roster=4", line);       // the party scoping the replay was built with
         Assert.Contains("defeated=False", line); // the wipe marker — proves the line fires on a wipe
         Assert.Contains("hp=4321/9999", line);   // raw HP rides along to audit the inference
         Assert.Contains("target=무스펠(2301059)", line);
@@ -64,5 +65,6 @@ public sealed class ReplayDiagTests
         Assert.Contains("self=MISSING", line);
         Assert.Contains("hp=-", line); // no target captured
         Assert.Contains("path=1/1", line);
+        Assert.DoesNotContain("roster=", line); // unknown roster count stays out of the line
     }
 }

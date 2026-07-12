@@ -17,7 +17,9 @@ public interface IReplayEngine
 
     /// <summary>Build and store the replay for a just-logged battle (kill or wipe). Wire to
     /// <c>DpsCalculator.OnBattleLogged</c>. <paramref name="partyMembers"/> scopes tracks to the
-    /// party/raid roster (null = every contributor).</summary>
+    /// party/raid roster; an EMPTY roster (not in a party / roster unknown) keeps self + boss only, so a
+    /// shared field boss never pulls random bystanders into the replay. Null = every contributor
+    /// (CLI/tests escape hatch — the live app always passes its roster, possibly empty).</summary>
     ReplayRecording OnBattleLogged(
         DpsLog log, IReadOnlyCollection<(string Nickname, int Server)>? partyMembers = null);
 

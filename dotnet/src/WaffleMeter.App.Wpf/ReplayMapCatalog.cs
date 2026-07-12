@@ -46,7 +46,6 @@ public sealed class ReplayMapCatalog
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
 
     private readonly Dictionary<int, ReplayMapInfo> _byBoss = new();
-    private readonly List<ReplayMapInfo> _all = new();
 
     public int MapCount { get; private set; }
 
@@ -83,7 +82,6 @@ public sealed class ReplayMapCatalog
                 }
 
                 catalog.MapCount++;
-                catalog._all.Add(map);
                 foreach (int code in map.BossCodes)
                 {
                     catalog._byBoss[code] = map;
@@ -98,32 +96,11 @@ public sealed class ReplayMapCatalog
         return catalog;
     }
 
-    /// <summary>The map whose boss list contains <paramref name="mobCode"/>, or null.</summary>
+    /// <summary>The map whose boss list contains <paramref name="mobCode"/>, or null. This is the ONLY
+    /// matching rule: every instanced map has its own world-coordinate space and their ranges overlap
+    /// (measured: a recorded fight's center lies inside most maps' rectangles), so containment can never
+    /// identify the dungeon — a coordinate fallback would happily draw a field boss or an untagged arena
+    /// over some unrelated dungeon's art. No boss match = relative plot, never a guessed background.</summary>
     public ReplayMapInfo? ForBoss(int? mobCode)
         => mobCode is { } c && _byBoss.TryGetValue(c, out ReplayMapInfo? m) ? m : null;
-
-    /// <summary>Fallback for bosses not tagged to a specific map (field bosses): the SMALLEST-area map whose
-    /// world rectangle contains the recording's center, so the replay projects onto that zone's art (the
-    /// view then zooms to the action). Null if nothing contains it.</summary>
-    public ReplayMapInfo? ForBounds(double centerX, double centerY)
-    {
-        ReplayMapInfo? best = null;
-        double bestArea = double.MaxValue;
-        foreach (ReplayMapInfo m in _all)
-        {
-            if (centerX < m.WorldMinX || centerX > m.WorldMaxX || centerY < m.WorldMinY || centerY > m.WorldMaxY)
-            {
-                continue;
-            }
-
-            double area = (m.WorldMaxX - m.WorldMinX) * (m.WorldMaxY - m.WorldMinY);
-            if (area < bestArea)
-            {
-                bestArea = area;
-                best = m;
-            }
-        }
-
-        return best;
-    }
 }
