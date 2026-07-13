@@ -25,6 +25,12 @@ public partial class ReplayWindow : Window
     private const double ZScale = 1.0;
     private const double DotRadius = 6;
     private const double HitRadius = 16;
+
+    /// <summary>The boss badge is drawn bigger than a player dot so the fight reads at a glance.</summary>
+    private const double BossIconSize = 30;
+
+    /// <summary>How far from the boss's centre its head / back chevrons sit (px).</summary>
+    private const double FacingMarkerOffset = 22;
     // With the dense 0x371D delta stream decoded, in-battle position points arrive ~10Hz (measured p90 gap
     // ~0.3s), so a real move never has a multi-second gap. HOLD (don't fake-glide) only across the much
     // larger gaps that mean the entity left capture range (AoI) or phased/teleported — measured at tens of
@@ -52,6 +58,8 @@ public partial class ReplayWindow : Window
 
     private ReplayMapInfo? _map;
     private Image? _mapImage;
+    private Polygon? _bossFront;
+    private Polygon? _bossBack;
 
     private double _currentMs;
     private double _speed = 1.0;
@@ -117,6 +125,7 @@ public partial class ReplayWindow : Window
         LegendPanel.Children.Clear();
         _visuals.Clear();
         _zoneShapes.Clear(); // the canvas was just emptied; drop the stale references with it
+        _bossFront = _bossBack = null;
         _mapImage = LoadMapImage();
         if (_mapImage != null)
         {
@@ -124,35 +133,90 @@ public partial class ReplayWindow : Window
         }
 
         int colorIdx = 0;
-        foreach (ReplayTrack t in _rec.Tracks.OrderByDescending(t => t.Points.Count))
+        foreach (ReplayTrack t in VisibleTracks().OrderByDescending(t => t.Points.Count))
         {
             Brush color = t.IsTarget ? Brushes.OrangeRed
                 : t.IsSelf ? Brushes.Gold
                 : JobBrush(t.Job, colorIdx++);
 
-            var dot = new Ellipse
-            {
-                Width = DotRadius * 2,
-                Height = DotRadius * 2,
-                Fill = color,
-                Stroke = t.IsSelf ? Brushes.White : t.IsTarget ? Brushes.White : Brushes.Black,
-                StrokeThickness = t.IsSelf || t.IsTarget ? 2 : 1,
-                IsHitTestVisible = false,
-                Visibility = Visibility.Collapsed,
-            };
+            // The boss wears the meter's own boss badge (bigger than a player dot, so it reads at a glance);
+            // everyone else is a coloured dot.
+            FrameworkElement marker = t.IsTarget && JoinIcons.BossIcon is { } icon
+                ? new Image
+                {
+                    Source = icon,
+                    Width = BossIconSize,
+                    Height = BossIconSize,
+                    IsHitTestVisible = false,
+                    Visibility = Visibility.Collapsed,
+                }
+                : new Ellipse
+                {
+                    Width = (t.IsTarget ? BossIconSize / 2 : DotRadius) * 2,
+                    Height = (t.IsTarget ? BossIconSize / 2 : DotRadius) * 2,
+                    Fill = color,
+                    Stroke = t.IsSelf || t.IsTarget ? Brushes.White : Brushes.Black,
+                    StrokeThickness = t.IsSelf || t.IsTarget ? 2 : 1,
+                    IsHitTestVisible = false,
+                    Visibility = Visibility.Collapsed,
+                };
 
-            MapCanvas.Children.Add(dot);
+            MapCanvas.Children.Add(marker);
 
             long[] times = t.Points.Select(p => (long)p.TMs).ToArray();
-            _visuals.Add(new TrackVisual(t, color, dot, times));
+            _visuals.Add(new TrackVisual(t, color, marker, times));
 
             AddLegendRow(t, color);
         }
+
+        BuildBossFacingMarkers();
 
         _currentMs = Math.Clamp(_startMs, 0, _rec.DurationMs);
         SetPlaying(_autoPlay && anyPoints); // autoplay if enabled and there is anything to show
         Render();
     }
+
+    /// <summary>The tracks worth drawing. An entity id can be recycled across a session, so the same
+    /// character sometimes shows up twice: once with the path, once as an empty leftover. Drop the empty
+    /// twin — it only ever rendered as a "(위치 없음)" legend row.</summary>
+    private IEnumerable<ReplayTrack> VisibleTracks()
+    {
+        var named = _rec.Tracks
+            .Where(t => t.Points.Count > 0 && !string.IsNullOrEmpty(t.Nickname))
+            .Select(t => (t.Nickname, t.Server))
+            .ToHashSet();
+
+        return _rec.Tracks.Where(t =>
+            t.Points.Count > 0 || string.IsNullOrEmpty(t.Nickname) || !named.Contains((t.Nickname, t.Server)));
+    }
+
+    // The boss's facing: a chevron at its head and one at its back (the back-attack side), pointing the way
+    // it was turned. Direction comes from its casts (every cast states the caster's facing), so the markers
+    // are hidden whenever the boss hasn't cast anywhere near the current moment rather than pointing stale.
+    private void BuildBossFacingMarkers()
+    {
+        if (_rec.Casts.Count == 0 || !_visuals.Any(v => v.Track.IsTarget))
+        {
+            return;
+        }
+
+        _bossFront = FacingChevron(Color.FromRgb(0xFF, 0xD1, 0x54)); // head
+        _bossBack = FacingChevron(Color.FromRgb(0x4F, 0xC3, 0xF7));  // back — the back-attack side
+        MapCanvas.Children.Add(_bossFront);
+        MapCanvas.Children.Add(_bossBack);
+    }
+
+    private static Polygon FacingChevron(Color color)
+        => new()
+        {
+            // A triangle pointing along +X; rotated into place per frame.
+            Points = [new Point(9, 0), new Point(-4, -6), new Point(-4, 6)],
+            Fill = new SolidColorBrush(color),
+            Stroke = Brushes.Black,
+            StrokeThickness = 1,
+            IsHitTestVisible = false,
+            Visibility = Visibility.Collapsed,
+        };
 
     private void AddLegendRow(ReplayTrack t, Brush color)
     {
@@ -303,17 +367,28 @@ public partial class ReplayWindow : Window
             {
                 v.Dot.Visibility = Visibility.Collapsed;
                 v.HasScreen = false;
+                if (v.Track.IsTarget)
+                {
+                    HideBossFacing();
+                }
+
                 continue;
             }
 
-            // Just the moving dot (no trailing path) — the boss + characters glide linearly between samples.
+            // Just the moving marker (no trailing path) — the boss + characters glide linearly between samples.
             Point p = ToScreen(wx, wy, tf);
-            Canvas.SetLeft(v.Dot, p.X - DotRadius);
-            Canvas.SetTop(v.Dot, p.Y - DotRadius);
+            double half = (v.Dot.Width > 0 ? v.Dot.Width : DotRadius * 2) / 2;
+            Canvas.SetLeft(v.Dot, p.X - half);
+            Canvas.SetTop(v.Dot, p.Y - half);
             v.Dot.Visibility = Visibility.Visible;
             v.Dot.Opacity = stale ? 0.5 : 1.0; // slight dim while holding a stale position (out of range / gap)
             v.Screen = p;
             v.CurrentZ = wz;
+
+            if (v.Track.IsTarget)
+            {
+                PlaceBossFacing(p, tf);
+            }
             v.HasScreen = true;
         }
 
@@ -391,6 +466,54 @@ public partial class ReplayWindow : Window
 
     /// <summary>The battle's boss — caster-anchored zones sit on it (0 when the recording has no target).</summary>
     private int BossUid => _rec.Tracks.FirstOrDefault(t => t.IsTarget)?.Uid ?? 0;
+
+    // Put the head (gold) and back (blue = the back-attack side) chevrons on either side of the boss,
+    // pointing the way it was turned at this moment.
+    private void PlaceBossFacing(Point boss, Proj tf)
+    {
+        if (_bossFront is null || _bossBack is null)
+        {
+            return;
+        }
+
+        if (ReplayZones.FacingAt(_rec.Casts, _currentMs) is not { } facingDeg)
+        {
+            HideBossFacing(); // no cast anywhere near now — don't point a stale direction
+            return;
+        }
+
+        // World facing -> screen angle. In map mode world +Y runs DOWN the image; in the relative plot it
+        // runs UP, and the marker has to follow the same flip the positions do.
+        double rad = facingDeg * Math.PI / 180.0;
+        double screenRad = Math.Atan2((tf.FlipY ? -1 : 1) * Math.Sin(rad), Math.Cos(rad));
+        double deg = screenRad * 180.0 / Math.PI;
+
+        Place(_bossFront, boss, screenRad, deg, +1);
+        Place(_bossBack, boss, screenRad, deg, -1);
+
+        static void Place(Polygon chevron, Point boss, double screenRad, double deg, int sign)
+        {
+            double x = boss.X + sign * FacingMarkerOffset * Math.Cos(screenRad);
+            double y = boss.Y + sign * FacingMarkerOffset * Math.Sin(screenRad);
+            chevron.RenderTransform = new RotateTransform(sign > 0 ? deg : deg + 180);
+            Canvas.SetLeft(chevron, x);
+            Canvas.SetTop(chevron, y);
+            chevron.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void HideBossFacing()
+    {
+        if (_bossFront is not null)
+        {
+            _bossFront.Visibility = Visibility.Collapsed;
+        }
+
+        if (_bossBack is not null)
+        {
+            _bossBack.Visibility = Visibility.Collapsed;
+        }
+    }
 
     /// <summary>An entity's interpolated position at a playback time, for a zone that is stuck to the
     /// player it marked (it follows them). Null when that entity has no track / no sample there.</summary>
@@ -609,11 +732,13 @@ public partial class ReplayWindow : Window
 
     private static Brush JobBrush(string? job, int idx) => new SolidColorBrush(Palette[idx % Palette.Length]);
 
-    private sealed class TrackVisual(ReplayTrack track, Brush color, Ellipse dot, long[] times)
+    private sealed class TrackVisual(ReplayTrack track, Brush color, FrameworkElement dot, long[] times)
     {
         public ReplayTrack Track { get; } = track;
         public Brush Color { get; } = color;
-        public Ellipse Dot { get; } = dot;
+
+        /// <summary>The marker on the map: a coloured dot for a player, the boss badge for the target.</summary>
+        public FrameworkElement Dot { get; } = dot;
         public long[] Times { get; } = times;
         public Point Screen { get; set; }
         public bool HasScreen { get; set; }
