@@ -177,6 +177,29 @@ public static class ReplayZones
         return loops;
     }
 
+    /// <summary>
+    /// Which way the boss faced at a playback time, in degrees — read off its casts (every cast states the
+    /// caster's facing, and a boss casts near-continuously). Held from the nearest cast within
+    /// <paramref name="maxAgeMs"/>; null when the boss hasn't cast anywhere near this moment, so the caller
+    /// can hide the head/back markers rather than point them at a stale direction.
+    /// </summary>
+    public static double? FacingAt(IReadOnlyList<ReplayCast> casts, double nowMs, double maxAgeMs = 6000)
+    {
+        double bestAge = maxAgeMs;
+        double? facing = null;
+        foreach (ReplayCast c in casts)
+        {
+            double age = Math.Abs(nowMs - c.TMs);
+            if (age <= bestAge)
+            {
+                bestAge = age;
+                facing = c.FacingDeg;
+            }
+        }
+
+        return facing;
+    }
+
     private static void AppendArc(
         List<(double X, double Y)> into, double cx, double cy, double r, double from, double to, int steps)
     {
