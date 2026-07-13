@@ -39,6 +39,39 @@ public sealed class ReplayTrack
     public int SourceOffset { get; init; }
 }
 
+/// <summary>One entity a boss mechanic is anchored to, and where that entity stood when it was cast.
+/// A multi-target mechanic (a "spread") marks several players at once and names every one of them.</summary>
+/// <param name="Uid">The marked entity (a player uid, or the boss itself for a self-centred cast).</param>
+public readonly record struct ReplayCastTarget(int Uid, float X, float Y, float Z);
+
+/// <summary>
+/// One boss skill cast — the raw half of a mechanic. The ZONE it draws (circle / donut / cone / line,
+/// its radius/angle, and how long the telegraph shows first) comes from the client's shape catalog keyed
+/// by <see cref="SkillCode"/>; this record carries what only the live packet knows: when it went off,
+/// which entities it was anchored to and exactly where they stood, which way the boss faced, and how much
+/// HP the boss had left (so HP-gated patterns group).
+/// </summary>
+public sealed class ReplayCast
+{
+    /// <summary>Milliseconds since <see cref="ReplayRecording.StartMs"/>.</summary>
+    public int TMs { get; init; }
+
+    /// <summary>The cast's skill code — the key into the shape catalog.</summary>
+    public int SkillCode { get; init; }
+
+    /// <summary>The caster's facing at cast time, in degrees (world, <c>atan2(dy,dx)</c> convention).
+    /// Rotates the directional zones (cone / line) that are anchored to the boss.</summary>
+    public float FacingDeg { get; init; }
+
+    /// <summary>The boss's remaining HP as a fraction (0..1) at cast time, or -1 when unknown. Lets the
+    /// UI group "the pattern he does at 70 %".</summary>
+    public float HpFraction { get; init; } = -1f;
+
+    /// <summary>The anchor(s): the first is the packet's primary target (the boss itself for a
+    /// self-centred mechanic), followed by any additional marked players.</summary>
+    public IReadOnlyList<ReplayCastTarget> Targets { get; init; } = [];
+}
+
 /// <summary>
 /// A complete battle replay: the position timelines of every combat participant, scoped to the battle
 /// window. Produced for an ENDED battle and equally for the standby "직전 전투" (a battle that stopped
@@ -46,8 +79,8 @@ public sealed class ReplayTrack
 /// </summary>
 public sealed class ReplayRecording
 {
-    /// <summary>Schema version of the on-disk / wire format.</summary>
-    public const int CurrentSchema = 1;
+    /// <summary>Schema version of the on-disk / wire format. v2 added <see cref="Casts"/> (boss mechanics).</summary>
+    public const int CurrentSchema = 2;
 
     public int Schema { get; init; } = CurrentSchema;
 
@@ -68,6 +101,9 @@ public sealed class ReplayRecording
     public string? TargetName { get; init; }
 
     public IReadOnlyList<ReplayTrack> Tracks { get; init; } = [];
+
+    /// <summary>The boss's mechanic casts during the battle, ascending by time (empty pre-schema-2).</summary>
+    public IReadOnlyList<ReplayCast> Casts { get; init; } = [];
 
     public int DurationMs => (int)Math.Max(0, EndMs - StartMs);
 
