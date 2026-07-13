@@ -63,6 +63,36 @@ public static class ReplaySerializer
             }
 
             w.WriteEndArray();
+
+            // Boss mechanics (schema 2). Targets are flat [uid,x,y,z] arrays, same rationale as pts.
+            if (rec.Casts.Count > 0)
+            {
+                w.WriteStartArray("casts");
+                foreach (ReplayCast c in rec.Casts)
+                {
+                    w.WriteStartObject();
+                    w.WriteNumber("t", c.TMs);
+                    w.WriteNumber("skill", c.SkillCode);
+                    w.WriteNumber("face", c.FacingDeg);
+                    w.WriteNumber("hp", c.HpFraction);
+                    w.WriteStartArray("tgts");
+                    foreach (ReplayCastTarget t in c.Targets)
+                    {
+                        w.WriteStartArray();
+                        w.WriteNumberValue(t.Uid);
+                        w.WriteNumberValue(t.X);
+                        w.WriteNumberValue(t.Y);
+                        w.WriteNumberValue(t.Z);
+                        w.WriteEndArray();
+                    }
+
+                    w.WriteEndArray();
+                    w.WriteEndObject();
+                }
+
+                w.WriteEndArray();
+            }
+
             w.WriteEndObject();
         }
 
@@ -110,6 +140,32 @@ public static class ReplaySerializer
             }
         }
 
+        var casts = new List<ReplayCast>();
+        if (root.TryGetProperty("casts", out JsonElement castsEl))
+        {
+            foreach (JsonElement ce in castsEl.EnumerateArray())
+            {
+                var targets = new List<ReplayCastTarget>();
+                if (ce.TryGetProperty("tgts", out JsonElement tgtsEl))
+                {
+                    foreach (JsonElement te in tgtsEl.EnumerateArray())
+                    {
+                        targets.Add(new ReplayCastTarget(
+                            te[0].GetInt32(), te[1].GetSingle(), te[2].GetSingle(), te[3].GetSingle()));
+                    }
+                }
+
+                casts.Add(new ReplayCast
+                {
+                    TMs = GetInt(ce, "t"),
+                    SkillCode = GetInt(ce, "skill"),
+                    FacingDeg = GetFloat(ce, "face", 0f),
+                    HpFraction = GetFloat(ce, "hp", -1f),
+                    Targets = targets,
+                });
+            }
+        }
+
         return new ReplayRecording
         {
             Schema = GetInt(root, "schema"),
@@ -120,8 +176,12 @@ public static class ReplaySerializer
             TargetCode = root.TryGetProperty("targetCode", out JsonElement tcEl) ? tcEl.GetInt32() : null,
             TargetName = GetStr(root, "targetName"),
             Tracks = tracks,
+            Casts = casts,
         };
     }
+
+    private static float GetFloat(JsonElement e, string n, float fallback)
+        => e.TryGetProperty(n, out JsonElement v) && v.ValueKind == JsonValueKind.Number ? v.GetSingle() : fallback;
 
     private static int GetInt(JsonElement e, string n) => e.TryGetProperty(n, out JsonElement v) ? v.GetInt32() : 0;
 

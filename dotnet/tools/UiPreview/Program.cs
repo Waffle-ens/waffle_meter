@@ -171,18 +171,61 @@ internal static class Program
 
         CaptureReplay(LoadRealOrSynthetic(now), Path.Combine(outDir, "replay.png"), "replay.png");
         CaptureReplay(SampleMapReplay(now), Path.Combine(outDir, "replay-map.png"), "replay-map.png");
+        CaptureMechanics(outDir);
 
         Console.WriteLine(outDir);
         app.Shutdown();
     }
 
+    /// <summary>
+    /// Boss mechanics: with <c>WAFFLE_REPLAY_FILE</c> pointing at a real recording, freeze the replay on a
+    /// mechanic — once while the floor telegraphs it and once as it lands — so the zones (circle / donut /
+    /// cone / line, and the markers dropped on players) can be eyeballed against the dungeon map.
+    /// </summary>
+    private static void CaptureMechanics(string outDir)
+    {
+        string? file = Environment.GetEnvironmentVariable("WAFFLE_REPLAY_FILE");
+        if (file is null || !File.Exists(file))
+        {
+            return;
+        }
+
+        ReplayRecording rec = ReplaySerializer.Deserialize(File.ReadAllText(file));
+        ReplaySkillShapes shapes = ReplaySkillShapes.Load();
+        Console.WriteLine($"  [info] mechanics preview from {Path.GetFileName(file)}: " +
+                          $"{rec.Casts.Count} casts, catalog {shapes.SkillCount} skills");
+
+        // Prefer the most interesting one on screen: the mechanic with the longest telegraph, breaking ties
+        // toward a multi-target spread (several zones at once).
+        ReplayCast? pick = rec.Casts
+            .Where(c => shapes.For(c.SkillCode).Count > 0)
+            .OrderByDescending(c => shapes.For(c.SkillCode).Max(z => z.NoticeMs))
+            .ThenByDescending(c => c.Targets.Count)
+            .FirstOrDefault();
+
+        if (pick is null)
+        {
+            Console.WriteLine("  [skip] no drawable mechanic in this recording");
+            return;
+        }
+
+        int notice = shapes.For(pick.SkillCode).Max(z => z.NoticeMs);
+        Console.WriteLine($"  [info] skill {pick.SkillCode} at t={pick.TMs}ms notice={notice}ms " +
+                          $"targets={pick.Targets.Count} hp={pick.HpFraction:P0}");
+
+        CaptureReplay(rec, Path.Combine(outDir, "replay-mechanic-telegraph.png"),
+            "replay-mechanic-telegraph.png", Math.Max(0, pick.TMs - notice / 2.0));
+        CaptureReplay(rec, Path.Combine(outDir, "replay-mechanic-impact.png"),
+            "replay-mechanic-impact.png", pick.TMs + 150);
+    }
+
     /// <summary>Render the positional-replay window (paused mid-battle so paths/trails show) to PNG.</summary>
-    private static void CaptureReplay(ReplayRecording rec, string path, string label)
+    private static void CaptureReplay(ReplayRecording rec, string path, string label, double? startMs = null)
     {
         ReplayWindow? win = null;
         try
         {
-            win = new ReplayWindow(rec, autoPlay: false, startMs: rec.DurationMs * 0.5);
+            win = new ReplayWindow(rec, autoPlay: false, startMs: startMs ?? rec.DurationMs * 0.5);
             win.Width = 940;
             win.Height = 660;
             win.Left = -10000;

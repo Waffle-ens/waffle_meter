@@ -37,10 +37,18 @@ public partial class ReplayWindow : Window
 
     private static readonly ReplayMapCatalog MapCatalog = ReplayMapCatalog.Load();
 
+    // The client's boss-mechanic zone catalog (skill code -> the circle/donut/cone/line it paints, and how
+    // long the floor telegraphs first). Absent catalog = no zones drawn; everything else still works.
+    private static readonly ReplaySkillShapes SkillShapes = ReplaySkillShapes.Load();
+
     private readonly ReplayRecording _rec;
     private readonly DispatcherTimer _timer;
     private readonly Stopwatch _stopwatch = new();
     private readonly List<TrackVisual> _visuals = new();
+
+    // Mechanic zones are rebuilt each frame (a handful on screen at a time) and live UNDER the dots, so a
+    // character standing in a zone is still readable.
+    private readonly List<System.Windows.Shapes.Path> _zoneShapes = new();
 
     private ReplayMapInfo? _map;
     private Image? _mapImage;
@@ -95,7 +103,11 @@ public partial class ReplayWindow : Window
         }
 
         HeaderText.Text = title is { Length: > 0 } ? $"전투 리플레이 — {title}" : "전투 리플레이";
-        BossBadge.Text = _rec.BossDefeated ? "처치 완료" : "직전 전투 (미처치)";
+
+        // How many of the boss's casts actually paint a zone we can draw (the rest are plain swings).
+        int mechanics = _rec.Casts.Count(c => SkillShapes.For(c.SkillCode).Count > 0);
+        string badge = _rec.BossDefeated ? "처치 완료" : "직전 전투 (미처치)";
+        BossBadge.Text = mechanics > 0 ? $"{badge} · 기믹 {mechanics}회" : badge;
         ScrubSlider.Maximum = Math.Max(1, _rec.DurationMs);
 
         bool anyPoints = _rec.PointCount > 0;
@@ -104,6 +116,7 @@ public partial class ReplayWindow : Window
         MapCanvas.Children.Clear();
         LegendPanel.Children.Clear();
         _visuals.Clear();
+        _zoneShapes.Clear(); // the canvas was just emptied; drop the stale references with it
         _mapImage = LoadMapImage();
         if (_mapImage != null)
         {
@@ -282,6 +295,7 @@ public partial class ReplayWindow : Window
 
         Proj tf = Transform();
         PlaceMapImage(tf);
+        RenderZones(tf);
 
         foreach (TrackVisual v in _visuals)
         {
@@ -311,6 +325,86 @@ public partial class ReplayWindow : Window
         }
 
         TimeText.Text = $"{Fmt(_currentMs)} / {Fmt(_rec.DurationMs)}";
+    }
+
+    // The boss's mechanics: draw every zone that is on screen right now — the floor telegraph before the
+    // hit (amber) and the hit itself (red) — under the character dots. Shapes are rebuilt per frame rather
+    // than pooled: only a handful overlap at once, and the alternative (retained visuals with animated
+    // transforms) buys nothing on a software-rendered canvas.
+    private void RenderZones(Proj tf)
+    {
+        foreach (System.Windows.Shapes.Path p in _zoneShapes)
+        {
+            MapCanvas.Children.Remove(p);
+        }
+
+        _zoneShapes.Clear();
+        if (_rec.Casts.Count == 0)
+        {
+            return;
+        }
+
+        List<ActiveZone> active = ReplayZones.ActiveAt(_rec.Casts, SkillShapes, _currentMs, PositionAt, BossUid);
+
+        // Zones go directly above the map image (index 0) so the dots and trails stay on top.
+        int insertAt = _mapImage is null ? 0 : 1;
+        foreach (ActiveZone zone in active)
+        {
+            var geometry = new PathGeometry { FillRule = FillRule.EvenOdd }; // a donut's hole reads as a hole
+            foreach (List<(double X, double Y)> loop in ReplayZones.Outline(zone))
+            {
+                if (loop.Count < 3)
+                {
+                    continue;
+                }
+
+                Point start = ToScreen(loop[0].X, loop[0].Y, tf);
+                var figure = new PathFigure { StartPoint = start, IsClosed = true, IsFilled = true };
+                for (int i = 1; i < loop.Count; i++)
+                {
+                    figure.Segments.Add(new LineSegment(ToScreen(loop[i].X, loop[i].Y, tf), isStroked: true));
+                }
+
+                geometry.Figures.Add(figure);
+            }
+
+            if (geometry.Figures.Count == 0)
+            {
+                continue;
+            }
+
+            geometry.Freeze();
+            (Brush fill, Brush stroke, double thickness) = ReplayZoneRenderer.Paint(zone.Telegraphing);
+            var path = new System.Windows.Shapes.Path
+            {
+                Data = geometry,
+                Fill = fill,
+                Stroke = stroke,
+                StrokeThickness = thickness,
+                IsHitTestVisible = false,
+            };
+
+            MapCanvas.Children.Insert(insertAt++, path);
+            _zoneShapes.Add(path);
+        }
+    }
+
+    /// <summary>The battle's boss — caster-anchored zones sit on it (0 when the recording has no target).</summary>
+    private int BossUid => _rec.Tracks.FirstOrDefault(t => t.IsTarget)?.Uid ?? 0;
+
+    /// <summary>An entity's interpolated position at a playback time, for a zone that is stuck to the
+    /// player it marked (it follows them). Null when that entity has no track / no sample there.</summary>
+    private (double X, double Y)? PositionAt(int uid, double ms)
+    {
+        foreach (TrackVisual v in _visuals)
+        {
+            if (v.Track.Uid == uid && TryInterpolate(v, ms, out double x, out double y, out _, out _))
+            {
+                return (x, y);
+            }
+        }
+
+        return null;
     }
 
     // Position at ms. Interpolates between two samples only when they are close in time; across a large
