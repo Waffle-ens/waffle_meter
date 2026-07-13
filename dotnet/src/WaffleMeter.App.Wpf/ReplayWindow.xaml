@@ -22,7 +22,9 @@
             <Border x:Name="MapBorder" Background="#0E1014" Margin="8" CornerRadius="6" ClipToBounds="True">
                 <Canvas x:Name="MapCanvas" Background="Transparent" ClipToBounds="True"
                         MouseMove="MapCanvas_MouseMove" MouseLeftButtonDown="MapCanvas_MouseDown"
-                        MouseLeave="MapCanvas_MouseLeave"/>
+                        MouseLeave="MapCanvas_MouseLeave" MouseWheel="MapCanvas_MouseWheel"
+                        MouseRightButtonDown="MapCanvas_MouseRightButtonDown"
+                        MouseRightButtonUp="MapCanvas_MouseRightButtonUp"/>
             </Border>
 
             <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16"
@@ -38,6 +40,10 @@
 
             <TextBlock x:Name="HoverInfo" IsHitTestVisible="False" HorizontalAlignment="Right"
                        VerticalAlignment="Bottom" Margin="16" Foreground="#C8CCD2" FontSize="12"/>
+
+            <TextBlock IsHitTestVisible="False" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                       Margin="16" Foreground="#6B7280" FontSize="11"
+                       Text="휠 = 확대/축소 · 우클릭 드래그 = 이동 · 더블클릭 = 전투 화면으로 복귀"/>
 
             <Popup x:Name="StackPopup" AllowsTransparency="True" Placement="Absolute" StaysOpen="False">
                 <Border Background="#F21C1F26" BorderBrush="#3A3F4A" BorderThickness="1" CornerRadius="6" Padding="8">

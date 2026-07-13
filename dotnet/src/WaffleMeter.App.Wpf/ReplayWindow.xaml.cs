@@ -61,6 +61,15 @@ public partial class ReplayWindow : Window
     private Polygon? _bossFront;
     private Polygon? _bossBack;
 
+    // The auto-framed fight (see FocusOnTheFight) plus the user's zoom/pan on top of it.
+    private double _focusX;
+    private double _focusY;
+    private double _focusRadius = 2000;
+    private double _zoom = 1;
+    private double _panX;
+    private double _panY;
+    private Point? _dragFrom;
+
     private double _currentMs;
     private double _speed = 1.0;
     private bool _playing;
@@ -170,6 +179,7 @@ public partial class ReplayWindow : Window
         }
 
         BuildBossFacingMarkers();
+        FocusOnTheFight();
 
         _currentMs = Math.Clamp(_startMs, 0, _rec.DurationMs);
         SetPlaying(_autoPlay && anyPoints); // autoplay if enabled and there is anything to show
@@ -235,58 +245,83 @@ public partial class ReplayWindow : Window
         LegendPanel.Children.Add(row);
     }
 
-    // The world->canvas projection. Two modes:
-    //  - Map mode (a dungeon map matched the boss): keep the map's own coordinate frame — world +Y goes
-    //    DOWN the image (FlipY=false) — and fit the *action* (recording bounds, padded) into the canvas so
-    //    the background aligns under the dots. Vx/Vy is the top-left world corner of the view.
-    //  - Relative mode (no map): auto-fit the point cloud with world +Y UP (FlipY=true), Vx=minX, Vy=maxY.
-    private readonly record struct Proj(double Scale, double Vx, double Vy, double OffX, double OffY, bool FlipY);
+    // The world->canvas projection, centred on the fight: world (Cx, Cy) lands on the middle of the canvas
+    // and one world unit spans Scale pixels. FlipY=false in map mode (the dungeon art runs world +Y DOWN
+    // the image); FlipY=true for the background-less relative plot, where +Y should read as up.
+    private readonly record struct Proj(double Scale, double Cx, double Cy, double CanvasCx, double CanvasCy, bool FlipY);
 
     private Proj Transform()
     {
         const double pad = 28;
         double cw = MapCanvas.ActualWidth > 0 ? MapCanvas.ActualWidth : 800;
         double ch = MapCanvas.ActualHeight > 0 ? MapCanvas.ActualHeight : 480;
-        (float MinX, float MinY, float MaxX, float MaxY)? b = _rec.Bounds();
-        if (b is not { } bb)
-        {
-            return new Proj(1, 0, 0, cw / 2, ch / 2, FlipY: true);
-        }
 
-        if (_map is { } map)
-        {
-            // View = the action, padded for context, clamped to the map's world extent.
-            double padW = Math.Max(0.15 * Math.Max(bb.MaxX - bb.MinX, bb.MaxY - bb.MinY), 1500);
-            double vMinX = Math.Max(map.WorldMinX, bb.MinX - padW);
-            double vMaxX = Math.Min(map.WorldMaxX, bb.MaxX + padW);
-            double vMinY = Math.Max(map.WorldMinY, bb.MinY - padW);
-            double vMaxY = Math.Min(map.WorldMaxY, bb.MaxY + padW);
-            double vw = Math.Max(1, vMaxX - vMinX);
-            double vh = Math.Max(1, vMaxY - vMinY);
-            double s = Math.Min((cw - 2 * pad) / vw, (ch - 2 * pad) / vh);
-            if (s <= 0 || double.IsInfinity(s))
-            {
-                s = 1;
-            }
-
-            return new Proj(s, vMinX, vMinY, (cw - vw * s) / 2, (ch - vh * s) / 2, FlipY: false);
-        }
-
-        double w = Math.Max(1, bb.MaxX - bb.MinX);
-        double h = Math.Max(1, bb.MaxY - bb.MinY);
-        double scale = Math.Min((cw - 2 * pad) / w, (ch - 2 * pad) / h);
+        // Half-extent of the view in world units: the fight's own radius, then whatever the user zoomed to.
+        double half = Math.Max(200, _focusRadius / _zoom);
+        double scale = Math.Min(cw - 2 * pad, ch - 2 * pad) / (2 * half);
         if (scale <= 0 || double.IsInfinity(scale))
         {
             scale = 1;
         }
 
-        return new Proj(scale, bb.MinX, bb.MaxY, (cw - w * scale) / 2, (ch - h * scale) / 2, FlipY: true);
+        return new Proj(scale, _focusX + _panX, _focusY + _panY, cw / 2, ch / 2, FlipY: _map is null);
     }
 
     private static Point ToScreen(double wx, double wy, Proj p)
-        => p.FlipY
-            ? new Point(p.OffX + (wx - p.Vx) * p.Scale, p.OffY + (p.Vy - wy) * p.Scale)
-            : new Point(p.OffX + (wx - p.Vx) * p.Scale, p.OffY + (wy - p.Vy) * p.Scale);
+        => new(
+            p.CanvasCx + (wx - p.Cx) * p.Scale,
+            p.CanvasCy + (p.FlipY ? p.Cy - wy : wy - p.Cy) * p.Scale);
+
+    private static (double X, double Y) ToWorld(Point screen, Proj p)
+    {
+        double dx = (screen.X - p.CanvasCx) / p.Scale;
+        double dy = (screen.Y - p.CanvasCy) / p.Scale;
+        return (p.Cx + dx, p.FlipY ? p.Cy - dy : p.Cy + dy);
+    }
+
+    /// <summary>
+    /// Frame the view on the FIGHT, not on every coordinate in the recording. A dungeon map dwarfs the room
+    /// a boss is pulled in, and one stray point — a phase teleport, a decode artifact — would zoom the whole
+    /// map out until the fight is a speck. That is exactly what a plain bounds-fit did.
+    /// <para>
+    /// Centre = where the boss was (its MEDIAN position, so its dashing around doesn't drag the frame);
+    /// radius = the p90 distance of everyone's positions from that centre, so the party's real spread sets
+    /// the frame while the outlying 10 % cannot stretch it. Clamped so a stationary fight still gets a sane
+    /// view. The user can zoom/pan from there; double-click restores this.
+    /// </para>
+    /// </summary>
+    private void FocusOnTheFight()
+    {
+        _zoom = 1;
+        _panX = _panY = 0;
+
+        List<ReplayPoint> boss = _rec.Tracks.FirstOrDefault(t => t.IsTarget)?.Points.ToList() ?? [];
+        List<ReplayPoint> all = _rec.Tracks.SelectMany(t => t.Points).ToList();
+        if (all.Count == 0)
+        {
+            (_focusX, _focusY, _focusRadius) = (0, 0, 2000);
+            return;
+        }
+
+        List<ReplayPoint> centreOn = boss.Count > 0 ? boss : all;
+        _focusX = Median(centreOn.Select(p => (double)p.X));
+        _focusY = Median(centreOn.Select(p => (double)p.Y));
+
+        double[] dists = all
+            .Select(p => Math.Sqrt(Sq(p.X - _focusX) + Sq(p.Y - _focusY)))
+            .OrderBy(d => d)
+            .ToArray();
+
+        _focusRadius = Math.Clamp(dists[(int)((dists.Length - 1) * 0.9)] * 1.25, 1200, 20000);
+    }
+
+    private static double Sq(double v) => v * v;
+
+    private static double Median(IEnumerable<double> values)
+    {
+        double[] sorted = values.OrderBy(v => v).ToArray();
+        return sorted.Length == 0 ? 0 : sorted[sorted.Length / 2];
+    }
 
     // Build the map background element (bottom of the canvas). Returns null when there is no matched map or
     // the image can't be loaded — the replay then falls back to the relative plot with no background.
@@ -631,10 +666,48 @@ public partial class ReplayWindow : Window
         Render();
     }
 
+    // ---- zoom / pan (the fight frames itself; this is for a closer look) ----
+    private void MapCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        // Zoom about the cursor: whatever world point is under it must stay under it.
+        Point m = e.GetPosition(MapCanvas);
+        (double wx, double wy) = ToWorld(m, Transform());
+
+        _zoom = Math.Clamp(_zoom * (e.Delta > 0 ? 1.2 : 1 / 1.2), 0.15, 20);
+
+        (double wx2, double wy2) = ToWorld(m, Transform());
+        _panX += wx - wx2;
+        _panY += wy - wy2;
+        Render();
+    }
+
+    private void MapCanvas_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragFrom = e.GetPosition(MapCanvas);
+        MapCanvas.CaptureMouse();
+    }
+
+    private void MapCanvas_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _dragFrom = null;
+        MapCanvas.ReleaseMouseCapture();
+    }
+
     // ---- hover (height) + click (disambiguate stacked) ----
     private void MapCanvas_MouseMove(object sender, MouseEventArgs e)
     {
         Point m = e.GetPosition(MapCanvas);
+
+        if (_dragFrom is { } from && e.RightButton == MouseButtonState.Pressed)
+        {
+            Proj tf = Transform();
+            _panX -= (m.X - from.X) / tf.Scale;
+            _panY += (tf.FlipY ? 1 : -1) * (m.Y - from.Y) / tf.Scale;
+            _dragFrom = m;
+            Render();
+            return;
+        }
+
         TrackVisual? hit = Nearest(m, HitRadius);
         if (hit is null)
         {
@@ -649,6 +722,15 @@ public partial class ReplayWindow : Window
 
     private void MapCanvas_MouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.ClickCount == 2)
+        {
+            _zoom = 1; // double-click: back to the auto-framed fight
+            _panX = _panY = 0;
+            StackPopup.IsOpen = false;
+            Render();
+            return;
+        }
+
         Point m = e.GetPosition(MapCanvas);
         List<TrackVisual> near = _visuals
             .Where(v => v.HasScreen && (v.Screen - m).Length <= HitRadius)
