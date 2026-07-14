@@ -248,6 +248,7 @@ public sealed class DpsCalculator
     private void RefreshRecentReportFromCache(int targetId, MobInfo? fixedTarget)
     {
         PurgeResolvedNonPlayers();
+        TryRecoverExecutorFromRoster();
         long battleStart = _cachedBattleStart > 0L ? _cachedBattleStart : _recentData.BattleStart;
         long battleEnd = Math.Max(_cachedBattleEnd > 0L ? _cachedBattleEnd : _recentData.BattleEnd, battleStart);
 
@@ -414,6 +415,7 @@ public sealed class DpsCalculator
         }
 
         PurgeResolvedNonPlayers();
+        TryRecoverExecutorFromRoster();
 
         long dmStart = _dm.CurrentBattleStart();
         long dmEnd = _dm.CurrentBattleEnd();
@@ -473,6 +475,56 @@ public sealed class DpsCalculator
         _recentBossBuffRates = [];
         _recentDataSaved = false;
         return report;
+    }
+
+    /// <summary>How old the party roster may be and still identify us (the same window the replay scopes by).</summary>
+    private const long RosterRecoveryWindowMs = 30 * 60 * 1000L;
+
+    /// <summary>
+    /// Recover "which uid is me" when the own-nickname packet (0x3633) never arrived.
+    /// <para>
+    /// 0x3633 is the ONLY packet that says "this uid is you", and the server sends it on a character/zone
+    /// load — so a meter started (or restarted) while you are already inside a dungeon never sees it. Your
+    /// damage still lands (AccumulatePacket registers a nickname-less provisional row), but nothing knows it
+    /// is yours: no self colour, no self row name, and the replay drops you, because scoping a recording to
+    /// the party works by name and yours is blank.
+    /// </para>
+    /// <para>
+    /// The party roster (0x9702) DOES include us. So when exactly one roster identity is unaccounted for —
+    /// nobody in the repository carries that name — and exactly one damaging contributor is nameless, the two
+    /// are each other. Both "exactly one"s are the guard: a party member who has not damaged (or not been
+    /// named) yet leaves two loose ends, and we wait rather than guess.
+    /// </para>
+    /// </summary>
+    private void TryRecoverExecutorFromRoster()
+    {
+        if (_dm.ExecutorId() != 0 || _cachedContributors.Count == 0)
+        {
+            return;
+        }
+
+        IReadOnlyList<(string Nickname, int Server)> roster = _dm.PartyMemberIdentities(RosterRecoveryWindowMs);
+        if (roster.Count == 0)
+        {
+            return;
+        }
+
+        List<(string Nickname, int Server)> unclaimed = roster
+            .Where(r => _dm.FindUserByNicknameAndServer(r.Nickname, r.Server) is null)
+            .ToList();
+
+        List<User> nameless = _cachedContributors
+            .Where(u => string.IsNullOrWhiteSpace(u.Nickname))
+            .ToList();
+
+        if (unclaimed.Count != 1 || nameless.Count != 1)
+        {
+            return;
+        }
+
+        // jobByte 0 = "unknown": the job is already being inferred from our own job-locked damage skills,
+        // which outrank a snapshot byte anyway.
+        _dm.SaveNickname(nameless[0].Id, unclaimed[0].Nickname, isExecutor: true, unclaimed[0].Server, jobByte: 0);
     }
 
     private List<User> CopyContributors() => [.. _cachedContributors];
