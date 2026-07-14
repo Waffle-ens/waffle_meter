@@ -14,15 +14,13 @@ namespace WaffleMeter.App.Wpf;
 
 /// <summary>
 /// WCL-style positional replay player: a flat 2D map of where each participant stood during a battle,
-/// with play/pause + a scrub bar (30 fps interpolated playback), height-on-hover, and click-to-disambiguate
-/// for stacked characters. A normal interactive window (it needs focus), unlike the game-overlay panels.
+/// with play/pause + a scrub bar (30 fps interpolated playback), the boss's mechanics drawn as the zones
+/// they paint, and click-to-disambiguate for stacked characters. A normal interactive window (it needs
+/// focus), unlike the game-overlay panels.
 /// Consumes a <see cref="ReplayRecording"/> from the live recorder, saved history, or a .json file.
 /// </summary>
 public partial class ReplayWindow : Window
 {
-    // World-Z is shown as a height; the world->meter scale is not yet calibrated (pending a scripted
-    // capture), so this is a raw display for now. Adjust ZScale once the unit is known.
-    private const double ZScale = 1.0;
     private const double DotRadius = 6;
     private const double HitRadius = 16;
 
@@ -445,7 +443,7 @@ public partial class ReplayWindow : Window
 
         foreach (TrackVisual v in _visuals)
         {
-            if (!TryInterpolate(v, _currentMs, out double wx, out double wy, out double wz, out bool stale))
+            if (!TryInterpolate(v, _currentMs, out double wx, out double wy, out bool stale))
             {
                 v.Dot.Visibility = Visibility.Collapsed;
                 v.HasScreen = false;
@@ -465,7 +463,6 @@ public partial class ReplayWindow : Window
             v.Dot.Visibility = Visibility.Visible;
             v.Dot.Opacity = stale ? 0.5 : 1.0; // slight dim while holding a stale position (out of range / gap)
             v.Screen = p;
-            v.CurrentZ = wz;
 
             if (v.Track.IsTarget)
             {
@@ -603,7 +600,7 @@ public partial class ReplayWindow : Window
     {
         foreach (TrackVisual v in _visuals)
         {
-            if (v.Track.Uid == uid && TryInterpolate(v, ms, out double x, out double y, out _, out _))
+            if (v.Track.Uid == uid && TryInterpolate(v, ms, out double x, out double y, out _))
             {
                 return (x, y);
             }
@@ -615,9 +612,9 @@ public partial class ReplayWindow : Window
     // Position at ms. Interpolates between two samples only when they are close in time; across a large
     // gap (out-of-range / phase / teleport) it HOLDS the earlier known position and reports stale=true,
     // rather than gliding along a fake straight line. Clamps to the first/last sample at the ends.
-    private static bool TryInterpolate(TrackVisual v, double ms, out double x, out double y, out double z, out bool stale)
+    private static bool TryInterpolate(TrackVisual v, double ms, out double x, out double y, out bool stale)
     {
-        x = y = z = 0;
+        x = y = 0;
         stale = false;
         IReadOnlyList<ReplayPoint> pts = v.Track.Points;
         if (pts.Count == 0)
@@ -627,12 +624,12 @@ public partial class ReplayWindow : Window
 
         if (ms <= pts[0].TMs)
         {
-            x = pts[0].X; y = pts[0].Y; z = pts[0].Z; return true;
+            x = pts[0].X; y = pts[0].Y; return true;
         }
 
         if (ms >= pts[^1].TMs)
         {
-            x = pts[^1].X; y = pts[^1].Y; z = pts[^1].Z;
+            x = pts[^1].X; y = pts[^1].Y;
             stale = ms - pts[^1].TMs > MaxInterpGapMs; // held past the last known sample
             return true;
         }
@@ -655,7 +652,7 @@ public partial class ReplayWindow : Window
         double span = b.TMs - a.TMs;
         if (span > MaxInterpGapMs || Teleport(a, b))
         {
-            x = a.X; y = a.Y; z = a.Z; // hold the last known position through the gap/teleport
+            x = a.X; y = a.Y; // hold the last known position through the gap/teleport
             stale = true;
             return true;
         }
@@ -663,7 +660,6 @@ public partial class ReplayWindow : Window
         double f = span <= 0 ? 0 : (ms - a.TMs) / span;
         x = a.X + (b.X - a.X) * f;
         y = a.Y + (b.Y - a.Y) * f;
-        z = a.Z + (b.Z - a.Z) * f;
         return true;
     }
 
@@ -741,7 +737,7 @@ public partial class ReplayWindow : Window
         MapCanvas.ReleaseMouseCapture();
     }
 
-    // ---- hover (height) + click (disambiguate stacked) ----
+    // ---- hover (who / where the boss faces) + click (disambiguate stacked) ----
     private void MapCanvas_MouseMove(object sender, MouseEventArgs e)
     {
         Point m = e.GetPosition(MapCanvas);
@@ -769,7 +765,7 @@ public partial class ReplayWindow : Window
             ? $" · 정면 {Compass(deg)} (반대편 = 백어택)"
             : "";
 
-        HoverInfo.Text = $"{TrackName(hit.Track)}{JobSuffix(hit.Track)} · 고도 {hit.CurrentZ * ZScale:F0} m{facing}";
+        HoverInfo.Text = $"{TrackName(hit.Track)}{JobSuffix(hit.Track)}{facing}";
     }
 
     /// <summary>A facing (degrees in the world's atan2 frame) as a map bearing — the map is drawn with world
@@ -809,8 +805,8 @@ public partial class ReplayWindow : Window
         StackList.Children.Clear();
         StackList.Children.Add(new TextBlock
         {
-            Text = "겹친 캐릭터 고도",
-            Foreground = Brushes.White,
+            Text = "겹친 캐릭터",
+            Foreground = SkinBrush("Skin.Fg"),
             FontWeight = FontWeights.SemiBold,
             FontSize = 12,
             Margin = new Thickness(0, 0, 0, 4),
@@ -821,7 +817,7 @@ public partial class ReplayWindow : Window
             row.Children.Add(new Ellipse { Width = 9, Height = 9, Fill = v.Color, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
             row.Children.Add(new TextBlock
             {
-                Text = $"{TrackName(v.Track)}{JobSuffix(v.Track)} — {v.CurrentZ * ZScale:F0} m",
+                Text = $"{TrackName(v.Track)}{JobSuffix(v.Track)}",
                 Foreground = SkinBrush("Skin.Fg"),
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -891,6 +887,5 @@ public partial class ReplayWindow : Window
         public long[] Times { get; } = times;
         public Point Screen { get; set; }
         public bool HasScreen { get; set; }
-        public double CurrentZ { get; set; }
     }
 }
