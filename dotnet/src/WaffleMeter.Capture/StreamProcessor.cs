@@ -1170,11 +1170,11 @@ public sealed class StreamProcessor
 
             VarIntOutput actorInfo = PacketPrimitives.ReadVarInt(packet, offset);
 
-            if (duration == 4294967295L)
-            {
-                return;
-            }
-
+            // duration 0xFFFFFFFF = an INDEFINITE state buff — a stance/toggle that lasts until it ends, e.g.
+            // 권성's 폭주 ("폭주 상태"). This apply used to be dropped outright here, which is exactly why 폭주 and
+            // other stances stopped appearing in the buff overlay/alert from a certain build on. It flows through
+            // now: a far-future end keeps it active until the battle resets (there's no buff-remove opcode), and
+            // the overlay renders an indefinite duration as a full ring + "∞" instead of an absurd 49-day count.
             _data.SaveUseBuff(targetInfo.Value, skillCode, arrivedAt, arrivedAt + duration, duration, actorInfo.Value);
             _sink.Meta("buff",
                 ("target", targetInfo.Value),

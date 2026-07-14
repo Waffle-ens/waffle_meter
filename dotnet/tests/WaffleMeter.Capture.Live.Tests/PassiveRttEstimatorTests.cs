@@ -38,8 +38,19 @@ public class PassiveRttEstimatorTests
     {
         var est = new PassiveRttEstimator(Freq);
         est.TrackOutbound(1000, 20, ts: 0);
-        // ack arrives after the 500 ms expiry window → not a clean sample
-        Assert.False(est.TryResolveInbound(1020, ts: 800, out _));
+        // ack arrives after the 2 s expiry window → not a clean sample
+        Assert.False(est.TryResolveInbound(1020, ts: 2500, out _));
+    }
+
+    [Fact]
+    public void A_high_latency_ack_within_two_seconds_still_resolves()
+    {
+        // A ~1.2 s round trip (overseas / congested): under the old 500 ms window this was evicted before its
+        // ack, so a player who was clearly acting never got a ping. It must resolve now.
+        var est = new PassiveRttEstimator(Freq);
+        est.TrackOutbound(1000, 20, ts: 0);
+        Assert.True(est.TryResolveInbound(1020, ts: 1200, out double ms));
+        Assert.Equal(1200, ms, 3);
     }
 
     [Fact]

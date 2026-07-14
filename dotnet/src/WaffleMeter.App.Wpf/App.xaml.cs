@@ -1307,10 +1307,26 @@ public partial class App : Application
     private void PersistAether(MeterServices services)
     {
         (int b, int bonus, int total, bool has) = services.Data.CurrentAether;
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         _settings!.AetherLastValue = has
             ? string.Concat(b.ToString(CultureInfo.InvariantCulture), ",", bonus.ToString(CultureInfo.InvariantCulture), ",",
-                total.ToString(CultureInfo.InvariantCulture), ",", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture))
+                total.ToString(CultureInfo.InvariantCulture), ",", nowMs.ToString(CultureInfo.InvariantCulture))
             : string.Empty;
+
+        // Also remember this balance UNDER the current character's identity, so the 캐릭터 관리 list can show
+        // every character's 오드 — not just the active one. Keyed by the same stats identity hash the list uses.
+        if (has)
+        {
+            string? hash = services.Consent.CurrentCharacterHash();
+            if (!string.IsNullOrEmpty(hash))
+            {
+                AetherPerCharacterStore store = AetherPerCharacterStore.Parse(_settings.AetherPerCharacter);
+                if (store.Upsert(hash, new AetherSnapshot(b, bonus, total, nowMs)))
+                {
+                    _settings.AetherPerCharacter = store.Serialize();
+                }
+            }
+        }
     }
 
     /// <summary>Show the 슈고 페스타 reminder toast (docked under the meter) + play the alarm chime.</summary>

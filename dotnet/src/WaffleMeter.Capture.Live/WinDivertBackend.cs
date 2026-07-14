@@ -274,7 +274,16 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
             }
 
             long ts = System.Diagnostics.Stopwatch.GetTimestamp();
-            bool outbound = (flags & AddrOutbound) != 0;
+            bool loopback = (flags & AddrLoopback) != 0;
+            // Direction: normally the WinDivert Outbound flag is truth. But on the loopback path (VPN/booster
+            // relays route the game stream through 127.0.0.1) WinDivert marks BOTH directions Outbound=1, so
+            // every segment fell into the track branch, no ack ever resolved, and ping stayed '--ms' forever.
+            // There, ignore the (degenerate) flag and split the two directions by a stable endpoint ordering
+            // instead — the seq/ack relationship still resolves correctly, giving the local-hop latency (the
+            // real server RTT lives inside the encrypted tunnel and can't be measured passively).
+            bool outbound = loopback
+                ? EndpointLess(src, tcp.SourcePort, dst, tcp.DestinationPort)
+                : (flags & AddrOutbound) != 0;
             if (outbound)
             {
                 est.TrackOutbound(tcp.SequenceNumber, payloadLen, ts);
@@ -286,7 +295,7 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
                 {
                     _lastPingMs[conn] = nowMs;
                     // inbound direction (src=server, dst=client) — matches the app's game-stream key
-                    RttResolved?.Invoke(new ConnKey(src, tcp.SourcePort, dst, tcp.DestinationPort), ms, (flags & AddrLoopback) != 0);
+                    RttResolved?.Invoke(new ConnKey(src, tcp.SourcePort, dst, tcp.DestinationPort), ms, loopback);
                 }
             }
         }
@@ -304,6 +313,12 @@ public sealed class WinDivertBackend : IPacketCaptureBackend, ISupportsConnectio
         ulong b = ((ulong)bIp << 16) | (ushort)bPort;
         return a <= b ? (a * 2862933555777941757UL) ^ b : (b * 2862933555777941757UL) ^ a;
     }
+
+    // A stable per-direction split for the loopback case, where the OS Outbound flag is useless: one endpoint
+    // is deemed the "outbound" side by the same endpoint ordering Canonical uses, so a connection's two
+    // directions land on opposite branches (one tracked, the other resolves the ack) regardless of the flag.
+    private static bool EndpointLess(uint srcIp, int srcPort, uint dstIp, int dstPort)
+        => (((ulong)srcIp << 16) | (ushort)srcPort) <= (((ulong)dstIp << 16) | (ushort)dstPort);
 
     /// <summary>
     /// Content-based capture (Kotlin d00c850): no IP/port/interface targeting. WinDivert is a

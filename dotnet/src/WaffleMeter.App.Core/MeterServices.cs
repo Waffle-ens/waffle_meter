@@ -110,13 +110,18 @@ public sealed class MeterServices
     /// connection matches the primary game stream, so non-game connections' latency is ignored.</summary>
     public void AcceptPing(ConnKey key, double ms, bool isLoopback)
     {
-        string streamKey = $"{Dotted(key.SrcIp)}:{key.SrcPort}-{Dotted(key.DstIp)}:{key.DstPort}";
-        // Match the game stream: the dedupe-elected primary when present, else the most recent game stream
-        // (so ping still works with capture.dedupeGameStreams=false, which never sets _primaryGameKey).
-        if (streamKey != (_primaryGameKey ?? _lastGameStreamKey))
+        // Match the game stream direction-INDEPENDENTLY (compare the unordered endpoint pair). The RTT can be
+        // resolved on either direction of the connection — always the inbound one on a normal link, but the
+        // synthetic-direction loopback path (VPN/booster) can resolve on the client→server direction, whose
+        // 4-tuple is the reverse of the elected inbound game-stream key. A canonical compare accepts both, so a
+        // booster user's ping stops being silently rejected; it still can't match a DIFFERENT connection.
+        string? gameKey = _primaryGameKey ?? _lastGameStreamKey;
+        if (gameKey == null || Canonicalize(streamKeyOf(key)) != Canonicalize(gameKey))
         {
             return;
         }
+
+        static string streamKeyOf(ConnKey k) => $"{Dotted(k.SrcIp)}:{k.SrcPort}-{Dotted(k.DstIp)}:{k.DstPort}";
 
         _latestPingMs = ms;
         _lastPingAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -132,6 +137,21 @@ public sealed class MeterServices
     }
 
     private static string Dotted(uint ip) => $"{(ip >> 24) & 0xFF}.{(ip >> 16) & 0xFF}.{(ip >> 8) & 0xFF}.{ip & 0xFF}";
+
+    /// <summary>A direction-independent form of an "ep-ep" stream key: the two endpoints sorted, so the two
+    /// directions of one connection compare equal (and different connections still don't). Public for testing.</summary>
+    public static string Canonicalize(string streamKey)
+    {
+        int dash = streamKey.IndexOf('-');
+        if (dash < 0)
+        {
+            return streamKey;
+        }
+
+        string a = streamKey[..dash];
+        string b = streamKey[(dash + 1)..];
+        return string.CompareOrdinal(a, b) <= 0 ? $"{a}|{b}" : $"{b}|{a}";
+    }
 
     /// <summary>Raised (consumer thread) when a connection is classified as high-volume non-game noise,
     /// so the capture helper can drop it at the source. <see cref="MeterEngine"/> forwards it to the

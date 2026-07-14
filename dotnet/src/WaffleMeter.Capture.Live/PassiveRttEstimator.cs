@@ -28,7 +28,11 @@ public sealed class PassiveRttEstimator
     public PassiveRttEstimator(long ticksPerSecond)
     {
         _ticksPerSecond = ticksPerSecond <= 0 ? 1 : ticksPerSecond;
-        _expiryTicks = _ticksPerSecond / 2; // 500 ms — an ack later than this isn't a clean RTT sample
+        // 2 s. A high-latency player (overseas / congested, real RTT 0.5–1.5 s) sends data and acts, but the
+        // ack arrives after the old 500 ms window and every pending sample was evicted before it could match —
+        // so ping stayed '--ms' forever no matter how much they did. Widened so those samples still resolve
+        // (the 10 s display-staleness gate still hides a genuinely dead measurement).
+        _expiryTicks = _ticksPerSecond * 2;
     }
 
     /// <summary>The latest smoothed RTT (ms), or 0 if none yet.</summary>

@@ -117,6 +117,8 @@ internal static class Program
                 buffVm.SetTextColor("#FFD54A"); // amber text (verifies the color option)
                 buffVm.Update(new List<WaffleMeter.Data.OwnerBuffView>
                 {
+                    // 폭주: an indefinite state buff (0xFFFFFFFF duration) — renders as a full ring + "∞".
+                    new(19130000, "폭주", 4_294_967_295, 4_294_967_295, 4_294_967_295, false, true, false),
                     new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false),
                     new(11400000, "축복", 45_000, 60_000, 45_000, true, true, false),
                     new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, true), // on cooldown → grayed
@@ -166,6 +168,29 @@ internal static class Program
                 var svm = new SettingsViewModel(ssvc, ssettings, new MeterColorTheme(sp), new SkinManager(sp),
                     new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp), spresets) { SelectedNav = "replay" };
                 Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_replay_Dark.png"), fixedSize: true);
+
+                // 캐릭터 관리 tab: 오드 chips beside each character (populate the list directly — the preview has
+                // no consent state to enumerate).
+                svm.SelectedNav = "stats";
+                svm.ConsentCharacters.Add(new ConsentCharacterRow
+                {
+                    Label = "콰과과 [지그하르트]", SubLabel = "궁성 · 공개", IsPublic = true, CanSetPublic = true, CanRevoke = true,
+                    CurrentBadgeVisibility = System.Windows.Visibility.Visible, AetherText = "840(+120)",
+                    AetherVisibility = System.Windows.Visibility.Visible,
+                });
+                svm.ConsentCharacters.Add(new ConsentCharacterRow
+                {
+                    Label = "띵보 [카이시넬]", SubLabel = "치유성 · 비공개 (익명 집계)", CanRevoke = true,
+                    CurrentBadgeVisibility = System.Windows.Visibility.Collapsed, AetherText = "310",
+                    AetherVisibility = System.Windows.Visibility.Visible,
+                });
+                svm.ConsentCharacters.Add(new ConsentCharacterRow
+                {
+                    Label = "마르틴 [네자칸]", SubLabel = "호법성 · 비공개 (익명 집계)", CanRevoke = true,
+                    CurrentBadgeVisibility = System.Windows.Visibility.Collapsed,
+                    AetherVisibility = System.Windows.Visibility.Collapsed, // never seen this character's 오드 yet
+                });
+                Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_characters_Dark.png"), fixedSize: true);
             }
         }
 

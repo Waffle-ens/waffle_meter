@@ -210,7 +210,7 @@
                     <StackPanel><TextBlock Text="리플레이 (베타)" Style="{StaticResource NavTitle}"/><TextBlock Text="전투 이동 기록 · 저장 경로" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="stats">
-                    <StackPanel><TextBlock Text="공개 설정" Style="{StaticResource NavTitle}"/><TextBlock Text="익명 통계 · 내 캐릭터" Style="{StaticResource NavSub}"/></StackPanel>
+                    <StackPanel><TextBlock Text="캐릭터 관리" Style="{StaticResource NavTitle}"/><TextBlock Text="오드 · 공개 · 익명 통계" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="diag">
                     <StackPanel><TextBlock Text="진단" Style="{StaticResource NavTitle}"/><TextBlock Text="로그 · 문제 해결" Style="{StaticResource NavSub}"/></StackPanel>
@@ -1027,6 +1027,15 @@
                                                     <Border Background="{DynamicResource Skin.AccentSoft}" CornerRadius="3" Padding="4,1" Margin="6,0,0,0"
                                                             VerticalAlignment="Center" Visibility="{Binding CurrentBadgeVisibility}">
                                                         <TextBlock Text="현재 접속" FontSize="10" Foreground="{DynamicResource Skin.Accent}"/>
+                                                    </Border>
+                                                    <!-- 오드 (aether) chip — matches the meter footer badge; last-seen per character. -->
+                                                    <Border Background="{DynamicResource Skin.StatBg}" CornerRadius="4" Padding="5,1" Margin="6,0,0,0"
+                                                            VerticalAlignment="Center" Visibility="{Binding AetherVisibility}" ToolTip="오드 (마지막으로 확인된 값)">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Path Data="M 5,0 L 10,5 L 5,10 L 0,5 Z" Fill="#7EE7FF" Width="10" Height="10" Stretch="Uniform"
+                                                                  VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                            <TextBlock Text="{Binding AetherText}" Foreground="#7EE7FF" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                        </StackPanel>
                                                     </Border>
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding SubLabel}" Style="{StaticResource SettingDesc}"/>
