@@ -33,9 +33,9 @@ public partial class ReplayWindow : Window
     private const double FacingMarkerOffset = 22;
 
     /// <summary>How much room the auto-frame leaves around the party's spread. Fitting tightly to the dots
-    /// read as over-zoomed in practice (the room the fight happens in is the context you want), so this is
-    /// set where a viewer stopped scrolling out: ~2.4x the p90 spread.</summary>
-    private const double FramePadding = 2.4;
+    /// reads as over-zoomed in practice — the room the fight happens in IS the context — so this is set
+    /// where a viewer stopped scrolling out (~3.5x the p90 spread; each wheel notch is 1.2x).</summary>
+    private const double FramePadding = 3.5;
     // With the dense 0x371D delta stream decoded, in-battle position points arrive ~10Hz (measured p90 gap
     // ~0.3s), so a real move never has a multi-second gap. HOLD (don't fake-glide) only across the much
     // larger gaps that mean the entity left capture range (AoI) or phased/teleported — measured at tens of
@@ -125,11 +125,7 @@ public partial class ReplayWindow : Window
         }
 
         HeaderText.Text = title is { Length: > 0 } ? $"전투 리플레이 — {title}" : "전투 리플레이";
-
-        // How many of the boss's casts actually paint a zone we can draw (the rest are plain swings).
-        int mechanics = _rec.Casts.Count(c => SkillShapes.For(c.SkillCode).Count > 0);
-        string badge = _rec.BossDefeated ? "처치 완료" : "직전 전투 (미처치)";
-        BossBadge.Text = mechanics > 0 ? $"{badge} · 기믹 {mechanics}회" : badge;
+        BossBadge.Text = _rec.BossDefeated ? "처치 완료" : "직전 전투 (미처치)";
         ScrubSlider.Maximum = Math.Max(1, _rec.DurationMs);
 
         bool anyPoints = _rec.PointCount > 0;
@@ -243,7 +239,7 @@ public partial class ReplayWindow : Window
         row.Children.Add(new TextBlock
         {
             Text = label + suffix + dim,
-            Foreground = t.Points.Count == 0 ? Brushes.Gray : new SolidColorBrush(Color.FromRgb(0xC8, 0xCC, 0xD2)),
+            Foreground = SkinBrush(t.Points.Count == 0 ? "Skin.MutedFg" : "Skin.Fg"),
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
         });
@@ -654,9 +650,10 @@ public partial class ReplayWindow : Window
         }
     }
 
-    private void Speed_Click(object sender, RoutedEventArgs e)
+    private void Speed_Checked(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: string s } && double.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, out double sp))
+        if (sender is RadioButton { Tag: string s }
+            && double.TryParse(s, System.Globalization.CultureInfo.InvariantCulture, out double sp))
         {
             _speed = sp;
         }
@@ -766,7 +763,7 @@ public partial class ReplayWindow : Window
             row.Children.Add(new TextBlock
             {
                 Text = $"{TrackName(v.Track)}{JobSuffix(v.Track)} — {v.CurrentZ * ZScale:F0} m",
-                Foreground = new SolidColorBrush(Color.FromRgb(0xC8, 0xCC, 0xD2)),
+                Foreground = SkinBrush("Skin.Fg"),
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
             });
@@ -800,6 +797,10 @@ public partial class ReplayWindow : Window
 
         return best;
     }
+
+    /// <summary>A brush from the active meter skin, so the replay re-themes with the rest of the app.</summary>
+    private static Brush SkinBrush(string key)
+        => Application.Current?.TryFindResource(key) as Brush ?? Brushes.Gainsboro;
 
     private static string TrackName(ReplayTrack t) => string.IsNullOrEmpty(t.Nickname) ? (t.IsTarget ? "보스" : $"#{t.Uid}") : t.Nickname!;
 
