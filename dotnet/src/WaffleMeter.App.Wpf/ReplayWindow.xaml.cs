@@ -31,6 +31,11 @@ public partial class ReplayWindow : Window
 
     /// <summary>How far from the boss's centre its head / back chevrons sit (px).</summary>
     private const double FacingMarkerOffset = 22;
+
+    /// <summary>How much room the auto-frame leaves around the party's spread. Fitting tightly to the dots
+    /// read as over-zoomed in practice (the room the fight happens in is the context you want), so this is
+    /// set where a viewer stopped scrolling out: ~2.4x the p90 spread.</summary>
+    private const double FramePadding = 2.4;
     // With the dense 0x371D delta stream decoded, in-battle position points arrive ~10Hz (measured p90 gap
     // ~0.3s), so a real move never has a multi-second gap. HOLD (don't fake-glide) only across the much
     // larger gaps that mean the entity left capture range (AoI) or phased/teleported — measured at tens of
@@ -286,8 +291,10 @@ public partial class ReplayWindow : Window
     /// <para>
     /// Centre = where the boss was (its MEDIAN position, so its dashing around doesn't drag the frame);
     /// radius = the p90 distance of everyone's positions from that centre, so the party's real spread sets
-    /// the frame while the outlying 10 % cannot stretch it. Clamped so a stationary fight still gets a sane
-    /// view. The user can zoom/pan from there; double-click restores this.
+    /// the frame while the outlying 10 % cannot stretch it — then <see cref="FramePadding"/> of room around
+    /// it, because a fight is easier to read with the surrounding room in view than cropped to the dots.
+    /// Clamped so a stationary fight still gets a sane view. The user can zoom/pan from there; double-click
+    /// restores this.
     /// </para>
     /// </summary>
     private void FocusOnTheFight()
@@ -312,7 +319,7 @@ public partial class ReplayWindow : Window
             .OrderBy(d => d)
             .ToArray();
 
-        _focusRadius = Math.Clamp(dists[(int)((dists.Length - 1) * 0.9)] * 1.25, 1200, 20000);
+        _focusRadius = Math.Clamp(dists[(int)((dists.Length - 1) * 0.9)] * FramePadding, 2500, 30000);
     }
 
     private static double Sq(double v) => v * v;
