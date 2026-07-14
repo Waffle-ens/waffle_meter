@@ -107,17 +107,21 @@ public static class ReplayZones
     public static List<List<(double X, double Y)>> Outline(in ActiveZone active, int arcSteps = 48)
     {
         ReplaySkillZone z = active.Zone;
-        double facing = z.IsDirectional
-            ? (active.Cast.FacingDeg + z.RotationDeg) * Math.PI / 180.0
-            : 0;
+        double heading = active.Cast.FacingDeg * Math.PI / 180.0;
+        double facing = z.IsDirectional ? heading + z.RotationDeg * Math.PI / 180.0 : 0;
 
-        // The client's offsets live in the caster's local frame: forward = (cos, sin) along the facing,
-        // right = (sin, -cos), its perpendicular.
+        // forward = (cos, sin) along an angle, right = (sin, -cos), its perpendicular.
         double cos = Math.Cos(facing), sin = Math.Sin(facing);
         (double X, double Y) Local(double ox, double oy, double fwd, double right)
             => (ox + fwd * cos + right * sin, oy + fwd * sin - right * cos);
 
-        (double cx, double cy) = Local(active.CentreX, active.CentreY, z.OffsetForward, z.OffsetRight);
+        // The zone's offset lives in the CASTER's frame — not the zone's own rotated frame, and (for a
+        // circle) not the world frame. 검은 피 블라트's five-line sweep pins this down: its four side
+        // lines share one forward offset and differ only sideways, and they only land as parallel bands
+        // flanking the centre line when the offset ignores the row's own rotation.
+        double cosH = Math.Cos(heading), sinH = Math.Sin(heading);
+        double cx = active.CentreX + z.OffsetForward * cosH + z.OffsetRight * sinH;
+        double cy = active.CentreY + z.OffsetForward * sinH - z.OffsetRight * cosH;
 
         var loops = new List<List<(double X, double Y)>>();
         switch (z.Kind)

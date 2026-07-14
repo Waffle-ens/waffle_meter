@@ -18,19 +18,25 @@ public enum ZoneAnchor
 /// <summary>The zone a mechanic paints on the floor. Values are world units / degrees, straight from the
 /// client's <c>SkillEffectFilter</c> row (see tools/skill-shapes-export.py).</summary>
 /// <param name="Kind">Circle · Sphere · Ring · RingArc · Arc · Rectangle.</param>
-/// <param name="Values">Raw <c>EffectRangeValues</c>: <c>[offForward, offRight, offZ, rotDeg, A, B, C…]</c>
-/// where A/B/C read per kind — see <see cref="ReplaySkillZone.Radius"/> and friends.</param>
+/// <param name="Values">Raw <c>EffectRangeValues</c>: <c>[offAcross, offForward, offZ, rotDeg, A, B, C…]</c>
+/// — the client authors offsets in a Y-forward frame, so the FIRST value is the sideways one — where
+/// A/B/C read per kind — see <see cref="ReplaySkillZone.Radius"/> and friends.</param>
 /// <param name="NoticeMs">Telegraph pre-warning: the floor lights up this long before the hit.</param>
 /// <param name="Anchor">Where the zone sits.</param>
 public sealed record ReplaySkillZone(string Kind, IReadOnlyList<int> Values, int NoticeMs, ZoneAnchor Anchor)
 {
     private int V(int i) => i < Values.Count ? Values[i] : 0;
 
-    /// <summary>Local offset along the caster's facing (world units).</summary>
-    public double OffsetForward => V(0);
+    /// <summary>Local offset along the caster's facing (world units). The client's local frame is
+    /// Y-forward: the forward component is the SECOND value, not the first. 검은 피 블라트's five-line
+    /// sweep (1804570/1804580) is the measuring stick — its five parallel beams only tile into adjacent
+    /// bands under this reading; the old <c>[forward, right]</c> guess stacked all four side lines onto
+    /// one spot beside the boss.</summary>
+    public double OffsetForward => V(1);
 
-    /// <summary>Local offset to the caster's right (world units).</summary>
-    public double OffsetRight => V(1);
+    /// <summary>Local offset to the caster's right (world units). The client's first axis points the
+    /// caster's LEFT in this projection, hence the sign flip.</summary>
+    public double OffsetRight => -V(0);
 
     /// <summary>Extra rotation of this zone on top of the caster's facing (degrees) — how a 4-way
     /// quadrant mechanic ships as four Arc rows at 0/90/180/270.</summary>
