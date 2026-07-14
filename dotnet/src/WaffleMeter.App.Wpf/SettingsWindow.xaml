@@ -1096,7 +1096,17 @@
                         <TextBlock Text="저장 경로" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
                         <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,8"
                                    Text="기록은 전투당 파일 하나(json)로 저장되며, 최근 것부터 일정 개수만 유지됩니다."/>
-                        <Button Content="리플레이 폴더 열기" HorizontalAlignment="Left" Click="OnOpenReplayFolder"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <Button Click="OnPlayReplay" Margin="0,0,8,0" IsEnabled="{Binding ReplayAvailable}"
+                                    ToolTip="리플레이 파일(.json)을 선택해 재생합니다">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="M 0,0 L 8,5 L 0,10 Z" Fill="{DynamicResource Skin.Accent}" Width="8" Height="10"
+                                          Stretch="Uniform" VerticalAlignment="Center" Margin="0,1,7,0"/>
+                                    <TextBlock Text="리플레이 재생" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Content="리플레이 폴더 열기" Click="OnOpenReplayFolder"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=diag}">

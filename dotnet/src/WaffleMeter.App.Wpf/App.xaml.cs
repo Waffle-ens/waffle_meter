@@ -209,6 +209,7 @@ public partial class App : Application
             var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, _buffPresets!);
             svm.CheckUpdateRequested = () => _ = _updateService?.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
+            svm.PlayReplayRequested = () => PlayReplayFromPicker(services, window);
             var settingsWindow = new SettingsWindow(svm) { Owner = window };
             LoadWindowSize(services.Props, "settingsWidth", "settingsHeight", settingsWindow);
             settingsWindow.SizeChanged += (_, _) =>
@@ -678,6 +679,55 @@ public partial class App : Application
                     MessageBoxButton.OK, MessageBoxImage.Error));
             }
         });
+    }
+
+    /// <summary>Let the user pick a saved replay .json and play it (the "리플레이 재생" button). Opens the
+    /// replays folder by default; reuses the single-instance replay window like every other open path.</summary>
+    private void PlayReplayFromPicker(WaffleMeter.App.Core.MeterServices services, Window? owner)
+    {
+        string dir = services.ReplayDirectory;
+        try
+        {
+            System.IO.Directory.CreateDirectory(dir);
+        }
+        catch
+        {
+            // a missing/unwritable folder just means the dialog opens wherever it can
+        }
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "리플레이 파일 선택",
+            Filter = "리플레이 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
+            InitialDirectory = System.IO.Directory.Exists(dir) ? dir : null,
+            CheckFileExists = true,
+        };
+
+        if (dialog.ShowDialog(owner) != true)
+        {
+            return;
+        }
+
+        WaffleMeter.Replay.ReplayRecording rec;
+        try
+        {
+            rec = WaffleMeter.Replay.ReplaySerializer.Deserialize(System.IO.File.ReadAllText(dialog.FileName));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(owner, $"이 파일은 리플레이로 열 수 없어요.\n\n{ex.Message}", "리플레이 재생",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (rec.PointCount == 0)
+        {
+            MessageBox.Show(owner, "이 리플레이에는 표시할 이동 기록이 없어요.", "리플레이 재생",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        ShowReplayWindow(rec, owner);
     }
 
     private void OpenReplay(WaffleMeter.App.Core.MeterServices services, Window owner)
