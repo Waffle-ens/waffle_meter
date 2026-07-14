@@ -144,6 +144,49 @@ public class ReplayZonesTests
     }
 
     [Fact]
+    public void A_multi_line_sweep_tiles_beside_its_centre_line_not_on_top_of_it()
+    {
+        // 검은 피 블라트's five-line sweep (1804580), rows verbatim from the client: a centre line
+        // through the boss (its own rotation 90°), then two pairs of side lines that differ ONLY in
+        // their first offset value. The client authors offsets Y-forward and in the caster's frame, so
+        // drawn right the five beams tile into adjacent parallel bands — the old [forward, right]
+        // reading stacked all four side lines onto one spot beside the boss.
+        ReplaySkillShapes shapes = ReplaySkillShapes.Parse("""
+            {
+              "1804580":[
+                {"i":1,"t":"Rectangle","v":[-450,160,0,90,500,5000,500,0],"n":1300,"a":"caster"},
+                {"i":2,"t":"Rectangle","v":[280,-2350,0,0,5000,500,500,0],"n":0,"a":"caster"},
+                {"i":3,"t":"Rectangle","v":[-720,-2350,0,0,5000,500,500,0],"n":0,"a":"caster"},
+                {"i":4,"t":"Rectangle","v":[780,-2350,0,0,5000,500,500,0],"n":0,"a":"caster"},
+                {"i":5,"t":"Rectangle","v":[-1220,-2350,0,0,5000,500,500,0],"n":0,"a":"caster"}
+              ]
+            }
+            """);
+        var casts = new[] { Cast(1_804_580, 10_000, facing: 0f, targets: new ReplayCastTarget(42, 0, 0, 0)) };
+
+        List<List<(double X, double Y)>> quads = ReplayZones.ActiveAt(casts, shapes, 10_000)
+            .Select(zone => Assert.Single(ReplayZones.Outline(zone)))
+            .ToList();
+
+        Assert.Equal(5, quads.Count);
+
+        // Facing +X: every beam runs the same ~5000 along the boss's facing…
+        Assert.All(quads, q => Assert.InRange(q.Min(p => p.X), -2360, -2330));
+        Assert.All(quads, q => Assert.InRange(q.Max(p => p.X), 2640, 2670));
+
+        // …and sideways they lie in five 500-thick bands, side by side with no stacking.
+        List<(double Lo, double Hi)> bands = quads
+            .Select(q => (Lo: q.Min(p => p.Y), Hi: q.Max(p => p.Y)))
+            .OrderBy(b => b.Lo)
+            .ToList();
+        Assert.All(bands, b => Assert.Equal(500, b.Hi - b.Lo, 0));
+        for (int k = 1; k < bands.Count; k++)
+        {
+            Assert.InRange(bands[k].Lo - bands[k - 1].Hi, -25, 25);
+        }
+    }
+
+    [Fact]
     public void A_donut_returns_its_hole_as_a_second_loop()
     {
         var casts = new[] { Cast(444, 10_000, targets: new ReplayCastTarget(1, 0, 0, 0)) };
