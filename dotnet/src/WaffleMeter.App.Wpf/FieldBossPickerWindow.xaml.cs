@@ -1,6 +1,4 @@
-using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Interop;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -14,7 +12,7 @@ public partial class FieldBossPickerWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
-        SourceInitialized += (_, _) => TryEnableDarkTitleBar();
+        DarkTitleBar.Apply(this);
     }
 
     private void OnClose(object sender, RoutedEventArgs e) => Close();
@@ -35,23 +33,4 @@ public partial class FieldBossPickerWindow : Window
         }
     }
 
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
-
-    private void TryEnableDarkTitleBar()
-    {
-        try
-        {
-            IntPtr hwnd = new WindowInteropHelper(this).Handle;
-            int on = 1;
-            if (DwmSetWindowAttribute(hwnd, 20, ref on, sizeof(int)) != 0)
-            {
-                DwmSetWindowAttribute(hwnd, 19, ref on, sizeof(int));
-            }
-        }
-        catch
-        {
-            // older OS — light title bar, harmless
-        }
-    }
 }
