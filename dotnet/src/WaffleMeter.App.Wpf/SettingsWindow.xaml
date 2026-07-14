@@ -206,6 +206,9 @@
                 <ListBoxItem Tag="advanced">
                     <StackPanel><TextBlock Text="고급" Style="{StaticResource NavTitle}"/><TextBlock Text="캡처 방식 · 렌더링 호환" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="replay">
+                    <StackPanel><TextBlock Text="리플레이 (베타)" Style="{StaticResource NavTitle}"/><TextBlock Text="전투 이동 기록 · 저장 경로" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="stats">
                     <StackPanel><TextBlock Text="공개 설정" Style="{StaticResource NavTitle}"/><TextBlock Text="익명 통계 · 내 캐릭터" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
@@ -1054,6 +1057,39 @@
                     </StackPanel>
 
                     <!-- ===== 진단 ===== -->
+                    <!-- ===== 리플레이 (베타) ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=replay}">
+                        <TextBlock Text="전투 리플레이 (베타)" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,10"
+                                   Text="전투 중 파티원과 보스의 이동을 기록해, 던전 지도 위에서 되감아 볼 수 있습니다. 보스 기믹의 장판도 함께 표시됩니다."/>
+
+                        <Border Background="{DynamicResource Skin.AccentSoft}" BorderBrush="{DynamicResource Skin.Accent}"
+                                BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,14">
+                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource Skin.Fg}"
+                                       Text="⚠ 베타 기능입니다. 일부 던전이나 상황에서 위치가 비거나, 지도·장판이 어긋나게 표시될 수 있습니다. DPS 집계에는 영향을 주지 않습니다."/>
+                        </Border>
+
+                        <TextBlock Visibility="{Binding ReplayUnavailableVisibility}" Style="{StaticResource SettingDesc}"
+                                   Margin="0,0,0,12" Foreground="{DynamicResource Skin.MutedFg}"
+                                   Text="이 빌드에는 리플레이 모듈이 포함되어 있지 않아 사용할 수 없습니다."/>
+
+                        <Grid Margin="0,0,0,14" IsEnabled="{Binding ReplayAvailable}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="리플레이 자동 저장" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Style="{StaticResource SettingDesc}"
+                                           Text="전투가 끝날 때마다 이동 기록을 저장합니다. 끄면 아무것도 기록하지 않습니다 (즉시 적용)."/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding RecordReplay}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="저장 경로" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,8"
+                                   Text="기록은 전투당 파일 하나(json)로 저장되며, 최근 것부터 일정 개수만 유지됩니다."/>
+                        <Button Content="리플레이 폴더 열기" HorizontalAlignment="Left" Click="OnOpenReplayFolder"/>
+                    </StackPanel>
+
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=diag}">
                         <TextBlock Text="진단 — 패킷 로깅" Style="{StaticResource SectionHeader}"/>
                         <TextBlock Text="전투를 기록해 재생 가능한 코퍼스(packet-debug-logs)를 남깁니다. 진단/검증용이며, 켜두면 디스크에 계속 기록됩니다."

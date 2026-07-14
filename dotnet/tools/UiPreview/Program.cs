@@ -164,8 +164,8 @@ internal static class Program
                 var ssettings = new MeterSettings(sp);
                 var spresets = new BuffPresetManager(ssettings, _ => { }, _ => { }); // temp props; no store to update
                 var svm = new SettingsViewModel(ssvc, ssettings, new MeterColorTheme(sp), new SkinManager(sp),
-                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp), spresets) { SelectedNav = "display" };
-                Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_display_Dark.png"), fixedSize: true);
+                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp), spresets) { SelectedNav = "replay" };
+                Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_replay_Dark.png"), fixedSize: true);
             }
         }
 

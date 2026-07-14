@@ -14,6 +14,36 @@
         FontFamily="Segoe UI">
     <Window.Resources>
         <local:FontFamilyConverter x:Key="FontConv"/>
+
+        <!-- Replay: a round accent-tinted play button on the row, matching the meter's transport chrome.
+             Only present on rows whose battle actually has a recording (see BattleHistoryRowViewModel). -->
+        <Style x:Key="RowReplayButton" TargetType="Button">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource Skin.Fg}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="ToolTip" Value="이 전투 리플레이 보기"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" CornerRadius="13" Background="#38000000"
+                                BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1">
+                            <TextBlock Text="▶" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
+                                       Margin="2,0,0,0"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource Skin.AccentSoft}"/>
+                                <Setter TargetName="bg" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Border CornerRadius="6" BorderThickness="1"
             Background="{DynamicResource Skin.PanelBg}"
@@ -56,6 +86,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <Image Grid.Column="0" Source="{Binding BossIcon}" Width="32" Height="32"
                                                    Opacity="{Binding IconOpacity}" VerticalAlignment="Center" Margin="0,0,10,0"/>
@@ -66,6 +97,9 @@
                                             </StackPanel>
                                             <TextBlock Grid.Column="2" Text="{Binding DurationText}" Foreground="{Binding DurationBrush}"
                                                        FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                            <Button Grid.Column="3" Style="{StaticResource RowReplayButton}" Margin="10,0,0,0"
+                                                    VerticalAlignment="Center" Visibility="{Binding ReplayVisibility}"
+                                                    Click="OnReplayClick"/>
                                         </Grid>
                                     </Grid>
                                 </Border>

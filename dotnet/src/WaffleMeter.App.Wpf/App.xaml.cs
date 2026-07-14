@@ -166,7 +166,8 @@ public partial class App : Application
             _controller.SetTaskbarMode(true); // restore persisted taskbar/alt-tab mode
         }
         _tray = new TrayIconController(window, _controller, () => Dispatcher.Invoke(ExitApp),
-            services.Movement != null ? () => OpenReplay(services, window) : null);
+            services.Movement != null ? () => OpenReplay(services, window) : null,
+            DevPacketLogReplay.IsAvailable(VersionConfig.Resolve().Version) ? () => LoadPacketLog(services) : null);
         window.PositionChanged += (left, top) => SavePosition(services.Props, left, top);
 
         // Single-instance: surface this (running) instance when a later launch signals us, so relaunching
@@ -624,6 +625,61 @@ public partial class App : Application
 
     // Open the positional replay for the last battle (the 직전 전투). Toggle: a second invocation closes it
     // so the next reopens with the latest recording. Only reachable when replay.recordMovement=true.
+    /// <summary>
+    /// Dev builds only (tray → "[개발] 패킷 로그 불러오기"). Replays a recorded packet-debug corpus through the
+    /// live pipeline so its battles show up in the history/detail windows without running a dungeon.
+    /// Replaying wipes the meter's live battle state, so it asks first.
+    /// </summary>
+    private void LoadPacketLog(WaffleMeter.App.Core.MeterServices services)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "패킷 로그 불러오기 (개발용)",
+            Filter = "패킷 디버그 로그 (*.jsonl)|*.jsonl|모든 파일 (*.*)|*.*",
+            InitialDirectory = Directory.Exists(DevPacketLogReplay.DefaultLogDirectory())
+                ? DevPacketLogReplay.DefaultLogDirectory()
+                : null,
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        MessageBoxResult confirm = MessageBox.Show(
+            $"{Path.GetFileName(dialog.FileName)}\n\n" +
+            "이 로그를 미터에 재생합니다. 현재 전투 상태는 초기화되고, 재생된 전투는 통계 사이트로 업로드되지 않습니다.\n" +
+            "게임이 켜져 있으면 실시간 패킷과 섞일 수 있으니 꺼두는 것이 좋습니다.\n\n계속할까요?",
+            "패킷 로그 불러오기 (개발용)",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        string path = dialog.FileName;
+        Task.Run(() =>
+        {
+            try
+            {
+                int battles = DevPacketLogReplay.Run(services, path);
+                Dispatcher.BeginInvoke(() =>
+                {
+                    services.NotifyBattleListChanged();
+                    MessageBox.Show($"전투 {battles}건을 불러왔습니다.\n히스토리에서 열어보세요.",
+                        "패킷 로그 불러오기 (개발용)", MessageBoxButton.OK, MessageBoxImage.Information);
+                });
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.BeginInvoke(() => MessageBox.Show(
+                    "재생 실패: " + ex.Message, "패킷 로그 불러오기 (개발용)",
+                    MessageBoxButton.OK, MessageBoxImage.Error));
+            }
+        });
+    }
+
     private void OpenReplay(WaffleMeter.App.Core.MeterServices services, Window owner)
     {
         if (_replayWindow != null)
@@ -645,7 +701,56 @@ public partial class App : Application
             return; // no recorded battle with movement yet
         }
 
-        var win = new ReplayWindow(rec) { Owner = owner };
+        ShowReplayWindow(rec, owner);
+    }
+
+    /// <summary>The recording for ONE saved battle: the live engine's copy if this session made it, else the
+    /// file it wrote (recordings survive a restart). Null when that battle has no positions — which is what
+    /// hides the ▶ on a history row.</summary>
+    private static WaffleMeter.Replay.ReplayRecording? FindRecording(
+        WaffleMeter.App.Core.MeterServices services, DpsReport report)
+    {
+        if (report.BattleStart <= 0)
+        {
+            return null;
+        }
+
+        if (services.Movement is { } engine
+            && engine.TryGetForBattle(report.BattleStart, out WaffleMeter.Replay.ReplayRecording? live)
+            && live is { PointCount: > 0 })
+        {
+            return live;
+        }
+
+        try
+        {
+            string path = System.IO.Path.Combine(services.ReplayDirectory, $"replay-{report.BattleStart}.json");
+            if (!System.IO.File.Exists(path))
+            {
+                return null;
+            }
+
+            WaffleMeter.Replay.ReplayRecording saved =
+                WaffleMeter.Replay.ReplaySerializer.Deserialize(System.IO.File.ReadAllText(path));
+            return saved.PointCount > 0 ? saved : null;
+        }
+        catch
+        {
+            return null; // a corrupt/half-written file just means "no replay for this battle"
+        }
+    }
+
+    // One replay window at a time: opening another battle's replay replaces the one on screen.
+    private void ShowReplayWindow(WaffleMeter.Replay.ReplayRecording rec, Window? owner)
+    {
+        _replayWindow?.Close();
+
+        var win = new ReplayWindow(rec);
+        if (owner != null && owner.IsLoaded)
+        {
+            win.Owner = owner;
+        }
+
         win.Closed += (_, _) =>
         {
             if (ReferenceEquals(_replayWindow, win))
@@ -952,6 +1057,17 @@ public partial class App : Application
             _viewingHistory = true;
             _historyBaselineBattleStart = _lastReport?.BattleStart ?? 0;
             meterViewModel.Update(report);
+        };
+
+        // ▶ on a row: the positional replay for THAT battle (the tray entry only opens the last one). The
+        // button is only rendered for battles that actually have a recording.
+        _historyViewModel.HasReplay = report => FindRecording(services, report) is not null;
+        _historyViewModel.ReplayRequested += report =>
+        {
+            if (FindRecording(services, report) is { } rec)
+            {
+                ShowReplayWindow(rec, _historyPanel);
+            }
         };
 
         // The 기록 header button toggles the panel.

@@ -19,4 +19,15 @@ public partial class HistoryPanel : OverlayPanelWindow
             vm.SelectBattle(row.Report);
         }
     }
+
+    // ▶ on a row: open that battle's positional replay. Handled here (not via the row click) so it doesn't
+    // also swap the meter to this battle.
+    private void OnReplayClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: BattleHistoryRowViewModel row } && DataContext is BattleHistoryViewModel vm)
+        {
+            vm.RequestReplay(row.Report);
+            e.Handled = true;
+        }
+    }
 }

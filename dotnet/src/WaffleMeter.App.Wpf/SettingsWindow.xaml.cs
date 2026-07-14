@@ -63,6 +63,8 @@ public partial class SettingsWindow : Window
 
     private void OnOpenLogFolder(object sender, RoutedEventArgs e) => _viewModel.OpenLogFolder();
 
+    private void OnOpenReplayFolder(object sender, RoutedEventArgs e) => _viewModel.OpenReplayFolder();
+
     private void OnCheckUpdate(object sender, RoutedEventArgs e) => _viewModel.CheckForUpdate();
 
     private void OnTestAlarmSound(object sender, RoutedEventArgs e) => _viewModel.TestAlarmSound();
