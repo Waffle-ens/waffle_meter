@@ -133,10 +133,28 @@ public sealed class ReplaySkillShapes
         return catalog;
     }
 
-    /// <summary>The zones a skill paints, in cast order; empty when the skill isn't in the catalog (a
-    /// non-zone skill — a plain melee swing — or a code the datamine didn't cover).</summary>
+    /// <summary>
+    /// The zones a skill paints, in cast order. Empty when the skill paints none — a plain swing, a self
+    /// buff — or when the client defines no zone for it at all.
+    /// <para>
+    /// A cast often carries a VARIANT of a mechanic (a stage or level: 1803661 of 1803660, 1805713 of
+    /// 1805710) and the client only defines the zone once, on the base. So an unknown code falls back to its
+    /// base — the same code with the last digit cleared. Measured on a real 침식의 정화소 fight, that alone
+    /// recovers 36 of the 52 casts that were drawing nothing.
+    /// </para>
+    /// </summary>
     public IReadOnlyList<ReplaySkillZone> For(int skillCode)
-        => _bySkill.TryGetValue(skillCode, out IReadOnlyList<ReplaySkillZone>? z) ? z : [];
+    {
+        if (_bySkill.TryGetValue(skillCode, out IReadOnlyList<ReplaySkillZone>? zones))
+        {
+            return zones;
+        }
+
+        int baseCode = skillCode - (skillCode % 10);
+        return baseCode != skillCode && _bySkill.TryGetValue(baseCode, out IReadOnlyList<ReplaySkillZone>? shared)
+            ? shared
+            : [];
+    }
 
     private sealed class Entry
     {

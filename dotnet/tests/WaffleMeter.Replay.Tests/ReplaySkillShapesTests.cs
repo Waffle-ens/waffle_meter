@@ -73,9 +73,21 @@ public class ReplaySkillShapesTests
     }
 
     [Fact]
+    public void A_variant_of_a_mechanic_borrows_the_zone_from_its_base_code()
+    {
+        // The client defines a mechanic's zone once, on the base code; a cast may arrive as a stage/level
+        // variant of it (…1, …3). Live, that left 36 casts of a 침식의 정화소 boss drawing nothing.
+        ReplaySkillShapes shapes = ReplaySkillShapes.Parse(Json);
+
+        Assert.Equal(shapes.For(1806450), shapes.For(1806451)); // same zone, not an empty list
+        Assert.Equal(3000, Assert.Single(shapes.For(1806453)).Radius);
+    }
+
+    [Fact]
     public void An_uncatalogued_or_non_zone_skill_yields_no_zones()
     {
         Assert.Empty(ReplaySkillShapes.Parse(Json).For(1234567)); // a plain melee swing
+        Assert.Empty(ReplaySkillShapes.Parse(Json).For(1234560)); // …and its base isn't catalogued either
         Assert.Empty(ReplaySkillShapes.Empty.For(1806450));
     }
 
