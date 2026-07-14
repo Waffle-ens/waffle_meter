@@ -65,6 +65,8 @@ public partial class SettingsWindow : Window
 
     private void OnOpenReplayFolder(object sender, RoutedEventArgs e) => _viewModel.OpenReplayFolder();
 
+    private void OnPlayReplay(object sender, RoutedEventArgs e) => _viewModel.PlayReplay();
+
     private void OnCheckUpdate(object sender, RoutedEventArgs e) => _viewModel.CheckForUpdate();
 
     private void OnTestAlarmSound(object sender, RoutedEventArgs e) => _viewModel.TestAlarmSound();

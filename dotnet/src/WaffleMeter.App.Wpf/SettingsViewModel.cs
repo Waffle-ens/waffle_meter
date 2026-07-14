@@ -776,6 +776,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
     }
 
+    /// <summary>The replays folder, so the play dialog can open there by default.</summary>
+    public string ReplayDirectory => _services.ReplayDirectory;
+
+    /// <summary>Wired by the host (App) to a file picker + replay window (UI-thread work lives there, not in
+    /// the VM). Raised by the "리플레이 재생" button.</summary>
+    public Action? PlayReplayRequested;
+
+    public void PlayReplay() => PlayReplayRequested?.Invoke();
+
     public void Reload()
     {
         ApplyInfo(_services.Consent.GetInfo(syncRemote: false, _services.Version));
