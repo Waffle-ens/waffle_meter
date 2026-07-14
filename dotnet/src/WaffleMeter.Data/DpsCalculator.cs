@@ -34,6 +34,7 @@ public sealed class DpsCalculator
     private long _cachedBattleEnd;
     private long _cachedBattleStart;
     private bool _isCachedBattleStartFake;
+    private long _cachedBattleStartToggle; // the combat-enter toggle wall-clock at this battle's first damage
     private readonly Dictionary<int, Dictionary<string, AnalyzedSkill>> _cachedSkillDetails = new();
 
     private static readonly string[] SummonDamageSkillPrefixes =
@@ -62,6 +63,27 @@ public sealed class DpsCalculator
         _cachedBattleEnd = 0L;
         _cachedBattleStart = 0L;
         _isCachedBattleStartFake = false;
+        _cachedBattleStartToggle = 0L;
+    }
+
+    /// <summary>How far the reported battle start may sit BEFORE the combat-enter toggle. Pre-toggle openers
+    /// are still counted (<see cref="ActivePacketCutoff"/> admits ~1 s of them); this only caps how far the
+    /// clock is back-dated, which was the dominant source of the combat-time gap vs the in-game meter — our
+    /// start could sit a full second before the toggle. Keep small: on a re-pull the first resumed damage is
+    /// AFTER the toggle, so the floor never binds and the re-pull deflation fix is untouched.</summary>
+    private const long StartBackdateLimitMs = 250L;
+
+    /// <summary>The battle start to report: the first-damage timestamp, but never earlier than
+    /// <see cref="StartBackdateLimitMs"/> before the combat-enter toggle. 0 when no damage yet.</summary>
+    private long StartAnchor()
+    {
+        if (_cachedBattleStart == 0L)
+        {
+            return 0L;
+        }
+
+        long floor = _cachedBattleStartToggle > 0L ? _cachedBattleStartToggle - StartBackdateLimitMs : 0L;
+        return Math.Max(_cachedBattleStart, floor);
     }
 
     private bool IsSummonDamageSkill(int skillCode)
@@ -221,6 +243,9 @@ public sealed class DpsCalculator
         {
             _cachedBattleStart = ts;
             _isCachedBattleStartFake = true;
+            // Snapshot the combat-enter toggle for this battle (reliable here — the first damage is only
+            // accumulated during live processing of the started battle). Used to cap start back-dating.
+            _cachedBattleStartToggle = _dm.CurrentBattleStart();
         }
 
         if (_isCachedBattleStartFake && _cachedBattleStart > ts) _cachedBattleStart = ts;
@@ -257,7 +282,7 @@ public sealed class DpsCalculator
     {
         PurgeResolvedNonPlayers();
         TryRecoverExecutorFromRoster();
-        long battleStart = _cachedBattleStart > 0L ? _cachedBattleStart : _recentData.BattleStart;
+        long battleStart = _cachedBattleStart > 0L ? StartAnchor() : _recentData.BattleStart;
         long battleEnd = Math.Max(_cachedBattleEnd > 0L ? _cachedBattleEnd : _recentData.BattleEnd, battleStart);
 
         MobInfo? targetInfo;
@@ -438,7 +463,8 @@ public sealed class DpsCalculator
             // resumes, so Math.Min picked the earlier toggle and the live duration absorbed the whole
             // pre-damage gap — deflating the in-progress DPS until the battle ended and the toggle start was
             // dropped (the "전투 중엔 낮게 표시되다 끝나면 정상" report). The end report is unchanged.
-            BattleStart = _cachedBattleStart != 0L ? _cachedBattleStart : dmStart,
+            // StartAnchor() additionally caps back-dating to 250ms before the toggle (openers still counted).
+            BattleStart = _cachedBattleStart != 0L ? StartAnchor() : dmStart,
             BattleEnd = Math.Max(dmEnd, _cachedBattleEnd),
             Packets = reportPackets,
             ExecutorId = _dm.ExecutorId(), // carry 본인 uid into the live report so self-coloring survives the

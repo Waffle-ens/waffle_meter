@@ -78,4 +78,28 @@ public sealed class DpsCalculatorRepullDpsTests
         Assert.Equal(2500.0, endedDps, 3);
         Assert.Equal(endedDps, liveDps, 3);   // live == final once damage exists (the regression guard)
     }
+
+    [Fact]
+    public void An_early_opener_is_counted_but_the_start_is_capped_near_the_toggle()
+    {
+        // An opener can land before the combat-enter toggle fires. The ~1s admit window still COUNTS it, but
+        // the reported start must not be dragged a full second back (that was the combat-time gap vs the
+        // in-game meter) — it is capped to 250ms before the toggle.
+        (DataManager dm, DpsCalculator calc, long[] clock) = Boss();
+        dm.MobHp(Instance, 5000);
+        long toggle = clock[0];
+        dm.StartBattle(Instance);            // CurrentBattleStart (combat-enter toggle) = toggle
+
+        Hit(dm, toggle - 800, 2000);         // opener: 800ms BEFORE the toggle (within the ±1s admit window)
+        Hit(dm, toggle + 200, 2000);
+        Hit(dm, toggle + 1_200, 2000);
+        calc.GetDps();                       // a live tick — accumulates the three hits
+
+        clock[0] = toggle + 2_000;
+        dm.EndBattle(Instance);
+        DpsReport ended = calc.GetDps();
+
+        Assert.Equal(6000.0, ended.Information[Dealer].Amount, 3);   // opener NOT dropped — all 3 counted
+        Assert.Equal(toggle - 250, ended.BattleStart);              // capped to 250ms, not the opener's 800ms
+    }
 }
