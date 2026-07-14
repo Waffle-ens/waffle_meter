@@ -96,6 +96,7 @@ public partial class ReplayWindow : Window
         _autoPlay = autoPlay;
         _startMs = startMs;
         InitializeComponent();
+        DarkTitleBar.Apply(this); // same OS chrome as the settings window — one app, one look
 
         _timer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _timer.Tick += OnTick;
