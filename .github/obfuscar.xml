@@ -16,7 +16,10 @@
 -->
 <Obfuscator>
   <Var name="InPath" value="publish" />
-  <Var name="OutPath" value="publish" />
+  <!-- Separate output dir: Obfuscar holds handles to the cross-referencing input assemblies (Replay →
+       Capture → Data → App.Core) while saving, so writing back in-place fails with a file lock. Write to a
+       sibling folder; the release workflow copies the obfuscated DLLs back over publish/ afterwards. -->
+  <Var name="OutPath" value="publish_obf" />
   <Var name="KeepPublicApi" value="true" />
   <Var name="HidePrivateApi" value="true" />
   <Var name="HideStrings" value="true" />

@@ -114,9 +114,15 @@ jobs:
       # OFF by default (env gate above); never touches App.Wpf (BAML) or the Stats JSON DTOs (see config). ----
       - name: Obfuscate app assemblies (Obfuscar)
         if: env.OBFUSCATE_ENABLED == 'true'
+        shell: pwsh
         run: |
           dotnet tool install -g Obfuscar.GlobalTool
+          # Obfuscar writes to publish_obf/ (in-place fails on the cross-referencing assemblies — file lock),
+          # so copy the obfuscated DLLs back over publish/ for the sign/pack steps that follow.
+          New-Item -ItemType Directory -Force publish_obf | Out-Null
           obfuscar.console .github/obfuscar.xml
+          Copy-Item publish_obf/*.dll publish/ -Force
+          Write-Host "obfuscated + copied back: $((Get-ChildItem publish_obf/*.dll).Name -join ', ')"
 
       # WinDivert.dll/.sys come from dotnet/third-party/windivert via CaptureHost.csproj (bundled on publish).
 
