@@ -85,6 +85,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffUiDefaultsApplied = ReadBool("buffUi.defaultsApplied", false);
         _buffUiPresets = _props.GetProperty("buffUi.presets") ?? "";
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
+        _aetherPerCharacter = _props.GetProperty("aether.perCharacter") ?? "";
     }
 
     private string _displayMode;
@@ -355,6 +356,13 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// window and cleared on a character switch. The shugo-festa key is deliberately NOT persisted: a stale
     /// key count would be misleading, so it always waits for a fresh broadcast.</summary>
     public string AetherLastValue { get => _aetherLastValue; set => SetProp(ref _aetherLastValue, "aether.lastValue", value); }
+
+    private string _aetherPerCharacter;
+    /// <summary>Each character's last-seen aether balance, keyed by stats identity hash (see
+    /// <see cref="AetherPerCharacterStore"/>), so the character-management list can show every character's 오드,
+    /// not only the one currently logged in. Unlike <see cref="AetherLastValue"/> this is NOT cleared on a
+    /// character switch — that's the whole point: it accumulates each character's balance as they're played.</summary>
+    public string AetherPerCharacter { get => _aetherPerCharacter; set => SetProp(ref _aetherPerCharacter, "aether.perCharacter", value); }
 
     /// <summary>Parse a CSV setting into a base-code set.</summary>
     public static HashSet<int> ParseCodeSet(string csv)

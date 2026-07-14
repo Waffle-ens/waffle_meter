@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -26,6 +27,12 @@ public sealed class ConsentCharacterRow
     public bool CanRevoke { get; init; }
     public string PublicToggleTooltip { get; init; } = "";
     public Visibility CurrentBadgeVisibility { get; init; }
+
+    /// <summary>The character's last-seen aether (오드) as "base(+bonus)", or empty when none is remembered.</summary>
+    public string AetherText { get; init; } = "";
+
+    /// <summary>Visible only when we have a remembered aether balance for this character.</summary>
+    public Visibility AetherVisibility { get; init; } = Visibility.Collapsed;
 }
 
 /// <summary>One row of the custom-alarm list (immutable; the collection is rebuilt on change). The enable
@@ -541,12 +548,18 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public void RefreshConsentCharacters()
     {
         ConsentCharacters.Clear();
+        AetherPerCharacterStore aether = AetherPerCharacterStore.Parse(_settings.AetherPerCharacter);
         foreach (StatsConsentManager.CharacterConsentInfo c in _services.Consent.ListCharacters())
         {
             if (c.State != "accepted")
             {
                 continue; // the management list = currently-consented characters
             }
+
+            AetherSnapshot? snap = aether.Get(c.IdentityHash);
+            string aetherText = snap is { } a
+                ? (a.Bonus > 0 ? $"{a.Base}(+{a.Bonus})" : a.Base.ToString(CultureInfo.InvariantCulture))
+                : string.Empty;
 
             string label = !string.IsNullOrWhiteSpace(c.Nickname)
                 ? (c.Server > 0 ? $"{c.Nickname} [{ServerNames.GetServerLabel(c.Server)}]" : c.Nickname!)
@@ -574,6 +587,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 CanRevoke = true, // 동의 철회는 항상 활성 (오프라인 포함)
                 PublicToggleTooltip = tooltip,
                 CurrentBadgeVisibility = c.IsCurrent ? Visibility.Visible : Visibility.Collapsed,
+                AetherText = aetherText,
+                AetherVisibility = aetherText.Length > 0 ? Visibility.Visible : Visibility.Collapsed,
             });
         }
 
