@@ -205,6 +205,9 @@ public partial class ReplayWindow : Window
     // The boss's facing: a chevron at its head and one at its back (the back-attack side), pointing the way
     // it was turned. Direction comes from its casts (every cast states the caster's facing), so the markers
     // are hidden whenever the boss hasn't cast anywhere near the current moment rather than pointing stale.
+    private static readonly Color HeadColor = Color.FromRgb(0xFF, 0xD1, 0x54);
+    private static readonly Color BackColor = Color.FromRgb(0x4F, 0xC3, 0xF7);
+
     private void BuildBossFacingMarkers()
     {
         if (_rec.Casts.Count == 0 || !_visuals.Any(v => v.Track.IsTarget))
@@ -212,16 +215,56 @@ public partial class ReplayWindow : Window
             return;
         }
 
-        _bossFront = FacingChevron(Color.FromRgb(0xFF, 0xD1, 0x54)); // head
-        _bossBack = FacingChevron(Color.FromRgb(0x4F, 0xC3, 0xF7));  // back — the back-attack side
+        _bossFront = FacingChevron(HeadColor);
+        _bossBack = FacingChevron(BackColor);
         MapCanvas.Children.Add(_bossFront);
         MapCanvas.Children.Add(_bossBack);
+
+        // Say what the two chevrons mean — an arrow on a map is meaningless until you know whether it points
+        // where the boss LOOKS or where it is safe to stand.
+        AddLegendDivider();
+        AddFacingLegendRow(HeadColor, "보스 정면 (바라보는 방향)");
+        AddFacingLegendRow(BackColor, "보스 후면 (백어택 방향)");
+    }
+
+    private void AddLegendDivider()
+        => LegendPanel.Children.Add(new Border
+        {
+            Height = 1,
+            Margin = new Thickness(0, 6, 0, 5),
+            Background = SkinBrush("Skin.SoftBorder"),
+        });
+
+    private void AddFacingLegendRow(Color color, string label)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
+        row.Children.Add(new Polygon
+        {
+            // The same chevron the map draws, pointing right: this IS the direction it points at.
+            Points = [new Point(9, 4.5), new Point(0, 0), new Point(0, 9)],
+            Fill = new SolidColorBrush(color),
+            Width = 10,
+            Height = 10,
+            Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 6, 0),
+        });
+
+        row.Children.Add(new TextBlock
+        {
+            Text = label,
+            Foreground = SkinBrush("Skin.MutedFg"),
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+
+        LegendPanel.Children.Add(row);
     }
 
     private static Polygon FacingChevron(Color color)
         => new()
         {
-            // A triangle pointing along +X; rotated into place per frame.
+            // A triangle pointing along +X (the way the boss is turned); rotated into place per frame.
             Points = [new Point(9, 0), new Point(-4, -6), new Point(-4, 6)],
             Fill = new SolidColorBrush(color),
             Stroke = Brushes.Black,
@@ -720,7 +763,22 @@ public partial class ReplayWindow : Window
             return;
         }
 
-        HoverInfo.Text = $"{TrackName(hit.Track)}{JobSuffix(hit.Track)} · 고도 {hit.CurrentZ * ZScale:F0} m";
+        // Hovering the boss also spells out where the chevrons point right now (a compass bearing is easier
+        // to argue about after the fact than "that way").
+        string facing = hit.Track.IsTarget && ReplayZones.FacingAt(_rec.Casts, _currentMs) is { } deg
+            ? $" · 정면 {Compass(deg)} (반대편 = 백어택)"
+            : "";
+
+        HoverInfo.Text = $"{TrackName(hit.Track)}{JobSuffix(hit.Track)} · 고도 {hit.CurrentZ * ZScale:F0} m{facing}";
+    }
+
+    /// <summary>A facing (degrees in the world's atan2 frame) as a map bearing — the map is drawn with world
+    /// +Y running DOWN the image, so 0° points right on screen and the angle turns clockwise from there.</summary>
+    private static string Compass(double deg)
+    {
+        string[] names = ["→ 동", "↘ 남동", "↓ 남", "↙ 남서", "← 서", "↖ 북서", "↑ 북", "↗ 북동"];
+        int i = (int)Math.Round(((deg % 360) + 360) % 360 / 45.0) % 8;
+        return names[i];
     }
 
     private void MapCanvas_MouseLeave(object sender, MouseEventArgs e) => HoverInfo.Text = "";
