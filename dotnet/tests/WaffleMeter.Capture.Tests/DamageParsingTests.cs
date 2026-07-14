@@ -53,6 +53,33 @@ public class DamageParsingTests
             DamageParsing.ParseSpecialDamageFlags(p));
     }
 
+    // --- ParsePosition (the 2026-07-01 attack-direction byte) ---
+
+    [Fact]
+    public void Position_reads_the_third_region_byte_as_back_or_front()
+    {
+        var region = new byte[11];
+        region[2] = 1;
+        Assert.Equal(1, DamageParsing.ParsePosition(region)); // 후방
+
+        region[2] = 2;
+        Assert.Equal(2, DamageParsing.ParsePosition(region)); // 전방
+
+        region[2] = 0;
+        Assert.Equal(0, DamageParsing.ParsePosition(region)); // neither / side
+    }
+
+    [Fact]
+    public void Position_is_zero_for_unexpected_values_and_short_regions()
+    {
+        var region = new byte[11];
+        region[2] = 7; // garbage direction values (~0.6% of hits) clamp to 0
+        Assert.Equal(0, DamageParsing.ParsePosition(region));
+
+        // The switch-type-4 8-byte resource form has no position byte.
+        Assert.Equal(0, DamageParsing.ParsePosition(new byte[8]));
+    }
+
     // --- TryParseMultiHit ---
 
     [Fact]

@@ -5,7 +5,7 @@
         Title="상세내역"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ResizeMode="CanResize"
-        Width="980" Height="640" MinWidth="720" MinHeight="360" Left="380" Top="40" FontFamily="Segoe UI">
+        Width="1140" Height="640" MinWidth="860" MinHeight="360" Left="340" Top="40" FontFamily="Segoe UI">
     <Window.Resources>
         <local:RatioToStarConverter x:Key="RatioToStar"/>
         <local:FontFamilyConverter x:Key="FontConv"/>
@@ -147,6 +147,14 @@
             </Setter>
         </Style>
 
+        <!-- 특화 (specialization) pips: five dots per skill, active slots lit. Bound to a list of SpecPipVM. -->
+        <ItemsPanelTemplate x:Key="SpecPipPanel">
+            <StackPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+        <DataTemplate x:Key="SpecPipTemplate">
+            <Ellipse Width="7" Height="7" Margin="1.5,0" Fill="{Binding Fill}"/>
+        </DataTemplate>
+
         <!-- 직접/지속 badge -->
         <Style x:Key="TypeBadge" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource Skin.StatBg}"/>
@@ -227,8 +235,8 @@
                 <Button Content="&#xE8BB;" Click="OnClose" HorizontalAlignment="Right" Style="{StaticResource HeaderCloseButton}"/>
             </Grid>
 
-            <!-- Stat tiles: label above value, 5 per row (stats-site layout). -->
-            <UniformGrid DockPanel.Dock="Top" Columns="5" Margin="0,0,0,10">
+            <!-- Stat tiles: label above value, 6 per row (stats-site layout). -->
+            <UniformGrid DockPanel.Dock="Top" Columns="6" Margin="0,0,0,10">
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="총 피해" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding TotalDamageText}" Style="{StaticResource SumValue}" Foreground="{Binding AmountBrush}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="DPS" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding DpsText}" Style="{StaticResource SumValue}" Foreground="{StaticResource ValueCyan}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="기여도" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding ContributionText}" Style="{StaticResource SumValue}" Foreground="{Binding ContributionBrush}"/></StackPanel></Border>
@@ -239,6 +247,7 @@
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="강타" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding StrongText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="완벽" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding PerfectText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="후방" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding BackText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="전방" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding FrontText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="막기" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding ParryText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
             </UniformGrid>
 
@@ -262,8 +271,10 @@
                                         <ColumnDefinition Width="58"/>
                                         <ColumnDefinition Width="58"/>
                                         <ColumnDefinition Width="58"/>
-                                        <ColumnDefinition Width="58"/>
+                                        <ColumnDefinition Width="56"/>
+                                        <ColumnDefinition Width="56"/>
                                         <ColumnDefinition Width="54"/>
+                                        <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="66"/>
                                         <ColumnDefinition Width="66"/>
                                         <ColumnDefinition Width="72"/>
@@ -276,11 +287,13 @@
                                     <TextBlock Grid.Column="4" Text="강타" Style="{StaticResource Head}"/>
                                     <TextBlock Grid.Column="5" Text="완벽" Style="{StaticResource Head}"/>
                                     <TextBlock Grid.Column="6" Text="후방" Style="{StaticResource Head}"/>
-                                    <TextBlock Grid.Column="7" Text="패리" Style="{StaticResource Head}"/>
-                                    <TextBlock Grid.Column="8" Text="DPS" Style="{StaticResource Head}"/>
-                                    <TextBlock Grid.Column="9" Text="평균" Style="{StaticResource Head}"/>
-                                    <TextBlock Grid.Column="10" Text="누적" Style="{StaticResource Head}"/>
-                                    <TextBlock Grid.Column="11" Text="비중" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="7" Text="전방" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="8" Text="패리" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="9" Text="특화" Style="{StaticResource Head}" TextAlignment="Center"/>
+                                    <TextBlock Grid.Column="10" Text="DPS" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="11" Text="평균" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="12" Text="누적" Style="{StaticResource Head}"/>
+                                    <TextBlock Grid.Column="13" Text="비중" Style="{StaticResource Head}"/>
                                 </Grid>
                             </Border>
                                 <ItemsControl ItemsSource="{Binding Skills}">
@@ -306,8 +319,10 @@
                                                                 <ColumnDefinition Width="58"/>
                                                                 <ColumnDefinition Width="58"/>
                                                                 <ColumnDefinition Width="58"/>
-                                                                <ColumnDefinition Width="58"/>
+                                                                <ColumnDefinition Width="56"/>
+                                                                <ColumnDefinition Width="56"/>
                                                                 <ColumnDefinition Width="54"/>
+                                                                <ColumnDefinition Width="80"/>
                                                                 <ColumnDefinition Width="66"/>
                                                                 <ColumnDefinition Width="66"/>
                                                                 <ColumnDefinition Width="72"/>
@@ -331,11 +346,18 @@
                                                             <TextBlock Grid.Column="4" Text="{Binding Merged.StrongText}" Style="{StaticResource CellBold}" Foreground="{StaticResource ValueMagenta}"/>
                                                             <TextBlock Grid.Column="5" Text="{Binding Merged.PerfectText}" Style="{StaticResource Cell}"/>
                                                             <TextBlock Grid.Column="6" Text="{Binding Merged.BackText}" Style="{StaticResource Cell}"/>
-                                                            <TextBlock Grid.Column="7" Text="{Binding Merged.ParryText}" Style="{StaticResource Cell}"/>
-                                                            <TextBlock Grid.Column="8" Text="{Binding Merged.DpsText}" Style="{StaticResource Cell}"/>
-                                                            <TextBlock Grid.Column="9" Text="{Binding Merged.AvgText}" Style="{StaticResource Cell}"/>
-                                                            <TextBlock Grid.Column="10" Text="{Binding Merged.DamageText}" Style="{StaticResource CellBold}" Foreground="{StaticResource ValueCyan}"/>
-                                                            <TextBlock Grid.Column="11" Text="{Binding Merged.PercentText}" Style="{StaticResource CellBold}" Foreground="{StaticResource ValueCyan}"/>
+                                                            <TextBlock Grid.Column="7" Text="{Binding Merged.FrontText}" Style="{StaticResource Cell}"/>
+                                                            <TextBlock Grid.Column="8" Text="{Binding Merged.ParryText}" Style="{StaticResource Cell}"/>
+                                                            <Grid Grid.Column="9">
+                                                                <ItemsControl ItemsSource="{Binding Merged.Spec}" Visibility="{Binding Merged.SpecVisibility}"
+                                                                              ItemsPanel="{StaticResource SpecPipPanel}" ItemTemplate="{StaticResource SpecPipTemplate}"
+                                                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="-" Style="{StaticResource Cell}" TextAlignment="Center" Visibility="{Binding Merged.NoSpecVisibility}"/>
+                                                            </Grid>
+                                                            <TextBlock Grid.Column="10" Text="{Binding Merged.DpsText}" Style="{StaticResource Cell}"/>
+                                                            <TextBlock Grid.Column="11" Text="{Binding Merged.AvgText}" Style="{StaticResource Cell}"/>
+                                                            <TextBlock Grid.Column="12" Text="{Binding Merged.DamageText}" Style="{StaticResource CellBold}" Foreground="{StaticResource ValueCyan}"/>
+                                                            <TextBlock Grid.Column="13" Text="{Binding Merged.PercentText}" Style="{StaticResource CellBold}" Foreground="{StaticResource ValueCyan}"/>
                                                         </Grid>
                                                     </Grid>
                                                 </Border>
@@ -355,8 +377,10 @@
                                                                         <ColumnDefinition Width="58"/>
                                                                         <ColumnDefinition Width="58"/>
                                                                         <ColumnDefinition Width="58"/>
-                                                                        <ColumnDefinition Width="58"/>
+                                                                        <ColumnDefinition Width="56"/>
+                                                                        <ColumnDefinition Width="56"/>
                                                                         <ColumnDefinition Width="54"/>
+                                                                        <ColumnDefinition Width="80"/>
                                                                         <ColumnDefinition Width="66"/>
                                                                         <ColumnDefinition Width="66"/>
                                                                         <ColumnDefinition Width="72"/>
@@ -375,11 +399,18 @@
                                                                     <TextBlock Grid.Column="4" Text="{Binding StrongText}" Style="{StaticResource Cell}" FontSize="12" Foreground="{StaticResource ValueMagenta}"/>
                                                                     <TextBlock Grid.Column="5" Text="{Binding PerfectText}" Style="{StaticResource Cell}" FontSize="12"/>
                                                                     <TextBlock Grid.Column="6" Text="{Binding BackText}" Style="{StaticResource Cell}" FontSize="12"/>
-                                                                    <TextBlock Grid.Column="7" Text="{Binding ParryText}" Style="{StaticResource Cell}" FontSize="12"/>
-                                                                    <TextBlock Grid.Column="8" Text="{Binding DpsText}" Style="{StaticResource Cell}" FontSize="12"/>
-                                                                    <TextBlock Grid.Column="9" Text="{Binding AvgText}" Style="{StaticResource Cell}" FontSize="12"/>
-                                                                    <TextBlock Grid.Column="10" Text="{Binding DamageText}" Style="{StaticResource Cell}" FontSize="12" Foreground="{StaticResource ValueCyan}"/>
-                                                                    <TextBlock Grid.Column="11" Text="{Binding PercentText}" Style="{StaticResource Cell}" FontSize="12" Foreground="{StaticResource ValueCyan}"/>
+                                                                    <TextBlock Grid.Column="7" Text="{Binding FrontText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <TextBlock Grid.Column="8" Text="{Binding ParryText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <Grid Grid.Column="9">
+                                                                        <ItemsControl ItemsSource="{Binding Spec}" Visibility="{Binding SpecVisibility}"
+                                                                                      ItemsPanel="{StaticResource SpecPipPanel}" ItemTemplate="{StaticResource SpecPipTemplate}"
+                                                                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                        <TextBlock Text="-" Style="{StaticResource Cell}" FontSize="12" TextAlignment="Center" Visibility="{Binding NoSpecVisibility}"/>
+                                                                    </Grid>
+                                                                    <TextBlock Grid.Column="10" Text="{Binding DpsText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <TextBlock Grid.Column="11" Text="{Binding AvgText}" Style="{StaticResource Cell}" FontSize="12"/>
+                                                                    <TextBlock Grid.Column="12" Text="{Binding DamageText}" Style="{StaticResource Cell}" FontSize="12" Foreground="{StaticResource ValueCyan}"/>
+                                                                    <TextBlock Grid.Column="13" Text="{Binding PercentText}" Style="{StaticResource Cell}" FontSize="12" Foreground="{StaticResource ValueCyan}"/>
                                                                 </Grid>
                                                             </Border>
                                                         </DataTemplate>

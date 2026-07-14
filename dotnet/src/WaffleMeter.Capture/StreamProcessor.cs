@@ -425,6 +425,7 @@ public sealed class StreamProcessor
 
         int temp = offset;
         int skillCodeCandidate = PacketPrimitives.ParseUInt32Le(packet, offset);
+        pdp.RawSkillCode = skillCodeCandidate;
         pdp.SkillCode = DamageParsing.NormalizeDamageSkillCode(skillCodeCandidate, (skillCodeCandidate / 10) * 10, _data.SkillExists);
         offset = temp + 5;
 
@@ -456,7 +457,11 @@ public sealed class StreamProcessor
         if (tempV < 0) return;
         if (start + tempV > packet.Length) return;
 
-        pdp.Specials = DamageParsing.ParseSpecialDamageFlags(packet[start..(start + tempV)]);
+        byte[] region = packet[start..(start + tempV)];
+        pdp.Specials = DamageParsing.ParseSpecialDamageFlags(region);
+        // Attack direction (후방/전방) — the position byte the 07-01 patch added at region offset [2].
+        // Independent of the special-flag byte at [0], so it is read separately.
+        pdp.Position = DamageParsing.ParsePosition(region);
         if (pdp.Specials.Contains(SpecialDamage.Restoration))
         {
             offset += 2;
