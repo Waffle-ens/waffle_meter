@@ -140,12 +140,20 @@ public sealed class DpsCalculator
         {
             analyzedSkill.Times++;
             analyzedSkill.DamageAmount += packet.Damage;
+            // The full wire code carries the caster's specialization (특화) in its last four digits; keep a
+            // representative one (constant per actor/battle) for the detail panel to decode.
+            if (packet.RawSkillCode != 0) analyzedSkill.RawSkillCode = packet.RawSkillCode;
             // A special-flag region exists only for switch-type 5/6/7 (region size ≥ 10); switch-type 4 hits
-            // (heals/buffs/passives) have no flag byte, so back/강타/완벽/페리 are unmeasurable on them. Count the
-            // flag-bearing hits so those rates use them as the denominator instead of every hit.
+            // (heals/buffs/passives) have no flag byte, so back/전방/강타/완벽/페리 are unmeasurable on them.
+            // Count the flag-bearing hits so those rates use them as the denominator instead of every hit.
             if ((packet.SwitchVariable & 0x0F) is 5 or 6 or 7) analyzedSkill.FlaggedTimes++;
             if (packet.IsCrit) analyzedSkill.CritTimes++;
-            if (packet.Specials.Contains(SpecialDamage.BACK)) analyzedSkill.BackTimes++;
+            // Attack direction comes from the position byte the 07-01 patch added (IsBack/IsFront), NOT the
+            // special-flag byte: its raw bit 0x80 (which the old back count used) is a ~45%-incidence proc
+            // statistically independent of facing — measured across 151,937 hits — so it mis-counted back
+            // attacks. Front and back are mutually exclusive.
+            if (packet.IsBack) analyzedSkill.BackTimes++;
+            if (packet.IsFront) analyzedSkill.FrontTimes++;
             if (packet.Specials.Contains(SpecialDamage.PARRY)) analyzedSkill.ParryTimes++;
             if (packet.Specials.Contains(SpecialDamage.DOUBLE)) analyzedSkill.DoubleTimes++;
             if (packet.Specials.Contains(SpecialDamage.PERFECT)) analyzedSkill.PerfectTimes++;

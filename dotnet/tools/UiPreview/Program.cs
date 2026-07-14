@@ -587,25 +587,28 @@ internal static class Program
 
     private static Dictionary<string, AnalyzedSkill> SampleSkills()
     {
+        // rawCode carries the specialization suffix ([slot][slot][slot][charge]); front = hits − back − a
+        // few neutral, so 후방/전방 read like a real fight.
         AnalyzedSkill S(int code, string name, int dmg, int hits, int crit, int strong, int perfect, int back,
-            int dot = 0, int dotTimes = 0) => new()
+            int front, int rawCode, int dot = 0, int dotTimes = 0) => new()
         {
-            SkillCode = code, Name = name, DamageAmount = dmg, Times = hits, CritTimes = crit, DoubleTimes = strong,
-            PerfectTimes = perfect, BackTimes = back, FlaggedTimes = hits, DotDamageAmount = dot, DotTimes = dotTimes,
+            SkillCode = code, Name = name, RawSkillCode = rawCode, DamageAmount = dmg, Times = hits, CritTimes = crit,
+            DoubleTimes = strong, PerfectTimes = perfect, BackTimes = back, FrontTimes = front, FlaggedTimes = hits,
+            DotDamageAmount = dot, DotTimes = dotTimes,
         };
 
         return new Dictionary<string, AnalyzedSkill>
         {
-            ["15210000"] = S(15210000, "그리폰 화살", 2_500_000, 26, 22, 14, 19, 13),
-            ["15220000"] = S(15220000, "속사", 2_200_000, 56, 41, 32, 27, 28),
-            ["15230000"] = S(15230000, "송곳 화살", 1_900_000, 11, 8, 9, 9, 6),
-            ["15240000"] = S(15240000, "광풍 화살", 1_600_000, 6, 6, 2, 5, 3),
-            ["15250000"] = S(15250000, "폭발 화살", 1_400_000, 2, 2, 2, 1, 1),
-            ["15260000"] = S(15260000, "지원 사격", 1_300_000, 26, 26, 14, 18, 13),
-            ["15270000"] = S(15270000, "사냥꾼의 혼", 1_300_000, 14, 12, 7, 10, 7, dot: 420_000, dotTimes: 34),
-            ["15280000"] = S(15280000, "질풍 화살", 1_100_000, 7, 6, 5, 3, 4),
-            ["15290000"] = S(15290000, "파열 화살", 959_500, 4, 3, 1, 2, 2),
-            ["15300000"] = S(15300000, "조준 화살", 739_400, 3, 1, 0, 1, 1),
+            ["15210000"] = S(15210000, "그리폰 화살", 2_500_000, 26, 22, 14, 19, 13, 11, 15210240),
+            ["15220000"] = S(15220000, "속사", 2_200_000, 56, 41, 32, 27, 28, 24, 15221350),
+            ["15230000"] = S(15230000, "송곳 화살", 1_900_000, 11, 8, 9, 9, 6, 4, 15230450),
+            ["15240000"] = S(15240000, "광풍 화살", 1_600_000, 6, 6, 2, 5, 3, 2, 15240050),
+            ["15250000"] = S(15250000, "폭발 화살", 1_400_000, 2, 2, 2, 1, 1, 1, 15252340),
+            ["15260000"] = S(15260000, "지원 사격", 1_300_000, 26, 26, 14, 18, 13, 11, 15260008),
+            ["15270000"] = S(15270000, "사냥꾼의 혼", 1_300_000, 14, 12, 7, 10, 7, 5, 15270120, dot: 420_000, dotTimes: 34),
+            ["15280000"] = S(15280000, "질풍 화살", 1_100_000, 7, 6, 5, 3, 4, 3, 15280350),
+            ["15290000"] = S(15290000, "파열 화살", 959_500, 4, 3, 1, 2, 2, 1, 15290000),
+            ["15300000"] = S(15300000, "조준 화살", 739_400, 3, 1, 0, 1, 1, 1, 15300240),
         };
     }
 

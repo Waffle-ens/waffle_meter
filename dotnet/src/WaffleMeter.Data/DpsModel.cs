@@ -94,12 +94,23 @@ public sealed class DpsInformation
 public sealed class AnalyzedSkill
 {
     public int SkillCode { get; init; }
+
+    /// <summary>A representative FULL wire skill code (pre-normalization) for hits of this skill — its last
+    /// four decimal digits carry the caster's specialization (특화), decoded by
+    /// <c>SkillSpecialization.Decode</c>. Constant per actor per battle (a player does not respec mid-fight),
+    /// so the last-seen raw code is representative. 0 when never set (e.g. rebuilt from an old snapshot).</summary>
+    public int RawSkillCode { get; set; }
+
     public int DamageAmount { get; set; }
     public int DotDamageAmount { get; set; }
     public int DotTimes { get; set; }
     public int CritTimes { get; set; }
     public int Times { get; set; }
     public int BackTimes { get; set; }
+
+    /// <summary>Front attacks (post-2026-07-01 position byte == 2). Mirror of <see cref="BackTimes"/>.</summary>
+    public int FrontTimes { get; set; }
+
     public int PerfectTimes { get; set; }
     public int DoubleTimes { get; set; }
     public int ParryTimes { get; set; }
@@ -117,12 +128,14 @@ public sealed class AnalyzedSkill
     public AnalyzedSkill Copy() => new()
     {
         SkillCode = SkillCode,
+        RawSkillCode = RawSkillCode,
         DamageAmount = DamageAmount,
         DotDamageAmount = DotDamageAmount,
         DotTimes = DotTimes,
         CritTimes = CritTimes,
         Times = Times,
         BackTimes = BackTimes,
+        FrontTimes = FrontTimes,
         PerfectTimes = PerfectTimes,
         DoubleTimes = DoubleTimes,
         ParryTimes = ParryTimes,

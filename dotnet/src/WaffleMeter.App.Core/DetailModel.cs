@@ -14,8 +14,10 @@ public sealed record DetailSkillRow(
     int? StrongPct,
     int? PerfectPct,
     int? BackPct,
+    int? FrontPct,
     int? ParryPct,
-    double Ratio);
+    double Ratio,
+    IReadOnlyList<bool>? Spec);
 
 /// <summary>A chain group: the merged/displayed skill + its child rows (expandable when >1).</summary>
 public sealed record DetailSkillGroup(DetailSkillRow Merged, IReadOnlyList<DetailSkillRow> Children, bool HasChildren);
@@ -36,6 +38,7 @@ public sealed record DetailModel(
     double StrongPct,
     double PerfectPct,
     double BackPct,
+    double FrontPct,
     double ParryPct,
     int HitCount,
     long CombatMs,
@@ -61,6 +64,7 @@ public sealed record DetailModel(
     private sealed class Raw
     {
         public int Code;
+        public int RawCode; // the full wire code, for specialization (특화) decoding
         public string Name = string.Empty;
         public int Hits;
         public long Damage;
@@ -69,8 +73,9 @@ public sealed record DetailModel(
         public int Strong;
         public int Perfect;
         public int Back;
+        public int Front;
         public int Parry;
-        public int Flagged; // direct hits that carried a special-flag region (sw6) — the back/강타/완벽/페리 denominator
+        public int Flagged; // direct hits that carried a special-flag region (sw6) — the back/전방/강타/완벽/페리 denominator
     }
 
     public static DetailModel Compute(
@@ -103,6 +108,7 @@ public sealed record DetailModel(
                 raws.Add(new Raw
                 {
                     Code = code,
+                    RawCode = s.RawSkillCode,
                     Name = name,
                     Hits = s.Times,
                     Damage = s.DamageAmount,
@@ -111,6 +117,7 @@ public sealed record DetailModel(
                     Strong = s.DoubleTimes,
                     Perfect = s.PerfectTimes,
                     Back = s.BackTimes,
+                    Front = s.FrontTimes,
                     Parry = s.ParryTimes,
                     Flagged = s.FlaggedTimes,
                 });
@@ -142,6 +149,7 @@ public sealed record DetailModel(
             TotalPct(r => r.Strong, totalFlagged),
             TotalPct(r => r.Perfect, totalFlagged),
             TotalPct(r => r.Back, totalFlagged),
+            TotalPct(r => r.Front, totalFlagged),
             TotalPct(r => r.Parry, totalFlagged),
             totalHits,
             combatMs,
@@ -231,7 +239,9 @@ public sealed record DetailModel(
 
     private static Raw Merge(List<Raw> rows)
     {
-        var m = new Raw { Code = rows[0].Code, Name = rows[0].Name };
+        // The merged row keeps the main (first) row's identity — including its raw code, so a chain group
+        // shows the primary skill's specialization; children carry their own when expanded.
+        var m = new Raw { Code = rows[0].Code, RawCode = rows[0].RawCode, Name = rows[0].Name };
         foreach (Raw r in rows)
         {
             m.Hits += r.Hits;
@@ -240,6 +250,7 @@ public sealed record DetailModel(
             m.Strong += r.Strong;
             m.Perfect += r.Perfect;
             m.Back += r.Back;
+            m.Front += r.Front;
             m.Parry += r.Parry;
             m.Flagged += r.Flagged;
         }
@@ -256,9 +267,14 @@ public sealed record DetailModel(
         r.IsDot ? null : PctInt(r.Crit, r.Hits),
         r.IsDot ? null : PctInt(r.Strong, r.Hits),
         r.IsDot ? null : PctInt(r.Perfect, r.Hits),
-        r.IsDot ? null : PctInt(r.Back, r.Hits),
+        // Back/front are directional judgments carried only by flag-bearing hits, so they divide by the
+        // flag-bearing count (like the summary), not every hit — a skill with non-directional hits mixed in
+        // otherwise reads an artificially low back/front rate.
+        r.IsDot ? null : PctInt(r.Back, r.Flagged),
+        r.IsDot ? null : PctInt(r.Front, r.Flagged),
         r.IsDot ? null : PctInt(r.Parry, r.Hits),
-        totalDamage > 0 ? r.Damage / (double)totalDamage : 0.0);
+        totalDamage > 0 ? r.Damage / (double)totalDamage : 0.0,
+        r.IsDot ? null : SkillSpecialization.Decode(r.RawCode));
 
     /// <summary>
     /// The buffs this player put up themselves — their own class buffs, then consumables (scrolls/potions).

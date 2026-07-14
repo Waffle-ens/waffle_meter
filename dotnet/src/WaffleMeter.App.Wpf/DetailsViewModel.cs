@@ -85,6 +85,8 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     public string PerfectText { get => _perfectText; private set => Set(ref _perfectText, value); }
     private string _backText = "0.0%";
     public string BackText { get => _backText; private set => Set(ref _backText, value); }
+    private string _frontText = "0.0%";
+    public string FrontText { get => _frontText; private set => Set(ref _frontText, value); }
     private string _parryText = "0.0%";
     public string ParryText { get => _parryText; private set => Set(ref _parryText, value); }
     private string _combatTimeText = "0:00";
@@ -137,7 +139,7 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
             HasBuffs = false;
             HasDebuffs = false;
             TotalDamageText = ContributionText = CritText = StrongText =
-                PerfectText = BackText = ParryText = CombatTimeText = "-";
+                PerfectText = BackText = FrontText = ParryText = CombatTimeText = "-";
             return;
         }
 
@@ -173,6 +175,7 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         StrongText = model.StrongPct.ToString("F1", Inv) + "%";
         PerfectText = model.PerfectPct.ToString("F1", Inv) + "%";
         BackText = model.BackPct.ToString("F1", Inv) + "%";
+        FrontText = model.FrontPct.ToString("F1", Inv) + "%";
         ParryText = model.ParryPct.ToString("F1", Inv) + "%";
         TimeSpan span = TimeSpan.FromMilliseconds(model.CombatMs);
         CombatTimeText = $"{(int)span.TotalMinutes}:{span.Seconds:D2}";
@@ -301,7 +304,10 @@ public sealed class SkillRowVM
         StrongText = Pct(row.StrongPct);
         PerfectText = Pct(row.PerfectPct);
         BackText = Pct(row.BackPct);
+        FrontText = Pct(row.FrontPct);
         ParryText = Pct(row.ParryPct);
+        Spec = BuildSpec(row.Spec);
+        HasSpec = row.Spec != null;
         DpsText = combatMs > 0 ? MeterFormat.FormatAmount(row.Damage / (combatMs / 1000.0)) : "-";
         AvgText = row.Hits > 0 ? MeterFormat.FormatAmount((double)row.Damage / row.Hits) : "-";
         DamageText = MeterFormat.FormatAmount(row.Damage);
@@ -319,6 +325,7 @@ public sealed class SkillRowVM
     public string StrongText { get; }
     public string PerfectText { get; }
     public string BackText { get; }
+    public string FrontText { get; }
     public string ParryText { get; }
     public string DpsText { get; }
     public string AvgText { get; }
@@ -328,7 +335,52 @@ public sealed class SkillRowVM
     public double BarRest { get; }
     public Brush BarBrush => DetailsViewModel.SkillBar;
 
+    /// <summary>Five pips for the skill's specialization (특화) — active slots lit, inactive dim. Empty when
+    /// the skill carries no specialization (basic attacks, DoT rows, non-player skills).</summary>
+    public IReadOnlyList<SpecPipVM> Spec { get; }
+
+    /// <summary>Whether this row has any specialization data (drives showing the pips vs a "-").</summary>
+    public bool HasSpec { get; }
+
+    public Visibility SpecVisibility => HasSpec ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility NoSpecVisibility => HasSpec ? Visibility.Collapsed : Visibility.Visible;
+
+    private static IReadOnlyList<SpecPipVM> BuildSpec(IReadOnlyList<bool>? spec)
+    {
+        if (spec == null)
+        {
+            return Array.Empty<SpecPipVM>();
+        }
+
+        var pips = new SpecPipVM[spec.Count];
+        for (int i = 0; i < spec.Count; i++)
+        {
+            pips[i] = new SpecPipVM(spec[i]);
+        }
+
+        return pips;
+    }
+
     private static string Pct(int? value) => value.HasValue ? value.Value + "%" : "-";
+}
+
+/// <summary>One specialization pip: an active slot glows in the accent color, an inactive one is dim.</summary>
+public sealed class SpecPipVM
+{
+    // Active = emerald (matches the skill damage bar / "output" accent); inactive = a faint gray dot.
+    private static readonly Brush Active = Frozen(new SolidColorBrush(Color.FromRgb(0x4A, 0xDE, 0x80)));
+    private static readonly Brush Inactive = Frozen(new SolidColorBrush(Color.FromArgb(0x55, 0x9C, 0xA3, 0xAF)));
+
+    public SpecPipVM(bool active) => Fill = active ? Active : Inactive;
+
+    public Brush Fill { get; }
+
+    private static Brush Frozen(Brush b)
+    {
+        b.Freeze();
+        return b;
+    }
 }
 
 

@@ -6,8 +6,8 @@ namespace WaffleMeter.App.Core.Tests;
 
 public sealed class DetailModelTests
 {
-    private static AnalyzedSkill Skill(int code, string name, int dmg, int hits, int crit = 0, int dot = 0, int dotTimes = 0, int back = 0, int flagged = 0) =>
-        new() { SkillCode = code, Name = name, DamageAmount = dmg, Times = hits, CritTimes = crit, DotDamageAmount = dot, DotTimes = dotTimes, BackTimes = back, FlaggedTimes = flagged };
+    private static AnalyzedSkill Skill(int code, string name, int dmg, int hits, int crit = 0, int dot = 0, int dotTimes = 0, int back = 0, int flagged = 0, int front = 0, int rawCode = 0) =>
+        new() { SkillCode = code, Name = name, DamageAmount = dmg, Times = hits, CritTimes = crit, DotDamageAmount = dot, DotTimes = dotTimes, BackTimes = back, FrontTimes = front, FlaggedTimes = flagged, RawSkillCode = rawCode };
 
     private static DetailModel Compute(
         Dictionary<string, AnalyzedSkill> skills,
@@ -138,6 +138,45 @@ public sealed class DetailModelTests
 
         Assert.Equal(100.0, model.BackPct); // 40 / 40 flag-bearing (was 40.0 over all 100 hits)
         Assert.Equal(20.0, model.CritPct);  // 20 / 100 all hits (crit denominator unchanged)
+    }
+
+    [Fact]
+    public void Front_and_back_rates_share_the_flag_bearing_denominator()
+    {
+        // 50 flag-bearing hits: 30 back, 15 front, 5 neither. Front and back are mutually exclusive and both
+        // divide by the flag-bearing count — front% + back% + neither% = 100% of directional hits.
+        var model = Compute(new Dictionary<string, AnalyzedSkill>
+        {
+            ["1"] = Skill(1, "가르기", dmg: 5000, hits: 50, back: 30, front: 15, flagged: 50),
+        });
+
+        Assert.Equal(60.0, model.BackPct);  // 30 / 50
+        Assert.Equal(30.0, model.FrontPct); // 15 / 50
+
+        DetailSkillRow row = model.Skills[0].Merged;
+        Assert.Equal(60, row.BackPct);  // per-row uses the flag-bearing denominator too
+        Assert.Equal(30, row.FrontPct);
+    }
+
+    [Fact]
+    public void A_skill_row_carries_its_specialization_slots_decoded_from_the_raw_code()
+    {
+        // Raw 13040240 (base 13040000): drop the ones digit → 024 → specialization slots 2 and 4.
+        var model = Compute(new Dictionary<string, AnalyzedSkill>
+        {
+            ["13040000"] = Skill(13040000, "기습", dmg: 3000, hits: 20, flagged: 20, rawCode: 13040240),
+        });
+
+        IReadOnlyList<bool>? spec = model.Skills[0].Merged.Spec;
+        Assert.NotNull(spec);
+        Assert.Equal(new[] { false, true, false, true, false }, spec); // slots 2 and 4
+
+        // A DoT row never carries specialization.
+        var dotModel = Compute(new Dictionary<string, AnalyzedSkill>
+        {
+            ["13040000"] = Skill(13040000, "기습", dmg: 0, hits: 0, dot: 500, dotTimes: 5, rawCode: 13040240),
+        });
+        Assert.Null(dotModel.Skills[0].Merged.Spec);
     }
 
     [Fact]
