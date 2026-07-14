@@ -44,6 +44,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showServerTag = ReadBool("showServerTag", true);
         _showJoinPanel = ReadBool("showJoinPanel", true);
         _showPreCombatRoster = ReadBool("showPreCombatRoster", true);
+        _recordReplay = ReadBool("replay.recordMovement", false);
         _multiMonitorMode = ReadBool("multiMonitorMode", false);
         _taskbarMode = ReadBool("taskbarMode", false);
         _captureBackend = ReadEnum("captureBackend", "windivert", CaptureBackends);
@@ -140,6 +141,13 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Auto-show the party join-request panel when a request arrives. Off = stay hidden; the
     /// header 파티 신청 button still opens it manually.</summary>
     public bool ShowJoinPanel { get => _showJoinPanel; set => SetBool(ref _showJoinPanel, "showJoinPanel", value); }
+
+    private bool _recordReplay;
+
+    /// <summary>Record a positional replay for every battle (BETA). Off = the movement tap never runs, so
+    /// nothing is captured and nothing is written to disk. Reads/writes the same key the engine gate uses,
+    /// so the toggle IS the feature switch.</summary>
+    public bool RecordReplay { get => _recordReplay; set => SetBool(ref _recordReplay, "replay.recordMovement", value); }
 
     private bool _showPreCombatRoster;
     /// <summary>Show the party roster as idle (0-DPS) rows before combat starts, so party members appear on

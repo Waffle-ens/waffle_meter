@@ -36,6 +36,15 @@ public sealed class BattleHistoryViewModel : INotifyPropertyChanged
 
     public void SelectBattle(DpsReport report) => BattleSelected?.Invoke(report);
 
+    /// <summary>Raised when a row's ▶ is clicked (App opens the positional replay for that battle).</summary>
+    public event Action<DpsReport>? ReplayRequested;
+
+    public void RequestReplay(DpsReport report) => ReplayRequested?.Invoke(report);
+
+    /// <summary>Does this battle have a replay to play? Set by App (it owns the engine + the saved-recording
+    /// folder). Null = the replay feature is off / unavailable, and no row shows a ▶.</summary>
+    public Func<DpsReport, bool>? HasReplay { get; set; }
+
     private Visibility _emptyVisibility = Visibility.Visible;
     public Visibility EmptyVisibility { get => _emptyVisibility; private set => Set(ref _emptyVisibility, value); }
 
@@ -61,7 +70,7 @@ public sealed class BattleHistoryViewModel : INotifyPropertyChanged
                 continue;
             }
 
-            Rows.Add(new BattleHistoryRowViewModel(item, report, from, to, durationBrush));
+            Rows.Add(new BattleHistoryRowViewModel(item, report, from, to, durationBrush, HasReplay?.Invoke(report) == true));
         }
 
         EmptyVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -94,9 +103,11 @@ public sealed class BattleHistoryViewModel : INotifyPropertyChanged
 /// <summary>One saved-battle row. Carries the frozen report for replay on click.</summary>
 public sealed class BattleHistoryRowViewModel
 {
-    public BattleHistoryRowViewModel(BattleHistoryItem item, DpsReport report, Color barFrom, Color barTo, Brush durationBrush)
+    public BattleHistoryRowViewModel(
+        BattleHistoryItem item, DpsReport report, Color barFrom, Color barTo, Brush durationBrush, bool hasReplay)
     {
         Report = report;
+        ReplayVisibility = hasReplay ? Visibility.Visible : Visibility.Collapsed;
         MobName = item.MobName;
         DateTimeText = FormatDateTime(item.BattleStartMs);
         DurationText = MeterFormat.FormatBattleTime(item.BattleTimeMs);
@@ -119,6 +130,9 @@ public sealed class BattleHistoryRowViewModel
     public double IconOpacity { get; }
     public Brush BackgroundBrush { get; }
     public Brush DurationBrush { get; }
+
+    /// <summary>The ▶ shows only when this battle actually has a recording to open.</summary>
+    public Visibility ReplayVisibility { get; }
 
     private static string FormatDateTime(long ms)
     {

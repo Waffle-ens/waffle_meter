@@ -728,6 +728,39 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
     }
 
+    // ---- replay (BETA) ----
+
+    /// <summary>Record a positional replay per battle. Live: the capture tap is gated on this, so turning it
+    /// off stops recording immediately (and turning it on needs no restart).</summary>
+    public bool RecordReplay
+    {
+        get => _settings.RecordReplay;
+        set
+        {
+            if (_settings.RecordReplay == value)
+            {
+                return;
+            }
+
+            _settings.RecordReplay = value;
+            _services.RecordReplay = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>False in a build without the private replay engine — the panel says so instead of offering a
+    /// toggle that could never do anything.</summary>
+    public bool ReplayAvailable => _services.ReplayAvailable;
+
+    public Visibility ReplayUnavailableVisibility => _services.ReplayAvailable ? Visibility.Collapsed : Visibility.Visible;
+
+    public void OpenReplayFolder()
+    {
+        string dir = _services.ReplayDirectory;
+        Directory.CreateDirectory(dir); // may not exist yet if nothing has been recorded
+        Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
+    }
+
     public void Reload()
     {
         ApplyInfo(_services.Consent.GetInfo(syncRemote: false, _services.Version));

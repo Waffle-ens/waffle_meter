@@ -27,6 +27,18 @@ public sealed class MeterServices
     /// — fully decoupled from and unable to regress the parity-critical DPS path. Off by default. See
     /// docs/replay-feature-plan.md.</summary>
     public IReplayEngine? Movement { get; }
+
+    /// <summary>Whether battles are being recorded for replay (BETA). Toggled live from settings — the
+    /// engine is always loaded when its DLL is present, and this gates the capture tap and the per-battle
+    /// build. Turning it off stops recording at once (and drops what was buffered); it never touches DPS.
+    /// Written on the UI thread, read on the capture-consumer thread.</summary>
+    public volatile bool RecordReplay;
+
+    /// <summary>Live replay availability for the UI: the private engine DLL shipped with this build.</summary>
+    public bool ReplayAvailable => Movement != null;
+
+    /// <summary>Where recordings are written (the folder the settings panel opens).</summary>
+    public string ReplayDirectory => Path.Combine(Props.AppDirectory(), "replays");
     public OfficialCharacterLookup OfficialLookup { get; }
     public StatsApiClient StatsApi { get; }
     public StatsConsentManager Consent { get; }
@@ -169,14 +181,18 @@ public sealed class MeterServices
         _processor = new StreamProcessor(DebugLogger, Data, new JoinRequestSinkAdapter(JoinRequests, Data));
         Calculator = new DpsCalculator(Data, FlushAllStreams);
 
-        // Movement/positional replay (opt-in, default OFF): a parallel tap that records per-battle position
+        // Movement/positional replay (BETA, default OFF): a parallel tap that records per-battle position
         // timelines. Never on the DPS path; resolves entity ids via Data for non-contributor (support) movers.
         // The engine is a private, runtime-loaded DLL — absent in an open-source build, in which case
-        // TryLoad returns null and replay stays unavailable (the flag still reads false-safe).
-        Movement = props.GetProperty("replay.recordMovement", "false") == "true"
-            ? ReplayEngineLoader.TryLoad()?.Create(new DataManagerIdentitySource(Data), Path.Combine(props.AppDirectory(), "replays"))
-            : null;
-        if (props.GetProperty("replay.recordMovement", "false") == "true")
+        // TryLoad returns null and replay stays unavailable.
+        //
+        // The engine is created whenever the DLL is there and RECORDING is gated at the tap instead, so the
+        // settings toggle takes effect immediately rather than on the next launch. An idle engine costs
+        // nothing: Scan() is simply never called.
+        Movement = ReplayEngineLoader.TryLoad()
+            ?.Create(new DataManagerIdentitySource(Data), Path.Combine(props.AppDirectory(), "replays"));
+        RecordReplay = props.GetProperty("replay.recordMovement", "false") == "true";
+        if (RecordReplay)
         {
             // Startup marker so a "replay missing" report distinguishes flag-off from engine-DLL-absent.
             ReplayDiag.Note(props, Movement != null ? "engine loaded" : "engine DLL MISSING — replay unavailable");
@@ -202,7 +218,7 @@ public sealed class MeterServices
             // itself waiting on this (consumer) thread — writing the replay first means the artifact
             // survives even if that notify can't complete. Isolated in try/catch because the replay engine
             // is an optional private module and must never break the parity-critical save/upload path.
-            if (Movement is { } replay)
+            if (RecordReplay && Movement is { } replay)
             {
                 try
                 {
@@ -335,7 +351,10 @@ public sealed class MeterServices
                     return; // duplicate capture of the game stream — already counted on the primary
                 }
 
-                Movement?.Scan(packet, at); // parallel positional-replay tap (no-op unless enabled)
+                if (RecordReplay)
+                {
+                    Movement?.Scan(packet, at); // parallel positional-replay tap (BETA; off = never called)
+                }
                 _processor.OnPacketReceived(packet, at);
             });
             created = new StreamState(new PacketAlignmenter(), assembler);
