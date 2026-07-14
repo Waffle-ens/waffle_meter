@@ -59,6 +59,11 @@ public sealed class StreamProcessor
 {
     private const int Mask = 0x0F;
 
+    // How long an indefinite-duration stance (폭주) is shown per apply. It re-broadcasts ~every 1.5 s while
+    // held, so this only needs to comfortably outlast one re-broadcast gap; the buff then clears a few seconds
+    // after the stance ends. Kept short so a genuinely-ended stance doesn't linger.
+    private const long IndefiniteStanceFallbackMs = 6000;
+
     private static int Key(int b1, int b2) => b1 | (b2 << 8);
 
     private const int DamageKey = 0x04 | (0x38 << 8);          // 0x3804
@@ -1170,11 +1175,23 @@ public sealed class StreamProcessor
 
             VarIntOutput actorInfo = PacketPrimitives.ReadVarInt(packet, offset);
 
-            // duration 0xFFFFFFFF = an INDEFINITE state buff — a stance/toggle that lasts until it ends, e.g.
-            // 권성's 폭주 ("폭주 상태"). This apply used to be dropped outright here, which is exactly why 폭주 and
-            // other stances stopped appearing in the buff overlay/alert from a certain build on. It flows through
-            // now: a far-future end keeps it active until the battle resets (there's no buff-remove opcode), and
-            // the overlay renders an indefinite duration as a full ring + "∞" instead of an absurd 49-day count.
+            // duration 0xFFFFFFFF = "no fixed duration". Most such applies are passive/always-on states (auras,
+            // consumable-less stances) that would clutter the overlay, so they are dropped — EXCEPT 폭주 (권성),
+            // an actively-maintained combat stance ("폭주 상태") the player deliberately keeps up by managing 분노.
+            // It is NOT truly infinite: it ends when 분노 hits 0. It re-broadcasts ~every 1.5 s while held
+            // (measured: 23 applies / 280 s, held-gap p50 1.5 s), so give it a short fallback duration that each
+            // re-broadcast refreshes — the overlay then shows it as a maintained buff and it fades a few seconds
+            // after the stance actually ends (there is no buff-remove opcode to end it exactly).
+            if (duration == 4294967295L)
+            {
+                if (skillCode is < 191300000 or > 191399999) // 폭주's variant band (base 19130000); others drop
+                {
+                    return;
+                }
+
+                duration = IndefiniteStanceFallbackMs;
+            }
+
             _data.SaveUseBuff(targetInfo.Value, skillCode, arrivedAt, arrivedAt + duration, duration, actorInfo.Value);
             _sink.Meta("buff",
                 ("target", targetInfo.Value),

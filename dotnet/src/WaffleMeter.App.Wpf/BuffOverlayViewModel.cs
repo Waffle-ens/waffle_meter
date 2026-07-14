@@ -186,19 +186,8 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
     /// visually "disappears" toward expiry. Null (no ring) when the duration is unknown.</summary>
     public Geometry? Ring { get => _ring; private set => Set(ref _ring, value); }
 
-    // A state buff / stance (권성 폭주 등) carries an indefinite duration (wire 0xFFFFFFFF ≈ 49 days). Show it
-    // as a permanent "∞" with a full ring instead of a nonsensical 71582:15 countdown.
-    private const long IndefiniteDurationMs = 24L * 60 * 60 * 1000; // no real timed buff runs a full day
-
     public void SetRemaining(long remainingMs, long durationMs)
     {
-        if (durationMs >= IndefiniteDurationMs)
-        {
-            RemainingText = "∞";
-            Ring = BuildRing(1);
-            return;
-        }
-
         long s = Math.Max(0, remainingMs) / 1000;
         RemainingText = s >= 60 ? $"{s / 60}:{s % 60:D2}" : s.ToString(Inv) + "s";
         Ring = BuildRing(durationMs > 0 ? Math.Clamp((double)remainingMs / durationMs, 0, 1) : 0);

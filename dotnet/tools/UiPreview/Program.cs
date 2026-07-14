@@ -117,8 +117,8 @@ internal static class Program
                 buffVm.SetTextColor("#FFD54A"); // amber text (verifies the color option)
                 buffVm.Update(new List<WaffleMeter.Data.OwnerBuffView>
                 {
-                    // 폭주: an indefinite state buff (0xFFFFFFFF duration) — renders as a full ring + "∞".
-                    new(19130000, "폭주", 4_294_967_295, 4_294_967_295, 4_294_967_295, false, true, false),
+                    // 폭주: an indefinite stance shown with a short refresh-based fallback duration (~6s).
+                    new(19130000, "폭주", 5_400, 6_000, 5_400, false, true, false),
                     new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false),
                     new(11400000, "축복", 45_000, 60_000, 45_000, true, true, false),
                     new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, true), // on cooldown → grayed
