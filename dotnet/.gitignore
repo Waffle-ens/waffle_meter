@@ -13,6 +13,8 @@ coverage*.xml
 coverage*.json
 
 ## local corpus (do not commit captured game traffic)
-corpus/
+## anchored to the dotnet root so it doesn't also swallow source dirs named Corpus/
+## (e.g. src/WaffleMeter.Capture/Corpus/ — real code, was silently ignored).
+/corpus/
 *.jsonl
 *.pcap

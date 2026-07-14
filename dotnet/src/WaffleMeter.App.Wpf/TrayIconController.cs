@@ -13,7 +13,10 @@ public sealed class TrayIconController : IDisposable
 {
     private readonly WinForms.NotifyIcon _icon;
 
-    public TrayIconController(OverlayWindow window, OverlayController controller, Action exit, Action? openReplay = null)
+    /// <param name="loadPacketLog">Dev builds only — replays a recorded capture so the history/detail
+    /// windows have a battle to show without running a dungeon. App passes null in release builds.</param>
+    public TrayIconController(OverlayWindow window, OverlayController controller, Action exit,
+        Action? openReplay = null, Action? loadPacketLog = null)
     {
         _icon = new WinForms.NotifyIcon
         {
@@ -33,6 +36,12 @@ public sealed class TrayIconController : IDisposable
         if (openReplay is not null)
         {
             menu.Items.Add("전투 리플레이 (직전 전투)", null, (_, _) => window.Dispatcher.Invoke(openReplay));
+        }
+
+        if (loadPacketLog is not null)
+        {
+            menu.Items.Add(new WinForms.ToolStripSeparator());
+            menu.Items.Add("[개발] 패킷 로그 불러오기", null, (_, _) => window.Dispatcher.Invoke(loadPacketLog));
         }
 
         menu.Items.Add(new WinForms.ToolStripSeparator());
