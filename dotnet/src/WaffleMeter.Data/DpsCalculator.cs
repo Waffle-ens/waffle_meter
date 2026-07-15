@@ -474,12 +474,20 @@ public sealed class DpsCalculator
         if (_currentTarget > 0)
         {
             int? mobCode = _dm.GetMobId(_currentTarget);
-            Mob mob = _dm.Mob(mobCode!.Value)!;
-            report.Target = new MobInfo(_currentTarget, mob)
+            // An engaged-but-UNRECOGNIZED target (mobCode never registered, or a code not in the catalog — e.g.
+            // the intermittent first-boss miss) must NOT build a MobInfo with a null Mob: that null-derefs later
+            // as Target.Mob.Name in OverlayViewModel.Update and, dispatched via Dispatcher.Invoke, crashes the
+            // consumer thread (bypassing DispatcherUnhandledException). Mirror the null-safe path in GetDps
+            // (~L296): leave Target null so the overlay shows "타겟 인식 실패" instead of crashing.
+            Mob? mob = mobCode != null ? _dm.Mob(mobCode.Value) : null;
+            if (mob != null)
             {
-                RemainHp = _dm.MobHp(_currentTarget) ?? 0,
-                MaxHp = _dm.MobMaxHp(_currentTarget) ?? 0,
-            };
+                report.Target = new MobInfo(_currentTarget, mob)
+                {
+                    RemainHp = _dm.MobHp(_currentTarget) ?? 0,
+                    MaxHp = _dm.MobMaxHp(_currentTarget) ?? 0,
+                };
+            }
         }
 
         double totalDamage = _cachedInfo.Values.Sum(i => i.Amount);

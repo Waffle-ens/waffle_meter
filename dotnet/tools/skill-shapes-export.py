@@ -36,6 +36,12 @@ def export(src: str, dst: str) -> None:
         code, idx = divmod(fid, 10)
         if not (MOB_SKILL_MIN <= code <= MOB_SKILL_MAX):
             continue
+        # Only zones that can select a PLAYER are floor-damage 장판. The relationship flags are from the caster's
+        # (boss's) frame — players are its enemies — so a real player-damage zone always has bRelationshipEnemy.
+        # The rows with it false are mob heal/buff auras (Friendly), party buffs cast on PCs, and neutral markers
+        # (huge radii up to 250m, no telegraph) that deal no player damage yet were rendering as bogus zones.
+        if not r["bRelationshipEnemy"]:
+            continue
         kind = r["EffectRangeType"].split("::")[1]
         if kind not in RENDERABLE:
             skipped += 1
