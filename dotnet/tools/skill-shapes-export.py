@@ -10,7 +10,9 @@ Then:
     python skill-shapes-export.py <out/dat/SkillEffectFilter.json> [dotnet/Assets/json/skill-shapes.json]
 
 Only MOB/BOSS skills (7-digit codes) and renderable zone types are kept — player skills (8-digit) and
-Self/Single/Triangle/Cross rows would just bloat the shipped catalog.
+Self/Single/Straight rows would just bloat the shipped catalog (Triangle wedges and Cross bars ARE kept —
+the renderer draws them). Ally auras, party zones, untelegraphed neutral markers, and map-filling decals
+bigger than a room are filtered out (they were rendering as bogus damage zones); see the loop below.
 """
 
 import json
@@ -18,7 +20,7 @@ import os
 import sys
 from collections import Counter
 
-RENDERABLE = {"Circle", "Sphere", "Ring", "RingArc", "Arc", "Rectangle"}
+RENDERABLE = {"Circle", "Sphere", "Ring", "RingArc", "Arc", "Rectangle", "Triangle", "Cross"}
 
 # 7-digit codes are the mob/boss band (player skills are 8-digit, e.g. 17400058).
 MOB_SKILL_MIN, MOB_SKILL_MAX = 1_000_000, 2_999_999
@@ -36,12 +38,6 @@ def export(src: str, dst: str) -> None:
         code, idx = divmod(fid, 10)
         if not (MOB_SKILL_MIN <= code <= MOB_SKILL_MAX):
             continue
-        # Only zones that can select a PLAYER are floor-damage 장판. The relationship flags are from the caster's
-        # (boss's) frame — players are its enemies — so a real player-damage zone always has bRelationshipEnemy.
-        # The rows with it false are mob heal/buff auras (Friendly), party buffs cast on PCs, and neutral markers
-        # (huge radii up to 250m, no telegraph) that deal no player damage yet were rendering as bogus zones.
-        if not r["bRelationshipEnemy"]:
-            continue
         kind = r["EffectRangeType"].split("::")[1]
         if kind not in RENDERABLE:
             skipped += 1
@@ -49,6 +45,32 @@ def export(src: str, dst: str) -> None:
         values = r["EffectRangeValues"]
         if len(values) < 5:
             continue
+
+        enemy = r["bRelationshipEnemy"]
+        friendly = r["bRelationshipFriendly"]
+        only_pc = r["TargetFilterType"].split("::")[-1] == "OnlyPC"
+        notice = int(r["RangeNoticePreviousTime"])  # telegraph pre-warning (ms)
+
+        # Relationship gate. Only zones that damage a PLAYER are floor 장판; the relationship flags are from the
+        # caster's (boss's) frame.
+        #   (a) DROP ally auras: a Friendly + PC-only range is a mob heal/buff footprint, not a dodge telegraph —
+        #       it was rendering as a red damage circle on the party.
+        #   (b) KEEP the boss's enemy zones; ALSO keep a purely-neutral (not enemy, not friendly) zone that HAS a
+        #       telegraph — those are environmental hazards that damage anyone. Everything else non-enemy
+        #       (friendly party zones, untelegraphed neutral markers) is dropped.
+        if friendly and only_pc:
+            continue
+        if not enemy and not (not friendly and notice > 0):
+            continue
+
+        # Suppress map-filling decals: a floor zone bigger than a dungeon room is never a dodgeable AoE — it is a
+        # global / soft-enrage pulse or a mis-scoped marker (radii seen up to 500 m), and it paints over the whole
+        # replay. Cap conservatively so a genuine arena-wide slam WITH a telegraph survives; only kill the
+        # untelegraphed 200 m+ monsters and the absurd 250 m+ ones. (Rectangle/Cross span the larger of len/width.)
+        extent = max(values[4], values[5] if kind in ("Rectangle", "Cross") else 0)
+        if extent >= 25000 or (extent >= 20000 and notice == 0):
+            continue
+
         # Where the zone sits: on the caster (boss's body), dropped at the target's location (a ground
         # puddle), or stuck to the target (a marker that follows them).
         anchor = (
@@ -60,7 +82,7 @@ def export(src: str, dst: str) -> None:
             "i": idx,
             "t": kind,
             "v": [int(x) for x in values],
-            "n": int(r["RangeNoticePreviousTime"]),  # telegraph pre-warning (ms)
+            "n": notice,
             "a": anchor,
         })
 
