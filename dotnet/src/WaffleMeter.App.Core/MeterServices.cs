@@ -248,6 +248,11 @@ public sealed class MeterServices
                     IReadOnlyList<(string Nickname, int Server)> roster = Data.PartyMemberIdentities(30 * 60 * 1000L);
                     ReplayRecording rec = replay.OnBattleLogged(log, roster);
                     ReplayDiag.Log(props, log.Report, rec, roster.Count);
+
+                    // OnBattleLogged just wrote replay-{startMs}.json into ReplayDirectory and the engine
+                    // never prunes, so bound the folder to the most recent recordings here. Best-effort and
+                    // self-contained (Prune swallows its own IO errors), so it can't disturb the save path.
+                    ReplayRetention.Prune(ReplayDirectory);
                 }
                 catch
                 {
