@@ -48,8 +48,12 @@ public sealed record ReplaySkillZone(string Kind, IReadOnlyList<int> Values, int
     /// <summary>Ring/RingArc: inner radius (the safe hole). 0 for the other kinds.</summary>
     public double InnerRadius => Kind is "Ring" or "RingArc" ? V(5) : 0;
 
-    /// <summary>Arc/RingArc: the cone's opening angle in degrees. 0 for the other kinds.</summary>
-    public double AngleDeg => Kind is "Arc" or "RingArc" ? V(5) : 0;
+    /// <summary>Arc/RingArc: the cone's opening angle in degrees. 0 for the other kinds. The angle sits in a
+    /// DIFFERENT slot per kind: an Arc is <c>[…, radius(4), angle(5), height(6)]</c>, but a RingArc inserts the
+    /// inner radius at slot 5 — <c>[…, outer(4), inner(5), height(6), angle(7)]</c> — so its angle is V(7).
+    /// Reading V(5) for a RingArc grabs the inner radius (e.g. 800) as the angle: half=400° sweeps 800°, wraps
+    /// past 360° and paints the whole donut instead of the real 25–180° slice — the reported over-sizing.</summary>
+    public double AngleDeg => Kind == "Arc" ? V(5) : Kind == "RingArc" ? V(7) : 0;
 
     /// <summary>Rectangle: width (the beam's thickness). 0 for the other kinds.</summary>
     public double Width => Kind == "Rectangle" ? V(5) : 0;
