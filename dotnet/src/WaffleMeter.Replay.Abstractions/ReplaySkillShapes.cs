@@ -42,25 +42,38 @@ public sealed record ReplaySkillZone(string Kind, IReadOnlyList<int> Values, int
     /// quadrant mechanic ships as four Arc rows at 0/90/180/270.</summary>
     public double RotationDeg => V(3);
 
-    /// <summary>Circle/Sphere: radius · Ring/RingArc: OUTER radius · Arc: radius · Rectangle: length.</summary>
+    /// <summary>Circle/Sphere: radius · Ring/RingArc: OUTER radius · Arc: radius · Rectangle: length ·
+    /// Triangle: reach (apex→base) · Cross: length of the bar along the facing.</summary>
     public double Radius => V(4);
 
     /// <summary>Ring/RingArc: inner radius (the safe hole). 0 for the other kinds.</summary>
     public double InnerRadius => Kind is "Ring" or "RingArc" ? V(5) : 0;
 
-    /// <summary>Arc/RingArc: the cone's opening angle in degrees. 0 for the other kinds. The angle sits in a
-    /// DIFFERENT slot per kind: an Arc is <c>[…, radius(4), angle(5), height(6)]</c>, but a RingArc inserts the
-    /// inner radius at slot 5 — <c>[…, outer(4), inner(5), height(6), angle(7)]</c> — so its angle is V(7).
-    /// Reading V(5) for a RingArc grabs the inner radius (e.g. 800) as the angle: half=400° sweeps 800°, wraps
-    /// past 360° and paints the whole donut instead of the real 25–180° slice — the reported over-sizing.</summary>
-    public double AngleDeg => Kind == "Arc" ? V(5) : Kind == "RingArc" ? V(7) : 0;
+    /// <summary>Arc/RingArc/Triangle: the cone/wedge opening angle in degrees. 0 for the other kinds. The angle
+    /// sits in a DIFFERENT slot per kind: an Arc/Triangle is <c>[…, radius(4), angle(5), height(6)]</c>, but a
+    /// RingArc inserts the inner radius at slot 5 — <c>[…, outer(4), inner(5), height(6), angle(7)]</c> — so its
+    /// angle is V(7). Reading V(5) for a RingArc grabs the inner radius (e.g. 800) as the angle: half=400° sweeps
+    /// 800°, wraps past 360° and paints the whole donut instead of the real 25–180° slice — the reported
+    /// over-sizing.</summary>
+    public double AngleDeg => Kind is "Arc" or "Triangle" ? V(5) : Kind == "RingArc" ? V(7) : 0;
 
     /// <summary>Rectangle: width (the beam's thickness). 0 for the other kinds.</summary>
     public double Width => Kind == "Rectangle" ? V(5) : 0;
 
-    /// <summary>True when the shape's orientation matters (a cone or a line) — i.e. it must be rotated by
-    /// the caster's facing rather than drawn radially symmetric.</summary>
-    public bool IsDirectional => Kind is "Arc" or "RingArc" or "Rectangle";
+    /// <summary>Cross: length of the SECOND bar (across the facing). <see cref="Radius"/> is the first bar's
+    /// length. 0 for the other kinds.</summary>
+    public double CrossArmB => Kind == "Cross" ? V(5) : 0;
+
+    /// <summary>Cross: thickness of the first bar (along the facing). A Cross row is
+    /// <c>[…, lenA(4), lenB(5), height(6), widthA(7), widthB(8)]</c>. 0 for the other kinds.</summary>
+    public double CrossWidthA => Kind == "Cross" ? V(7) : 0;
+
+    /// <summary>Cross: thickness of the second bar (across the facing). 0 for the other kinds.</summary>
+    public double CrossWidthB => Kind == "Cross" ? V(8) : 0;
+
+    /// <summary>True when the shape's orientation matters (a cone, wedge, line, or cross) — i.e. it must be
+    /// rotated by the caster's facing rather than drawn radially symmetric.</summary>
+    public bool IsDirectional => Kind is "Arc" or "RingArc" or "Rectangle" or "Triangle" or "Cross";
 }
 
 /// <summary>
@@ -76,6 +89,13 @@ public sealed class ReplaySkillShapes
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
 
     private readonly Dictionary<int, IReadOnlyList<ReplaySkillZone>> _bySkill = new();
+
+    // Base codes (skillCode with the last digit cleared) whose trailing-digit variants DIVERGE in shape kind —
+    // e.g. 1230120 is a Rectangle but its sibling 1230125 is an Arc. For those families the trailing digit is
+    // semantically meaningful (a different mechanic, not a mere stage/level), so guessing an ABSENT variant's
+    // shape from the base would draw the wrong kind (a beam as a cone). The base-code fallback in For() is
+    // refused for these; families that are internally consistent (all stages of one mechanic) still fall back.
+    private readonly HashSet<int> _ambiguousBases = new();
 
     public int SkillCount => _bySkill.Count;
 
@@ -140,6 +160,26 @@ public sealed class ReplaySkillShapes
             // a corrupt catalog must never break opening a replay
         }
 
+        // Flag base-code families whose trailing-digit variants disagree on shape kind, so For() won't guess an
+        // absent variant's shape from a base that is actually a different mechanic (see _ambiguousBases).
+        var sigByBase = new Dictionary<int, string>();
+        foreach ((int code, IReadOnlyList<ReplaySkillZone> zones) in catalog._bySkill)
+        {
+            int baseCode = code - (code % 10);
+            string sig = string.Join(",", zones.Select(z => z.Kind));
+            if (sigByBase.TryGetValue(baseCode, out string? existing))
+            {
+                if (existing != sig)
+                {
+                    catalog._ambiguousBases.Add(baseCode);
+                }
+            }
+            else
+            {
+                sigByBase[baseCode] = sig;
+            }
+        }
+
         return catalog;
     }
 
@@ -150,7 +190,8 @@ public sealed class ReplaySkillShapes
     /// A cast often carries a VARIANT of a mechanic (a stage or level: 1803661 of 1803660, 1805713 of
     /// 1805710) and the client only defines the zone once, on the base. So an unknown code falls back to its
     /// base — the same code with the last digit cleared. Measured on a real 침식의 정화소 fight, that alone
-    /// recovers 36 of the 52 casts that were drawing nothing.
+    /// recovers 36 of the 52 casts that were drawing nothing. The fallback is REFUSED when the base's family
+    /// disagrees on shape kind (see <see cref="_ambiguousBases"/>), so a beam is never guessed as a cone.
     /// </para>
     /// </summary>
     public IReadOnlyList<ReplaySkillZone> For(int skillCode)
@@ -161,7 +202,9 @@ public sealed class ReplaySkillShapes
         }
 
         int baseCode = skillCode - (skillCode % 10);
-        return baseCode != skillCode && _bySkill.TryGetValue(baseCode, out IReadOnlyList<ReplaySkillZone>? shared)
+        return baseCode != skillCode
+               && !_ambiguousBases.Contains(baseCode) // don't inherit a base that's a different-kind mechanic
+               && _bySkill.TryGetValue(baseCode, out IReadOnlyList<ReplaySkillZone>? shared)
             ? shared
             : [];
     }

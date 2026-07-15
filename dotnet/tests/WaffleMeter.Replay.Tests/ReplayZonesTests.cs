@@ -187,6 +187,45 @@ public class ReplayZonesTests
     }
 
     [Fact]
+    public void A_triangle_wedge_is_an_apex_plus_two_far_corners()
+    {
+        // reach 1000, opening 60°, boss facing 90° (+Y): apex on the boss, base 1000 up the +Y axis.
+        var shapes = ReplaySkillShapes.Parse(
+            """{"700":[{"i":1,"t":"Triangle","v":[0,0,0,0,1000,60,300,0],"n":1000,"a":"caster"}]}""");
+        var casts = new[] { Cast(700, 10_000, facing: 90f, targets: new ReplayCastTarget(1, 0, 0, 0)) };
+
+        List<(double X, double Y)> tri = Assert.Single(ReplayZones.Outline(
+            Assert.Single(ReplayZones.ActiveAt(casts, shapes, 9_500))));
+
+        Assert.Equal(3, tri.Count);
+        Assert.Equal((0, 0), (Math.Round(tri[0].X), Math.Round(tri[0].Y))); // apex on the caster
+        Assert.All(tri.Skip(1), p => Assert.True(p.Y > 800, $"the two far corners open along +Y, got {p}"));
+        Assert.Contains(tri, p => p.X > 400);   // one corner to the right
+        Assert.Contains(tri, p => p.X < -400);  // one corner to the left
+    }
+
+    [Fact]
+    public void A_cross_is_two_perpendicular_centred_bars()
+    {
+        // bar A: length 600 (along facing +X), thickness 150; bar B: length 700 (across, +Y), thickness 250.
+        var shapes = ReplaySkillShapes.Parse(
+            """{"701":[{"i":1,"t":"Cross","v":[0,0,0,0,600,700,200,150,250],"n":800,"a":"caster"}]}""");
+        var casts = new[] { Cast(701, 10_000, facing: 0f, targets: new ReplayCastTarget(1, 0, 0, 0)) };
+
+        List<List<(double X, double Y)>> bars = ReplayZones.Outline(
+            Assert.Single(ReplayZones.ActiveAt(casts, shapes, 10_000)));
+
+        Assert.Equal(2, bars.Count);
+        Assert.All(bars, b => Assert.Equal(4, b.Count));
+
+        List<(double X, double Y)> along = bars[0], across = bars[1];
+        Assert.Equal(300, along.Max(p => p.X), 0);   // bar A runs ±300 along +X
+        Assert.Equal(75, along.Max(p => p.Y), 0);    // …and is 150 thick
+        Assert.Equal(350, across.Max(p => p.Y), 0);  // bar B runs ±350 along +Y
+        Assert.Equal(125, across.Max(p => p.X), 0);  // …and is 250 thick
+    }
+
+    [Fact]
     public void A_donut_returns_its_hole_as_a_second_loop()
     {
         var casts = new[] { Cast(444, 10_000, targets: new ReplayCastTarget(1, 0, 0, 0)) };

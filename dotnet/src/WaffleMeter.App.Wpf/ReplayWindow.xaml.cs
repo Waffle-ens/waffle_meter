@@ -504,7 +504,12 @@ public partial class ReplayWindow : Window
         int insertAt = _mapImage is null ? 0 : 1;
         foreach (ActiveZone zone in active)
         {
-            var geometry = new PathGeometry { FillRule = FillRule.EvenOdd }; // a donut's hole reads as a hole
+            // EvenOdd so a donut's inner loop reads as a hole; a Cross is two overlapping bars that must UNION
+            // (EvenOdd would punch the crossing centre out), and both bars are wound the same way, so NonZero.
+            var geometry = new PathGeometry
+            {
+                FillRule = zone.Zone.Kind == "Cross" ? FillRule.Nonzero : FillRule.EvenOdd,
+            };
             foreach (List<(double X, double Y)> loop in ReplayZones.Outline(zone))
             {
                 if (loop.Count < 3)

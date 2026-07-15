@@ -140,6 +140,37 @@ public static class ReplayZones
                 break;
             }
 
+            case "Triangle":
+            {
+                // A wedge: apex on the caster, two far corners at ±half the opening angle, joined by a STRAIGHT
+                // base (unlike an Arc, whose far edge curves). Three vertices — an isosceles triangle.
+                double half = z.AngleDeg / 2 * Math.PI / 180.0;
+                loops.Add(
+                [
+                    (cx, cy),
+                    (cx + z.Radius * Math.Cos(facing - half), cy + z.Radius * Math.Sin(facing - half)),
+                    (cx + z.Radius * Math.Cos(facing + half), cy + z.Radius * Math.Sin(facing + half)),
+                ]);
+                break;
+            }
+
+            case "Cross":
+            {
+                // Two perpendicular bars CENTRED on the anchor (not starting at it like a beam): one along the
+                // facing, one across it. Each spans ±length/2 along its axis and ±width/2 across. Two loops.
+                void Bar(double angle, double length, double width)
+                {
+                    double c = Math.Cos(angle), s = Math.Sin(angle);
+                    double hl = length / 2, hw = width / 2;
+                    (double X, double Y) P(double fwd, double right) => (cx + fwd * c + right * s, cy + fwd * s - right * c);
+                    loops.Add([P(-hl, -hw), P(hl, -hw), P(hl, hw), P(-hl, hw)]);
+                }
+
+                Bar(facing, z.Radius, z.CrossWidthA);
+                Bar(facing + Math.PI / 2, z.CrossArmB, z.CrossWidthB);
+                break;
+            }
+
             case "Arc":
             case "RingArc":
             {
