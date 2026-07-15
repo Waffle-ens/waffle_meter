@@ -8767,6 +8767,21 @@
     "boss": false
   },
   {
+    "code": 2300580,
+    "name": "티에",
+    "boss": true
+  },
+  {
+    "code": 2300581,
+    "name": "타몬",
+    "boss": true
+  },
+  {
+    "code": 2300582,
+    "name": "바크론",
+    "boss": true
+  },
+  {
     "code": 2300810,
     "name": "티에",
     "boss": true
