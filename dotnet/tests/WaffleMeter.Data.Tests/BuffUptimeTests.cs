@@ -62,4 +62,60 @@ public sealed class BuffUptimeTests
         Assert.Equal(0L, BuffUptime.CoveredMs([], 0L, 5000L));
         Assert.Equal(0L, BuffUptime.CoveredMs([(0L, 500L)], 1000L, 1000L));
     }
+
+    [Fact]
+    public void MergeIntervals_UnionsOverlappingAndTouching_KeepsGapsSeparate()
+    {
+        // [0,300]+[200,500] overlap -> one run [0,500]; [700,900] is a distinct run after a real gap.
+        List<(long Start, long End)> merged =
+            BuffUptime.MergeIntervals([(0L, 300L), (200L, 500L), (700L, 900L)], 0L, 5000L);
+
+        Assert.Equal(new List<(long, long)> { (0L, 500L), (700L, 900L) }, merged);
+    }
+
+    [Fact]
+    public void MergeIntervals_ClampsToWindow_AndSorts()
+    {
+        List<(long Start, long End)> merged =
+            BuffUptime.MergeIntervals([(4900L, 5200L), (-100L, 200L)], 0L, 5000L);
+
+        // clamped to [0,200] and [4900,5000], returned in start order.
+        Assert.Equal(new List<(long, long)> { (0L, 200L), (4900L, 5000L) }, merged);
+    }
+
+    [Fact]
+    public void MergeIntervals_ExactlyTouching_MergeIntoOneRun()
+    {
+        Assert.Equal(
+            new List<(long, long)> { (0L, 600L) },
+            BuffUptime.MergeIntervals([(0L, 300L), (300L, 600L)], 0L, 5000L));
+    }
+
+    [Fact]
+    public void MergeIntervals_EmptyOrZeroWindow_ReturnsEmpty()
+    {
+        Assert.Empty(BuffUptime.MergeIntervals([], 0L, 5000L));
+        Assert.Empty(BuffUptime.MergeIntervals([(0L, 500L)], 1000L, 1000L));
+    }
+
+    [Fact]
+    public void CoveredMs_EqualsSumOfMergedRuns_Invariant()
+    {
+        (long, long)[][] cases =
+        [
+            [(0L, 300L), (200L, 500L)],
+            [(0L, 1000L), (200L, 600L)],
+            [(0L, 300L), (300L, 600L)],
+            [(0L, 300L), (400L, 600L)],
+            [(-100L, 200L), (4900L, 5200L)],
+            [(300L, 600L), (0L, 300L), (200L, 400L)],
+        ];
+
+        foreach ((long, long)[] intervals in cases)
+        {
+            long covered = BuffUptime.CoveredMs(intervals, 0L, 5000L);
+            long summed = BuffUptime.MergeIntervals(intervals, 0L, 5000L).Sum(iv => iv.End - iv.Start);
+            Assert.Equal(covered, summed);
+        }
+    }
 }

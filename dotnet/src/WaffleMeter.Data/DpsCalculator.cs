@@ -36,6 +36,10 @@ public sealed class DpsCalculator
     private bool _isCachedBattleStartFake;
     private long _cachedBattleStartToggle; // the combat-enter toggle wall-clock at this battle's first damage
     private readonly Dictionary<int, Dictionary<string, AnalyzedSkill>> _cachedSkillDetails = new();
+    // Per-second damage buckets (uid -> whole-second key (Timestamp/1000) -> damage that second), the raw
+    // source for the combat-detail DPS graph. Keyed by ABSOLUTE second so it survives the reported BattleStart
+    // being re-anchored (StartAnchor caps back-dating) — the dense per-report array is re-based at build time.
+    private readonly Dictionary<int, Dictionary<long, long>> _cachedDpsBuckets = new();
 
     private static readonly string[] SummonDamageSkillPrefixes =
     [
@@ -60,6 +64,7 @@ public sealed class DpsCalculator
         _cachedInfo.Clear();
         _cachedContributors.Clear();
         _cachedSkillDetails.Clear();
+        _cachedDpsBuckets.Clear();
         _cachedBattleEnd = 0L;
         _cachedBattleStart = 0L;
         _isCachedBattleStartFake = false;
@@ -239,6 +244,21 @@ public sealed class DpsCalculator
         AccumulateSkillDetail(_cachedSkillDetails, packet, user.Id);
 
         long ts = packet.Timestamp;
+
+        // Bucket this hit into its absolute whole-second for the DPS graph. Absolute (not BattleStart-relative)
+        // so it is immune to the reported start being re-anchored below; the dense array is re-based at build.
+        if (ts > 0L)
+        {
+            if (!_cachedDpsBuckets.TryGetValue(user.Id, out Dictionary<long, long>? buckets))
+            {
+                buckets = new Dictionary<long, long>();
+                _cachedDpsBuckets[user.Id] = buckets;
+            }
+
+            long second = ts / 1000L;
+            buckets[second] = buckets.GetValueOrDefault(second) + packet.Damage;
+        }
+
         if (_cachedBattleStart == 0L)
         {
             _cachedBattleStart = ts;
@@ -762,6 +782,96 @@ public sealed class DpsCalculator
             .First()
             .First().D;
 
+    /// <summary>The buff/debuff timeline for one entity: the same grouping as
+    /// <see cref="GetBuffOperatingRate"/> (base skill + name + caster, blacklist- and placeholder-filtered), but
+    /// each group keeps its MERGED applied spans instead of a single rate — the icon-lane source for the DPS
+    /// graph. Blacklist/placeholder handling is kept identical to <see cref="GetBuffOperatingRate"/> so the lane
+    /// never shows an icon the uptime tab wouldn't.</summary>
+    public List<BuffTimeline> GetBuffIntervals(int uid, long start, long end)
+    {
+        if (end <= start) return [];
+
+        var groups = _dm.BattleBuff(uid, start, end)
+            .Where(b => !_dm.IsBuffBlacklisted(b.SkillCode))
+            .Select(useBuff => (Display: ResolveBuffDisplay(useBuff.SkillCode), UseBuff: useBuff))
+            .Where(x => x.Display != null)
+            .Select(x => (D: x.Display!.Value, U: x.UseBuff, Base: DataManager.BuffBaseCode(x.UseBuff.SkillCode)))
+            .GroupBy(x => (x.Base, x.D.Name, x.U.ActorId));
+
+        var result = new List<BuffTimeline>();
+        foreach (var group in groups)
+        {
+            (int baseCode, string name, int actorId) = group.Key;
+            List<(long Start, long End)> spans =
+                BuffUptime.MergeIntervals(group.Select(x => (x.U.BuffStart, x.U.BuffEnd)), start, end);
+            if (spans.Count == 0) continue;
+
+            BuffDisplay display = RepresentativeOf(group, start, end);
+            // Same raw-code job prefix as GetBuffOperatingRate: the display code may have collapsed a 9-digit
+            // job buff to its 8-digit base, which would read as "not a job buff".
+            int jobPrefix = group
+                .Select(x => DataManager.IsJobBuffCode(x.U.SkillCode) ? x.U.SkillCode / 10_000_000 : 0)
+                .FirstOrDefault(p => p != 0);
+
+            result.Add(new BuffTimeline(display.Code, name, actorId, baseCode, jobPrefix, spans));
+        }
+
+        return result;
+    }
+
+    /// <summary>The per-second damage series for one entity over <c>[start, end]</c>: a dense <c>long[]</c>
+    /// indexed by whole-second offset from <paramref name="start"/> (element i = damage in the i-th second),
+    /// re-based from the absolute-second accumulator. Buckets outside the window fold into the nearest edge so
+    /// the series always sums to the entity's total damage. Empty when the window is non-positive or the entity
+    /// dealt no damage.</summary>
+    public long[] GetDpsSeries(int uid, long start, long end)
+    {
+        if (end <= start) return [];
+        if (!_cachedDpsBuckets.TryGetValue(uid, out Dictionary<long, long>? buckets) || buckets.Count == 0)
+        {
+            return [];
+        }
+
+        long startSecond = start / 1000L;
+        long endSecond = end / 1000L;
+        int length = (int)(endSecond - startSecond) + 1;
+        if (length <= 0) return [];
+
+        var series = new long[length];
+        foreach (KeyValuePair<long, long> bucket in buckets)
+        {
+            int idx = (int)Math.Clamp(bucket.Key - startSecond, 0, length - 1);
+            series[idx] += bucket.Value;
+        }
+
+        return series;
+    }
+
+    private Dictionary<int, long[]> BuildDpsSeries(DpsReport data)
+    {
+        var result = new Dictionary<int, long[]>();
+        if (data.BattleEnd <= data.BattleStart) return result;
+        foreach (User user in data.Contributors)
+        {
+            long[] series = GetDpsSeries(user.Id, data.BattleStart, data.BattleEnd);
+            if (series.Length > 0) result[user.Id] = series;
+        }
+
+        return result;
+    }
+
+    private Dictionary<int, List<BuffTimeline>> BuildBuffIntervals(DpsReport data)
+    {
+        var result = new Dictionary<int, List<BuffTimeline>>();
+        if (data.BattleEnd <= data.BattleStart) return result;
+        foreach (User user in data.Contributors)
+        {
+            result[user.Id] = GetBuffIntervals(user.Id, data.BattleStart, data.BattleEnd);
+        }
+
+        return result;
+    }
+
     private Dictionary<int, List<OperatingData>> BuildBuffRates(DpsReport data)
     {
         if (data.BattleEnd <= data.BattleStart) return new();
@@ -795,6 +905,11 @@ public sealed class DpsCalculator
             _cachedSkillDetails.Count > 0 ? CloneSkillDetails(_cachedSkillDetails) : BuildSkillDetails(_recentData);
         Dictionary<int, List<OperatingData>> buffRates = BuildBuffRates(_recentData);
         List<OperatingData> bossBuffRates = BuildBossBuffRates(_recentData);
+        // Built here, BEFORE the SaveBattleLog call below prunes the buff repository (DataManager.PruneBefore):
+        // GetBuffIntervals reads that same repo, so a post-prune snapshot would under-count. GetDpsSeries reads
+        // the still-live _cachedDpsBuckets (cleared only when the next battle starts).
+        Dictionary<int, long[]> dpsSeries = BuildDpsSeries(_recentData);
+        Dictionary<int, List<BuffTimeline>> buffIntervals = BuildBuffIntervals(_recentData);
 
         _recentSkillDetails = skillDetails;
         _recentBuffRates = buffRates;
@@ -804,6 +919,8 @@ public sealed class DpsCalculator
         // _recentData) reads the snapshot instead of recomputing against the now-pruned buff repository.
         _recentData.BuffRates = buffRates;
         _recentData.BossBuffRates = bossBuffRates;
+        _recentData.DpsSeries = dpsSeries;
+        _recentData.BuffIntervals = buffIntervals;
 
         DpsLog log = _dm.SaveBattleLog(_recentData, skillDetails, buffRates, bossBuffRates);
         OnBattleLogged?.Invoke(log);

@@ -271,7 +271,7 @@ public sealed class StatsApiClientTests
 
     private static StatsUploadPayload SamplePayload(string battleHash, string consentVersion)
     {
-        var result = new StatsResultPayload(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        var result = new StatsResultPayload(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0); // +FrontRate
         return new StatsUploadPayload(
             SchemaVersion: 1,
             ClientVersion: "1.7.9",

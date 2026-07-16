@@ -81,4 +81,31 @@ public sealed class StatsSerializationTests
         Assert.Contains("\"job\":\"검성\"", json);
         Assert.Contains("\"power\":1234", json);
     }
+
+    [Fact]
+    public void Result_payload_serializes_front_rate_next_to_back_rate()
+    {
+        var result = new StatsResultPayload(
+            TotalDamage: 1000, Dps: 50, PartyContribution: 10, BossHpContribution: 5, HitCount: 100,
+            CritRate: 20, StrongRate: 10, PerfectRate: 5, BackRate: 30, FrontRate: 46.9, ParryRate: 0, BossBlockRate: 0);
+
+        string json = StatsJson.Serialize(result);
+
+        Assert.Contains("\"backRate\":30", json);
+        Assert.Contains("\"frontRate\":46.9", json);
+    }
+
+    [Fact]
+    public void Dps_graph_dtos_serialize_the_web_contract_field_names()
+    {
+        // These camelCase names ARE the web/zod contract (dpsSeries {step, damage}; selfBuffInterval {baseCode, name, spans}).
+        string series = StatsJson.Serialize(new StatsDpsSeriesPayload(Step: 1, Damage: [100L, 0L, 200L]));
+        Assert.Contains("\"step\":1", series);
+        Assert.Contains("\"damage\":[100,0,200]", series);
+
+        string interval = StatsJson.Serialize(new StatsSelfBuffIntervalPayload(BaseCode: 15210000, Name: "원소 강화", Spans: [5, 20]));
+        Assert.Contains("\"baseCode\":15210000", interval);
+        Assert.Contains("\"name\":\"원소 강화\"", interval);
+        Assert.Contains("\"spans\":[5,20]", interval);
+    }
 }

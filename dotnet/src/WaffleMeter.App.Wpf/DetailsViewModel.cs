@@ -67,6 +67,19 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     public ObservableCollection<BuffRowVM> Buffs { get; } = new();
     public ObservableCollection<BuffRowVM> Debuffs { get; } = new();
 
+    private DpsGraphModel? _graph;
+
+    /// <summary>Render-ready DPS-over-time graph for this player: per-second damage plus this player's buff
+    /// timeline (icon lane), drawn on a plain Canvas by <see cref="DetailWindow"/>. Rebuilt every
+    /// <see cref="Refresh"/>; null when there isn't enough to plot.</summary>
+    public DpsGraphModel? Graph { get => _graph; private set => Set(ref _graph, value); }
+
+    private bool _hasGraph;
+
+    /// <summary>True when the series has at least two seconds to draw a line; a shorter fight shows the
+    /// "표시할 데이터가 없어요" note on the graph tab instead of a single dot.</summary>
+    public bool HasGraph { get => _hasGraph; private set => Set(ref _hasGraph, value); }
+
     private string _totalDamageText = "0";
     public string TotalDamageText { get => _totalDamageText; private set => Set(ref _totalDamageText, value); }
 
@@ -138,6 +151,9 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
             Debuffs.Clear();
             HasBuffs = false;
             HasDebuffs = false;
+            Graph = null;
+            HasGraph = false;
+            _graphSignature = long.MinValue;
             TotalDamageText = ContributionText = CritText = StrongText =
                 PerfectText = BackText = FrontText = ParryText = CombatTimeText = "-";
             return;
@@ -185,6 +201,107 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         Rebuild(Debuffs, model.Debuffs);
         HasBuffs = Buffs.Count > 0;
         HasDebuffs = Debuffs.Count > 0;
+
+        // DPS-over-time graph: per-second damage + this player's buff timeline. Prefer the frozen snapshot
+        // (history replay / post-combat), fall back to the live accumulator for the in-progress battle —
+        // the same snapshot-vs-live split as the buff rates above (the two are frozen together at save).
+        long[] series = report.DpsSeries.Count > 0
+            ? report.DpsSeries.GetValueOrDefault(_uid) ?? []
+            : _calc.GetDpsSeries(_uid, report.BattleStart, report.BattleEnd);
+        List<BuffTimeline> allTimelines = report.BuffIntervals.Count > 0
+            ? report.BuffIntervals.GetValueOrDefault(_uid) ?? new()
+            : _calc.GetBuffIntervals(_uid, report.BattleStart, report.BattleEnd);
+
+        // Keep only the buffs that actually shape THIS player's damage: their own class(job) buffs — exactly the
+        // "내 버프" set the buff-uptime tab shows (mirrors DetailModel.BuildOwnBuffs: self-cast + job-prefix match).
+        // Consumables (주문서/음식/음료 → EffectiveJobPrefix 0) and other players' buffs are dropped, so a 100%-uptime
+        // food/scroll no longer crowds out the real damage buffs. Falls back to "any self class buff" when the
+        // player's job isn't recognized yet — still excludes consumables.
+        int selfPrefix = user?.Job is { } jb ? JobClassInfo.BasicSkillCode(jb) / 1_000_000 : -1;
+        List<BuffTimeline> timelines = allTimelines
+            .Where(t => t.ActorId == _uid && (selfPrefix > 0 ? t.EffectiveJobPrefix == selfPrefix : t.JobPrefix != 0))
+            .ToList();
+        // Only rebuild (and so redraw) the graph when the underlying data actually changed — Refresh runs every
+        // tick, but the per-second series only grows once a second and is frozen while idle/replaying history,
+        // so this keeps the Canvas redraw off the hot path (the handoff's 라이브 리프레시 비용 caveat).
+        long sig = GraphSignature(series, timelines);
+        if (Graph is null || sig != _graphSignature)
+        {
+            _graphSignature = sig;
+            Graph = BuildGraph(series, timelines, report.BattleStart);
+        }
+
+        HasGraph = series.Length >= 2;
+    }
+
+    private long _graphSignature = long.MinValue;
+
+    // A cheap content hash: total damage (grows on every hit, constant when frozen) + series length + buff/span
+    // counts. Enough to notice any change worth redrawing without deep-comparing the model each tick.
+    private static long GraphSignature(long[] series, List<BuffTimeline> timelines)
+    {
+        long sig = series.Length;
+        long total = 0;
+        foreach (long v in series) total += v;
+        sig = sig * 1_000_003L + total;
+        sig = sig * 1_000_003L + timelines.Count;
+        long spans = 0;
+        foreach (BuffTimeline t in timelines) spans += t.Spans.Count;
+        return sig * 1_000_003L + spans;
+    }
+
+    // Distinct, well-separated hues so each buff lane / legend chip is told apart at a glance (cycled if a fight
+    // somehow exceeds the count — capped at MaxGraphBuffs below, which is ≤ this length).
+    private static readonly Brush[] GraphPalette =
+    [
+        Frozen(new SolidColorBrush(C("#FF38BDF8"))), // sky
+        Frozen(new SolidColorBrush(C("#FFA78BFA"))), // violet
+        Frozen(new SolidColorBrush(C("#FFFBBF24"))), // amber
+        Frozen(new SolidColorBrush(C("#FF34D399"))), // emerald
+        Frozen(new SolidColorBrush(C("#FFF472B6"))), // pink
+        Frozen(new SolidColorBrush(C("#FF2DD4BF"))), // teal
+        Frozen(new SolidColorBrush(C("#FFFB923C"))), // orange
+        Frozen(new SolidColorBrush(C("#FF818CF8"))), // indigo
+        Frozen(new SolidColorBrush(C("#FFA3E635"))), // lime
+        Frozen(new SolidColorBrush(C("#FFFB7185"))), // rose
+    ];
+
+    private const int MaxGraphBuffs = 8;
+
+    private static DpsGraphModel? BuildGraph(
+        IReadOnlyList<long> perSecond, IReadOnlyList<BuffTimeline> timelines, long battleStart)
+    {
+        if (perSecond.Count == 0) return null;
+
+        long peak = 0;
+        foreach (long v in perSecond)
+        {
+            if (v > peak) peak = v;
+        }
+
+        // Highest-uptime buffs first, capped so the lane stack + legend stay readable (a player can carry a long
+        // tail of low-value food/scroll/party buffs). The colour is assigned here so the XAML legend chip and the
+        // hand-drawn lane share one source of truth.
+        List<BuffTimeline> top = timelines
+            .Where(t => t.Spans.Count > 0)
+            .OrderByDescending(t => t.Spans.Sum(s => s.End - s.Start))
+            .Take(MaxGraphBuffs)
+            .ToList();
+
+        var buffs = new List<DpsGraphBuff>(top.Count);
+        for (int i = 0; i < top.Count; i++)
+        {
+            BuffTimeline t = top[i];
+            var spans = new List<(double StartSec, double EndSec)>(t.Spans.Count);
+            foreach ((long start, long end) in t.Spans)
+            {
+                spans.Add(((start - battleStart) / 1000.0, (end - battleStart) / 1000.0));
+            }
+
+            buffs.Add(new DpsGraphBuff(t.Name, JoinIcons.Skill(t.Code), GraphPalette[i % GraphPalette.Length], spans));
+        }
+
+        return new DpsGraphModel(perSecond, peak, buffs);
     }
 
     private void ReconcileSkills(IReadOnlyList<DetailSkillGroup> groups, long combatMs)
@@ -417,3 +534,19 @@ public sealed class BuffRowVM
     public string Description { get; }
     public ImageSource? IconSource { get; }
 }
+
+/// <summary>Render-ready DPS-over-time graph the detail window hand-draws on a Canvas. <see cref="PerSecond"/>
+/// is dense damage-per-whole-second from the battle start (index = second offset); <see cref="PeakPerSecond"/>
+/// is its max for y-axis scaling/label; <see cref="Buffs"/> is the icon lane.</summary>
+public sealed record DpsGraphModel(
+    IReadOnlyList<long> PerSecond,
+    long PeakPerSecond,
+    IReadOnlyList<DpsGraphBuff> Buffs);
+
+/// <summary>One buff on the graph: its name + icon + assigned lane colour (shared by the legend chip and the
+/// hand-drawn Gantt lane), and the second-offset spans (from battle start) it was active for.</summary>
+public sealed record DpsGraphBuff(
+    string Name,
+    ImageSource? Icon,
+    Brush LaneBrush,
+    IReadOnlyList<(double StartSec, double EndSec)> Spans);

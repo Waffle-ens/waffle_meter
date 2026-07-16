@@ -1164,6 +1164,8 @@ public sealed class DataManager : ICaptureGameData
             BossBuffRates = bossBuffRates,
             SkillDetailsSnapshot = skillDetails, // frozen so the replayed detail's skill table + summary aren't empty
             PartySlots = CurrentPartySlots(data.Contributors), // frozen 0x9702 sub-party slots (1-4/5-8), keyed to the actual battle uids
+            DpsSeries = data.DpsSeries,          // frozen per-second damage series so the replayed DPS graph isn't empty
+            BuffIntervals = data.BuffIntervals,  // frozen buff timeline (built pre-prune by the caller) for the graph's icon lane
         };
 
         var log = new DpsLog

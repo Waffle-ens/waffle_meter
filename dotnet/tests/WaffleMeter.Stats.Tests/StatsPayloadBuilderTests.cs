@@ -81,7 +81,7 @@ public sealed class StatsPayloadBuilderTests
         DataManager dm = TwoPlayerParty();
         StatsUploadPayload payload = BuildOk(dm, SampleLog(dm));
 
-        Assert.Equal(4, payload.SchemaVersion);
+        Assert.Equal(5, payload.SchemaVersion);
         Assert.Equal("1.7.9", payload.ClientVersion);
         Assert.Equal(1_700_000_000_000, payload.UploadedAt);
         Assert.Equal(StatsIdentity.CharacterIdentityHash(3, "Me"), payload.Character.IdentityHash);
@@ -125,6 +125,65 @@ public sealed class StatsPayloadBuilderTests
         Assert.Equal("direct", skill.DamageType);
         Assert.Equal(1_000_000, skill.Damage);
         Assert.Equal(100.0, skill.Share);
+    }
+
+    [Fact]
+    public void Front_and_back_rates_divide_by_the_flag_bearing_hit_count()
+    {
+        // 후방/전방 are facing judgments carried only by flag-bearing (sw6) hits, so they divide by FlaggedTimes —
+        // matching the meter's 후방/전방 detail tiles. Crit stays over every hit.
+        DataManager dm = TwoPlayerParty();
+        DpsLog log = SampleLog(dm);
+        log.SkillDetails[1]["11020001"] = new AnalyzedSkill
+        {
+            SkillCode = 11020001, Name = "강타", DamageAmount = 1_000_000,
+            Times = 100, FlaggedTimes = 40, FrontTimes = 24, BackTimes = 12, CritTimes = 20,
+        };
+
+        StatsUploadPayload payload = BuildOk(dm, log);
+
+        Assert.Equal(60.0, payload.Result.FrontRate); // 24 / 40 flagged (NOT 24 / 100 hits)
+        Assert.Equal(30.0, payload.Result.BackRate);  // 12 / 40 flagged (NOT 12 / 100 hits)
+        Assert.Equal(20.0, payload.Result.CritRate);  // crit is per-hit: 20 / 100
+    }
+
+    [Fact]
+    public void Uploader_dps_series_and_self_buff_intervals_come_from_the_frozen_snapshot()
+    {
+        DataManager dm = TwoPlayerParty();
+        DpsLog log = SampleLog(dm); // BattleStart 1_000_000, BattleEnd 1_030_000 (30s), uploader = GLADIATOR(prefix 11)
+        log.Report.DpsSeries = new Dictionary<int, long[]> { [1] = [100, 0, 200] };
+        log.Report.BuffIntervals = new Dictionary<int, List<BuffTimeline>>
+        {
+            [1] =
+            [
+                new BuffTimeline(110200050, "글래디버프", 1, 11020000, 11, [(1_005_000L, 1_020_000L)]), // self class buff
+                new BuffTimeline(22101051, "용기의 주문서", 1, 22101051, 0, [(1_000_000L, 1_030_000L)]), // consumable → drop
+                new BuffTimeline(150000010, "동료버프", 2, 15000000, 15, [(1_000_000L, 1_030_000L)]),   // party → drop
+            ],
+        };
+
+        StatsUploadPayload payload = BuildOk(dm, log);
+
+        Assert.NotNull(payload.DpsSeries);
+        Assert.Equal(1, payload.DpsSeries!.Step);
+        Assert.Equal([100L, 0L, 200L], payload.DpsSeries.Damage);
+
+        StatsSelfBuffIntervalPayload buff = Assert.Single(payload.SelfBuffIntervals!); // only the own-class buff survives
+        Assert.Equal(11020000, buff.BaseCode);
+        Assert.Equal("글래디버프", buff.Name);
+        Assert.Equal([5, 20], buff.Spans); // whole-second offsets from BattleStart (5s..20s)
+    }
+
+    [Fact]
+    public void Missing_dps_snapshot_omits_the_graph_fields()
+    {
+        // A report without the frozen snapshot (old/pre-freeze) must omit dpsSeries/selfBuffIntervals, not send empty.
+        DataManager dm = TwoPlayerParty();
+        StatsUploadPayload payload = BuildOk(dm, SampleLog(dm)); // SampleLog leaves DpsSeries/BuffIntervals empty
+
+        Assert.Null(payload.DpsSeries);
+        Assert.Null(payload.SelfBuffIntervals);
     }
 
     [Fact]
@@ -188,7 +247,7 @@ public sealed class StatsPayloadBuilderTests
 
         Assert.All(payload.Buffs, b => Assert.Equal("buff", b.Category));
         Assert.All(payload.BossDebuffs, b => Assert.Equal("debuff", b.Category));
-        Assert.Equal(4, payload.SchemaVersion); // additive fields only — bumping this 400s the live web
+        Assert.Equal(5, payload.SchemaVersion); // v5 = additive frontRate + dpsSeries + selfBuffIntervals (web accepts v5)
     }
 
     [Fact]
