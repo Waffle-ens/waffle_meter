@@ -461,7 +461,7 @@ public partial class ReplayWindow : Window
             Canvas.SetLeft(v.Dot, p.X - half);
             Canvas.SetTop(v.Dot, p.Y - half);
             v.Dot.Visibility = Visibility.Visible;
-            v.Dot.Opacity = stale ? 0.5 : 1.0; // slight dim while holding a stale position (out of range / gap)
+            ApplyDotAppearance(v, stale); // hollow ring while holding a stale position — "last known, not live"
             v.Screen = p;
 
             if (v.Track.IsTarget)
@@ -479,6 +479,31 @@ public partial class ReplayWindow : Window
         }
 
         TimeText.Text = $"{Fmt(_currentMs)} / {Fmt(_rec.DurationMs)}";
+    }
+
+    // Honest "position unknown here" cue. A stale sample means we are holding an entity's last known spot across
+    // a gap — we have no live position for it at this playback moment. SELF hits this constantly: it is NOT in
+    // the dense 0x371D movement broadcast (the server never echoes your own position back), so only your casts
+    // and sparse keyframes pin you, and between them there is nothing. Rather than let a solid dot sit there
+    // reading as "standing still", draw a HOLLOW ring in the entity's own colour = last known spot, live
+    // position unknown; a solid dot means the position is live. (The boss badge is an Image — it can only dim.)
+    private static void ApplyDotAppearance(TrackVisual v, bool stale)
+    {
+        if (v.StaleShown == stale)
+        {
+            return; // only touch the visual when the state flips (Render runs every frame)
+        }
+
+        v.StaleShown = stale;
+        if (v.Dot is System.Windows.Shapes.Ellipse e)
+        {
+            bool ringed = v.Track.IsSelf || v.Track.IsTarget;
+            e.Fill = stale ? Brushes.Transparent : v.Color;
+            e.Stroke = stale ? v.Color : ringed ? Brushes.White : Brushes.Black;
+            e.StrokeThickness = stale || ringed ? 2 : 1;
+        }
+
+        v.Dot.Opacity = stale ? 0.7 : 1.0;
     }
 
     // The boss's mechanics: draw every zone that is on screen right now — the floor telegraph before the
@@ -892,5 +917,9 @@ public partial class ReplayWindow : Window
         public long[] Times { get; } = times;
         public Point Screen { get; set; }
         public bool HasScreen { get; set; }
+
+        /// <summary>The stale/solid appearance last applied to <see cref="Dot"/>, so Render only re-styles it
+        /// when the state actually flips (null = nothing applied yet).</summary>
+        public bool? StaleShown { get; set; }
     }
 }

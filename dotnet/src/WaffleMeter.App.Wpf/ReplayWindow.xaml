@@ -175,6 +175,10 @@
                        Foreground="{DynamicResource Skin.Fg}" FontSize="12"/>
 
             <TextBlock IsHitTestVisible="False" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                       Margin="16,0,0,34" Opacity="0.55" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11"
+                       Text="속 빈 링 = 위치 미상 · 본인 위치는 패킷 제약상 스킬 시전 시점에만 정확합니다"/>
+
+            <TextBlock IsHitTestVisible="False" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                        Margin="16" Opacity="0.55" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11"
                        Text="휠 = 확대/축소 · 우클릭 드래그 = 이동 · 더블클릭 = 전투 화면으로 복귀"/>
 
