@@ -1075,7 +1075,7 @@
                         <Border Background="{DynamicResource Skin.AccentSoft}" BorderBrush="{DynamicResource Skin.Accent}"
                                 BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,14">
                             <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource Skin.Fg}"
-                                       Text="⚠ 베타 기능입니다. 일부 던전이나 상황에서 위치가 비거나, 지도·장판이 어긋나게 표시될 수 있습니다. DPS 집계에는 영향을 주지 않습니다."/>
+                                       Text="⚠ 베타 기능입니다. 일부 던전이나 상황에서 위치가 비거나, 지도·장판이 어긋나게 표시될 수 있습니다. 특히 본인 위치는 패킷 제약상 스킬 시전 시점에만 정확하며, 그 사이 구간은 속 빈 링(마지막 위치)으로 표시됩니다. DPS 집계에는 영향을 주지 않습니다."/>
                         </Border>
 
                         <TextBlock Visibility="{Binding ReplayUnavailableVisibility}" Style="{StaticResource SettingDesc}"
