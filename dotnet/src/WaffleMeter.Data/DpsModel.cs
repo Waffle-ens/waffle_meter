@@ -216,6 +216,30 @@ public sealed record Buff(int Code, string Name, string Summary, string Effect);
 /// <summary>An applied buff/debuff interval (Kotlin UseBuff).</summary>
 public sealed record UseBuff(int SkillCode, long BuffStart, long BuffEnd, long Duration, int ActorId);
 
+/// <summary>
+/// One buff/debuff's merged applied intervals on a single entity, for the combat-detail DPS-graph timeline
+/// lane. Same grouping as <see cref="OperatingData"/> (base skill + name + caster) but keeps the merged
+/// <see cref="Spans"/> instead of collapsing them to a single rate — the graph draws a band per span and an
+/// icon so you can read which buffs were up when the DPS spiked. <see cref="Code"/> is the representative
+/// display code (feed it to the icon resolver). Spans are absolute capture-clock ms, already window-clamped
+/// and unioned via <see cref="BuffUptime.MergeIntervals"/>.
+/// </summary>
+public sealed record BuffTimeline(
+    int Code,
+    string Name,
+    int ActorId,
+    int BaseCode,
+    int JobPrefix,
+    IReadOnlyList<(long Start, long End)> Spans)
+{
+    /// <summary><see cref="JobPrefix"/>, or the prefix implied by a 9-digit job-buff <see cref="Code"/> when the
+    /// raw code carried none — mirrors <see cref="OperatingData.EffectiveJobPrefix"/> so the DPS graph's
+    /// class-buff (내 버프) filter matches the buff-uptime tab. 0 = not a class buff (e.g. a consumable).</summary>
+    public int EffectiveJobPrefix => JobPrefix != 0
+        ? JobPrefix
+        : Code is >= 110_000_000 and <= 199_999_999 ? Code / 10_000_000 : 0;
+}
+
 /// <summary>One raw packet kept for replay (Kotlin RawPacket).</summary>
 public sealed record RawPacket(byte[] Data, long Timestamp);
 
@@ -243,6 +267,21 @@ public sealed class DpsReport
 
     /// <summary>Frozen boss-debuff-uptime snapshot, populated alongside <see cref="BuffRates"/>.</summary>
     public List<OperatingData> BossBuffRates { get; set; } = [];
+
+    /// <summary>Frozen per-second damage series (uid -&gt; dense <c>long[]</c>, index = whole-second offset from
+    /// <see cref="BattleStart"/>, value = damage dealt in that second), the source for the combat-detail DPS
+    /// graph. Frozen at save time because a SAVED report carries <see cref="Packets"/>=null and the live
+    /// per-second accumulator is cleared when the next battle starts — without this a history-replayed graph
+    /// would be empty (same bug class as <see cref="SkillDetailsSnapshot"/>). Stays empty for the in-progress
+    /// report, where the detail rebuilds the series live from <see cref="DpsCalculator.GetDpsSeries"/>.</summary>
+    public Dictionary<int, long[]> DpsSeries { get; set; } = new();
+
+    /// <summary>Frozen per-recipient buff/debuff timeline (uid -&gt; merged applied spans), the icon-lane source
+    /// for the DPS graph. Populated alongside <see cref="BuffRates"/> and, like it, frozen BEFORE the live buff
+    /// repository is pruned (<see cref="UseBuffRepository.PruneBefore"/>) so a post-battle or history-replayed
+    /// graph keeps the intervals. Empty while the battle is in progress (the detail recomputes live via
+    /// <see cref="DpsCalculator.GetBuffIntervals"/> against the intact repo).</summary>
+    public Dictionary<int, List<BuffTimeline>> BuffIntervals { get; set; } = new();
 
     /// <summary>Frozen per-actor skill-breakdown snapshot (uid -&gt; skillCode -&gt; analyzed skill),
     /// populated when the battle is saved. A SAVED report carries <see cref="Packets"/>=null, so

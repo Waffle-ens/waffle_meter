@@ -98,7 +98,7 @@ internal static class Program
                 var calc = new WaffleMeter.Data.DpsCalculator(new WaffleMeter.Data.DataManager(), () => { });
                 var details = new DetailsViewModel(SampleMeterReport(now), 1, calc, "콘팡", theme, settings.FontFamily);
                 details.Refresh(SampleMeterReport(now));
-                string[] tabs = ["skills", "buffs", "debuffs"];
+                string[] tabs = ["skills", "buffs", "debuffs", "graph"];
                 for (int t = 0; t < tabs.Length; t++)
                 {
                     int index = t;
@@ -606,8 +606,64 @@ internal static class Program
             SkillDetailsSnapshot = new Dictionary<int, Dictionary<string, AnalyzedSkill>> { [1] = SampleSkills() },
             BuffRates = new Dictionary<int, List<OperatingData>> { [1] = SampleBuffs() },
             BossBuffRates = SampleBossDebuffs(),
+            // Frozen DPS-graph series + buff timeline for uid 1 — what the "DPS 그래프" tab renders in replay.
+            // Total matches the skill-snapshot sum (≈15.4M, the tile's 총 피해) so the graph's scale agrees with
+            // the DPS tile — in a real fight the series and the skill breakdown come from the same packets.
+            DpsSeries = new Dictionary<int, long[]> { [1] = SampleDpsSeries(15_400_000, 145) },
+            BuffIntervals = new Dictionary<int, List<BuffTimeline>> { [1] = SampleBuffIntervals(now - 145_300) },
         };
         return report;
+    }
+
+    // A shaped-but-deterministic per-second series (no RNG): a wavy baseline with the DPS lifting during the
+    // 원소 강화 buff windows, so the preview shows the line rising where the icon lane is active.
+    private static long[] SampleDpsSeries(long totalDamage, int seconds)
+    {
+        (int Start, int End)[] spikes = [(0, 40), (60, 100), (120, 145)];
+        (int Start, int End)[] gaps = [(45, 58), (102, 108)]; // downtime → the DPS line breaks instead of hitting 0
+        var series = new long[seconds];
+        double baseline = totalDamage / (double)seconds;
+        for (int i = 0; i < seconds; i++)
+        {
+            series[i] = (long)(baseline * (0.55 + 0.45 * Math.Sin(i * 0.33)));
+            foreach ((int s, int e) in spikes)
+            {
+                if (i >= s && i < e) series[i] = (long)(series[i] * 1.8);
+            }
+        }
+
+        foreach ((int s, int e) in gaps)
+        {
+            for (int i = s; i < e && i < seconds; i++) series[i] = 0; // no damage dealt this window
+        }
+
+        // Re-normalize so the series sums to the participant's total damage (keeps the y-axis honest).
+        long sum = series.Sum();
+        if (sum > 0)
+        {
+            for (int i = 0; i < seconds; i++) series[i] = series[i] * totalDamage / sum;
+        }
+
+        return series;
+    }
+
+    private static List<BuffTimeline> SampleBuffIntervals(long battleStart)
+    {
+        (long, long) Span(int a, int b) => (battleStart + a * 1000L, battleStart + b * 1000L);
+        return
+        [
+            // Self (uid 1) 마도성(prefix 15) class buffs — these are what the graph keeps (딜 관련 버프).
+            new(152100461, "원소 강화", 1, 15210000, 15, [Span(0, 40), Span(60, 100), Span(120, 145)]),
+            new(153900471, "강화: 잔불", 1, 15390000, 15, [Span(10, 30), Span(70, 92)]),
+            new(150500301, "냉기의 로브", 1, 15050000, 15, [Span(20, 46)]),
+            new(153600201, "화염 각인", 1, 15360000, 15, [Span(5, 42), Span(62, 100)]),
+            new(150800301, "정령 친화", 1, 15080000, 15, [Span(0, 145)]),
+            // These must be FILTERED OUT: party buffs (actor 4) + consumables (prefix 0, 주문서).
+            new(181600411, "질주의 진언", 4, 18160000, 18, [Span(0, 145)]),
+            new(174000571, "대지의 축복", 4, 17400000, 17, [Span(5, 25), Span(55, 80), Span(110, 140)]),
+            new(22101051, "용기의 주문서", 1, 22101051, 0, [Span(0, 145)]),
+            new(22104021, "가호의 주문서", 1, 22104021, 0, [Span(0, 145)]),
+        ];
     }
 
     private static Dictionary<string, AnalyzedSkill> SampleSkills()

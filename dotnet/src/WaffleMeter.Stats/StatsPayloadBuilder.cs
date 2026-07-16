@@ -172,8 +172,33 @@ public sealed class StatsPayloadBuilder
         StatsSynergyPayload synergy = BuildSynergy(contributors);
         string battleHash = BattleHash(own.Server, ownNickname, mob.Code, report.BattleStart, report.BattleEnd, totalDamage, duration);
 
+        // ── Combat-detail DPS graph sources (uploader only; frozen at save time, so present here — but omit if a
+        //    report somehow lacks them, e.g. an old/pre-freeze snapshot). ──
+        long[]? ownSeries = report.DpsSeries.GetValueOrDefault(own.Id);
+        StatsDpsSeriesPayload? dpsSeries =
+            ownSeries is { Length: > 0 } ? new StatsDpsSeriesPayload(Step: 1, Damage: ownSeries) : null;
+
+        IReadOnlyList<StatsSelfBuffIntervalPayload>? selfBuffIntervals = null;
+        if (report.BuffIntervals.GetValueOrDefault(own.Id) is { Count: > 0 } ownTimelines)
+        {
+            long battleStart = report.BattleStart;
+            int? ownPrefix = resolvedOwn.Job is { } job ? job.BasicSkillCode() / 1_000_000 : null;
+            List<StatsSelfBuffIntervalPayload> built = ownTimelines
+                // BuffSource == "self": the uploader's own-class(딜) buffs only — excludes consumables
+                // (EffectiveJobPrefix 0) and other players' buffs (ActorId != own). Mirrors DetailModel.BuildOwnBuffs.
+                .Where(t => t.ActorId == own.Id && ownPrefix is int p && t.EffectiveJobPrefix != 0 && t.EffectiveJobPrefix == p)
+                .Select(t => new StatsSelfBuffIntervalPayload(
+                    t.BaseCode,
+                    t.Name,
+                    t.Spans
+                        .SelectMany(s => new[] { (int)((s.Start - battleStart) / 1000), (int)((s.End - battleStart) / 1000) })
+                        .ToList()))
+                .ToList();
+            selfBuffIntervals = built.Count > 0 ? built : null;
+        }
+
         var payload = new StatsUploadPayload(
-            SchemaVersion: 4,
+            SchemaVersion: 5,
             ClientVersion: clientVersion,
             BattleHash: battleHash,
             IdentityHashVersion: StatsIdentity.IdentityHashVersion,
@@ -207,7 +232,9 @@ public sealed class StatsPayloadBuilder
                     v, "boss", "debuff", null, null, null,
                     IndexOrNull(participantIndexById, v.ActorId),
                     ActorIdentity(v.ActorId)))
-                .ToList());
+                .ToList(),
+            DpsSeries: dpsSeries,
+            SelfBuffIntervals: selfBuffIntervals);
 
         return new BuildResult.Payload(payload);
     }
@@ -414,6 +441,7 @@ public sealed class StatsPayloadBuilder
         StrongRate: rates.StrongRate,
         PerfectRate: rates.PerfectRate,
         BackRate: rates.BackRate,
+        FrontRate: rates.FrontRate,
         ParryRate: rates.ParryRate,
         BossBlockRate: 0.0);
 
@@ -470,21 +498,28 @@ public sealed class StatsPayloadBuilder
         double StrongRate,
         double PerfectRate,
         double BackRate,
+        double FrontRate,
         double ParryRate);
 
     private static RateSummary SummarizeRates(IEnumerable<AnalyzedSkill> skillsEnumerable)
     {
         List<AnalyzedSkill> skills = skillsEnumerable as List<AnalyzedSkill> ?? skillsEnumerable.ToList();
         int directHits = Math.Max(skills.Sum(s => s.Times), 0);
+        // Back/front (facing) judgments ride ONLY on flag-bearing hits, so they divide by FlaggedTimes — this
+        // matches the meter's 후방/전방 detail tiles (DetailModel). Crit/강타/완벽/페리 keep the historical Times
+        // basis. (BackRate previously used Times too, which under-read vs the meter; FrontRate is new.)
+        int flaggedHits = Math.Max(skills.Sum(s => s.FlaggedTimes), 0);
         int allHits = directHits + Math.Max(skills.Sum(s => s.DotTimes), 0);
         double Rate(int count) => directHits > 0 ? OneDecimal((double)count / directHits * 100.0) : 0.0;
+        double RateFlagged(int count) => flaggedHits > 0 ? OneDecimal((double)count / flaggedHits * 100.0) : 0.0;
 
         return new RateSummary(
             HitCount: allHits,
             CritRate: Rate(skills.Sum(s => s.CritTimes)),
             StrongRate: Rate(skills.Sum(s => s.DoubleTimes)),
             PerfectRate: Rate(skills.Sum(s => s.PerfectTimes)),
-            BackRate: Rate(skills.Sum(s => s.BackTimes)),
+            BackRate: RateFlagged(skills.Sum(s => s.BackTimes)),
+            FrontRate: RateFlagged(skills.Sum(s => s.FrontTimes)),
             ParryRate: Rate(skills.Sum(s => s.ParryTimes)));
     }
 

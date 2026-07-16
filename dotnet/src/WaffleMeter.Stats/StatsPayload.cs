@@ -28,7 +28,21 @@ public sealed record StatsUploadPayload(
     StatsResultPayload Result,
     IReadOnlyList<StatsSkillPayload> Skills,
     IReadOnlyList<StatsBuffPayload> Buffs,
-    IReadOnlyList<StatsBuffPayload> BossDebuffs);
+    IReadOnlyList<StatsBuffPayload> BossDebuffs,
+    // The uploader's (self) combat-detail DPS graph sources. Null (omitted) when the frozen snapshot is absent
+    // (e.g. a pre-save/live report) — the web then hides the chart. Uploader-only, not per participant.
+    StatsDpsSeriesPayload? DpsSeries = null,
+    IReadOnlyList<StatsSelfBuffIntervalPayload>? SelfBuffIntervals = null);
+
+/// <summary>The uploader's per-second damage series. <see cref="Damage"/>[i] = damage dealt in the i-th second
+/// from battle start; <see cref="Step"/> = seconds per sample (1). The web aggregates/smooths it for display.</summary>
+public sealed record StatsDpsSeriesPayload(int Step, IReadOnlyList<long> Damage);
+
+/// <summary>One of the uploader's own class(딜) buffs and when it was up. <see cref="Spans"/> is a flat
+/// <c>[start, end, start, end, ...]</c> list of whole-second offsets from battle start (merged/clamped upstream).
+/// Only the uploader's own-class buffs are sent — consumables (scrolls/food/drinks) and other players' buffs are
+/// excluded (mirrors the meter's 내 버프 filter / <c>BuffSource == "self"</c>).</summary>
+public sealed record StatsSelfBuffIntervalPayload(int BaseCode, string Name, IReadOnlyList<int> Spans);
 
 public sealed record StatsCharacterPayload(
     string IdentityHash,
@@ -87,6 +101,10 @@ public sealed record StatsResultPayload(
     double StrongRate,
     double PerfectRate,
     double BackRate,
+    // Front/back are the two mutually-exclusive facing judgments; both divide by the flag-bearing hit count
+    // (FlaggedTimes), matching the meter's 후방/전방 detail tiles. Optional on the wire (older schema versions
+    // omitted it); the web treats an absent frontRate as "no data" (renders "-", never 0%).
+    double FrontRate,
     double ParryRate,
     double BossBlockRate);
 

@@ -436,6 +436,41 @@
                         <ContentControl Content="{Binding Debuffs}" ContentTemplate="{StaticResource UptimeTable}"/>
                     </TabItem>
 
+                    <!-- ══════════════ DPS 그래프 ══════════════ -->
+                    <TabItem Style="{StaticResource Pill}" IsEnabled="{Binding HasGraph}">
+                        <TabItem.Header>DPS 그래프</TabItem.Header>
+                        <DockPanel>
+                            <!-- Legend: color chip + icon + name for each buff lane, so the coloured bands below
+                                 are identifiable (matches the lane order/color drawn on the Canvas). -->
+                            <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Graph.Buffs}" Margin="0,0,0,6">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,0,8,4" Padding="5,2" CornerRadius="4"
+                                                Background="{DynamicResource Skin.RowBg}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="10" Height="10" CornerRadius="2"
+                                                        Background="{Binding LaneBrush}" VerticalAlignment="Center"/>
+                                                <Image Source="{Binding Icon}" Width="15" Height="15"
+                                                       Margin="5,0,4,0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}"
+                                                           FontSize="11" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <!-- Hand-drawn on a plain Canvas (software render, no external chart lib) — the
+                                 ReplayWindow map is the approved precedent. Children built in code-behind. -->
+                            <Border Background="{DynamicResource Skin.StatBg}" CornerRadius="6" MinHeight="210"
+                                    BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1" ClipToBounds="True">
+                                <Canvas x:Name="GraphCanvas" Background="Transparent" ClipToBounds="True"/>
+                            </Border>
+                        </DockPanel>
+                    </TabItem>
+
                 </TabControl>
             </Grid>
         </DockPanel>
