@@ -341,7 +341,11 @@ public partial class App : Application
             // fallback (covers a party seen only in combat / before its roster snapshot arrives). Dedup by
             // uid, executor first then power desc.
             var rosterById = new Dictionary<int, User>();
-            foreach (User member in services.Data.PartyRoster(PreCombatPartyTtlMs))
+            // The 0x9702-only party (no combat-contributor fallback): the party-context guard for lost-executor
+            // recovery needs the AUTHORITATIVE party, because at a field boss the fallback below would fold the
+            // zerg into the display roster and defeat the guard.
+            List<User> authoritativeParty = services.Data.PartyRoster(PreCombatPartyTtlMs).ToList();
+            foreach (User member in authoritativeParty)
             {
                 rosterById[member.Id] = member;
             }
@@ -398,6 +402,7 @@ public partial class App : Application
                 partyRoster.Clear();
             }
 
+            viewModel.SetAuthoritativeParty(authoritativeParty); // 0x9702-only; the party-context guard for self-recovery
             viewModel.SetRoster(partyRoster);
             viewModel.Update(report);
             (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
@@ -476,6 +481,13 @@ public partial class App : Application
         _updateToast.Park();
         _controller?.RegisterOverlay(_updateToast);
         _updateToast.CloseRequested += () => _updateToast.Park();
+
+        // One-time post-update patch-note popup: the first launch after updating to a NEW version shows that
+        // version's notes once. Deferred to ApplicationIdle so it appears after the overlay has settled; the
+        // method records the version (a fresh install / first run with this feature is recorded silently, not
+        // shown) and never throws into startup.
+        Dispatcher.BeginInvoke(new Action(() => MaybeShowPatchNotes(services.Version)),
+            System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
         // 슈고 페스타 (top-of-hour event) reminder: a transient toast + an app-scoped clock that fires it.
         _alarmToastVm = new AlarmToastViewModel();
@@ -1400,6 +1412,68 @@ public partial class App : Application
     }
 
     /// <summary>Show the 슈고 페스타 reminder toast (docked under the meter) + play the alarm chime.</summary>
+    /// <summary>One-time post-update patch-note popup. Shows the running version's RELEASE_NOTES section exactly
+    /// once after an UPDATE: compares the running base version to the last-shown one persisted in settings. A
+    /// fresh install / first run with this feature (no last-shown version yet) is recorded SILENTLY — it is not
+    /// an update. Records the version before showing so a failure never re-pops, and never throws into startup.</summary>
+    private void MaybeShowPatchNotes(string version)
+    {
+        try
+        {
+            string baseVer = PatchNotesProvider.BaseVersion(version);
+            if (baseVer.Length == 0 || _settings is not { } settings)
+            {
+                return;
+            }
+
+            string last = settings.PatchNotesLastShownVersion;
+            if (string.IsNullOrEmpty(last))
+            {
+                settings.PatchNotesLastShownVersion = baseVer; // fresh install: record, do NOT pop
+                return;
+            }
+
+            if (last == baseVer)
+            {
+                return; // already shown for this version
+            }
+
+            settings.PatchNotesLastShownVersion = baseVer; // record BEFORE showing so a failure never re-pops
+            string? notes = PatchNotesProvider.SectionForVersion(LoadEmbeddedReleaseNotes(), baseVer);
+            if (string.IsNullOrWhiteSpace(notes))
+            {
+                return; // no section for this version (e.g. a hotfix with no entry) — skip silently
+            }
+
+            new PatchNotesWindow(baseVer, notes).Show();
+        }
+        catch
+        {
+            // a "what's new" popup must never disturb startup
+        }
+    }
+
+    /// <summary>The bundled RELEASE_NOTES.md text (embedded resource), or "" if unavailable.</summary>
+    private static string LoadEmbeddedReleaseNotes()
+    {
+        try
+        {
+            using Stream? stream = System.Reflection.Assembly.GetExecutingAssembly()
+                .GetManifestResourceStream("RELEASE_NOTES.md");
+            if (stream == null)
+            {
+                return "";
+            }
+
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
     private void ShowShugoAlarm(int lead)
     {
         if (_alarmToast is null || _alarmToastVm is null)

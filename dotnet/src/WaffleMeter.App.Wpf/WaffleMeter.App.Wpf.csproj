@@ -23,7 +23,7 @@
          WinForms "configure DPI via API" advisory. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <!-- Version: CI passes WaffleVersion=x.y.z (vpk packVersion must match it). v2.0 = native WPF rewrite. -->
-    <WaffleVersion Condition="'$(WaffleVersion)' == ''">2.7.5-dev</WaffleVersion>
+    <WaffleVersion Condition="'$(WaffleVersion)' == ''">2.7.6-dev</WaffleVersion>
     <Version>$(WaffleVersion)</Version>
     <InformationalVersion>$(WaffleVersion)</InformationalVersion>
   </PropertyGroup>
@@ -41,6 +41,15 @@
          still generated for the App partial class and is called explicitly from Program.Main. -->
     <ApplicationDefinition Remove="App.xaml" />
     <Page Include="App.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Patch-note history, embedded so the one-time post-update popup can show the current version's section
+         offline (read via GetManifestResourceStream("RELEASE_NOTES.md")). The release process prepends each
+         version's "# 패치노트 vX.Y.Z" block to this file, so the running build always carries its own notes. -->
+    <EmbeddedResource Include="..\..\..\RELEASE_NOTES.md">
+      <LogicalName>RELEASE_NOTES.md</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

@@ -88,6 +88,19 @@ public sealed class DpsCalculator
         }
 
         long floor = _cachedBattleStartToggle > 0L ? _cachedBattleStartToggle - StartBackdateLimitMs : 0L;
+
+        // The floor may only TRIM pre-toggle openers (the capture admits ~PreemptivePacketWindowMs of them),
+        // never AMPUTATE the battle. On the end-of-battle full-ring rebuild the toggle snapshot can be a LATE
+        // re-toggle (a corpse/phase restart overwrote CurrentBattleStart), and letting that floor bind collapsed a
+        // whole fight's window to [lateToggle-250ms, lastHit] while Amount kept the full fight — the 191M-DPS
+        // uploads of 2026-07-17. A legitimate opener floor sits at most ~750ms above the first counted hit, so a
+        // floor beyond first-hit + the preemptive window can only mean the toggle does not belong to this window's
+        // start: ignore it.
+        if (floor > _cachedBattleStart + PreemptivePacketWindowMs)
+        {
+            return _cachedBattleStart;
+        }
+
         return Math.Max(_cachedBattleStart, floor);
     }
 

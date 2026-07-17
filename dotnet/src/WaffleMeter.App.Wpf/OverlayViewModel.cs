@@ -252,6 +252,14 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     /// against the last report).</summary>
     public void SetRoster(IReadOnlyList<User> roster) => _roster = roster;
 
+    private IReadOnlyList<User> _authoritativeParty = [];
+
+    /// <summary>App supplies the AUTHORITATIVE (0x9702-only) party each tick — distinct from <see cref="_roster"/>,
+    /// which also folds in recent boss-combat contributors (at a field boss those are the zerg). Used solely as
+    /// the party-context guard for lost-executor recovery in <see cref="OverlayRowBuilder"/>: a NAMED damager not
+    /// in this party marks a public zerg, where a strong stranger must not be relabeled 본인.</summary>
+    public void SetAuthoritativeParty(IReadOnlyList<User> party) => _authoritativeParty = party;
+
     /// <summary>App calls this each tick from StatsBuilder.OwnCharacter() so the indicator appears the
     /// moment the own character is recognized (and names it when known). <paramref name="selfId"/> is the
     /// recognized 본인 uid, used to keep the self row on the "내 캐릭터" color in 직업 강조 mode.</summary>
@@ -388,7 +396,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         IReadOnlyList<OverlayRowBuilder.Row> display = OverlayRowBuilder.Build(
             report, _roster, _selfId, total, _settings.ShowPreCombatRoster, out bool hasCombatRows,
             topN: _settings.EffectiveMaxVisibleRows,
-            selfNickname: _selfNickname, selfServer: _selfServer, selfJob: _selfJob, selfPower: _selfPower);
+            selfNickname: _selfNickname, selfServer: _selfServer, selfJob: _selfJob, selfPower: _selfPower,
+            authoritativeParty: _authoritativeParty);
 
         double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);
 

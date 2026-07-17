@@ -251,4 +251,56 @@ public sealed class OverlayRowBuilderTests
         Assert.Equal(2, rows.Count);
         Assert.DoesNotContain(rows, r => r.Uid == 4162);
     }
+
+    private static IReadOnlyList<OverlayRowBuilder.Row> BuildWithSelfAndParty(DpsReport report, IReadOnlyList<User> party) =>
+        OverlayRowBuilder.Build(report, [], liveSelfId: 15482, useTotalDamage: true, showPreCombatRoster: false, out _,
+            selfNickname: "하아앙", selfServer: 2003, selfJob: JobClass.GLADIATOR, selfPower: 0, authoritativeParty: party);
+
+    [Fact]
+    public void No_recovery_at_a_field_boss_where_named_damagers_are_outsiders()
+    {
+        // 본인(15482) is idle at a PUBLIC field boss: a bare same-job major (4162) is a STRANGER, and the named
+        // damagers (다즈비/설핏) are zerg outsiders NOT in the authoritative party. Party-context guard (6) must
+        // suppress — else a random strong stranger is relabeled 본인 (the field-boss "my DPS" bug).
+        DpsReport report = LostExecutorReport(JobClass.GLADIATOR, bareAmount: 4000);
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelfAndParty(report, party: []); // solo: no party
+
+        Assert.Equal(2, rows.Count);                       // only the two named strangers
+        Assert.DoesNotContain(rows, r => r.Uid == 4162);   // the stranger is NOT relabeled 본인
+        Assert.DoesNotContain(rows, r => r.IsSelf);
+    }
+
+    [Fact]
+    public void Recovery_still_fires_in_a_party_dungeon_when_named_damagers_are_party_members()
+    {
+        // Identical shape, but the named damagers ARE the authoritative (0x9702) party — a genuine dungeon
+        // re-instance. Guard (6) must NOT block the legit recovery (no side effect on the real use case).
+        DpsReport report = LostExecutorReport(JobClass.GLADIATOR, bareAmount: 4000);
+        var party = new[] { new User(101, "다즈비", 1005), new User(102, "설핏", 1001) };
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelfAndParty(report, party);
+
+        OverlayRowBuilder.Row self = Assert.Single(rows.Where(r => r.Uid == 4162));
+        Assert.True(self.IsSelf);
+        Assert.Equal("하아앙", self.User!.Nickname);
+        Assert.Equal(3, rows.Count);
+    }
+
+    [Fact]
+    public void Recovery_still_fires_solo_when_there_is_no_other_named_damager()
+    {
+        // Solo dungeon re-instance: the ONLY damager is 본인's bare new id. No named outsider exists, so guard (6)
+        // is vacuously satisfied even with an empty authoritative party → recovery runs (no side effect on solo).
+        var report = new DpsReport { ExecutorId = 15482 };
+        report.Contributors.Add(new User(4162) { Job = JobClass.GLADIATOR });
+        report.Information[4162] = new DpsInformation(4000, 400, 100, 20);
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelfAndParty(report, party: []);
+
+        OverlayRowBuilder.Row self = Assert.Single(rows);
+        Assert.Equal(4162, self.Uid);
+        Assert.True(self.IsSelf);
+        Assert.Equal("하아앙", self.User!.Nickname);
+    }
 }

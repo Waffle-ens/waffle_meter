@@ -102,4 +102,73 @@ public sealed class DpsCalculatorRepullDpsTests
         Assert.Equal(6000.0, ended.Information[Dealer].Amount, 3);   // opener NOT dropped — all 3 counted
         Assert.Equal(toggle - 250, ended.BattleStart);              // capped to 250ms, not the opener's 800ms
     }
+
+    [Fact]
+    public void A_spurious_late_toggle_does_not_amputate_the_battle_window()
+    {
+        // Reproduces the 191M-DPS contamination (2026-07-17): a corpse/phase re-toggle re-stamps
+        // CurrentBattleStart LATE relative to the accumulated damage. The end-of-battle full-ring rebuild
+        // admits that early damage (before=0L, no cutoff), so the toggle-derived floor sits far
+        // (> PreemptivePacketWindowMs) after the first hit. Letting that floor bind collapsed the window to
+        // [floor, lastHit] while Amount kept the full fight -> dps exploded. StartAnchor must fall back to the
+        // first-damage timestamp. Here the toggle is 2s AFTER the first counted hit (same structure as the bug).
+        (DataManager dm, DpsCalculator calc, long[] clock) = Boss();
+        dm.MobHp(Instance, 5000);
+        long toggle = clock[0];
+        dm.StartBattle(Instance);            // CurrentBattleStart (the late/spurious toggle) = toggle
+
+        long firstHit = toggle - 2_000;      // first counted hit is 2s BEFORE the toggle (> the 1s admit window)
+        Hit(dm, firstHit + 0, 2000);
+        Hit(dm, firstHit + 1_000, 2000);
+        Hit(dm, firstHit + 2_000, 2000);     // == toggle
+        Hit(dm, firstHit + 3_000, 2000);
+        calc.GetDps();                       // a live tick so the end path has a previousTarget to rebuild
+
+        clock[0] = toggle + 2_000;
+        dm.EndBattle(Instance);
+        DpsReport ended = calc.GetDps();     // end path re-accumulates the WHOLE ring (before=0L, no cutoff)
+
+        Assert.Equal(8000.0, ended.Information[Dealer].Amount, 3);   // full fight retained
+        Assert.Equal(firstHit, ended.BattleStart);                  // pre-fix this was toggle-250 (window amputated)
+        // window = firstHit..lastHit = 3000ms; pre-fix it collapsed to (lastHit - (toggle-250)) = 1250ms
+        Assert.True(ended.BattleEnd - ended.BattleStart >= 2_500);
+    }
+
+    [Fact]
+    public void A_corpse_toggle_after_the_kill_does_not_spawn_a_second_collapsed_battle()
+    {
+        // Integration reproduction of the split. One kill must produce ONE saved battle. Pre-fix, when the residual
+        // corpse toggle arrived BETWEEN the end toggle and the next GetDps tick (so -1 never propagated and the ring
+        // was never flushed), its boss HP was UNTRACKED (null, not 0), it leaked past the corpse-guard, re-stamped
+        // CurrentBattleStart at the kill, and the meter emitted the real fight PLUS a second, window-collapsed
+        // battle from the full-ring rebuild — the split + 191M-DPS upload. HP is left untracked to hit the null path.
+        (DataManager dm, DpsCalculator calc, long[] clock) = Boss();
+        var saved = new List<DpsLog>();
+        calc.OnBattleLogged = saved.Add;
+
+        long toggle = clock[0];
+        dm.StartBattle(Instance);
+        Hit(dm, toggle + 1_000, 3000);
+        Hit(dm, toggle + 2_000, 3000);
+        calc.GetDps();                       // live tick: target=Instance, ring holds the fight
+
+        // Kill toggle and the residual corpse toggle both land before the next GetDps (the real timing window).
+        clock[0] = toggle + 3_000;
+        dm.EndBattle(Instance);              // kill (HP stays untracked/null) — NO GetDps yet
+        clock[0] = toggle + 3_100;
+        dm.StartBattle(Instance);            // corpse toggle: pre-fix this leaks and re-stamps the start LATE
+        calc.GetDps();                       // pre-fix: "restart" tick saves the real fight, ring NOT flushed
+
+        clock[0] = toggle + 3_200;
+        dm.EndBattle(Instance);              // the ghost battle ends
+        calc.GetDps();                       // pre-fix: full-ring rebuild w/ late toggle -> 2nd collapsed save
+
+        OverlayAssertSingleNormalWindow(saved);
+    }
+
+    private static void OverlayAssertSingleNormalWindow(List<DpsLog> saved)
+    {
+        Assert.Single(saved);                                             // exactly one battle (no split)
+        Assert.True(saved[0].Report.BattleEnd - saved[0].Report.BattleStart >= 1_000); // real window, not ~250ms
+    }
 }
