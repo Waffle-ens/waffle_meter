@@ -59,17 +59,28 @@ public sealed class HotkeyHandler : IDisposable
     private const int ResetId = 1;
     private const int VisibilityId = 2;
     private const int ClickThroughId = 3;
+    private const int DummyToggleId = 4;
+    private const int DummyResetId = 5;
 
-    // A held global hotkey auto-repeats: Windows posts WM_HOTKEY at the keyboard repeat rate while the combo
-    // stays down. For a TOGGLE action (Ctrl+H visibility) an even-count repeat burst cancels itself out and
-    // leaves the overlay in the wrong state — the "hide, then the same key won't bring it back" report.
-    // Collapse a burst into a single action: fire only on the leading edge, ignoring further WM_HOTKEY for
-    // the same id until that id's stream has been quiet for this long (a fresh press past the gap fires again).
-    private const long HotkeyRepeatSuppressMs = 400;
+    // A held global hotkey auto-repeats: while the combo stays down Windows posts WM_HOTKEY at the keyboard
+    // repeat RATE (up to ~30/s, i.e. ~33ms apart), and there is no key-up message to mark the release. Collapse
+    // that repeat STREAM into a single action: fire on the leading edge, then ignore further WM_HOTKEY for the
+    // same id while they keep arriving within this window (the timestamp is refreshed on EVERY message below, so
+    // a continuous stream keeps extending the quiet window and never re-fires).
+    // The window must be LONGER than the fastest auto-repeat interval (~33ms) yet SHORTER than a deliberate
+    // re-tap, or it swallows the user's real second press. The original 400ms was far too long: hiding with
+    // Ctrl+H then pressing again within 400ms to show was suppressed as if it were auto-repeat, so the overlay
+    // stayed hidden ("숨긴 뒤 다시 눌러도 안 나옴"). 60ms clears the 33ms stream with margin while passing every
+    // deliberate tap. Toggle parity is no longer the guard's job — ToggleVisibility keys off the window's real
+    // parked state, so any press that DOES fire is self-correcting (that removed the even/odd-cancel motive for
+    // the long window).
+    internal const long HotkeyRepeatSuppressMs = 60;
 
     private const string KeyReset = "hotkey";
     private const string KeyVisibility = "hideHotkey";
     private const string KeyClickThrough = "clickThroughHotkey";
+    private const string KeyDummyToggle = "dummyToggleHotkey";
+    private const string KeyDummyReset = "dummyResetHotkey";
 
     // Persisted marker for an explicitly-unassigned hotkey. Distinct from "property never set" (→ default)
     // and from a corrupt/unparseable value (→ default): an unassigned combo registers no global hotkey.
@@ -83,6 +94,8 @@ public sealed class HotkeyHandler : IDisposable
     private volatile HotkeyCombo? _reset;
     private volatile HotkeyCombo? _visibility;
     private volatile HotkeyCombo? _clickThrough;
+    private volatile HotkeyCombo? _dummyToggle;
+    private volatile HotkeyCombo? _dummyReset;
     private Thread? _listener;
     private volatile bool _running;
     private readonly Dictionary<int, long> _lastHotkeyTick = new(); // per-id leading-edge debounce; listener-thread-only
@@ -90,6 +103,8 @@ public sealed class HotkeyHandler : IDisposable
     public Action? OnReset { get; set; }
     public Action? OnVisibility { get; set; }
     public Action? OnClickThrough { get; set; }
+    public Action? OnDummyToggle { get; set; }
+    public Action? OnDummyReset { get; set; }
 
     public HotkeyHandler(PropertyHandler props)
     {
@@ -97,16 +112,22 @@ public sealed class HotkeyHandler : IDisposable
         _reset = Load(KeyReset, DefaultReset);
         _visibility = Load(KeyVisibility, DefaultVisibility);
         _clickThrough = Load(KeyClickThrough, DefaultClickThrough);
+        _dummyToggle = LoadOptional(KeyDummyToggle); // 허수아비 hotkeys ship UNASSIGNED — user opts in via the tab
+        _dummyReset = LoadOptional(KeyDummyReset);
     }
 
     public HotkeyCombo? Reset => _reset;
     public HotkeyCombo? Visibility => _visibility;
     public HotkeyCombo? ClickThrough => _clickThrough;
+    public HotkeyCombo? DummyToggle => _dummyToggle;
+    public HotkeyCombo? DummyReset => _dummyReset;
 
     /// <summary>Set (or with <c>null</c>, unassign) the reset hotkey; persists and re-registers live.</summary>
     public void SetReset(HotkeyCombo? combo) => Update(v => _reset = v, KeyReset, combo);
     public void SetVisibility(HotkeyCombo? combo) => Update(v => _visibility = v, KeyVisibility, combo);
     public void SetClickThrough(HotkeyCombo? combo) => Update(v => _clickThrough = v, KeyClickThrough, combo);
+    public void SetDummyToggle(HotkeyCombo? combo) => Update(v => _dummyToggle = v, KeyDummyToggle, combo);
+    public void SetDummyReset(HotkeyCombo? combo) => Update(v => _dummyReset = v, KeyDummyReset, combo);
 
     private void Update(Action<HotkeyCombo?> assign, string key, HotkeyCombo? value)
     {
@@ -133,6 +154,15 @@ public sealed class HotkeyHandler : IDisposable
         }
 
         return HotkeyCombo.TryParse(raw) ?? fallback;
+    }
+
+    /// <summary>Load a hotkey that ships UNASSIGNED: never-set OR the "none" marker OR a corrupt value all yield
+    /// null (no global hotkey); only a valid persisted combo registers. Unlike <see cref="Load"/> there is no
+    /// default combo to fall back to.</summary>
+    private HotkeyCombo? LoadOptional(string key)
+    {
+        string? raw = _props.GetProperty(key);
+        return raw == null || raw == NoneSentinel ? null : HotkeyCombo.TryParse(raw);
     }
 
     public void Start()
@@ -169,6 +199,16 @@ public sealed class HotkeyHandler : IDisposable
             RegisterHotKey(IntPtr.Zero, ClickThroughId, (uint)c.Modifiers, (uint)c.VkCode);
         }
 
+        if (_dummyToggle is { } dt)
+        {
+            RegisterHotKey(IntPtr.Zero, DummyToggleId, (uint)dt.Modifiers, (uint)dt.VkCode);
+        }
+
+        if (_dummyReset is { } dr)
+        {
+            RegisterHotKey(IntPtr.Zero, DummyResetId, (uint)dr.Modifiers, (uint)dr.VkCode);
+        }
+
         try
         {
             while (_running)
@@ -188,6 +228,12 @@ public sealed class HotkeyHandler : IDisposable
                             case ClickThroughId:
                                 OnClickThrough?.Invoke();
                                 break;
+                            case DummyToggleId:
+                                OnDummyToggle?.Invoke();
+                                break;
+                            case DummyResetId:
+                                OnDummyReset?.Invoke();
+                                break;
                         }
                     }
                 }
@@ -202,6 +248,8 @@ public sealed class HotkeyHandler : IDisposable
             UnregisterHotKey(IntPtr.Zero, ResetId);
             UnregisterHotKey(IntPtr.Zero, VisibilityId);
             UnregisterHotKey(IntPtr.Zero, ClickThroughId);
+            UnregisterHotKey(IntPtr.Zero, DummyToggleId);
+            UnregisterHotKey(IntPtr.Zero, DummyResetId);
         }
     }
 
@@ -212,10 +260,17 @@ public sealed class HotkeyHandler : IDisposable
     private bool PassesRepeatGuard(int id)
     {
         long now = Environment.TickCount64;
-        bool fire = !_lastHotkeyTick.TryGetValue(id, out long last) || now - last >= HotkeyRepeatSuppressMs;
-        _lastHotkeyTick[id] = now;
+        bool fire = ShouldFire(_lastHotkeyTick.TryGetValue(id, out long last), last, now);
+        _lastHotkeyTick[id] = now; // unconditional (incl. suppressed presses): a held auto-repeat stream keeps
+                                   // extending the quiet window so the whole burst collapses to one action
         return fire;
     }
+
+    /// <summary>Pure leading-edge decision, split out so the timing can be unit-tested without a real clock:
+    /// fire on the first press for an id, and on any later press whose gap since the previous WM_HOTKEY is at
+    /// least <see cref="HotkeyRepeatSuppressMs"/>; a shorter gap is treated as OS auto-repeat and suppressed.</summary>
+    internal static bool ShouldFire(bool hasPrevious, long previousTick, long nowTick) =>
+        !hasPrevious || nowTick - previousTick >= HotkeyRepeatSuppressMs;
 
     public void Stop()
     {

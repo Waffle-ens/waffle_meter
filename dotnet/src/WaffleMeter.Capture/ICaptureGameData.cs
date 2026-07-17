@@ -36,7 +36,6 @@ public interface ICaptureGameData
     void SaveMobHp(int instanceId, int hp);
     void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId);
     void RequestOfficialCharacterLookup(int uid);
-    void TouchDummyBattle(int target, long epoch);
 
     /// <summary>Skill cooldown update: <paramref name="remainingMs"/> ms left on <paramref name="skillCode"/>'s
     /// cooldown (0 = ready) as of <paramref name="arrivedAt"/> (capture wall-clock ms). <paramref name="actorId"/>
@@ -86,7 +85,6 @@ public sealed class NullCaptureGameData : ICaptureGameData
     public void SaveMobHp(int instanceId, int hp) { }
     public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) { }
     public void RequestOfficialCharacterLookup(int uid) { }
-    public void TouchDummyBattle(int target, long epoch) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
     public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
     public void SaveShugoKey(bool split, int baseVal, int bonus, int total) { }

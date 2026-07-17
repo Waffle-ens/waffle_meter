@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Markup;
 using System.Windows.Media;
 
 namespace WaffleMeter.App.Wpf;
@@ -78,10 +80,111 @@ public static class FontResolver
         }
         catch
         {
+            // fall through
+        }
+
+        try
+        {
+            // User-added fonts (a .ttf/.otf dropped into the fonts folder via 설정 › 커스텀 폰트 추가): loaded
+            // straight from disk by their internal family name — no system install, no restart.
+            if (Directory.Exists(UserFontsDir()))
+            {
+                var user = new FontFamily(UserFontsBaseUri(), $"./#{name}");
+                if (user.GetTypefaces().Count > 0)
+                {
+                    return user;
+                }
+            }
+        }
+        catch
+        {
             // fall through to system lookup
         }
 
         return new FontFamily($"{name}, Malgun Gothic, Segoe UI");
+    }
+
+    /// <summary>The folder user-added fonts are copied into (next to settings.properties).</summary>
+    public static string UserFontsDir()
+    {
+        string appData = Environment.GetEnvironmentVariable("APPDATA")
+                         ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return Path.Combine(appData, "waffle_meter.v1.4", "fonts");
+    }
+
+    private static Uri UserFontsBaseUri()
+    {
+        string dir = UserFontsDir();
+        return new Uri(dir.EndsWith(Path.DirectorySeparatorChar) ? dir : dir + Path.DirectorySeparatorChar);
+    }
+
+    /// <summary>Internal family names of every user-added font, for the settings font dropdown. Empty if none.</summary>
+    public static IReadOnlyList<string> EnumerateUserFontFamilies()
+    {
+        var names = new List<string>();
+        try
+        {
+            if (Directory.Exists(UserFontsDir()))
+            {
+                foreach (FontFamily fam in Fonts.GetFontFamilies(UserFontsBaseUri()))
+                {
+                    string? n = BestFamilyName(fam);
+                    if (!string.IsNullOrWhiteSpace(n) && !names.Contains(n))
+                    {
+                        names.Add(n);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // a bad file in the folder must never break the settings list
+        }
+
+        return names;
+    }
+
+    /// <summary>Copy a picked .ttf/.otf into the user fonts folder and return its primary family name (the value
+    /// the settings store + <see cref="Resolve"/> match on), or null if the file can't be read as a font.</summary>
+    public static string? InstallUserFont(string sourcePath)
+    {
+        try
+        {
+            string dir = UserFontsDir();
+            Directory.CreateDirectory(dir);
+            string dest = Path.Combine(dir, Path.GetFileName(sourcePath));
+            File.Copy(sourcePath, dest, overwrite: true); // re-adding the same file is idempotent
+            foreach (FontFamily fam in Fonts.GetFontFamilies(new Uri(dest))) // families in the copied file
+            {
+                string? n = BestFamilyName(fam);
+                if (!string.IsNullOrWhiteSpace(n))
+                {
+                    return n;
+                }
+            }
+        }
+        catch
+        {
+            // unreadable / not a font / copy failed
+        }
+
+        return null;
+    }
+
+    private static string? BestFamilyName(FontFamily fam)
+    {
+        LanguageSpecificStringDictionary names = fam.FamilyNames;
+        if (names.TryGetValue(XmlLanguage.GetLanguage("en-us"), out string? en) && !string.IsNullOrWhiteSpace(en))
+        {
+            return en;
+        }
+
+        foreach (string v in names.Values)
+        {
+            return v; // any localized family name resolves via WPF's "#name" match
+        }
+
+        return null;
     }
 }
 

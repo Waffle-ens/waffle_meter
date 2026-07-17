@@ -55,6 +55,7 @@ public partial class OverlayWindow : Window
     /// the battle-history panel.</summary>
     public event Action? ResetRequested;
     public event Action? TaskbarToggleRequested;
+    public event Action? DummyTestToggleRequested;
     public event Action? HistoryRequested;
     public event Action? ThemeRequested;
     public event Action? JoinRequested;
@@ -189,6 +190,10 @@ public partial class OverlayWindow : Window
         SyncInputStyle();
         if (_handle != IntPtr.Zero && wasFaded)
         {
+            ReapplyTopmostIfBitLost(); // the HWND can lose WS_EX_TOPMOST while faded; if so, the `Topmost = true`
+                                       // above is a WPF no-op (the property never changed) and the raw reclaim
+                                       // below is silently reverted — toggle the property first to force WPF to
+                                       // re-apply the native bit (else the overlay returns opaque but BURIED).
             ForceTopmost(); // returning from faded — re-claim the top of z-order once
         }
     }
@@ -230,7 +235,27 @@ public partial class OverlayWindow : Window
             return; // faded = invisible; Present() re-claims the top of z-order on the unfade transition
         }
 
+        ReapplyTopmostIfBitLost(); // recover a WPF-Topmost desync (bit lost while the DP still reads true) that
+                                   // the raw buried-only reassert alone cannot fix; no-op unless the bit is lost
         _reasserter.ReassertIfBuried(_handle);
+    }
+
+    /// <summary>WPF Topmost-desync repair (mirrors <see cref="OverlayPanelWindow"/>, the fix that stopped the
+    /// buff overlay falling behind the game): when the HWND has LOST WS_EX_TOPMOST while WPF's managed Topmost
+    /// property still reads true, WPF will NOT re-apply the native bit (it sees no change) and a raw
+    /// SetWindowPos(HWND_TOPMOST) is silently reverted — leaving the overlay opaque but buried behind a
+    /// borderless-fullscreen game. Toggling the property false→true forces WPF to re-issue the native call.
+    /// The two sets run synchronously with no message pump between them (Opacity is already 1), so there is no
+    /// visible non-topmost frame; and it only fires when the bit is actually lost, so steady state does nothing.</summary>
+    private void ReapplyTopmostIfBitLost()
+    {
+        if (_handle == IntPtr.Zero || OverlayZOrder.HasTopmostBit(_handle))
+        {
+            return;
+        }
+
+        Topmost = false;
+        Topmost = true;
     }
 
     /// <summary>Unconditional re-claim of the top of the z-order (used on the parked → shown transition,
@@ -264,6 +289,8 @@ public partial class OverlayWindow : Window
     private void OnResetButton(object sender, RoutedEventArgs e) => ResetRequested?.Invoke();
 
     private void OnTaskbarButton(object sender, RoutedEventArgs e) => TaskbarToggleRequested?.Invoke();
+
+    private void OnDummyTestButton(object sender, RoutedEventArgs e) => DummyTestToggleRequested?.Invoke();
 
     private void OnHistoryButton(object sender, RoutedEventArgs e) => HistoryRequested?.Invoke();
 

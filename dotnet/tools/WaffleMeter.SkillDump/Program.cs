@@ -220,7 +220,6 @@ sealed class Spy(DataManager dm) : IStreamProcessorSink, ICaptureGameData
     public readonly List<(int Skill, long Remaining, long At)> Cooldowns = new();
     public void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId) => Cooldowns.Add((skillCode, remainingMs, arrivedAt));
     public void RequestOfficialCharacterLookup(int uid) { }
-    public void TouchDummyBattle(int target, long epoch) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
     public readonly List<(bool Split, int Base, int Bonus, int Total)> Aethers = new();
     public readonly List<(bool Split, int Base, int Bonus, int Total)> ShugoKeys = new();

@@ -197,7 +197,9 @@ public sealed class OverlayController
         // early-returns on !IsVisible so it can't repair a bool the hotkey left out of step — keying off the
         // window's real park state makes one press always do the visible-correct thing, so Ctrl+H can't get
         // stuck "hidden" (the reported "hide, then the same key won't bring it back" bug).
-        if (_window.DiagParked)
+        bool parked = _window.DiagParked;
+        LogToggle(parked ? "SHOW" : "HIDE");
+        if (parked)
         {
             ShowFromTray();
         }
@@ -429,6 +431,31 @@ public sealed class OverlayController
         catch
         {
             // diagnostics must never disturb the poll
+        }
+    }
+
+    // Discrete per-press trace of the visibility toggle (Ctrl+H / tray), appended — NOT de-duplicated — to the
+    // same overlay-diag.log. This bug is hard to reproduce on a dev box, so record every toggle with its
+    // pre-state to pin the cause in the wild: a HIDE line with NO following SHOW means the second press never
+    // reached here (the hotkey repeat-guard swallowed it); a SHOW line followed by poll lines showing
+    // parked=false with topmost=false means the overlay returned opaque but buried (a WPF-Topmost desync).
+    // Never throws into the toggle path.
+    private void LogToggle(string branch)
+    {
+        try
+        {
+            File.AppendAllText(
+                DiagLogPath(),
+                DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)
+                + string.Format(
+                    CultureInfo.InvariantCulture,
+                    " TOGGLE branch={0} faded={1} isVisible={2} topmost={3} autoHide={4}",
+                    branch, _window.DiagParked, IsVisible, _window.DiagTopmost, IsAutoHide)
+                + Environment.NewLine);
+        }
+        catch
+        {
+            // diagnostics must never disturb the toggle
         }
     }
 

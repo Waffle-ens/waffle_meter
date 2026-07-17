@@ -55,6 +55,14 @@ public sealed class DataManager : ICaptureGameData
     // MobHp). At = when it was suppressed, so a stale pending can't fire a spurious battle much later.
     private (int MobId, int? MobCode, long At)? _pendingStart;
     private long _lastDummyHitTime;
+    // Training-dummy (허수아비) test mode. Written by the UI / hotkey thread, read by the consumer thread —
+    // volatile is enough (a one-tick staleness is harmless). When OFF, a dummy hit never starts/continues a
+    // battle so the meter shows NO combat for it; when ON, a dummy hit drives a live battle exactly like a boss
+    // until the chosen duration elapses, at which point _dummyCutoff latches and further hits are ignored until
+    // a reset clears it. Mode + duration survive resets; only the cutoff latch is cleared.
+    private volatile bool _dummyTestMode;
+    private volatile int _dummyDurationSec = 60;
+    private bool _dummyCutoff; // consumer-thread only: latched once the duration hard cut has fired
     private readonly Dictionary<int, long> _officialLookupAttempts = new();
     // Latest full party/raid roster snapshot (0x9702 packet): each member's (nickname, server) + when it
     // arrived. Matched to known uids on demand for the pre-combat party preview (see PartyRoster).
@@ -72,6 +80,16 @@ public sealed class DataManager : ICaptureGameData
 
     public long CurrentEpoch() => _resetEpoch;
     public long CurrentBattleRevision() => _battleRevision;
+
+    /// <summary>허수아비 test mode: when on, hitting a training dummy (<see cref="Mob.IsDummy"/>) drives a live
+    /// battle; when off, dummy hits register no combat. Set live from the UI/hotkey; read on the consumer thread.</summary>
+    public bool DummyTestMode { get => _dummyTestMode; set => _dummyTestMode = value; }
+
+    /// <summary>Dummy test run length in seconds; the live battle is hard-cut at this duration. Clamped to &gt; 0
+    /// (falls back to 60s).</summary>
+    public int DummyDurationSec { get => _dummyDurationSec; set => _dummyDurationSec = value > 0 ? value : 60; }
+
+    private long DummyDurationMs => Math.Max(1, _dummyDurationSec) * 1000L;
 
     // ---- reference catalogs ----
 
@@ -1056,6 +1074,14 @@ public sealed class DataManager : ICaptureGameData
     public void SaveDamage(ParsedDamagePacket pdp, long epoch)
     {
         if (_resetEpoch != epoch) return;
+        // Training-dummy test mode: a hit on a dummy drives (and is gated by) the dummy battle machine. Drop it —
+        // never record — when test mode is off or the duration cut has fired, so an idle/finished dummy shows no
+        // combat and post-cut damage can't inflate the frozen result. Non-dummy targets take the plain path.
+        if (pdp.TargetId > 0 && IsMobDummy(pdp.TargetId) && !AcceptDummyHit(pdp.TargetId))
+        {
+            return;
+        }
+
         _packetRepository.Save(pdp);
     }
 
@@ -1068,37 +1094,84 @@ public sealed class DataManager : ICaptureGameData
     private void SaveCurrentBattleStart() => _packetRepository.SaveCurrentBattleStart(Clock());
     private void SaveCurrentBattleEnd(long time) => _packetRepository.SaveCurrentBattleEnd(time);
 
-    public bool IsCurrentTargetDummy()
+    public bool IsMobDummy(int mobId)
     {
-        int current = CurrentTarget();
-        if (current <= 0) return false;
-        int? mobCode = GetMobId(current);
+        if (mobId <= 0) return false;
+        int? mobCode = GetMobId(mobId);
         return mobCode != null && Mob(mobCode.Value)?.IsDummy == true;
     }
 
-    public void TouchDummyBattle(int mobId, long epoch)
+    public bool IsCurrentTargetDummy() => IsMobDummy(CurrentTarget());
+
+    /// <summary>Decide whether a damage packet against a training dummy should be RECORDED (and drive the live
+    /// dummy battle). Called from <see cref="SaveDamage"/> on the consumer thread. Returns false — so the packet
+    /// is dropped and never counted — when the dummy test mode is off, or the chosen duration has elapsed (the
+    /// hard cut). The first accepted hit opens the battle window; a hit at/after the duration ends the run and
+    /// latches <see cref="_dummyCutoff"/> so every later hit is ignored until a reset clears it.</summary>
+    private bool AcceptDummyHit(int mobId)
     {
-        if (_resetEpoch != epoch) return;
-        _lastDummyHitTime = Clock();
+        if (!_dummyTestMode || _dummyCutoff) return false;
+
+        long now = Clock();
         if (CurrentTarget() <= 0)
         {
+            _battleRevision++; // a fresh battle id, so DpsCalculator resets its per-battle cache/sequence
             SaveCurrentBattleStart();
             SaveCurrentTarget(mobId);
+            _lastDummyHitTime = now;
+            return true;
         }
+
+        long start = CurrentBattleStart();
+        if (start > 0 && now - start >= DummyDurationMs)
+        {
+            SaveCurrentBattleEnd(start + DummyDurationMs); // freeze the run at exactly the chosen duration
+            SaveCurrentTarget(-1);
+            _dummyCutoff = true;
+            return false; // this hit is past the cut — drop it too
+        }
+
+        _lastDummyHitTime = now;
+        return true;
     }
 
-    public void CheckDummyTimeout()
+    /// <summary>Per-report-tick maintenance of a live dummy battle (called at the top of
+    /// <see cref="DpsCalculator.GetDps"/>). Enforces the duration hard cut even when hits pause, ends the run
+    /// promptly if test mode is switched off mid-run, and keeps the original 5s idle auto-end.</summary>
+    public void TickDummyBattle()
     {
         int current = CurrentTarget();
-        if (current <= 0) return;
-        if (!IsCurrentTargetDummy()) return;
-        if (Clock() - _lastDummyHitTime > DummyTimeoutMs)
+        if (current <= 0 || !IsCurrentTargetDummy()) return;
+
+        long now = Clock();
+        if (!_dummyTestMode)
+        {
+            SaveCurrentBattleEnd(now); // mode turned off mid-run — end now (no cutoff latch; re-enabling starts fresh)
+            SaveCurrentTarget(-1);
+            _lastDummyHitTime = 0;
+            return;
+        }
+
+        long start = CurrentBattleStart();
+        if (start > 0 && now - start >= DummyDurationMs)
+        {
+            SaveCurrentBattleEnd(start + DummyDurationMs);
+            SaveCurrentTarget(-1);
+            _dummyCutoff = true;
+            return;
+        }
+
+        if (now - _lastDummyHitTime > DummyTimeoutMs)
         {
             SaveCurrentBattleEnd(_lastDummyHitTime);
             SaveCurrentTarget(-1);
             _lastDummyHitTime = 0;
         }
     }
+
+    /// <summary>Clear the duration hard-cut latch so the next dummy hit opens a fresh window (used by the dummy
+    /// DPS reset and the full/soft resets). The mode and chosen duration are intentionally NOT touched here.</summary>
+    public void ResetDummyCutoff() => _dummyCutoff = false;
 
     public void StartBattle(int mobId)
     {
@@ -1212,6 +1285,7 @@ public sealed class DataManager : ICaptureGameData
         _activeBattleMobCode = null;
         _pendingStart = null;
         _lastDummyHitTime = 0;
+        _dummyCutoff = false; // full wipe re-arms the dummy test window (mode/duration are preserved)
         _partyRoster.Clear();
         _partyRosterAtMs = 0;
         ClearAetherStatus();
@@ -1239,6 +1313,7 @@ public sealed class DataManager : ICaptureGameData
         _activeBattleMobCode = null;
         _pendingStart = null;
         _lastDummyHitTime = 0;
+        _dummyCutoff = false;     // the 초기화 button re-arms the dummy test window (mode/duration are preserved)
         _partyRoster.Clear();     // drop the 0x9702 party snapshot — a stale party (e.g. after leaving the dungeon
         _partyRosterAtMs = 0;     // and returning to town) must not preview on reset; it re-fills on party formation
         // PRESERVE (do NOT flush): _userRepository (recognized chars + executor), _mobIdRepository (boss

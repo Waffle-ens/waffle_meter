@@ -115,6 +115,19 @@
                             Click="OnUpdateButton" ToolTip="{Binding UpdateTooltip}" Visibility="{Binding UpdateReadyVisibility}"/>
                     <Button Style="{StaticResource HeaderIconButton}" Content="&#xE771;" Click="OnThemeButton" ToolTip="테마 변경"/>
                     <Button Style="{StaticResource HeaderIconButton}" Content="&#xE72C;" Click="OnResetButton" ToolTip="전투 초기화"/>
+                    <!-- 허수아비 테스트 토글: accent while ON (bound to the shared MeterSettings flag). -->
+                    <Button Content="&#xE916;" Click="OnDummyTestButton"
+                            ToolTip="허수아비 테스트 모드 — 켜면 허수아비 타격이 전투로 집계됩니다 (설정 › 허수아비)">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource HeaderIconButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Settings.DummyTestMode}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                     <Button Style="{StaticResource HeaderIconButton}" Content="&#xE8A7;" Click="OnTaskbarButton" ToolTip="작업표시줄 / Alt+Tab 모드"/>
                     <Button Style="{StaticResource HeaderIconButton}" Content="&#xE8FA;" Click="OnJoinButton" ToolTip="파티 신청"/>
                     <Button Style="{StaticResource HeaderIconButton}" Content="&#xE81C;" Click="OnHistoryButton" ToolTip="전투 기록"/>
