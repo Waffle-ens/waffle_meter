@@ -88,6 +88,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _aetherPerCharacter = _props.GetProperty("aether.perCharacter") ?? "";
         _dummyTestMode = ReadBool("dummy.testMode", false);
         _dummyDurationSec = ReadInt("dummy.durationSeconds", 60);
+        _patchNotesLastShownVersion = _props.GetProperty("patchNotes.lastShownVersion") ?? "";
     }
 
     private string _displayMode;
@@ -377,6 +378,17 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Dummy test run length in seconds (30/60/90/120/180/300). When it elapses the live battle is
     /// hard-cut so continued hits stop counting until the DPS is reset.</summary>
     public int DummyDurationSec { get => _dummyDurationSec; set => SetInt(ref _dummyDurationSec, "dummy.durationSeconds", value); }
+
+    private string _patchNotesLastShownVersion;
+    /// <summary>The base version (<c>X.Y.Z</c>) whose one-time post-update patch-note popup has already been
+    /// shown. Empty = never (a fresh install / first run with this feature suppresses the very first popup, so it
+    /// only ever fires on a real UPDATE). Set to the running base version once its popup fires, so it never
+    /// re-pops for the same version.</summary>
+    public string PatchNotesLastShownVersion
+    {
+        get => _patchNotesLastShownVersion;
+        set => SetProp(ref _patchNotesLastShownVersion, "patchNotes.lastShownVersion", value);
+    }
 
     /// <summary>Parse a CSV setting into a base-code set.</summary>
     public static HashSet<int> ParseCodeSet(string csv)

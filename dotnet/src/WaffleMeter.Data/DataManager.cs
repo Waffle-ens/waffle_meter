@@ -1181,7 +1181,9 @@ public sealed class DataManager : ICaptureGameData
         if (CurrentTarget() <= 0
             && endedBattle != null
             && endedBattle.Value.MobCode == mobCode
-            && MobHp(mobId) == 0
+            && (MobHp(mobId) ?? 0) == 0 // int? — a despawned corpse loses HP tracking (null); null must count as
+                                        // "corpse", else the guard leaks and a ghost restart re-stamps
+                                        // CurrentBattleStart at the kill (→ split + 191M-DPS upload)
             && now - endedBattle.Value.EndedAt <= EndedBattleStartIgnoreMs)
         {
             // Likely a residual post-kill toggle on the corpse — don't restart now. But remember the intent: if

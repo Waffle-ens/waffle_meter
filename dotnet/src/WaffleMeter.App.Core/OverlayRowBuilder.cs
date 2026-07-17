@@ -50,7 +50,8 @@ public static class OverlayRowBuilder
         string? selfNickname = null,
         int selfServer = 0,
         JobClass? selfJob = null,
-        int selfPower = 0)
+        int selfPower = 0,
+        IReadOnlyList<User>? authoritativeParty = null)
     {
         double Metric(DpsInformation info) => useTotalDamage ? info.Amount : info.Dps;
 
@@ -71,7 +72,12 @@ public static class OverlayRowBuilder
         // skipped fights are untouched: (1) GATE = the recognized executor uid dealt NO damage in this fight
         // (in a normal fight 본인 damages under its registered uid, so this is false and we never get here);
         // (2) the candidate is bare (no 0x3633/0x3645); (3) its own job-locked skills match the known executor
-        // job; (4) it is a MAJOR dealer (≥ SelfRecoveryMinShare of the top); (5) it is the UNIQUE such candidate.
+        // job; (4) it is a MAJOR dealer (≥ SelfRecoveryMinShare of the top); (5) it is the UNIQUE such candidate;
+        // (6) PARTY-CONTEXT: no NAMED damager is a non-party OUTSIDER (see <see cref="HasNamedOutsider"/>). A
+        // re-instance happens in a DUNGEON, where the only players are your party; a NAMED player who is NOT in
+        // your authoritative (0x9702) party proves this is a PUBLIC scene — a field-boss zerg — where 본인 is a
+        // bystander who simply dealt no damage, not a bare re-instance. Without (6), the recovery relabels a
+        // random strong stranger at a field boss as 본인 (the "someone else's field boss shows as my DPS" bug).
         // Done on a display-only copy (no state mutation), recomputed every tick, so it self-corrects the moment
         // the real 본인 id appears.
         int? recoveredUid = null;
@@ -84,7 +90,7 @@ public static class OverlayRowBuilder
                             && e.User?.Job == knownJob
                             && topMetric > 0 && Metric(e.Info) >= topMetric * SelfRecoveryMinShare)
                 .ToList();
-            if (candidates.Count == 1)
+            if (candidates.Count == 1 && !HasNamedOutsider(rawCombat, candidates[0].Uid, selfId, authoritativeParty))
             {
                 recoveredUid = candidates[0].Uid;
             }
@@ -141,5 +147,40 @@ public static class OverlayRowBuilder
         }
 
         return display;
+    }
+
+    /// <summary>Party-context guard for lost-executor recovery (guard 6). Returns true when some NAMED damaging
+    /// contributor — other than the recovery candidate or 본인 — is NOT a member of the authoritative
+    /// (0x9702-only) party, which marks the fight as a PUBLIC scene (field-boss zerg / nearby players) rather
+    /// than a private dungeon party. Matches party membership by uid OR (nickname, server) identity, so a
+    /// re-instanced party member whose new uid hasn't reconciled still counts as party. A solo dungeon (no other
+    /// named damager) and a party dungeon (every named damager is your party) both return false → recovery runs.
+    /// <paramref name="authoritativeParty"/> == null disables the guard (unit tests / callers that don't supply
+    /// it) — the live App always passes the 0x9702 party (never the display roster, which folds in recent combat
+    /// contributors that at a field boss would themselves be the zerg).</summary>
+    private static bool HasNamedOutsider(
+        IReadOnlyList<Row> rawCombat, int candidateUid, int selfId, IReadOnlyList<User>? authoritativeParty)
+    {
+        if (authoritativeParty is null)
+        {
+            return false;
+        }
+
+        var partyUids = new HashSet<int>();
+        var partyIdentities = new HashSet<(string, int)>();
+        foreach (User m in authoritativeParty)
+        {
+            partyUids.Add(m.Id);
+            if (!string.IsNullOrWhiteSpace(m.Nickname))
+            {
+                partyIdentities.Add((m.Nickname!, m.Server));
+            }
+        }
+
+        return rawCombat.Any(e =>
+            e.Uid != candidateUid && e.Uid != selfId
+            && e.User is { } u && !string.IsNullOrWhiteSpace(u.Nickname)
+            && !partyUids.Contains(e.Uid)
+            && !partyIdentities.Contains((u.Nickname!, u.Server)));
     }
 }

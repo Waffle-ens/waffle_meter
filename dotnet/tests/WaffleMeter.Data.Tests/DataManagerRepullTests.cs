@@ -110,4 +110,49 @@ public sealed class DataManagerRepullTests
         dm.MobHp(Instance, 4000);            // HP>0, but the pending start was invalidated
         Assert.Equal(-1, dm.CurrentTarget());
     }
+
+    [Fact]
+    public void A_corpse_toggle_with_untracked_hp_is_suppressed_not_a_ghost_restart()
+    {
+        // The corpse-guard's HP check is int? — when the corpse despawns HP tracking is LOST (null, not 0). The
+        // pre-fix `MobHp(mobId) == 0` was false for null, so the guard LEAKED and a residual toggle restarted the
+        // battle at the kill (→ the split + 191M-DPS upload). Null must count as "corpse".
+        long[] now = { 1_000_000 };
+        var dm = new DataManager { Clock = () => now[0] };
+        dm.SaveMobId(Instance, BossCode);
+        // HP intentionally never tracked -> MobHp(Instance) is null.
+        dm.StartBattle(Instance);
+        Assert.Equal(Instance, dm.CurrentTarget());
+        now[0] += 100;
+        dm.EndBattle(Instance);                     // kill via toggle; HP stays untracked (null)
+        Assert.Equal(-1, dm.CurrentTarget());
+        long revBefore = dm.CurrentBattleRevision();
+
+        now[0] += 1_000;                            // residual corpse toggle inside the 3s death-rattle window
+        dm.StartBattle(Instance);
+
+        Assert.Equal(-1, dm.CurrentTarget());               // suppressed (pre-fix: leaked -> Instance)
+        Assert.Equal(revBefore, dm.CurrentBattleRevision()); // no ghost _battleRevision++ / start re-stamp
+    }
+
+    [Fact]
+    public void A_real_repull_after_the_untracked_corpse_suppression_still_replays_on_first_hp()
+    {
+        // The null-HP seal must not freeze a genuine re-pull: the swallowed start is still replayed by the first
+        // HP>0 packet (the existing pending-start mechanism, unchanged).
+        long[] now = { 1_000_000 };
+        var dm = new DataManager { Clock = () => now[0] };
+        dm.SaveMobId(Instance, BossCode);
+        dm.StartBattle(Instance);
+        now[0] += 100;
+        dm.EndBattle(Instance);                     // kill, HP untracked (null)
+
+        now[0] += 1_000;
+        dm.StartBattle(Instance);                   // suppressed (null HP -> corpse) -> pending recorded
+        Assert.Equal(-1, dm.CurrentTarget());
+
+        now[0] += 500;
+        dm.MobHp(Instance, 4000);                   // genuine re-pull: first HP>0 replays the pending start
+        Assert.Equal(Instance, dm.CurrentTarget());
+    }
 }
