@@ -103,4 +103,39 @@ public sealed class HotkeyHandlerTests : IDisposable
         var handler = new HotkeyHandler(props);
         Assert.Null(handler.Reset);
     }
+
+    [Fact]
+    public void RepeatGuard_fires_on_the_first_press()
+    {
+        Assert.True(HotkeyHandler.ShouldFire(hasPrevious: false, previousTick: 0, nowTick: 0));
+    }
+
+    [Theory]
+    [InlineData(0)]                                       // simultaneous re-post / mechanical bounce
+    [InlineData(20)]                                      // inside an OS auto-repeat burst (~33ms rate)
+    [InlineData(HotkeyHandler.HotkeyRepeatSuppressMs - 1)] // just inside the suppress window
+    public void RepeatGuard_suppresses_an_auto_repeat_within_the_window(long gapMs)
+    {
+        Assert.False(HotkeyHandler.ShouldFire(hasPrevious: true, previousTick: 1000, nowTick: 1000 + gapMs));
+    }
+
+    [Theory]
+    [InlineData(HotkeyHandler.HotkeyRepeatSuppressMs)] // boundary — fires
+    [InlineData(150)]                                  // a deliberate "hide then show" double-tap MUST fire
+    [InlineData(400)]                                  // the old window length: was swallowed, now fires
+    public void RepeatGuard_fires_a_deliberate_re_tap_past_the_window(long gapMs)
+    {
+        // The reported bug: pressing Ctrl+H to hide then quickly again to show had the second press
+        // suppressed by an over-long (400ms) window, so the overlay stayed hidden. A real re-tap must fire.
+        Assert.True(HotkeyHandler.ShouldFire(hasPrevious: true, previousTick: 1000, nowTick: 1000 + gapMs));
+    }
+
+    [Fact]
+    public void RepeatGuard_window_stays_between_auto_repeat_and_a_deliberate_tap()
+    {
+        // Invariant that prevents the regression: the window must be LONGER than the fastest OS auto-repeat
+        // interval (~33ms) yet SHORTER than a fast human re-tap (~100ms+), so it collapses a held burst
+        // without ever eating the user's intended second press.
+        Assert.InRange(HotkeyHandler.HotkeyRepeatSuppressMs, 34L, 100L);
+    }
 }

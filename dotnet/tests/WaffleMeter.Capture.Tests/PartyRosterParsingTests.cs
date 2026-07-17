@@ -36,7 +36,6 @@ public sealed class PartyRosterParsingTests
         public void SaveMobHp(int instanceId, int hp) { }
         public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) { }
         public void RequestOfficialCharacterLookup(int uid) { }
-        public void TouchDummyBattle(int target, long epoch) { }
     }
 
     private sealed class NullSink : IStreamProcessorSink

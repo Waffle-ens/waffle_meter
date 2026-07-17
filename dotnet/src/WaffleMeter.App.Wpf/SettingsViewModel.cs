@@ -146,6 +146,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _pendingReset = hotkeys.Reset;
         _pendingVisibility = hotkeys.Visibility;
         _pendingClickThrough = hotkeys.ClickThrough;
+        _pendingDummyToggle = hotkeys.DummyToggle;
+        _pendingDummyReset = hotkeys.DummyReset;
 
         IReadOnlyList<string> presetNames = _presets.Names;
         for (int i = 0; i < BuffPresetManager.SlotCount; i++)
@@ -164,6 +166,17 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("누적 · 퍼센트", "amount_percent"),
         new SettingOption("누적(전체) · DPS · 퍼센트", "amount_full_dps_percent"),
         new SettingOption("누적(전체) · 퍼센트", "amount_full_percent"),
+    };
+
+    /// <summary>허수아비 test run lengths (label, seconds-as-string for the ComboBox SelectedValue).</summary>
+    public IReadOnlyList<SettingOption> DummyDurations { get; } = new[]
+    {
+        new SettingOption("30초", "30"),
+        new SettingOption("1분", "60"),
+        new SettingOption("1분 30초", "90"),
+        new SettingOption("2분", "120"),
+        new SettingOption("3분", "180"),
+        new SettingOption("5분", "300"),
     };
 
     public IReadOnlyList<SettingOption> DamageValueModes { get; } = new[]
@@ -213,7 +226,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     // font's Win32 family name (e.g. "NEXON Lv2 Gothic Bold") or its family+face (e.g. "Pretendard Bold",
     // whose Win32 family is the shared "Pretendard") — so the weight needs no separate FontWeight plumbing.
     // (EX) values verified per file via GlyphTypeface resolution. Malgun Gothic is always available (fallback).
-    public IReadOnlyList<SettingOption> FontFamilies { get; } = new[]
+    private static readonly SettingOption[] BuiltInFonts =
     {
         new SettingOption("NEXON Lv2 Gothic (Bold, 기본)", "NEXON Lv2 Gothic Medium"),
         new SettingOption("NEXON Lv2 Gothic (EX)", "NEXON Lv2 Gothic Bold"),
@@ -231,6 +244,47 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("Tmoney Round Wind", "Tmoney RoundWind"),
         new SettingOption("맑은 고딕", "Malgun Gothic"),
     };
+
+    /// <summary>The bundled fonts plus any the user has added (a .ttf/.otf in the fonts folder), so a custom
+    /// font is selectable in the dropdown. Re-queried when <see cref="AddCustomFont"/> raises the change.</summary>
+    public IReadOnlyList<SettingOption> FontFamilies
+    {
+        get
+        {
+            var list = new List<SettingOption>(BuiltInFonts);
+            var seen = new HashSet<string>();
+            foreach (SettingOption o in BuiltInFonts)
+            {
+                seen.Add(o.Value);
+            }
+
+            foreach (string name in FontResolver.EnumerateUserFontFamilies())
+            {
+                if (seen.Add(name))
+                {
+                    list.Add(new SettingOption(name + " (사용자)", name));
+                }
+            }
+
+            return list;
+        }
+    }
+
+    /// <summary>Copy a user-picked font file into the fonts folder, add it to the dropdown, and select+apply it.
+    /// Returns false if the file can't be read as a font (the caller shows a message). The font renders live via
+    /// FontResolver — no restart needed — and persists (the folder is the store).</summary>
+    public bool AddCustomFont(string sourcePath)
+    {
+        string? family = FontResolver.InstallUserFont(sourcePath);
+        if (string.IsNullOrWhiteSpace(family))
+        {
+            return false;
+        }
+
+        OnPropertyChanged(nameof(FontFamilies)); // the dropdown now includes the new font...
+        FontFamily = family;                     // ...so selecting it lands on a real item, and applies it live
+        return true;
+    }
 
     // ---- display tab (live) ----
     public string DisplayMode { get => _settings.DisplayMode; set { _settings.DisplayMode = value; OnPropertyChanged(); } }
@@ -486,6 +540,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public HotkeyCombo? PendingVisibility { get => _pendingVisibility; set => Set(ref _pendingVisibility, value); }
     private HotkeyCombo? _pendingClickThrough;
     public HotkeyCombo? PendingClickThrough { get => _pendingClickThrough; set => Set(ref _pendingClickThrough, value); }
+    private HotkeyCombo? _pendingDummyToggle;
+    public HotkeyCombo? PendingDummyToggle { get => _pendingDummyToggle; set => Set(ref _pendingDummyToggle, value); }
+    private HotkeyCombo? _pendingDummyReset;
+    public HotkeyCombo? PendingDummyReset { get => _pendingDummyReset; set => Set(ref _pendingDummyReset, value); }
 
     // ---- stats consent ----
     private bool _consentAccepted;
@@ -763,6 +821,40 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
     }
 
+    // ---- 허수아비 테스트 ----
+
+    /// <summary>허수아비 테스트 모드 on/off. Live (like <see cref="RecordReplay"/>, not part of the Cancel snapshot):
+    /// writing the shared setting mirrors onto the capture gate at once and updates the header toggle's accent.</summary>
+    public bool DummyTestMode
+    {
+        get => _settings.DummyTestMode;
+        set
+        {
+            if (_settings.DummyTestMode == value)
+            {
+                return;
+            }
+
+            _settings.DummyTestMode = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Selected run length as the ComboBox's string value ("30".."300" seconds).</summary>
+    public string DummyDurationValue
+    {
+        get => _settings.DummyDurationSec.ToString(CultureInfo.InvariantCulture);
+        set
+        {
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int seconds)
+                && seconds != _settings.DummyDurationSec)
+            {
+                _settings.DummyDurationSec = seconds;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     /// <summary>False in a build without the private replay engine — the panel says so instead of offering a
     /// toggle that could never do anything.</summary>
     public bool ReplayAvailable => _services.ReplayAvailable;
@@ -785,6 +877,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public void PlayReplay() => PlayReplayRequested?.Invoke();
 
+    /// <summary>Wired by the host (App) to <c>MeterEngine.RequestDummyReset()</c>. Raised by the "허수아비 DPS
+    /// 초기화" button — clears only the live dummy report for an immediate re-test (history is preserved).</summary>
+    public Action? DummyResetRequested;
+
+    public void ResetDummyDps() => DummyResetRequested?.Invoke();
+
     public void Reload()
     {
         ApplyInfo(_services.Consent.GetInfo(syncRemote: false, _services.Version));
@@ -802,6 +900,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _hotkeys.SetReset(PendingReset);
         _hotkeys.SetVisibility(PendingVisibility);
         _hotkeys.SetClickThrough(PendingClickThrough);
+        _hotkeys.SetDummyToggle(PendingDummyToggle);
+        _hotkeys.SetDummyReset(PendingDummyReset);
     }
 
     /// <summary>Revert live-applied settings + pending hotkeys (Cancel).</summary>
@@ -811,6 +911,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         PendingReset = _hotkeys.Reset;
         PendingVisibility = _hotkeys.Visibility;
         PendingClickThrough = _hotkeys.ClickThrough;
+        PendingDummyToggle = _hotkeys.DummyToggle;
+        PendingDummyReset = _hotkeys.DummyReset;
         Reload();
     }
 

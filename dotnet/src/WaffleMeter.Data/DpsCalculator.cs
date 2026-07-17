@@ -363,10 +363,14 @@ public sealed class DpsCalculator
 
     public DpsReport GetDps()
     {
+        _dm.TickDummyBattle(); // enforce the dummy duration hard-cut / idle-end / mode-off before reading state
         int storageTarget = _dm.CurrentTarget();
         long storageBattleRevision = _dm.CurrentBattleRevision();
         int previousTarget = _currentTarget;
-        bool prevTargetDummy = _dm.IsCurrentTargetDummy();
+        // Key off the PREVIOUS target: at an end-of-battle transition CurrentTarget is already -1, so reading the
+        // LIVE target here would report false and the "don't save a dummy run to history" guard (below) would not
+        // fire. IsMobDummy(previousTarget) is what makes the mid-battle and end-of-battle save-skips actually work.
+        bool prevTargetDummy = _dm.IsMobDummy(previousTarget);
         bool targetChanged = storageTarget != previousTarget;
         bool battleRestartedWithSameTarget =
             storageTarget > 0 && previousTarget > 0 && storageBattleRevision != _currentBattleRevision;
@@ -938,6 +942,25 @@ public sealed class DpsCalculator
         _dm.FlushPacket();
         _currentTarget = -1;
         _currentBattleRevision = _dm.CurrentBattleRevision();
+        _recentData = new DpsReport();
+        _recentSkillDetails = new();
+        _recentBuffRates = new();
+        _recentBossBuffRates = [];
+        _recentDataSaved = false;
+        ResetCache();
+    }
+
+    /// <summary>허수아비 DPS 초기화: clear ONLY the live dummy report so the next hit re-tests immediately. Unlike
+    /// <see cref="ResetDataStorage"/> it never saves the current run (a dummy run is not history) and unlike the
+    /// soft reset (<see cref="DataManager.ResetBattleRecords"/>) it does NOT flush saved history, recognized
+    /// users, the mob map, or the party roster — only the in-flight packets + live report are dropped, and the
+    /// duration cutoff latch is re-armed. Runs on the consumer thread (via MeterEngine.RequestDummyReset).</summary>
+    public void ResetDummyBattle()
+    {
+        _dm.FlushPacket();          // drop in-flight packets, set CurrentTarget = -1 (FlushPacket does NOT bump revision)
+        _dm.ResetDummyCutoff();     // re-arm: the next dummy hit opens a fresh window
+        _currentTarget = -1;
+        _currentBattleRevision = _dm.CurrentBattleRevision(); // stay in lockstep (do NOT zero — a mismatch reads as a restart)
         _recentData = new DpsReport();
         _recentSkillDetails = new();
         _recentBuffRates = new();

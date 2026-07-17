@@ -25,6 +25,7 @@ public sealed class MeterEngine : IDisposable
     private Thread? _consumer;
     private volatile bool _running;
     private volatile bool _resetRequested;
+    private volatile bool _dummyResetRequested;
     private volatile bool _disposed;
 
     // Buff-tracking diagnostics: segment throughput counters (written on the backend's pipe-reader thread,
@@ -107,6 +108,11 @@ public sealed class MeterEngine : IDisposable
     /// which solely owns the meter state.</summary>
     public void RequestReset() => _resetRequested = true;
 
+    /// <summary>Requests a 허수아비 DPS 초기화: clears ONLY the live dummy report so the next hit re-tests at once,
+    /// while PRESERVING saved history, recognized characters, and the party roster. Thread-safe — the reset runs
+    /// on the consumer thread that solely owns the meter state.</summary>
+    public void RequestDummyReset() => _dummyResetRequested = true;
+
     public void Start() => Start(_services.BuildCaptureConfig());
 
     public void Start(CaptureConfig config)
@@ -177,6 +183,23 @@ public sealed class MeterEngine : IDisposable
                 }
 
                 ResetCompleted?.Invoke(); // let the UI drop derived party state before the cleared report
+                ReportUpdated?.Invoke(_services.GetReport());
+            }
+
+            // 허수아비 DPS 초기화: clears ONLY the live dummy report (no history/roster/exclusion changes), then
+            // pushes the emptied report at once so the overlay clears without waiting for the next interval.
+            if (_dummyResetRequested)
+            {
+                _dummyResetRequested = false;
+                try
+                {
+                    _services.Calculator.ResetDummyBattle();
+                }
+                catch
+                {
+                    // never let a dummy reset failure kill the consumer
+                }
+
                 ReportUpdated?.Invoke(_services.GetReport());
             }
 

@@ -11,7 +11,7 @@ namespace WaffleMeter.Data;
 /// </summary>
 public static class ReferenceJson
 {
-    /// <summary>mobs.json: array of { "code": int, "name": string, "boss": bool }.</summary>
+    /// <summary>mobs.json: array of { "code": int, "name": string, "boss": bool, "isDummy"?: bool }.</summary>
     public static Dictionary<int, Mob> LoadMobs(string path)
     {
         using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
@@ -21,7 +21,10 @@ public static class ReferenceJson
             int code = el.GetProperty("code").GetInt32();
             string name = el.TryGetProperty("name", out JsonElement n) ? n.GetString() ?? "" : "";
             bool boss = el.TryGetProperty("boss", out JsonElement b) && b.GetBoolean();
-            mobs[code] = new Mob(code, name, boss); // last write wins (matches Kotlin HashMap.put)
+            // Training-dummy (허수아비) marker: drives the dummy test mode. Must be read here — without it every
+            // runtime Mob.IsDummy is false and the dummy gate never fires (the shipped catalog DOES tag dummies).
+            bool isDummy = el.TryGetProperty("isDummy", out JsonElement d) && d.ValueKind == JsonValueKind.True;
+            mobs[code] = new Mob(code, name, boss, isDummy); // last write wins (matches Kotlin HashMap.put)
         }
 
         return mobs;

@@ -11,6 +11,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The hotkey repeat-guard timing (HotkeyHandler.ShouldFire / HotkeyRepeatSuppressMs) is verified here. -->
+    <InternalsVisibleTo Include="WaffleMeter.App.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\WaffleMeter.Capture\WaffleMeter.Capture.csproj" />
     <ProjectReference Include="..\WaffleMeter.Capture.Live\WaffleMeter.Capture.Live.csproj" />
     <ProjectReference Include="..\WaffleMeter.Data\WaffleMeter.Data.csproj" />

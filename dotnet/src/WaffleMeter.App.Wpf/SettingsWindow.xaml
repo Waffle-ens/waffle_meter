@@ -209,6 +209,9 @@
                 <ListBoxItem Tag="replay">
                     <StackPanel><TextBlock Text="리플레이 (베타)" Style="{StaticResource NavTitle}"/><TextBlock Text="전투 이동 기록 · 저장 경로" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="dummy">
+                    <StackPanel><TextBlock Text="허수아비" Style="{StaticResource NavTitle}"/><TextBlock Text="허수 테스트 · 시간 제한" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="stats">
                     <StackPanel><TextBlock Text="캐릭터 관리" Style="{StaticResource NavTitle}"/><TextBlock Text="오드 · 공개 · 익명 통계" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
@@ -478,10 +481,14 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="글꼴" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="번들 글꼴이 없으면 맑은 고딕으로 표시됩니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="번들 글꼴이 없으면 맑은 고딕으로 표시됩니다. 커스텀 폰트(.ttf/.otf)를 추가해 쓸 수 있습니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding FontFamilies}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <ComboBox Width="190" ItemsSource="{Binding FontFamilies}"
+                                          ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
+                                <Button Content="커스텀 폰트 추가…" Margin="0,6,0,0" HorizontalAlignment="Right" Click="OnAddCustomFont"
+                                        ToolTip="ttf/otf 파일을 선택해 목록에 추가하고 바로 적용합니다"/>
+                            </StackPanel>
                         </Grid>
 
                         <Grid Margin="0,0,0,14">
@@ -917,6 +924,26 @@
                                         Click="OnClearHotkey" Tag="{Binding ElementName=ClickThroughHotkeyBox}"/>
                             </Grid>
                         </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="허수아비 모드 켜기/끄기" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
+                            <Grid Grid.Column="1">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <local:HotkeyCaptureBox x:Name="DummyToggleHotkeyBox" Grid.Column="0" Combo="{Binding PendingDummyToggle, Mode=TwoWay}"/>
+                                <Button Grid.Column="1" Style="{StaticResource HotkeyClearButton}"
+                                        Click="OnClearHotkey" Tag="{Binding ElementName=DummyToggleHotkeyBox}"/>
+                            </Grid>
+                        </Grid>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="허수아비 DPS 초기화" Style="{StaticResource SettingTitle}" VerticalAlignment="Center"/>
+                            <Grid Grid.Column="1">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <local:HotkeyCaptureBox x:Name="DummyResetHotkeyBox" Grid.Column="0" Combo="{Binding PendingDummyReset, Mode=TwoWay}"/>
+                                <Button Grid.Column="1" Style="{StaticResource HotkeyClearButton}"
+                                        Click="OnClearHotkey" Tag="{Binding ElementName=DummyResetHotkeyBox}"/>
+                            </Grid>
+                        </Grid>
                     </StackPanel>
 
                     <!-- ===== 고급 ===== -->
@@ -1107,6 +1134,45 @@
                             </Button>
                             <Button Content="리플레이 폴더 열기" Click="OnOpenReplayFolder"/>
                         </StackPanel>
+                    </StackPanel>
+
+                    <!-- ===== 허수아비 테스트 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=dummy}">
+                        <TextBlock Text="허수아비 테스트" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,12"
+                                   Text="훈련용 허수아비를 때려 DPS를 측정하는 별도 모드입니다. 헤더의 허수아비 버튼(스톱워치)으로도 켜고 끌 수 있습니다."/>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="허수 테스트" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Style="{StaticResource SettingDesc}"
+                                           Text="끄면 허수아비 타격이 전투로 잡히지 않습니다. 켜면 허수아비 타격을 전투로 집계합니다 (즉시 적용). 허수아비 전투는 전투 기록에 저장되지 않습니다."/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding DummyTestMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="측정 시간" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Style="{StaticResource SettingDesc}"
+                                           Text="설정한 시간이 지나면 계속 때려도 집계가 즉시 멈추고 결과가 고정됩니다. 다시 측정하려면 아래 초기화를 누르세요."/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="130" VerticalAlignment="Center" ItemsSource="{Binding DummyDurations}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DummyDurationValue}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="허수아비 DPS 초기화" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Style="{StaticResource SettingDesc}"
+                                           Text="빠른 재측정을 위해 허수아비 DPS만 즉시 비웁니다. 저장된 전투 기록·인식 캐릭터는 그대로 보존됩니다."/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="초기화" MinWidth="90" VerticalAlignment="Center" Click="OnResetDummyDps"
+                                    ToolTip="허수아비 DPS만 즉시 초기화 (전투 기록은 보존)"/>
+                        </Grid>
                     </StackPanel>
 
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=diag}">

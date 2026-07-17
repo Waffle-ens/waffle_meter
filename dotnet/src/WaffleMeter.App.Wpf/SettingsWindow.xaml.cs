@@ -67,6 +67,32 @@ public partial class SettingsWindow : Window
 
     private void OnPlayReplay(object sender, RoutedEventArgs e) => _viewModel.PlayReplay();
 
+    private void OnResetDummyDps(object sender, RoutedEventArgs e) => _viewModel.ResetDummyDps();
+
+    private void OnAddCustomFont(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "커스텀 폰트 추가",
+            Filter = "폰트 파일 (*.ttf, *.otf)|*.ttf;*.otf",
+            CheckFileExists = true,
+        };
+        if (dlg.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        if (!_viewModel.AddCustomFont(dlg.FileName))
+        {
+            MessageBox.Show(
+                this,
+                "이 파일에서 폰트를 불러오지 못했습니다. 올바른 .ttf/.otf 폰트 파일인지 확인해 주세요.",
+                "커스텀 폰트",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
     private void OnCheckUpdate(object sender, RoutedEventArgs e) => _viewModel.CheckForUpdate();
 
     private void OnTestAlarmSound(object sender, RoutedEventArgs e) => _viewModel.TestAlarmSound();

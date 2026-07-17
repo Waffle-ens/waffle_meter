@@ -186,6 +186,10 @@ public partial class App : Application
                 window.SetClickThrough(!window.ClickThrough);
                 _buffOverlay?.SetClickThrough(window.ClickThrough); // buff overlay follows the meter at once
             }),
+            // 허수아비 mode toggle marshals to the UI thread (it raises PropertyChanged that WPF bindings read);
+            // the reset only flips a volatile flag on the engine, so it's fine straight off the listener thread.
+            OnDummyToggle = () => Dispatcher.Invoke(() => _settings.DummyTestMode = !_settings.DummyTestMode),
+            OnDummyReset = () => _engine?.RequestDummyReset(),
         };
         _hotkeys.Start();
 
@@ -210,6 +214,7 @@ public partial class App : Application
             svm.CheckUpdateRequested = () => _ = _updateService?.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
             svm.PlayReplayRequested = () => PlayReplayFromPicker(services, window);
+            svm.DummyResetRequested = () => _engine?.RequestDummyReset(); // 허수아비 DPS 초기화 button (settings tab)
             var settingsWindow = new SettingsWindow(svm) { Owner = window };
             LoadWindowSize(services.Props, "settingsWidth", "settingsHeight", settingsWindow);
             settingsWindow.SizeChanged += (_, _) =>
@@ -249,6 +254,9 @@ public partial class App : Application
             settings.TaskbarMode = next;
             controller.SetTaskbarMode(next);
         };
+        // 허수아비 테스트 header button: flip the one shared setting (mirrored live onto the capture gate above);
+        // the header icon's accent state follows via a DataTrigger bound to Settings.DummyTestMode.
+        window.DummyTestToggleRequested += () => settings.DummyTestMode = !settings.DummyTestMode;
 
         // Row click -> open/close the detail window for that player.
         viewModel.SelectionToggled += uid => ToggleDetail(uid, services, window, viewModel);
@@ -271,11 +279,23 @@ public partial class App : Application
         // pins it (EffectiveRefreshIntervalMs); the slider is otherwise honored.
         MeterEngine engine = _engine;
         _engine.ReportIntervalMs = _settings.EffectiveRefreshIntervalMs;
+        // 허수아비 test mode: seed the capture pipeline from the persisted setting, then mirror live changes (the
+        // header toggle / settings tab / hotkey all write MeterSettings — one source of truth) onto the gate.
+        services.Data.DummyTestMode = _settings.DummyTestMode;
+        services.Data.DummyDurationSec = _settings.DummyDurationSec;
         _settings.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(MeterSettings.RefreshIntervalMs) or nameof(MeterSettings.LowSpecMode))
             {
                 engine.ReportIntervalMs = _settings.EffectiveRefreshIntervalMs;
+            }
+            else if (e.PropertyName == nameof(MeterSettings.DummyTestMode))
+            {
+                services.Data.DummyTestMode = _settings.DummyTestMode;
+            }
+            else if (e.PropertyName == nameof(MeterSettings.DummyDurationSec))
+            {
+                services.Data.DummyDurationSec = _settings.DummyDurationSec;
             }
         };
         _engine.ReportUpdated += report => Dispatcher.Invoke(() =>
