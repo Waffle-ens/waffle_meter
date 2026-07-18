@@ -83,3 +83,12 @@ dotnet/run-test2/
 
 ### Throwaway local diagnostic replay tool (corpus DPS/identity divergence) — kept local, not tracked
 /dotnet/tools/WaffleMeter.IdentityDivergeCli/
+
+### Local-only DPS-dump validation tool — kept local, not tracked
+/dotnet/tools/WaffleMeter.FighterValidate/
+
+### Uncommitted WIP diagnostic instrumentation (nayatman first-boss investigation) — do NOT ship.
+### NOTE: the working-tree edits to MeterEngine/StreamAssembler/PacketAccumulator/StreamProcessor/
+### MeterServices currently call into this file. Do not commit those edits until the diagnostic is
+### either removed or CombatDiag.cs is intentionally promoted to a tracked file.
+/dotnet/src/WaffleMeter.Capture/CombatDiag.cs
