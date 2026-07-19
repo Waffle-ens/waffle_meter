@@ -119,7 +119,16 @@ public sealed class DpsCalculator
         // 흡혈의 검) into another player's breakdown. A real player is never a summon, so attribute a known
         // user's damage to that user directly. (Hardening over the original Kotlin's unconditional fold.)
         int? summoner = _dm.SummonerId(packet.ActorId);
-        if (summoner != null && _dm.User(packet.ActorId) == null) return summoner;
+        if (summoner != null && _dm.User(packet.ActorId) == null
+            && (ContainsUid(candidates, summoner.Value) || IsFreshPartyMember(summoner.Value)))
+        {
+            // Bug 1: fold a summon into its owner ONLY when the owner is attributable to THIS fight — a current
+            // damaging contributor, or a fresh (0x9702) party member. At a shared field boss the client also
+            // receives non-party players' summons, whose owner id is a STALE known user (last seen in an earlier
+            // scene); the old unconditional fold surfaced that stranger as a phantom low-DPS row. An un-attributable
+            // owner leaves the summon unfolded → it drops as a mob-instance / stays a trace row the filter hides.
+            return summoner;
+        }
 
         if (IsSummonDamageSkill(packet.SkillCode))
         {
@@ -133,6 +142,41 @@ public sealed class DpsCalculator
 
         if (_dm.IsMobInstance(packet.ActorId)) return null;
         return packet.ActorId;
+    }
+
+    private static bool ContainsUid(ICollection<User> candidates, int uid)
+    {
+        foreach (User c in candidates)
+        {
+            if (c.Id == uid)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>True when <paramref name="uid"/> resolves to a member of the current (0x9702) party roster —
+    /// by the same (nickname, server) identity the roster carries. Used to keep a summon fold attributable even
+    /// when the owner has not yet dealt DIRECT damage (so is not yet a contributor).</summary>
+    private bool IsFreshPartyMember(int uid)
+    {
+        User? u = _dm.User(uid);
+        if (u?.Nickname is not { Length: > 0 })
+        {
+            return false;
+        }
+
+        foreach ((string nick, int server) in _dm.PartyMemberIdentities(RosterRecoveryWindowMs))
+        {
+            if (server == u.Server && string.Equals(nick, u.Nickname, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static Dictionary<int, Dictionary<string, AnalyzedSkill>> CloneSkillDetails(
@@ -524,6 +568,7 @@ public sealed class DpsCalculator
                     RemainHp = _dm.MobHp(_currentTarget) ?? 0,
                     MaxHp = _dm.MobMaxHp(_currentTarget) ?? 0,
                 };
+                report.TargetInstanced = _dm.IsInstancedBoss(mobCode!.Value); // scopes the "던전 강제 집계" bypass
             }
         }
 

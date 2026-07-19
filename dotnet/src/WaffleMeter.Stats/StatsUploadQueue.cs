@@ -102,6 +102,15 @@ public sealed class StatsUploadQueue : IDisposable
             return;
         }
 
+        // Safeguard for the opt-in "던전 강제 집계": while that toggle is on, participant identities are ESTIMATED
+        // (bare actors shown as placeholders because 0x3633/0x3645/0x9702 were missed on a mid-dungeon start), so
+        // the data must not pollute the web statistics. Suppress the whole session's uploads while it is enabled.
+        if (_props.GetProperty("forceInstanceTracking", "false") == "true")
+        {
+            MarkSkipped("force_tracking_mode");
+            return;
+        }
+
         MobInfo? target = log.Report.Target;
         if (target == null || !target.Mob.Boss || target.Mob.IsDummy)
         {

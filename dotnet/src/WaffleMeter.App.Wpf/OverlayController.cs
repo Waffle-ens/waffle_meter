@@ -53,6 +53,7 @@ public sealed class OverlayController
         _window = window;
         _props = props;
         IsAutoHide = props.GetProperty("isAutoHide") is not "false"; // default true
+        KeepOverlayWhenHidden = props.GetProperty("keepOverlayWhenMeterHidden") == "true"; // default false
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(300) };
         _timer.Tick += (_, _) => Poll();
         _winEventProc = OnForegroundChanged;
@@ -61,6 +62,11 @@ public sealed class OverlayController
     public bool IsVisible { get; private set; } = true;
     public bool IsAutoHide { get; private set; }
     public bool TaskbarMode { get; private set; }
+
+    /// <summary>When true, the companion buff overlay stays on screen while the METER is tray-hidden (Ctrl+H /
+    /// tray) — it then follows only the game foreground (still hides when AION2 isn't active), so a user can hide
+    /// the DPS meter but keep the combat-assist buff timers. Off by default (overlay hides with the meter).</summary>
+    public bool KeepOverlayWhenHidden { get; private set; }
 
     /// <summary>True while the meter is actually on screen (game foreground + not tray-hidden). Secondary
     /// overlays (e.g. the combat-assist buff overlay) mirror this so they hide when the game loses focus.</summary>
@@ -239,6 +245,18 @@ public sealed class OverlayController
         _props.SetProperty("isAutoHide", enabled ? "true" : "false");
     }
 
+    /// <summary>Toggle "메터를 숨겨도 버프 오버레이는 유지". Reconcile the companion at once so the change applies
+    /// without waiting for a poll tick (e.g. turning it ON while the meter is currently tray-hidden).</summary>
+    public void SetKeepOverlayWhenHidden(bool enabled)
+    {
+        KeepOverlayWhenHidden = enabled;
+        _props.SetProperty("keepOverlayWhenMeterHidden", enabled ? "true" : "false");
+        if (!IsVisible)
+        {
+            SyncCompanion(enabled && (!IsAutoHide || DetectForeground() != Foreground.Other));
+        }
+    }
+
     private void Poll()
     {
         Foreground fg = DetectForeground();
@@ -248,8 +266,12 @@ public sealed class OverlayController
         if (!IsVisible)
         {
             MeterShown = false;
-            SyncCompanion(false); // tray-hidden → the buff overlay hides with the meter
-            return; // parked/hidden owns visibility while hidden
+            // Decoupled buff overlay: with "메터 숨겨도 오버레이 유지" on, the companion stays while the meter is
+            // tray-hidden, but STILL follows the game foreground (park only when a DIFFERENT app is genuinely
+            // foreground) so it never floats over the desktop. Off → it hides with the meter (original behavior).
+            bool companionShow = KeepOverlayWhenHidden && (!IsAutoHide || fg != Foreground.Other);
+            SyncCompanion(companionShow);
+            return; // parked/hidden owns the METER's visibility while hidden
         }
 
         if (!IsAutoHide)

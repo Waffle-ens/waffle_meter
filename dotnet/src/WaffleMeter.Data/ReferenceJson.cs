@@ -30,6 +30,27 @@ public static class ReferenceJson
         return mobs;
     }
 
+    /// <summary>content-types.json: { "categories": { "expedition": [codes], "transcendence": [...],
+    /// "sanctuary": [...] } } — instanced (원정/초월/성역) boss mobCode -> category. Returns code -> category.
+    /// Used by the opt-in "던전 강제 집계" toggle to scope the bare-actor display bypass to these bosses only.</summary>
+    public static Dictionary<int, string> LoadContentTypes(string path)
+    {
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
+        var map = new Dictionary<int, string>();
+        if (doc.RootElement.TryGetProperty("categories", out JsonElement cats))
+        {
+            foreach (JsonProperty cat in cats.EnumerateObject())
+            {
+                foreach (JsonElement codeEl in cat.Value.EnumerateArray())
+                {
+                    map[codeEl.GetInt32()] = cat.Name; // last write wins
+                }
+            }
+        }
+
+        return map;
+    }
+
     /// <summary>skills.json: array of { "code": int, "name": string }. Returns the code set.</summary>
     public static HashSet<long> LoadSkillCodes(string path)
     {

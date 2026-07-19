@@ -300,6 +300,10 @@ public sealed class DpsReport
     /// live/in-progress report (the overlay then uses the live recognized uid / per-row IsExecutor instead).</summary>
     public int ExecutorId { get; set; }
 
+    /// <summary>True when the current target is a classified instanced (원정/초월/성역) boss. Set live in
+    /// <c>DpsCalculator.GetDps</c>; scopes the opt-in "던전 강제 집계" display bypass to these bosses only.</summary>
+    public bool TargetInstanced { get; set; }
+
     /// <summary>Frozen party/raid sub-group slots (uid -&gt; slot 1-8 from the 0x9702 roster), populated at
     /// save time like <see cref="ExecutorId"/>. Lets the stats upload tag each participant's sub-party for an
     /// 8-인 공대 — slots 1-4 = party 1, 5-8 = party 2; empty for a non-raid / unmatched battle. Frozen because

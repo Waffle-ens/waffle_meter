@@ -397,7 +397,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             report, _roster, _selfId, total, _settings.ShowPreCombatRoster, out bool hasCombatRows,
             topN: _settings.EffectiveMaxVisibleRows,
             selfNickname: _selfNickname, selfServer: _selfServer, selfJob: _selfJob, selfPower: _selfPower,
-            authoritativeParty: _authoritativeParty);
+            authoritativeParty: _authoritativeParty,
+            // Opt-in "던전 강제 집계": only on a classified instanced (원정/초월/성역) boss (stamped live into the report).
+            forceInstanceTracking: _settings.ForceInstanceTracking && report.TargetInstanced);
 
         double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);
 

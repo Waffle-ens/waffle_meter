@@ -288,6 +288,169 @@ public sealed class OverlayRowBuilderTests
     }
 
     [Fact]
+    public void Stale_named_self_combat_uid_is_recovered_when_the_roster_confirms_it_is_not_a_party_member()
+    {
+        // Bug 3: 본인's re-instanced combat uid (4162) inherited a STALE non-party name ("틸놈틸") from a prior
+        // entity that reused the id. With a CONFIRMED roster that does not contain 틸놈틸, the relaxed candidate
+        // rule reclaims it as 본인 — the bare-only filter never would (it is not bare).
+        var report = new DpsReport { ExecutorId = 15482 };
+        report.Contributors.Add(new User(101, "다즈비", 1005));
+        report.Information[101] = new DpsInformation(6000, 600, 30, 10);
+        report.Contributors.Add(new User(4162, "틸놈틸", 2003) { Job = JobClass.GLADIATOR }); // stale non-party name
+        report.Information[4162] = new DpsInformation(4000, 400, 20, 7);
+        var party = new[] { new User(101, "다즈비", 1005), new User(15482, "하아앙", 2003) { IsExecutor = true } };
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelfAndParty(report, party);
+
+        OverlayRowBuilder.Row self = Assert.Single(rows.Where(r => r.Uid == 4162));
+        Assert.True(self.IsSelf);
+        Assert.Equal("하아앙", self.User!.Nickname); // relabeled to the known executor identity, not "틸놈틸"
+    }
+
+    [Fact]
+    public void Stale_named_self_recovery_needs_a_confirmed_roster()
+    {
+        // Same shape but NO roster: without a party to prove "틸놈틸" is an outsider, the safe bare-only rule holds
+        // and the row is NOT relabeled 본인 (never steal a genuine stranger's row when the party is unknown).
+        var report = new DpsReport { ExecutorId = 15482 };
+        report.Contributors.Add(new User(101, "다즈비", 1005));
+        report.Information[101] = new DpsInformation(6000, 600, 30, 10);
+        report.Contributors.Add(new User(4162, "틸놈틸", 2003) { Job = JobClass.GLADIATOR });
+        report.Information[4162] = new DpsInformation(4000, 400, 20, 7);
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = BuildWithSelf(report); // authoritativeParty == null
+
+        Assert.DoesNotContain(rows, r => r.IsSelf);
+        Assert.Equal("틸놈틸", rows.Single(r => r.Uid == 4162).User!.Nickname);
+    }
+
+    [Fact]
+    public void Bare_major_party_member_is_named_from_the_authoritative_roster()
+    {
+        // Bug 4: a party member (엽록소) fights bare — its 0x3645 name-link was missed. The roster knows it, and it
+        // is the ONLY unaccounted member ↔ the ONLY bare major, so it is recovered and named.
+        var report = new DpsReport();
+        report.Contributors.Add(new User(101, "다즈비", 1005));
+        report.Information[101] = new DpsInformation(6000, 600, 30, 10);
+        report.Contributors.Add(new User(102, "설핏", 1001));
+        report.Information[102] = new DpsInformation(5000, 500, 25, 8);
+        report.Contributors.Add(new User(4162) { Job = JobClass.SORCERER }); // bare major = 엽록소's combat uid
+        report.Information[4162] = new DpsInformation(7000, 700, 35, 12);
+        var party = new[]
+        {
+            new User(101, "다즈비", 1005), new User(102, "설핏", 1001),
+            new User(9, "엽록소", 1014) { Job = JobClass.SORCERER }, // unaccounted roster member
+        };
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = OverlayRowBuilder.Build(
+            report, [], liveSelfId: 0, useTotalDamage: true, showPreCombatRoster: false, out _, authoritativeParty: party);
+
+        Assert.Equal(3, rows.Count);
+        Assert.Equal("엽록소", rows.Single(r => r.Uid == 4162).User!.Nickname);
+    }
+
+    [Fact]
+    public void Bare_major_is_not_named_without_a_roster()
+    {
+        // Safety: absent a roster, a bare major could be a field-boss STRANGER — it stays hidden (never a "파티원").
+        var report = new DpsReport();
+        report.Contributors.Add(new User(101, "다즈비", 1005));
+        report.Information[101] = new DpsInformation(6000, 600, 30, 10);
+        report.Contributors.Add(new User(4162) { Job = JobClass.SORCERER });
+        report.Information[4162] = new DpsInformation(7000, 700, 35, 12);
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = OverlayRowBuilder.Build(
+            report, [], liveSelfId: 0, useTotalDamage: true, showPreCombatRoster: false, out _, authoritativeParty: null);
+
+        Assert.Single(rows);                              // only the named 다즈비
+        Assert.DoesNotContain(rows, r => r.Uid == 4162);
+    }
+
+    [Fact]
+    public void Bare_party_recovery_is_skipped_when_the_match_is_ambiguous()
+    {
+        // Two bare majors but only one unaccounted roster member → ambiguous → recover NEITHER (never guess).
+        var report = new DpsReport();
+        report.Contributors.Add(new User(101, "다즈비", 1005));
+        report.Information[101] = new DpsInformation(6000, 600, 30, 10);
+        report.Contributors.Add(new User(4162) { Job = JobClass.SORCERER });
+        report.Information[4162] = new DpsInformation(5000, 500, 25, 8);
+        report.Contributors.Add(new User(7777) { Job = JobClass.SORCERER });
+        report.Information[7777] = new DpsInformation(4000, 400, 20, 7);
+        var party = new[]
+        {
+            new User(101, "다즈비", 1005), new User(9, "엽록소", 1014) { Job = JobClass.SORCERER },
+        };
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = OverlayRowBuilder.Build(
+            report, [], liveSelfId: 0, useTotalDamage: true, showPreCombatRoster: false, out _, authoritativeParty: party);
+
+        Assert.Single(rows);                                          // only the named 다즈비
+        Assert.DoesNotContain(rows, r => r.Uid == 4162 || r.Uid == 7777);
+    }
+
+    [Fact]
+    public void Force_instance_tracking_surfaces_bare_major_dealers_as_placeholders()
+    {
+        // Mid-dungeon start on a classified instanced boss: identity packets missed → all combatants bare. With the
+        // opt-in toggle, bare MAJORS show as placeholders instead of an empty meter; a bare TRACE row stays hidden.
+        var report = new DpsReport();
+        report.Contributors.Add(new User(100)); report.Information[100] = new DpsInformation(6000, 600, 30, 10);
+        report.Contributors.Add(new User(200)); report.Information[200] = new DpsInformation(5000, 500, 25, 8);
+        report.Contributors.Add(new User(300)); report.Information[300] = new DpsInformation(100, 10, 1, 0); // trace
+
+        IReadOnlyList<OverlayRowBuilder.Row> off = OverlayRowBuilder.Build(report, [], 0, true, false, out _);
+        Assert.Empty(off); // toggle OFF → bare rows hidden (unchanged default)
+
+        IReadOnlyList<OverlayRowBuilder.Row> on = OverlayRowBuilder.Build(
+            report, [], 0, true, false, out bool hasCombat, forceInstanceTracking: true);
+        Assert.Equal(2, on.Count);                                  // two majors shown; the trace stays hidden
+        Assert.All(on, r => Assert.StartsWith("파티원", r.User!.Nickname));
+        Assert.DoesNotContain(on, r => r.Uid == 300);
+        Assert.True(hasCombat);
+    }
+
+    [Fact]
+    public void Force_instance_tracking_is_inert_in_a_normally_progressed_dungeon()
+    {
+        // A dungeon played normally (meter running from the start → every dealer recognized): with the toggle
+        // ON there are NO bare rows, so the placeholder branch never fires — the displayed rows are byte-for-byte
+        // identical to the toggle OFF, and no "파티원" placeholder is ever injected.
+        var report = new DpsReport();
+        report.Contributors.Add(new User(1, "가", 2003)); report.Information[1] = new DpsInformation(6000, 600, 30, 10);
+        report.Contributors.Add(new User(2, "나", 2003)); report.Information[2] = new DpsInformation(5000, 500, 25, 8);
+        report.Contributors.Add(new User(3, "다", 2003) { IsExecutor = true }); report.Information[3] = new DpsInformation(4000, 400, 20, 7);
+        var party = new[] { new User(1, "가", 2003), new User(2, "나", 2003), new User(3, "다", 2003) };
+
+        IReadOnlyList<OverlayRowBuilder.Row> off = OverlayRowBuilder.Build(
+            report, [], 3, true, false, out _, authoritativeParty: party);
+        IReadOnlyList<OverlayRowBuilder.Row> on = OverlayRowBuilder.Build(
+            report, [], 3, true, false, out _, authoritativeParty: party, forceInstanceTracking: true);
+
+        Assert.Equal(
+            off.Select(r => (r.Uid, r.User!.Nickname, r.IsSelf)),
+            on.Select(r => (r.Uid, r.User!.Nickname, r.IsSelf)));      // identical rows/names/self-flag
+        Assert.DoesNotContain(on, r => r.User!.Nickname!.StartsWith("파티원", System.StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Force_instance_tracking_is_barred_by_a_named_outsider()
+    {
+        // Defence-in-depth: if a NAMED non-party outsider is present (shouldn't happen in instanced content), the
+        // placeholder bypass is suppressed so a stranger's presence never turns bare rows into fake "파티원".
+        var report = new DpsReport();
+        report.Contributors.Add(new User(100)); report.Information[100] = new DpsInformation(6000, 600, 30, 10); // bare major
+        report.Contributors.Add(new User(9, "낯선이", 1)); report.Information[9] = new DpsInformation(5000, 500, 25, 8); // named outsider
+        var party = new[] { new User(1, "파티A", 2), new User(2, "파티B", 2) };
+
+        IReadOnlyList<OverlayRowBuilder.Row> rows = OverlayRowBuilder.Build(
+            report, [], 0, true, false, out _, authoritativeParty: party, forceInstanceTracking: true);
+
+        Assert.DoesNotContain(rows, r => r.Uid == 100); // bare major NOT surfaced (outsider present)
+        Assert.Contains(rows, r => r.Uid == 9);         // the named outsider still shows (it is named)
+    }
+
+    [Fact]
     public void Recovery_still_fires_solo_when_there_is_no_other_named_damager()
     {
         // Solo dungeon re-instance: the ONLY damager is 본인's bare new id. No named outsider exists, so guard (6)
