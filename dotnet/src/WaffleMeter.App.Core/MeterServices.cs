@@ -270,6 +270,15 @@ public sealed class MeterServices
     {
         Data.LoadMobs(ReferenceJson.LoadMobs(Path.Combine(jsonDir, "mobs.json")));
         Data.LoadSkills(ReferenceJson.LoadSkills(Path.Combine(jsonDir, "skills.json")));
+
+        // Instanced-content (원정/초월/성역) boss classification for the opt-in "던전 강제 집계" toggle. Optional:
+        // an older asset bundle without the file simply leaves the toggle inert (no boss is classified).
+        string contentTypes = Path.Combine(jsonDir, "content-types.json");
+        if (File.Exists(contentTypes))
+        {
+            Data.LoadContentTypes(ReferenceJson.LoadContentTypes(contentTypes));
+        }
+
         foreach (string buffFile in new[] { "buff.json", "buff_custom.json" })
         {
             string path = Path.Combine(jsonDir, buffFile);

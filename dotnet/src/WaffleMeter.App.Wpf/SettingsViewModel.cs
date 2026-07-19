@@ -397,6 +397,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool MultiMonitorMode { get => _settings.MultiMonitorMode; set { _settings.MultiMonitorMode = value; OnPropertyChanged(); } }
     public bool ShowJoinPanel { get => _settings.ShowJoinPanel; set { _settings.ShowJoinPanel = value; OnPropertyChanged(); } }
     public bool ShowPreCombatRoster { get => _settings.ShowPreCombatRoster; set { _settings.ShowPreCombatRoster = value; OnPropertyChanged(); } }
+    public bool ForceInstanceTracking { get => _settings.ForceInstanceTracking; set { _settings.ForceInstanceTracking = value; OnPropertyChanged(); } }
     // (Light mode is now a skin — "light" in the Skin list — not a separate overlayTheme toggle.)
 
     // ---- alarms (live; persisted immediately, not part of the Cancel snapshot) ----
@@ -523,6 +524,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         get => _controller.IsAutoHide;
         set { _controller.SetAutoHide(value); OnPropertyChanged(); }
+    }
+
+    public bool KeepOverlayWhenMeterHidden
+    {
+        get => _controller.KeepOverlayWhenHidden;
+        set { _controller.SetKeepOverlayWhenHidden(value); OnPropertyChanged(); }
     }
 
     /// <summary>Taskbar / alt-tab mode: the overlay becomes a normal window (shows in taskbar + alt-tab,

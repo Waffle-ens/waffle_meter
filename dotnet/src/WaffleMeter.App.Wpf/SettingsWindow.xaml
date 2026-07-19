@@ -604,6 +604,15 @@
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowPreCombatRoster}"/>
                         </Grid>
 
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="던전 강제 집계 (본인/파티 미인식 시)" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="던전(원정/초월/성역) 보스 전투 중간에 미터를 켜서 캐릭터 인식이 안 될 때도, 주요 딜러를 '파티원'으로 표시해 집계를 보여줍니다. 추정 신원이라 켜는 동안 웹 통계 전송은 중단됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ForceInstanceTracking}"/>
+                        </Grid>
+
                         <Border Style="{StaticResource SectionDivider}"/>
                         <TextBlock Text="컴팩트 모드" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
                         <Grid Margin="0,0,0,14">
@@ -655,6 +664,14 @@
                                 <TextBlock Text="전투 보조 창을 켭니다. 창은 드래그로 옮길 수 있습니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowBuffUi}"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="미터를 숨겨도 오버레이 유지" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="미터기 본체를 숨겨도(Ctrl+H·트레이) 버프 오버레이는 계속 표시합니다. 게임이 활성일 때만 뜹니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding KeepOverlayWhenMeterHidden}"/>
                         </Grid>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

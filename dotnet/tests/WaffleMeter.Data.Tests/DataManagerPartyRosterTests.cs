@@ -52,6 +52,33 @@ public sealed class DataManagerPartyRosterTests
     }
 
     [Fact]
+    public void A_partial_snapshot_does_not_shrink_a_fuller_roster()
+    {
+        // A 0x9702 snapshot can arrive PARTIAL (byte-scan miss / incremental re-broadcast). A naive Clear+Replace
+        // then shrinks a complete roster (observed live 5→4→3→2); the subset guard keeps the fuller one.
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SavePartyRoster(new List<(string, int, int)> { ("A", 1, 1), ("B", 1, 2), ("C", 1, 3), ("D", 1, 4), ("E", 1, 5) });
+        dm.SavePartyRoster(new List<(string, int, int)> { ("A", 1, 1), ("B", 1, 2) }); // strict subset — ignored
+
+        Assert.Equal(5, dm.PartyMemberIdentities(300_000).Count);
+    }
+
+    [Fact]
+    public void A_snapshot_with_a_new_member_replaces_the_roster()
+    {
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SavePartyRoster(new List<(string, int, int)> { ("A", 1, 1), ("B", 1, 2) });
+        dm.SavePartyRoster(new List<(string, int, int)> { ("A", 1, 1), ("X", 1, 3) }); // a NEW member -> replaces
+
+        IReadOnlyList<(string Nickname, int Server)> ids = dm.PartyMemberIdentities(300_000);
+        Assert.Equal(2, ids.Count);
+        Assert.Contains(ids, m => m.Nickname == "X");
+        Assert.DoesNotContain(ids, m => m.Nickname == "B");
+    }
+
+    [Fact]
     public void PartyRoster_is_empty_when_the_snapshot_is_stale()
     {
         long now = 1_000_000;

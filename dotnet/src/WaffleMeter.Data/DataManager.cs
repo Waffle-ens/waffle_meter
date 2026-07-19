@@ -33,6 +33,9 @@ public sealed class DataManager : ICaptureGameData
     private readonly record struct EndedBattle(int? MobCode, long EndedAt);
 
     private readonly Dictionary<int, Mob> _mobs = new();
+    // Instanced-content (원정/초월/성역) boss mobCode -> category. Loaded from content-types.json; empty until then.
+    // Scopes the opt-in "던전 강제 집계" toggle so its bare-actor display bypass fires ONLY on these bosses.
+    private readonly Dictionary<int, string> _contentTypes = new();
     private readonly HashSet<int> _buffBlacklist = new();
 
     private readonly PacketRepository _packetRepository = new();
@@ -108,6 +111,23 @@ public sealed class DataManager : ICaptureGameData
             _skillRepository.Save(s.Code, s);
         }
     }
+
+    /// <summary>Load the instanced-content (원정/초월/성역) boss classification: mobCode -> category.</summary>
+    public void LoadContentTypes(IReadOnlyDictionary<int, string> contentTypes)
+    {
+        foreach (KeyValuePair<int, string> kv in contentTypes)
+        {
+            _contentTypes[kv.Key] = kv.Value;
+        }
+    }
+
+    /// <summary>The instanced-content category (expedition/transcendence/sanctuary) of a boss mobCode, or null
+    /// when the code isn't a classified 원정/초월/성역 boss.</summary>
+    public string? ContentCategory(int mobCode) => _contentTypes.GetValueOrDefault(mobCode);
+
+    /// <summary>True when <paramref name="mobCode"/> is a classified instanced (원정/초월/성역) boss — the scope
+    /// gate for the opt-in "던전 강제 집계" display bypass.</summary>
+    public bool IsInstancedBoss(int mobCode) => _contentTypes.ContainsKey(mobCode);
 
     public void LoadBuffs(IEnumerable<Buff> buffs)
     {
@@ -558,6 +578,21 @@ public sealed class DataManager : ICaptureGameData
 
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members)
     {
+        // A 0x9702 snapshot can arrive PARTIAL — the byte-scan misses a record, or an incremental re-broadcast
+        // carries a subset — and a naive Clear+Replace then SHRINKS a complete roster (observed live: 5→4→3→2
+        // over ~11 s), which would strand real party members / mis-gate the display. Guard: ignore a snapshot
+        // that is a STRICT SUBSET of the current roster (same identities, fewer of them) — keep the fuller one,
+        // just refresh its freshness. Any snapshot with a NEW member (the party grew or changed) still replaces.
+        // A genuine party change/leave is handled by ClearPartyRoster (0x971D ExitParty) and the resets, not by
+        // a shrinking snapshot.
+        var incoming = members.Select(m => (m.Nickname, m.Server)).ToHashSet();
+        var current = _partyRoster.Select(m => (m.Nickname, m.Server)).ToHashSet();
+        if (_partyRoster.Count > 0 && incoming.Count < current.Count && incoming.IsSubsetOf(current))
+        {
+            _partyRosterAtMs = Clock(); // partial re-broadcast of the same party — hold the fuller roster, stay fresh
+            return;
+        }
+
         _partyRoster.Clear();
         _partyRoster.AddRange(members);
         _partyRosterAtMs = Clock();
