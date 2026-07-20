@@ -668,7 +668,7 @@ public partial class App : Application
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "패킷 로그 불러오기 (개발용)",
-            Filter = "패킷 디버그 로그 (*.jsonl)|*.jsonl|모든 파일 (*.*)|*.*",
+            Filter = "패킷 디버그 로그 (*.jsonl;*.jsonl.gz)|*.jsonl;*.jsonl.gz|모든 파일 (*.*)|*.*",
             InitialDirectory = Directory.Exists(DevPacketLogReplay.DefaultLogDirectory())
                 ? DevPacketLogReplay.DefaultLogDirectory()
                 : null,
@@ -1659,6 +1659,7 @@ public partial class App : Application
         _buffPresets?.Dispose();
         _tray?.Dispose();
         _hotkeys?.Dispose();
+        _engine?.Services.DebugLogger.Stop(); // finalize the gzip trailer if a packet-log session is running
         _engine?.Dispose();
         base.OnExit(e);
     }

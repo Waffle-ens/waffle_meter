@@ -106,7 +106,12 @@
   </PropertyGroup>
   <Target Name="CopyReplayEngineForDev" AfterTargets="Build"
           Condition="'$(_IsPublishing)' != 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(ReplayEngineProject)')">
-    <MSBuild Projects="$(ReplayEngineProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
+    <!-- RemoveProperties: a `dotnet build -o <dir>` passes OutputPath/OutDir as GLOBAL properties, which
+         would redirect this inner build away from the default bin the Copy below globs — leaving stale
+         DLLs there to overwrite the fresh -o output. Strip them so the inner build always refreshes its
+         own bin. -->
+    <MSBuild Projects="$(ReplayEngineProject)" Targets="Build" Properties="Configuration=$(Configuration)"
+             RemoveProperties="OutputPath;OutDir" />
     <Copy SourceFiles="..\..\..\..\waffle_meter_replay\dotnet\src\WaffleMeter.Replay\bin\$(Configuration)\net10.0\WaffleMeter.Replay.dll"
           DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
@@ -117,7 +122,8 @@
   <Target Name="CopyCaptureHostForDev" AfterTargets="Build"
           Condition="'$(_IsPublishing)' != 'true' and '$(DesignTimeBuild)' != 'true'">
     <MSBuild Projects="..\..\tools\WaffleMeter.CaptureHost\WaffleMeter.CaptureHost.csproj"
-             Targets="Build" Properties="Configuration=$(Configuration)" />
+             Targets="Build" Properties="Configuration=$(Configuration)"
+             RemoveProperties="OutputPath;OutDir" />
     <ItemGroup>
       <_CaptureHostFiles Include="..\..\tools\WaffleMeter.CaptureHost\bin\$(Configuration)\net10.0-windows\**\*.*" />
     </ItemGroup>

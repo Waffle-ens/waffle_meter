@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using WaffleMeter.Capture;
+using WaffleMeter.Capture.Corpus;
 using WaffleMeter.Data;
 
 // Phase 1 DPS parity: replay the corpus through the ported DataManager + DpsCalculator with a
@@ -52,7 +53,7 @@ var processor = new StreamProcessor(NullStreamProcessorSink.Instance, dm);
 assembler = new StreamAssembler((packet, at) => processor.OnPacketReceived(packet, at));
 
 string currentIp = "";
-foreach (string line in File.ReadLines(corpusPath))
+foreach (string line in CaptureCorpusReader.ReadLines(corpusPath))
 {
     if (string.IsNullOrWhiteSpace(line))
     {

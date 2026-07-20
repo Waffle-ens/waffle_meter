@@ -20,7 +20,7 @@ dotnet/
   src/WaffleMeter.Capture/                      순수 캡처/재조립 로직 (플랫폼 의존성 0)
     CapturedSegment.cs                          모든 캡처 소스(WinDivert/Npcap/코퍼스)의 공통 계약
     PacketAlignmenter.cs                        ★ Kotlin PacketAlignmenter verbatim 포팅 (seq 정렬/wrap)
-    Corpus/CaptureCorpusReader.cs               dev 로거 .jsonl → CapturedSegment 스트림
+    Corpus/CaptureCorpusReader.cs               dev 로거 .jsonl/.jsonl.gz → CapturedSegment 스트림 (gzip 매직바이트 스니핑)
   tests/WaffleMeter.Capture.Tests/
     PacketAlignmenterTests.cs                   합성 패리티 케이스(wrap/reorder/retransmit/gap/reset)
 ```
@@ -37,8 +37,8 @@ dotnet sln add src/WaffleMeter.Capture tests/WaffleMeter.Capture.Tests
 ## 패리티 코퍼스 캡처 (Kotlin은 손대지 않음, dev 빌드 사용)
 1. `dev/packet-logging` 빌드 실행(이미 PacketDebugLogger 계측 포함). 설정 패널의 패킷 로깅 토글로 세션 시작.
 2. AION2에서 대표 전투(보스/멀티히트/버프/소환 포함) 플레이 후 로깅 정지.
-3. 산출물: `%APPDATA%\waffle_meter.v1.4\packet-debug-logs\<timestamp>-packet-debug.jsonl`
-4. 이 파일을 `dotnet/corpus/<session>/capture.jsonl`로 복사(이 디렉토리는 .gitignore — 게임 트래픽 비커밋).
+3. 산출물: `%APPDATA%\waffle_meter.v1.4\packet-debug-logs\<timestamp>-packet-debug.jsonl.gz` (gzip NDJSON; 구버전 `.jsonl`도 리더가 그대로 읽음)
+4. 이 파일을 `dotnet/corpus/<session>/capture.jsonl.gz`로 복사(이 디렉토리는 .gitignore — 게임 트래픽 비커밋).
 5. `CaptureCorpusReader.ReadCaptures(path)` → `PacketAlignmenter.Feed(...)`로 Layer 1(정렬) 재생.
 
 > 결정성 주의: `arrivedAt`(wall-clock)이 DPS/battleEnd로 전파되므로 .NET은 **코퍼스의 arrivedAt을 그대로 소비**하고 라이브-버프 `now()`엔 고정 클럭을 주입한다([`../docs/phase-0-parity-harness.md`](../docs/phase-0-parity-harness.md) §7). 또한 현 dev 로거 `capture()`는 캡처 스레드에서 동기 write라 타이밍 교란 가능 — 오프스레드 라이터 리팩터 또는 계측-vs-비계측 battleEnd 자기일관성 측정 필요.

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using WaffleMeter.Capture;
+using WaffleMeter.Capture.Corpus;
 
 // Replays a packet-debug-logs corpus through the live parser and dumps everything related to combat
 // power, to diagnose the "power shows wrong" bug. Usage: PowerProbe <corpus.jsonl>
@@ -18,7 +19,7 @@ var processor = new StreamProcessor(sink);
 assembler = new StreamAssembler((p, at) => processor.OnPacketReceived(p, at));
 
 string currentIp = "";
-foreach (string line in File.ReadLines(corpus))
+foreach (string line in CaptureCorpusReader.ReadLines(corpus))
 {
     if (string.IsNullOrWhiteSpace(line))
     {

@@ -1,6 +1,6 @@
-using System.Text;
 using WaffleMeter.App.Core;
 using WaffleMeter.Capture;
+using WaffleMeter.Capture.Corpus;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
 using WaffleMeter.Services;
@@ -90,8 +90,7 @@ public sealed class MeterServicesTests : IDisposable
         services.Value.Feed(new CapturedSegment(42, new byte[] { 0x0A, 0x0B }, 12345, "9.9.9.9", 1, "8.8.8.8", 2));
         logger.Stop();
 
-        string file = Directory.GetFiles(logDir, "*.jsonl").Single();
-        string[] lines = File.ReadAllLines(file, Encoding.UTF8).Where(l => l.Length > 0).ToArray();
+        string[] lines = ReadLog(logDir);
         Assert.Contains(
             "{\"type\":\"capture\",\"at\":12345,\"ip\":\"9.9.9.9\",\"seq\":42,\"len\":2,\"head\":\"0A 0B\",\"data\":\"Cgs=\"}",
             lines);
@@ -180,7 +179,7 @@ public sealed class MeterServicesTests : IDisposable
         new(seq, new byte[] { 0x08, 0x04, 0x38, 0x00, 0x00 }, at, "10.0.0.1", srcPort, "10.0.0.2", 13328);
 
     private static string[] ReadLog(string logDir) =>
-        File.ReadAllLines(Directory.GetFiles(logDir, "*.jsonl").Single(), Encoding.UTF8)
+        CaptureCorpusReader.ReadLines(Directory.GetFiles(logDir, "*.jsonl.gz").Single())
             .Where(l => l.Length > 0)
             .ToArray();
 

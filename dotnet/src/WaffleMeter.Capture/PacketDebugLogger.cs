@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO.Compression;
 using System.Text;
 
 namespace WaffleMeter.Capture;
@@ -9,12 +10,13 @@ namespace WaffleMeter.Capture;
 /// assembled hooks, so the app can record its own packet-debug-logs corpus — replayable by
 /// DpsReplayCli / the Kotlin generateGolden — instead of needing the Kotlin dev build.
 ///
-/// The on-disk format is byte-compatible with the Kotlin logger: manual JSON with insertion-ordered
+/// The decompressed format is byte-compatible with the Kotlin logger: manual JSON with insertion-ordered
 /// keys, lowercase booleans, <c>null</c> literals, raw UTF-8 for non-ASCII (Korean) text, and the same
-/// string escaping; one object per line under
-/// <c>%APPDATA%/waffle_meter.v1.4/packet-debug-logs/{yyyyMMdd-HHmmss}-packet-debug.jsonl</c>; flushed
-/// every 200 lines and on stop. When no session is running every method is a cheap no-op, matching the
-/// Kotlin object's <c>session == null</c> early return.
+/// string escaping; one object per line, gzip-wrapped on disk under
+/// <c>%APPDATA%/waffle_meter.v1.4/packet-debug-logs/{yyyyMMdd-HHmmss}-packet-debug.jsonl.gz</c>; flushed
+/// every 200 lines (a zlib sync flush, so a killed session stays readable up to the last flush) and on
+/// stop. When no session is running every method is a cheap no-op, matching the Kotlin object's
+/// <c>session == null</c> early return.
 ///
 /// Faithfulness note: the .NET <see cref="IStreamProcessorSink"/> does not carry <c>arrivedAt</c> into
 /// Dispatch/UnknownOpcode nor the packet into UnknownOpcode, so those two DIAGNOSTIC events use the wall
@@ -77,10 +79,17 @@ public sealed class PacketDebugLogger : IStreamProcessorSink
 
             string dir = _logDir;
             Directory.CreateDirectory(dir);
-            string name = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-packet-debug.jsonl";
-            string path = System.IO.Path.Combine(dir, name);
+            string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+            string path = System.IO.Path.Combine(dir, stamp + "-packet-debug.jsonl.gz");
+            for (int n = 2; File.Exists(path); n++)
+            {
+                path = System.IO.Path.Combine(dir, stamp + "-" + n + "-packet-debug.jsonl.gz");
+            }
+
             var writer = new StreamWriter(
-                new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read, 1024 * 1024),
+                new GZipStream(
+                    new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read, 1024 * 1024),
+                    CompressionLevel.Fastest),
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             var next = new Session(path, writer, Now());
             _session = next;

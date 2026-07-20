@@ -1,6 +1,6 @@
-using System.Text;
 using System.Text.RegularExpressions;
 using WaffleMeter.Capture;
+using WaffleMeter.Capture.Corpus;
 using Xunit;
 
 namespace WaffleMeter.Capture.Tests;
@@ -22,8 +22,9 @@ public class PacketDebugLoggerTests
         logger.Start();
         body(logger);
         logger.Stop();
-        string file = Directory.GetFiles(dir, "*.jsonl").Single();
-        return File.ReadAllLines(file, Encoding.UTF8).Where(l => l.Length > 0).ToArray();
+        // The file is gzipped on disk; the byte-parity contract holds for the DECOMPRESSED lines.
+        string file = Directory.GetFiles(dir, "*.jsonl.gz").Single();
+        return CaptureCorpusReader.ReadLines(file).Where(l => l.Length > 0).ToArray();
     }
 
     [Fact]
@@ -132,7 +133,7 @@ public class PacketDebugLoggerTests
             logger.UnknownOpcode(0x3603, false, 5);
             logger.Meta("nickname", ("uid", 1));
             Assert.False(logger.IsRunning);
-            Assert.False(Directory.Exists(dir) && Directory.GetFiles(dir, "*.jsonl").Length > 0);
+            Assert.False(Directory.Exists(dir) && Directory.GetFiles(dir, "*.jsonl*").Length > 0);
         }
         finally { if (Directory.Exists(dir)) { Directory.Delete(dir, true); } }
     }
