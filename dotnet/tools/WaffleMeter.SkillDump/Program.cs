@@ -1,5 +1,6 @@
 using System.Text.Json;
 using WaffleMeter.Capture;
+using WaffleMeter.Capture.Corpus;
 using WaffleMeter.Data;
 
 // SKILL-CODE DUMP (investigation): replay a packet-debug .jsonl and, for each damage hit, recover the
@@ -21,7 +22,7 @@ var spy = new Spy(dm);
 var processor = new StreamProcessor(spy, spy);
 
 var byIp = new Dictionary<string, List<CapturedSegment>>();
-foreach (string line in File.ReadLines(corpus))
+foreach (string line in CaptureCorpusReader.ReadLines(corpus))
 {
     if (string.IsNullOrWhiteSpace(line)) continue;
     JsonDocument doc;

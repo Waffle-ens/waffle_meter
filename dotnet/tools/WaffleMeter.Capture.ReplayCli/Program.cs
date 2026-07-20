@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using WaffleMeter.Capture;
+using WaffleMeter.Capture.Corpus;
 using WaffleMeter.Data;
 
 // Phase 0 real-data parity check (Layers 0/1/2/3a/3b/3c):
@@ -54,7 +55,7 @@ int compressedExpected = 0, unknownExpected = 0, parserErrorExpected = 0;
 HashSet<string> metaTypes = ["nickname", "own_combat_power", "summon_map", "mob_spawn", "remain_hp", "buff", "battle"];
 
 long lineNo = 0;
-foreach (string line in File.ReadLines(path))
+foreach (string line in CaptureCorpusReader.ReadLines(path))
 {
     lineNo++;
     if (string.IsNullOrWhiteSpace(line))

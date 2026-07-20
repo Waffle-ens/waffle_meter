@@ -1,5 +1,6 @@
 using System.Text.Json;
 using WaffleMeter.Capture;
+using WaffleMeter.Capture.Corpus;
 using WaffleMeter.Data;
 
 // SUMMON-OWNER RESOLUTION CHECK (investigation / regression guard): replay a packet-debug .jsonl through the
@@ -24,7 +25,7 @@ var sink = new Sink();
 var processor = new StreamProcessor(sink, gameData);
 
 var byIp = new Dictionary<string, List<CapturedSegment>>();
-foreach (string line in File.ReadLines(corpus))
+foreach (string line in CaptureCorpusReader.ReadLines(corpus))
 {
     if (string.IsNullOrWhiteSpace(line)) continue;
     JsonDocument doc;

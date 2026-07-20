@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using WaffleMeter.Capture;
+using WaffleMeter.Capture.Corpus;
 using WaffleMeter.Data;
 using WaffleMeter.Stats;
 
@@ -64,7 +65,7 @@ var calculator = new DpsCalculator(dm, () =>
 
 var perIpLines = new Dictionary<string, long>();
 long captureLines = 0;
-foreach (string line in File.ReadLines(corpusPath))
+foreach (string line in CaptureCorpusReader.ReadLines(corpusPath))
 {
     if (string.IsNullOrWhiteSpace(line))
     {

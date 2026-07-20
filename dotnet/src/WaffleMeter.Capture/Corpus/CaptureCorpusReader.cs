@@ -1,9 +1,10 @@
+using System.IO.Compression;
 using System.Text.Json;
 
 namespace WaffleMeter.Capture.Corpus;
 
 /// <summary>
-/// Reads the Phase 0 packet-debug corpus (.jsonl) produced by the Kotlin
+/// Reads the Phase 0 packet-debug corpus (.jsonl or gzipped .jsonl.gz) produced by the Kotlin
 /// <c>PacketDebugLogger</c> (dev/packet-logging branch) and yields the raw capture segments
 /// as <see cref="CapturedSegment"/> — the same shape the live capture helper emits, so the
 /// downstream pipeline (aligner → assembler → parser → DPS) is exercised identically whether
@@ -16,9 +17,58 @@ namespace WaffleMeter.Capture.Corpus;
 /// </summary>
 public static class CaptureCorpusReader
 {
+    /// <summary>
+    /// Opens a corpus file for reading, transparently decompressing gzip. Detection is by the
+    /// gzip magic bytes (0x1F 0x8B), not the extension, so renamed files and the pre-gzip
+    /// .jsonl archive both keep working.
+    /// </summary>
+    public static Stream OpenCorpusStream(string path)
+    {
+        var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        int b0 = file.ReadByte();
+        int b1 = file.ReadByte();
+        file.Position = 0;
+        if (b0 == 0x1F && b1 == 0x8B)
+        {
+            return new GZipStream(file, CompressionMode.Decompress);
+        }
+
+        return file;
+    }
+
+    /// <summary>
+    /// Enumerates corpus lines from a plain or gzipped file. A gzip tail truncated by a killed
+    /// session decompresses cleanly up to the last sync flush; genuinely corrupted data ends the
+    /// enumeration instead of throwing, preserving the "crash-cut corpus stays replayable"
+    /// property plain .jsonl files have always had.
+    /// </summary>
+    public static IEnumerable<string> ReadLines(string path)
+    {
+        using var reader = new StreamReader(OpenCorpusStream(path));
+        while (true)
+        {
+            string? line;
+            try
+            {
+                line = reader.ReadLine();
+            }
+            catch (InvalidDataException)
+            {
+                yield break;
+            }
+
+            if (line is null)
+            {
+                yield break;
+            }
+
+            yield return line;
+        }
+    }
+
     public static IEnumerable<CapturedSegment> ReadCaptures(string jsonlPath)
     {
-        foreach (string line in File.ReadLines(jsonlPath))
+        foreach (string line in ReadLines(jsonlPath))
         {
             if (string.IsNullOrWhiteSpace(line))
             {
