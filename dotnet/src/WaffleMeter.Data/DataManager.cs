@@ -1020,7 +1020,12 @@ public sealed class DataManager : ICaptureGameData
 
     /// <summary><paramref name="level"/> = 어노멀 레벨(0 = 모름). 서로 중복 적용되지 않는 버프 쌍에서 높은 쪽을
     /// 고르는 데 쓰인다.</summary>
-    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level)
+    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level) =>
+        SaveUseBuff(uid, skillCode, buffStart, buffEnd, duration, actorId, level, 0);
+
+    /// <summary><paramref name="slot"/> = 그 대상의 버프 슬롯 번호(0 = 모름). 제거 브로드캐스트(0x382C)가
+    /// 이 슬롯을 지목하므로, 들고 있어야 정확히 그 인스턴스만 지울 수 있다.</summary>
+    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level, int slot)
     {
         SaveUseBuff(uid, new UseBuff(skillCode, buffStart, buffEnd, duration, actorId));
 
@@ -1063,7 +1068,7 @@ public sealed class DataManager : ICaptureGameData
                 {
                     // Key by BASE code so the SAME buff re-cast by a different player/rank refreshes the one slot
                     // in place (no duplicate icon, no duplicate start alert) — the later cast takes over.
-                    _ownerBuffs[baseCode] = (overlayEnd, actorId, duration, indefinite, level);
+                    _ownerBuffs[baseCode] = (overlayEnd, actorId, duration, indefinite, level, slot);
                 }
 
                 LiveBuffsChanged?.Invoke();
@@ -1074,6 +1079,37 @@ public sealed class DataManager : ICaptureGameData
             // A party member's job buff — not shown on the (self-only) overlay, but catalogued so the picker
             // lists other jobs' buffs too (self + party coverage).
             RecordObservedBuff(skillCode);
+        }
+    }
+
+    /// <summary>버프 제거 브로드캐스트(0x382C) 반영. 본인 것만, 그리고 <b>슬롯이 일치하는 항목만</b> 지운다.
+    /// <para>지금까지는 제거 신호가 없다고 보고 duration이 다 흐를 때까지 슬롯을 남겨 뒀는데, 실측상 서버가
+    /// 예상 만료보다 1초 이상 일찍 끊는 경우가 절반을 넘어(0x382C로 종료된 인스턴스의 57.6%) 오버레이가
+    /// 오래 과다 표시되고 있었다. 슬롯 매칭이라 같은 코드가 겹쳐 걸려도 엉뚱한 인스턴스를 지울 수 없다.</para>
+    /// <para>슬롯을 모르는(0) 엔트리는 건드리지 않는다 — 기존 만료 로직이 그대로 처리한다(fail-open).</para></summary>
+    public void RemoveBuffSlots(int entityId, IReadOnlyList<int> slots)
+    {
+        if (entityId <= 0 || slots.Count == 0 || entityId != _userRepository.Executor())
+        {
+            return;
+        }
+
+        bool changed = false;
+        lock (_ownerBuffGate)
+        {
+            foreach (int baseCode in _ownerBuffs
+                         .Where(kv => kv.Value.Slot != 0 && slots.Contains(kv.Value.Slot))
+                         .Select(kv => kv.Key)
+                         .ToList())
+            {
+                _ownerBuffs.Remove(baseCode);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            LiveBuffsChanged?.Invoke();
         }
     }
 
@@ -1164,7 +1200,7 @@ public sealed class DataManager : ICaptureGameData
 
         lock (_ownerBuffGate)
         {
-            _ownerBuffs[cooldownCode] = (arrivedAt + RevivalHealCooldownMs, uid, RevivalHealCooldownMs, false, 0);
+            _ownerBuffs[cooldownCode] = (arrivedAt + RevivalHealCooldownMs, uid, RevivalHealCooldownMs, false, 0, 0);
         }
 
         LiveBuffsChanged?.Invoke();
@@ -1248,7 +1284,7 @@ public sealed class DataManager : ICaptureGameData
 
     // ---- live owner-buff store (for the combat-assist overlay) ----
     // Keyed by BASE skill code (level-independent) so a re-cast of the same buff refreshes one entry.
-    private readonly Dictionary<int, (long End, int Actor, long Duration, bool Indefinite, int Level)> _ownerBuffs = new(); // baseCode -> (expiry, applier, duration, indefinite, abnormal level)
+    private readonly Dictionary<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)> _ownerBuffs = new(); // baseCode -> (expiry, applier, duration, indefinite, abnormal level)
 
     // 폭주 (권성): the only maintained-stance buff broadcast with no expiry (duration 0xFFFFFFFF). The parser
     // gives every apply a short synthetic duration (StreamProcessor.IndefiniteStanceFallbackMs) and its whole
@@ -1327,7 +1363,7 @@ public sealed class DataManager : ICaptureGameData
             }
 
             // active owner buffs whose skill is on cooldown right now — these are the ones that SHOULD gray.
-            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level)> kv in _ownerBuffs)
+            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)> kv in _ownerBuffs)
             {
                 if (kv.Value.End > nowMs && _cooldowns.TryGetValue(kv.Key, out long cd) && cd > nowMs)
                 {
@@ -1352,7 +1388,7 @@ public sealed class DataManager : ICaptureGameData
         var result = new List<OwnerBuffView>();
         lock (_ownerBuffGate)
         {
-            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level)> kv in _ownerBuffs)
+            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)> kv in _ownerBuffs)
             {
                 if (kv.Value.End <= nowMs)
                 {

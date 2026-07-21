@@ -34,13 +34,29 @@ public interface ICaptureGameData
     void SaveUserPower(int uid, int power);
     void SaveSummon(int summonId, int ownerId);
     void SaveMobHp(int instanceId, int hp);
+
+    /// <summary>0x8D00의 statId 7이 실어 오는 <b>권위 있는</b> 최대 HP. 종전에는 "관측된 현재 HP의 최댓값"을
+    /// 최대치로 추정했는데, 이 값이 오면 그보다 정확하다(저장은 단조 증가라 낮은 값으로 덮이지 않는다).
+    /// 다만 보스의 6.9%에만 오므로 추정 경로는 그대로 남는다. 기본 no-op.</summary>
+    void SaveMobMaxHp(int instanceId, int maxHp) { }
     void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId);
 
     /// <summary>버프 적용 + <paramref name="level"/>(어노멀 레벨, 0 = 모름). 서로 중복 적용되지 않는 버프 쌍에서
     /// "레벨이 높은 쪽"을 고르는 데 쓴다. 기본 구현은 레벨을 버리고 위 오버로드로 위임하므로, 레벨이 필요 없는
     /// 구현체(캡처 전용 모드 등)는 손댈 필요가 없다.</summary>
     void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level)
+        => SaveUseBuff(uid, skillCode, buffStart, buffEnd, duration, actorId, level, 0);
+
+    /// <summary>버프 적용 + 레벨 + <paramref name="slot"/>(그 대상의 버프 슬롯 번호, 0 = 모름). 슬롯은 제거
+    /// 브로드캐스트(0x382C)가 참조하는 키라, 들고 있어야 "정확히 그 인스턴스만" 지울 수 있다.</summary>
+    void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level, int slot)
         => SaveUseBuff(uid, skillCode, buffStart, buffEnd, duration, actorId);
+
+    /// <summary>버프 제거 브로드캐스트(0x382C). <paramref name="slots"/> = 그 대상에서 사라진 버프 슬롯들.
+    /// 슬롯 매칭이라 "이미 만료된 쪽인지 살아 있는 쪽인지" 모호함이 없다 — 코드만 주는 0x921A는 같은 코드가
+    /// 겹칠 때 어느 인스턴스를 닫는 신호인지 원리적으로 구분할 수 없어 제거 신호로 쓰지 않는다. 기본 no-op.</summary>
+    void RemoveBuffSlots(int entityId, IReadOnlyList<int> slots) { }
+
     void RequestOfficialCharacterLookup(int uid);
 
     /// <summary>Skill cooldown update: <paramref name="remainingMs"/> ms left on <paramref name="skillCode"/>'s

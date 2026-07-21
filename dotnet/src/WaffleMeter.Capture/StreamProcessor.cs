@@ -89,6 +89,8 @@ public sealed class StreamProcessor
     private const int OwnCombatPowerKey = 0x56 | (0x36 << 8);  // 0x3656 (was 0x3655)
     private const int SummonKey = 0x41 | (0x36 << 8);          // 0x3641 (was 0x3640)
     private const int BuffApplyKey = 0x2A | (0x38 << 8);       // 0x382A
+    // 버프 제거 브로드캐스트. 슬롯 단위라 "정확히 그 인스턴스"를 지목한다(코드만 주는 0x921A와 다름).
+    private const int BuffRemoveKey = 0x2C | (0x38 << 8);      // 0x382C
     private const int BuffApply2Key = 0x2B | (0x38 << 8);      // 0x382B
     // Skill cooldown snapshot (0x38 category): a table of {u32 skillCode, varint remainingMs} for the local
     // player's hotbar (remaining 0 = ready). Drives the buff overlay's "grayed while on cooldown" option.
@@ -131,6 +133,7 @@ public sealed class StreamProcessor
         [CooldownStartKey] = "CooldownStart",
         [BattleToggleKey] = "BattleToggle",
         [RemainHpKey] = "RemainHp",
+        [BuffRemoveKey] = "BuffRemove",
         [EntityDeathKey] = "EntityDeath",
         [Key(0x07, 0x97)] = "JoinRequest",
         [Key(0x25, 0x97)] = "CancelJoin",
@@ -302,6 +305,9 @@ public sealed class StreamProcessor
                     break;
                 case EntityDeathKey:
                     ParseEntityDeath(packet, lengthInfo, extraFlag, arrivedAt);
+                    break;
+                case BuffRemoveKey:
+                    ParseBuffRemove(packet, lengthInfo, extraFlag);
                     break;
                 case BuffApplyKey:
                 case BuffApply2Key:
@@ -1072,7 +1078,17 @@ public sealed class StreamProcessor
         _sink.Meta("summon_map", ("summonId", summonInfo.Value), ("ownerId", realActorId));
     }
 
-    /// <summary>Boss remaining-HP packet 0x8D00. Kotlin parseRemainHp (1044-1073).</summary>
+    /// <summary>엔티티 스탯 브로드캐스트 0x8D00. 이름은 RemainHp지만 실제로는 <b>몹·플레이어 공통의 스탯
+    /// 묶음</b>이다. 레이아웃(코퍼스 3.96GB / 프레임 416,370개에서 99.997%가 정확히 소진되어 검증됨):
+    /// <code>
+    /// [varint entity][varint mask]
+    ///   mask&amp;1 → [u8 n][ n × (u8 statId, u32 LE) ]   // 플레이어 전용 자원류
+    ///   mask&amp;2 → [u8 m][ m × (u8 statId, u64 LE) ]   // statId 0 = 현재 HP, 7 = 최대 HP
+    /// </code>
+    /// <para>종전 구현은 "varint 3개를 건너뛰고 u32를 읽는" 형태였는데, 이는 몹 프레임이 항상
+    /// mask=2/1개/statId=0 한 형태여서 u64 HP의 하위 32비트에 <b>우연히</b> 착지했기 때문에 동작했다.
+    /// 그래서 최대 HP만 실린 프레임(실측 9건)에서는 최대치를 "잔여 HP"로 발행해 교전 첫 프레임에 보스 HP가
+    /// 순간적으로 만피로 튀었다. 이제 statId를 실제로 보고 현재 HP가 있을 때만 발행한다.</para></summary>
     private void ParseRemainHp(byte[] packet, VarIntOutput lengthInfo, bool extraFlag)
     {
         int offset = lengthInfo.Length;
@@ -1087,18 +1103,61 @@ public sealed class StreamProcessor
         offset += 2;
 
         VarIntOutput mobIdInfo = PacketPrimitives.ReadVarInt(packet, offset);
+        if (mobIdInfo.Length <= 0) return;
         offset += mobIdInfo.Length;
+
+        VarIntOutput maskInfo = PacketPrimitives.ReadVarInt(packet, offset);
+        if (maskInfo.Length <= 0) return;
+        offset += maskInfo.Length;
+
+        // 정상 게임 프레임의 mask는 1/2/3뿐이다(실측 416,356건 중 위반 0). 그 밖의 값은 비게임 노이즈
+        // 스트림이 우연히 0x8D00으로 프레이밍된 것이므로 통째로 버린다.
+        if ((maskInfo.Value & ~3) != 0) return;
+
+        long? currentHp = null;
+        long? maxHp = null;
+
+        if ((maskInfo.Value & 1) != 0)
+        {
+            if (offset >= packet.Length) return;
+            int n = packet[offset++];
+            if (offset + (n * 5) > packet.Length) return;
+            offset += n * 5; // u32 자원 스탯 — 이 경로에는 statId 0/7이 실리지 않는다
+        }
+
+        if ((maskInfo.Value & 2) != 0)
+        {
+            if (offset >= packet.Length) return;
+            int m = packet[offset++];
+            if (offset + (m * 9) > packet.Length) return;
+            for (int i = 0; i < m; i++)
+            {
+                int statId = packet[offset];
+                long value = PacketPrimitives.ReadUInt64Le(packet, offset + 1);
+                offset += 9;
+                if (statId == 0) currentHp = value;
+                else if (statId == 7) maxHp = value;
+            }
+        }
+
+        // 프레임을 정확히 소진하지 못했으면 우리가 아는 형태가 아니다 — 노이즈이거나 서버가 포맷을 바꿨다.
+        if (offset != packet.Length) return;
+
         int? mobCode = _data.GetMobId(mobIdInfo.Value);
         if (mobCode is null) return;
         Mob? mob = _data.GetMob(mobCode.Value);
         if (mob is null) return;
         if (!mob.Boss) return;
 
-        offset += PacketPrimitives.ReadVarInt(packet, offset).Length;
-        offset += PacketPrimitives.ReadVarInt(packet, offset).Length;
-        offset += PacketPrimitives.ReadVarInt(packet, offset).Length;
+        if (maxHp is { } mx && IsSaneHp(mx))
+        {
+            _data.SaveMobMaxHp(mobIdInfo.Value, Saturate(mx));
+        }
 
-        int mobHp = PacketPrimitives.ParseUInt32Le(packet, offset);
+        // 현재 HP가 실리지 않은 프레임(최대 HP만 오는 경우)은 잔여 HP를 발행하지 않는다 — 종전 버그.
+        if (currentHp is not { } hp || !IsSaneHp(hp)) return;
+
+        int mobHp = Saturate(hp);
         _data.SaveMobHp(mobIdInfo.Value, mobHp);
         _sink.Meta("remain_hp",
             ("target", mobIdInfo.Value),
@@ -1129,6 +1188,17 @@ public sealed class StreamProcessor
         _data.SaveEntityDeath(entityInfo.Value, arrivedAt);
         _sink.Meta("death", ("entity", entityInfo.Value));
     }
+
+    // 실측 상한은 18.4억(바크론 계열)이다. 그보다 훨씬 큰 값은 프레임이 우리 해석과 다르다는 뜻이라 버린다
+    // — 진짜 게임 프레임 중에도 3.0e18짜리가 1건 있었고, 프레임을 정확히 소진해 길이 검사로는 못 걸러진다.
+    private const long MaxPlausibleHp = 100_000_000_000L;
+
+    private static bool IsSaneHp(long hp) => hp >= 0 && hp <= MaxPlausibleHp;
+
+    // HP는 아직 데이터 계층 전체가 int다. 실측 최대 18.4억으로 int.MaxValue(21.5억) 대비 여유가 1.17배뿐이라
+    // 상위 던전이 추가되면 넘칠 수 있는데, 그때 음수로 뒤집히는 것보다 상한에 붙는 편이 안전하다.
+    // (자료형을 long으로 넓히는 건 통계 웹 페이로드 스키마까지 번지므로 별도 과제.)
+    private static int Saturate(long hp) => hp > int.MaxValue ? int.MaxValue : (int)hp;
 
     /// <summary>Battle start/end toggle 0x8D21. Kotlin parseBattlePacket (878-924).</summary>
     private void ParseBattlePacket(byte[] packet, VarIntOutput lengthInfo, bool extraFlag)
@@ -1207,12 +1277,21 @@ public sealed class StreamProcessor
 
             if (packet[offset] != 0x2A && packet[offset] != 0x2B) return;
             if (packet[offset + 1] != 0x38) return;
+            bool refresh = packet[offset] == 0x2B; // 0x382B = 갱신, 0x382A = 최초 적용
             offset += 2;
 
             VarIntOutput targetInfo = PacketPrimitives.ReadVarInt(packet, offset);
-            offset += targetInfo.Length + 2;
+            offset += targetInfo.Length;
 
-            offset += PacketPrimitives.ReadVarInt(packet, offset).Length;
+            // 두 opcode의 헤더 길이가 다르다 — 0x382A는 [01][kind] 2바이트, 0x382B는 [kind] 1바이트가
+            // slot varint 앞에 붙는다. 종전에는 둘 다 2를 건너뛰어 0x382B에서 한 바이트씩 밀렸다. slot이
+            // 2바이트 varint인 프레임은 우연히 자리가 맞아 드러나지 않았고 1바이트인 프레임만 깨졌다.
+            // 실측(20260719-022140 원본 바이트): 0x382A는 수정 전후가 완전히 동일하고, 0x382B만 유효 코드가
+            // 4,040 → 4,791로 늘며 실재하지 않는 유령 코드 157289171(로그 934건, 참조 데이터 0건)이 사라진다.
+            offset += refresh ? 1 : 2;
+
+            VarIntOutput slotInfo = PacketPrimitives.ReadVarInt(packet, offset);
+            offset += slotInfo.Length;
 
             int skillCode = PacketPrimitives.ParseUInt32Le(packet, offset);
             offset += 4;
@@ -1254,7 +1333,7 @@ public sealed class StreamProcessor
             }
 
             int level = ReadAbnormalLevel(packet, offset + actorInfo.Length);
-            _data.SaveUseBuff(targetInfo.Value, skillCode, arrivedAt, arrivedAt + duration, duration, actorInfo.Value, level);
+            _data.SaveUseBuff(targetInfo.Value, skillCode, arrivedAt, arrivedAt + duration, duration, actorInfo.Value, level, slotInfo.Value);
             _sink.Meta("buff",
                 ("target", targetInfo.Value),
                 ("actor", actorInfo.Value),
@@ -1289,6 +1368,74 @@ public sealed class StreamProcessor
 
         int source = PacketPrimitives.ParseUInt32Le(packet, offset + 1);
         return source is >= 11_000_000 and <= 19_999_999 ? level : 0;
+    }
+
+    /// <summary>버프 제거 0x382C. 레이아웃(코퍼스 105,128 이벤트 중 99.996%가 끝까지 정확히 파싱):
+    /// <code>
+    /// [varint entity][u8 n]
+    ///   n × ( [varint kind][varint slot][varint reason] + (kind != 0 ? [varint x][8 raw bytes] : 없음) )
+    /// </code>
+    /// <para>slot은 적용 패킷이 싣는 슬롯 번호와 같은 값이라, 같은 버프 코드가 겹쳐 걸려 있어도 어느
+    /// 인스턴스를 닫는 신호인지 모호하지 않다. kind != 0 인 롱폼(스택 일괄 소거 등)도 건너뛰지 않고 함께
+    /// 읽어야 조기 해제의 최대 사유를 놓치지 않는다.</para></summary>
+    private void ParseBuffRemove(byte[] packet, VarIntOutput lengthInfo, bool extraFlag)
+    {
+        try
+        {
+            int offset = lengthInfo.Length;
+            if (extraFlag)
+            {
+                offset++;
+            }
+
+            if (packet.Length < offset + 2) return;
+            if (packet[offset] != 0x2C || packet[offset + 1] != 0x38) return;
+            offset += 2;
+
+            VarIntOutput entityInfo = PacketPrimitives.ReadVarInt(packet, offset);
+            if (entityInfo.Length <= 0) return;
+            offset += entityInfo.Length;
+
+            if (offset >= packet.Length) return;
+            int count = packet[offset++];
+            if (count <= 0 || count > 64) return; // 실측 상한을 크게 넘는 값 = 우리 형태가 아님
+
+            var slots = new List<int>(count);
+            for (int i = 0; i < count; i++)
+            {
+                VarIntOutput kind = PacketPrimitives.ReadVarInt(packet, offset);
+                if (kind.Length <= 0) return;
+                offset += kind.Length;
+
+                VarIntOutput slot = PacketPrimitives.ReadVarInt(packet, offset);
+                if (slot.Length <= 0) return;
+                offset += slot.Length;
+
+                VarIntOutput reason = PacketPrimitives.ReadVarInt(packet, offset);
+                if (reason.Length <= 0) return;
+                offset += reason.Length;
+
+                if (kind.Value != 0)
+                {
+                    VarIntOutput extra = PacketPrimitives.ReadVarInt(packet, offset);
+                    if (extra.Length <= 0) return;
+                    offset += extra.Length + 8;
+                    if (offset > packet.Length) return;
+                }
+
+                slots.Add(slot.Value);
+            }
+
+            // 프레임을 정확히 소진하지 못했으면 우리가 아는 형태가 아니다 — 부분 적용은 하지 않는다.
+            if (offset != packet.Length) return;
+
+            _data.RemoveBuffSlots(entityInfo.Value, slots);
+            _sink.Meta("buff_remove", ("entity", entityInfo.Value), ("slots", string.Join("|", slots)));
+        }
+        catch
+        {
+            // 다른 0x38 파서와 같은 정책 — 예외를 위로 던지지 않는다.
+        }
     }
 
     /// <summary>Skill cooldown snapshot 0x3847: <c>[count][ {u32 LE skillCode, varint remainingMs} × count ]</c>
