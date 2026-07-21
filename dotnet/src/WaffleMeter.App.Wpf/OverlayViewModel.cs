@@ -395,7 +395,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         // over the placeholder). Self-coloring uses the frozen report.ExecutorId, else the live _selfId.
         IReadOnlyList<OverlayRowBuilder.Row> display = OverlayRowBuilder.Build(
             report, _roster, _selfId, total, _settings.ShowPreCombatRoster, out bool hasCombatRows,
-            topN: _settings.EffectiveMaxVisibleRows,
+            topN: _settings.DisplayRowCap, // 사용자가 고른 인원의 1.5배 여유 (파티원·본인은 추가로 상한 면제)
             selfNickname: _selfNickname, selfServer: _selfServer, selfJob: _selfJob, selfPower: _selfPower,
             authoritativeParty: _authoritativeParty,
             // Opt-in "던전 강제 집계": only on a classified instanced (원정/초월/성역) boss (stamped live into the report).

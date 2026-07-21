@@ -143,20 +143,52 @@ public static class OverlayRowBuilder
                 .Where(m => m.Id != selfId && !string.IsNullOrWhiteSpace(m.Nickname)
                             && !claimed.Contains((m.Nickname!, m.Server)))
                 .ToList();
-            List<Row> bareMajors = rawCombat
+            // 복구 후보 = 이름이 없는 행 + 이름이 있어도 그 이름이 확정 로스터에 없는 행(= STALE).
+            // 후자는 uid 재사용 때문이다: 재사용된 uid가 이전 점유자의 닉네임을 그대로 들고 있으면 파티원의 딜이
+            List<Row> recoverable = rawCombat
                 .Where(e => string.IsNullOrWhiteSpace(e.User?.Nickname)
                             && (recoveredUid is not { } r || e.Uid != r)
                             && topMetric > 0 && Metric(e.Info) >= topMetric * BareMajorMinShare)
                 .ToList();
 
-            if (unclaimed.Count == 1 && bareMajors.Count == 1)
+            void Claim(Row target, User source)
             {
-                User disp = (bareMajors[0].User ?? new User(bareMajors[0].Uid)).Copy();
-                disp.Nickname = unclaimed[0].Nickname;
-                disp.Server = unclaimed[0].Server;
-                disp.Job ??= unclaimed[0].Job;
-                if (unclaimed[0].Power > 0 && disp.Power <= 0) disp.Power = unclaimed[0].Power;
-                partyRecovered[bareMajors[0].Uid] = disp;
+                User disp = (target.User ?? new User(target.Uid)).Copy();
+                disp.Nickname = source.Nickname;
+                disp.Server = source.Server;
+                disp.Job ??= source.Job;
+                if (source.Power > 0 && disp.Power <= 0) disp.Power = source.Power;
+                partyRecovered[target.Uid] = disp;
+            }
+
+            if (unclaimed.Count == 1 && recoverable.Count == 1)
+            {
+                Claim(recoverable[0], unclaimed[0]);
+            }
+            else if (unclaimed.Count > 0 && recoverable.Count > 0)
+            {
+                // 1:1이 아니어도 직업이 유일하게 대응되면 안전하게 이름을 붙일 수 있다. 실측 지배 사례가
+                // "동시에 2~3명 무명"이라, 1:1만 고집하면 정작 가장 흔한 경우에 아무도 복구되지 않는다.
+                // 양쪽 모두에서 그 직업이 유일해야 한다 — 같은 직업이 둘이면 누가 누군지 알 수 없으므로
+                // 이름을 붙이지 않고 넘어간다(잘못된 이름을 붙이느니 그대로 두는 편이 낫다).
+                foreach (Row cand in recoverable)
+                {
+                    if (cand.User?.Job is not { } job)
+                    {
+                        continue;
+                    }
+
+                    if (recoverable.Count(x => x.User?.Job == job) != 1)
+                    {
+                        continue;
+                    }
+
+                    List<User> byJob = unclaimed.Where(m => m.Job == job).ToList();
+                    if (byJob.Count == 1)
+                    {
+                        Claim(cand, byJob[0]);
+                    }
+                }
             }
         }
 
@@ -164,6 +196,37 @@ public static class OverlayRowBuilder
         // generic placeholders so a mid-dungeon meter start (identity packets missed at load) shows the fight
         // instead of an empty meter. Still barred if a named OUTSIDER is present (defence-in-depth — instanced
         // content shouldn't have one). The recovered self is excluded from the outsider check.
+        // P3 — uid 재사용으로 이전 점유자의 이름이 남은 행 교정. 판별자는 "로스터가 그 uid에 다른 이름을
+        // 부여했는가" 하나뿐이다: 0x9702 로스터는 uid↔이름의 권위 있는 출처이므로, 저장된 닉네임이 로스터의
+        // 이름과 다르면 그 uid를 쓰던 이전 점유자의 잔재다(실측: 신원이 바뀐 uid 37개 중 17개가 두 이름 사이
+        // 구간에 딜을 넣었고, 그동안 파티원의 딜이 낯선 이름의 행에 얹혀 정작 그 파티원은 사라진 것처럼 보였다).
+        // "로스터에 없는 이름 = 재사용"으로 넓히지 않는다 — 그러면 진짜 낯선 사람과 구분할 수 없어 필드보스에서
+        // 남을 파티원으로 둔갑시킨다(과거 사고와 같은 계열). 그래서 외부인 가드도 건드리지 않는다.
+        if (rosterConfirmed)
+        {
+            foreach (Row e in rawCombat)
+            {
+                if (string.IsNullOrWhiteSpace(e.User?.Nickname) || partyRecovered.ContainsKey(e.Uid)
+                    || (recoveredUid is { } rid && e.Uid == rid))
+                {
+                    continue;
+                }
+
+                User? m = authoritativeParty!.FirstOrDefault(x => x.Id == e.Uid);
+                if (m is null || string.IsNullOrWhiteSpace(m.Nickname)
+                    || string.Equals(m.Nickname, e.User!.Nickname, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                User fixedUp = e.User!.Copy();
+                fixedUp.Nickname = m.Nickname;
+                fixedUp.Server = m.Server;
+                fixedUp.Job ??= m.Job;
+                partyRecovered[e.Uid] = fixedUp;
+            }
+        }
+
         bool showBarePlaceholders = forceInstanceTracking
             && !HasNamedOutsider(rawCombat, recoveredUid ?? -1, selfId, authoritativeParty);
         int placeholderN = 0;
@@ -214,11 +277,18 @@ public static class OverlayRowBuilder
             entries.AddRange(roster.Select(m => new Row(m.Id, new DpsInformation(), m, false)));
         }
 
-        List<Row> display = entries.Take(topN).ToList();
-        int selfIndex = entries.FindIndex(e => IsSelf(e.Uid, e.User));
-        if (selfIndex >= 0 && !display.Contains(entries[selfIndex]))
+        // 표시 상한. 확인된 파티원(0x9702)과 본인은 상한에서 제외한다 — 낯선 사람이나 소환수 주인 팬텀이
+        // 한 줄 끼었다고 실제 파티원이 밀려나면 안 된다(그게 "간헐적으로 한 명씩 사라진다"의 한 갈래였다).
+        // 순서는 metric 정렬 그대로 유지한다(예외 대상을 뒤에 몰아붙이지 않는다).
+        var display = new List<Row>();
+        for (int i = 0; i < entries.Count; i++)
         {
-            display.Add(entries[selfIndex]); // always show self, even outside the top N
+            Row e = entries[i];
+            bool exempt = IsSelf(e.Uid, e.User) || (rosterConfirmed && IsPartyMember(e.User, authoritativeParty));
+            if (i < topN || exempt)
+            {
+                display.Add(e);
+            }
         }
 
         // Stamp IsSelf for the rows the VM will render (after the value-equality Contains check above).
@@ -263,7 +333,8 @@ public static class OverlayRowBuilder
     }
 
     private static bool HasNamedOutsider(
-        IReadOnlyList<Row> rawCombat, int candidateUid, int selfId, IReadOnlyList<User>? authoritativeParty)
+        IReadOnlyList<Row> rawCombat, int candidateUid, int selfId, IReadOnlyList<User>? authoritativeParty,
+        int alsoExcludeUid = -1)
     {
         if (authoritativeParty is null)
         {
@@ -282,7 +353,7 @@ public static class OverlayRowBuilder
         }
 
         return rawCombat.Any(e =>
-            e.Uid != candidateUid && e.Uid != selfId
+            e.Uid != candidateUid && e.Uid != selfId && e.Uid != alsoExcludeUid
             && e.User is { } u && !string.IsNullOrWhiteSpace(u.Nickname)
             && !partyUids.Contains(e.Uid)
             && !partyIdentities.Contains((u.Nickname!, u.Server)));

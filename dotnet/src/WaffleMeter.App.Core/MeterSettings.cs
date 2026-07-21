@@ -280,6 +280,12 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>The row cap actually applied, clamped to [1, 10].</summary>
     public int EffectiveMaxVisibleRows => Math.Clamp(_maxVisibleRows, 1, 10);
 
+    /// <summary>실제 표시 상한. 사용자가 고른 인원의 <b>1.5배</b>다(10 → 15, 8 → 12).
+    /// <para>설정값을 정원과 똑같이 두면 여유가 0이라, 낯선 사람·소환수 주인 팬텀·placeholder가 한 줄만 끼어도
+    /// 실제 파티원 한 명이 잘려 나간다. 잘리는 대상이 순위 변동에 따라 바뀌어 "간헐적으로 한 명씩 안 보인다"로
+    /// 체감된다. 사용자가 고른 값은 "보고 싶은 인원"이고 이 여유는 그걸 지키기 위한 완충이다.</para></summary>
+    public int DisplayRowCap => (int)Math.Ceiling(EffectiveMaxVisibleRows * 1.5);
+
     private bool _showAetherStatus;
     /// <summary>Show the aether (오드) balance badge next to the recognized character.</summary>
     public bool ShowAetherStatus { get => _showAetherStatus; set => SetBool(ref _showAetherStatus, "showAetherStatus", value); }
