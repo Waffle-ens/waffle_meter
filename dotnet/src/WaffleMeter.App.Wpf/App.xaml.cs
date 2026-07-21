@@ -1558,7 +1558,10 @@ public partial class App : Application
         _buffOverlayVm.ShowBackground = !_settings.BuffUiTransparent;
         _buffOverlayVm.SetIconSize(_settings.BuffUiIconSize);
         _buffOverlayVm.SetTextColor(_settings.BuffUiTextColor);
-        _buffOverlayVm.Update(buffs.Where(b => b.Overlay).ToList(), _settings.BuffUiGrayOnCooldown);
+        // 표시 순서: 전역 정렬 모드로 줄을 세우고, 사용자가 "맨 앞 고정"한 버프를 그 앞으로 끌어온다.
+        List<WaffleMeter.Data.OwnerBuffView> drawn = BuffOverlayOrder.Sort(
+            buffs.Where(b => b.Overlay).ToList(), _settings.BuffUiSortMode, _settings.BuffUiPinnedCodes);
+        _buffOverlayVm.Update(drawn, _settings.BuffUiGrayOnCooldown);
 
         // Visibility: mirror the controller's companion decision (CompanionShown already folds in ShowBuffUi,
         // the meter's on-screen state, and the "메터 숨겨도 오버레이 유지" toggle). Mirror the meter's click-through

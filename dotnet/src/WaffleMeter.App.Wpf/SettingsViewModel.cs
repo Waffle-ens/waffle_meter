@@ -328,6 +328,28 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool BuffUiGrayOnCooldown { get => _settings.BuffUiGrayOnCooldown; set { _settings.BuffUiGrayOnCooldown = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }
 
+    /// <summary>버프 오버레이 정렬 모드를 ComboBox의 SelectedIndex(0 적용순 / 1 남은시간순 / 2 이름순)로
+    /// 노출한다. 맨 앞 고정한 버프는 이 모드와 무관하게 항상 앞에 온다.</summary>
+    public int BuffUiSortModeIndex
+    {
+        get => _settings.BuffUiSortMode switch
+        {
+            BuffOverlayOrder.Remaining => 1,
+            BuffOverlayOrder.Name => 2,
+            _ => 0,
+        };
+        set
+        {
+            _settings.BuffUiSortMode = value switch
+            {
+                1 => BuffOverlayOrder.Remaining,
+                2 => BuffOverlayOrder.Name,
+                _ => BuffOverlayOrder.Applied,
+            };
+            OnPropertyChanged();
+        }
+    }
+
     private BuffPickerViewModel? _buffPicker;
     /// <summary>The per-job buff picker, embedded in the 버프 알림 settings tab. Built lazily and disposed when
     /// the window closes (see <see cref="DisposeBuffPicker"/>).</summary>

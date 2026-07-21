@@ -83,6 +83,8 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffUiHidden = _props.GetProperty("buffUi.hidden") ?? "";
         _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
         _buffUiVoice = _props.GetProperty("buffUi.voice") ?? "";
+        _buffUiSortMode = _props.GetProperty("buffUi.sortMode") ?? BuffOverlayOrder.Applied;
+        _buffUiPinned = _props.GetProperty("buffUi.pinned") ?? "";
         _buffUiDefaultsApplied = ReadBool("buffUi.defaultsApplied", false);
         _buffUiPresets = _props.GetProperty("buffUi.presets") ?? "";
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
@@ -348,6 +350,19 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>The voice-enabled base-code set (parsed from <see cref="BuffUiVoice"/>).</summary>
     public HashSet<int> BuffUiVoiceCodes => ParseCodeSet(_buffUiVoice);
 
+    private string _buffUiSortMode;
+    /// <summary>버프 오버레이 정렬 모드 — <see cref="BuffOverlayOrder"/>의 applied(적용 순서, 기본) /
+    /// remaining(남은 시간 순) / name(이름 순). 고정된 버프는 모드와 무관하게 항상 앞에 온다.</summary>
+    public string BuffUiSortMode { get => _buffUiSortMode; set => SetProp(ref _buffUiSortMode, "buffUi.sortMode", value); }
+
+    private string _buffUiPinned;
+    /// <summary>맨 앞에 고정할 base 코드들 — 쉼표 구분이고 <b>순서가 곧 표시 순서</b>다(hidden/voice가 집합인
+    /// 것과 달리 여기서는 순서에 의미가 있다). 고정되지 않은 버프는 그 뒤에 정렬 모드대로 붙는다.</summary>
+    public string BuffUiPinned { get => _buffUiPinned; set => SetProp(ref _buffUiPinned, "buffUi.pinned", value); }
+
+    /// <summary>고정 목록을 순서 그대로 파싱한 것(중복 제거).</summary>
+    public List<int> BuffUiPinnedCodes => ParseCodeList(_buffUiPinned);
+
     private bool _buffUiDefaultsApplied;
     /// <summary>Set once the catalog's default-off toggle buffs have been merged into the hidden set, so the
     /// one-time default isn't re-applied over the user's later choices.</summary>
@@ -411,6 +426,23 @@ public sealed class MeterSettings : INotifyPropertyChanged
         }
 
         return set;
+    }
+
+    /// <summary>CSV 설정을 <b>순서를 유지한</b> 코드 목록으로 파싱한다(중복은 첫 등장만). 고정 목록처럼
+    /// 순서 자체가 의미를 갖는 설정에 쓴다.</summary>
+    public static List<int> ParseCodeList(string csv)
+    {
+        var list = new List<int>();
+        var seen = new HashSet<int>();
+        foreach (string part in csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (int.TryParse(part, NumberStyles.Integer, Inv, out int c) && seen.Add(c))
+            {
+                list.Add(c);
+            }
+        }
+
+        return list;
     }
 
     /// <summary>Resolve the masking mode enum for the meter rows.</summary>

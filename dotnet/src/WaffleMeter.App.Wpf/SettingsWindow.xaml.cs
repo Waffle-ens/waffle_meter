@@ -138,6 +138,27 @@ public partial class SettingsWindow : Window
         }
     }
 
+    // 맨 앞 고정 토글 / 고정된 것끼리 순서 조정. 고정은 정렬 모드보다 우선해 오버레이 앞쪽에 온다.
+    private void OnBuffPinToggle(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: BuffPickerItem item })
+        {
+            _viewModel.BuffPicker.TogglePin(item);
+        }
+    }
+
+    private void OnBuffPinUp(object sender, RoutedEventArgs e) => MovePin(sender, up: true);
+
+    private void OnBuffPinDown(object sender, RoutedEventArgs e) => MovePin(sender, up: false);
+
+    private void MovePin(object sender, bool up)
+    {
+        if (sender is FrameworkElement { DataContext: BuffPickerItem item })
+        {
+            _viewModel.BuffPicker.MovePin(item, up);
+        }
+    }
+
     private void OnOpenFieldBossPicker(object sender, RoutedEventArgs e)
     {
         FieldBossPickerWindow picker = _viewModel.CreateFieldBossPicker();
