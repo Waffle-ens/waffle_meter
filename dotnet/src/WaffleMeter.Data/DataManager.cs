@@ -743,6 +743,23 @@ public sealed class DataManager : ICaptureGameData
         return _partyRoster.Select(m => (m.Nickname, m.Server)).ToList();
     }
 
+    /// <summary>The RAW 0x9702 roster — (nickname, server, slot) with NO uid resolution and NO drop.
+    /// <para><see cref="PartyRoster"/> silently discards a member whose (nickname, server) matches no uid in the
+    /// repository (line "user != null"), and that is exactly the member a nameless row usually belongs to: the
+    /// party member this session has never seen. Measured on the corpus, that drop is ~5% of roster members at
+    /// combat time — unrecoverable by the display-layer roster recovery, which only ever saw the resolved list.</para>
+    /// <para>Display-layer fallback only: these entries carry no uid, no job and no power, so they cannot drive
+    /// the job-unique match nor the uid-keyed stale-name repair.</para></summary>
+    public IReadOnlyList<(string Nickname, int Server, int Slot)> PartyRosterIdentities(long withinMs)
+    {
+        if (_partyRoster.Count == 0 || Clock() - _partyRosterAtMs > withinMs)
+        {
+            return Array.Empty<(string, int, int)>();
+        }
+
+        return _partyRoster.ToList(); // defensive copy — the caller hands this to the UI thread
+    }
+
     public void SaveUserPower(int uid, int power)
     {
         if (power <= 0) return;

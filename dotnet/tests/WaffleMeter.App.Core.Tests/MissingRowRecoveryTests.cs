@@ -37,6 +37,12 @@ public sealed class MissingRowRecoveryTests
             report, roster: [], liveSelfId: 0, useTotalDamage: true, showPreCombatRoster: false,
             out _, topN: topN, authoritativeParty: party);
 
+    private static IReadOnlyList<OverlayRowBuilder.Row> BuildWithSelf(
+        DpsReport report, IReadOnlyList<User>? party, int selfId, string selfNick, JobClass? selfJob) =>
+        OverlayRowBuilder.Build(
+            report, roster: [], liveSelfId: selfId, useTotalDamage: true, showPreCombatRoster: false,
+            out _, selfNickname: selfNick, selfServer: 2003, selfJob: selfJob, authoritativeParty: party);
+
     private static string?[] Names(IReadOnlyList<OverlayRowBuilder.Row> rows) =>
         rows.Select(r => r.User?.Nickname).ToArray();
 
@@ -121,6 +127,70 @@ public sealed class MissingRowRecoveryTests
         var party = new List<User> { Member(1, "아군", JobClass.CLERIC), Member(30, "궁성친구", JobClass.RANGER) };
 
         Assert.Equal(new[] { "아군", "생판남" }, Names(Build(report, party))); // 무명은 종전대로 숨김
+    }
+
+    // ---- 본인이 이 전투에 미집계일 때: 무명 major를 파티원 이름으로 칠하지 않는다 ----
+
+    [Fact]
+    public void A_missing_self_is_not_repainted_with_another_party_members_name()
+    {
+        // 실측 오귀속 재현: 본인(콘팡)이 새 uid로 싸우는데 등록 uid로는 딜이 0이라 본인 행이 무명으로 남았고,
+        // 로스터 복구가 그 1위 행에 다른 파티원(권자르) 이름을 칠했다. 본인이 미집계면 본인도 미청구 멤버이므로
+        // 후보가 둘이 되어 1:1 주장이 무너져야 한다 — 직업 근거가 없으면 아무 이름도 붙이지 않는다.
+        DpsReport report = Report((15050, null, null, 1000), (2, "아군", JobClass.CLERIC, 900));
+        var party = new List<User>
+        {
+            Member(100, "콘팡", JobClass.GLADIATOR), Member(2, "아군", JobClass.CLERIC),
+            Member(30, "권자르", JobClass.RANGER),
+        };
+
+        Assert.Equal(
+            new[] { "아군" },
+            Names(BuildWithSelf(report, party, selfId: 100, "콘팡", JobClass.GLADIATOR)));
+    }
+
+    [Fact]
+    public void A_missing_self_is_an_ambiguity_source_never_a_name_source()
+    {
+        // 본인을 unclaimed에 남기는 것은 '모호성을 만들기 위해서'지 이름의 출처로 쓰기 위해서가 아니다.
+        // 출처로 쓰이면 lost-executor 복구의 6개 가드(직업 일치·최소 비중·유일성·외부인 게이트)를 전부
+        // 우회해, 팬텀이나 낯선 사람의 무명 행에 본인 이름이 칠해진다.
+        DpsReport report = Report((9999, null, null, 1000));
+        var party = new List<User> { Member(100, "콘팡", JobClass.GLADIATOR) };
+
+        Assert.Empty(BuildWithSelf(report, party, selfId: 100, "콘팡", JobClass.GLADIATOR));
+    }
+
+    [Fact]
+    public void Job_evidence_still_names_a_party_member_while_self_is_missing()
+    {
+        // 모호성을 만든다고 복구를 죽이는 건 아니다 — 직업이 본인과 갈리면 그건 실제 근거이므로 그대로 붙인다.
+        DpsReport report = Report((15050, null, JobClass.RANGER, 1000), (2, "아군", JobClass.CLERIC, 900));
+        var party = new List<User>
+        {
+            Member(100, "콘팡", JobClass.GLADIATOR), Member(2, "아군", JobClass.CLERIC),
+            Member(30, "권자르", JobClass.RANGER),
+        };
+
+        Assert.Equal(
+            new[] { "권자르", "아군" },
+            Names(BuildWithSelf(report, party, selfId: 100, "콘팡", JobClass.GLADIATOR)));
+    }
+
+    [Fact]
+    public void The_one_to_one_recovery_is_untouched_when_self_is_accounted_for()
+    {
+        DpsReport report = Report(
+            (100, "콘팡", JobClass.GLADIATOR, 1000), (15050, null, null, 900), (2, "아군", JobClass.CLERIC, 800));
+        var party = new List<User>
+        {
+            Member(100, "콘팡", JobClass.GLADIATOR), Member(2, "아군", JobClass.CLERIC),
+            Member(30, "권자르", JobClass.RANGER),
+        };
+
+        Assert.Equal(
+            new[] { "콘팡", "권자르", "아군" },
+            Names(BuildWithSelf(report, party, selfId: 100, "콘팡", JobClass.GLADIATOR)));
     }
 
     // ---- P2: 상한 여유 + 파티원 면제 ----

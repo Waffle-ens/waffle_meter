@@ -402,7 +402,13 @@ public partial class App : Application
                 partyRoster.Clear();
             }
 
-            viewModel.SetAuthoritativeParty(authoritativeParty); // 0x9702-only; the party-context guard for self-recovery
+            // 0x9702-only; the party-context guard for self-recovery. The RAW snapshot rides along because
+            // PartyRoster() above drops every member whose uid this session has never seen — and that dropped
+            // member is usually the owner of a nameless row. SAME TTL as the resolved list: pulling the raw one
+            // on a longer window would open a band where only the raw roster is "fresh", silently widening the
+            // recovery gate.
+            viewModel.SetAuthoritativeParty(
+                authoritativeParty, services.Data.PartyRosterIdentities(PreCombatPartyTtlMs));
             viewModel.SetRoster(partyRoster);
             viewModel.Update(report);
             (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
