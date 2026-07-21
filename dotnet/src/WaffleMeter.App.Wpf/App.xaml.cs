@@ -1516,6 +1516,7 @@ public partial class App : Application
     private const long BuffEndTtsLeadMs = 800;
     private readonly HashSet<int> _buffStartAnnounced = new(); // base codes we've spoken "온" for (cleared when they end)
     private readonly Dictionary<int, long> _buffEndAnnouncedFor = new(); // base code -> the End(ms) already "오프"-warned; a re-cast extends End and re-arms
+    private long _lastBuffClearRevision; // 마지막으로 본 DataManager.OwnerBuffClearRevision (사망 클리어 감지)
 
     // Refresh the combat-assist overlay each tick: pull the local player's active buffs, fire the start/end
     // voice alerts, update the slot content, AND reconcile the window's visibility. This 500ms timer always
@@ -1537,8 +1538,22 @@ public partial class App : Application
             buffs = buffs.Where(b => !b.ByOther).ToList();
         }
 
-        // The announce list includes 음성만 (voice-only) buffs; the overlay draws only Overlay==true ones.
-        AnnounceBuffTransitions(buffs);
+        // 사망으로 버프가 통째로 비워진 틱에서는 종료 음성을 내지 않는다. 클리어된 버프는 스냅샷에서 사라져
+        // 보통은 "오프" 조건(남은시간 800ms 이하)에 닿지도 않지만, 스냅샷을 뜬 직후 클리어가 들어오는
+        // 서브초 레이스에서는 잔여 버프가 한 번 외칠 수 있다. 알림 상태도 함께 비워 부활 후 재시전 때
+        // "온"이 정상적으로 다시 나오게 한다.
+        long clearRevision = services.Data.OwnerBuffClearRevision;
+        if (clearRevision != _lastBuffClearRevision)
+        {
+            _lastBuffClearRevision = clearRevision;
+            _buffStartAnnounced.Clear();
+            _buffEndAnnouncedFor.Clear();
+        }
+        else
+        {
+            // The announce list includes 음성만 (voice-only) buffs; the overlay draws only Overlay==true ones.
+            AnnounceBuffTransitions(buffs);
+        }
 
         _buffOverlayVm.ShowBackground = !_settings.BuffUiTransparent;
         _buffOverlayVm.SetIconSize(_settings.BuffUiIconSize);
