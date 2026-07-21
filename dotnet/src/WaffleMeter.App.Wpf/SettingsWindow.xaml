@@ -744,7 +744,7 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="표시 순서" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="오버레이에 버프를 늘어놓는 기준입니다. '적용 순서'는 버프가 유지되는 동안 자리가 바뀌지 않아 가장 안정적이고, '남은 시간 순'은 타이머가 흐를 때마다 아이콘이 움직입니다. 아래 목록에서 ★로 고정한 버프는 이 기준과 무관하게 항상 맨 앞에 옵니다."
+                                <TextBlock Text="오버레이에 버프를 늘어놓는 기준입니다. '적용 순서'는 버프가 유지되는 동안 자리가 바뀌지 않아 가장 안정적이고, '남은 시간 순'은 타이머가 흐를 때마다 아이콘이 움직입니다. 아래 목록에서 '위치 고정'을 켠 버프는 이 기준과 무관하게 항상 버프 오버레이의 가장 앞쪽에 표시됩니다."
                                            Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <ComboBox Grid.Column="1" Width="140" VerticalAlignment="Center" SelectedIndex="{Binding BuffUiSortModeIndex, Mode=TwoWay}">
@@ -800,9 +800,9 @@
                                                                  읽혔다. 고정된 버프가 맨 앞에 오는 동작 자체는 그대로다. -->
                                                             <CheckBox Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center"
                                                                       IsChecked="{Binding IsPinned, Mode=OneWay}"
-                                                                      ToolTip="켜면 정렬 기준과 무관하게 오버레이 맨 앞에 표시합니다."
+                                                                      ToolTip="켜면 표시 순서와 무관하게 버프 오버레이의 가장 앞쪽에 표시됩니다."
                                                                       DataContext="{Binding}" Click="OnBuffPinToggle">
-                                                                <TextBlock Text="맨 앞" FontSize="11" VerticalAlignment="Center">
+                                                                <TextBlock Text="위치 고정" FontSize="11" VerticalAlignment="Center">
                                                                     <TextBlock.Style>
                                                                         <!-- 기본 Foreground는 로컬 속성이 아니라 Setter로 준다 — 로컬 값은
                                                                              트리거보다 우선순위가 높아 강조가 먹지 않는다. -->
