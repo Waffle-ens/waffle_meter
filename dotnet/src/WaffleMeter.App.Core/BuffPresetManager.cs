@@ -31,6 +31,8 @@ public sealed class BuffPresetManager : IDisposable
         nameof(MeterSettings.ShowOtherPlayerBuffs),
         nameof(MeterSettings.BuffUiHidden),
         nameof(MeterSettings.BuffUiVoice),
+        nameof(MeterSettings.BuffUiSortMode),
+        nameof(MeterSettings.BuffUiPinned),
     };
 
     private readonly MeterSettings _settings;
@@ -119,6 +121,8 @@ public sealed class BuffPresetManager : IDisposable
             _settings.ShowOtherPlayerBuffs = preset.ShowOther;
             _settings.BuffUiHidden = preset.Hidden;
             _settings.BuffUiVoice = preset.Voice;
+            _settings.BuffUiSortMode = preset.SortMode;
+            _settings.BuffUiPinned = preset.Pinned;
         }
         finally
         {
@@ -162,6 +166,8 @@ public sealed class BuffPresetManager : IDisposable
         ShowOther = _settings.ShowOtherPlayerBuffs,
         Hidden = _settings.BuffUiHidden,
         Voice = _settings.BuffUiVoice,
+        SortMode = _settings.BuffUiSortMode,
+        Pinned = _settings.BuffUiPinned,
     };
 
     // Startup never *applies* a preset: the live settings already hold the active slot's config and the store

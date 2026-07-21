@@ -32,6 +32,12 @@ public sealed record BuffPreset
 
     /// <summary>Comma-separated base skill codes that fire the start/end voice alert (buffUi.voice).</summary>
     public string Voice { get; init; } = "";
+
+    /// <summary>오버레이 정렬 모드(buffUi.sortMode).</summary>
+    public string SortMode { get; init; } = BuffOverlayOrder.Applied;
+
+    /// <summary>맨 앞에 고정한 base 코드들 — 순서가 곧 표시 순서다(buffUi.pinned).</summary>
+    public string Pinned { get; init; } = "";
 }
 
 /// <summary>Every preset slot plus the one currently applied. Persisted as a single Base64(JSON) value —

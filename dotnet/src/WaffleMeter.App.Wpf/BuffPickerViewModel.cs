@@ -18,6 +18,7 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
     private readonly MeterSettings _settings;
     private readonly HashSet<int> _hidden;
     private readonly HashSet<int> _voice;
+    private List<int> _pinned;
 
     public BuffPickerViewModel(DataManager data, MeterSettings settings)
     {
@@ -25,6 +26,7 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
         _settings = settings;
         _hidden = MeterSettings.ParseCodeSet(settings.BuffUiHidden);
         _voice = MeterSettings.ParseCodeSet(settings.BuffUiVoice);
+        _pinned = MeterSettings.ParseCodeList(settings.BuffUiPinned);
         Rebuild();
         _data.BuffCatalogChanged += OnCatalogChanged;
     }
@@ -42,6 +44,7 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
         _hidden.UnionWith(MeterSettings.ParseCodeSet(_settings.BuffUiHidden));
         _voice.Clear();
         _voice.UnionWith(MeterSettings.ParseCodeSet(_settings.BuffUiVoice));
+        _pinned = MeterSettings.ParseCodeList(_settings.BuffUiPinned);
         Rebuild();
     }
 
@@ -77,7 +80,11 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
                     continue;
                 }
 
-                group.Items.Add(new BuffPickerItem(baseCode, name, ModeOf(baseCode), OnItemModeChanged, icon));
+                var row = new BuffPickerItem(baseCode, name, ModeOf(baseCode), OnItemModeChanged, icon)
+                {
+                    IsPinned = _pinned.Contains(baseCode),
+                };
+                group.Items.Add(row);
             }
 
             if (group.Items.Count > 0)
@@ -140,6 +147,23 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
         Persist();
     }
 
+    /// <summary>맨 앞 고정을 켜고 끈다. 켤 때는 고정 목록 맨 뒤에 붙는다.</summary>
+    public void TogglePin(BuffPickerItem item)
+    {
+        _pinned = BuffOverlayOrder.TogglePin(_pinned, item.BaseCode);
+        item.IsPinned = _pinned.Contains(item.BaseCode);
+        PersistPins();
+    }
+
+    /// <summary>고정 목록 안에서 한 칸 위/아래로 옮긴다(고정되지 않은 버프에는 무효).</summary>
+    public void MovePin(BuffPickerItem item, bool up)
+    {
+        _pinned = BuffOverlayOrder.Move(_pinned, item.BaseCode, up);
+        PersistPins();
+    }
+
+    private void PersistPins() => _settings.BuffUiPinned = string.Join(",", _pinned);
+
     private void Persist()
     {
         _settings.BuffUiHidden = string.Join(",", _hidden);
@@ -194,6 +218,27 @@ public sealed class BuffPickerItem : INotifyPropertyChanged
     public int BaseCode { get; }
     public string Name { get; }
     public ImageSource? IconSource { get; }
+
+    private bool _pinned;
+    /// <summary>맨 앞 고정 여부. 고정된 버프는 정렬 모드와 무관하게 오버레이 앞쪽에 온다.</summary>
+    public bool IsPinned
+    {
+        get => _pinned;
+        internal set
+        {
+            if (_pinned == value)
+            {
+                return;
+            }
+
+            _pinned = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPinned)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PinGlyph)));
+        }
+    }
+
+    /// <summary>고정 버튼에 표시할 글리프(고정됨 = 채운 별).</summary>
+    public string PinGlyph => _pinned ? "★" : "☆";
 
     private int _mode;
     /// <summary>0 = 알림끔, 1 = 오버레이만, 2 = 오버레이+음성 (bound to ComboBox.SelectedIndex).</summary>

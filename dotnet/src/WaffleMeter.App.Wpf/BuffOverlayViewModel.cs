@@ -105,21 +105,39 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
             }
         }
 
-        foreach (OwnerBuffView b in buffs)
+        // 넘어온 순서가 곧 표시 순서다(BuffOverlayOrder가 정한다). 예전에는 새 슬롯을 뒤에 붙이기만 해서
+        // 화면 순서가 "처음 뜬 순서"로 고착됐고, 데이터 계층이 정렬해 넘겨도 아무 효과가 없었다.
+        // 자리가 실제로 다를 때만 Move 한다 — 매 틱 무조건 옮기면 아이콘이 떨린다.
+        for (int target = 0; target < buffs.Count; target++)
         {
+            OwnerBuffView b = buffs[target];
             bool onCooldown = grayOnCooldown && b.OnCooldown; // only gray when the option is on
             // A maintained stance (폭주) has only a synthetic keep-alive, not a real countdown — draw it as a
             // plain "on" icon (no ring, no timer) by reporting an unknown duration.
             long dur = b.Indefinite ? 0 : b.DurationMs;
-            BuffSlotVM? existing = Slots.FirstOrDefault(s => s.Code == b.Code);
-            if (existing is null)
+
+            int current = -1;
+            for (int i = 0; i < Slots.Count; i++)
             {
-                Slots.Add(new BuffSlotVM(b.Code, b.Name, b.RemainingMs, dur, b.ByOther, onCooldown));
+                if (Slots[i].Code == b.Code)
+                {
+                    current = i;
+                    break;
+                }
             }
-            else
+
+            if (current < 0)
             {
-                existing.SetRemaining(b.RemainingMs, dur);
-                existing.SetCooldown(onCooldown);
+                Slots.Insert(Math.Min(target, Slots.Count), new BuffSlotVM(b.Code, b.Name, b.RemainingMs, dur, b.ByOther, onCooldown));
+                continue;
+            }
+
+            Slots[current].SetRemaining(b.RemainingMs, dur);
+            Slots[current].SetCooldown(onCooldown);
+            int destination = Math.Min(target, Slots.Count - 1);
+            if (current != destination)
+            {
+                Slots.Move(current, destination);
             }
         }
 
