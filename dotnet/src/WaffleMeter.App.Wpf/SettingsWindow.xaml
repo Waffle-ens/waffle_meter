@@ -151,6 +151,52 @@
                 <Setter Property="VerticalAlignment" Value="Center"/>
                 <Setter Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
             </Style>
+
+            <!-- 브랜드 색을 그대로 채우는 링크 버튼(Discord 등). 기본 버튼 크롬을 쓰면 스킨의 회색 테두리가
+                 얹혀 브랜드 색이 죽는다. -->
+            <Style x:Key="BrandButton" TargetType="Button">
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="7">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="Opacity" Value="0.86"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="b" Property="Opacity" Value="0.72"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 좌측 탭 줄 맨 아래에 붙는 '탭처럼 보이는' 링크 버튼. NavItem(ListBoxItem) 템플릿을 Button으로
+                 옮겨 온 것 — 탭 목록의 항목이 아니라 바깥으로 나가는 링크라 ListBoxItem으로 만들면 선택
+                 상태가 생겨 "지금 이 탭을 보고 있다"는 거짓 신호를 준다. -->
+            <Style x:Key="NavLinkButton" TargetType="Button">
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="b" Background="Transparent" CornerRadius="6" Padding="12,9" Margin="0,1">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="{DynamicResource Skin.ControlHover}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -158,6 +204,7 @@
           TextElement.FontFamily="{Binding FontFamily, Converter={StaticResource FontConv}}">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -168,7 +215,13 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <ListBox Grid.Column="0" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource NavItem}"
+            <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <ListBox Grid.Row="0" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource NavItem}"
                      SelectedValuePath="Tag" SelectedValue="{Binding SelectedNav}" Margin="6,0,6,0"
                      SelectionChanged="OnNavChanged">
                 <ListBox.Resources>
@@ -219,6 +272,23 @@
                     <StackPanel><TextBlock Text="진단" Style="{StaticResource NavTitle}"/><TextBlock Text="로그 · 문제 해결" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
             </ListBox>
+
+            <!-- 탭 줄 맨 아래의 '와터기' — 탭처럼 보이지만 눌리면 통계 웹서비스를 브라우저로 연다.
+                 위 목록과 구분되도록 얇은 구분선을 두고, 바깥으로 나간다는 표시를 오른쪽에 붙였다. -->
+            <Button Grid.Row="1" Style="{StaticResource NavLinkButton}" Margin="6,6,6,2" Click="OnOpenStatsWeb"
+                    ToolTip="전투 기록과 통계를 볼 수 있는 웹서비스를 브라우저로 엽니다.">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="와터기" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Skin.Fg}"/>
+                        <TextBlock Text="전투 기록 통계 웹" FontSize="10.5" Margin="0,1,0,0"
+                                   Foreground="{DynamicResource Skin.MutedFg}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="&#xE8A7;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                               VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource Skin.MutedFg}"/>
+                </Grid>
+            </Button>
+            </Grid>
 
             <ScrollViewer x:Name="ContentScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="16,0,12,0">
                 <Grid>
@@ -1256,25 +1326,19 @@
 
         <!-- footer -->
         <Grid Grid.Row="1" Margin="20,10,16,14">
-            <!-- 왼쪽: 버전 + 바깥 링크 3종(통계 웹 / Discord / 후원). 경쟁 미터는 이걸 설정창 상단 배너로
-                 두지만, 상단은 설정 내용이 시작되는 자리라 여기 하단 줄에 붙였다. -->
+            <!-- 왼쪽: 버전 + Discord(브랜드 색 그대로 채운 버튼). 통계 웹은 좌측 탭 줄로, 후원은 아래 배너 줄로
+                 옮겼다 — 저장/취소와 같은 줄에 링크가 셋이나 있으면 무엇이 '설정을 바꾸는 버튼'인지 흐려진다. -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
                 <TextBlock Text="{Binding Version, StringFormat='waffle_meter v{0}'}" Foreground="{DynamicResource Skin.MutedFg}"
                            FontSize="11" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                <Button Height="28" MinWidth="78" Margin="0,0,6,0" Cursor="Hand" Click="OnOpenStatsWeb"
-                        ToolTip="전투 기록과 통계를 볼 수 있는 웹서비스를 엽니다."
-                        Background="#142DD4BF" Foreground="#FF7DE8DD" BorderBrush="#402DD4BF" BorderThickness="1">
-                    <TextBlock Text="통계 웹" FontSize="12" Margin="8,0"/>
-                </Button>
-                <Button Height="28" MinWidth="88" Margin="0,0,6,0" Cursor="Hand" Click="OnOpenDiscord"
+                <Button Height="32" Cursor="Hand" Click="OnOpenDiscord" Style="{StaticResource BrandButton}"
                         ToolTip="버그 제보와 문의를 받는 공식 디스코드입니다."
-                        Background="#145865F2" Foreground="#FFB4BCFB" BorderBrush="#405865F2" BorderThickness="1">
-                    <TextBlock Text="Discord" FontSize="12" Margin="8,0"/>
-                </Button>
-                <Button Height="28" MinWidth="96" Cursor="Hand" Click="OnOpenDonate"
-                        ToolTip="후원은 선택입니다. 후원하지 않아도 모든 기능을 쓸 수 있습니다."
-                        Background="#14F59E0B" Foreground="#FFFCD34D" BorderBrush="#40F59E0B" BorderThickness="1">
-                    <TextBlock Text="와플 사주기" FontSize="12" Margin="8,0"/>
+                        Background="#FF5865F2" Foreground="White" BorderThickness="0">
+                    <StackPanel Orientation="Horizontal" Margin="14,0">
+                        <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"
+                                   Margin="0,0,7,0"/>
+                        <TextBlock Text="Discord" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Button>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -1283,5 +1347,34 @@
                 <Button Content="저장" Width="80" Click="OnSave"/>
             </StackPanel>
         </Grid>
+
+        <!-- 후원 배너. 저장/취소와 같은 줄에 두면 '설정을 바꾸는 버튼'과 섞여 보이므로 창 맨 아래에 가로로
+             한 줄을 따로 뒀다. 배너를 눌러도 바로 후원 페이지로 가지 않는다 — 안내창을 먼저 띄워 무엇에
+             쓰이는지와 "후원 없이도 전 기능을 쓸 수 있다"를 읽고 나서 결정하게 한다. -->
+        <Border Grid.Row="2" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                Background="#0FF59E0B" Padding="20,12,16,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Width="34" Height="34" CornerRadius="17" VerticalAlignment="Center"
+                        Background="#1FF59E0B" BorderBrush="#38F59E0B" BorderThickness="1">
+                    <TextBlock Text="&#xEB51;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#FFFCD34D"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,12,0" VerticalAlignment="Center">
+                    <TextBlock Text="개발자 와플 사주기" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Skin.Fg}"/>
+                    <TextBlock Text="와플 미터 유지와 더 안정적인 배포를 응원할 수 있습니다. 후원은 선택이며, 하지 않아도 모든 기능을 그대로 쓸 수 있습니다."
+                               FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
+                               Foreground="{DynamicResource Skin.MutedFg}"/>
+                </StackPanel>
+                <Button Grid.Column="2" Height="32" MinWidth="112" VerticalAlignment="Center" Click="OnOpenDonate"
+                        Style="{StaticResource BrandButton}" Background="#FFF59E0B" Foreground="#FF3B2600">
+                    <TextBlock Text="와플 사주기" FontSize="12.5" FontWeight="SemiBold" Margin="12,0"/>
+                </Button>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
