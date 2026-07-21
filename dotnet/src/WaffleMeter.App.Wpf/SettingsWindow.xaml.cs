@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -144,6 +145,29 @@ public partial class SettingsWindow : Window
         if (sender is FrameworkElement { DataContext: BuffPickerItem item })
         {
             _viewModel.BuffPicker.TogglePin(item);
+        }
+    }
+
+    // 하단 바깥 링크 3종. 후원만 안내창을 한 번 거친다 — 무엇에 쓰이는지, 그리고 후원 없이도 전 기능을
+    // 쓸 수 있다는 고지를 먼저 보여주고 나서 플랫폼으로 보낸다.
+    private void OnOpenStatsWeb(object sender, RoutedEventArgs e) => OpenUrl(_viewModel.StatsWebUrl);
+
+    private void OnOpenDiscord(object sender, RoutedEventArgs e) => OpenUrl(ExternalLinks.Discord);
+
+    private void OnOpenDonate(object sender, RoutedEventArgs e)
+    {
+        new DonateDialog { Owner = this }.ShowDialog();
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch (Exception)
+        {
+            // 기본 브라우저가 없거나 셸 연결이 깨진 환경 — 설정창이 죽을 이유는 아니다.
         }
     }
 

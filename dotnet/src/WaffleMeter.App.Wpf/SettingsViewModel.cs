@@ -626,6 +626,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         Process.Start(new ProcessStartInfo { FileName = _services.StatsApi.CharacterReportUrl(hash), UseShellExecute = true });
     }
 
+    /// <summary>통계 웹서비스 첫 화면 주소(설정창 하단 '통계 웹' 버튼).</summary>
+    public string StatsWebUrl => _services.StatsApi.WebHomeUrl;
+
     // ---- per-character consent management (the 내 캐릭터 관리 list) ----
     public ObservableCollection<ConsentCharacterRow> ConsentCharacters { get; } = new();
     public bool HasConsentCharacters => ConsentCharacters.Count > 0;
