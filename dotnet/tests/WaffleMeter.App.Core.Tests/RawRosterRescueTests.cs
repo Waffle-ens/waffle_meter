@@ -265,6 +265,54 @@ public sealed class RawRosterRescueTests
             Names(Build(report, party: [], RawOfTwoPlus())));
     }
 
+    // ---- 기록 재생: 전투 종료 시점에 얼린 파티 문맥이 "지금"의 파티보다 우선한다 ----
+
+    [Fact]
+    public void A_saved_battle_keeps_its_recovered_row_after_the_party_is_gone()
+    {
+        // 실측 제보 재현: 5명이 싸운 전투를 파티 탈퇴 + 마을 복귀 후에 기록에서 열었더니 4명만 보였다.
+        // 복구가 "지금"의 로스터에 의존했기 때문이다. 얼린 스냅샷을 들고 있으면 파티가 사라져도 그대로다.
+        DpsReport report = PartyScene();
+        report.PartySnapshot = PartyOfTwo();
+        report.PartyIdentitiesSnapshot =
+        [
+            new RosterMember { Nickname = SelfName, Server = Srv, Slot = 1 },
+            new RosterMember { Nickname = AllyName, Server = Srv, Slot = 2 },
+            new RosterMember { Nickname = "처음보는친구", Server = Srv, Slot = 3 },
+        ];
+
+        // 지금은 파티가 없다(탈퇴/만료) — 호출자가 넘기는 로스터는 비어 있고 null이다.
+        Assert.Equal(
+            new[] { SelfName, AllyName, "처음보는친구" },
+            Names(Build(report, party: null, raw: null)));
+    }
+
+    [Fact]
+    public void Without_the_frozen_snapshot_a_gone_party_still_hides_the_row()
+    {
+        // 위 테스트가 스냅샷 덕분에 통과한다는 것을 못박는다 — 스냅샷이 없으면 종전 동작 그대로 숨는다.
+        Assert.Equal(new[] { SelfName, AllyName }, Names(Build(PartyScene(), party: null, raw: null)));
+    }
+
+    [Fact]
+    public void The_frozen_snapshot_wins_over_a_different_live_party()
+    {
+        // 기록을 여는 시점에 다른 파티에 들어가 있어도, 그 전투의 문맥으로 판단해야 한다.
+        DpsReport report = PartyScene();
+        report.PartySnapshot = PartyOfTwo();
+        report.PartyIdentitiesSnapshot =
+        [
+            new RosterMember { Nickname = SelfName, Server = Srv, Slot = 1 },
+            new RosterMember { Nickname = AllyName, Server = Srv, Slot = 2 },
+            new RosterMember { Nickname = "처음보는친구", Server = Srv, Slot = 3 },
+        ];
+        var nowParty = new List<User> { Member(SelfUid, SelfName, JobClass.CLERIC), Member(77, "새파티원") };
+
+        Assert.Equal(
+            new[] { SelfName, AllyName, "처음보는친구" },
+            Names(Build(report, nowParty, RawOfTwoPlus("새파티원"))));
+    }
+
     [Fact]
     public void No_raw_roster_means_the_previous_behavior_is_unchanged()
     {

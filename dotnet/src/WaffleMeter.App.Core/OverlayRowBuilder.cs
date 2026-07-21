@@ -96,16 +96,23 @@ public static class OverlayRowBuilder
         // Done on a display-only copy (no state mutation), recomputed every tick, so it self-corrects the moment
         // the real 본인 id appears.
         double topMetric = rawCombat.Count > 0 ? rawCombat.Max(e => Metric(e.Info)) : 0.0;
-        IReadOnlyList<User> party = authoritativeParty ?? Array.Empty<User>();
-        IReadOnlyList<(string Nickname, int Server, int Slot)> rawParty =
-            rosterIdentities ?? Array.Empty<(string, int, int)>();
+        // 이 전투를 함께한 파티. SAVED/기록 리포트는 전투 종료 시점에 얼려 둔 스냅샷을 들고 있고, 그때는
+        // 그쪽이 절대적으로 우선한다 — 호출자가 넘기는 로스터는 "지금"의 파티라, 전투가 끝나고 파티를 나가거나
+        // 로스터가 만료되면 텅 비어서 그 전투의 이름 복구가 통째로 죽는다(기록을 다시 열면 참가자가 사라지던
+        // 원인). 스냅샷이 비어 있으면 진행 중인 라이브 리포트다.
+        bool frozenParty = report.PartySnapshot.Count > 0 || report.PartyIdentitiesSnapshot.Count > 0;
+        IReadOnlyList<User>? guardParty = frozenParty ? report.PartySnapshot : authoritativeParty;
+        IReadOnlyList<User> party = guardParty ?? Array.Empty<User>();
+        IReadOnlyList<(string Nickname, int Server, int Slot)> rawParty = frozenParty
+            ? report.PartyIdentitiesSnapshot.Select(m => (m.Nickname, m.Server, m.Slot)).ToList()
+            : rosterIdentities ?? Array.Empty<(string, int, int)>();
         // rosterConfirmed keeps its old meaning — the roster resolved to real uids — because the uid-keyed
         // repairs (P3) and the job-unique match need those uids. partyKnown is the weaker "0x9702 said SOMETHING
         // about the party" gate that the raw-roster rescue runs under. Both require the caller to have supplied a
         // party context at all (null == "party unknown", which also disables the outsider guard), so a caller
         // that passes only raw identities can never open a recovery whose outsider guard is switched off.
         bool rosterConfirmed = party.Count > 0;
-        bool partyKnown = authoritativeParty is not null && (rosterConfirmed || rawParty.Count > 0);
+        bool partyKnown = guardParty is not null && (rosterConfirmed || rawParty.Count > 0);
         int? recoveredUid = null;
         if (selfId != 0 && selfJob is { } knownJob && !string.IsNullOrWhiteSpace(selfNickname)
             && rawCombat.All(e => e.Uid != selfId))
@@ -121,7 +128,7 @@ public static class OverlayRowBuilder
                             && e.User?.Job == knownJob
                             && topMetric > 0 && Metric(e.Info) >= topMetric * SelfRecoveryMinShare)
                 .ToList();
-            if (candidates.Count == 1 && !HasNamedOutsider(rawCombat, candidates[0].Uid, selfId, authoritativeParty))
+            if (candidates.Count == 1 && !HasNamedOutsider(rawCombat, candidates[0].Uid, selfId, guardParty))
             {
                 recoveredUid = candidates[0].Uid;
             }
@@ -137,7 +144,7 @@ public static class OverlayRowBuilder
         var partyRecovered = new Dictionary<int, User>();
         // Exclude the recovered self's combat uid from the outsider check: in the bug-3 case it carries a STALE
         // non-party name that would otherwise read as a "named outsider" and wrongly mark this a public scene.
-        if (partyKnown && !HasNamedOutsider(rawCombat, recoveredUid ?? -1, selfId, authoritativeParty))
+        if (partyKnown && !HasNamedOutsider(rawCombat, recoveredUid ?? -1, selfId, guardParty))
         {
             var claimed = new HashSet<(string, int)>();
             foreach (Row e in rawCombat)
@@ -299,7 +306,7 @@ public static class OverlayRowBuilder
         }
 
         bool showBarePlaceholders = forceInstanceTracking
-            && !HasNamedOutsider(rawCombat, recoveredUid ?? -1, selfId, authoritativeParty);
+            && !HasNamedOutsider(rawCombat, recoveredUid ?? -1, selfId, guardParty);
         int placeholderN = 0;
 
         // COMBAT rows: keep named rows + the recovered 본인 + a roster-recovered party member (named on a copy);

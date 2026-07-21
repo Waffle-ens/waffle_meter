@@ -989,6 +989,16 @@ public sealed class DpsCalculator
         _recentData.DpsSeries = dpsSeries;
         _recentData.BuffIntervals = buffIntervals;
 
+        // 이 전투의 파티 문맥도 함께 얼린다. 표시 계층의 이름 복구는 파티가 있어야 동작하는데, 종전에는
+        // 리포트만 얼고 파티는 "지금"의 것을 봤다 — 전투 후 파티를 나가면(또는 로스터 TTL이 만료되면) 같은
+        // 전투를 기록에서 다시 열었을 때 복구가 죽어 참가자 한 명이 사라졌다. User는 반드시 딥카피한다:
+        // 저장소의 산 객체를 그대로 들고 있으면 나중에 그 uid가 다른 플레이어에게 재발급될 때 얼린 스냅샷까지
+        // 남의 이름으로 리페인트된다(전투 후 신원 둔갑과 같은 계열).
+        _recentData.PartySnapshot = _dm.PartyRoster(RosterRecoveryWindowMs).Select(u => u.Copy()).ToList();
+        _recentData.PartyIdentitiesSnapshot = _dm.PartyRosterIdentities(RosterRecoveryWindowMs)
+            .Select(m => new RosterMember { Nickname = m.Nickname, Server = m.Server, Slot = m.Slot })
+            .ToList();
+
         DpsLog log = _dm.SaveBattleLog(_recentData, skillDetails, buffRates, bossBuffRates);
         OnBattleLogged?.Invoke(log);
         _recentData.Packets = null;
