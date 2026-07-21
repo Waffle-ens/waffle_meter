@@ -814,6 +814,12 @@ public sealed class DataManager : ICaptureGameData
             user.JobSource = JobProvenance.None;
             user.Power = 0;
             _officialLookupAttempts.Remove(uid);
+
+            // 이 uid가 다른 플레이어에게 넘어갔다 — 그 id를 겨누던 본인 후보는 그 순간 무효다.
+            if (_pendingExecutorAnchor?.Uid == uid)
+            {
+                _pendingExecutorAnchor = null;
+            }
         }
 
         user.Nickname = nickname;
@@ -831,27 +837,55 @@ public sealed class DataManager : ICaptureGameData
         _userRepository.Save(uid, user);
         if (isExecutor)
         {
+            // 본인 로드 패킷(0x3633)은 "이 uid가 본인"이라는 서버의 직접 선언이다 — 앵커는 그게 오지 않을 때를
+            // 메우려고 존재하므로, 도착하는 순간 스테이징된 후보는 무효다. 이걸 지우지 않으면 나중에 옛 후보
+            // uid가 딜을 넣을 때 방금 확정된 본인을 도로 밀어낸다.
+            _pendingExecutorAnchor = null;
             SaveExecutorId(uid);
         }
-        else
-        {
-            TryRebindExecutorByIdentity(uid, user);
-        }
+
+        // 여기 있던 이름 앵커 재바인딩은 제거했다. 이 else 분기의 유일한 실제 호출자는 0x3645(타인 닉네임)인데
+        // 0x3645는 본인 닉네임을 싣지 않는다(코퍼스 13,076프레임 0건) — 그래서 그 코드는 한 번도 실행되지
+        // 않았다. 앵커는 0x9200 멤버 프로필 → TryBindExecutorByIdentity로 옮겼고, 즉시 승격하지 않는다.
     }
 
-    /// <summary>이름 앵커 재발급 — 본인 로드 패킷(0x3633) 없이도 본인을 새 엔티티 id에 다시 묶는다.
+    /// <summary>엔티티 id 공간의 상한. 코퍼스 4,718개 uid의 최댓값이 정확히 이 값이고 초과 사례가 0이라,
+    /// 이보다 큰 값은 오프셋 오독(패킷 안의 다른 필드를 uid로 읽음)이다.</summary>
+    private const int MaxEntityUid = 16383;
+
+    /// <summary>스테이징된 앵커의 수명. 이 안에 그 uid가 등장하지 않으면 버린다. 짧게 잡는 이유는
+    /// <b>엔티티 id 재사용</b>이다 — 후보를 오래 들고 있을수록 그 사이 게임이 그 id를 다른 플레이어에게
+    /// 재발급할 창이 커진다. 실측상 유효한 후보는 수 초~수십 초 안에 판가름 난다(승격까지 0.35초, 전투 전
+    /// 도착도 40~46초).</summary>
+    private const long PendingAnchorTtlMs = 90 * 1000L;
+
+    private (int Uid, string Nickname, int Server, long AtMs)? _pendingExecutorAnchor;
+
+    /// <summary>이름 앵커 — 본인 로드 패킷(0x3633) 없이도 본인을 새 엔티티 id에 다시 묶는다.
     /// <para>존 이동·난입으로 본인의 uid가 바뀌어도 게임이 본인 로드 패킷을 항상 다시 보내지는 않는다. 그동안
     /// 본인 딜은 신원 미상으로 남고, 그걸 메우려던 휴리스틱 복구가 낯선 사람을 본인으로 둔갑시킨 사고가 있었다
-    /// (필드보스 오귀속). 이 경로는 추정이 아니라 <b>신원 완전일치</b>다: 아무 플레이어 메타데이터 패킷이든
-    /// 그 (닉네임, 서버)가 현재 본인과 정확히 같으면 그 uid를 본인으로 승격시킨다.</para>
+    /// (필드보스 오귀속). 이 경로는 추정이 아니라 <b>신원 완전일치</b>다: 0x9200 멤버 프로필이 실어 온
+    /// (닉네임, 서버)가 현재 본인과 정확히 같을 때만 그 uid가 후보가 된다.</para>
+    /// <para>여기서 <b>즉시 승격하지 않는다</b>. 실측상 본인 레코드의 21%가 그 세션 내내 한 번도 등장하지 않는
+    /// uid를 가리키는데, 그런 uid로 executor를 옮기면 본인 행·자기색·버프 게이트·통계 업로드가 통째로 죽는다.
+    /// 대신 후보로 적재해 두고 <see cref="PromotePendingAnchorIfActive"/>가 "그 uid가 실제로 데미지를 넣었다"는
+    /// 증거를 본 뒤에 승격시킨다 — 안 싸우는 uid는 영영 승격되지 않으므로 그 실패 모드가 구조적으로 사라진다.</para>
     /// <para>가드 — ① 현재 본인이 확정돼 있어야 한다(앵커가 없으면 본인을 만들어낼 수 없다) ② 닉네임 완전일치
-    /// ③ 서버는 <b>양쪽 다 알 때만</b> 비교한다(잘린 0x3633은 Server=-1로 남으므로 모르면 통과시킨다).
-    /// 승격은 <see cref="SaveExecutorId"/>를 타므로 이름·서버가 같은 재인스턴스로 분류되어 파티 프리뷰 등
-    /// 직전 상태가 보존된다(캐릭터 교체와 구분됨).</para></summary>
-    private void TryRebindExecutorByIdentity(int uid, User candidate)
+    /// ③ 서버는 <b>양쪽 다</b> 알아야 하고 같아야 한다(fail-closed — 아래 참조) ④ 엔티티 id 공간 밖은 오프셋
+    /// 오독 ⑤ 몹/소환수로 이미 알려진 id는 본인일 수 없다 ⑥ 그 uid에 이미 <b>다른 이름</b>이 박혀 있으면
+    /// 안 된다.</para>
+    /// <para>서버를 fail-closed로 두는 이유: 모를 때 통과시키면 <b>타 서버 동명이인</b>이 본인으로 승격되고,
+    /// 그 뒤로는 아무 증상 없이 남의 캐릭터 신원으로 통계가 올라간다. 실측상 본인 로드 489건이 전부 서버를
+    /// 싣고 왔으므로(서버 미상 0건) 막아서 잃는 것이 없다.</para></summary>
+    public void TryBindExecutorByIdentity(int uid, string nickname, int server)
     {
+        if (uid is <= 0 or > MaxEntityUid || string.IsNullOrWhiteSpace(nickname) || server <= 0)
+        {
+            return;
+        }
+
         int executor = _userRepository.Executor();
-        if (executor == 0 || executor == uid || string.IsNullOrWhiteSpace(candidate.Nickname))
+        if (executor == 0 || executor == uid)
         {
             return;
         }
@@ -859,17 +893,96 @@ public sealed class DataManager : ICaptureGameData
         User? current = _userRepository.Get(executor);
         if (current == null
             || string.IsNullOrWhiteSpace(current.Nickname)
-            || !string.Equals(current.Nickname, candidate.Nickname, StringComparison.Ordinal))
+            || !string.Equals(current.Nickname, nickname, StringComparison.Ordinal))
         {
             return;
         }
 
-        if (current.Server > 0 && candidate.Server > 0 && current.Server != candidate.Server)
+        if (current.Server <= 0 || current.Server != server)
         {
-            return; // 타 서버 동명이인 — 본인이 아니다
+            return; // 타 서버 동명이인이거나, 본인 서버를 모른다 — 어느 쪽이든 본인이라고 단정할 수 없다
         }
 
-        SaveExecutorId(uid);
+        if (!IsAnchorableUid(uid, nickname))
+        {
+            return;
+        }
+
+        _pendingExecutorAnchor = (uid, nickname, server, Clock());
+    }
+
+    /// <summary>그 엔티티 id를 본인으로 삼아도 되는가. 스테이징 때와 승격 때 <b>두 번</b> 확인한다 — 그 사이에
+    /// 게임이 id를 재발급하거나(엔티티 id는 실제로 재사용된다) 몹/소환수로 정체가 드러날 수 있고, 그때 그냥
+    /// 승격시키면 executor가 남을 가리킨 채로 통계까지 그 신원으로 올라간다.</summary>
+    private bool IsAnchorableUid(int uid, string nickname)
+    {
+        if (IsMobInstance(uid) || SummonerId(uid) != null)
+        {
+            return false;
+        }
+
+        User? occupant = _userRepository.Get(uid);
+        return occupant == null
+               || string.IsNullOrWhiteSpace(occupant.Nickname)
+               || string.Equals(occupant.Nickname, nickname, StringComparison.Ordinal);
+    }
+
+    /// <summary>스테이징된 이름 앵커를, 바로 그 uid가 데미지를 넣은 순간 승격시킨다. 가드는 승격 직전에 다시
+    /// 확인한다 — 그 사이에 0x3633이 도착해 본인이 이미 옮겨갔거나 캐릭터가 바뀌었을 수 있다.</summary>
+    private void PromotePendingAnchorIfActive(int uid)
+    {
+        if (_pendingExecutorAnchor is not { } pending)
+        {
+            return;
+        }
+
+        if (Clock() - pending.AtMs > PendingAnchorTtlMs)
+        {
+            _pendingExecutorAnchor = null;
+            return;
+        }
+
+        if (pending.Uid != uid)
+        {
+            return;
+        }
+
+        int executor = _userRepository.Executor();
+        User? current = executor != 0 ? _userRepository.Get(executor) : null;
+        if (current == null || !string.Equals(current.Nickname, pending.Nickname, StringComparison.Ordinal))
+        {
+            _pendingExecutorAnchor = null; // 앵커가 사라졌거나 다른 캐릭터가 됐다 — 이 후보는 무효다
+            return;
+        }
+
+        _pendingExecutorAnchor = null;
+        if (executor == uid)
+        {
+            return; // 그 사이 0x3633이 같은 uid로 도착했다
+        }
+
+        // 스테이징 이후에 그 id가 다른 플레이어에게 재발급됐거나 몹/소환수로 밝혀졌을 수 있다. 여기서 다시
+        // 확인하지 않으면 "재사용된 uid + 그 새 주인이 딜"이 곧바로 본인 둔갑이 된다(몹은 상시 피격이라
+        // 데미지 증거도 자동으로 충족된다).
+        if (!IsAnchorableUid(pending.Uid, pending.Nickname))
+        {
+            return;
+        }
+
+        // 딜만 넣고 신원 패킷이 없던 uid는 이름이 비어 있다. 승격이 곧 "이 uid가 본인"이라는 확정이므로 채운다.
+        User promoted = EnsureUser(pending.Uid);
+        if (string.IsNullOrWhiteSpace(promoted.Nickname))
+        {
+            promoted.Nickname = pending.Nickname;
+            if (pending.Server > 0)
+            {
+                promoted.Server = pending.Server;
+            }
+
+            _userRepository.Save(pending.Uid, promoted);
+        }
+
+        SaveExecutorId(pending.Uid);
     }
 
     private void SaveExecutorId(int uid)
@@ -884,13 +997,21 @@ public sealed class DataManager : ICaptureGameData
             User? oldExec = executor != 0 ? _userRepository.Get(executor) : null;
             User? newExec = _userRepository.Get(uid);
 
-            if (executor != 0)
+            // 승격 대상이 저장소에 없으면 포인터를 뒤집지 않는다. 종전 순서(먼저 Executor(uid) → 그 다음
+            // newExec! 역참조)는 NRE가 나는 순간 "ExecutorId()는 0이 아닌데 User(ExecutorId())는 null"인
+            // 반영구 상태를 남겼고, 그 예외는 dispatch의 catch에 삼켜져 증상만 남는다.
+            if (newExec == null)
             {
-                oldExec!.IsExecutor = false;
+                return;
+            }
+
+            if (oldExec != null)
+            {
+                oldExec.IsExecutor = false;
             }
 
             _userRepository.Executor(uid);
-            newExec!.IsExecutor = true;
+            newExec.IsExecutor = true;
 
             // A character switch (콘팡 -> 마이농) must drop the previous character's pre-combat preview state
             // — the 0x9702 party snapshot here, and the UI-side recent-combat tracker via the event below — so
@@ -1511,6 +1632,12 @@ public sealed class DataManager : ICaptureGameData
     public void SaveDamage(ParsedDamagePacket pdp, long epoch)
     {
         if (_resetEpoch != epoch) return;
+        // 이름 앵커는 "그 uid가 지금 살아서 이 전투에 있다"는 증거를 본 뒤에 승격한다 — 여기가 그 증거가
+        // 지나가는 자리다. 때리는 쪽과 맞는 쪽 둘 다 증거다: 실측에서 0x9200은 그 uid의 마지막 타격보다 늦게
+        // 오는 경우가 흔한데(4건 중 3건), 그중 하나는 피격 프레임으로만 살아 있음이 드러났다. 나머지 둘은
+        // 바인드 이후 그 uid가 다시는 등장하지 않는 진짜 사장된 uid라 승격되지 않는 게 맞다.
+        PromotePendingAnchorIfActive(pdp.ActorId);
+        PromotePendingAnchorIfActive(pdp.TargetId);
         // Training-dummy test mode: a hit on a dummy drives (and is gated by) the dummy battle machine. Drop it —
         // never record — when test mode is off or the duration cut has fired, so an idle/finished dummy shows no
         // combat and post-cut damage can't inflate the frozen result. Non-dummy targets take the plain path.

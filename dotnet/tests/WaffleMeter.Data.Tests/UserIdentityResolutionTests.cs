@@ -1,3 +1,4 @@
+using WaffleMeter.Capture;
 using WaffleMeter.Data;
 using Xunit;
 
@@ -43,14 +44,20 @@ public sealed class UserIdentityResolutionTests
     public void Self_follows_its_identity_onto_each_fresh_uid_and_is_never_evicted()
     {
         // Same-identity duplicates ARE the self re-instancing on a zone load (see the class summary: newest =
-        // live). Since the name-anchor rebind, the executor follows its own (nickname, server) onto the fresh
-        // uid even when the packet doesn't carry the own-load flag — otherwise self damage arriving under the
-        // new uid stays unattributed until 0x3633 happens to re-arrive, which it often doesn't.
+        // live). The name anchor is what lets the executor follow its own (nickname, server) onto the fresh uid
+        // when no own-load flag arrives — otherwise self damage under the new uid stays unattributed until
+        // 0x3633 happens to re-arrive, which it often doesn't. Driven through the entry point production
+        // actually uses (0x9200 → TryBindExecutorByIdentity, promoted on that uid's first damage): the
+        // isExecutor:false path can never carry the self's own name, so exercising it proves nothing.
         var dm = new DataManager();
         dm.SaveNickname(1, "Me", isExecutor: true, server: 2003, jobByte: 0);  // own-load: self = 1
         dm.SaveNickname(2, "Me", isExecutor: false, server: 2003, jobByte: 0); // plain metadata, same identity
         dm.SaveNickname(3, "Me", isExecutor: false, server: 2003, jobByte: 0);
         dm.SaveNickname(4, "Me", isExecutor: false, server: 2003, jobByte: 0); // pushes the group past the cap
+
+        dm.TryBindExecutorByIdentity(4, "Me", 2003);
+        dm.SaveDamage(
+            new ParsedDamagePacket { ActorId = 4, TargetId = 9999, SkillCode = 1, Damage = 1 }, dm.CurrentEpoch());
 
         Assert.Equal(4, dm.ExecutorId());       // self tracks the live (newest) instance
         Assert.NotNull(dm.User(4));             // ...and the eviction guard never drops the current executor

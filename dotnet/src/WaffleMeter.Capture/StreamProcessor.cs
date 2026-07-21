@@ -112,6 +112,9 @@ public sealed class StreamProcessor
     private const int InstanceStartKey = 0x18 | (0x97 << 8);   // 0x9718
     private const int ExitPartyKey = 0x1D | (0x97 << 8);       // 0x971D
     private const int PartyRosterKey = 0x02 | (0x97 << 8);     // 0x9702 — full party/raid roster snapshot
+    // 0x9200 — 파티/공대 멤버 상세 프로필. 0x9702 로스터와 달리 레코드마다 엔티티 uid를 함께 싣는 유일한
+    // 브로드캐스트라, 본인 로드 패킷(0x3633)이 오지 않은 재인스턴스에서 본인을 새 uid에 묶는 근거가 된다.
+    private const int MemberProfileKey = 0x00 | (0x92 << 8);   // 0x9200
     // Resource-status family (0x61 category) carrying the aether (오드) balance. Two opcodes ride the same
     // marker-based body layout; both are handled by the one resource parser.
     private const int AetherKeyA = 0x0B | (0x61 << 8);         // 0x610B
@@ -142,6 +145,7 @@ public sealed class StreamProcessor
         [Key(0x18, 0x97)] = "InstanceStart",
         [Key(0x1D, 0x97)] = "ExitParty",
         [Key(0x02, 0x97)] = "PartyRoster",
+        [MemberProfileKey] = "MemberProfile",
         [AetherKeyA] = "AetherStatus",
         [AetherKeyB] = "AetherStatus",
         [FieldBossTimerKey] = "FieldBossTimer",
@@ -339,6 +343,9 @@ public sealed class StreamProcessor
                     break;
                 case PartyRosterKey:
                     ParsePartyRoster(packet, lengthInfo, extraFlag);
+                    break;
+                case MemberProfileKey:
+                    ParseMemberProfile(packet, lengthInfo, extraFlag);
                     break;
                 case AetherKeyA:
                 case AetherKeyB:
@@ -812,6 +819,112 @@ public sealed class StreamProcessor
         && packet[serverOffset - 7] is >= 1 and <= 10
             ? packet[serverOffset - 7]
             : 0;
+
+    /// <summary>0x9200 멤버 프로필 스냅샷. 파티/공대 멤버마다 한 레코드씩 싣는데, <b>엔티티 uid를 이름과 같은
+    /// 레코드에 담는 유일한 브로드캐스트</b>다(0x9702 로스터에는 uid가 없다). 이름 오프셋 기준 레이아웃 —
+    /// <c>-54 uid u32LE / -50 server u16LE / -48 ? / -46 0x24 / -45..-10 36바이트 ASCII GUID / -9..-4 handle /
+    /// -3 server u16LE / -1 nameLen u8 / 0 name UTF-8</c> (실제 캡처 프레임에서 검증: uid 15360 · '플러시' · 2003).
+    /// <para>0x9702 파서와 같은 byte-scan이되 구조 검증이 훨씬 빡빡하다: GUID 길이 마커 0x24 + 36바이트 ASCII
+    /// GUID + 두 곳의 server 일치. 실측 특이도 — 한 세션에서 이름 바이트 히트 ~40건 중 이 검증을 통과한 건
+    /// 정확히 1건(진짜 레코드)이었다. 앵커가 잘못 발화하면 본인이 엉뚱한 uid로 옮겨가므로 느슨한 매칭은
+    /// 허용하지 않는다.</para>
+    /// <para><b>모든</b> 레코드를 데이터 계층으로 넘긴다. "현재 본인과 신원 완전일치인가"는 executor를 아는
+    /// 쪽만 판단할 수 있고 남의 레코드는 거기서 그대로 버려진다 — 여기서 본인을 골라내려 하면 uid↔이름 결합이
+    /// 틀렸을 때 남의 이름을 저장소에 쓰게 된다. 그래서 <see cref="ICaptureGameData.SaveNickname"/>으로는
+    /// 절대 흘리지 않는다(그 경로는 이름이 바뀌면 직업·전투력 출처를 리셋한다).</para></summary>
+    private void ParseMemberProfile(byte[] packet, VarIntOutput lengthInfo, bool extraFlag)
+    {
+        int offset = lengthInfo.Length + (extraFlag ? 1 : 0);
+        if (offset + 2 > packet.Length || packet[offset] != 0x00 || packet[offset + 1] != 0x92)
+        {
+            return;
+        }
+
+        var sb = new StringBuilder();
+        int found = 0;
+        for (int n = offset + 2; n + 3 < packet.Length; n++)
+        {
+            if (n < 51)
+            {
+                continue; // uid 필드(이름 기준 -54 = n-51)가 패킷 앞을 벗어난다
+            }
+
+            int server = PacketPrimitives.ParseUInt16Le(packet, n);
+            if (!IsPartyServer(server))
+            {
+                continue;
+            }
+
+            int len = packet[n + 2] & 0xFF;
+            if (len < 1 || len > 30 || n + 3 + len > packet.Length)
+            {
+                continue;
+            }
+
+            string name = Encoding.UTF8.GetString(packet, n + 3, len);
+            if (Encoding.UTF8.GetByteCount(name) != len || !IsValidNickname(name))
+            {
+                continue;
+            }
+
+            if (packet[n - 43] != 0x24                                     // GUID 길이 마커 (이름 기준 -46)
+                || !IsAsciiGuid(packet, n - 42)                            // 36바이트 ASCII GUID
+                || PacketPrimitives.ParseUInt16Le(packet, n - 47) != server) // 앞쪽 server가 같아야 한다
+            {
+                continue;
+            }
+
+            int uid = PacketPrimitives.ParseUInt32Le(packet, n - 51);
+            _data.TryBindExecutorByIdentity(uid, name, server);
+            found++;
+            if (sb.Length > 0)
+            {
+                sb.Append(',');
+            }
+
+            sb.Append(name).Append('[').Append(server).Append("]#").Append(uid);
+
+            n += 2 + len; // 이 레코드를 건너뛴다 (루프의 n++이 마지막 바이트를 넘긴다)
+        }
+
+        if (found > 0)
+        {
+            _sink.Meta("member_profile", ("count", found), ("members", sb.ToString()));
+        }
+    }
+
+    /// <summary>36바이트 정규 GUID 문자열(8-4-4-4-12, 대문자/소문자 hex + '-')인지. 0x9200 레코드 구조 검증의
+    /// 핵심 — 임의의 바이트 런이 이걸 통과할 확률은 사실상 0이라, 이름-모양 오탐을 여기서 전부 걷어낸다.</summary>
+    private static bool IsAsciiGuid(byte[] packet, int offset)
+    {
+        if (offset < 0 || offset + 36 > packet.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < 36; i++)
+        {
+            byte c = packet[offset + i];
+            bool dash = i is 8 or 13 or 18 or 23;
+            if (dash)
+            {
+                if (c != (byte)'-')
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+            if (!hex)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     // Valid Aion2 server-id range for a party member record (same range our nickname snapshots use, so a
     // matched member's server lines up with its 0x3645/0x3633 identity). Tight enough to reject the random
