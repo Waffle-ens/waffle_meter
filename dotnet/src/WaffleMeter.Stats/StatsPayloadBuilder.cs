@@ -80,7 +80,11 @@ public sealed class StatsPayloadBuilder
             return new BuildResult.Skip("not_kill");
         }
 
-        int ownId = _data.ExecutorId();
+        // 이 전투에 얼어붙은 본인 id를 우선한다. 업로드는 처치 후(StatsUploadQueue의 재확인 지연) 실행되는데,
+        // 그 사이 존 이동으로 본인이 새 엔티티 id로 옮겨가면 라이브 ExecutorId()는 이 전투에 없던 uid를 가리키고,
+        // 아래 own_result_missing으로 정상 처치가 무증상 누락된다. 리포트의 ExecutorId는 전투 종료 시점에
+        // 동결된 값이라 그 레이스가 없다.
+        int ownId = report.ExecutorId != 0 ? report.ExecutorId : _data.ExecutorId();
         if (ownId == 0)
         {
             return new BuildResult.Skip("executor_missing");

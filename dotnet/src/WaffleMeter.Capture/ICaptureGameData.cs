@@ -39,6 +39,13 @@ public interface ICaptureGameData
     /// 최대치로 추정했는데, 이 값이 오면 그보다 정확하다(저장은 단조 증가라 낮은 값으로 덮이지 않는다).
     /// 다만 보스의 6.9%에만 오므로 추정 경로는 그대로 남는다. 기본 no-op.</summary>
     void SaveMobMaxHp(int instanceId, int maxHp) { }
+
+    /// <summary>0x9200 멤버 프로필이 실어 온 (엔티티 uid, 닉네임, 서버). 이름 앵커의 유일한 입력이다 —
+    /// 본인 이름은 본인 로드 패킷(0x3633)에만 오고 0x3645에는 절대 오지 않으므로(코퍼스 13,076프레임 0건),
+    /// 존 이동·난입으로 본인 uid가 바뀌었는데 0x3633이 다시 오지 않으면 본인을 새 uid에 묶을 방법이 없었다.
+    /// <para>파서는 <b>모든</b> 레코드를 그대로 넘긴다. "현재 본인과 신원 완전일치인가"는 executor를 아는 데이터
+    /// 계층만 판단할 수 있고, 남의 레코드는 거기서 no-op으로 떨어진다. 기본 no-op(캡처 전용 모드).</para></summary>
+    void TryBindExecutorByIdentity(int uid, string nickname, int server) { }
     void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId);
 
     /// <summary>버프 적용 + <paramref name="level"/>(어노멀 레벨, 0 = 모름). 서로 중복 적용되지 않는 버프 쌍에서
