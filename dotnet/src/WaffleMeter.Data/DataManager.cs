@@ -179,6 +179,39 @@ public sealed class DataManager : ICaptureGameData
     /// the name table and the picker/hidden sets use. Mirrors JoinIcons' buff→base mapping.</summary>
     public static int BuffBaseCode(int code) => code is >= 110_000_000 and <= 199_999_999 ? code / 100_000 * 10_000 : code;
 
+    // 치유성 '대지의 징벌'(17400000)은 대상 몹에게 디버프 '대지의 징벌'을, 본인+파티원에게는 이름이 다른 버프
+    // '대지의 축복'을 건다. 둘 다 BuffBaseCode로 접으면 17400000 한 슬롯이 되어 오버레이·음성·picker가
+    // 인게임과 다른 이름("대지의 징벌")과 다른 아이콘(바위 가시)을 쓴다. 축복 쪽 abnormal 코드만 별도 표시
+    // base로 돌린다 — 17400058은 skills.json에 이미 '대지의 축복'으로 있고 클라에서도 같은 아이콘을 쓰는
+    // 실제 코드라, 이름표·아이콘·상세 스킬행이 한 코드로 정합된다. (데이터마인 07-01/07-15 동일 확인)
+    private static readonly Dictionary<int, int> BuffDisplayBaseOverrides = new()
+    {
+        [174000271] = 17400058,
+        [174000371] = 17400058,
+        [174000571] = 17400058,
+    };
+
+    // 인게임에서 서로 중복 적용되지 않는 버프 쌍. 둘 다 활성으로 보이면 지는 쪽을 오버레이에서 감춘다.
+    // 코퍼스 실측상 쌍마다 서버 동작이 다르다:
+    //  · 노련한 반격↔격앙  : 서버가 둘 다 보낸다(전 지속시간 겹침, p50 10s) → 우리가 반드시 감춰야 한다.
+    //  · 보호의 빛↔불패의 진언 : 서버가 중재하고 잔상 최대 2.4초. 인게임 설명문에 "스킬 레벨이 높은 1개만
+    //    적용, 동일하면 불패의 진언" 이라고 명문화돼 있어 동률 승자를 고정한다.
+    //  · 대지의 축복↔질풍의 권능 : 서버가 새 적용은 막지만(질풍 우선) 이미 걸린 축복을 제거하진 않아
+    //    최대 ~20초 잔존 → 질풍이 살아 있으면 축복을 감춘다(고정 승자).
+    private readonly record struct ExclusiveBuffPair(int A, int B, int FixedWinner, int TieWinner);
+
+    private static readonly ExclusiveBuffPair[] ExclusiveBuffPairs =
+    {
+        new(11780000, 12780000, FixedWinner: 0, TieWinner: 0),          // 검성 노련한 반격 ↔ 수호성 격앙
+        new(17410000, 18190000, FixedWinner: 0, TieWinner: 18190000),   // 치유성 보호의 빛 ↔ 호법성 불패의 진언
+        new(17400058, 18250000, FixedWinner: 18250000, TieWinner: 0),   // 치유성 대지의 축복 ↔ 호법성 질풍의 권능
+    };
+
+    /// <summary>오버레이/음성/picker가 쓰는 표시용 base 코드. 한 스킬이 이름이 다른 두 효과를 뿌리는 경우만
+    /// <see cref="BuffBaseCode"/>와 갈라진다. 집계·통계 경로는 <see cref="BuffBaseCode"/>를 그대로 쓴다.</summary>
+    public static int BuffDisplayBase(int code) =>
+        BuffDisplayBaseOverrides.TryGetValue(code, out int mapped) ? mapped : BuffBaseCode(code);
+
     /// <summary>buff_names.json: base skill code -> (name, job) for the per-job buff picker.</summary>
     public void LoadBuffNames(IEnumerable<(int Code, string Name, string Job)> names)
     {
@@ -264,7 +297,7 @@ public sealed class DataManager : ICaptureGameData
     {
         lock (_buffPickerGate)
         {
-            return _hiddenBuffBases.Contains(BuffBaseCode(runtimeCode));
+            return _hiddenBuffBases.Contains(BuffDisplayBase(runtimeCode));
         }
     }
 
@@ -272,7 +305,7 @@ public sealed class DataManager : ICaptureGameData
     {
         lock (_buffPickerGate)
         {
-            return _voiceBuffBases.Contains(BuffBaseCode(runtimeCode));
+            return _voiceBuffBases.Contains(BuffDisplayBase(runtimeCode));
         }
     }
 
@@ -982,7 +1015,12 @@ public sealed class DataManager : ICaptureGameData
 
     public void SaveUseBuff(int uid, UseBuff useBuff) => _useBuffRepository.Save(uid, useBuff);
 
-    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId)
+    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) =>
+        SaveUseBuff(uid, skillCode, buffStart, buffEnd, duration, actorId, 0);
+
+    /// <summary><paramref name="level"/> = 어노멀 레벨(0 = 모름). 서로 중복 적용되지 않는 버프 쌍에서 높은 쪽을
+    /// 고르는 데 쓰인다.</summary>
+    public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level)
     {
         SaveUseBuff(uid, new UseBuff(skillCode, buffStart, buffEnd, duration, actorId));
 
@@ -1016,7 +1054,7 @@ public sealed class DataManager : ICaptureGameData
             // the announce path can speak it; the overlay drops it downstream via OwnerBuffView.Overlay.
             if (!IsBuffHidden(skillCode) || IsBuffVoice(skillCode))
             {
-                int baseCode = BuffBaseCode(skillCode);
+                int baseCode = BuffDisplayBase(skillCode);
                 bool indefinite = baseCode == IndefiniteStanceBaseCode; // 폭주: synthetic-TTL maintained stance
                 // Keep the maintained stance on screen well past its short synthetic duration so a held
                 // re-broadcast gap doesn't false-expire it; a real "off" then clears within the keep-alive.
@@ -1025,7 +1063,7 @@ public sealed class DataManager : ICaptureGameData
                 {
                     // Key by BASE code so the SAME buff re-cast by a different player/rank refreshes the one slot
                     // in place (no duplicate icon, no duplicate start alert) — the later cast takes over.
-                    _ownerBuffs[baseCode] = (overlayEnd, actorId, duration, indefinite);
+                    _ownerBuffs[baseCode] = (overlayEnd, actorId, duration, indefinite, level);
                 }
 
                 LiveBuffsChanged?.Invoke();
@@ -1037,6 +1075,38 @@ public sealed class DataManager : ICaptureGameData
             // lists other jobs' buffs too (self + party coverage).
             RecordObservedBuff(skillCode);
         }
+    }
+
+    /// <summary>엔티티 사망(0x8D04). <b>본인</b>이 죽었을 때만 버프 오버레이 스토어를 비운다 — 사망 후
+    /// 부활하면 게임에서 모든 버프가 날아간 상태이기 때문이다.
+    /// <para>쿨다운(<c>_cooldowns</c>)은 <b>비우지 않는다</b>: 사망이 스킬 쿨다운을 초기화하지는 않으므로
+    /// 함께 지우면 다음 0x3847 스냅샷이 올 때까지 "쿨타임 회색" 표시가 틀리게 된다.</para>
+    /// <para><see cref="OwnerBuffClearRevision"/>을 올려 두면 500ms 오버레이 틱이 "이번 틱에 사망 클리어가
+    /// 있었다"를 알 수 있다 — 스냅샷을 뜬 직후 클리어가 들어오는 서브초 레이스에서 잔여 버프가 종료 음성을
+    /// 외치는 것을 막는 용도다(사망으로 인한 초기화에는 종료 알림을 내지 않는다).</para></summary>
+    public void SaveEntityDeath(int entityId, long arrivedAt)
+    {
+        int owner = _userRepository.Executor();
+        if (owner == 0 || entityId != owner)
+        {
+            return; // 몹·파티원 사망은 오버레이와 무관
+        }
+
+        lock (_ownerBuffGate)
+        {
+            _ownerBuffs.Clear();
+            _ownerBuffClearRevision++;
+        }
+
+        LiveBuffsChanged?.Invoke();
+    }
+
+    private long _ownerBuffClearRevision;
+
+    /// <summary>사망으로 버프 스토어가 비워질 때마다 증가. 오버레이 틱이 값 변화를 보고 종료 음성을 건너뛴다.</summary>
+    public long OwnerBuffClearRevision
+    {
+        get { lock (_ownerBuffGate) { return _ownerBuffClearRevision; } }
     }
 
     /// <summary>회생의 계약 긴급 회복 발동. 발동 시각을 기록하고(가동률 표의 "N회" 집계용), 본인 것이면
@@ -1094,7 +1164,7 @@ public sealed class DataManager : ICaptureGameData
 
         lock (_ownerBuffGate)
         {
-            _ownerBuffs[cooldownCode] = (arrivedAt + RevivalHealCooldownMs, uid, RevivalHealCooldownMs, false);
+            _ownerBuffs[cooldownCode] = (arrivedAt + RevivalHealCooldownMs, uid, RevivalHealCooldownMs, false, 0);
         }
 
         LiveBuffsChanged?.Invoke();
@@ -1137,7 +1207,7 @@ public sealed class DataManager : ICaptureGameData
 
     private void RecordObservedBuff(int runtimeCode)
     {
-        int baseCode = BuffBaseCode(runtimeCode);
+        int baseCode = BuffDisplayBase(runtimeCode);
         bool added;
         lock (_buffPickerGate)
         {
@@ -1178,7 +1248,7 @@ public sealed class DataManager : ICaptureGameData
 
     // ---- live owner-buff store (for the combat-assist overlay) ----
     // Keyed by BASE skill code (level-independent) so a re-cast of the same buff refreshes one entry.
-    private readonly Dictionary<int, (long End, int Actor, long Duration, bool Indefinite)> _ownerBuffs = new(); // baseCode -> (expiry, applier, duration, indefinite)
+    private readonly Dictionary<int, (long End, int Actor, long Duration, bool Indefinite, int Level)> _ownerBuffs = new(); // baseCode -> (expiry, applier, duration, indefinite, abnormal level)
 
     // 폭주 (권성): the only maintained-stance buff broadcast with no expiry (duration 0xFFFFFFFF). The parser
     // gives every apply a short synthetic duration (StreamProcessor.IndefiniteStanceFallbackMs) and its whole
@@ -1257,7 +1327,7 @@ public sealed class DataManager : ICaptureGameData
             }
 
             // active owner buffs whose skill is on cooldown right now — these are the ones that SHOULD gray.
-            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite)> kv in _ownerBuffs)
+            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level)> kv in _ownerBuffs)
             {
                 if (kv.Value.End > nowMs && _cooldowns.TryGetValue(kv.Key, out long cd) && cd > nowMs)
                 {
@@ -1282,7 +1352,7 @@ public sealed class DataManager : ICaptureGameData
         var result = new List<OwnerBuffView>();
         lock (_ownerBuffGate)
         {
-            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite)> kv in _ownerBuffs)
+            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level)> kv in _ownerBuffs)
             {
                 if (kv.Value.End <= nowMs)
                 {
@@ -1306,9 +1376,54 @@ public sealed class DataManager : ICaptureGameData
                     onCooldown,
                     kv.Value.Indefinite));
             }
+
+            SuppressExclusiveLosers(result, nowMs);
         }
 
         return result.OrderByDescending(r => r.RemainingMs).ToList();
+    }
+
+    /// <summary>인게임에서 서로 중복 적용되지 않는 버프 쌍이 둘 다 살아 있으면 지는 쪽을 목록에서 뺀다.
+    /// 승자 판정: 고정 승자가 있으면 그것, 없으면 어노멀 레벨이 높은 쪽, 레벨이 같거나 둘 다 모르면(0)
+    /// 지정된 동률 승자, 그것도 없으면 나중에 적용된 쪽(End가 늦은 쪽)을 남긴다.
+    /// <para>_ownerBuffGate를 이미 잡은 상태에서 호출된다.</para></summary>
+    private void SuppressExclusiveLosers(List<OwnerBuffView> rows, long nowMs)
+    {
+        foreach (ExclusiveBuffPair pair in ExclusiveBuffPairs)
+        {
+            int ai = rows.FindIndex(r => r.Code == pair.A);
+            int bi = rows.FindIndex(r => r.Code == pair.B);
+            if (ai < 0 || bi < 0)
+            {
+                continue; // 한쪽만 켜져 있으면 아무것도 감추지 않는다
+            }
+
+            OwnerBuffView a = rows[ai], b = rows[bi];
+            int loser;
+            if (pair.FixedWinner != 0)
+            {
+                loser = pair.FixedWinner == pair.A ? pair.B : pair.A;
+            }
+            else
+            {
+                int la = _ownerBuffs.TryGetValue(pair.A, out var va) ? va.Level : 0;
+                int lb = _ownerBuffs.TryGetValue(pair.B, out var vb) ? vb.Level : 0;
+                if (la != lb && la > 0 && lb > 0)
+                {
+                    loser = la > lb ? pair.B : pair.A;
+                }
+                else if (pair.TieWinner != 0)
+                {
+                    loser = pair.TieWinner == pair.A ? pair.B : pair.A;
+                }
+                else
+                {
+                    loser = a.EndMs >= b.EndMs ? pair.B : pair.A; // 레벨을 모르면 나중에 걸린 쪽을 남긴다
+                }
+            }
+
+            rows.RemoveAll(r => r.Code == loser);
+        }
     }
 
     private void ClearOwnerBuffs()

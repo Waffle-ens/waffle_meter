@@ -56,7 +56,9 @@ public static class JoinIcons
             int? baseCode = code switch
             {
                 >= 11_000_000 and <= 19_999_999 => code / 10_000 * 10_000,        // skill code
-                >= 110_000_000 and <= 199_999_999 => code / 100_000 * 10_000,     // buff code (incl. 권성 19x)
+                // 버프 코드(권성 19x 포함). BuffDisplayBase를 거쳐야 한 스킬이 이름 다른 두 효과를 뿌리는
+                // 경우(대지의 징벌 → 대지의 축복)에 상세/그래프 레인도 오버레이와 같은 아이콘을 쓴다.
+                >= 110_000_000 and <= 199_999_999 => WaffleMeter.Data.DataManager.BuffDisplayBase(code),
                 _ => null,
             };
             if (baseCode is int b && SkillIconManifest.Codes.Contains(b))

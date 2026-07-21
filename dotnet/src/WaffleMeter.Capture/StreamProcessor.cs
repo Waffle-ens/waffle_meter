@@ -99,6 +99,9 @@ public sealed class StreamProcessor
     private const int CooldownStartKey = 0x02 | (0x38 << 8);   // 0x3802
     private const int BattleToggleKey = 0x21 | (0x8D << 8);    // 0x8D21
     private const int RemainHpKey = 0x00 | (0x8D << 8);        // 0x8D00
+    // 엔티티 사망 브로드캐스트. 죽은 엔티티 id가 첫 varint. 코퍼스 3세션 481프레임이 전부 그 엔티티의 HP=0
+    // 직후(~50ms)에 왔고 본인 사망 횟수와 1:1(오탐 0). 본인 사망 시 버프 오버레이를 비우는 근거 신호다.
+    private const int EntityDeathKey = 0x04 | (0x8D << 8);     // 0x8D04
     // Party join-request family (0x97 category — untouched by the 2026-06-10 0x36 shift).
     private const int JoinRequestKey = 0x07 | (0x97 << 8);     // 0x9707
     private const int CancelJoinKey = 0x25 | (0x97 << 8);      // 0x9725
@@ -128,6 +131,7 @@ public sealed class StreamProcessor
         [CooldownStartKey] = "CooldownStart",
         [BattleToggleKey] = "BattleToggle",
         [RemainHpKey] = "RemainHp",
+        [EntityDeathKey] = "EntityDeath",
         [Key(0x07, 0x97)] = "JoinRequest",
         [Key(0x25, 0x97)] = "CancelJoin",
         [Key(0x0B, 0x97)] = "AdmitJoin",
@@ -295,6 +299,9 @@ public sealed class StreamProcessor
                     break;
                 case RemainHpKey:
                     ParseRemainHp(packet, lengthInfo, extraFlag);
+                    break;
+                case EntityDeathKey:
+                    ParseEntityDeath(packet, lengthInfo, extraFlag, arrivedAt);
                     break;
                 case BuffApplyKey:
                 case BuffApply2Key:
@@ -1100,6 +1107,29 @@ public sealed class StreamProcessor
             ("hp", mobHp));
     }
 
+    /// <summary>엔티티 사망 0x8D04 — 죽은 엔티티 id varint 하나가 전부다. 몹·파티원에게도 오므로 "본인인가"
+    /// 판정은 executor를 아는 데이터 계층에 맡긴다. 본인 사망 시 버프 오버레이를 비우는 데 쓴다(사망 후
+    /// 부활하면 모든 버프가 날아간 상태이므로).</summary>
+    private void ParseEntityDeath(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, long arrivedAt)
+    {
+        int offset = lengthInfo.Length;
+        if (extraFlag)
+        {
+            offset++;
+        }
+
+        if (packet.Length < offset + 2) return;
+        if (packet[offset] != 0x04) return;
+        if (packet[offset + 1] != 0x8D) return;
+        offset += 2;
+
+        VarIntOutput entityInfo = PacketPrimitives.ReadVarInt(packet, offset);
+        if (entityInfo.Length <= 0) return;
+
+        _data.SaveEntityDeath(entityInfo.Value, arrivedAt);
+        _sink.Meta("death", ("entity", entityInfo.Value));
+    }
+
     /// <summary>Battle start/end toggle 0x8D21. Kotlin parseBattlePacket (878-924).</summary>
     private void ParseBattlePacket(byte[] packet, VarIntOutput lengthInfo, bool extraFlag)
     {
@@ -1223,18 +1253,42 @@ public sealed class StreamProcessor
                 duration = IndefiniteStanceFallbackMs;
             }
 
-            _data.SaveUseBuff(targetInfo.Value, skillCode, arrivedAt, arrivedAt + duration, duration, actorInfo.Value);
+            int level = ReadAbnormalLevel(packet, offset + actorInfo.Length);
+            _data.SaveUseBuff(targetInfo.Value, skillCode, arrivedAt, arrivedAt + duration, duration, actorInfo.Value, level);
             _sink.Meta("buff",
                 ("target", targetInfo.Value),
                 ("actor", actorInfo.Value),
                 ("skill", skillCode),
                 ("duration", duration),
+                ("level", level),
                 ("serverTime", serverTime));
         }
         catch
         {
             // swallowed (matches Kotlin's try/catch around parseBuffPacket)
         }
+    }
+
+    /// <summary>버프 적용 패킷의 actor varint 바로 뒤에 붙는 꼬리에서 <b>어노멀 레벨</b>을 읽는다.
+    /// 레이아웃: <c>[u8 level][u32 LE 소스 8자리 스킬코드][u8 flag][float x][float y][float z]</c>.
+    /// <para>자기검증형이다 — level이 1~40이고 소스코드가 직업 스킬 대역(11000000~19999999)일 때만 채택한다.
+    /// 두 조건은 코퍼스 4,688프레임에서 100% 동시 성립했고, 어긋나면 0(모름)을 돌려 상위 로직이 레벨 비교를
+    /// 건너뛰게 한다. 서로 중복 적용되지 않는 버프 쌍에서 "레벨이 높은 쪽"을 고르는 데 쓴다.</para></summary>
+    private static int ReadAbnormalLevel(byte[] packet, int offset)
+    {
+        if (offset < 0 || offset + 5 > packet.Length)
+        {
+            return 0;
+        }
+
+        int level = packet[offset];
+        if (level is < 1 or > 40)
+        {
+            return 0;
+        }
+
+        int source = PacketPrimitives.ParseUInt32Le(packet, offset + 1);
+        return source is >= 11_000_000 and <= 19_999_999 ? level : 0;
     }
 
     /// <summary>Skill cooldown snapshot 0x3847: <c>[count][ {u32 LE skillCode, varint remainingMs} × count ]</c>

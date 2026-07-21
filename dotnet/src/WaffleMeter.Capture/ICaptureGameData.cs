@@ -35,6 +35,12 @@ public interface ICaptureGameData
     void SaveSummon(int summonId, int ownerId);
     void SaveMobHp(int instanceId, int hp);
     void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId);
+
+    /// <summary>버프 적용 + <paramref name="level"/>(어노멀 레벨, 0 = 모름). 서로 중복 적용되지 않는 버프 쌍에서
+    /// "레벨이 높은 쪽"을 고르는 데 쓴다. 기본 구현은 레벨을 버리고 위 오버로드로 위임하므로, 레벨이 필요 없는
+    /// 구현체(캡처 전용 모드 등)는 손댈 필요가 없다.</summary>
+    void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level)
+        => SaveUseBuff(uid, skillCode, buffStart, buffEnd, duration, actorId);
     void RequestOfficialCharacterLookup(int uid);
 
     /// <summary>Skill cooldown update: <paramref name="remainingMs"/> ms left on <paramref name="skillCode"/>'s
@@ -42,6 +48,10 @@ public interface ICaptureGameData
     /// is the caster's entity id, or 0 for the self-only 0x3847 hotbar snapshot (no filter needed); the data
     /// layer keeps only self cooldowns. Default no-op. Drives the buff overlay's cooldown gray-out.</summary>
     void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId) { }
+
+    /// <summary>엔티티 사망 브로드캐스트(0x8D04). 몹·파티원에게도 오므로 본인 여부 판정은 executor를 아는
+    /// 데이터 계층이 한다. 기본 no-op(캡처 전용 모드).</summary>
+    void SaveEntityDeath(int entityId, long arrivedAt) { }
 
     /// <summary>전투 시작 토글이 도착했지만 그 엔티티의 instanceId→mobCode가 아직 등록되지 않아(스폰 패킷 유실
     /// 또는 아직 도착 전) 전투를 열지 못한 경우. 보스 스폰은 교전당 1회뿐이고 전투 중 재방송이 없어서, 그냥
