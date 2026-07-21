@@ -108,14 +108,17 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
         foreach (OwnerBuffView b in buffs)
         {
             bool onCooldown = grayOnCooldown && b.OnCooldown; // only gray when the option is on
+            // A maintained stance (폭주) has only a synthetic keep-alive, not a real countdown — draw it as a
+            // plain "on" icon (no ring, no timer) by reporting an unknown duration.
+            long dur = b.Indefinite ? 0 : b.DurationMs;
             BuffSlotVM? existing = Slots.FirstOrDefault(s => s.Code == b.Code);
             if (existing is null)
             {
-                Slots.Add(new BuffSlotVM(b.Code, b.Name, b.RemainingMs, b.DurationMs, b.ByOther, onCooldown));
+                Slots.Add(new BuffSlotVM(b.Code, b.Name, b.RemainingMs, dur, b.ByOther, onCooldown));
             }
             else
             {
-                existing.SetRemaining(b.RemainingMs, b.DurationMs);
+                existing.SetRemaining(b.RemainingMs, dur);
                 existing.SetCooldown(onCooldown);
             }
         }
@@ -188,9 +191,18 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
 
     public void SetRemaining(long remainingMs, long durationMs)
     {
+        if (durationMs <= 0)
+        {
+            // Unknown / indefinite duration (a maintained stance like 폭주): show the icon only — no countdown
+            // text, no ring — so it doesn't look like it is about to expire.
+            RemainingText = string.Empty;
+            Ring = null;
+            return;
+        }
+
         long s = Math.Max(0, remainingMs) / 1000;
         RemainingText = s >= 60 ? $"{s / 60}:{s % 60:D2}" : s.ToString(Inv) + "s";
-        Ring = BuildRing(durationMs > 0 ? Math.Clamp((double)remainingMs / durationMs, 0, 1) : 0);
+        Ring = BuildRing(Math.Clamp((double)remainingMs / durationMs, 0, 1));
     }
 
     // A clockwise arc from 12 o'clock spanning 360°·progress, centered on the fixed canvas (so it frames the

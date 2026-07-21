@@ -122,4 +122,31 @@ public class JoinRequestStoreTests
         Assert.Equal(1, cleared);
         Assert.Empty(store.Snapshot());
     }
+
+    [Fact]
+    public void TryGet_returns_current_entry_or_false()
+    {
+        var store = new JoinRequestStore(() => 1000);
+        Assert.False(store.TryGet(1, out _));
+
+        store.Add(User(1, 100, power: 42));
+        Assert.True(store.TryGet(1, out JoinRequestUser? got));
+        Assert.Equal(42, got!.Power);
+    }
+
+    [Fact]
+    public void OnJoinRequest_carries_forward_resolved_skill_badges()
+    {
+        var store = new JoinRequestStore(() => 1000);
+        var adapter = new JoinRequestSinkAdapter(store, new DataManager()); // no OfficialLookup -> no live enrichment
+        var skills = new Dictionary<int, int> { [12345] = 3 };
+        store.Add(User(1, 100) with { Skill = skills }); // a previously-enriched card
+
+        // Same requester re-applies: the fresh packet carries no skills, but the badges must persist.
+        adapter.OnJoinRequest(requester: 1, nickname: "u1", jobCode: 0, server: 3, power: 50, arrivedAt: 200);
+
+        JoinRequestUser row = Assert.Single(store.Snapshot());
+        Assert.Equal(50, row.Power);     // refreshed from the new packet
+        Assert.Equal(skills, row.Skill); // badges carried forward, not blanked
+    }
 }
