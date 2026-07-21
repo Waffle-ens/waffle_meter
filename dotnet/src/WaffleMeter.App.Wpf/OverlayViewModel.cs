@@ -253,12 +253,21 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     public void SetRoster(IReadOnlyList<User> roster) => _roster = roster;
 
     private IReadOnlyList<User> _authoritativeParty = [];
+    private IReadOnlyList<(string Nickname, int Server, int Slot)> _authoritativePartyIdentities = [];
 
     /// <summary>App supplies the AUTHORITATIVE (0x9702-only) party each tick — distinct from <see cref="_roster"/>,
     /// which also folds in recent boss-combat contributors (at a field boss those are the zerg). Used solely as
     /// the party-context guard for lost-executor recovery in <see cref="OverlayRowBuilder"/>: a NAMED damager not
-    /// in this party marks a public zerg, where a strong stranger must not be relabeled 본인.</summary>
-    public void SetAuthoritativeParty(IReadOnlyList<User> party) => _authoritativeParty = party;
+    /// in this party marks a public zerg, where a strong stranger must not be relabeled 본인.
+    /// <para><paramref name="identities"/> is the SAME snapshot before uid resolution (members never seen this
+    /// session are dropped from <paramref name="party"/>). Set together in one call so the two can never drift
+    /// apart between ticks.</para></summary>
+    public void SetAuthoritativeParty(
+        IReadOnlyList<User> party, IReadOnlyList<(string Nickname, int Server, int Slot)> identities)
+    {
+        _authoritativeParty = party;
+        _authoritativePartyIdentities = identities;
+    }
 
     /// <summary>App calls this each tick from StatsBuilder.OwnCharacter() so the indicator appears the
     /// moment the own character is recognized (and names it when known). <paramref name="selfId"/> is the
@@ -399,7 +408,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             selfNickname: _selfNickname, selfServer: _selfServer, selfJob: _selfJob, selfPower: _selfPower,
             authoritativeParty: _authoritativeParty,
             // Opt-in "던전 강제 집계": only on a classified instanced (원정/초월/성역) boss (stamped live into the report).
-            forceInstanceTracking: _settings.ForceInstanceTracking && report.TargetInstanced);
+            forceInstanceTracking: _settings.ForceInstanceTracking && report.TargetInstanced,
+            rosterIdentities: _authoritativePartyIdentities);
 
         double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);
 

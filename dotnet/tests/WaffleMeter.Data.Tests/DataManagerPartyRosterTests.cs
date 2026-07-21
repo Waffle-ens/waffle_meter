@@ -30,6 +30,36 @@ public sealed class DataManagerPartyRosterTests
     }
 
     [Fact]
+    public void PartyRosterIdentities_keeps_the_members_PartyRoster_drops()
+    {
+        // The mirror of the contract above: the raw snapshot keeps 아직없음 (no uid this session) and its slot,
+        // because that is exactly the member a nameless overlay row usually belongs to.
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SaveNickname(1, "플러시", isExecutor: true, server: 2003, jobByte: 0);
+        dm.SaveNickname(2, "Wildz", isExecutor: false, server: 1014, jobByte: 0);
+
+        dm.SavePartyRoster(new List<(string, int, int)> { ("Wildz", 1014, 2), ("플러시", 2003, 1), ("아직없음", 1010, 3) });
+
+        Assert.Equal(2, dm.PartyRoster(300_000).Count);
+        IReadOnlyList<(string Nickname, int Server, int Slot)> raw = dm.PartyRosterIdentities(300_000);
+        Assert.Equal(3, raw.Count);
+        Assert.Contains(("아직없음", 1010, 3), raw);
+    }
+
+    [Fact]
+    public void PartyRosterIdentities_is_empty_once_the_snapshot_is_stale()
+    {
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SavePartyRoster(new List<(string, int, int)> { ("플러시", 2003, 1) });
+
+        Assert.Single(dm.PartyRosterIdentities(300_000));
+        now += 300_001;
+        Assert.Empty(dm.PartyRosterIdentities(300_000));
+    }
+
+    [Fact]
     public void PartyRoster_resolves_self_to_the_live_executor_despite_stale_duplicates()
     {
         // The self re-registers under a fresh uid on every zone load (0x3633), leaving stale name+server

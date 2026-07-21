@@ -61,7 +61,12 @@ public static class OverlayRowBuilder
         // classified instanced (원정/초월/성역) boss. It surfaces bare MAJOR dealers (identity packets missed on a
         // mid-dungeon meter start) as generic placeholders so a mid-start user sees the fight instead of an empty
         // meter. Safe here because instanced content has no outsiders (and the outsider guard still applies).
-        bool forceInstanceTracking = false)
+        bool forceInstanceTracking = false,
+        // RAW 0x9702 roster (DataManager.PartyRosterIdentities) — a SUPERSET of authoritativeParty, which drops
+        // every member whose uid has never been seen. Carries no uid / job / power, so it can only feed the
+        // unambiguous 1:1 rescue (tier 2) and the display-cap exemption; never the job-unique match (no job) nor
+        // the stale-name repair (uid-keyed).
+        IReadOnlyList<(string Nickname, int Server, int Slot)>? rosterIdentities = null)
     {
         double Metric(DpsInformation info) => useTotalDamage ? info.Amount : info.Dps;
 
@@ -91,7 +96,16 @@ public static class OverlayRowBuilder
         // Done on a display-only copy (no state mutation), recomputed every tick, so it self-corrects the moment
         // the real 본인 id appears.
         double topMetric = rawCombat.Count > 0 ? rawCombat.Max(e => Metric(e.Info)) : 0.0;
-        bool rosterConfirmed = authoritativeParty is { Count: > 0 };
+        IReadOnlyList<User> party = authoritativeParty ?? Array.Empty<User>();
+        IReadOnlyList<(string Nickname, int Server, int Slot)> rawParty =
+            rosterIdentities ?? Array.Empty<(string, int, int)>();
+        // rosterConfirmed keeps its old meaning — the roster resolved to real uids — because the uid-keyed
+        // repairs (P3) and the job-unique match need those uids. partyKnown is the weaker "0x9702 said SOMETHING
+        // about the party" gate that the raw-roster rescue runs under. Both require the caller to have supplied a
+        // party context at all (null == "party unknown", which also disables the outsider guard), so a caller
+        // that passes only raw identities can never open a recovery whose outsider guard is switched off.
+        bool rosterConfirmed = party.Count > 0;
+        bool partyKnown = authoritativeParty is not null && (rosterConfirmed || rawParty.Count > 0);
         int? recoveredUid = null;
         if (selfId != 0 && selfJob is { } knownJob && !string.IsNullOrWhiteSpace(selfNickname)
             && rawCombat.All(e => e.Uid != selfId))
@@ -123,7 +137,7 @@ public static class OverlayRowBuilder
         var partyRecovered = new Dictionary<int, User>();
         // Exclude the recovered self's combat uid from the outsider check: in the bug-3 case it carries a STALE
         // non-party name that would otherwise read as a "named outsider" and wrongly mark this a public scene.
-        if (rosterConfirmed && !HasNamedOutsider(rawCombat, recoveredUid ?? -1, selfId, authoritativeParty))
+        if (partyKnown && !HasNamedOutsider(rawCombat, recoveredUid ?? -1, selfId, authoritativeParty))
         {
             var claimed = new HashSet<(string, int)>();
             foreach (Row e in rawCombat)
@@ -139,8 +153,14 @@ public static class OverlayRowBuilder
                 claimed.Add((selfNickname!, selfServer));
             }
 
-            List<User> unclaimed = authoritativeParty!
-                .Where(m => m.Id != selfId && !string.IsNullOrWhiteSpace(m.Nickname)
+            // 본인이 이 전투에서 미집계이면(등록 uid로 딜 0 + 재라벨도 없음) 본인 역시 '미청구 멤버'다. 그 상태의
+            // 무명 major가 본인인지 파티원인지 가릴 근거가 없으므로 본인 항목을 unclaimed에 남겨 모호성을 만든다 —
+            // 1:1 주장이 스스로 무너져 이름을 붙이지 않고, 직업이 양쪽에서 유일하게 갈릴 때만(그건 실제 근거다)
+            // 붙는다. 이게 없으면 본인 행이 파티원 이름으로 칠해진다(실측: 코퍼스에서 로스터 복구가 실제로 발동한
+            // 유일한 사례가 본인 1위 무명 행에 다른 파티원 이름을 칠한 오귀속이었다).
+            bool selfMissing = selfId != 0 && recoveredUid is null && rawCombat.All(e => e.Uid != selfId);
+            List<User> unclaimed = party
+                .Where(m => (selfMissing || m.Id != selfId) && !string.IsNullOrWhiteSpace(m.Nickname)
                             && !claimed.Contains((m.Nickname!, m.Server)))
                 .ToList();
             // 복구 후보 = 이름이 없는 행 + 이름이 있어도 그 이름이 확정 로스터에 없는 행(= STALE).
@@ -151,6 +171,9 @@ public static class OverlayRowBuilder
                             && topMetric > 0 && Metric(e.Info) >= topMetric * BareMajorMinShare)
                 .ToList();
 
+            // 이미 이름을 가져간 로스터 멤버 — tier 2가 "아직 남은 미청구 멤버가 있는가"를 정확히 세려면 필요하다.
+            var consumed = new HashSet<(string, int)>();
+
             void Claim(Row target, User source)
             {
                 User disp = (target.User ?? new User(target.Uid)).Copy();
@@ -159,9 +182,13 @@ public static class OverlayRowBuilder
                 disp.Job ??= source.Job;
                 if (source.Power > 0 && disp.Power <= 0) disp.Power = source.Power;
                 partyRecovered[target.Uid] = disp;
+                consumed.Add((source.Nickname!, source.Server));
             }
 
-            if (unclaimed.Count == 1 && recoverable.Count == 1)
+            // 본인은 모호성을 만들기 위해 unclaimed에 남겨두는 것이지 이름의 '출처'가 아니다. 여기서 본인을
+            // 출처로 쓰면 lost-executor 복구가 지키는 6개 가드(직업 일치·최소 비중·유일성·외부인 게이트)를
+            // 전부 우회해, 낯선 사람이나 팬텀 행에 본인 이름이 칠해진다 — 그 복구를 대체하면 안 된다.
+            if (unclaimed.Count == 1 && recoverable.Count == 1 && unclaimed[0].Id != selfId)
             {
                 Claim(recoverable[0], unclaimed[0]);
             }
@@ -184,10 +211,54 @@ public static class OverlayRowBuilder
                     }
 
                     List<User> byJob = unclaimed.Where(m => m.Job == job).ToList();
-                    if (byJob.Count == 1)
+                    if (byJob.Count == 1 && byJob[0].Id != selfId)
                     {
                         Claim(cand, byJob[0]);
                     }
+                }
+            }
+
+            // TIER 2 — 로스터엔 있는데 uid가 이번 세션에 한 번도 해석되지 않은 멤버("처음 보는 파티원")로 무명 행을
+            // 구제한다. 위의 tier 1은 PartyRoster()가 uid를 찾은 멤버만 보므로, 정작 가장 흔한 실종 케이스(그 캐릭터를
+            // 이번 세션에 본 적이 없어 uid를 모름)를 원리적으로 다루지 못했다. raw 로스터에는 uid·직업·전투력이 없어
+            // 직업 유일대응 규칙을 쓸 수 없으므로, 여기서는 오직 완전한 1:1일 때만 이름을 붙인다.
+            //
+            // ⚠️ 외부인 가드(HasNamedOutsider)는 '이름이 있는' 낯선 사람만 본다 — 0x3645를 놓쳐 무명인 낯선
+            // 사람은 구조적으로 보이지 않는다. tier 1의 후보는 최소한 uid가 확인된 멤버지만 tier 2의 후보는
+            // "이번 세션에 한 번도 못 본 사람"이라, 그 사각지대를 그냥 두면 필드보스의 무명 낯선 사람에게
+            // 파티원 이름을 칠하게 된다(이 저장소가 가장 경계하는 둔갑 계열). 그래서 여기가 정말 파티 씬이라는
+            // 양성 증거를 요구한다 — 본인 말고 다른 파티원이 이름을 달고 이 전투에 실제로 있거나, 분류된
+            // 인스턴스(원정/초월/성역) 보스전이거나. 인스턴스에는 애초에 외부인이 없다.
+            bool partySceneConfirmed = report.TargetInstanced
+                                       || party.Any(m => m.Id != selfId
+                                                         && !string.IsNullOrWhiteSpace(m.Nickname)
+                                                         && claimed.Contains((m.Nickname!, m.Server)));
+            if (selfId != 0 && !string.IsNullOrWhiteSpace(selfNickname) && partySceneConfirmed)
+            {
+                var resolvedIdentities = new HashSet<(string, int)>(
+                    party.Where(m => !string.IsNullOrWhiteSpace(m.Nickname)).Select(m => (m.Nickname!, m.Server)));
+
+                // 모호성은 slot 필터를 걸기 '전' 집합에서 센다. slot으로 먼저 걸러내면 실종자 둘 중 하나가 사라져
+                // 1:1이 거짓으로 성립하고 남의 이름이 칠해진다(실측: 실제 멤버의 6.1%가 slot 0으로 온다).
+                List<(string Nickname, int Server, int Slot)> rawOnly = rawParty
+                    .Where(m => !string.IsNullOrWhiteSpace(m.Nickname)
+                                && !resolvedIdentities.Contains((m.Nickname, m.Server))
+                                && !claimed.Contains((m.Nickname, m.Server))
+                                // 본인은 후보가 아니다. raw에는 uid가 없으므로 이름(+서버)으로 제외한다.
+                                && !(string.Equals(m.Nickname, selfNickname, StringComparison.Ordinal)
+                                     && (selfServer <= 0 || m.Server == selfServer)))
+                    .GroupBy(m => (m.Nickname, m.Server))
+                    .Select(g => g.First())
+                    .ToList();
+
+                List<Row> remaining = recoverable.Where(r => !partyRecovered.ContainsKey(r.Uid)).ToList();
+                List<User> leftResolved = unclaimed.Where(m => !consumed.Contains((m.Nickname!, m.Server))).ToList();
+
+                // 두 후보 풀 사이의 모호성까지 없을 때만 칠한다 — 해석된 미청구 멤버가 하나라도 남아 있으면
+                // 그 사람일 수도 있으므로 붙이지 않는다. slot > 0은 마지막 구조 검증(파싱 유령 배제)으로만 쓴다.
+                if (leftResolved.Count == 0 && rawOnly.Count == 1 && remaining.Count == 1 && rawOnly[0].Slot > 0)
+                {
+                    Claim(remaining[0], new User(remaining[0].Uid, rawOnly[0].Nickname, rawOnly[0].Server, null, false));
                 }
             }
         }
@@ -212,7 +283,7 @@ public static class OverlayRowBuilder
                     continue;
                 }
 
-                User? m = authoritativeParty!.FirstOrDefault(x => x.Id == e.Uid);
+                User? m = party.FirstOrDefault(x => x.Id == e.Uid);
                 if (m is null || string.IsNullOrWhiteSpace(m.Nickname)
                     || string.Equals(m.Nickname, e.User!.Nickname, StringComparison.Ordinal))
                 {
@@ -284,7 +355,12 @@ public static class OverlayRowBuilder
         for (int i = 0; i < entries.Count; i++)
         {
             Row e = entries[i];
-            bool exempt = IsSelf(e.Uid, e.User) || (rosterConfirmed && IsPartyMember(e.User, authoritativeParty));
+            // raw 로스터도 면제 근거로 인정한다: tier 2가 방금 이름을 붙인 행은 정의상 uid가 해석되지 않은
+            // 멤버라 IsPartyMember(resolved)로는 절대 걸리지 않고, 그러면 구제해 놓고 상한에서 잘려 도로
+            // 사라진다. 최악의 부작용은 행이 몇 개 더 보이는 것뿐이다.
+            bool exempt = IsSelf(e.Uid, e.User)
+                          || (rosterConfirmed && IsPartyMember(e.User, party))
+                          || IsRawPartyMember(e.User, rawParty);
             if (i < topN || exempt)
             {
                 display.Add(e);
@@ -324,6 +400,28 @@ public static class OverlayRowBuilder
             if (m.Id == u.Id
                 || (!string.IsNullOrWhiteSpace(u.Nickname)
                     && string.Equals(m.Nickname, u.Nickname, StringComparison.Ordinal) && m.Server == u.Server))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>True when <paramref name="u"/>'s (nickname, server) appears in the RAW 0x9702 roster. Used ONLY
+    /// for the display-cap exemption — the raw roster has no uids, so it can never answer "is this uid party?",
+    /// and it is deliberately NOT fed to the outsider guard (a raw-only named damager measures 0 on the corpus,
+    /// and widening that guard is how a genuine stranger gets read as a party member).</summary>
+    private static bool IsRawPartyMember(User? u, IReadOnlyList<(string Nickname, int Server, int Slot)> rawParty)
+    {
+        if (u is null || string.IsNullOrWhiteSpace(u.Nickname))
+        {
+            return false;
+        }
+
+        foreach ((string nickname, int server, int _) in rawParty)
+        {
+            if (string.Equals(nickname, u.Nickname, StringComparison.Ordinal) && server == u.Server)
             {
                 return true;
             }
