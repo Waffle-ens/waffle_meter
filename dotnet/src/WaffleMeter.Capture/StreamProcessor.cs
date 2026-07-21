@@ -1124,6 +1124,13 @@ public sealed class StreamProcessor
         int? mobCode = _data.GetMobId(battleInfo.Value);
         if (mobCode is null)
         {
+            if (toggleInfo.Value == 1)
+            {
+                // 스폰이 늦게 도착하면 되살릴 수 있도록 기억해 둔다(플레이어 엔티티도 이 토글을 쏘지만,
+                // 플레이어에겐 SaveMobId가 영영 오지 않으므로 그 항목은 그냥 만료된다).
+                _data.RememberUnresolvedBattleStart(battleInfo.Value);
+            }
+
             _sink.Battle(battleInfo.Value, toggleInfo.Value, null, null, false, "mob_code_missing");
             return;
         }

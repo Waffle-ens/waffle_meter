@@ -43,6 +43,11 @@ public interface ICaptureGameData
     /// layer keeps only self cooldowns. Default no-op. Drives the buff overlay's cooldown gray-out.</summary>
     void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId) { }
 
+    /// <summary>전투 시작 토글이 도착했지만 그 엔티티의 instanceId→mobCode가 아직 등록되지 않아(스폰 패킷 유실
+    /// 또는 아직 도착 전) 전투를 열지 못한 경우. 보스 스폰은 교전당 1회뿐이고 전투 중 재방송이 없어서, 그냥
+    /// 버리면 그 판은 끝까지 안 열린다. 데이터 계층이 기억해 뒀다가 스폰이 도착하면 되살린다. 기본 no-op.</summary>
+    void RememberUnresolvedBattleStart(int mobId) { }
+
     /// <summary>회생의 계약(살성/궁성/마도성/정령성/권성)의 "생명력 10% 이하 즉시 회복" 발동. 이 효과는 버프로
     /// 방송되지 않고, actor == target 인 0x3804 프레임으로만 관측된다(데미지 varint = 회복량). 서버가 1분
     /// 재발동 제한을 알려주는 신호는 없으므로 락아웃은 데이터 계층이 이 발동 시각부터 센다.

@@ -57,6 +57,14 @@ public sealed class DataManager : ICaptureGameData
     // stays frozen on the previous battle even when the game emits no second start-toggle (see StartBattle +
     // MobHp). At = when it was suppressed, so a stale pending can't fire a spurious battle much later.
     private (int MobId, int? MobCode, long At)? _pendingStart;
+
+    // 시작 토글은 왔는데 그 엔티티의 mobCode가 아직 없어서 전투를 못 연 건들(entityId -> 토글 시각).
+    // 보스 스폰(0x3641)은 교전당 1회뿐이고 전투 중 재방송이 없어, 스폰을 놓치거나 늦게 받으면 그 판은 끝까지
+    // 안 열렸다. SaveMobId가 도착하면 여기서 되살린다. 플레이어 엔티티도 이 토글을 쏘지만 플레이어에겐
+    // SaveMobId가 오지 않으므로 자연히 만료된다. 무한 증식 방지용으로 개수를 제한한다.
+    private readonly Dictionary<int, long> _unresolvedStarts = new();
+    private const int UnresolvedStartsCap = 64;
+
     private long _lastDummyHitTime;
     // Training-dummy (허수아비) test mode. Written by the UI / hotkey thread, read by the consumer thread —
     // volatile is enough (a one-tick staleness is harmless). When OFF, a dummy hit never starts/continues a
@@ -319,6 +327,59 @@ public sealed class DataManager : ICaptureGameData
         }
 
         _mobIdRepository.Save(mid, code);
+        PromoteUnresolvedStart(mid, code);
+    }
+
+    /// <summary>시작 토글이 mobCode 미해결로 거부됐던 엔티티의 스폰이 이제 도착했다면 그 전투를 되살린다.
+    /// 되살릴 때는 <b>원래 토글 시각</b>으로 시작을 스탬프한다 — 지금 시각으로 열면 그 사이의 딜이
+    /// ActivePacketCutoff에 걸려 통째로 빠진다(패킷 자체는 타겟별 링버퍼에 남아 있다).
+    /// <para>가드: 토글 이후 <see cref="PendingStartTtlMs"/> 이내 + 진행 중인 전투 없음 + 해석된 몹이
+    /// 보스이고 허수아비가 아님. 특히 보스 검사를 빼면 잡몹 스폰이 늦게 올 때마다 전투가 열려 전투창이
+    /// 절단·분할된다(191M 오염과 같은 계열).</para></summary>
+    private void PromoteUnresolvedStart(int mid, int code)
+    {
+        if (!_unresolvedStarts.TryGetValue(mid, out long toggledAt))
+        {
+            return;
+        }
+
+        _unresolvedStarts.Remove(mid); // 성공하든 말든 한 번만 시도한다
+        if (Clock() - toggledAt > PendingStartTtlMs || CurrentTarget() > 0)
+        {
+            return;
+        }
+
+        if (Mob(code) is not { Boss: true, IsDummy: false })
+        {
+            return;
+        }
+
+        StartBattleAt(mid, toggledAt);
+    }
+
+    public void RememberUnresolvedBattleStart(int mobId)
+    {
+        if (mobId <= 0)
+        {
+            return;
+        }
+
+        long now = Clock();
+        if (_unresolvedStarts.Count >= UnresolvedStartsCap)
+        {
+            // 만료분부터 정리하고, 그래도 꽉 차 있으면 가장 오래된 것을 밀어낸다.
+            foreach (int stale in _unresolvedStarts.Where(kv => now - kv.Value > PendingStartTtlMs).Select(kv => kv.Key).ToList())
+            {
+                _unresolvedStarts.Remove(stale);
+            }
+
+            if (_unresolvedStarts.Count >= UnresolvedStartsCap)
+            {
+                _unresolvedStarts.Remove(_unresolvedStarts.OrderBy(kv => kv.Value).First().Key);
+            }
+        }
+
+        _unresolvedStarts[mobId] = now;
     }
 
     public bool SkillExists(long code) => _skillRepository.Exist(code);
@@ -722,6 +783,43 @@ public sealed class DataManager : ICaptureGameData
         {
             SaveExecutorId(uid);
         }
+        else
+        {
+            TryRebindExecutorByIdentity(uid, user);
+        }
+    }
+
+    /// <summary>이름 앵커 재발급 — 본인 로드 패킷(0x3633) 없이도 본인을 새 엔티티 id에 다시 묶는다.
+    /// <para>존 이동·난입으로 본인의 uid가 바뀌어도 게임이 본인 로드 패킷을 항상 다시 보내지는 않는다. 그동안
+    /// 본인 딜은 신원 미상으로 남고, 그걸 메우려던 휴리스틱 복구가 낯선 사람을 본인으로 둔갑시킨 사고가 있었다
+    /// (필드보스 오귀속). 이 경로는 추정이 아니라 <b>신원 완전일치</b>다: 아무 플레이어 메타데이터 패킷이든
+    /// 그 (닉네임, 서버)가 현재 본인과 정확히 같으면 그 uid를 본인으로 승격시킨다.</para>
+    /// <para>가드 — ① 현재 본인이 확정돼 있어야 한다(앵커가 없으면 본인을 만들어낼 수 없다) ② 닉네임 완전일치
+    /// ③ 서버는 <b>양쪽 다 알 때만</b> 비교한다(잘린 0x3633은 Server=-1로 남으므로 모르면 통과시킨다).
+    /// 승격은 <see cref="SaveExecutorId"/>를 타므로 이름·서버가 같은 재인스턴스로 분류되어 파티 프리뷰 등
+    /// 직전 상태가 보존된다(캐릭터 교체와 구분됨).</para></summary>
+    private void TryRebindExecutorByIdentity(int uid, User candidate)
+    {
+        int executor = _userRepository.Executor();
+        if (executor == 0 || executor == uid || string.IsNullOrWhiteSpace(candidate.Nickname))
+        {
+            return;
+        }
+
+        User? current = _userRepository.Get(executor);
+        if (current == null
+            || string.IsNullOrWhiteSpace(current.Nickname)
+            || !string.Equals(current.Nickname, candidate.Nickname, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (current.Server > 0 && candidate.Server > 0 && current.Server != candidate.Server)
+        {
+            return; // 타 서버 동명이인 — 본인이 아니다
+        }
+
+        SaveExecutorId(uid);
     }
 
     private void SaveExecutorId(int uid)
@@ -1344,7 +1442,12 @@ public sealed class DataManager : ICaptureGameData
     /// DPS reset and the full/soft resets). The mode and chosen duration are intentionally NOT touched here.</summary>
     public void ResetDummyCutoff() => _dummyCutoff = false;
 
-    public void StartBattle(int mobId)
+    public void StartBattle(int mobId) => StartBattleAt(mobId, Clock());
+
+    /// <summary>전투 시작. <paramref name="startAt"/>는 <b>스탬프할</b> 시작 시각으로, 통상 경로에서는 현재
+    /// 시각이지만 소급 승격(<see cref="PromoteUnresolvedStart"/>)에서는 원래 토글 시각이다. 억제 가드들은
+    /// 스탬프 시각이 아니라 항상 현재 시각으로 판단한다.</summary>
+    private void StartBattleAt(int mobId, long startAt)
     {
         int? mobCode = GetMobId(mobId);
         long now = Clock();
@@ -1372,9 +1475,10 @@ public sealed class DataManager : ICaptureGameData
         }
 
         _pendingStart = null;
+        _unresolvedStarts.Remove(mobId);
         _recentlyEndedBattles.Remove(mobId);
         _battleRevision++;
-        SaveCurrentBattleStart();
+        _packetRepository.SaveCurrentBattleStart(startAt);
         SaveCurrentTarget(mobId);
         _activeBattleMobCode = mobCode;
     }

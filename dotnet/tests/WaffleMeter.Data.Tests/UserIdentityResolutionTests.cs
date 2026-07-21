@@ -40,18 +40,37 @@ public sealed class UserIdentityResolutionTests
     }
 
     [Fact]
-    public void Eviction_never_drops_the_current_executor_even_when_it_is_oldest()
+    public void Self_follows_its_identity_onto_each_fresh_uid_and_is_never_evicted()
     {
+        // Same-identity duplicates ARE the self re-instancing on a zone load (see the class summary: newest =
+        // live). Since the name-anchor rebind, the executor follows its own (nickname, server) onto the fresh
+        // uid even when the packet doesn't carry the own-load flag — otherwise self damage arriving under the
+        // new uid stays unattributed until 0x3633 happens to re-arrive, which it often doesn't.
         var dm = new DataManager();
-        dm.SaveNickname(1, "Me", isExecutor: true, server: 2003, jobByte: 0);  // executor, oldest in the group
-        dm.SaveNickname(2, "Me", isExecutor: false, server: 2003, jobByte: 0); // newer same-identity entries
+        dm.SaveNickname(1, "Me", isExecutor: true, server: 2003, jobByte: 0);  // own-load: self = 1
+        dm.SaveNickname(2, "Me", isExecutor: false, server: 2003, jobByte: 0); // plain metadata, same identity
         dm.SaveNickname(3, "Me", isExecutor: false, server: 2003, jobByte: 0);
         dm.SaveNickname(4, "Me", isExecutor: false, server: 2003, jobByte: 0); // pushes the group past the cap
 
+        Assert.Equal(4, dm.ExecutorId());       // self tracks the live (newest) instance
+        Assert.NotNull(dm.User(4));             // ...and the eviction guard never drops the current executor
+        Assert.Equal(4, dm.FindUserByNicknameAndServer("Me", 2003)!.Id);
+    }
+
+    [Fact]
+    public void Eviction_never_drops_the_current_executor()
+    {
+        // The guard still holds when the executor is NOT the newest of its group: a stranger's identity group
+        // churning past the cap must not evict the self row.
+        var dm = new DataManager();
+        dm.SaveNickname(1, "Me", isExecutor: true, server: 2003, jobByte: 0);
+        for (int uid = 10; uid <= 13; uid++)
+        {
+            dm.SaveNickname(uid, "Ally", isExecutor: false, server: 2003, jobByte: 0);
+        }
+
         Assert.Equal(1, dm.ExecutorId());
-        Assert.NotNull(dm.User(1));   // executor kept despite being the oldest
-        Assert.Null(dm.User(2));      // the next-oldest is evicted instead
-        Assert.NotNull(dm.User(4));
+        Assert.NotNull(dm.User(1));
     }
 
     [Fact]
