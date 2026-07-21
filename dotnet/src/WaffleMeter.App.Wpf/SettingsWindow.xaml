@@ -1256,7 +1256,27 @@
 
         <!-- footer -->
         <Grid Grid.Row="1" Margin="20,10,16,14">
-            <TextBlock Text="{Binding Version, StringFormat='waffle_meter v{0}'}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="11" VerticalAlignment="Center"/>
+            <!-- 왼쪽: 버전 + 바깥 링크 3종(통계 웹 / Discord / 후원). 경쟁 미터는 이걸 설정창 상단 배너로
+                 두지만, 상단은 설정 내용이 시작되는 자리라 여기 하단 줄에 붙였다. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Version, StringFormat='waffle_meter v{0}'}" Foreground="{DynamicResource Skin.MutedFg}"
+                           FontSize="11" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                <Button Height="28" MinWidth="78" Margin="0,0,6,0" Cursor="Hand" Click="OnOpenStatsWeb"
+                        ToolTip="전투 기록과 통계를 볼 수 있는 웹서비스를 엽니다."
+                        Background="#142DD4BF" Foreground="#FF7DE8DD" BorderBrush="#402DD4BF" BorderThickness="1">
+                    <TextBlock Text="통계 웹" FontSize="12" Margin="8,0"/>
+                </Button>
+                <Button Height="28" MinWidth="88" Margin="0,0,6,0" Cursor="Hand" Click="OnOpenDiscord"
+                        ToolTip="버그 제보와 문의를 받는 공식 디스코드입니다."
+                        Background="#145865F2" Foreground="#FFB4BCFB" BorderBrush="#405865F2" BorderThickness="1">
+                    <TextBlock Text="Discord" FontSize="12" Margin="8,0"/>
+                </Button>
+                <Button Height="28" MinWidth="96" Cursor="Hand" Click="OnOpenDonate"
+                        ToolTip="후원은 선택입니다. 후원하지 않아도 모든 기능을 쓸 수 있습니다."
+                        Background="#14F59E0B" Foreground="#FFFCD34D" BorderBrush="#40F59E0B" BorderThickness="1">
+                    <TextBlock Text="와플 사주기" FontSize="12" Margin="8,0"/>
+                </Button>
+            </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="기본값 복원" Click="OnResetDefaults" Margin="0,0,8,0"/>
                 <Button Content="취소" Width="80" Click="OnCancel" Margin="0,0,8,0"/>

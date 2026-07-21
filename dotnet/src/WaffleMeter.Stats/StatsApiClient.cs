@@ -83,6 +83,10 @@ public sealed class StatsApiClient
     /// this route and must NOT render nickname/server for characters that are not marked public.</summary>
     public string CharacterReportUrl(string identityHash) => $"{BaseUrl}/characters/{identityHash}";
 
+    /// <summary>통계 웹서비스 첫 화면. 설정창 하단의 '통계 웹' 버튼이 연다 — 도메인을 UI 쪽에 또 적어두면
+    /// 주소가 바뀔 때 한쪽만 고쳐지므로 여기서만 들고 있는다.</summary>
+    public string WebHomeUrl => BaseUrl;
+
     public ConsentStatusResponse GetConsentStatus(string identityHash)
     {
         string encoded = WebUtility.UrlEncode(identityHash);
