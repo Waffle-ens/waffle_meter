@@ -59,10 +59,23 @@ public sealed class StreamProcessor
 {
     private const int Mask = 0x0F;
 
-    // How long an indefinite-duration stance (폭주) is shown per apply. It re-broadcasts ~every 1.5 s while
-    // held, so this only needs to comfortably outlast one re-broadcast gap; the buff then clears a few seconds
-    // after the stance ends. Kept short so a genuinely-ended stance doesn't linger.
+    // Synthetic per-apply duration stamped on an indefinite-duration stance (폭주, duration 0xFFFFFFFF). Used as
+    // the buff's recorded length for uptime stats. The LIVE combat-assist overlay does NOT expire on this alone
+    // — the data layer keeps the maintained-stance slot alive for a much longer keep-alive window
+    // (DataManager.IndefiniteStanceOverlayKeepAliveMs) because held re-broadcasts are not perfectly periodic
+    // (combat lulls, dropped frames, momentary owner==0), and a short TTL false-expired it mid-hold.
     private const long IndefiniteStanceFallbackMs = 6000;
+
+    // 회생의 계약 긴급 회복(생명력 10% 이하 → 최대 HP의 일정 비율 즉시 회복, 재발동 1분)의 스킬 코드.
+    // 이 스킬을 가진 5직업만 존재한다(검성/수호성/치유성/호법성은 '생존 의지'로 회복 효과 자체가 없음).
+    // 원본 코드와 NormalizeDamageSkillCode가 만들어 내는 정규화형을 모두 담는다 — 코퍼스 실측 정규화형:
+    // 14790000(궁성) 182건, 13790000(살성) 82건, 15790007(마도성) 53건, 16790001(정령성) 39건, 19790000(권성) 4건.
+    private static bool IsRevivalHealCode(int code) => code is
+        13790000 or 13790007 or   // 살성
+        14790000 or 14790007 or   // 궁성
+        15790000 or 15790007 or   // 마도성
+        16790000 or 16790001 or   // 정령성
+        19790000 or 19790001;     // 권성
 
     private static int Key(int b1, int b2) => b1 | (b2 << 8);
 
@@ -497,6 +510,17 @@ public sealed class StreamProcessor
         pdp.Timestamp = arrivedAt;
         if (pdp.ActorId == pdp.TargetId)
         {
+            // 회생의 계약의 "생명력 10% 이하 즉시 회복"은 버프(0x382A/0x382B)로는 전혀 방송되지 않고 오직 이
+            // self 프레임으로만 온다 — actor == target, damage varint = 회복량. 자가 프레임 자체는 각성/자원
+            // 소모 등으로 매우 흔하므로(코퍼스 상위: 18160030 4.3만건, 11730007 2.2만건) 반드시 코드
+            // 화이트리스트로만 통과시킨다. 회복이지 피해가 아니므로 SaveDamage로는 절대 넘기지 않는다.
+            if (IsRevivalHealCode(pdp.SkillCode) || IsRevivalHealCode(pdp.RawSkillCode))
+            {
+                _data.SaveRevivalHeal(pdp.TargetId, pdp.SkillCode, pdp.Damage, arrivedAt);
+                _sink.Damage("direct", pdp, false, "revival_heal", null);
+                return;
+            }
+
             _sink.Damage("direct", pdp, false, "actor_equals_target", null);
             return;
         }

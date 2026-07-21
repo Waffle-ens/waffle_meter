@@ -43,6 +43,12 @@ public interface ICaptureGameData
     /// layer keeps only self cooldowns. Default no-op. Drives the buff overlay's cooldown gray-out.</summary>
     void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId) { }
 
+    /// <summary>회생의 계약(살성/궁성/마도성/정령성/권성)의 "생명력 10% 이하 즉시 회복" 발동. 이 효과는 버프로
+    /// 방송되지 않고, actor == target 인 0x3804 프레임으로만 관측된다(데미지 varint = 회복량). 서버가 1분
+    /// 재발동 제한을 알려주는 신호는 없으므로 락아웃은 데이터 계층이 이 발동 시각부터 센다.
+    /// <paramref name="uid"/>는 회복받은 본인. 기본 no-op(캡처 전용 모드).</summary>
+    void SaveRevivalHeal(int uid, int skillCode, long amount, long arrivedAt) { }
+
     /// <summary>Aether (오드) resource update from the 0x610x family. <paramref name="split"/> true =
     /// <paramref name="baseVal"/>/<paramref name="bonus"/> were both carried; false = only
     /// <paramref name="total"/> is meaningful and the data layer back-computes base/bonus from its previous
