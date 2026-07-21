@@ -155,13 +155,6 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
         PersistPins();
     }
 
-    /// <summary>고정 목록 안에서 한 칸 위/아래로 옮긴다(고정되지 않은 버프에는 무효).</summary>
-    public void MovePin(BuffPickerItem item, bool up)
-    {
-        _pinned = BuffOverlayOrder.Move(_pinned, item.BaseCode, up);
-        PersistPins();
-    }
-
     private void PersistPins() => _settings.BuffUiPinned = string.Join(",", _pinned);
 
     private void Persist()
@@ -233,12 +226,8 @@ public sealed class BuffPickerItem : INotifyPropertyChanged
 
             _pinned = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPinned)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PinGlyph)));
         }
     }
-
-    /// <summary>고정 버튼에 표시할 글리프(고정됨 = 채운 별).</summary>
-    public string PinGlyph => _pinned ? "★" : "☆";
 
     private int _mode;
     /// <summary>0 = 알림끔, 1 = 오버레이만, 2 = 오버레이+음성 (bound to ComboBox.SelectedIndex).</summary>

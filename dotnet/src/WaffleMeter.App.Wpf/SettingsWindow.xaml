@@ -793,17 +793,31 @@
                                                             </Border>
                                                             <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
                                                                        Foreground="{DynamicResource Skin.Fg}" FontSize="12"/>
-                                                            <!-- 맨 앞 고정(★) + 고정된 것끼리 순서 조정 -->
-                                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
-                                                                <Button Content="{Binding PinGlyph}" Width="26" Padding="0,1" FontSize="12"
-                                                                        ToolTip="오버레이 맨 앞에 고정" DataContext="{Binding}" Click="OnBuffPinToggle"/>
-                                                                <Button Content="▲" Width="22" Padding="0,1" FontSize="10" Margin="3,0,0,0"
-                                                                        ToolTip="고정 순서 위로" IsEnabled="{Binding IsPinned}"
-                                                                        DataContext="{Binding}" Click="OnBuffPinUp"/>
-                                                                <Button Content="▼" Width="22" Padding="0,1" FontSize="10" Margin="2,0,0,0"
-                                                                        ToolTip="고정 순서 아래로" IsEnabled="{Binding IsPinned}"
-                                                                        DataContext="{Binding}" Click="OnBuffPinDown"/>
-                                                            </StackPanel>
+                                                            <!-- 맨 앞 고정 토글. 글리프만으로는 켜짐/꺼짐이 구분되지 않아(사용자 제보)
+                                                                 라벨 + 켜짐 상태 강조(액센트 배경/테두리)를 함께 준다. 고정된 것끼리의
+                                                                 순서 조정(▲▼)은 제거했다 — 이 목록이 고정 순서로 재정렬되지 않아 눌러도
+                                                                 아무 변화가 보이지 않았고(순서는 오버레이에만 반영), '반응 없는 버튼'으로
+                                                                 읽혔다. 고정된 버프가 맨 앞에 오는 동작 자체는 그대로다. -->
+                                                            <CheckBox Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                                      IsChecked="{Binding IsPinned, Mode=OneWay}"
+                                                                      ToolTip="켜면 정렬 기준과 무관하게 오버레이 맨 앞에 표시합니다."
+                                                                      DataContext="{Binding}" Click="OnBuffPinToggle">
+                                                                <TextBlock Text="맨 앞" FontSize="11" VerticalAlignment="Center">
+                                                                    <TextBlock.Style>
+                                                                        <!-- 기본 Foreground는 로컬 속성이 아니라 Setter로 준다 — 로컬 값은
+                                                                             트리거보다 우선순위가 높아 강조가 먹지 않는다. -->
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsPinned}" Value="True">
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
+                                                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </CheckBox>
                                                             <ComboBox Grid.Column="3" Width="128" SelectedIndex="{Binding Mode, Mode=TwoWay}" VerticalAlignment="Center">
                                                                 <ComboBoxItem Content="알림끔"/>
                                                                 <ComboBoxItem Content="오버레이만"/>
