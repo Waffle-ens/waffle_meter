@@ -22,7 +22,15 @@ public sealed record DetailSkillRow(
 /// <summary>A chain group: the merged/displayed skill + its child rows (expandable when >1).</summary>
 public sealed record DetailSkillGroup(DetailSkillRow Merged, IReadOnlyList<DetailSkillRow> Children, bool HasChildren);
 
-public sealed record DetailBuffRow(int Code, string Name, double Rate, string Description);
+/// <summary>One buff/debuff uptime row. <see cref="Count"/> is null for a normal uptime row (the window shows
+/// <see cref="Rate"/> as a %); when set, the row is a PROC whose uptime % is meaningless and the window shows
+/// "N회" instead — see <see cref="DetailProcRow"/>.</summary>
+public sealed record DetailBuffRow(int Code, string Name, double Rate, string Description, int? Count = null);
+
+/// <summary>A count-based row pinned to the BOTTOM of the 내 버프 section: an effect that fires on a condition
+/// with an internal cooldown, where "how many times" is the only meaningful number. Currently 회생의 계약's
+/// 생명력 10% 이하 긴급 회복 (1분 재발동 제한). Meter-only — it is never part of the stats/web payload.</summary>
+public sealed record DetailProcRow(int Code, string Name, int Count, string Description);
 
 public sealed record DetailBuffSection(string Label, IReadOnlyList<DetailBuffRow> Rows);
 
@@ -85,7 +93,8 @@ public sealed record DetailModel(
         int uid,
         JobClass? job,
         double contribution,
-        long combatMs)
+        long combatMs,
+        DetailProcRow? proc = null)
     {
         var raws = new List<Raw>();
         foreach (KeyValuePair<string, AnalyzedSkill> entry in skills)
@@ -154,7 +163,7 @@ public sealed record DetailModel(
             totalHits,
             combatMs,
             groups,
-            BuildOwnBuffs(ownBuffs, uid, job),
+            BuildOwnBuffs(ownBuffs, uid, job, proc),
             BuildDebuffs(bossDebuffs, uid));
     }
 
@@ -281,7 +290,8 @@ public sealed record DetailModel(
     /// Buffs another player cast on them are excluded: the window answers "what did I keep running?", and a
     /// chanter's 진언 sitting at 90% on everyone tells the reader nothing about this player.
     /// </summary>
-    private static IReadOnlyList<DetailBuffSection> BuildOwnBuffs(IReadOnlyList<OperatingData> buffs, int uid, JobClass? job)
+    private static IReadOnlyList<DetailBuffSection> BuildOwnBuffs(
+        IReadOnlyList<OperatingData> buffs, int uid, JobClass? job, DetailProcRow? proc)
     {
         int jobPrefix = job != null ? JobClassInfo.BasicSkillCode(job.Value) / 1_000_000 : -1;
         var mine = new List<DetailBuffRow>();
@@ -308,7 +318,10 @@ public sealed record DetailModel(
         }
 
         var sections = new List<DetailBuffSection>();
-        AddSection(sections, "내 버프", mine);
+        // 발동형(회생의 계약 긴급 회복)은 가동률 정렬에서 빼고 "내 버프"의 가장 아래에 고정한다 — 도핑류가
+        // 모이는 "그 외"가 아니라 직업 버프 섹션에 속하고, %가 아니라 횟수로 읽어야 하는 값이라서.
+        AddSection(sections, "내 버프", mine,
+            proc is null ? null : new DetailBuffRow(proc.Code, proc.Name, 0.0, proc.Description, proc.Count));
         AddSection(sections, "그 외", other);
         return sections;
     }
@@ -327,14 +340,21 @@ public sealed record DetailModel(
         return sections;
     }
 
-    private static void AddSection(List<DetailBuffSection> sections, string label, List<DetailBuffRow> rows)
+    private static void AddSection(
+        List<DetailBuffSection> sections, string label, List<DetailBuffRow> rows, DetailBuffRow? tail = null)
     {
-        if (rows.Count == 0)
+        List<DetailBuffRow> ordered = rows.OrderByDescending(r => r.Rate).ToList();
+        if (tail != null)
+        {
+            ordered.Add(tail); // always last — it is a count, not a rate, so it must not sort among them
+        }
+
+        if (ordered.Count == 0)
         {
             return;
         }
 
-        sections.Add(new DetailBuffSection(label, rows.OrderByDescending(r => r.Rate).ToList()));
+        sections.Add(new DetailBuffSection(label, ordered));
     }
 
     private static DetailBuffRow ToBuffRow(OperatingData b) =>

@@ -178,8 +178,15 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         double contribution = report.Information.TryGetValue(_uid, out DpsInformation? info) ? info.Contribution : 0.0;
         long combatMs = Math.Max(report.BattleEnd - report.BattleStart, 0);
 
+        // 회생의 계약 긴급 회복: 버프로 방송되지 않는 발동형이라 가동률(%)이 성립하지 않는다 — 발동 횟수로
+        // 표시한다. 절대 시각으로 보관하므로 저장된 전투를 다시 열어도 같은 창이 집계된다.
+        (int Count, int Code, string Name) heal = _calc.GetRevivalHealSummary(_uid, report.BattleStart, report.BattleEnd);
+        DetailProcRow? proc = heal.Count > 0
+            ? new DetailProcRow(heal.Code, heal.Name, heal.Count, "생명력 10% 이하에서 발동 (재발동 1분)")
+            : null;
+
         DetailModel model = DetailModel.Compute(
-            skills, own, boss, _uid, user?.Job, contribution, combatMs);
+            skills, own, boss, _uid, user?.Job, contribution, combatMs, proc);
 
         TotalDamageText = MeterFormat.FormatAmount(model.TotalDamage);
         DpsText = model.CombatMs > 0
@@ -509,10 +516,13 @@ public sealed class BuffRowVM
     {
         Name = row.Name;
         Subtitle = subtitle;
-        RateText = row.Rate.ToString("F1", Inv) + "%";
-        BarRatio = row.Rate / 100.0;
+        // A proc row reports a COUNT, not an uptime: show "N회" and draw no bar (a % bar would imply a
+        // fraction of the fight, which this value is not).
+        bool isProc = row.Count is not null;
+        RateText = isProc ? row.Count!.Value.ToString("N0", Inv) + "회" : row.Rate.ToString("F1", Inv) + "%";
+        BarRatio = isProc ? 0.0 : row.Rate / 100.0;
         BarRest = 1.0 - BarRatio;
-        RateBrush = DetailsViewModel.BuffBrush(row.Rate);
+        RateBrush = DetailsViewModel.BuffBrush(isProc ? 100.0 : row.Rate);
         BarBrush = DetailsViewModel.BuffBarBrush(row.Rate);
         Description = row.Description;
         IconSource = JoinIcons.Skill(row.Code); // buff/debuff share the skill-icon manifest

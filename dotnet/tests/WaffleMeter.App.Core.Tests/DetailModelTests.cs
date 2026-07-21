@@ -217,6 +217,43 @@ public sealed class DetailModelTests
     }
 
     [Fact]
+    public void Proc_row_is_pinned_to_the_bottom_of_내_버프_and_reports_a_count()
+    {
+        // 회생의 계약 긴급 회복은 가동률(%)이 성립하지 않는 발동형 — 정렬에 끼지 않고 직업 버프 섹션의
+        // 맨 아래에 고정되며, 도핑류가 모이는 "그 외"에는 절대 들어가지 않는다.
+        var own = new List<OperatingData>
+        {
+            new(110200500, "낮은 가동률", null, null, 20.0, 1),
+            new(110200600, "높은 가동률", null, null, 90.0, 1),
+            new(150000000, "도핑", null, null, 100.0, 1),
+        };
+        var proc = new DetailProcRow(14790000, "회생의 계약", 3, "생명력 10% 이하에서 발동");
+
+        DetailModel model = DetailModel.Compute(
+            new Dictionary<string, AnalyzedSkill>(), own, new List<OperatingData>(),
+            uid: 1, JobClass.GLADIATOR, contribution: 60.0, combatMs: 30000, proc);
+
+        DetailBuffSection mine = model.Buffs.Single(s => s.Label == "내 버프");
+        Assert.Equal(new[] { "높은 가동률", "낮은 가동률", "회생의 계약" }, mine.Rows.Select(r => r.Name).ToArray());
+        Assert.Equal(3, mine.Rows[^1].Count);
+        Assert.Null(mine.Rows[0].Count); // 일반 행은 여전히 %
+        Assert.DoesNotContain(model.Buffs.Single(s => s.Label == "그 외").Rows, r => r.Count != null);
+    }
+
+    [Fact]
+    public void Proc_row_alone_still_opens_the_내_버프_section()
+    {
+        DetailModel model = DetailModel.Compute(
+            new Dictionary<string, AnalyzedSkill>(), new List<OperatingData>(), new List<OperatingData>(),
+            uid: 1, JobClass.GLADIATOR, contribution: 60.0, combatMs: 30000,
+            new DetailProcRow(14790000, "회생의 계약", 1, ""));
+
+        DetailBuffSection mine = Assert.Single(model.Buffs);
+        Assert.Equal("내 버프", mine.Label);
+        Assert.Equal(1, Assert.Single(mine.Rows).Count);
+    }
+
+    [Fact]
     public void A_self_buff_that_fell_back_to_its_base_code_stays_in_내_버프()
     {
         // The fallback path reports the 8-digit base as Code; 11800000 / 10_000_000 == 1 would land it in 그 외.

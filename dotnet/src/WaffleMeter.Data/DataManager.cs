@@ -941,6 +941,102 @@ public sealed class DataManager : ICaptureGameData
         }
     }
 
+    /// <summary>회생의 계약 긴급 회복 발동. 발동 시각을 기록하고(가동률 표의 "N회" 집계용), 본인 것이면
+    /// 오버레이 슬롯을 60초 재발동 대기로 채운다.
+    /// <para>일부러 <see cref="SaveUseBuff(int, UseBuff)"/>를 쓰지 않는다 — 그 경로는 _useBuffRepository →
+    /// 버프 업타임 집계 → 통계 웹 페이로드로 흘러가므로, 우리가 합성한 60초짜리 "버프"가 실제로는 존재하지
+    /// 않는 업타임으로 업로드된다. 이 데이터는 미터 화면 전용이다.</para></summary>
+    public void SaveRevivalHeal(int uid, int skillCode, long amount, long arrivedAt)
+    {
+        if (uid <= 0)
+        {
+            return;
+        }
+
+        lock (_revivalHealGate)
+        {
+            if (!_revivalHeals.TryGetValue(uid, out List<(long At, int Code)>? list))
+            {
+                list = new List<(long At, int Code)>();
+                _revivalHeals[uid] = list;
+            }
+
+            list.Add((arrivedAt, skillCode));
+            if (list.Count > RevivalHealsPerUserCap)
+            {
+                list.RemoveRange(0, list.Count - RevivalHealsPerUserCap);
+            }
+        }
+
+        // 오버레이/음성은 본인 것만. (이 프레임은 주변 플레이어 전원에 대해 방송된다.)
+        if (uid != _userRepository.Executor())
+        {
+            return;
+        }
+
+        int baseCode = RevivalContractBase(skillCode);
+        int cooldownCode = RevivalHealCooldownCode(baseCode);
+
+        // 합성 코드를 이름표에 등록해 두면 오버레이 이름·직업별 picker 노출·숨김/음성 토글이 전부 기존
+        // 경로로 해결된다((A) 버프와 같은 직업 그룹에 묶이도록 job 문자열을 물려받는다).
+        lock (_buffPickerGate)
+        {
+            if (!_buffNames.ContainsKey(cooldownCode))
+            {
+                string job = _buffNames.TryGetValue(baseCode, out (string Name, string Job) bn) ? bn.Job : "기타";
+                _buffNames[cooldownCode] = (RevivalHealCooldownName, job);
+            }
+        }
+
+        RecordObservedBuff(cooldownCode);
+        if (IsBuffHidden(cooldownCode) && !IsBuffVoice(cooldownCode))
+        {
+            return; // picker에서 완전히 끈 항목
+        }
+
+        lock (_ownerBuffGate)
+        {
+            _ownerBuffs[cooldownCode] = (arrivedAt + RevivalHealCooldownMs, uid, RevivalHealCooldownMs, false);
+        }
+
+        LiveBuffsChanged?.Invoke();
+    }
+
+    /// <summary>회복 프록 코드(예: 15790007)를 그 직업의 회생의 계약 버프 base(15790000)로. <see cref="BuffBaseCode"/>는
+    /// 9자리 직업 버프 대역 전용이라 8자리인 이 코드에는 쓸 수 없다.</summary>
+    private static int RevivalContractBase(int skillCode) => skillCode / 10000 * 10000;
+
+    /// <summary>[<paramref name="start"/>, <paramref name="end"/>] 창에서 회생의 계약 긴급 회복이 몇 번
+    /// 발동했는지 + 표시용 base 코드/이름. 가동률(%)이 무의미한 발동형이라 상세 창이 "N회"로 그린다.
+    /// 통계 웹에는 보내지 않는다(미터 전용).</summary>
+    public (int Count, int Code, string Name) RevivalHealSummary(int uid, long start, long end)
+    {
+        int count = 0, code = 0;
+        lock (_revivalHealGate)
+        {
+            if (_revivalHeals.TryGetValue(uid, out List<(long At, int Code)>? list))
+            {
+                foreach ((long at, int c) in list)
+                {
+                    if (at >= start && at <= end)
+                    {
+                        count++;
+                        code = c;
+                    }
+                }
+            }
+        }
+
+        if (count == 0)
+        {
+            return (0, 0, string.Empty);
+        }
+
+        // (A) 5초 저항 스택도 "회생의 계약" 이름으로 가동률(%) 행을 차지하므로, 발동 횟수 행은 오버레이와
+        // 같은 이름/코드를 써서 구분한다(아이콘은 base 폴백으로 동일하게 나온다).
+        return (count, RevivalHealCooldownCode(RevivalContractBase(code)), RevivalHealCooldownName);
+    }
+
     private void RecordObservedBuff(int runtimeCode)
     {
         int baseCode = BuffBaseCode(runtimeCode);
@@ -993,6 +1089,27 @@ public sealed class DataManager : ICaptureGameData
     // momentary owner==0) doesn't false-expire it — the reported "폭주가 유지되는데 꺼졌다고 뜬다" bug.
     private const int IndefiniteStanceBaseCode = 19130000;
     private const long IndefiniteStanceOverlayKeepAliveMs = 20_000;
+
+    // ---- 회생의 계약: (B) 긴급 회복 프록 ----
+    // 이 스킬은 두 효과를 가지는데 서버가 버프로 방송하는 건 (A) 5초 상태이상-저항 스택뿐이다. 실전에서 의미
+    // 있는 (B) "생명력 10% 이하 즉시 회복"은 버프로 존재하지 않고 actor == target 인 0x3804 프레임으로만 오며,
+    // 1분 재발동 제한을 알려주는 서버 신호도 없다(60초짜리 마커 버프도, 0x3847 쿨다운 항목도 없음). 그래서
+    // 락아웃은 발동 시각부터 우리가 센다. 상수 근거 = 코퍼스 186개 간격의 최솟값 60,101ms(60초 미만 0건).
+    private const long RevivalHealCooldownMs = 60_000;
+    private const int RevivalHealsPerUserCap = 512; // 1분 쿨이라 장시간 세션도 수백 건 이하
+    private readonly object _revivalHealGate = new();
+    private readonly Dictionary<int, List<(long At, int Code)>> _revivalHeals = new();
+
+    /// <summary>회생의 계약 계열의 버프 base 코드(살성13·궁성14·마도성15·정령성16·권성19).</summary>
+    private static bool IsRevivalContractBase(int baseCode) => baseCode is
+        13790000 or 14790000 or 15790000 or 16790000 or 19790000;
+
+    // 회복 쿨다운은 (A) 5초 상태이상-저항 스택과 별개의 슬롯으로 띄운다 — 같은 base 코드를 공유하면
+    // _ownerBuffs가 last-write-wins라 (A)가 60초 카운트다운을 5초로 잘라먹기 때문이다(실측: 회복 발동의 7%가
+    // ±200ms 내 (A)와 동시 발동). base + 7 을 합성 키로 쓰면 JoinIcons.Skill이 8자리 코드를
+    // code/10000*10000 으로 접어 아이콘을 찾으므로 회생의 계약 아이콘이 그대로 재사용된다.
+    private const string RevivalHealCooldownName = "회계·회복";
+    private static int RevivalHealCooldownCode(int baseCode) => baseCode + 7;
     // Skill cooldowns from the 0x3847 snapshot, keyed by the SAME base code, so a buff slot can be grayed while
     // its skill is on cooldown. Value = cooldown end (ms, capture clock); on-cooldown iff end > now.
     private readonly Dictionary<int, long> _cooldowns = new(); // baseCode -> cooldown end (ms)

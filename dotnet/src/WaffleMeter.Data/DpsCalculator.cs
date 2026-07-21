@@ -799,6 +799,11 @@ public sealed class DpsCalculator
     /// </list>
     /// The rate is the union of every member interval, not a sum or a max — applications overlap.
     /// </remarks>
+    /// <summary>회생의 계약 긴급 회복의 창 내 발동 횟수(+표시용 base 코드/이름). 가동률 %가 성립하지 않는
+    /// 발동형이라 상세 창이 "N회"로 그린다 — 통계 웹에는 나가지 않는다.</summary>
+    public (int Count, int Code, string Name) GetRevivalHealSummary(int uid, long start, long end) =>
+        _dm.RevivalHealSummary(uid, start, end);
+
     public List<OperatingData> GetBuffOperatingRate(int uid, long start, long end)
     {
         long totalDuration = end - start;
