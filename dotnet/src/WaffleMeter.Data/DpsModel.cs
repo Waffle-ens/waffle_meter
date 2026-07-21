@@ -248,6 +248,15 @@ public sealed record RawPacket(byte[] Data, long Timestamp);
 /// MutableSet is a LinkedHashSet; the move-to-end-on-readd behavior is handled where it is mutated).
 /// fakeTimeFlag and packets are @Transient (not serialized).
 /// </summary>
+/// <summary>얼려 둔 0x9702 로스터 항목. 원시 스냅샷에는 uid가 없어 (닉네임, 서버, 슬롯)뿐이다.
+/// 튜플이 아니라 클래스인 이유 = 저장된 전투와 함께 직렬화되기 때문(ValueTuple은 필드라 JSON에 안 실린다).</summary>
+public sealed class RosterMember
+{
+    public string Nickname { get; set; } = string.Empty;
+    public int Server { get; set; }
+    public int Slot { get; set; }
+}
+
 public sealed class DpsReport
 {
     public List<User> Contributors { get; set; } = [];
@@ -290,6 +299,20 @@ public sealed class DpsReport
     /// since the detail's summary derives from the skill rows). Preferred by BattleDetails when non-empty;
     /// stays empty for the in-progress/live report, where BattleDetails uses the live cache instead.</summary>
     public Dictionary<int, Dictionary<string, AnalyzedSkill>> SkillDetailsSnapshot { get; set; } = new();
+
+    /// <summary>이 전투를 함께한 파티(0x9702). uid까지 해석된 쪽과 원시 스냅샷을 <b>전투 종료 시점에</b> 얼려
+    /// 둔다.
+    /// <para>왜 필요한가: 표시 계층의 이름 복구(무명 행에 파티원 이름을 붙이는 경로)는 파티 문맥이 있어야
+    /// 동작하는데, 리포트만 얼고 파티 문맥은 <b>지금</b>의 것을 쓰고 있었다. 그래서 전투가 끝나고 파티를
+    /// 나가거나 로스터가 만료되면(TTL 5분) 같은 전투를 기록에서 다시 열었을 때 복구가 통째로 죽고, 라이브에서
+    /// 보이던 참가자 한 명이 도로 사라졌다(실측: 5명 → 4명, 보이는 비중 합 89.7%). 얼려 두면 기록 재생이
+    /// 현재 파티 상태에 의존하지 않는다.</para>
+    /// <para>비어 있으면 진행 중/라이브 리포트라는 뜻이고, 그때는 호출자가 넘기는 라이브 로스터를 쓴다.</para></summary>
+    public List<User> PartySnapshot { get; set; } = [];
+
+    /// <summary>uid 해석 없이 그대로 얼린 0x9702 스냅샷. <see cref="PartySnapshot"/>의 상위집합으로,
+    /// "이번 세션에 한 번도 못 본 파티원"이 여기에만 있다.</summary>
+    public List<RosterMember> PartyIdentitiesSnapshot { get; set; } = [];
 
     /// <summary>The 본인(executor) uid, frozen into a SAVED report at save time (like <see cref="BuffRates"/>
     /// and <see cref="SkillDetailsSnapshot"/>). A saved report's per-row <see cref="User.IsExecutor"/> is
