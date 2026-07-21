@@ -67,6 +67,13 @@ public sealed class JoinRequestStore
         Cleared?.Invoke();
     }
 
+    /// <summary>The current entry for a requester, ignoring the 20s display cutoff so a re-application can
+    /// inherit already-resolved skill/stigma badges. False if none is held.</summary>
+    public bool TryGet(int requester, out JoinRequestUser? user)
+    {
+        lock (_gate) return _byRequester.TryGetValue(requester, out user);
+    }
+
     /// <summary>Newest-first, with entries older than 20s dropped.</summary>
     public IReadOnlyList<JoinRequestUser> Snapshot()
     {
@@ -102,6 +109,15 @@ public sealed class JoinRequestSinkAdapter(JoinRequestStore store, DataManager d
             Power = power,
             ArrivedAt = arrivedAt,
         };
+
+        // Carry any already-resolved badges forward: the initial packet has no skills, so a re-application (or a
+        // duplicate 0x9707 while the card is still up) would otherwise blank the badges until the lookup callback
+        // re-fires. Keeping the prior skills makes the badges stable across the refresh.
+        if (store.TryGet(requester, out JoinRequestUser? existing) && existing!.Skill.Count > 0)
+        {
+            user = user with { Skill = existing.Skill };
+        }
+
         store.Add(user);
 
         // Enrich with the official-site skills (live only; no-op offline). The callback fires on a

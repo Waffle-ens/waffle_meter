@@ -75,6 +75,13 @@ public sealed class OverlayController
     /// <summary>The meter's current click-through state, mirrored onto the buff overlay.</summary>
     public bool MeterClickThrough => _window.ClickThrough;
 
+    /// <summary>The controller's actual decision on whether the companion buff overlay should be on screen (the
+    /// last value computed by <see cref="SyncCompanion"/>). The 500ms buff-refresh timer reconciles against THIS
+    /// rather than <see cref="MeterShown"/>: while the meter is tray-hidden with "메터 숨겨도 오버레이 유지" on,
+    /// MeterShown is false but the companion stays up — keying the refresh off MeterShown made the two fight
+    /// every tick (poll Present ↔ refresh Fade) and the overlay flickered.</summary>
+    public bool CompanionShown { get; private set; } = true;
+
     // Companion overlay (the combat-assist buff overlay): presented/parked in exact lockstep with the meter
     // window, gated by its enabled predicate — so when the toggle is on it is ALWAYS shown whenever the meter
     // is, and never disappears on its own. Edge-tracked so a steady state doesn't re-issue SetWindowPos.
@@ -95,12 +102,16 @@ public sealed class OverlayController
     // settings won't bring it back" was exactly that stale-flag desync. Also mirrors the meter's click-through.
     private void SyncCompanion(bool meterPresent)
     {
+        // Single source of truth for the companion's on-screen state, published as CompanionShown so the 500ms
+        // buff-refresh timer reconciles against the SAME decision (no more Present/Fade fight → no flicker).
+        bool show = meterPresent && _companionEnabled?.Invoke() == true;
+        CompanionShown = show;
         if (_companion is null)
         {
             return;
         }
 
-        if (meterPresent && _companionEnabled?.Invoke() == true)
+        if (show)
         {
             _companion.SetClickThrough(_window.ClickThrough);
             _companion.Present(true);

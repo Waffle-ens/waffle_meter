@@ -803,7 +803,13 @@ public sealed class DataManager : ICaptureGameData
         }
 
         long now = Clock();
-        if (_officialLookupAttempts.TryGetValue(uid, out long previous) && now - previous < 10 * 60 * 1000L)
+        // The 10-min throttle only guards the fire-and-forget power-enrichment path (onResult == null), whose
+        // result is persisted on the User object so a re-request within the window is pure waste. A caller that
+        // passes a callback (the party-join panel, which injects skill/stigma badges per request) MUST always
+        // reach LookupAsync — its own 6h/10min TTL cache + in-flight de-dup already suppress redundant network
+        // calls, and answer a cached character synchronously. Throttling the callback path here silently dropped
+        // the callback on any re-application within 10 min, leaving the join card with no badges.
+        if (onResult == null && _officialLookupAttempts.TryGetValue(uid, out long previous) && now - previous < 10 * 60 * 1000L)
         {
             return;
         }
@@ -913,11 +919,15 @@ public sealed class DataManager : ICaptureGameData
             if (!IsBuffHidden(skillCode) || IsBuffVoice(skillCode))
             {
                 int baseCode = BuffBaseCode(skillCode);
+                bool indefinite = baseCode == IndefiniteStanceBaseCode; // 폭주: synthetic-TTL maintained stance
+                // Keep the maintained stance on screen well past its short synthetic duration so a held
+                // re-broadcast gap doesn't false-expire it; a real "off" then clears within the keep-alive.
+                long overlayEnd = indefinite ? buffStart + IndefiniteStanceOverlayKeepAliveMs : buffEnd;
                 lock (_ownerBuffGate)
                 {
                     // Key by BASE code so the SAME buff re-cast by a different player/rank refreshes the one slot
                     // in place (no duplicate icon, no duplicate start alert) — the later cast takes over.
-                    _ownerBuffs[baseCode] = (buffEnd, actorId, duration);
+                    _ownerBuffs[baseCode] = (overlayEnd, actorId, duration, indefinite);
                 }
 
                 LiveBuffsChanged?.Invoke();
@@ -974,7 +984,15 @@ public sealed class DataManager : ICaptureGameData
 
     // ---- live owner-buff store (for the combat-assist overlay) ----
     // Keyed by BASE skill code (level-independent) so a re-cast of the same buff refreshes one entry.
-    private readonly Dictionary<int, (long End, int Actor, long Duration)> _ownerBuffs = new(); // baseCode -> (expiry, applier, duration)
+    private readonly Dictionary<int, (long End, int Actor, long Duration, bool Indefinite)> _ownerBuffs = new(); // baseCode -> (expiry, applier, duration, indefinite)
+
+    // 폭주 (권성): the only maintained-stance buff broadcast with no expiry (duration 0xFFFFFFFF). The parser
+    // gives every apply a short synthetic duration (StreamProcessor.IndefiniteStanceFallbackMs) and its whole
+    // runtime band 191300000..191399999 collapses to this base. On the LIVE overlay we keep the slot alive far
+    // longer than that synthetic duration so an ordinary held re-broadcast gap (combat lull / dropped frame /
+    // momentary owner==0) doesn't false-expire it — the reported "폭주가 유지되는데 꺼졌다고 뜬다" bug.
+    private const int IndefiniteStanceBaseCode = 19130000;
+    private const long IndefiniteStanceOverlayKeepAliveMs = 20_000;
     // Skill cooldowns from the 0x3847 snapshot, keyed by the SAME base code, so a buff slot can be grayed while
     // its skill is on cooldown. Value = cooldown end (ms, capture clock); on-cooldown iff end > now.
     private readonly Dictionary<int, long> _cooldowns = new(); // baseCode -> cooldown end (ms)
@@ -1024,7 +1042,7 @@ public sealed class DataManager : ICaptureGameData
             }
 
             // active owner buffs whose skill is on cooldown right now — these are the ones that SHOULD gray.
-            foreach (KeyValuePair<int, (long End, int Actor, long Duration)> kv in _ownerBuffs)
+            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite)> kv in _ownerBuffs)
             {
                 if (kv.Value.End > nowMs && _cooldowns.TryGetValue(kv.Key, out long cd) && cd > nowMs)
                 {
@@ -1049,7 +1067,7 @@ public sealed class DataManager : ICaptureGameData
         var result = new List<OwnerBuffView>();
         lock (_ownerBuffGate)
         {
-            foreach (KeyValuePair<int, (long End, int Actor, long Duration)> kv in _ownerBuffs)
+            foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite)> kv in _ownerBuffs)
             {
                 if (kv.Value.End <= nowMs)
                 {
@@ -1070,7 +1088,8 @@ public sealed class DataManager : ICaptureGameData
                     kv.Key, name, kv.Value.End - nowMs, kv.Value.Duration, kv.Value.End,
                     owner != 0 && kv.Value.Actor != owner,
                     !hidden,  // Overlay: 음성만 (hidden + voice) is announced but not drawn
-                    onCooldown));
+                    onCooldown,
+                    kv.Value.Indefinite));
             }
         }
 

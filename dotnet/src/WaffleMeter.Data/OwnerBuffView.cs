@@ -10,6 +10,9 @@ namespace WaffleMeter.Data;
 /// the end alert when a re-cast extends the buff.</para>
 /// <para><see cref="OnCooldown"/> is true when the skill granting this buff is still on cooldown (from the
 /// 0x3847 snapshot) — the overlay grays the icon when the user enables that option.</para>
+/// <para><see cref="Indefinite"/> is true for an actively-maintained stance with no packet-declared expiry
+/// (폭주/권성): its <see cref="RemainingMs"/>/<see cref="EndMs"/> are a synthetic keep-alive, not a real
+/// countdown, so the overlay draws no ring/timer and the voice alert never pre-warns its (guessed) end.</para>
 /// </summary>
 public readonly record struct OwnerBuffView(
     int Code,
@@ -19,4 +22,5 @@ public readonly record struct OwnerBuffView(
     long EndMs,
     bool ByOther,
     bool Overlay,
-    bool OnCooldown);
+    bool OnCooldown,
+    bool Indefinite);

@@ -96,6 +96,24 @@ public sealed class DataManagerOfficialLookupTests
         Assert.Equal(2, fake.Calls); // throttle window elapsed
     }
 
+    [Fact]
+    public void Callback_path_is_not_throttled()
+    {
+        // The party-join panel injects skill/stigma badges via the callback; it must fire on EVERY request
+        // (a re-application within 10 min is common in a busy recruit). The 10-min throttle applies only to the
+        // fire-and-forget power-enrichment path — throttling the callback path left the join card with no badges.
+        long now = 1_000_000;
+        var fake = new FakeLookup { Result = new OfficialCharacterInfo("Hero", 3, JobClass.SORCERER, 9999, NoSkills) };
+        var dm = new DataManager { OfficialLookup = fake, Clock = () => now };
+
+        int callbacks = 0;
+        dm.RequestOfficialCharacterLookup(1, "Hero", 3, null, _ => callbacks++);
+        dm.RequestOfficialCharacterLookup(1, "Hero", 3, null, _ => callbacks++); // same uid, well within 10 min
+
+        Assert.Equal(2, callbacks); // both fired — no throttle on the callback path
+        Assert.Equal(2, fake.Calls);
+    }
+
     [Theory]
     [InlineData(null, 3)]
     [InlineData("", 3)]

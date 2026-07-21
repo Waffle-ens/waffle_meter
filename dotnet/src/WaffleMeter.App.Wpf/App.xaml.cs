@@ -1520,8 +1520,9 @@ public partial class App : Application
     // Refresh the combat-assist overlay each tick: pull the local player's active buffs, fire the start/end
     // voice alerts, update the slot content, AND reconcile the window's visibility. This 500ms timer always
     // runs (unlike the controller poll, which skips the companion during the startup grace — the cause of the
-    // buff overlay staying hidden until settings was opened), so it is the reliable visibility driver. Present
-    // / Fade are idempotent, so it never fights the controller (both key off MeterShown).
+    // buff overlay staying hidden until settings was opened), so it is the reliable visibility driver. It keys
+    // off the controller's CompanionShown — the SAME decision the poll acts on — so Present/Fade never disagree
+    // (keying off MeterShown made the two fight while the meter was hidden with "오버레이 유지" on → flicker).
     private void RefreshBuffOverlay(MeterServices services)
     {
         if (_buffOverlayVm is null || _settings is null)
@@ -1544,12 +1545,12 @@ public partial class App : Application
         _buffOverlayVm.SetTextColor(_settings.BuffUiTextColor);
         _buffOverlayVm.Update(buffs.Where(b => b.Overlay).ToList(), _settings.BuffUiGrayOnCooldown);
 
-        // Visibility: show whenever the toggle is on AND the meter is on screen (MeterShown starts true and is
-        // kept current by the controller poll). Mirror the meter's click-through when shown, and re-claim
-        // topmost each tick so a borderless-fullscreen game can't leave the overlay stranded behind it.
+        // Visibility: mirror the controller's companion decision (CompanionShown already folds in ShowBuffUi,
+        // the meter's on-screen state, and the "메터 숨겨도 오버레이 유지" toggle). Mirror the meter's click-through
+        // when shown, and re-claim topmost each tick so a borderless-fullscreen game can't strand it behind.
         if (_buffOverlay is not null)
         {
-            bool show = _settings.ShowBuffUi && (_controller?.MeterShown ?? true);
+            bool show = _settings.ShowBuffUi && (_controller?.CompanionShown ?? true);
             if (show)
             {
                 _buffOverlay.SetClickThrough(_controller?.MeterClickThrough ?? false);
@@ -1595,8 +1596,10 @@ public partial class App : Application
 
             // Pre-warn the end once inside the lead window (skip very short buffs so it doesn't double up with
             // the start). Keyed on the End(ms): a re-cast that extends the buff gives a new End and re-arms this,
-            // so the end alert fires off the REFRESHED duration.
-            if (s.BuffTtsOnEnd && b.DurationMs > BuffEndTtsLeadMs * 2 && b.RemainingMs > 0 && b.RemainingMs <= BuffEndTtsLeadMs
+            // so the end alert fires off the REFRESHED duration. A maintained stance (폭주) is skipped entirely:
+            // its expiry is a synthetic keep-alive, not a real end, so pre-warning it spoke a false "오프" every
+            // time a held re-broadcast gap elapsed while the stance was still up.
+            if (s.BuffTtsOnEnd && !b.Indefinite && b.DurationMs > BuffEndTtsLeadMs * 2 && b.RemainingMs > 0 && b.RemainingMs <= BuffEndTtsLeadMs
                 && (!_buffEndAnnouncedFor.TryGetValue(b.Code, out long warnedEnd) || warnedEnd != b.EndMs))
             {
                 _buffEndAnnouncedFor[b.Code] = b.EndMs;
