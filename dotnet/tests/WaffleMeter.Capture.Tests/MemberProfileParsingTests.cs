@@ -60,7 +60,9 @@ public sealed class MemberProfileParsingTests
         public void Meta(string type, params (string Key, object? Value)[] fields) { }
     }
 
-    private const string Guid36 = "7749B10B-BAD6-4747-8A71-A933D6630F4D";
+    // 형식만 같은 합성 GUID. 실제 캡처의 값은 계정/캐릭터 식별자라 공개 저장소에 넣지 않는다 —
+    // 파서가 보는 것은 "0x24 + 8-4-4-4-12 형태의 ASCII" 뿐이므로 검증력은 동일하다.
+    private const string Guid36 = "A1B2C3D4-E5F6-4788-99AA-BBCCDDEEFF00";
 
     /// <summary>One member record, exactly as observed on the wire:
     /// [uid u32 LE][server u16 LE][?? u16][0x24][36B ASCII GUID][6B handle][server u16 LE][nameLen u8][name].</summary>

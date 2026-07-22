@@ -107,7 +107,7 @@ public static class DamageParsing
     /// Reads the attack-direction byte the 2026-07-01 patch added at region offset [2]: 1 = back (후방),
     /// 2 = front (전방), anything else (incl. the switch-type-4 8-byte resource form, which has no such
     /// byte) = 0 (neither / side / positionless). A single value, not a bitmask — front and back are
-    /// mutually exclusive. Matches the client's own layout (NotMeter/INGMeter both read this same byte).
+    /// mutually exclusive. Matches the client's own layout — other meters read this same byte.
     /// </summary>
     public static int ParsePosition(byte[] region)
     {

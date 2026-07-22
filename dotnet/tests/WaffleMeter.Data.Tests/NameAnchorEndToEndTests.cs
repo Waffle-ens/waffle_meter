@@ -46,7 +46,7 @@ public sealed class NameAnchorEndToEndTests
         body.Add(0x81);
         body.Add(0xD3);
         body.Add(0x24);
-        body.AddRange(Encoding.ASCII.GetBytes("7749B10B-BAD6-4747-8A71-A933D6630F4D"));
+        body.AddRange(Encoding.ASCII.GetBytes("A1B2C3D4-E5F6-4788-99AA-BBCCDDEEFF00")); // 형식만 같은 합성 GUID
         for (int i = 0; i < 6; i++)
         {
             body.Add((byte)(0x27 + i));
