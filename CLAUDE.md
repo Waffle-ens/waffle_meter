@@ -5,7 +5,7 @@
 ## 프로젝트 개요
 - **waffle_meter**: AION2용 네이티브 **.NET 10 / WPF** DPS 미터. 배포는 **Velopack + GitHub Actions**.
 - 소스: `dotnet/` (App/Capture/Services/Data + `dotnet/tools/` 진단 CLI들). 공개 릴리스 노트: 루트 `RELEASE_NOTES.md`(인앱 패치노트로 임베드됨).
-- 최신 배포: **v2.7.6**.
+- 최신 배포: **v2.8.0** (2026-07-22).
 - 사용자 대상 보고/요약/설명은 **한국어**로 작성한다.
 
 ---
@@ -40,7 +40,7 @@
 7. **⚠️ 최종 확인 후 태그·푸시** — `git push origin main` → main 커밋에 `git tag <x.y.z>`(bare semver, `v` 없음) → `git push origin <x.y.z>`(= 배포 트리거). **이 직전에 마지막 확인.**
 8. 결과 확인 — GitHub Actions run 성공 + Release 에셋 생성.
 
-- **`SHIP_REPLAY`**: GitHub repo variable. `true`일 때만 비공개 리플레이 엔진 DLL을 publish에 동봉(현재 **OFF**). 리플레이 정식 출시 시점에 별도 결정으로 켠다.
+- **`SHIP_REPLAY`**: GitHub repo variable. `true`일 때만 비공개 리플레이 엔진 DLL을 publish에 동봉 — **현재 ON**(`OBFUSCATE`도 ON, 둘 다 2026-07-14 설정). 즉 v2.7.7부터 리플레이 엔진이 이미 동봉되어 나가고 있다(2026-07-22 실측 정정; 종전 "현재 OFF" 기술은 틀렸다).
 - 서명은 repo var `SIGNPATH_ORG_ID` 게이트(미설정=UNSIGNED). 상세 절차·과거 릴리스 이력은 memory `release-process` 참조.
 
 ---
