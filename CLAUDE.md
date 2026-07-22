@@ -48,7 +48,7 @@
 ## ⚠️ 절대 하지 말 것
 - **`waffle_meter.v1.4` (AppData 폴더명)을 리네임하지 마라.** 이건 "옛 버전 경로 잔재"가 아니라 현재 **모든 v2.x가 읽고 쓰는 사용자 데이터 네임스페이스**(설정·저장 전투·폰트·리플레이·패킷 로그)다. `waffle_meter`로 바꾸면 기존 사용자 데이터가 전부 고아가 되고 MSI 제품이 달라져 자동 업데이트가 끊긴다. 정 바꾸려면 `PropertyHandler.LegacyAppNames` 복사-포워드를 쓰는 **별도 마이그레이션 기능**으로 다뤄라. (`AppName` 상수 위치: `PropertyHandler.cs`, `PacketDebugLogger.cs`, `BuffDiag.cs`, `CombatDiag.cs`, `OverlayController.cs`, `Converters.cs`, `DevPacketLogReplay.cs`.)
 - **`CombatDiag.cs` 및 진행중 진단 계측을 무심코 커밋하지 마라.** 현재 워킹트리의 `MeterEngine.cs`/`StreamAssembler.cs`/`PacketAccumulator.cs`/`StreamProcessor.cs`/`MeterServices.cs` 수정본은 미해결 버그(나야트만 첫 보스 미포착) 조사용 **WIP**다. `CombatDiag.cs`는 `.gitignore`에 등록되어 있다.
-- **저장소 산출물에 경쟁 미터명(INGMeter, A2Power 등)을 넣지 마라.** 경쟁 분석은 로컬(memory)에서만.
+- **저장소 산출물에 경쟁 미터명을 넣지 마라.**(고유명사는 여기에도 적지 않는다 — 이 파일도 공개된다) 경쟁 분석은 로컬(memory)에서만.
 - **`docs/`를 un-ignore하지 마라.** RE·경쟁분석·"커밋금지" 문서가 들어있다(특히 `docs/replay/`, `docs/security/`, `docs/packet-re/`, `docs/datamine/`).
 
 ---
