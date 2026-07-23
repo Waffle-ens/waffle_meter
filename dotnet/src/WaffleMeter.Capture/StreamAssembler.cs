@@ -51,7 +51,19 @@ public sealed class StreamAssembler
 
             if (lengthInfo.Value == -1)
             {
-                // invalid_varint: flush everything (verbatim — known data-loss trap on split varint header)
+                // 길이 varint이 청크 경계에서 잘렸다(continuation 비트가 켜진 채 버퍼가 끝남). ReadVarInt는
+                // 완전한 varint에 필요한 바이트가 모자랄 때만 -1을 돌려주는데, varint는 최대 5바이트라 이 경우
+                // 버퍼에는 4바이트 이하만 남아 있다. 종전에는 이걸 통째로 flush 했지만, 그건 잘린 앞부분을 버릴
+                // 뿐 아니라 다음 청크의 뒷부분을 새 패킷 시작으로 오정렬시킨다 — 단발 패킷(보스 스폰 0x3641·본인
+                // 로드 0x3633·로스터 0x9702·버프)이 청크 경계에 걸리면 그대로 유실됐다("3번째 네임드 미집계"·
+                // "버프 오버레이 빔"·"로스터 놓침"의 한 갈래). 잘린 '몸통'을 기다리는 아래 경로(Size<realLength)와
+                // 대칭으로, 잘린 '헤더'도 더 기다린다. 무한 성장은 PacketAccumulator의 2MB 상한이 막는다.
+                if (_buffer.Size < 5)
+                {
+                    break; // 다음 청크가 varint을 완성한다
+                }
+
+                // 5바이트 이상인데도 varint이 안 풀리는 건 정상적으로는 불가능하다(진짜 오정렬/손상) — resync.
                 _buffer.Flush();
                 break;
             }

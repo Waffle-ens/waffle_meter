@@ -349,6 +349,16 @@ public partial class App : Application
             {
                 rosterById[member.Id] = member;
             }
+
+            // 0x9200 멤버 프로필(uid 동반)도 프리뷰 로스터에 넣는다 — 0x9702 로스터 스냅샷이 입장 버스트에서
+            // 유실돼도(실측: 세션당 1회뿐이거나 아예 0회) 파티가 미리 뜨게 하는 이중 소스.
+            foreach ((int mpUid, string mpNick, int mpServer) in services.Data.MemberProfileRoster(PreCombatPartyTtlMs))
+            {
+                if (!rosterById.ContainsKey(mpUid) && !string.IsNullOrWhiteSpace(mpNick))
+                {
+                    rosterById[mpUid] = new User(mpUid, mpNick, mpServer);
+                }
+            }
             foreach (KeyValuePair<int, long> kv in _partyLastCombatMs)
             {
                 if (nowMs - kv.Value > PreCombatPartyTtlMs || rosterById.ContainsKey(kv.Key))
@@ -402,14 +412,78 @@ public partial class App : Application
                 partyRoster.Clear();
             }
 
+            // 0x9702 로스터가 이름은 실어 왔지만 그 멤버의 uid가 이번 세션에 아직 해석되지 않았으면(공간상 먼
+            // 2파티원은 0x3645 신원 패킷이 희박하다) PartyRoster()가 그 멤버를 버려 프리뷰에서 사라진다 —
+            // 실측: 10인 공대 입장 시 2파티원 3명이 빠진 채 7명만 뜸. 전투 전 프리뷰는 파티 전원을 보여줘야
+            // 하므로, 아직 안 뜬 raw 0x9702 이름을 placeholder 행으로 채운다. 합성 음수 uid라 실제 uid·본인과
+            // 충돌하지 않고, 전투가 시작되면(Information.Count>0) 프리뷰가 통째로 버려지므로 무해하다.
+            if (partyRoster.Count > 0 || hasPartySource)
+            {
+                var shownIdentities = new HashSet<(string, int)>(
+                    partyRoster.Where(u => !string.IsNullOrWhiteSpace(u.Nickname)).Select(u => (u.Nickname!, u.Server)));
+                int placeholderId = -1;
+                foreach ((string rNick, int rServer, int _) in services.Data.PartyRosterIdentities(PreCombatPartyTtlMs))
+                {
+                    if (!string.IsNullOrWhiteSpace(rNick) && shownIdentities.Add((rNick, rServer)))
+                    {
+                        partyRoster.Add(new User(placeholderId--, rNick, rServer));
+                    }
+                }
+            }
+
+            // 0x9702 로스터는 직업·전투력도 실어 오는데, 프리뷰 행이 그 멤버의 0x3645/0x3633을 아직 못 받았으면
+            // 직업 아이콘·전투력이 빈다(실측: 근접 아닌 파티원). 로스터가 가진 job/power로 '빈 값만' 채운다 —
+            // display-only, 본인·이미 채워진 행은 건드리지 않고, repo User 오염을 막으려 Copy에 쓴다.
+            var rosterJp = new Dictionary<(string, int), (JobClass? Job, int Power)>();
+            foreach ((string jpNick, int jpServer, int jpJobCode, int jpPower) in services.Data.PartyRosterJobPower(PreCombatPartyTtlMs))
+            {
+                if (!string.IsNullOrWhiteSpace(jpNick))
+                {
+                    rosterJp[(jpNick, jpServer)] = (JobClassInfo.ConvertFromCode(jpJobCode), jpPower);
+                }
+            }
+
+            if (rosterJp.Count > 0)
+            {
+                for (int i = 0; i < partyRoster.Count; i++)
+                {
+                    User u = partyRoster[i];
+                    if (u.Id == execUid || string.IsNullOrWhiteSpace(u.Nickname) || (u.Job != null && u.Power > 0))
+                    {
+                        continue;
+                    }
+
+                    if (!rosterJp.TryGetValue((u.Nickname!, u.Server), out (JobClass? Job, int Power) jp))
+                    {
+                        continue;
+                    }
+
+                    User c = u.Copy();
+                    if (c.Job == null && jp.Job != null)
+                    {
+                        c.Job = jp.Job;
+                        c.JobSource = JobProvenance.Authoritative;
+                    }
+
+                    if (c.Power <= 0 && jp.Power > 0)
+                    {
+                        c.Power = jp.Power;
+                    }
+
+                    partyRoster[i] = c;
+                }
+            }
+
             // 0x9702-only; the party-context guard for self-recovery. The RAW snapshot rides along because
             // PartyRoster() above drops every member whose uid this session has never seen — and that dropped
             // member is usually the owner of a nameless row. SAME TTL as the resolved list: pulling the raw one
             // on a longer window would open a band where only the raw roster is "fresh", silently widening the
             // recovery gate.
             viewModel.SetAuthoritativeParty(
-                authoritativeParty, services.Data.PartyRosterIdentities(PreCombatPartyTtlMs));
+                authoritativeParty, services.Data.PartyRosterIdentities(PreCombatPartyTtlMs),
+                services.Data.MemberProfileRoster(PreCombatPartyTtlMs));
             viewModel.SetRoster(partyRoster);
+            viewModel.SetRosterResurface(true); // Feature 1: 라이브 idle 경로 — 파티(닉/서버) 변경 시 로스터 프리뷰 재노출 허용
             viewModel.Update(report);
             (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
             viewModel.SetAether(aBase, aBonus, aHas); // live aether badge (read each tick; fires even when idle)
@@ -1144,6 +1218,7 @@ public partial class App : Application
         {
             _viewingHistory = true;
             _historyBaselineBattleStart = _lastReport?.BattleStart ?? 0;
+            meterViewModel.SetRosterResurface(false); // Feature 1: 기록 재생은 라이브 로스터 불일치로 절대 비우지 않는다
             meterViewModel.Update(report);
         };
 
@@ -1314,13 +1389,30 @@ public partial class App : Application
     /// only the width is persisted (the window's height is content-driven).</summary>
     private void AttachResize(Window window, PropertyHandler props, string wKey, string hKey, bool widthOnly = false)
     {
-        WindowResizer.Attach(window);
+        // 미터(widthOnly)는 좌/우·모서리만 가로 리사이즈 → 세로/대각 드래그가 없어 SizeToContent="Height"
+        // (행 수 자동추종)가 꺼지지 않는다. 패널(widthOnly=false)은 종전대로 전방향 리사이즈.
+        WindowResizer.Attach(window, widthOnly: widthOnly);
+        // 마지막으로 저장한 값과 다를 때만 기록한다. 미터는 이제 전투 중 행 수 변동마다 높이가 바뀌며 SizeChanged가
+        // 자주 발화하는데, 매번 (변화 없는) 폭까지 SetProperty하면 euc-kr 프로퍼티 파일 전체를 동기 재기록해
+        // 장시간 느려짐을 유발한다(longrun-slowdown 계열). 실제 값이 바뀔 때만 저장한다.
+        string? lastW = null, lastH = null;
         window.SizeChanged += (_, _) =>
         {
-            props.SetProperty(wKey, window.ActualWidth.ToString("0", CultureInfo.InvariantCulture));
+            string wv = window.ActualWidth.ToString("0", CultureInfo.InvariantCulture);
+            if (wv != lastW)
+            {
+                lastW = wv;
+                props.SetProperty(wKey, wv);
+            }
+
             if (!widthOnly)
             {
-                props.SetProperty(hKey, window.ActualHeight.ToString("0", CultureInfo.InvariantCulture));
+                string hv = window.ActualHeight.ToString("0", CultureInfo.InvariantCulture);
+                if (hv != lastH)
+                {
+                    lastH = hv;
+                    props.SetProperty(hKey, hv);
+                }
             }
         };
     }

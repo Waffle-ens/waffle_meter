@@ -40,12 +40,23 @@ public interface ICaptureGameData
     /// 다만 보스의 6.9%에만 오므로 추정 경로는 그대로 남는다. 기본 no-op.</summary>
     void SaveMobMaxHp(int instanceId, int maxHp) { }
 
+    /// <summary>스폰(0x3641) 유실로 mobCode가 등록되지 않은 던전 보스를 HP 휴리스틱으로 되살린다 —
+    /// 0x8D00이 미등록 엔티티에 대해 보스급 HP를 실어 오고, 그 엔티티가 교전 토글(0x8D21)을 쏜 적이 있으면
+    /// 합성 '미상 보스'로 승격해 소급 집계한다. 데이터 계층이 게이트를 판정한다. 기본 no-op(캡처 전용 모드).</summary>
+    void TryPromoteUnregisteredBoss(int entityId, long hp) { }
+
     /// <summary>0x9200 멤버 프로필이 실어 온 (엔티티 uid, 닉네임, 서버). 이름 앵커의 유일한 입력이다 —
     /// 본인 이름은 본인 로드 패킷(0x3633)에만 오고 0x3645에는 절대 오지 않으므로(코퍼스 13,076프레임 0건),
     /// 존 이동·난입으로 본인 uid가 바뀌었는데 0x3633이 다시 오지 않으면 본인을 새 uid에 묶을 방법이 없었다.
     /// <para>파서는 <b>모든</b> 레코드를 그대로 넘긴다. "현재 본인과 신원 완전일치인가"는 executor를 아는 데이터
     /// 계층만 판단할 수 있고, 남의 레코드는 거기서 no-op으로 떨어진다. 기본 no-op(캡처 전용 모드).</para></summary>
     void TryBindExecutorByIdentity(int uid, string nickname, int server) { }
+
+    /// <summary>0x9200 멤버 프로필이 실어 온 (엔티티 uid, 닉네임, 서버)를 표시-계층 보조 로스터에 저장한다.
+    /// <see cref="TryBindExecutorByIdentity"/>와 같은 레코드에서 파생되지만 이쪽은 <b>모든</b> 멤버를 담는다 —
+    /// 0x9702 로스터가 유실됐을 때의 폴백이자, 타인 닉(0x3645)이 유실돼 무명인 전투행을 uid로 곧장 명명하는
+    /// 소스다. uid 재사용 위험 때문에 신원 저장소가 아니라 TTL 있는 표시-전용 맵에만 담는다. 기본 no-op.</summary>
+    void SaveMemberProfile(int uid, string nickname, int server) { }
     void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId);
 
     /// <summary>버프 적용 + <paramref name="level"/>(어노멀 레벨, 0 = 모름). 서로 중복 적용되지 않는 버프 쌍에서
@@ -107,6 +118,10 @@ public interface ICaptureGameData
     /// party preview, and (for an 8-인 공대) tag each player's sub-party — slots 1-4 = party 1, 5-8 = party 2.
     /// Slot is 0 when the record header that carries it wasn't matched.</summary>
     void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members);
+
+    /// <summary>0x9702 로스터가 실어 온 (닉네임, 서버, 직업코드, 전투력). 전투 전 파티 프리뷰의 직업 아이콘·
+    /// 전투력을 채우는 display-only 보조 소스. 기본 no-op(캡처 전용/구현 안 한 컨텍스트).</summary>
+    void SavePartyRosterJobPower(IReadOnlyList<(string Nickname, int Server, int JobCode, int Power)> members) { }
 }
 
 /// <summary>No catalog / empty runtime map; all writes no-op (default capture-only context).</summary>

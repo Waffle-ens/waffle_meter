@@ -12,7 +12,14 @@ namespace WaffleMeter.Capture;
 /// </summary>
 public sealed class PacketAccumulator
 {
-    private const int MaxBufferSize = 2 * 1024 * 1024;   // 2MB
+    // 2026-07-23 상향(구 2MB): 던전 존/보스룸 로드 스냅샷 프레임 하나가 이 상한을 넘으면 Append가 버퍼를 통째로
+    // 강제 리셋(아래)해서, 그 안에 실렸거나 뒤에 큐잉된 보스의 단발·앱레벨 무재전송 0x3641 스폰을 유실한다 —
+    // 시련 바크론 "됐다 안됐다" 보스 인식의 1순위 원인. StreamAssembler는 매 청크마다 완성 프레임을 전부 소진하므로
+    // (greedy drain), 버퍼가 2MB에 남아 있다는 건 realLength ≥ ~2MB짜리 프레임 몸통을 기다리는 중이란 뜻 = 큰
+    // 스냅샷 프레임. 14:44에 accumulator_2mb가 7연발(≈14MB) 찍힌 직후 보스가 간신히 등록된 게 마진이 종잇장임을
+    // 보여준다. 바크론패턴강화(덩굴 대량 소환)가 스냅샷을 키워 초과 확률을 밀어올린다. 상한을 32MB로 올려 정상
+    // 스냅샷이 리셋 없이 프레이밍되게 한다(무한 성장 방어는 유지). 값은 실킬 packet 로그로 재튜닝 예정.
+    private const int MaxBufferSize = 32 * 1024 * 1024;  // 32MB
     private const int InitialCapacity = 64 * 1024;       // 64KB
     // NOTE: Kotlin also has WARN_BUFFER_SIZE (1MB) used only for a log line — intentionally omitted.
 

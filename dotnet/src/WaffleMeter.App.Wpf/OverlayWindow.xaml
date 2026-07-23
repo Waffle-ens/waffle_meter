@@ -177,8 +177,11 @@
                 </Grid>
             </Border>
 
-            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
+            <!-- 행 목록은 SizeToContent="Height"가 창 높이를 행 수에 맞추도록 StackPanel을 Row2에 '직접' 둔다.
+                 종전엔 여기 VerticalScrollBarVisibility="Disabled" ScrollViewer가 감쌌는데, 뷰포트는 자식의
+                 전체 높이를 부모에 보고하지 않고(DesiredSize를 뷰포트로 clamp) 넘치는 행을 잘라서, 인원이 늘어도
+                 창이 안 커지고 10인 공대에서 아래 행이 잘렸다(v2.7.5 회귀). ScrollViewer 제거로 높이 자동추종 복구. -->
+            <StackPanel Grid.Row="2">
             <TextBlock Text="전투 대기 중" Foreground="{DynamicResource Skin.MutedFg}" HorizontalAlignment="Center"
                        Margin="0,8" Visibility="{Binding PlaceholderVisibility}"/>
 
@@ -280,7 +283,6 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
             </StackPanel>
-            </ScrollViewer>
 
             <!-- combat-timer pill (React CombatTimer.tsx): below the rows -->
             <Border Grid.Row="3" CornerRadius="6" Padding="8,3" Margin="0,6,0,0"
