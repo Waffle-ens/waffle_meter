@@ -268,6 +268,13 @@ public sealed class MeterEngine : IDisposable
             _lastEmitOwnerZero = ownerZero;
             _lastEmitGapSkips = gapSkips;
 
+            // [combat-diag] Capture-layer loss timeline for the first-boss-miss investigation: log to
+            // combat-diag.log ONLY when a gap-skip or channel drop actually happened this interval, so it lines
+            // up with any engage_no_mobcode / spawn_no_marker written by StreamProcessor.
+            if (dGap > 0 || drops > 0)
+            {
+            }
+
             // Skip a fully idle interval (no traffic, nothing queued) so the log only grows during play.
             if (dWritten == 0 && dJob == 0 && dGap == 0 && queued <= 0)
             {

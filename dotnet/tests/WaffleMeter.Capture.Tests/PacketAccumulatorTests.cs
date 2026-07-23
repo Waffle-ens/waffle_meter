@@ -108,11 +108,14 @@ public class PacketAccumulatorTests
     }
 
     [Fact]
-    public void Force_resets_when_size_reaches_2mb()
+    public void Force_resets_when_size_reaches_the_cap()
     {
+        // 2026-07-23: MaxBufferSize를 2MB→32MB로 상향(던전 스냅샷 프레임이 2MB를 넘어 보스 0x3641 스폰이 통째
+        // 리셋에 유실되던 것 방지). 강제-리셋 스펙 자체는 유지 — 상한 도달 시 다음 Append가 버퍼를 비운다.
+        const int cap = 32 * 1024 * 1024; // == PacketAccumulator.MaxBufferSize
         var acc = new PacketAccumulator();
-        acc.Append(new byte[2 * 1024 * 1024]); // size == 2MB (MAX)
-        Assert.Equal(2 * 1024 * 1024, acc.Size);
+        acc.Append(new byte[cap]); // size == cap (MAX)
+        Assert.Equal(cap, acc.Size);
 
         acc.Append(new byte[] { 1 }); // currentSize >= MAX -> force reset, incoming dropped
         Assert.Equal(0, acc.Size);

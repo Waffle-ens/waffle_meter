@@ -118,6 +118,14 @@ public sealed class StatsUploadQueue : IDisposable
             return;
         }
 
+        // '미상 보스'(스폰 유실로 HP 휴리스틱 승격된 미등록 보스)는 코드가 추정이라 통계 웹에 올리지 않는다 —
+        // 로컬 DPS 집계만 되살리는 것이 목적이다.
+        if (target.Mob.Code == DataManager.UnknownBossMobCode)
+        {
+            MarkSkipped("estimated_boss");
+            return;
+        }
+
         if (IsKillConfirmed(log))
         {
             Enqueue(log, killConfirmed: true);

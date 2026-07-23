@@ -252,8 +252,15 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     /// against the last report).</summary>
     public void SetRoster(IReadOnlyList<User> roster) => _roster = roster;
 
+    // Feature 1: 라이브 idle 경로만 true — 파티(닉/서버)가 바뀌면 직전 전투 위로 로스터 프리뷰를 다시 띄운다.
+    // 기록 재생 경로는 false로 둬(재생 전투가 라이브 로스터와 다르다고 비우면 안 됨). Update 시그니처를 안 늘려
+    // theme 리페인트(마지막 리포트 재사용)에서도 마지막 라이브/기록 결정을 그대로 읽게 한다.
+    private bool _allowRosterResurface;
+    public void SetRosterResurface(bool enabled) => _allowRosterResurface = enabled;
+
     private IReadOnlyList<User> _authoritativeParty = [];
     private IReadOnlyList<(string Nickname, int Server, int Slot)> _authoritativePartyIdentities = [];
+    private IReadOnlyList<(int Uid, string Nickname, int Server)> _memberProfiles = [];
 
     /// <summary>App supplies the AUTHORITATIVE (0x9702-only) party each tick — distinct from <see cref="_roster"/>,
     /// which also folds in recent boss-combat contributors (at a field boss those are the zerg). Used solely as
@@ -263,10 +270,12 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     /// session are dropped from <paramref name="party"/>). Set together in one call so the two can never drift
     /// apart between ticks.</para></summary>
     public void SetAuthoritativeParty(
-        IReadOnlyList<User> party, IReadOnlyList<(string Nickname, int Server, int Slot)> identities)
+        IReadOnlyList<User> party, IReadOnlyList<(string Nickname, int Server, int Slot)> identities,
+        IReadOnlyList<(int Uid, string Nickname, int Server)> memberProfiles)
     {
         _authoritativeParty = party;
         _authoritativePartyIdentities = identities;
+        _memberProfiles = memberProfiles;
     }
 
     /// <summary>App calls this each tick from StatsBuilder.OwnCharacter() so the indicator appears the
@@ -409,7 +418,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             authoritativeParty: _authoritativeParty,
             // Opt-in "던전 강제 집계": only on a classified instanced (원정/초월/성역) boss (stamped live into the report).
             forceInstanceTracking: _settings.ForceInstanceTracking && report.TargetInstanced,
-            rosterIdentities: _authoritativePartyIdentities);
+            rosterIdentities: _authoritativePartyIdentities,
+            memberProfiles: _memberProfiles,
+            allowRosterResurface: _allowRosterResurface);
 
         double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);
 

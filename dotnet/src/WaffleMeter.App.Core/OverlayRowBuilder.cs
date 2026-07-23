@@ -66,7 +66,15 @@ public static class OverlayRowBuilder
         // every member whose uid has never been seen. Carries no uid / job / power, so it can only feed the
         // unambiguous 1:1 rescue (tier 2) and the display-cap exemption; never the job-unique match (no job) nor
         // the stale-name repair (uid-keyed).
-        IReadOnlyList<(string Nickname, int Server, int Slot)>? rosterIdentities = null)
+        IReadOnlyList<(string Nickname, int Server, int Slot)>? rosterIdentities = null,
+        // 0x9200 member profiles — (entity uid, nickname, server) bound in one structurally-validated record.
+        // Unlike the 0x9702 roster this carries the ENTITY uid, so a bare combat row whose 0x3645 nickname was
+        // missed can be named by uid DIRECTLY (no job-guessing / 1:1 ambiguity), and it survives a lost 0x9702.
+        IReadOnlyList<(int Uid, string Nickname, int Server)>? memberProfiles = null,
+        // Feature 1: 표시 중인 프리즌 전투 위로 로스터 프리뷰를 다시 띄울지. 라이브 idle 경로에서만 true. 기록 재생
+        // 경로는 기본 false로 넘겨(재생 전투도 frozenParty지만 스냅샷이 라이브 로스터와 정당히 다름) 절대 안 비운다.
+        // 기존 호출자/테스트는 기본값으로 오늘 동작 그대로.
+        bool allowRosterResurface = false)
     {
         double Metric(DpsInformation info) => useTotalDamage ? info.Amount : info.Dps;
 
@@ -142,6 +150,40 @@ public static class OverlayRowBuilder
         // outsider, so a field-boss stranger (a bare non-party dealer) is never relabeled a party member. Absent
         // a roster (party unknown) this does nothing: the bare row stays hidden and enriches when identity lands.
         var partyRecovered = new Dictionary<int, User>();
+
+        // 최우선(가장 확실한) 복구 — 0x9200 멤버 프로필이 uid↔이름을 한 레코드에 직접 실어 준 무명 전투행을
+        // 그 uid로 곧장 명명한다. 직업 추측·1:1 모호성이 필요 없고, 0x9702 로스터가 통째로 유실된 입장에서도
+        // 동작한다(그 파티원의 0x3645 닉이 유실됐을 뿐). 0x9200은 파티/공대 스코프라 여기 uid가 있으면 곧
+        // 파티원이다 — 필드보스의 낯선 zerg는 여기에 없어 무명 그대로 숨는다. 표시 전용 복사본만 만든다.
+        if (memberProfiles is { Count: > 0 })
+        {
+            var profileByUid = new Dictionary<int, (string Nickname, int Server)>();
+            foreach ((int puid, string pnick, int pserver) in memberProfiles)
+            {
+                if (!string.IsNullOrWhiteSpace(pnick))
+                {
+                    profileByUid[puid] = (pnick, pserver);
+                }
+            }
+
+            foreach (Row e in rawCombat)
+            {
+                if (!string.IsNullOrWhiteSpace(e.User?.Nickname) || partyRecovered.ContainsKey(e.Uid)
+                    || (recoveredUid is { } rp && e.Uid == rp))
+                {
+                    continue; // 이름 있는 행 / 이미 복구된 행 / 복구된 본인은 건드리지 않는다
+                }
+
+                if (profileByUid.TryGetValue(e.Uid, out (string Nickname, int Server) prof))
+                {
+                    User disp = (e.User ?? new User(e.Uid)).Copy(); // 표시 전용 — 라이브 User는 변경하지 않는다
+                    disp.Nickname = prof.Nickname;
+                    disp.Server = prof.Server;
+                    partyRecovered[e.Uid] = disp;
+                }
+            }
+        }
+
         // Exclude the recovered self's combat uid from the outsider check: in the bug-3 case it carries a STALE
         // non-party name that would otherwise read as a "named outsider" and wrongly mark this a public scene.
         if (partyKnown && !HasNamedOutsider(rawCombat, recoveredUid ?? -1, selfId, guardParty))
@@ -160,6 +202,16 @@ public static class OverlayRowBuilder
                 claimed.Add((selfNickname!, selfServer));
             }
 
+            // member-profile(0x9200)로 이미 명명한 행의 이름도 청구된 것으로 본다 — tier 1/2가 같은 파티원을
+            // 다시 붙이거나, 그 이름을 미청구 멤버로 오인하지 않도록.
+            foreach (User rec in partyRecovered.Values)
+            {
+                if (!string.IsNullOrWhiteSpace(rec.Nickname))
+                {
+                    claimed.Add((rec.Nickname!, rec.Server));
+                }
+            }
+
             // 본인이 이 전투에서 미집계이면(등록 uid로 딜 0 + 재라벨도 없음) 본인 역시 '미청구 멤버'다. 그 상태의
             // 무명 major가 본인인지 파티원인지 가릴 근거가 없으므로 본인 항목을 unclaimed에 남겨 모호성을 만든다 —
             // 1:1 주장이 스스로 무너져 이름을 붙이지 않고, 직업이 양쪽에서 유일하게 갈릴 때만(그건 실제 근거다)
@@ -174,6 +226,7 @@ public static class OverlayRowBuilder
             // 후자는 uid 재사용 때문이다: 재사용된 uid가 이전 점유자의 닉네임을 그대로 들고 있으면 파티원의 딜이
             List<Row> recoverable = rawCombat
                 .Where(e => string.IsNullOrWhiteSpace(e.User?.Nickname)
+                            && !partyRecovered.ContainsKey(e.Uid) // member-profile로 이미 명명한 행은 제외
                             && (recoveredUid is not { } r || e.Uid != r)
                             && topMetric > 0 && Metric(e.Info) >= topMetric * BareMajorMinShare)
                 .ToList();
@@ -341,16 +394,33 @@ public static class OverlayRowBuilder
             }
         }
 
-        // Drives the target-info bar + combat timer: count of DISPLAYABLE combat rows, not report.Information.
+        // Feature 1 — 파티/공대 구성이 (닉네임+서버 기준) 바뀌면 직전 전투 대신 로스터 프리뷰를 다시 띄운다.
+        // 표시 중인 전투(frozenParty)의 파티 스냅샷과 지금 살아있는 로스터(rosterIdentities)의 신원 집합을 비교해
+        // 다르면(가입/탈퇴/교체) 프리뷰로 갈아끼운다 — 직전 전투는 전투 기록에 남으니 무해. uid는 무시(닉/서버만).
+        bool rosterChanged = false;
+        if (allowRosterResurface && frozenParty && rosterIdentities is { Count: > 0 })
+        {
+            var currentSet = new HashSet<(string, int)>(
+                rosterIdentities.Where(m => !string.IsNullOrWhiteSpace(m.Nickname)).Select(m => (m.Nickname, m.Server)));
+            var battleSet = new HashSet<(string, int)>(
+                report.PartyIdentitiesSnapshot.Where(m => !string.IsNullOrWhiteSpace(m.Nickname)).Select(m => (m.Nickname, m.Server)));
+            // 지금 파티 신원집합 ≠ 표시중 전투 신원집합이면 변경. 빈 로스터(파티 나감/TTL)는 변경으로 치지 않는다
+            // (town에서 마지막 전투를 프리뷰로 지우지 않도록).
+            rosterChanged = currentSet.Count > 0 && !currentSet.SetEquals(battleSet);
+        }
+
+        if (rosterChanged)
+        {
+            entries.Clear(); // 표시 중이던 전투 행을 비우고 새 로스터 프리뷰로 갈아끼운다
+        }
+
+        // Drives the target-info bar + combat timer: count of DISPLAYABLE combat rows (roster-resurface → 0).
         hasCombatRows = entries.Count > 0;
 
-        // Pre-combat party preview: only when there is NO combat data AT ALL (report.Information empty — NOT the
-        // post-filter entries count) AND this is the fresh report (ExecutorId is frozen non-zero into the
-        // post-combat _recentData). Gating on report.Information.Count is what keeps the preview from resurfacing
-        // OVER a live fight whose only damager is a bare mid-join actor (filtered out above) — that case shows
-        // the placeholder, not a 0-DPS party preview. After the first combat the frozen ExecutorId also holds
-        // the preview shut so the last battle persists (the issue-#2 lifecycle).
-        if (report.Information.Count == 0 && report.ExecutorId == 0 && showPreCombatRoster && roster.Count > 0)
+        // Pre-combat / party-changed preview: 프레시 리포트(Information 빔 + ExecutorId 0) 또는 파티가 바뀐 프리즌
+        // 전투(rosterChanged). 둘 다 idle 0-DPS 로스터(App이 self 주입)를 보여주고, 라이브 전투 행 위로는 절대 안 뜬다.
+        if (showPreCombatRoster && roster.Count > 0
+            && ((report.Information.Count == 0 && report.ExecutorId == 0) || rosterChanged))
         {
             entries.AddRange(roster.Select(m => new Row(m.Id, new DpsInformation(), m, false)));
         }
@@ -365,9 +435,13 @@ public static class OverlayRowBuilder
             // raw 로스터도 면제 근거로 인정한다: tier 2가 방금 이름을 붙인 행은 정의상 uid가 해석되지 않은
             // 멤버라 IsPartyMember(resolved)로는 절대 걸리지 않고, 그러면 구제해 놓고 상한에서 잘려 도로
             // 사라진다. 최악의 부작용은 행이 몇 개 더 보이는 것뿐이다.
+            // 복구로 이름을 붙인 행(0x9200 member-profile / tier 1·2 / stale-name 교정)은 정의상 파티원이다.
+            // 그중 member-profile로 살린 행은 0x9702 resolved party에도 raw roster에도 없을 수 있어(그게 이
+            // 소스의 존재 이유다) 상한에서 잘려 도로 사라질 수 있으므로 함께 면제한다.
             bool exempt = IsSelf(e.Uid, e.User)
                           || (rosterConfirmed && IsPartyMember(e.User, party))
-                          || IsRawPartyMember(e.User, rawParty);
+                          || IsRawPartyMember(e.User, rawParty)
+                          || partyRecovered.ContainsKey(e.Uid);
             if (i < topN || exempt)
             {
                 display.Add(e);

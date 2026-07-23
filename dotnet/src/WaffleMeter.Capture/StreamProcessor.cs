@@ -122,6 +122,18 @@ public sealed class StreamProcessor
     // Field-boss respawn-timer broadcast (0x91 category). Carries a table of boss-code → target-time records.
     private const int FieldBossTimerKey = 0x01 | (0x91 << 8);  // 0x9101
 
+    // Opcodes safe to replay from a DUP-SUPPRESSED second game stream (see OnPacketReceived identityOnly). These
+    // are all IDEMPOTENT — nickname (own/other), power, party roster, member profile, and mob spawn just
+    // register / overwrite the same identity or code, so parsing them twice can't inflate anything. The party
+    // roster frequently rides the suppressed connection (observed: a 10-인 공대 whose roster/profile packets
+    // never reached the parser because a second server connection was suppressed as a VPN duplicate). Spawn is
+    // included because a boss whose 0x3641 rode the suppressed stream then registers + retro-promotes here.
+    // Damage / DoT / buff / cooldown / battle-toggle / HP stay suppressed so the single-stream damage lock holds.
+    private static readonly HashSet<int> IdentityReplayOpcodes = new()
+    {
+        OwnNicknameKey, OtherNicknameKey, OwnCombatPowerKey, SummonKey, PartyRosterKey, MemberProfileKey,
+    };
+
     private static readonly Dictionary<int, string> OpcodeNames = new()
     {
         [OwnNicknameKey] = "OwnNickname",
@@ -220,7 +232,10 @@ public sealed class StreamProcessor
         return OpcodeNames.ContainsKey(opcodeKey);
     }
 
-    public void OnPacketReceived(byte[] packet, long arrivedAt)
+    /// <summary><paramref name="identityOnly"/> = this segment came from a dup-suppressed second game stream:
+    /// dispatch ONLY the idempotent identity/roster/spawn opcodes (<see cref="IdentityReplayOpcodes"/>) so the
+    /// roster is recovered without letting damage/buff double-count.</summary>
+    public void OnPacketReceived(byte[] packet, long arrivedAt, bool identityOnly = false)
     {
         if (packet.Length == 3)
         {
@@ -267,6 +282,16 @@ public sealed class StreamProcessor
         }
 
         int opcodeKey = (packet[opcodeOffset] & 0xFF) | ((packet[opcodeOffset + 1] & 0xFF) << 8);
+
+        // Dup-suppressed second game stream: replay ONLY the idempotent identity/roster/spawn opcodes so the
+        // roster (which often rides the suppressed connection) is recovered. Everything else (damage/buff/…) is
+        // skipped ENTIRELY here — before the dispatch breadcrumb and any parsing — so the single-stream damage
+        // lock is untouched (no double-count) and the skipped packets don't even read as processed.
+        if (identityOnly && !IdentityReplayOpcodes.Contains(opcodeKey))
+        {
+            return;
+        }
+
         OpcodeNames.TryGetValue(opcodeKey, out string? name);
         _sink.Dispatch(opcodeKey, name, extraFlag, packet.Length);
 
@@ -727,6 +752,10 @@ public sealed class StreamProcessor
         if (extraFlag) offset++;
         if (packet.Length < offset + 2) return;
         if (packet[offset] != opcodeLow || packet[offset + 1] != 0x97) return;
+        // NOTE: deliberately does NOT clear the party roster. 0x971D fires spuriously mid-dungeon (observed while
+        // a 5-man party was fully intact), so clearing here would empty a valid roster — the exact failure the
+        // subset-ignore in SavePartyRoster is meant to prevent. A real party change is handled by a replacing
+        // 0x9702 snapshot, roster staleness, and the resets.
         _joinSink.OnExitPartyUi();
     }
 
@@ -745,6 +774,7 @@ public sealed class StreamProcessor
         }
 
         var members = new List<(string Nickname, int Server, int Slot)>();
+        var jobPower = new List<(string Nickname, int Server, int JobCode, int Power)>(); // 0x9702가 실어 온 직업·전투력 (프리뷰 채움용)
         var seen = new HashSet<string>();
         for (int n = offset + 2; n + 3 < packet.Length; n++)
         {
@@ -768,7 +798,35 @@ public sealed class StreamProcessor
 
             if (seen.Add(name + " " + server.ToString(CultureInfo.InvariantCulture)))
             {
-                members.Add((name, server, MemberSlot(packet, n)));
+                // 0x9702는 이름 뒤에 직업(job u32 LE 하위바이트 @ nameEnd)·전투력(0x04 마커 뒤 u32 LE)도 싣는다 —
+                // 전투 전 파티 프리뷰의 직업 아이콘·전투력 채움용(0x3645는 근접 멤버만 와 로스터 전원 못 채움).
+                // power는 고정 오프셋이 아니라 "뒤 u32가 [1,1000만]인 0x04 마커"를 좁은 창에서 스캔(레코드별 여분
+                // 1바이트 때문에 +17 고정은 일부 power를 오독).
+                int nameEnd = n + 3 + len;
+                int jobCode = nameEnd < packet.Length ? packet[nameEnd] : 0;
+                int power = 0;
+                int scanEnd = nameEnd + 24;
+                if (scanEnd > packet.Length - 5)
+                {
+                    scanEnd = packet.Length - 5;
+                }
+
+                for (int k = nameEnd + 4; k <= scanEnd; k++)
+                {
+                    if (packet[k] == 0x04)
+                    {
+                        long pw = PacketPrimitives.ReadUInt32LeAsLong(packet, k + 1);
+                        if (pw >= 1 && pw <= 10_000_000)
+                        {
+                            power = (int)pw;
+                            break;
+                        }
+                    }
+                }
+
+                int slot = MemberSlot(packet, n);
+                members.Add((name, server, slot));
+                jobPower.Add((name, server, jobCode, power));
             }
 
             n += 2 + len; // skip past this record (the loop's n++ steps over the final byte)
@@ -780,6 +838,7 @@ public sealed class StreamProcessor
         }
 
         _data.SavePartyRoster(members);
+        _data.SavePartyRosterJobPower(jobPower);
 
         var sb = new StringBuilder();
         foreach ((string nick, int srv, int slot) in members)
@@ -876,6 +935,9 @@ public sealed class StreamProcessor
 
             int uid = PacketPrimitives.ParseUInt32Le(packet, n - 51);
             _data.TryBindExecutorByIdentity(uid, name, server);
+            // 같은 레코드가 실어 온 (uid, 이름, 서버)를 표시-계층 보조 로스터에도 넣는다 — 0x9702 유실 시
+            // 로스터 폴백 + 무명 파티원 전투행의 uid 직접 명명(구조검증을 통과한 레코드만 여기 도달한다).
+            _data.SaveMemberProfile(uid, name, server);
             found++;
             if (sb.Length > 0)
             {
@@ -1137,7 +1199,10 @@ public sealed class StreamProcessor
         offset += 2;
 
         VarIntOutput summonInfo = PacketPrimitives.ReadVarInt(packet, offset);
-        if (summonInfo.Length < 0) return;
+        if (summonInfo.Length < 0)
+        {
+            return;
+        }
 
         int codeMarkerIdx = FindArrayIndex(packet, 0x00, 0x40, 0x02);
         if (codeMarkerIdx == -1)
@@ -1157,7 +1222,15 @@ public sealed class StreamProcessor
                 ("mobCode", mobCode),
                 ("mobName", mob?.Name),
                 ("boss", mob?.Boss ?? false));
+            // [combat-diag] per-iid census: codeMarker found → boss (registered), trash (registered non-boss),
+            // or unmapped (code decoded but maps to no Mob = garbage code / entity-id reuse candidate).
             // if (mob?.Boss == true) addon.parsingMobSpawnAddon(...) — deferred
+        }
+        else
+        {
+            // [combat-diag] 0x3641 arrived but neither code marker (00 40 02 / 00 00 02) was found, so the sole
+            // mobCode registration is skipped even though we received the packet — a first boss that hits this
+            // becomes unrecognizable downstream (parse-miss drop path).
         }
 
         int keyIdx = FindArrayIndex(packet, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
@@ -1235,7 +1308,7 @@ public sealed class StreamProcessor
             if (offset >= packet.Length) return;
             int n = packet[offset++];
             if (offset + (n * 5) > packet.Length) return;
-            offset += n * 5; // u32 자원 스탯 — 이 경로에는 statId 0/7이 실리지 않는다
+            offset += n * 5; // u32 자원 스탯 — HP가 아니라 이 경로에는 statId 0/7이 실리지 않는다
         }
 
         if ((maskInfo.Value & 2) != 0)
@@ -1257,7 +1330,23 @@ public sealed class StreamProcessor
         if (offset != packet.Length) return;
 
         int? mobCode = _data.GetMobId(mobIdInfo.Value);
-        if (mobCode is null) return;
+        if (mobCode is null)
+        {
+            // 스폰(0x3641)이 통째로 유실돼 mobCode 미등록인데, 이 엔티티가 보스급 HP를 실어 왔다면(그리고 교전
+            // 토글을 쏜 적이 있다면) '미상 보스'로 소급 승격한다 — "3번째 네임드가 집계 안 됨"의 완전유실 갈래.
+            // 게이트(HP 임계·교전 토글·기믹 배제)는 데이터 계층이 판정한다. HP 신호는 현재 HP 우선, 없으면 최대.
+            long hpSignal = currentHp is { } c && IsSaneHp(c) ? c : maxHp is { } mx2 && IsSaneHp(mx2) ? mx2 : 0;
+            if (hpSignal >= 20_000_000L)
+            {
+            }
+
+            if (hpSignal > 0)
+            {
+                _data.TryPromoteUnregisteredBoss(mobIdInfo.Value, hpSignal);
+            }
+
+            return; // [combat-diag slim] hp_no_mobcode dropped as noise (0x8D00 fires for trash too)
+        }
         Mob? mob = _data.GetMob(mobCode.Value);
         if (mob is null) return;
         if (!mob.Boss) return;
@@ -1278,6 +1367,17 @@ public sealed class StreamProcessor
             ("mobName", mob.Name),
             ("hp", mobHp));
     }
+
+    // 실측 상한은 18.4억(바크론 계열)이다. 그보다 훨씬 큰 값은 프레임이 우리 해석과 다르다는 뜻이므로 버린다
+    // — 진짜 게임 프레임 중에도 3.0e18짜리가 1건 있었고, 프레임을 정확히 소진해서 길이 검사로는 못 걸러진다.
+    private const long MaxPlausibleHp = 100_000_000_000L;
+
+    private static bool IsSaneHp(long hp) => hp >= 0 && hp <= MaxPlausibleHp;
+
+    // HP는 아직 데이터 계층 전체가 int다. 실측 최대 18.4억으로 int.MaxValue(21.5억) 대비 여유가 1.17배뿐이라
+    // 상위 던전이 추가되면 넘칠 수 있는데, 그때 음수로 뒤집히는 것보다 상한에 붙는 편이 안전하다.
+    // (자료형을 long으로 넓히는 건 통계 웹 페이로드 스키마까지 번지므로 별도 과제.)
+    private static int Saturate(long hp) => hp > int.MaxValue ? int.MaxValue : (int)hp;
 
     /// <summary>엔티티 사망 0x8D04 — 죽은 엔티티 id varint 하나가 전부다. 몹·파티원에게도 오므로 "본인인가"
     /// 판정은 executor를 아는 데이터 계층에 맡긴다. 본인 사망 시 버프 오버레이를 비우는 데 쓴다(사망 후
@@ -1301,17 +1401,6 @@ public sealed class StreamProcessor
         _data.SaveEntityDeath(entityInfo.Value, arrivedAt);
         _sink.Meta("death", ("entity", entityInfo.Value));
     }
-
-    // 실측 상한은 18.4억(바크론 계열)이다. 그보다 훨씬 큰 값은 프레임이 우리 해석과 다르다는 뜻이라 버린다
-    // — 진짜 게임 프레임 중에도 3.0e18짜리가 1건 있었고, 프레임을 정확히 소진해 길이 검사로는 못 걸러진다.
-    private const long MaxPlausibleHp = 100_000_000_000L;
-
-    private static bool IsSaneHp(long hp) => hp >= 0 && hp <= MaxPlausibleHp;
-
-    // HP는 아직 데이터 계층 전체가 int다. 실측 최대 18.4억으로 int.MaxValue(21.5억) 대비 여유가 1.17배뿐이라
-    // 상위 던전이 추가되면 넘칠 수 있는데, 그때 음수로 뒤집히는 것보다 상한에 붙는 편이 안전하다.
-    // (자료형을 long으로 넓히는 건 통계 웹 페이로드 스키마까지 번지므로 별도 과제.)
-    private static int Saturate(long hp) => hp > int.MaxValue ? int.MaxValue : (int)hp;
 
     /// <summary>Battle start/end toggle 0x8D21. Kotlin parseBattlePacket (878-924).</summary>
     private void ParseBattlePacket(byte[] packet, VarIntOutput lengthInfo, bool extraFlag)
@@ -1337,6 +1426,8 @@ public sealed class StreamProcessor
         int? mobCode = _data.GetMobId(battleInfo.Value);
         if (mobCode is null)
         {
+            // [combat-diag] battle toggle (0x8D21) for an entity whose mobCode never registered → StartBattle
+            // never fires. THE first-boss-miss smoking gun; EngageMiss self-labels the drop path (parse/loss/nospawn).
             if (toggleInfo.Value == 1)
             {
                 // 스폰이 늦게 도착하면 되살릴 수 있도록 기억해 둔다(플레이어 엔티티도 이 토글을 쏘지만,
@@ -1397,10 +1488,11 @@ public sealed class StreamProcessor
             offset += targetInfo.Length;
 
             // 두 opcode의 헤더 길이가 다르다 — 0x382A는 [01][kind] 2바이트, 0x382B는 [kind] 1바이트가
-            // slot varint 앞에 붙는다. 종전에는 둘 다 2를 건너뛰어 0x382B에서 한 바이트씩 밀렸다. slot이
-            // 2바이트 varint인 프레임은 우연히 자리가 맞아 드러나지 않았고 1바이트인 프레임만 깨졌다.
-            // 실측(20260719-022140 원본 바이트): 0x382A는 수정 전후가 완전히 동일하고, 0x382B만 유효 코드가
-            // 4,040 → 4,791로 늘며 실재하지 않는 유령 코드 157289171(로그 934건, 참조 데이터 0건)이 사라진다.
+            // slot varint 앞에 붙는다. 종전에는 둘 다 2를 건너뛰어 0x382B에서 한 바이트씩 밀렸다.
+            // slot이 2바이트 varint인 프레임은 우연히 자리가 맞아 지금까지 드러나지 않았고, 1바이트인
+            // 프레임만 깨졌다. 실측(20260719-022140 원본 바이트): 0x382A는 수정 전후 결과가 완전히 동일하고,
+            // 0x382B만 유효 코드가 4,040 → 4,791로 늘며 실재하지 않는 유령 코드 157289171(로그에 934건,
+            // 참조 데이터엔 0건)이 98 → 0건으로 사라진다.
             offset += refresh ? 1 : 2;
 
             VarIntOutput slotInfo = PacketPrimitives.ReadVarInt(packet, offset);
@@ -1489,7 +1581,7 @@ public sealed class StreamProcessor
     ///   n × ( [varint kind][varint slot][varint reason] + (kind != 0 ? [varint x][8 raw bytes] : 없음) )
     /// </code>
     /// <para>slot은 적용 패킷이 싣는 슬롯 번호와 같은 값이라, 같은 버프 코드가 겹쳐 걸려 있어도 어느
-    /// 인스턴스를 닫는 신호인지 모호하지 않다. kind != 0 인 롱폼(스택 일괄 소거 등)도 건너뛰지 않고 함께
+    /// 인스턴스를 닫는 신호인지 모호하지 않다. kind != 0 인 롱폼(스택 일괄 소거 등)을 건너뛰지 않고 함께
     /// 읽어야 조기 해제의 최대 사유를 놓치지 않는다.</para></summary>
     private void ParseBuffRemove(byte[] packet, VarIntOutput lengthInfo, bool extraFlag)
     {

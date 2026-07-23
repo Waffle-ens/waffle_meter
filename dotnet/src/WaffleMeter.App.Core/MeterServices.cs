@@ -278,7 +278,6 @@ public sealed class MeterServices
         {
             Data.LoadContentTypes(ReferenceJson.LoadContentTypes(contentTypes));
         }
-
         foreach (string buffFile in new[] { "buff.json", "buff_custom.json" })
         {
             string path = Path.Combine(jsonDir, buffFile);
@@ -347,6 +346,9 @@ public sealed class MeterServices
                     created.EmittedPackets++;
                     if (isGame)
                     {
+                        if (created.GameSignal == 0)
+                        {
+                        }
                         created.GameSignal++; // content signal: this connection carries the game stream — protect it
                         _lastGameStreamKey = streamKey; // for the ping matcher (independent of the dedupe toggle)
                     }
@@ -382,7 +384,12 @@ public sealed class MeterServices
 
                 if (created is { SuppressedDuplicate: true })
                 {
-                    return; // duplicate capture of the game stream — already counted on the primary
+                    // Damage/buff stay suppressed (single-stream lock → no VPN double-count), but the SECOND
+                    // game connection frequently carries the party roster / member profiles / identity — which
+                    // are idempotent — so replay ONLY those. Fixes a 10-인 공대 whose roster packets rode the
+                    // suppressed connection and never reached the parser (empty/partial pre-combat roster).
+                    _processor.OnPacketReceived(packet, at, identityOnly: true);
+                    return;
                 }
 
                 if (RecordReplay)

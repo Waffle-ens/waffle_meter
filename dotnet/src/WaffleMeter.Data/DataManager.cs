@@ -63,6 +63,18 @@ public sealed class DataManager : ICaptureGameData
     // 안 열렸다. SaveMobId가 도착하면 여기서 되살린다. 플레이어 엔티티도 이 토글을 쏘지만 플레이어에겐
     // SaveMobId가 오지 않으므로 자연히 만료된다. 무한 증식 방지용으로 개수를 제한한다.
     private readonly Dictionary<int, long> _unresolvedStarts = new();
+    // Feature 2 (염화의 수호검 한정): 무스펠 성배는 파티가 5/5로 나뉘어 근처 두 '염화의 수호검'을 동시에 잡는다.
+    // 단일 _currentTarget은 먼저 교전된 쪽에 primary-lock으로 고정돼, 본인이 반대쪽을 때리면 남의 전투가 보인다.
+    // 본인(executor)이 지속적으로 딜을 넣는 수호검으로 _currentTarget이 따라가게 한다. **현재·신규가 둘 다 이
+    // 이름일 때만** 켜져, 그 외 인카운터는 지금 그대로(primary-lock) 동작한다.
+    private const string SplitBossName = "염화의 수호검";
+    private readonly Dictionary<int, (long FirstMs, long LastMs, int Hits)> _selfDamageStreak = new();
+    private readonly Dictionary<int, long> _bossEngageAtMs = new(); // instanceId -> 최근 0x8D21 start-toggle 시각(전환 back-date용)
+    private const long SelfStreakGapMs = 2_000L;    // 이 간격 넘으면 스트릭 리셋(스치는 AoE 누적 방지)
+    private const long SelfSwitchDwellMs = 1_500L;  // 전환 전 지속 자기딜 요건
+    private const int SelfSwitchMinHits = 3;
+    private const long CurrentSelfQuietMs = 3_000L; // 현재 표시 타깃을 본인이 아직 때리면 절대 안 뺏김
+    private const int SelfStreakCap = 64;
     private const int UnresolvedStartsCap = 64;
 
     private long _lastDummyHitTime;
@@ -78,7 +90,18 @@ public sealed class DataManager : ICaptureGameData
     // Latest full party/raid roster snapshot (0x9702 packet): each member's (nickname, server) + when it
     // arrived. Matched to known uids on demand for the pre-combat party preview (see PartyRoster).
     private readonly List<(string Nickname, int Server, int Slot)> _partyRoster = new();
+    // 0x9702가 실어 온 (닉네임,서버)→(직업코드,전투력). 전투 전 프리뷰 행의 직업/전투력 채움용. 병합-갱신만 하고
+    // (제거 없음) 신선도는 _partyRosterAtMs가 게이트한다(떠난 멤버의 잔여 엔트리는 _partyRoster에 없어 무해).
+    private readonly Dictionary<(string Nickname, int Server), (int JobCode, int Power)> _partyRosterJobPower = new();
     private long _partyRosterAtMs;
+
+    // 0x9200 멤버 프로필이 실어 온 (엔티티 uid -> 닉네임 + 서버 + 도착시각). 0x9702 로스터엔 uid가 없고,
+    // 타인 닉(0x3645)이 유실되면 그 파티원의 전투행이 무명으로 통째 숨는다. 0x9200은 uid를 직접 실어 오므로
+    // 그 무명 행을 uid로 곧장 명명할 수 있고(구조검증이 엄격해 오탐 거의 0), 0x9702가 입장 버스트에서 통째로
+    // 유실돼도 로스터를 확보하는 이중 소스가 된다. 신원 저장소(_userRepository)에는 절대 쓰지 않는다 — uid
+    // 재사용으로 매핑이 틀리면 남의 이름이 저장소에 박히므로, 표시 계층 명명에만 쓰고 TTL로 낡은 매핑을 버린다.
+    private readonly Dictionary<int, (string Nickname, int Server, long At)> _memberProfiles = new();
+    private const int MemberProfileCap = 32;
 
     /// <summary>Injectable clock (default wall clock; app behavior unchanged). Mirrors the Kotlin seam.</summary>
     public Func<long> Clock { get; set; } = () => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -413,6 +436,54 @@ public sealed class DataManager : ICaptureGameData
         }
 
         _unresolvedStarts[mobId] = now;
+    }
+
+    // 스폰(0x3641)이 통째로 유실돼 mobCode가 등록되지 않은 던전 보스를 되살릴 때 쓰는 합성 코드. 실제 몹 코드
+    // 대역(2.3M~2.9M) 밖의 8자리 값이라 어떤 카탈로그와도 충돌하지 않고, 추정 신원이므로 통계 업로드에서
+    // 제외된다(StatsUploadQueue). 표시 이름은 '미상 보스'.
+    public const int UnknownBossMobCode = 29_999_999;
+    private const string UnknownBossName = "미상 보스";
+    // 던전 보스로 볼 HP 임계 — 던전 대역 잡몹 최대 관측치(12.69M)의 1.58배. 플레이어(HP 수만~수십만)와 잡몹을
+    // 배제하고 오탐 0(07-01 이후 6세션 실측). 최대HP 티어를 복제하는 292xxxx 기믹은 아래 교전-토글 게이트로
+    // 걸러진다(기믹·주변 엔티티는 0x8D21 교전 토글을 쏘지 않는다).
+    private const long UnknownBossHpThreshold = 20_000_000L;
+
+    /// <summary>스폰 유실로 미등록인 던전 보스를 HP 휴리스틱으로 되살린다(사용자 선택: 안전 게이트 강제집계).
+    /// <para>게이트 — ① HP(현재 또는 최대)가 던전 보스 임계 이상 ② 아직 mobCode 미등록 ③ 진행 중인 전투 없음
+    /// ④ 이 엔티티가 교전 토글(0x8D21 toggle=1)을 쏜 적이 있다(=<see cref="_unresolvedStarts"/>에 있다). ④가
+    /// 핵심 안전선이다 — 플레이어는 ①에서, 상시-스폰 잡몹은 ①에서, 기믹 오브젝트는 ④에서 걸러진다.</para>
+    /// <para>통과하면 합성 '미상 보스'를 등록하고 <see cref="SaveMobId"/>가 <see cref="PromoteUnresolvedStart"/>를
+    /// 태워 <b>원래 토글 시각</b>으로 back-date StartBattle 한다(지금 열면 그 사이 딜이 ActivePacketCutoff에
+    /// 걸려 유실되고, 늦은 시작이 창을 잘라먹는 191M 오염과 같은 계열이 된다).</para></summary>
+    public void TryPromoteUnregisteredBoss(int entityId, long hp)
+    {
+        if (entityId <= 0 || hp < UnknownBossHpThreshold)
+        {
+            return;
+        }
+
+        if (GetMobId(entityId) is not null)
+        {
+            return;
+        }
+
+        if (CurrentTarget() > 0)
+        {
+            return;
+        }
+
+        if (!_unresolvedStarts.ContainsKey(entityId))
+        {
+            return;
+        }
+
+        if (!_mobs.ContainsKey(UnknownBossMobCode))
+        {
+            _mobs[UnknownBossMobCode] = new Mob(UnknownBossMobCode, UnknownBossName, true, false);
+        }
+
+        SaveMobId(entityId, UnknownBossMobCode); // PromoteUnresolvedStart가 back-date StartBattle을 발화
+        SaveMobMaxHp(entityId, (int)Math.Min(hp, int.MaxValue));
     }
 
     public bool SkillExists(long code) => _skillRepository.Exist(code);
@@ -760,6 +831,67 @@ public sealed class DataManager : ICaptureGameData
         return _partyRoster.ToList(); // defensive copy — the caller hands this to the UI thread
     }
 
+    /// <summary>0x9702 로스터가 실어 온 (닉네임, 서버, 직업코드, 전투력) — 전투 전 파티 프리뷰 행의 직업 아이콘·
+    /// 전투력을 채우는 display-only 소스(uid 해석/드롭 없음). 스냅샷이 <paramref name="withinMs"/>보다 오래됐으면 빔.</summary>
+    public IReadOnlyList<(string Nickname, int Server, int JobCode, int Power)> PartyRosterJobPower(long withinMs)
+    {
+        if (_partyRoster.Count == 0 || Clock() - _partyRosterAtMs > withinMs)
+        {
+            return Array.Empty<(string, int, int, int)>();
+        }
+
+        return _partyRosterJobPower
+            .Select(kv => (kv.Key.Nickname, kv.Key.Server, kv.Value.JobCode, kv.Value.Power))
+            .ToList();
+    }
+
+    /// <summary>0x9702 직업/전투력 스냅샷을 병합 저장(<see cref="StreamProcessor"/> ParsePartyRoster가 SavePartyRoster
+    /// 직후 호출). (닉네임,서버)별 최신값으로 갱신만 한다 — 신선도 게이트는 <see cref="PartyRosterJobPower"/>가
+    /// <see cref="_partyRosterAtMs"/>로 건다.</summary>
+    public void SavePartyRosterJobPower(IReadOnlyList<(string Nickname, int Server, int JobCode, int Power)> members)
+    {
+        foreach ((string nick, int server, int jobCode, int power) in members)
+        {
+            _partyRosterJobPower[(nick, server)] = (jobCode, power);
+        }
+    }
+
+    /// <summary>0x9200 멤버 프로필 한 건 저장(엔티티 uid ↔ 닉네임 + 서버). <see cref="StreamProcessor"/>의
+    /// ParseMemberProfile이 구조검증(GUID + 양쪽 서버 일치)을 통과한 멤버마다 호출한다. 표시-계층 보조 소스라
+    /// 신원 저장소는 건드리지 않는다.</summary>
+    public void SaveMemberProfile(int uid, string nickname, int server)
+    {
+        if (uid <= 0 || string.IsNullOrWhiteSpace(nickname) || server <= 0)
+        {
+            return;
+        }
+
+        lock (_memberProfiles)
+        {
+            _memberProfiles[uid] = (nickname, server, Clock());
+            if (_memberProfiles.Count > MemberProfileCap)
+            {
+                // 가장 오래된 매핑부터 버린다(재사용 uid의 낡은 이름이 오래 남지 않도록).
+                int oldest = _memberProfiles.OrderBy(kv => kv.Value.At).First().Key;
+                _memberProfiles.Remove(oldest);
+            }
+        }
+    }
+
+    /// <summary>최근 <paramref name="withinMs"/> 안에 0x9200이 실어 온 파티/공대 멤버 (uid, 닉네임, 서버).
+    /// 무명 전투행을 uid로 직접 명명하는 표시-계층 보조 소스이자, 0x9702가 유실됐을 때의 로스터 폴백.</summary>
+    public IReadOnlyList<(int Uid, string Nickname, int Server)> MemberProfileRoster(long withinMs)
+    {
+        long now = Clock();
+        lock (_memberProfiles)
+        {
+            return _memberProfiles
+                .Where(kv => now - kv.Value.At <= withinMs)
+                .Select(kv => (kv.Key, kv.Value.Nickname, kv.Value.Server))
+                .ToList();
+        }
+    }
+
     public void SaveUserPower(int uid, int power)
     {
         if (power <= 0) return;
@@ -819,6 +951,13 @@ public sealed class DataManager : ICaptureGameData
             if (_pendingExecutorAnchor?.Uid == uid)
             {
                 _pendingExecutorAnchor = null;
+            }
+
+            // ...그리고 그 uid로 스테이징해 둔 본인 후보 버프도 무효다 — 새 점유자의 버프가 본인 것으로
+            // 재생되면 안 된다.
+            lock (_ownerBuffGate)
+            {
+                _pendingSelfBuffs.Remove(uid);
             }
         }
 
@@ -1040,6 +1179,11 @@ public sealed class DataManager : ICaptureGameData
                 ClearOwnerBuffs();   // the previous character's buffs, likewise
                 ExecutorIdentityChanged?.Invoke();
             }
+
+            // Now that this uid is the confirmed executor, replay any self-buffs that were staged while it went
+            // unrecognized (owner==0 / stale on a late 0x3633). MUST run after the identityChanged ClearOwnerBuffs
+            // above — replaying before it would wipe the freshly-restored buffs on a character switch.
+            ReplayStagedSelfBuffs(uid);
         }
     }
 
@@ -1189,36 +1333,70 @@ public sealed class DataManager : ICaptureGameData
             }
         }
 
-        if (owner != 0 && uid == owner && IsJobBuffCode(skillCode) && !IsBuffBlacklisted(skillCode))
+        if (!IsJobBuffCode(skillCode) || IsBuffBlacklisted(skillCode))
+        {
+            return; // item/consumable/blacklisted — never on the job-buff overlay
+        }
+
+        // Store unless fully Off (hidden AND not voice). A "음성만" buff (hidden + voice) is still stored so the
+        // announce path can speak it; the overlay drops it downstream via OwnerBuffView.Overlay.
+        bool storable = !IsBuffHidden(skillCode) || IsBuffVoice(skillCode);
+
+        if (owner != 0 && uid == owner)
         {
             RecordObservedBuff(skillCode); // populate the per-job picker catalog
-
-            // Store unless fully Off (hidden AND not voice). A "음성만" buff (hidden + voice) is still stored so
-            // the announce path can speak it; the overlay drops it downstream via OwnerBuffView.Overlay.
-            if (!IsBuffHidden(skillCode) || IsBuffVoice(skillCode))
+            if (storable)
             {
-                int baseCode = BuffDisplayBase(skillCode);
-                bool indefinite = baseCode == IndefiniteStanceBaseCode; // 폭주: synthetic-TTL maintained stance
-                // Keep the maintained stance on screen well past its short synthetic duration so a held
-                // re-broadcast gap doesn't false-expire it; a real "off" then clears within the keep-alive.
-                long overlayEnd = indefinite ? buffStart + IndefiniteStanceOverlayKeepAliveMs : buffEnd;
+                (int baseCode, var entry) = ComputeOwnerBuffEntry(skillCode, buffStart, buffEnd, duration, actorId, level, slot);
                 lock (_ownerBuffGate)
                 {
                     // Key by BASE code so the SAME buff re-cast by a different player/rank refreshes the one slot
                     // in place (no duplicate icon, no duplicate start alert) — the later cast takes over.
-                    _ownerBuffs[baseCode] = (overlayEnd, actorId, duration, indefinite, level, slot);
+                    _ownerBuffs[baseCode] = entry;
                 }
 
                 LiveBuffsChanged?.Invoke();
             }
+
+            return;
         }
-        else if (IsJobBuffCode(skillCode) && !IsBuffBlacklisted(skillCode) && IsPartyMember(uid))
+
+        if (IsPartyMember(uid))
         {
             // A party member's job buff — not shown on the (self-only) overlay, but catalogued so the picker
             // lists other jobs' buffs too (self + party coverage).
             RecordObservedBuff(skillCode);
         }
+
+        // The executor may not be recognized yet: the own-load 0x3633 is a single, easily-lost packet that on a
+        // reconnect / character switch arrives tens of seconds late (owner==0 or stale meanwhile — measured +246 s
+        // on one corpus). Any self job-buff in that window fails the uid==owner gate above and is dropped, so the
+        // overlay stays blank for the first fight (the reported "버프 오버레이가 첫 전투엔 안 뜨다가 설정 다녀오면
+        // 뜬다" — it is elapsed-time DATA recovery, not visibility). Stage this buff as a SELF CANDIDATE keyed by
+        // its entity uid; when SaveExecutorId later CONFIRMS that uid is the executor (via 0x3633 or the identity
+        // anchor), its still-live staged buffs are replayed onto the overlay. Only the confirmed-executor uid ever
+        // commits — a party member / mob uid never becomes executor and is TTL-pruned — so no mis-attribution.
+        if (storable && CouldBeSelfEntity(uid))
+        {
+            StageSelfBuffCandidate(uid, skillCode, buffStart, buffEnd, duration, actorId, level, slot);
+        }
     }
+
+    private (int BaseCode, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot) Entry) ComputeOwnerBuffEntry(
+        int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level, int slot)
+    {
+        int baseCode = BuffDisplayBase(skillCode);
+        bool indefinite = baseCode == IndefiniteStanceBaseCode; // 폭주: synthetic-TTL maintained stance
+        // Keep the maintained stance on screen well past its short synthetic duration so a held re-broadcast gap
+        // doesn't false-expire it; a real "off" then clears within the keep-alive.
+        long overlayEnd = indefinite ? buffStart + IndefiniteStanceOverlayKeepAliveMs : buffEnd;
+        return (baseCode, (overlayEnd, actorId, duration, indefinite, level, slot));
+    }
+
+    // A uid that could plausibly be the local player before its own-load packet is recognized: inside the entity
+    // id space, not a known mob, not a summon. Bounds the staging set to player-ish entities (~party size).
+    private bool CouldBeSelfEntity(int uid) =>
+        uid is > 0 and <= MaxEntityUid && !IsMobInstance(uid) && SummonerId(uid) is null;
 
     /// <summary>버프 제거 브로드캐스트(0x382C) 반영. 본인 것만, 그리고 <b>슬롯이 일치하는 항목만</b> 지운다.
     /// <para>지금까지는 제거 신호가 없다고 보고 duration이 다 흐를 때까지 슬롯을 남겨 뒀는데, 실측상 서버가
@@ -1424,6 +1602,13 @@ public sealed class DataManager : ICaptureGameData
     // Keyed by BASE skill code (level-independent) so a re-cast of the same buff refreshes one entry.
     private readonly Dictionary<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)> _ownerBuffs = new(); // baseCode -> (expiry, applier, duration, indefinite, abnormal level)
 
+    // Self job-buffs seen for an entity uid BEFORE the executor was confirmed (owner==0 / stale), keyed by uid
+    // then base code (last-write-wins). Replayed onto _ownerBuffs the instant SaveExecutorId confirms that uid is
+    // the executor — so a late/lost own-load 0x3633 no longer blacks the overlay out for the first fight. Guarded
+    // by _ownerBuffGate (same as _ownerBuffs). Bounded by a uid cap + pruned of fully-expired buffers.
+    private readonly Dictionary<int, Dictionary<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)>> _pendingSelfBuffs = new();
+    private const int PendingSelfBuffUidCap = 24;
+
     // 폭주 (권성): the only maintained-stance buff broadcast with no expiry (duration 0xFFFFFFFF). The parser
     // gives every apply a short synthetic duration (StreamProcessor.IndefiniteStanceFallbackMs) and its whole
     // runtime band 191300000..191399999 collapses to this base. On the LIVE overlay we keep the slot alive far
@@ -1609,6 +1794,66 @@ public sealed class DataManager : ICaptureGameData
         }
     }
 
+    // Stage a self-buff candidate for a not-yet-confirmed executor uid (see SaveUseBuff). Last-write-wins per base
+    // code; bounded by a uid cap (prune fully-expired buffers first, then refuse to grow — the self simply re-casts).
+    private void StageSelfBuffCandidate(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level, int slot)
+    {
+        (int baseCode, var entry) = ComputeOwnerBuffEntry(skillCode, buffStart, buffEnd, duration, actorId, level, slot);
+        lock (_ownerBuffGate)
+        {
+            if (!_pendingSelfBuffs.TryGetValue(uid, out var buffer))
+            {
+                if (_pendingSelfBuffs.Count >= PendingSelfBuffUidCap)
+                {
+                    long now = Clock();
+                    foreach (int stale in _pendingSelfBuffs
+                                 .Where(kv => kv.Value.Values.All(e => e.End <= now))
+                                 .Select(kv => kv.Key).ToList())
+                    {
+                        _pendingSelfBuffs.Remove(stale);
+                    }
+
+                    if (_pendingSelfBuffs.Count >= PendingSelfBuffUidCap)
+                    {
+                        return;
+                    }
+                }
+
+                _pendingSelfBuffs[uid] = buffer = new Dictionary<int, (long, int, long, bool, int, int)>();
+            }
+
+            buffer[baseCode] = entry;
+        }
+    }
+
+    // Replay a newly-confirmed executor's staged self-buffs (still live at the injected clock) onto the overlay
+    // store. Called from SaveExecutorId AFTER the executor pointer is set and after any identity-change clear, so
+    // a character switch clears the previous character first and only THEN replays the new one's buffs.
+    private void ReplayStagedSelfBuffs(int uid)
+    {
+        bool changed = false;
+        lock (_ownerBuffGate)
+        {
+            if (_pendingSelfBuffs.Remove(uid, out var buffer))
+            {
+                long now = Clock();
+                foreach (var kv in buffer)
+                {
+                    if (kv.Value.End > now)
+                    {
+                        _ownerBuffs[kv.Key] = kv.Value;
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        if (changed)
+        {
+            LiveBuffsChanged?.Invoke();
+        }
+    }
+
     public void SaveMobHp(int instanceId, int hp) => MobHp(instanceId, hp);
 
     public List<UseBuff> BattleBuff(int uid, long start, long end) => _useBuffRepository.FindOverlapping(uid, start, end);
@@ -1647,6 +1892,7 @@ public sealed class DataManager : ICaptureGameData
         }
 
         _packetRepository.Save(pdp);
+        MaybeFollowSelfTarget(pdp); // Feature 2 (염화의 수호검): 본인이 때리는 수호검으로 표시 전환
     }
 
     // ---- battle state machine ----
@@ -1746,6 +1992,7 @@ public sealed class DataManager : ICaptureGameData
     {
         int? mobCode = GetMobId(mobId);
         long now = Clock();
+        _bossEngageAtMs[mobId] = now; // Feature 2: 나중 자기딜 전환이 창을 back-date하도록 교전 시각 기록(primary-lock에 막혀도)
         EndedBattle? endedBattle = _recentlyEndedBattles.TryGetValue(mobId, out EndedBattle eb) ? eb : null;
         if (CurrentTarget() <= 0
             && endedBattle != null
@@ -1769,6 +2016,23 @@ public sealed class DataManager : ICaptureGameData
             return;
         }
 
+        // 살아있는 보스 전투 보호(primary-lock, 2026-07-23): 이미 다른 타깃으로 전투가 열려 있고(시작됐고 아직
+        // 안 끝남) 그 타깃이 아직 살아 있으면(remain HP>0), 다른 엔티티의 start-토글로 현 전투를 덮어쓰지 않는다.
+        // 바크론패턴강화의 boss=true 가시덩굴/가시속박 기믹이 0x8D21 start를 쏴 살아있는 바크론 전투를 가로채
+        // (stomp) 미터가 통째로 비던 버그의 근본 차단(실측: 두 바퀴 모두 교전 ~14초 뒤 가시속박 2921427이 stomp).
+        // 현 보스가 죽으면(HP 0 → EndBattle이 CurrentTarget=-1) 이 가드가 풀려 다음 보스가 정상 개시된다. HP
+        // 미보고(null)/0은 보호하지 않는다 — 갓-시작 순간의 미세 창엔 실측상 기믹이 오지 않고, null 보호는 종료
+        // 토글 유실 시 다음 보스를 얼릴 수 있어서다. 이 stomp는 잘린 전투 저장·업로드(191M 오염)도 유발하므로,
+        // 막는 편이 오염 위험을 오히려 낮춘다.
+        if (CurrentTarget() > 0
+            && mobId != CurrentTarget()
+            && CurrentBattleStart() > 0L
+            && CurrentBattleEnd() == 0L
+            && (MobHp(CurrentTarget()) ?? 0) > 0)
+        {
+            return;
+        }
+
         _pendingStart = null;
         _unresolvedStarts.Remove(mobId);
         _recentlyEndedBattles.Remove(mobId);
@@ -1776,6 +2040,89 @@ public sealed class DataManager : ICaptureGameData
         _packetRepository.SaveCurrentBattleStart(startAt);
         SaveCurrentTarget(mobId);
         _activeBattleMobCode = mobCode;
+    }
+
+    /// <summary>Feature 2 — 무스펠 성배 '염화의 수호검' 5/5 분할에서, 본인(executor)이 실제로 딜을 넣는 수호검으로
+    /// _currentTarget을 따라가게 한다. **염화의 수호검 한정**: 현재·신규 타깃이 둘 다 이 이름일 때만 전환하고, 그 외
+    /// 인카운터는 primary-lock 그대로다. SaveDamage(소비자 스레드)에서 호출 — StartBattle/EndBattle과 같은 스레드라
+    /// _currentTarget 변경에 새 경합이 없다. 데미지는 타깃별로 이미 버킷팅돼 있어(Repositories), 포인터/창만 옮긴다.</summary>
+    private void MaybeFollowSelfTarget(ParsedDamagePacket pdp)
+    {
+        int exec = ExecutorId();
+        if (exec == 0 || pdp.ActorId != exec || pdp.TargetId <= 0)
+        {
+            return; // 본인 '직접' 타격만 신호로 인정
+        }
+
+        int current = CurrentTarget();
+        if (current <= 0)
+        {
+            return; // 열린 전투 없음 — 개시는 StartBattle 소관(여기서 열지 않는다)
+        }
+
+        // 스코프 게이트: 지금 보여주는 타깃이 '염화의 수호검'일 때만 이 특수 전환을 켠다(그 외 인카운터는 그대로).
+        if (_activeBattleMobCode is not { } curCode || GetMob(curCode) is not { Name: SplitBossName })
+        {
+            return;
+        }
+
+        int target = pdp.TargetId;
+        long now = pdp.Timestamp; // CurrentBattleStart / ActivePacketCutoff와 같은 시계
+
+        // 본인이 때리는 타깃(현재 포함)의 지속-자기딜 스트릭 갱신 — 아래 "현재에 조용한가" 판정이 현재 LastMs를 읽는다.
+        if (!_selfDamageStreak.TryGetValue(target, out (long FirstMs, long LastMs, int Hits) s) || now - s.LastMs > SelfStreakGapMs)
+        {
+            s = (now, now, 0);
+        }
+
+        s = (s.FirstMs, now, s.Hits + 1);
+        _selfDamageStreak[target] = s;
+        if (_selfDamageStreak.Count > SelfStreakCap)
+        {
+            foreach (int stale in _selfDamageStreak.Where(kv => now - kv.Value.LastMs > 5 * 60_000L).Select(kv => kv.Key).ToList())
+            {
+                _selfDamageStreak.Remove(stale);
+            }
+        }
+
+        if (target == current)
+        {
+            return; // 이미 보여주는 타깃
+        }
+
+        // 신규 타깃도 살아있는 '염화의 수호검'이어야 한다(기믹/잡몹/시체 배제).
+        if (GetMobId(target) is not { } newCode || GetMob(newCode) is not { Name: SplitBossName } || (MobHp(target) ?? 1) <= 0)
+        {
+            return;
+        }
+
+        // 지속 자기딜(단발 스치기 아님) + 현재 타깃엔 본인이 조용해야(현재를 계속 때리면 절대 안 뺏김).
+        if (s.Hits < SelfSwitchMinHits || now - s.FirstMs < SelfSwitchDwellMs)
+        {
+            return;
+        }
+
+        if (_selfDamageStreak.TryGetValue(current, out (long FirstMs, long LastMs, int Hits) cur) && now - cur.LastMs < CurrentSelfQuietMs)
+        {
+            return;
+        }
+
+        // 전환 승인 — 창을 신규 보스 교전시각(또는 본인 첫 타격)으로 back-date. 데미지는 타깃별 버킷이라 이미 저장돼
+        // 있고 ActivePacketCutoff=start-1000이 그 버킷 전체를 admit → 창↔데미지 일관(191M 없음). 나가는 보스는
+        // GetDps가 자기 캐시된 토글로 정상 저장한다.
+        long backdatedStart = s.FirstMs;
+        if (_bossEngageAtMs.TryGetValue(target, out long eng) && eng < backdatedStart)
+        {
+            backdatedStart = eng;
+        }
+
+        _battleRevision++;
+        _packetRepository.SaveCurrentBattleStart(backdatedStart);
+        SaveCurrentTarget(target);
+        _activeBattleMobCode = newCode;
+        _unresolvedStarts.Remove(target);
+        _recentlyEndedBattles.Remove(target);
+        _pendingStart = null;
     }
 
     public void EndBattle(int mobId)
@@ -1858,6 +2205,8 @@ public sealed class DataManager : ICaptureGameData
         _pendingStart = null;
         _lastDummyHitTime = 0;
         _dummyCutoff = false; // full wipe re-arms the dummy test window (mode/duration are preserved)
+        _selfDamageStreak.Clear(); // Feature 2
+        _bossEngageAtMs.Clear();
         _partyRoster.Clear();
         _partyRosterAtMs = 0;
         ClearAetherStatus();
@@ -1886,6 +2235,8 @@ public sealed class DataManager : ICaptureGameData
         _pendingStart = null;
         _lastDummyHitTime = 0;
         _dummyCutoff = false;     // the 초기화 button re-arms the dummy test window (mode/duration are preserved)
+        _selfDamageStreak.Clear(); // Feature 2
+        _bossEngageAtMs.Clear();
         _partyRoster.Clear();     // drop the 0x9702 party snapshot — a stale party (e.g. after leaving the dungeon
         _partyRosterAtMs = 0;     // and returning to town) must not preview on reset; it re-fills on party formation
         // PRESERVE (do NOT flush): _userRepository (recognized chars + executor), _mobIdRepository (boss

@@ -173,10 +173,37 @@ public sealed class MeterServicesTests : IDisposable
         Assert.DoesNotContain(lines, l => l.Contains("dup_game_stream_dropped"));
     }
 
+    [Fact]
+    public void A_suppressed_stream_still_replays_the_party_roster_but_not_damage()
+    {
+        // The SECOND game connection (VPN mirror / a separate party server link) is suppressed to stop damage
+        // double-counting — but it frequently carries the party roster / member profiles / identity, which are
+        // IDEMPOTENT. Those MUST still be replayed from the suppressed stream (a 10-인 공대's roster rode the
+        // suppressed connection and was lost). Damage on the suppressed stream stays dropped.
+        string logDir = Path.Combine(_temp, "pdl_identity_replay");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(new PropertyHandler(_temp), debugLogger: logger));
+
+        logger.Start();
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5000));   // A claims primary (damage) → dispatched
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5001));   // B suppressed (damage) → dropped
+        services.Value.Feed(RosterSegment(seq: 5, at: 1001, srcPort: 5001)); // B suppressed (roster) → STILL replayed
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.Equal(1, lines.Count(l => l.Contains("\"opcodeHex\":\"3804\""))); // damage: primary only (suppressed dropped)
+        Assert.Equal(1, lines.Count(l => l.Contains("\"opcodeHex\":\"9702\""))); // roster: replayed from the suppressed stream
+    }
+
     // A length-prefixed frame whose opcode is 0x3804 (Damage) — passes StreamProcessor.LooksLikeGamePacket
     // and dispatches as a game packet. realLength = varint.value(8) + varint.length(1) - 4 = 5 = frame size.
     private static CapturedSegment GameSegment(long seq, long at, int srcPort) =>
         new(seq, new byte[] { 0x08, 0x04, 0x38, 0x00, 0x00 }, at, "10.0.0.1", srcPort, "10.0.0.2", 13328);
+
+    // Same framing but opcode 0x9702 (party roster) — an idempotent identity/roster opcode that must survive
+    // dup-suppression. (Body is empty, so the parser finds no members and no-ops — we assert only the dispatch.)
+    private static CapturedSegment RosterSegment(long seq, long at, int srcPort) =>
+        new(seq, new byte[] { 0x08, 0x02, 0x97, 0x00, 0x00 }, at, "10.0.0.1", srcPort, "10.0.0.2", 13328);
 
     private static string[] ReadLog(string logDir) =>
         CaptureCorpusReader.ReadLines(Directory.GetFiles(logDir, "*.jsonl.gz").Single())

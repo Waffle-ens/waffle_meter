@@ -59,7 +59,7 @@ public static class DevPacketLogReplay
                 simNow = segment.ArrivedAtMs;
                 if (!streams.TryGetValue(segment.SrcIp, out (PacketAlignmenter Aligner, StreamAssembler Assembler) stream))
                 {
-                    stream = (new PacketAlignmenter(), new StreamAssembler(processor.OnPacketReceived));
+                    stream = (new PacketAlignmenter(), new StreamAssembler((p, at) => processor.OnPacketReceived(p, at)));
                     streams[segment.SrcIp] = stream;
                 }
 
