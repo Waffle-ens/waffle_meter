@@ -23,6 +23,9 @@ public partial class App : Application
     private OverlayController? _controller;
     private TrayIconController? _tray;
     private OverlayWindow? _overlayWindow;
+    // 사용자가 이번 실행에서 세로 핸들로 미터 높이를 고정했는가. 일부러 저장하지 않는다 — 앱을 다시 켜면
+    // 행 수 자동 맞춤으로 돌아온다(v2.8.0까지의 거동).
+    private bool _meterHeightManual;
     private DpsReport? _lastReport;
     private DetailWindow? _detailWindow;
     private DetailsViewModel? _detailViewModel;
@@ -144,7 +147,18 @@ public partial class App : Application
         _overlayWindow = window;
         AttachScreenClamp(window);
         ClampWhenLoaded(window); // pull a stale/off-screen restored position back onto a live monitor
-        AttachResize(window, services.Props, "meterWidth", "meterHeight", widthOnly: true);
+        // 미터는 높이를 저장하지 않는다(widthOnly) — 대신 드래그가 끝날 때마다 자동 맞춤을 되살릴지 판단한다.
+        // WPF는 크기 조절이 시작되면 방향과 무관하게 SizeToContent를 꺼버리므로(WindowResizePolicy 참조),
+        // 폭만 조절한 드래그였다면 여기서 다시 켜줘야 인원 수에 따라 높이가 계속 따라온다.
+        AttachResize(window, services.Props, "meterWidth", "meterHeight", widthOnly: true, onResizeEnd: e =>
+        {
+            _meterHeightManual = WindowResizePolicy.NextManual(
+                _meterHeightManual, e.HitCode, e.HeightBefore, e.HeightAfter);
+            if (!_meterHeightManual)
+            {
+                window.SizeToContent = SizeToContent.Height;
+            }
+        });
         // Snap all windows back onto a monitor the moment multi-monitor movement is turned off.
         _settings.PropertyChanged += (_, e) =>
         {
@@ -1386,12 +1400,16 @@ public partial class App : Application
     }
 
     /// <summary>Attach edge resize + persist the new size on resize. When <paramref name="widthOnly"/>,
-    /// only the width is persisted (the window's height is content-driven).</summary>
-    private void AttachResize(Window window, PropertyHandler props, string wKey, string hKey, bool widthOnly = false)
+    /// only the width is persisted (the meter's height is content-driven and deliberately not saved, so a
+    /// restart always comes back auto-fitted). <paramref name="onResizeEnd"/> fires once per finished
+    /// gesture — the meter uses it to switch height auto-fit back on.</summary>
+    private void AttachResize(Window window, PropertyHandler props, string wKey, string hKey,
+        bool widthOnly = false, Action<WindowResizer.ResizeEnd>? onResizeEnd = null)
     {
-        // 미터(widthOnly)는 좌/우·모서리만 가로 리사이즈 → 세로/대각 드래그가 없어 SizeToContent="Height"
-        // (행 수 자동추종)가 꺼지지 않는다. 패널(widthOnly=false)은 종전대로 전방향 리사이즈.
-        WindowResizer.Attach(window, widthOnly: widthOnly);
+        // 전방향(상/하/좌/우 + 네 모서리) 리사이즈 — 모든 창 공통. v2.8.1은 미터에서만 세로/대각 핸들을
+        // 막았는데, 그래봐야 SizeToContent는 폭 드래그에도 꺼지므로(실측) 자동 높이는 못 지키면서
+        // 사용자가 높이를 맞출 수단만 사라졌다.
+        WindowResizer.Attach(window, onResizeEnd: onResizeEnd);
         // 마지막으로 저장한 값과 다를 때만 기록한다. 미터는 이제 전투 중 행 수 변동마다 높이가 바뀌며 SizeChanged가
         // 자주 발화하는데, 매번 (변화 없는) 폭까지 SetProperty하면 euc-kr 프로퍼티 파일 전체를 동기 재기록해
         // 장시간 느려짐을 유발한다(longrun-slowdown 계열). 실제 값이 바뀔 때만 저장한다.

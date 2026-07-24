@@ -177,11 +177,14 @@
                 </Grid>
             </Border>
 
-            <!-- 행 목록은 SizeToContent="Height"가 창 높이를 행 수에 맞추도록 StackPanel을 Row2에 '직접' 둔다.
-                 종전엔 여기 VerticalScrollBarVisibility="Disabled" ScrollViewer가 감쌌는데, 뷰포트는 자식의
-                 전체 높이를 부모에 보고하지 않고(DesiredSize를 뷰포트로 clamp) 넘치는 행을 잘라서, 인원이 늘어도
-                 창이 안 커지고 10인 공대에서 아래 행이 잘렸다(v2.7.5 회귀). ScrollViewer 제거로 높이 자동추종 복구. -->
-            <StackPanel Grid.Row="2">
+            <!-- 행 목록. 이 ScrollViewer는 v2.8.0 마크업을 그대로 되돌린 것이고, 실측상 관측 가능한 역할이 없다:
+                 자동 맞춤(SizeToContent="Height")에서는 VerticalScrollBarVisibility="Disabled"가 세로 제약을
+                 그대로 통과시켜 있으나 없으나 창 높이가 같고(1/5/10/24행 모두 동일), 높이를 고정한 상태에서도
+                 넘치는 행은 WPF 레이아웃 클립이 이미 잘라내 렌더 결과가 픽셀 단위로 같다.
+                 ※ v2.8.1은 이걸 "높이가 안 늘어나는 원인"으로 지목해 제거했으나 오진이었다. 진짜 원인은 WPF가
+                    크기 조절 시작 시점에 SizeToContent를 꺼버리는 것 — WindowResizePolicy 참조. -->
+            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
             <TextBlock Text="전투 대기 중" Foreground="{DynamicResource Skin.MutedFg}" HorizontalAlignment="Center"
                        Margin="0,8" Visibility="{Binding PlaceholderVisibility}"/>
 
@@ -283,6 +286,7 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
             </StackPanel>
+            </ScrollViewer>
 
             <!-- combat-timer pill (React CombatTimer.tsx): below the rows -->
             <Border Grid.Row="3" CornerRadius="6" Padding="8,3" Margin="0,6,0,0"
