@@ -5,7 +5,7 @@
 ## 프로젝트 개요
 - **waffle_meter**: AION2용 네이티브 **.NET 10 / WPF** DPS 미터. 배포는 **Velopack + GitHub Actions**.
 - 소스: `dotnet/` (App/Capture/Services/Data + `dotnet/tools/` 진단 CLI들). 공개 릴리스 노트: 루트 `RELEASE_NOTES.md`(인앱 패치노트로 임베드됨).
-- 최신 배포: **v2.8.0** (2026-07-22).
+- 최신 배포: **v2.8.1** (2026-07-24).
 - 사용자 대상 보고/요약/설명은 **한국어**로 작성한다.
 
 ---
