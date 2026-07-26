@@ -87,8 +87,16 @@ dotnet/run-test2/
 ### Local-only DPS-dump validation tool — kept local, not tracked
 /dotnet/tools/WaffleMeter.FighterValidate/
 
-### Uncommitted WIP diagnostic instrumentation (nayatman first-boss investigation) — do NOT ship.
-### NOTE: the working-tree edits to MeterEngine/StreamAssembler/PacketAccumulator/StreamProcessor/
-### MeterServices currently call into this file. Do not commit those edits until the diagnostic is
-### either removed or CombatDiag.cs is intentionally promoted to a tracked file.
+### Local-only nayatman first-boss reproduction harness (corpus replay) — kept local, not tracked
+/dotnet/tools/WaffleMeter.EncounterProbe/
+
+### nayatman first-boss diagnostic module — archived out of the working tree 2026-07-26
+### (local tag archive/nayatman-combat-diag + private docs/diag/). Kept ignored so a re-attach
+### (see docs/diag/README.md) never accidentally ships it. Do NOT commit it; do NOT push the tag.
 /dotnet/src/WaffleMeter.Capture/CombatDiag.cs
+
+### Internal-only, kept OUT of the public tree: the local maintenance guide and the client-datamine
+### export scripts (they document how the reference JSON is regenerated). The generated OUTPUT under
+### Assets/ stays tracked — only the how/why is withheld.
+/CLAUDE.md
+/dotnet/tools/*.py
