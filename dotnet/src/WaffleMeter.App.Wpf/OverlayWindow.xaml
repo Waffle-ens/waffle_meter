@@ -18,6 +18,7 @@
         <local:FontFamilyConverter x:Key="FontConv"/>
         <local:RowHeightToFontSizeConverter x:Key="FontSize"/>
         <local:OffsetConverter x:Key="Offset"/>
+        <local:PercentToScaleConverter x:Key="PercentScale"/>
 
         <!-- HeaderIconButton / HeaderCloseButton live in Themes/PanelChrome.xaml (merged app-wide) so the
              meter header and every panel share one button look + tooltip timing. -->
@@ -75,6 +76,12 @@
     </Window.ContextMenu>
     <Border CornerRadius="6" Padding="10,8"
             TextElement.FontFamily="{Binding Settings.FontFamily, Converter={StaticResource FontConv}}">
+        <!-- 미터 크기(배율): 루트에 LayoutTransform을 걸어 글자·행·여백까지 균일 확대/축소. SizeToContent=Height라
+             높이는 스케일된 콘텐츠에 자동으로 다시 맞춰진다. 폭(Window.Width)은 사용자가 계속 드래그로 조절. -->
+        <Border.LayoutTransform>
+            <ScaleTransform ScaleX="{Binding Settings.MeterScalePercent, Converter={StaticResource PercentScale}}"
+                            ScaleY="{Binding Settings.MeterScalePercent, Converter={StaticResource PercentScale}}"/>
+        </Border.LayoutTransform>
         <Border.Background>
             <SolidColorBrush Color="{DynamicResource Skin.OverlayBgColor}" Opacity="{Binding Settings.MeterOpacity}"/>
         </Border.Background>

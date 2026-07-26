@@ -618,6 +618,17 @@
                         </Grid>
 
                         <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="미터 크기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="미터 전체(글자·행·여백)를 균일하게 확대/축소합니다. 폭은 창 가장자리를 끌어 조절합니다." Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding MeterScaleHint}" Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding MeterScales}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding MeterScalePercent}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="{Binding RowHeight, StringFormat='행 높이 — {0}px'}" Style="{StaticResource SettingTitle}"/>

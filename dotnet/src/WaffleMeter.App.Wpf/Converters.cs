@@ -7,6 +7,16 @@ using System.Windows.Media;
 
 namespace WaffleMeter.App.Wpf;
 
+/// <summary>미터 크기 배율(퍼센트 int) → ScaleTransform 배율(double). 100→1.0, 85→0.85. 0/음수는 1.0로 폴백.</summary>
+public sealed class PercentToScaleConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value switch { int i when i > 0 => i / 100.0, double d when d > 0 => d / 100.0, _ => 1.0 };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => Binding.DoNothing;
+}
+
 /// <summary>double ratio -&gt; star GridLength, so two columns split a row into fill/rest by ratio.</summary>
 public sealed class RatioToStarConverter : IValueConverter
 {

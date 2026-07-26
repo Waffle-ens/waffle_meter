@@ -296,6 +296,53 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string NameDisplay { get => _settings.NameDisplay; set { _settings.NameDisplay = value; OnPropertyChanged(); } }
     public string FontFamily { get => _settings.FontFamily; set { _settings.FontFamily = value; OnPropertyChanged(); } }
     public int RowHeight { get => _settings.RowHeight; set { _settings.RowHeight = value; OnPropertyChanged(); } }
+
+    /// <summary>미터 전체 크기 배율(퍼센트 문자열, ComboBox SelectedValue용). 설정은 int로 저장된다.</summary>
+    public string MeterScalePercent
+    {
+        get => _settings.MeterScalePercent.ToString(CultureInfo.InvariantCulture);
+        set
+        {
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int p))
+            {
+                _settings.MeterScalePercent = p;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>미터 크기 배율 선택지(퍼센트). 값이 문자열이라 <see cref="MeterScalePercent"/>와 짝이 맞는다.</summary>
+    public IReadOnlyList<SettingOption> MeterScales { get; } = new[]
+    {
+        new SettingOption("매우 작게 (75%)", "75"),
+        new SettingOption("작게 (85%)", "85"),
+        new SettingOption("보통 (100%)", "100"),
+        new SettingOption("크게 (115%)", "115"),
+        new SettingOption("아주 크게 (130%)", "130"),
+    };
+
+    /// <summary>현재 주 모니터 해상도 + 권장 배율 힌트("현재 화면 2560×1440 · 권장 100%"). 감지 실패 시 빈 문자열.</summary>
+    public string MeterScaleHint { get; } = BuildScaleHint();
+
+    private static string BuildScaleHint()
+    {
+        try
+        {
+            System.Windows.Forms.Screen? s = System.Windows.Forms.Screen.PrimaryScreen;
+            if (s is null)
+            {
+                return string.Empty;
+            }
+
+            int w = s.Bounds.Width, h = s.Bounds.Height;
+            string rec = h <= 1080 ? "권장 85~100%" : h <= 1440 ? "권장 100%" : "권장 115~130%";
+            return $"현재 화면 {w}×{h} · {rec}";
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
     public int RefreshIntervalMs { get => _settings.RefreshIntervalMs; set { _settings.RefreshIntervalMs = value; OnPropertyChanged(); } }
     public int MaxVisibleRows { get => _settings.MaxVisibleRows; set { _settings.MaxVisibleRows = value; OnPropertyChanged(); } }
     public bool LowSpecMode

@@ -73,6 +73,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showLatencyIndicator = ReadBool("showLatencyIndicator", false);
         _vrrCompatMode = ReadBool("vrrCompatMode", true);
         _gameOptAdvanced = ReadBool("gameOpt.includeAdvanced", false);
+        _meterScalePercent = ReadInt("meterScalePercent", 100);
         _showBuffUi = ReadBool("buffUi.show", false);
         _buffUiIconSize = ReadInt("buffUi.iconSize", 40);
         _buffUiTextColor = _props.GetProperty("buffUi.textColor") ?? "#FFFFFF";
@@ -121,6 +122,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private double _meterOpacity;
     public double MeterOpacity { get => _meterOpacity; set => SetDouble(ref _meterOpacity, "meterOpacity", value); }
+
+    private int _meterScalePercent;
+    /// <summary>미터 전체 크기 배율(퍼센트, 기본 100). 오버레이 루트 LayoutTransform로 글자·행·여백까지
+    /// 균일 확대/축소한다(해상도에 맞춘 체감 크기 조절). 폭은 사용자가 계속 드래그로 조절.</summary>
+    public int MeterScalePercent { get => _meterScalePercent; set => SetInt(ref _meterScalePercent, "meterScalePercent", value); }
 
     private bool _isMinimal;
     public bool IsMinimal { get => _isMinimal; set => SetBool(ref _isMinimal, "isMinimal", value); }
