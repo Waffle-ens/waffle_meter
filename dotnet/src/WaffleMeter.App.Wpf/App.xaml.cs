@@ -380,11 +380,21 @@ public partial class App : Application
                 rosterById[member.Id] = member;
             }
 
+            // 현재 파티(최신 0x9702 스냅샷)의 신원 집합. 아래 0x9200 프로필·최근 전투 기여자 폴백은 5분 TTL이라
+            // 파티를 떠난 이전 파티원을 대기 프리뷰에 계속 누적한다(실측: 파티 교체가 잦은 던전에서 게임 파티는
+            // 5명인데 프리뷰엔 떠난 멤버까지 6~9명 쌓임). 0x9702 로스터가 있을 땐 현재 파티에 있는 멤버(닉+서버)만
+            // 폴백으로 추가하고, 로스터가 없으면(필드보스·입장 버스트로 로스터 미도착) 종전대로 폴백을 그대로 쓴다.
+            // 본인은 파티 패킷이 흔히 제외하므로 뒤에서 별도 주입(execUid 예외).
+            var currentPartyIds = new HashSet<(string, int)>(
+                services.Data.PartyRosterIdentities(PreCombatPartyTtlMs).Select(m => (m.Nickname, m.Server)));
+            bool filterToCurrentParty = currentPartyIds.Count > 0;
+
             // 0x9200 멤버 프로필(uid 동반)도 프리뷰 로스터에 넣는다 — 0x9702 로스터 스냅샷이 입장 버스트에서
             // 유실돼도(실측: 세션당 1회뿐이거나 아예 0회) 파티가 미리 뜨게 하는 이중 소스.
             foreach ((int mpUid, string mpNick, int mpServer) in services.Data.MemberProfileRoster(PreCombatPartyTtlMs))
             {
-                if (!rosterById.ContainsKey(mpUid) && !string.IsNullOrWhiteSpace(mpNick))
+                if (!rosterById.ContainsKey(mpUid) && !string.IsNullOrWhiteSpace(mpNick)
+                    && (!filterToCurrentParty || currentPartyIds.Contains((mpNick, mpServer))))
                 {
                     rosterById[mpUid] = new User(mpUid, mpNick, mpServer);
                 }
@@ -397,7 +407,8 @@ public partial class App : Application
                 }
 
                 User? u = services.Data.User(kv.Key);
-                if (u != null && !string.IsNullOrWhiteSpace(u.Nickname))
+                if (u != null && !string.IsNullOrWhiteSpace(u.Nickname)
+                    && (!filterToCurrentParty || u.Id == execUid || currentPartyIds.Contains((u.Nickname!, u.Server))))
                 {
                     rosterById[kv.Key] = u;
                 }
