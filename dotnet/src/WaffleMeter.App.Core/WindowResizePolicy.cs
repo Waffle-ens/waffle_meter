@@ -76,4 +76,10 @@ public static class WindowResizePolicy
     /// 앱 재시작뿐이다(높이는 저장하지 않는다).</summary>
     public static bool NextManual(bool wasManual, int hitCode, double heightBefore, double heightAfter) =>
         wasManual || IsManualAfterDrag(hitCode, heightBefore, heightAfter);
+
+    /// <summary>세션 동안 사용자가 세로로 <b>고정한 높이</b>라도, 파티 인원(=행 수)이 바뀌면 그 높이는
+    /// 더 이상 맞지 않으니 고정을 풀고 자동 맞춤으로 돌려야 하는가. 폭 드래그로는 안 풀리는 래치를 여기서만
+    /// 예외적으로 푼다("행 숫자 변화를 감지하면 다시 자동으로 맞춤"). 행 수가 그대로면(값 교체 등) 유지한다.</summary>
+    public static bool ShouldReautoFit(bool wasManual, int rowCountBefore, int rowCountAfter) =>
+        wasManual && rowCountBefore != rowCountAfter;
 }

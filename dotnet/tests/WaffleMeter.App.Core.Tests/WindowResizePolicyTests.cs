@@ -116,4 +116,30 @@ public sealed class WindowResizePolicyTests
         manual = WindowResizePolicy.NextManual(manual, WindowResizePolicy.HtRight, 600, 600);
         Assert.True(manual); // 폭을 넓혔다고 사용자가 맞춰둔 600이 무너지면 안 된다
     }
+
+    [Fact]
+    public void A_pinned_height_returns_to_auto_when_the_row_count_changes()
+    {
+        // ③ 세로로 고정한 높이라도 파티 인원(행 수)이 바뀌면 그 높이는 어차피 안 맞으니 자동으로 복귀한다.
+        bool manual = WindowResizePolicy.NextManual(false, WindowResizePolicy.HtBottom, 416, 600);
+        Assert.True(manual);
+
+        Assert.True(WindowResizePolicy.ShouldReautoFit(manual, rowCountBefore: 5, rowCountAfter: 10)); // 5→10 늘어남
+        Assert.True(WindowResizePolicy.ShouldReautoFit(manual, rowCountBefore: 10, rowCountAfter: 5)); // 줄어도 마찬가지
+    }
+
+    [Fact]
+    public void A_pinned_height_stays_pinned_when_the_row_count_is_unchanged()
+    {
+        // 값만 교체되는 보고 갱신(Rows[i]=)은 Count가 그대로라 고정을 풀지 않는다 — 매 틱 자동으로
+        // 튀어버리면 사용자가 맞춰둔 높이가 무의미해진다.
+        Assert.False(WindowResizePolicy.ShouldReautoFit(wasManual: true, rowCountBefore: 8, rowCountAfter: 8));
+    }
+
+    [Fact]
+    public void Auto_mode_ignores_row_count_changes()
+    {
+        // 이미 자동 맞춤이면 행 수가 바뀌어도 SizeToContent=Height가 이미 따라가므로 할 일이 없다.
+        Assert.False(WindowResizePolicy.ShouldReautoFit(wasManual: false, rowCountBefore: 5, rowCountAfter: 10));
+    }
 }

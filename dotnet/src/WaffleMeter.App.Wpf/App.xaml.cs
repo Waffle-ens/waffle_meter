@@ -159,6 +159,22 @@ public partial class App : Application
                 window.SizeToContent = SizeToContent.Height;
             }
         });
+        // ③ 수동으로 높이를 고정한 뒤에도 파티 인원(행 수)이 바뀌면 자동 맞춤으로 복귀시킨다. 세로 핸들은
+        // 그대로 두되, 맞춰둔 높이가 인원 변화로 어차피 안 맞게 되는 순간엔 자동 추종이 낫다는 사용자 요구.
+        // Rows는 증분 동기화(값 교체는 Rows[i]=, 인원 변화만 Add/RemoveAt)라 Count 변화가 곧 인원 변화다.
+        // CollectionChanged는 보고 갱신과 함께 UI 스레드에서 발화하므로 여기서 SizeToContent를 만져도 안전하다.
+        int meterRowCount = viewModel.Rows.Count;
+        viewModel.Rows.CollectionChanged += (_, _) =>
+        {
+            int now = viewModel.Rows.Count;
+            if (WindowResizePolicy.ShouldReautoFit(_meterHeightManual, meterRowCount, now))
+            {
+                _meterHeightManual = false;
+                window.SizeToContent = SizeToContent.Height; // 새 행 수에 맞춰 다시 자동 높이
+            }
+
+            meterRowCount = now;
+        };
         // Snap all windows back onto a monitor the moment multi-monitor movement is turned off.
         _settings.PropertyChanged += (_, e) =>
         {
