@@ -1,5 +1,7 @@
 using System;
+using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using Velopack;
 using WaffleMeter.App.Core;
 
@@ -23,11 +25,28 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // MUST be first. Handles Velopack lifecycle hooks and exits for those runs. On the first launch
-        // after install, supersede the legacy Kotlin jpackage MSI; on uninstall, remove the capture-helper
-        // scheduled task so nothing is left behind.
+        // A crash BEFORE the WPF App is constructed — a Velopack hook run (--veloapp-install, which the user
+        // sees as "설치가 부분적으로 성공했습니다"), the single-instance guard, the App ctor, or InitializeComponent
+        // — happens before App's DispatcherUnhandledException/AppDomain handlers exist, so it would otherwise
+        // vanish with no trace. Trap it here and write a startup-crash log so the failure is diagnosable.
+        try
+        {
+            RunApp(args);
+        }
+        catch (Exception ex)
+        {
+            TryLogStartupCrash(ex);
+            throw; // preserve the non-zero exit so Velopack/Windows still know the launch failed
+        }
+    }
+
+    private static void RunApp(string[] args)
+    {
+        // MUST be first. Handles Velopack lifecycle hooks and exits for those runs. On the first launch after
+        // install, supersede the legacy Kotlin jpackage MSI (OFF the UI thread — a stuck msiexec /x blocks up
+        // to 60s and the first window must not wait on it); on uninstall, remove the capture-helper task.
         VelopackApp.Build()
-            .OnFirstRun(_ => LegacyMsiCleanup.Run())
+            .OnFirstRun(_ => Task.Run(LegacyMsiCleanup.Run))
             .OnBeforeUninstallFastCallback(_ => CaptureHostLauncher.RemoveScheduledTask())
             .Run();
 
@@ -67,6 +86,34 @@ public static class Program
         app.Run();
 
         GC.KeepAlive(_singleInstance);
+    }
+
+    /// <summary>Last-resort crash log for failures that happen before the WPF App (and its exception handlers)
+    /// exist — the Velopack install hook, the App ctor, InitializeComponent. Written to BOTH the install dir
+    /// (next to crash.log) and %LOCALAPPDATA% root, so it survives even if one path is read-only. Best-effort.</summary>
+    private static void TryLogStartupCrash(Exception ex)
+    {
+        string stamp = $"{DateTime.Now:o}\n{ex}\n\n";
+        foreach (string dir in new[]
+                 {
+                     AppContext.BaseDirectory,
+                     Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? string.Empty,
+                 })
+        {
+            if (string.IsNullOrEmpty(dir))
+            {
+                continue;
+            }
+
+            try
+            {
+                File.AppendAllText(Path.Combine(dir, "waffle_meter-startup-crash.log"), stamp);
+            }
+            catch
+            {
+                // best effort — try the next location
+            }
+        }
     }
 
     /// <summary>Release the single-instance guard deterministically before an update-restart hands off to
