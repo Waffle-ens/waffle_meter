@@ -259,6 +259,9 @@
                 <ListBoxItem Tag="advanced">
                     <StackPanel><TextBlock Text="고급" Style="{StaticResource NavTitle}"/><TextBlock Text="캡처 방식 · 렌더링 호환" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
+                <ListBoxItem Tag="gameopt">
+                    <StackPanel><TextBlock Text="게임 최적화" Style="{StaticResource NavTitle}"/><TextBlock Text="Engine.ini · 렉 감소" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
                 <ListBoxItem Tag="replay">
                     <StackPanel><TextBlock Text="리플레이 (베타)" Style="{StaticResource NavTitle}"/><TextBlock Text="전투 이동 기록 · 저장 경로" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
@@ -474,6 +477,59 @@
                     </StackPanel>
 
                     <!-- ===== 화면 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=gameopt}">
+                        <TextBlock Text="게임 최적화" Style="{StaticResource SectionHeader}"/>
+
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,14" TextWrapping="Wrap"
+                                   Text="아이온2 Engine.ini에 렉 감소 최적화(텍스처 스트리밍 풀 · 스레드 lag · 오클루전 · GC 튜닝)를 자동으로 추가합니다. 그래픽카드 VRAM을 자동 감지해 프로필을 정하며, 인게임 그래픽 옵션과 화질에는 영향이 없습니다."/>
+
+                        <Border Background="#33FF9800" BorderBrush="#66FF9800" BorderThickness="1" CornerRadius="4"
+                                Padding="10,8" Margin="0,0,0,14"
+                                Visibility="{Binding GameRunning, Converter={StaticResource BoolToVis}}">
+                            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Skin.Fg}"
+                                       Text="주의: 아이온2가 실행 중입니다. Engine.ini는 게임을 완전히 종료한 상태에서 적용/되돌리기 하세요. 실행 중 변경은 게임 종료 시 덮어써질 수 있습니다."/>
+                        </Border>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="그래픽카드 (자동 감지)" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="{Binding GpuText}" Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="적용 프로필" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="{Binding GameOptTierText}" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="고급 최적화 포함" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="로딩·구역 이동 히칭을 줄이는 추가 항목까지 함께 적용합니다. 대체로 안전하지만 환경에 따라 다를 수 있어 기본은 꺼짐입니다." Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" VerticalAlignment="Center" IsChecked="{Binding GameOptAdvanced}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource SectionDivider}"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,6">
+                            <Button Content="적용" MinWidth="96" Click="OnApplyGameOpt" Margin="0,0,8,0"
+                                    ToolTip="감지된 프로필로 Engine.ini에 최적화 블록을 추가/갱신합니다"/>
+                            <Button Content="되돌리기" MinWidth="96" Click="OnRevertGameOpt"
+                                    ToolTip="우리가 추가한 최적화 블록만 제거합니다 (다른 설정은 그대로)"/>
+                            <TextBlock Text="{Binding GameOptStatus}" Style="{StaticResource SettingDesc}"
+                                       VerticalAlignment="Center" Margin="14,0,0,0"/>
+                        </StackPanel>
+
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="안내: 변경 사항은 게임을 재실행한 뒤부터 적용됩니다. 되돌리기는 우리가 추가한 구간만 지우므로 사용자가 직접 넣은 다른 Engine.ini 설정은 그대로 유지됩니다."/>
+                    </StackPanel>
+
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=display}">
                         <TextBlock Text="표시 설정" Style="{StaticResource SectionHeader}"/>
 

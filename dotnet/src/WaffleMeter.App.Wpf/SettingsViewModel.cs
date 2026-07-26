@@ -130,9 +130,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly OverlayController _controller;
     private readonly HotkeyHandler _hotkeys;
     private readonly BuffPresetManager _presets;
+    private readonly GameOptimizerService _gameOpt;
     private readonly Snapshot _snapshot;
 
-    public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, SkinManager skin, OverlayController controller, HotkeyHandler hotkeys, BuffPresetManager presets)
+    public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, SkinManager skin, OverlayController controller, HotkeyHandler hotkeys, BuffPresetManager presets, GameOptimizerService gameOpt)
     {
         _services = services;
         _settings = settings;
@@ -141,7 +142,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _controller = controller;
         _hotkeys = hotkeys;
         _presets = presets;
+        _gameOpt = gameOpt;
         _snapshot = Snapshot.Capture(settings, controller);
+        RefreshGameOpt();
 
         _pendingReset = hotkeys.Reset;
         _pendingVisibility = hotkeys.Visibility;
@@ -304,6 +307,81 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <summary>The refresh-interval slider is disabled while low-spec mode pins the interval.</summary>
     public bool RefreshSliderEnabled => !_settings.LowSpecMode;
     public string TargetInfoDisplayMode { get => _settings.TargetInfoDisplayMode; set { _settings.TargetInfoDisplayMode = value; OnPropertyChanged(); } }
+
+    // ---- game optimization tab (게임 최적화 · Engine.ini) ----
+    public bool GameOptAdvanced
+    {
+        get => _settings.GameOptAdvanced;
+        set { _settings.GameOptAdvanced = value; OnPropertyChanged(); }
+    }
+
+    private string _gpuText = string.Empty;
+    /// <summary>감지된 그래픽카드 + VRAM 요약(감지 실패 시 안내 문구).</summary>
+    public string GpuText { get => _gpuText; private set => Set(ref _gpuText, value); }
+
+    private string _gameOptTierText = string.Empty;
+    /// <summary>VRAM으로 정해진 적용 프로필(티어) 요약.</summary>
+    public string GameOptTierText { get => _gameOptTierText; private set => Set(ref _gameOptTierText, value); }
+
+    private string _gameOptStatus = string.Empty;
+    /// <summary>현재 Engine.ini에 우리 블록이 들어 있는지("적용됨"/"미적용").</summary>
+    public string GameOptStatus { get => _gameOptStatus; private set => Set(ref _gameOptStatus, value); }
+
+    private bool _gameRunning;
+    /// <summary>아이온2 실행 중 — 적용/되돌리기 전에 종료하라는 경고를 XAML에서 BoolToVis로 표시.</summary>
+    public bool GameRunning { get => _gameRunning; private set => Set(ref _gameRunning, value); }
+
+    private EngineIniOptimizer.Tier _gameOptTier;
+
+    /// <summary>GPU·적용 상태·게임 실행 여부를 다시 읽어 표시를 갱신(탭 열 때 + 적용/되돌리기 후).</summary>
+    public void RefreshGameOpt()
+    {
+        GameOptimizerService.Gpu gpu = _gameOpt.DetectGpu();
+        _gameOptTier = EngineIniOptimizer.TierForVram(gpu.VramBytes);
+        if (gpu.VramBytes > 0)
+        {
+            double gb = gpu.VramBytes / (1024.0 * 1024 * 1024);
+            GpuText = $"{gpu.Name} · VRAM {gb:0.#}GB";
+        }
+        else
+        {
+            GpuText = "그래픽카드 VRAM을 감지하지 못했습니다 — 가장 안전한 설정으로 적용됩니다.";
+        }
+
+        GameOptTierText = $"프로필 {_gameOptTier.Label} · 스트리밍 풀 {_gameOptTier.PoolMiB}MB";
+        GameOptStatus = _gameOpt.IsApplied() ? "현재 상태: 적용됨" : "현재 상태: 미적용";
+        GameRunning = _gameOpt.IsGameRunning();
+    }
+
+    /// <summary>감지된 프로필로 Engine.ini에 최적화를 적용/갱신한다(게임 재실행 후 반영).</summary>
+    public void ApplyGameOpt()
+    {
+        try
+        {
+            _gameOpt.Apply(_gameOptTier, _settings.GameOptAdvanced);
+        }
+        catch
+        {
+            // 실패는 아래 RefreshGameOpt의 "미적용" 표시로 드러난다
+        }
+
+        RefreshGameOpt();
+    }
+
+    /// <summary>우리가 추가한 블록만 제거한다(사용자의 다른 Engine.ini 설정은 유지).</summary>
+    public void RevertGameOpt()
+    {
+        try
+        {
+            _gameOpt.Revert();
+        }
+        catch
+        {
+            // no-op; 상태는 RefreshGameOpt가 반영
+        }
+
+        RefreshGameOpt();
+    }
     public string BarStyle { get => _settings.BarStyle; set { _settings.BarStyle = value; OnPropertyChanged(); } }
     public bool IsMinimal { get => _settings.IsMinimal; set { _settings.IsMinimal = value; OnPropertyChanged(); } }
     public bool ShowCombatTimerInMinimal { get => _settings.ShowCombatTimerInMinimal; set { _settings.ShowCombatTimerInMinimal = value; OnPropertyChanged(); } }

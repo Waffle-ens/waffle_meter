@@ -240,7 +240,7 @@ public partial class App : Application
             }
 
             // _buffPresets is assigned later in OnStartup, well before the overlay exists to raise this.
-            var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, _buffPresets!);
+            var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, _buffPresets!, new GameOptimizerService());
             svm.CheckUpdateRequested = () => _ = _updateService?.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
             svm.PlayReplayRequested = () => PlayReplayFromPicker(services, window);
