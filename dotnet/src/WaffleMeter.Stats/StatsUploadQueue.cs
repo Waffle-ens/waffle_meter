@@ -226,7 +226,7 @@ public sealed class StatsUploadQueue : IDisposable
                     // cache it so the "공개" toggle unlocks without waiting for a consent round-trip (§2.2).
                     if (response.Granted)
                     {
-                        _consent.MarkGranted(payload.Character.IdentityHash);
+                        _consent.MarkGranted(payload.Character.IdentityHash, _clientVersion);
                     }
 
                     Interlocked.Increment(ref _uploaded);

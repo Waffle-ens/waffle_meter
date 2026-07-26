@@ -201,6 +201,7 @@ public sealed class StatsConsentManager
         if (!serverPublic)
         {
             RememberSync(PublicRequiresOwnership, null);
+            SetPendingPublic(character.IdentityHash, true); // 공개 자동화: apply on the first upload that grants ownership
         }
         return LocalInfo();
     }
@@ -414,6 +415,7 @@ public sealed class StatsConsentManager
         if (publicCharacter && !entry.Grant)
         {
             RememberSync(PublicRequiresOwnership, null);
+            SetPendingPublic(identityHash, true); // 공개 자동화: apply on the first upload that grants ownership
             return;
         }
 
@@ -427,6 +429,7 @@ public sealed class StatsConsentManager
                 accepted && response.PublicCharacter, response.ConsentVersion ?? ConsentVersion,
                 ParseRemoteTime(response.UpdatedAt) ?? _clock(), entry.Nickname, entry.Server, entry.Job,
                 grant: response.Granted);
+            SetPendingPublic(identityHash, false); // the user's explicit toggle supersedes any pending auto-public intent
             RememberSync("synced", null); // clear any stale public_requires_ownership notice from a prior action
         }
         catch (Exception e) when (publicCharacter && IsPublicOwnershipRejection(e))
@@ -447,6 +450,7 @@ public sealed class StatsConsentManager
     /// revoked — even on a failed sync, so future uploads stop locally regardless.</summary>
     public void RevokeCharacter(string identityHash, string clientVersion = "dev")
     {
+        SetPendingPublic(identityHash, false); // revoking cancels any remembered auto-public intent
         if (identityHash == CurrentIdentityHash())
         {
             Revoke(clientVersion);
@@ -571,7 +575,7 @@ public sealed class StatsConsentManager
     /// <summary>Mark a character as granted (server confirmed this install owns it). Called after a successful
     /// signed upload whose response carries <c>granted</c>. Grant-only: never changes consent state, and only
     /// ever sets the flag true (the server grant set is monotone). No-op if already granted.</summary>
-    public void MarkGranted(string identityHash)
+    public void MarkGranted(string identityHash, string clientVersion = "dev")
     {
         if (string.IsNullOrWhiteSpace(identityHash))
         {
@@ -586,6 +590,46 @@ public sealed class StatsConsentManager
         }
 
         entry.Grant = true;
+        map[identityHash] = entry;
+        _props.SetProperty(KeyCharacters, JsonSerializer.Serialize(map));
+
+        // 공개 자동화: the user consented to "공개" before this install owned the character (no uploaded battle
+        // yet), so the server refused it and we remembered the intent. This FIRST grant unlocks it — apply it
+        // now so they don't have to re-toggle public after their first upload. SetCharacterPublic clears the
+        // pending flag on success and no-ops if the character isn't in an acceptable state.
+        if (entry.PendingPublic)
+        {
+            SetCharacterPublic(identityHash, publicCharacter: true, clientVersion);
+        }
+    }
+
+    /// <summary>Remember (or clear) that the user wants this character public but couldn't yet (no grant).
+    /// Persisted on the character record so the first upload's grant can auto-apply public (공개 자동화).</summary>
+    private void SetPendingPublic(string identityHash, bool pending)
+    {
+        if (string.IsNullOrWhiteSpace(identityHash))
+        {
+            return;
+        }
+
+        Dictionary<string, CharConsent> map = LoadCharacters();
+        if (!map.TryGetValue(identityHash, out CharConsent? entry))
+        {
+            if (!pending)
+            {
+                return;
+            }
+
+            entry = new CharConsent();
+            map[identityHash] = entry;
+        }
+
+        if (entry.PendingPublic == pending)
+        {
+            return;
+        }
+
+        entry.PendingPublic = pending;
         map[identityHash] = entry;
         _props.SetProperty(KeyCharacters, JsonSerializer.Serialize(map));
     }
@@ -614,6 +658,11 @@ public sealed class StatsConsentManager
         // granted ownership — gates the "공개" toggle. Cache only; the server is the authority. Grant is a
         // monotone TOFU set on the server, so locally we only ever set it true, never clear it.
         [JsonPropertyName("grant")] public bool Grant { get; set; }
+
+        // 공개 자동화: the user asked for "공개" while this install had no grant yet (no uploaded battle), so the
+        // server refused it. Remembered here so the first upload that earns the grant auto-applies public instead
+        // of making them re-toggle it. Cleared once public is applied, the user turns it off, or revokes.
+        [JsonPropertyName("pendingPublic")] public bool PendingPublic { get; set; }
     }
 
     private void SaveLocal(

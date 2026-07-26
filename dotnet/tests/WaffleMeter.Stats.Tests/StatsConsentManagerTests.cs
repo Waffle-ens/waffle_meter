@@ -447,6 +447,34 @@ public sealed class StatsConsentManagerTests : IDisposable
     }
 
     [Fact]
+    public void Public_intent_refused_for_ownership_auto_applies_on_the_first_upload_grant()
+    {
+        GiveExecutor(); // Hero, server 3, current, NO grant yet.
+        string hash = StatsIdentity.CharacterIdentityHash(3, "Hero")!;
+
+        // Accept + 공개 before owning the character: the server refuses public (public_requires_ownership), the
+        // notice is stamped, and the intent is remembered (so the user need not re-toggle it later).
+        var refuse = new StatsApiClient(() => "install-1", (_, _, body, _) =>
+            body != null && body.Contains("\"public\":true")
+                ? new StatsHttpResponse(400, """{"ok":false,"error":{"code":"public_requires_ownership","message":"no grant"}}""")
+                : new StatsHttpResponse(200, """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":false,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}"""));
+        Manager(refuse).Set("accepted", uploadEnabled: true, publicCharacter: true);
+        Assert.False(Manager(ApiFailing()).ListCharacters().Single(c => c.IdentityHash == hash).PublicCharacter);
+        Assert.Equal(StatsConsentManager.PublicRequiresOwnership, Manager(ApiFailing()).GetInfo().SyncStatus);
+
+        // The FIRST upload earns the grant -> MarkGranted auto-applies the remembered public intent, so the user
+        // never has to re-toggle "공개" after their first battle upload.
+        var grantAndPublish = new StatsApiClient(() => "install-1", (_, _, _, _) =>
+            new StatsHttpResponse(200, """{"ok":true,"identityHash":"h","exists":true,"consentState":"accepted","public":true,"granted":true,"consentVersion":"2026-06-04","updatedAt":"2026-06-04T00:00:00Z"}"""));
+        Manager(grantAndPublish).MarkGranted(hash, "test");
+
+        StatsConsentManager.CharacterConsentInfo hero =
+            Manager(ApiFailing()).ListCharacters().Single(c => c.IdentityHash == hash);
+        Assert.True(hero.Grant);
+        Assert.True(hero.PublicCharacter); // auto-public applied on the first grant — no manual re-toggle
+    }
+
+    [Fact]
     public void Accept_private_without_grant_omits_public_to_preserve_server_state()
     {
         GiveExecutor(); // Hero, current, NO grant.
