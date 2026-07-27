@@ -53,6 +53,23 @@ public class FieldBossTimerParserTests
     /// <summary>2026-07-27 20:05 KST — when the 베르테론 table was captured.</summary>
     private const long VerteronArrivedAt = 1_785_150_000_000L;
 
+    // REAL 어비스 하층 (map 20, 8 entries) and 중층 (map 22, 5 entries) bodies, captured 2026-07-27 20:52.
+    // Two-byte slot codes (2001.., 2201..). Note the 감시자 카이라 record (D2 0F): its timestamp is all
+    // zeroes — the server sends no time for that one boss, which is what the fixed schedule stands in for.
+    private const string RealAbyssLowerBody =
+        "00 00 14 00 00 00 08 00 D1 0F 00 9D 55 E4 A3 9F 01 00 00 00 D2 0F 00 00 00 00 00 00 00 00 00 D8 " +
+        "0F A0 EB 15 AE 9F 01 00 00 00 D3 0F 60 2C 47 B8 9F 01 00 00 00 D4 0F 60 2C 47 B8 9F 01 00 00 00 " +
+        "D5 0F 60 2C 47 B8 9F 01 00 00 00 D6 0F A0 EB 15 AE 9F 01 00 00 00 D7 0F A0 EB 15 AE 9F 01 00 00 " +
+        "00 00 00";
+
+    private const string RealAbyssMiddleBody =
+        "00 00 16 00 00 00 05 00 99 11 00 60 2C 47 B8 9F 01 00 00 00 9D 11 A0 EB 15 AE 9F 01 00 00 00 9A " +
+        "11 60 2C 47 B8 9F 01 00 00 00 9B 11 A0 EB 15 AE 9F 01 00 00 00 9C 11 A0 EB 15 AE 9F 01 00 00 00 " +
+        "00 00";
+
+    /// <summary>2026-07-27 20:50 KST — when the 어비스 tables were captured.</summary>
+    private const long AbyssArrivedAt = 1_785_153_000_000L;
+
     private static byte[] Hex(string s)
     {
         string[] parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -132,6 +149,45 @@ public class FieldBossTimerParserTests
         Assert.Contains(r.Timers, t => t.Code == 2100003);  // first slot (101001) 동쪽의 네이켈
         Assert.Contains(r.Timers, t => t.Code == 2101131);  // last slot (101024) 군단장 라그타
         Assert.All(r.Timers, t => Assert.InRange(t.TargetMs, VerteronArrivedAt, VerteronArrivedAt + 86_400_000L));
+    }
+
+    [Fact]
+    public void Parses_both_real_abyss_tables_whole()
+    {
+        FieldBossTimerParser.Result low =
+            FieldBossTimerParser.ParseTable(Hex(RealAbyssLowerBody), 0, AbyssArrivedAt);
+        Assert.Equal(FieldBossCatalog.AbyssLowerMapId, low.MapId);
+        Assert.Equal(8, low.Timers.Count);
+        Assert.All(low.Timers, t => Assert.Equal(FieldBossRegion.Abyss, FieldBossCatalog.Region(t.Code)));
+
+        FieldBossTimerParser.Result mid =
+            FieldBossTimerParser.ParseTable(Hex(RealAbyssMiddleBody), 0, AbyssArrivedAt);
+        Assert.Equal(FieldBossCatalog.AbyssMiddleMapId, mid.MapId);
+        Assert.Equal(5, mid.Timers.Count);
+        Assert.All(mid.Timers, t => Assert.Equal(FieldBossRegion.Abyss, FieldBossCatalog.Region(t.Code)));
+
+        // The siege groups are what the capture actually carried: 처형관 드라모스 on the 금 window,
+        // 반역자 듀칼 / 파멸자 마라카 / 분노한 나흐마(2600156) on the 수 one.
+        long friday = new DateTimeOffset(2026, 7, 31, 22, 5, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
+        long wednesday = new DateTimeOffset(2026, 7, 29, 22, 35, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
+        Assert.Contains(mid.Timers, t => t.Code == 2600150 && t.TargetMs == friday);
+        Assert.Contains(mid.Timers, t => t.Code == 2600520 && t.TargetMs == friday);
+        Assert.Contains(mid.Timers, t => t.Code == 2600156 && t.TargetMs == wednesday);
+        Assert.Contains(mid.Timers, t => t.Code == 2600521 && t.TargetMs == wednesday);
+        Assert.Contains(mid.Timers, t => t.Code == 2600522 && t.TargetMs == wednesday);
+    }
+
+    [Fact]
+    public void A_zeroed_abyss_record_falls_back_to_the_fixed_schedule()
+    {
+        // 감시자 카이라(2600089) is the one boss the server never times; the table still yields a row for it.
+        FieldBossTimerParser.Result low =
+            FieldBossTimerParser.ParseTable(Hex(RealAbyssLowerBody), 0, AbyssArrivedAt);
+
+        (int Code, long TargetMs) kaira = Assert.Single(low.Timers, t => t.Code == 2600089);
+        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600089, AbyssArrivedAt, out long expected));
+        Assert.Equal(expected, kaira.TargetMs);
+        Assert.True(kaira.TargetMs > AbyssArrivedAt);
     }
 
     [Fact]

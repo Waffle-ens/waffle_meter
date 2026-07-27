@@ -133,8 +133,10 @@ public class FieldBossAlarmTests
     {
         Assert.True(FieldBossFixedSchedule.HasFixedSchedule(2600089));   // 감시자 카이라 — 매시 정각
         Assert.False(FieldBossFixedSchedule.HasFixedSchedule(2406034));  // 모르헤임은 일반 리스폰 타이머
-        Assert.Equal("매시 정각", FieldBossFixedSchedule.Describe(2600089));
-        Assert.Equal("수·토 22:30", FieldBossFixedSchedule.Describe(2600520));
+        // 카이라만 서버가 시각을 0으로 보내 우리 추정에 의존한다 — 표시로 드러난다.
+        Assert.Equal("매시 정각(추정)", FieldBossFixedSchedule.Describe(2600089));
+        Assert.Equal("금·일 22:05", FieldBossFixedSchedule.Describe(2600520));   // 실캡처: 금 22:05
+        Assert.Equal("수·토 22:35", FieldBossFixedSchedule.Describe(2600156));   // 실캡처: 수 22:35
         Assert.Null(FieldBossFixedSchedule.Describe(2406034));
     }
 
@@ -150,14 +152,19 @@ public class FieldBossAlarmTests
     [Fact]
     public void Weekly_schedule_returns_the_next_matching_day_and_time()
     {
-        // 2026-07-27 is a Monday → the next 수·토 22:30 is Wednesday the 29th.
+        // 2026-07-27 is a Monday → the next 수·토 22:35 is Wednesday the 29th. This is the value the real
+        // 2026-07-27 어비스 capture carried for the 수·토 group, so the schedule reproduces the wire.
         long monday = new DateTimeOffset(2026, 7, 27, 9, 0, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
-        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600520, monday, out long next));
-        Assert.Equal(new DateTimeOffset(2026, 7, 29, 22, 30, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), next);
+        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600521, monday, out long next));
+        Assert.Equal(new DateTimeOffset(2026, 7, 29, 22, 35, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), next);
 
-        // Same day but past the time → rolls to Saturday.
+        // …and the 금·일 group's next spawn from that same Monday was Friday the 31st.
+        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600520, monday, out long friday));
+        Assert.Equal(new DateTimeOffset(2026, 7, 31, 22, 5, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), friday);
+
+        // Same day but past the time → rolls to the pair's other day.
         long wedLate = new DateTimeOffset(2026, 7, 29, 23, 0, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
-        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600520, wedLate, out long after));
-        Assert.Equal(new DateTimeOffset(2026, 8, 1, 22, 30, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), after);
+        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600521, wedLate, out long after));
+        Assert.Equal(new DateTimeOffset(2026, 8, 1, 22, 35, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), after);
     }
 }
