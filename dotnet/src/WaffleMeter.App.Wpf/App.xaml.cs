@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using WaffleMeter.App.Core;
+using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
 using WaffleMeter.Services;

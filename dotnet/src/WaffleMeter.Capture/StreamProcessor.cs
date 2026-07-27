@@ -1798,14 +1798,15 @@ public sealed class StreamProcessor
     /// to the data layer, which drives the lead-time alert.</summary>
     private void ParseFieldBossTimers(byte[] packet, int bodyStart, long arrivedAt)
     {
-        IReadOnlyList<(int Code, long TargetMs)> timers = FieldBossTimerParser.Parse(packet, bodyStart, arrivedAt);
-        if (timers.Count == 0)
+        FieldBossTimerParser.Result table = FieldBossTimerParser.ParseTable(packet, bodyStart, arrivedAt);
+        if (table.Timers.Count == 0)
         {
             return;
         }
 
-        _data.SaveFieldBossTimers(timers);
-        _sink.Meta("fieldboss", ("count", timers.Count));
+        _data.SaveFieldBossTimers(table.Timers);
+        // mapId is logged too: the table is map-scoped, so an unfamiliar id is the first sign of a new region.
+        _sink.Meta("fieldboss", ("count", table.Timers.Count), ("mapId", table.MapId));
     }
 
     /// <summary>Kotlin isValidNickname (867-876).</summary>

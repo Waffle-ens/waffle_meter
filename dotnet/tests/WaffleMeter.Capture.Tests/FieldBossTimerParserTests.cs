@@ -1,50 +1,161 @@
+using System.Globalization;
 using WaffleMeter.Capture;
 using Xunit;
 
 namespace WaffleMeter.Capture.Tests;
 
 /// <summary>Spec for <see cref="FieldBossTimerParser"/> against the 0x9101 timer broadcast layout
-/// <c>[.. var-int bossCode .. int64-LE targetMs ..]</c>, verified on a real capture.</summary>
+/// <c>[u16 0][u32-LE mapId][u8 count][u8 0]</c> then <c>[var-int code][.. filler ..][int64-LE targetMs]</c>,
+/// verified against real captures.</summary>
 public class FieldBossTimerParserTests
 {
-    // From a real 0x9101 body: entry count (0C 00), then boss 2406034 (파르곤) as var-int 92 ED 92 01,
-    // a 1-byte gap (00), then Int64-LE target ms 0E 11 B1 2B 9F 01 00 00 = 1,783,144,452,366.
-    private const long RealTarget = 0x0000019F2BB1110EL;
+    // A REAL 모르헤임 0x9101 body (map 1111, 12 entries), captured 2026-07-04. Every boss is dead, so every
+    // record is the short form: code var-int, one filler byte, int64-LE target.
+    private const string RealMorheimBody =
+        "00 00 57 04 00 00 0C 00 92 ED 92 01 00 0E 11 B1 2B 9F 01 00 00 00 F1 ED 92 01 BD 8A A3 2B 9F 01 00 " +
+        "00 00 CE ED 92 01 2A ED DC 2B 9F 01 00 00 00 93 ED 92 01 83 CE B1 2B 9F 01 00 00 00 B7 ED 92 01 0F " +
+        "6E A7 2B 9F 01 00 00 00 CD ED 92 01 26 4B A8 2B 9F 01 00 00 00 F3 ED 92 01 38 36 A4 2B 9F 01 00 00 " +
+        "00 F4 ED 92 01 CC CD 7E 2C 9F 01 00 00 00 A5 EE 92 01 00 56 AE A0 2B 9F 01 00 00 00 A6 EE 92 01 00 " +
+        "CE A1 2B 9F 01 00 00 00 CE F4 92 01 64 1E 7E 2C 9F 01 00 00 00 CF F4 92 01 C4 C9 7C 2C 9F 01 00 00 " +
+        "00 00 00";
+
+    // The same table at another tick, when 포식의 거수 발라크(2406035) was UP: its record carries a 12-byte
+    // position block between the code and the timestamp. The old 0..2-byte gap tolerance lost a row here.
+    private const string RealMorheimBodyWithLiveBoss =
+        "00 00 57 04 00 00 0C 00 92 ED 92 01 02 0E 11 B1 2B 9F 01 00 00 01 F1 ED 92 01 6C F7 19 C6 7B 89 B7 " +
+        "C7 00 80 BF 45 BD 8A A3 2B 9F 01 00 00 00 CE ED 92 01 2A ED DC 2B 9F 01 00 00 00 93 ED 92 01 83 CE " +
+        "B1 2B 9F 01 00 00 00 B7 ED 92 01 0F 6E A7 2B 9F 01 00 00 00 CD ED 92 01 26 4B A8 2B 9F 01 00 00 00 " +
+        "F3 ED 92 01 38 36 A4 2B 9F 01 00 00 00 F4 ED 92 01 CC CD 7E 2C 9F 01 00 00 00 A5 EE 92 01 00 46 4E " +
+        "58 2D 9F 01 00 00 00 A6 EE 92 01 FA 6D 59 2D 9F 01 00 00 00 CE F4 92 01 64 1E 7E 2C 9F 01 00 00 00 " +
+        "CF F4 92 01 C4 C9 7C 2C 9F 01 00 00 00 00 00";
+
+    /// <summary>~14:30 KST on the capture day — just before the earliest target in the table.</summary>
+    private const long MorheimArrivedAt = 1_783_143_000_000L;
+
+    private static byte[] Hex(string s)
+    {
+        string[] parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var bytes = new byte[parts.Length];
+        for (int i = 0; i < parts.Length; i++)
+        {
+            bytes[i] = byte.Parse(parts[i], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        }
+
+        return bytes;
+    }
+
+    private static void WriteVarInt(List<byte> to, int value)
+    {
+        uint v = (uint)value;
+        while (v >= 0x80)
+        {
+            to.Add((byte)(v | 0x80));
+            v >>= 7;
+        }
+
+        to.Add((byte)v);
+    }
+
+    /// <summary>Builds a table body: header + one short-form record per (wireCode, target).</summary>
+    private static byte[] Body(int mapId, params (int Wire, long Target)[] rows)
+    {
+        var b = new List<byte> { 0, 0 };
+        b.AddRange(BitConverter.GetBytes(mapId));
+        b.Add((byte)rows.Length);
+        b.Add(0);
+        foreach ((int wire, long target) in rows)
+        {
+            WriteVarInt(b, wire);
+            b.Add(0);
+            b.AddRange(BitConverter.GetBytes(target));
+        }
+
+        return b.ToArray();
+    }
 
     [Fact]
-    public void Parses_a_boss_code_and_target_time()
+    public void Parses_a_real_morheim_table_whole()
     {
-        byte[] body =
-        {
-            0x0C, 0x00,                                     // entry count 12
-            0x92, 0xED, 0x92, 0x01,                          // var-int 2406034
-            0x00,                                            // 1-byte gap
-            0x0E, 0x11, 0xB1, 0x2B, 0x9F, 0x01, 0x00, 0x00,  // int64-LE target
-        };
-        // arrivedAt ~43 min before the target (the record's window)
-        long arrivedAt = RealTarget - 43 * 60_000L;
+        FieldBossTimerParser.Result r = FieldBossTimerParser.ParseTable(Hex(RealMorheimBody), 0, MorheimArrivedAt);
 
-        IReadOnlyList<(int Code, long TargetMs)> r = FieldBossTimerParser.Parse(body, 0, arrivedAt);
+        Assert.Equal(1111, r.MapId);
+        Assert.Equal(12, r.Timers.Count);
+        Assert.All(r.Timers, t => Assert.Equal(FieldBossRegion.Morheim, FieldBossCatalog.Region(t.Code)));
+        Assert.Contains(r.Timers, t => t.Code == 2406034 && t.TargetMs == 0x0000019F2BB1110EL);
+        Assert.Contains(r.Timers, t => t.Code == 2406991);
+    }
 
-        (int code, long target) = Assert.Single(r);
-        Assert.Equal(2406034, code);
-        Assert.Equal(RealTarget, target);
+    [Fact]
+    public void Recovers_the_record_of_a_boss_that_is_currently_up()
+    {
+        // The live boss's record has a 12-byte position between code and timestamp; all 12 rows must survive.
+        FieldBossTimerParser.Result r =
+            FieldBossTimerParser.ParseTable(Hex(RealMorheimBodyWithLiveBoss), 0, MorheimArrivedAt);
+
+        Assert.Equal(12, r.Timers.Count);
+        Assert.Contains(r.Timers, t => t.Code == 2406035);  // 발라크 — the live one
+        Assert.Contains(r.Timers, t => t.Code == 2406129);  // 피오스 — dropped by the old 0..2 gap scan
+    }
+
+    [Fact]
+    public void Maps_a_verteron_slot_code_back_to_the_mob_code()
+    {
+        long target = MorheimArrivedAt + 20 * 60_000L;
+        byte[] body = Body(1010, (101001, target), (101002, target + 60_000));
+
+        FieldBossTimerParser.Result r = FieldBossTimerParser.ParseTable(body, 0, MorheimArrivedAt);
+
+        Assert.Equal(1010, r.MapId);
+        Assert.Equal(2, r.Timers.Count);
+        Assert.Contains(r.Timers, t => t.Code == 2100003 && t.TargetMs == target);   // 동쪽의 네이켈
+        Assert.Contains(r.Timers, t => t.Code == 2100040);                           // 썩은 쿠타르
+    }
+
+    [Fact]
+    public void Rejects_a_code_that_belongs_to_another_region()
+    {
+        // A 베르테론 slot code inside a 모르헤임 table is noise, not a boss.
+        byte[] body = Body(1111, (101001, MorheimArrivedAt + 20 * 60_000L));
+
+        Assert.Empty(FieldBossTimerParser.ParseTable(body, 0, MorheimArrivedAt).Timers);
+    }
+
+    [Fact]
+    public void Accepts_a_weekly_abyss_target_beyond_the_one_day_horizon()
+    {
+        long sixDaysOut = MorheimArrivedAt + 6 * 24 * 60 * 60 * 1000L;
+        byte[] body = Body(FieldBossCatalog.AbyssMiddleMapId, (2202, sixDaysOut));
+
+        FieldBossTimerParser.Result r = FieldBossTimerParser.ParseTable(body, 0, MorheimArrivedAt);
+
+        Assert.Contains(r.Timers, t => t.Code == 2600520 && t.TargetMs == sixDaysOut); // 처형관 드라모스
+    }
+
+    [Fact]
+    public void Falls_back_to_the_fixed_schedule_when_a_record_has_no_usable_time()
+    {
+        // 감시자 카이라(wire 2002) listed with a zeroed time → the hourly schedule fills it in.
+        byte[] body = Body(FieldBossCatalog.AbyssLowerMapId, (2001, MorheimArrivedAt + 20 * 60_000L), (2002, 0));
+
+        FieldBossTimerParser.Result r = FieldBossTimerParser.ParseTable(body, 0, MorheimArrivedAt);
+
+        (int Code, long TargetMs) kaira = Assert.Single(r.Timers, t => t.Code == 2600089);
+        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600089, MorheimArrivedAt, out long expected));
+        Assert.Equal(expected, kaira.TargetMs);
     }
 
     [Fact]
     public void Rejects_a_target_time_outside_the_sane_window()
     {
-        byte[] body = { 0x92, 0xED, 0x92, 0x01, 0x00, 0x0E, 0x11, 0xB1, 0x2B, 0x9F, 0x01, 0x00, 0x00 };
-        // "now" is a week past the target → not a plausible future respawn → dropped
-        long arrivedAt = RealTarget + 7 * 24 * 60 * 60_000L;
-        Assert.Empty(FieldBossTimerParser.Parse(body, 0, arrivedAt));
+        byte[] body = Body(1111, (2406034, MorheimArrivedAt - 60 * 60_000L)); // an hour in the past
+        Assert.Empty(FieldBossTimerParser.ParseTable(body, 0, MorheimArrivedAt).Timers);
     }
 
     [Fact]
-    public void Ignores_var_ints_outside_the_boss_code_range()
+    public void Ignores_a_body_that_is_not_a_boss_table()
     {
-        // a small var-int (5) followed by 8 bytes that happen to be a valid time must NOT parse as a boss
-        byte[] body = { 0x05, 0x00, 0x0E, 0x11, 0xB1, 0x2B, 0x9F, 0x01, 0x00, 0x00 };
-        Assert.Empty(FieldBossTimerParser.Parse(body, 0, RealTarget - 60_000L));
+        // The same opcode also carries a short 29-byte message with no table; it must yield nothing.
+        byte[] body = Hex("00 00 E5 4E 09 00 00 01 8E 9C 02 9D 19 23 00 00 0C 94 C6 00 2C 21 46 00 00 BF 45 00 00");
+        Assert.Empty(FieldBossTimerParser.ParseTable(body, 0, MorheimArrivedAt).Timers);
     }
 }
