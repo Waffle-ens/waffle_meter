@@ -157,7 +157,7 @@ public class FieldBossTimerParserTests
         FieldBossTimerParser.Result low =
             FieldBossTimerParser.ParseTable(Hex(RealAbyssLowerBody), 0, AbyssArrivedAt);
         Assert.Equal(FieldBossCatalog.AbyssLowerMapId, low.MapId);
-        Assert.Equal(8, low.Timers.Count);
+        Assert.Equal(7, low.Timers.Count);   // 8 declared; 감시자 카이라's record carries no time
         Assert.All(low.Timers, t => Assert.Equal(FieldBossRegion.Abyss, FieldBossCatalog.Region(t.Code)));
 
         FieldBossTimerParser.Result mid =
@@ -178,16 +178,15 @@ public class FieldBossTimerParserTests
     }
 
     [Fact]
-    public void A_zeroed_abyss_record_falls_back_to_the_fixed_schedule()
+    public void The_zeroed_kaira_record_produces_no_timer()
     {
-        // 감시자 카이라(2600089) is the one boss the server never times; the table still yields a row for it.
+        // 감시자 카이라 is the one boss the server never times, so there is nothing to remind against here —
+        // it is driven by its own hourly alarm instead, and must not appear as a respawn timer.
         FieldBossTimerParser.Result low =
             FieldBossTimerParser.ParseTable(Hex(RealAbyssLowerBody), 0, AbyssArrivedAt);
 
-        (int Code, long TargetMs) kaira = Assert.Single(low.Timers, t => t.Code == 2600089);
-        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600089, AbyssArrivedAt, out long expected));
-        Assert.Equal(expected, kaira.TargetMs);
-        Assert.True(kaira.TargetMs > AbyssArrivedAt);
+        Assert.DoesNotContain(low.Timers, t => t.Code == FieldBossCatalog.HourlySpawnCode);
+        Assert.False(FieldBossFixedSchedule.HasFixedSchedule(FieldBossCatalog.HourlySpawnCode));
     }
 
     [Fact]
@@ -227,14 +226,14 @@ public class FieldBossTimerParserTests
     [Fact]
     public void Falls_back_to_the_fixed_schedule_when_a_record_has_no_usable_time()
     {
-        // 감시자 카이라(wire 2002) listed with a zeroed time → the hourly schedule fills it in.
-        byte[] body = Body(FieldBossCatalog.AbyssLowerMapId, (2001, MorheimArrivedAt + 20 * 60_000L), (2002, 0));
+        // 수호신장 나흐마(wire 2003) listed with a zeroed time → the siege schedule fills it in.
+        byte[] body = Body(FieldBossCatalog.AbyssLowerMapId, (2001, MorheimArrivedAt + 20 * 60_000L), (2003, 0));
 
         FieldBossTimerParser.Result r = FieldBossTimerParser.ParseTable(body, 0, MorheimArrivedAt);
 
-        (int Code, long TargetMs) kaira = Assert.Single(r.Timers, t => t.Code == 2600089);
-        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600089, MorheimArrivedAt, out long expected));
-        Assert.Equal(expected, kaira.TargetMs);
+        (int Code, long TargetMs) nahma = Assert.Single(r.Timers, t => t.Code == 2600084);
+        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600084, MorheimArrivedAt, out long expected));
+        Assert.Equal(expected, nahma.TargetMs);
     }
 
     [Fact]

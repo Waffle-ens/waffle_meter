@@ -570,6 +570,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool FieldBossLead30 { get => _settings.FieldBossLead30; set { _settings.FieldBossLead30 = value; OnPropertyChanged(); } }
     public bool FieldBossAlarmMuteInCombat { get => _settings.FieldBossAlarmMuteInCombat; set { _settings.FieldBossAlarmMuteInCombat = value; OnPropertyChanged(); } }
 
+    public bool KairaAlarmEnabled { get => _settings.KairaAlarmEnabled; set { _settings.KairaAlarmEnabled = value; OnPropertyChanged(); } }
+    public bool KairaLead10 { get => _settings.KairaLead10; set { _settings.KairaLead10 = value; OnPropertyChanged(); } }
+    public bool KairaLead5 { get => _settings.KairaLead5; set { _settings.KairaLead5 = value; OnPropertyChanged(); } }
+    public bool KairaLead1 { get => _settings.KairaLead1; set { _settings.KairaLead1 = value; OnPropertyChanged(); } }
+
     /// <summary>Build the field-boss alarm selection dialog, bound to the persisted disabled set.</summary>
     public FieldBossPickerWindow CreateFieldBossPicker() => new(new FieldBossPickerViewModel(_settings));
 

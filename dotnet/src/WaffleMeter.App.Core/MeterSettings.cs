@@ -65,6 +65,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _fieldBossLead10 = ReadBool("alarms.fieldBossLead10", true);
         _fieldBossLead30 = ReadBool("alarms.fieldBossLead30", false);
         _fieldBossAlarmMuteInCombat = ReadBool("alarms.fieldBossMuteInCombat", false);
+        _kairaAlarmEnabled = ReadBool("alarms.kairaEnabled", false);
+        _kairaLead10 = ReadBool("alarms.kairaLead10", true);
+        _kairaLead5 = ReadBool("alarms.kairaLead5", false);
+        _kairaLead1 = ReadBool("alarms.kairaLead1", false);
         _fieldBossDisabled = _props.GetProperty("alarms.fieldBossDisabled") ?? "";
         _refreshIntervalMs = ReadInt("refreshIntervalMs", 500);
         _maxVisibleRows = ReadInt("maxVisibleRows", 10);
@@ -236,6 +240,20 @@ public sealed class MeterSettings : INotifyPropertyChanged
             return s;
         }
     }
+
+    // ---- 감시자 카이라: its own clock-based reminder (see KairaAlarm for why it is not a picker row) ----
+    private bool _kairaAlarmEnabled;
+    /// <summary>Master toggle for the 감시자 카이라 hourly reminder.</summary>
+    public bool KairaAlarmEnabled { get => _kairaAlarmEnabled; set => SetBool(ref _kairaAlarmEnabled, "alarms.kairaEnabled", value); }
+
+    private bool _kairaLead10;
+    public bool KairaLead10 { get => _kairaLead10; set => SetBool(ref _kairaLead10, "alarms.kairaLead10", value); }
+
+    private bool _kairaLead5;
+    public bool KairaLead5 { get => _kairaLead5; set => SetBool(ref _kairaLead5, "alarms.kairaLead5", value); }
+
+    private bool _kairaLead1;
+    public bool KairaLead1 { get => _kairaLead1; set => SetBool(ref _kairaLead1, "alarms.kairaLead1", value); }
 
     private bool _fieldBossAlarmMuteInCombat;
     /// <summary>Suppress the field-boss reminder while the meter is recording an active combat (so a dungeon

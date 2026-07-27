@@ -21,7 +21,9 @@ public sealed class FieldBossPickerViewModel
 
         foreach (FieldBossRegion region in FieldBossCatalog.Regions)
         {
-            IReadOnlyList<FieldBossInfo> bosses = FieldBossCatalog.InRegion(region);
+            // 감시자 카이라 has its own hourly reminder in the settings, so it is not a row here.
+            List<FieldBossInfo> bosses = FieldBossCatalog.InRegion(region)
+                .Where(b => !FieldBossCatalog.HasOwnAlarm(b.Code)).ToList();
             if (bosses.Count == 0)
             {
                 continue;

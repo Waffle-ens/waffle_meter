@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows.Threading;
 using WaffleMeter.App.Core;
+using WaffleMeter.Capture;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -20,6 +21,7 @@ public sealed class AlarmController
     private readonly Func<IReadOnlyDictionary<int, long>>? _fieldBossTimers;
     private readonly Action<FieldBossAlarm.Due>? _onFieldBoss;
     private readonly Func<bool>? _combatActive;
+    private readonly Action<int>? _onKaira;
     private readonly DispatcherTimer _timer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
     private string _lastMinute = string.Empty;
     // dedup: each (boss, respawn, lead) fires once. Value = the respawn target ms, so entries can be pruned
@@ -34,8 +36,10 @@ public sealed class AlarmController
         Func<DateTime>? now = null,
         Func<IReadOnlyDictionary<int, long>>? fieldBossTimers = null,
         Action<FieldBossAlarm.Due>? onFieldBoss = null,
-        Func<bool>? combatActive = null)
+        Func<bool>? combatActive = null,
+        Action<int>? onKaira = null)
     {
+        _onKaira = onKaira;
         _settings = settings;
         _onShugo = onShugo;
         _onCustom = onCustom;
@@ -70,6 +74,14 @@ public sealed class AlarmController
             && ShugoAlarm.DueLead(now, ShugoAlarm.EnabledLeads(_settings)) is int lead)
         {
             _onShugo(lead);
+        }
+
+        // 감시자 카이라: hourly and never timed by the server, so it runs off the clock like 슈고 페스타 and
+        // fires wherever the player is — the whole point is to travel there before the hour turns.
+        if (_settings.KairaAlarmEnabled && _onKaira is not null
+            && HourlyAlarm.DueLead(now, KairaAlarm.EnabledLeads(_settings)) is int kairaLead)
+        {
+            _onKaira(kairaLead);
         }
 
         foreach (CustomAlarm alarm in _settings.CustomAlarms)
@@ -107,6 +119,11 @@ public sealed class AlarmController
 
         foreach (FieldBossAlarm.Due d in FieldBossAlarm.DueAlerts(_fieldBossTimers(), nowMs, _settings.FieldBossLeads))
         {
+            if (FieldBossCatalog.HasOwnAlarm(d.Code))
+            {
+                continue; // 감시자 카이라 has its own hourly reminder — never double-fire here
+            }
+
             if (disabled.Contains(d.Code))
             {
                 continue; // unchecked in the boss picker

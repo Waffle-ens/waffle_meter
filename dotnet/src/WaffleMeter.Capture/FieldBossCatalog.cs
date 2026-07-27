@@ -138,6 +138,15 @@ public static class FieldBossCatalog
     /// <summary>혼돈의 에레슈란타 중층.</summary>
     public const int AbyssMiddleMapId = 22;
 
+    /// <summary>감시자 카이라 (어비스 하층). The server sends a ZEROED timestamp for this one boss in every
+    /// capture, so it has no respawn time to remind against; it spawns on the hour and is not guaranteed to
+    /// spawn at all. It therefore gets its own clock-based reminder and is kept out of the boss picker and
+    /// the timer-driven alarm — see <c>KairaAlarm</c>.</summary>
+    public const int HourlySpawnCode = 2600089;
+
+    /// <summary>True when this boss is driven by its own alarm instead of the shared respawn-timer one.</summary>
+    public static bool HasOwnAlarm(int code) => code == HourlySpawnCode;
+
     /// <summary>Wire codes the boss table does not list directly, kept so a record that still carries the old
     /// value resolves. 2101349는 옛 표가 쓰던 "맹목적인 니호그" 코드인데 현행 데이터마인엔 보스가 아니고,
     /// 같은 이름의 실보스는 2101343이라 그쪽을 정본으로 삼되 옛 코드도 받아 준다.</summary>

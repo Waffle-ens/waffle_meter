@@ -46,6 +46,18 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
         IconBrush = Amber;
     }
 
+    /// <summary>Set the toast for the 감시자 카이라 hourly cue. The boss is not guaranteed to spawn, so the
+    /// wording says "출현 가능" rather than promising a spawn.</summary>
+    public void SetKaira(int leadMinutes)
+    {
+        Title = "감시자 카이라";
+        Description = leadMinutes <= 0
+            ? "지금 정각 · 출현 가능"
+            : $"{leadMinutes}분 뒤 정각 · 출현 가능";
+        IconGlyph = GlyphBell;
+        IconBrush = Amber;
+    }
+
     /// <summary>Set the toast for a user custom alarm.</summary>
     public void SetCustom(string title)
     {

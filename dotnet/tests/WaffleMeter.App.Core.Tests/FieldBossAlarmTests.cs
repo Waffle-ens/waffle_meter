@@ -131,22 +131,27 @@ public class FieldBossAlarmTests
     [Fact]
     public void Fixed_schedule_only_covers_the_abyss_fortress_bosses()
     {
-        Assert.True(FieldBossFixedSchedule.HasFixedSchedule(2600089));   // 감시자 카이라 — 매시 정각
+        Assert.True(FieldBossFixedSchedule.HasFixedSchedule(2600084));   // 수호신장 나흐마 — 요새 공성
         Assert.False(FieldBossFixedSchedule.HasFixedSchedule(2406034));  // 모르헤임은 일반 리스폰 타이머
-        // 카이라만 서버가 시각을 0으로 보내 우리 추정에 의존한다 — 표시로 드러난다.
-        Assert.Equal("매시 정각(추정)", FieldBossFixedSchedule.Describe(2600089));
         Assert.Equal("금·일 22:05", FieldBossFixedSchedule.Describe(2600520));   // 실캡처: 금 22:05
         Assert.Equal("수·토 22:35", FieldBossFixedSchedule.Describe(2600156));   // 실캡처: 수 22:35
         Assert.Null(FieldBossFixedSchedule.Describe(2406034));
+
+        // 감시자 카이라는 리젠 타이머가 아니라 정각 알림으로 다룬다 — 여기에도, picker에도 없다.
+        Assert.False(FieldBossFixedSchedule.HasFixedSchedule(FieldBossCatalog.HourlySpawnCode));
+        Assert.True(FieldBossCatalog.HasOwnAlarm(FieldBossCatalog.HourlySpawnCode));
+        Assert.False(FieldBossCatalog.HasOwnAlarm(2600098));   // 집행자 슬롯 카이라는 일반 알림 대상
     }
 
     [Fact]
-    public void Hourly_schedule_returns_the_next_hour_boundary()
+    public void Kaira_leads_are_due_only_on_the_matching_minute_before_the_hour()
     {
-        // 2026-07-27 13:37:10 KST
-        long from = new DateTimeOffset(2026, 7, 27, 13, 37, 10, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
-        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600089, from, out long next));
-        Assert.Equal(new DateTimeOffset(2026, 7, 27, 14, 0, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), next);
+        var leads = new[] { 10, 5, 1 };
+        Assert.Equal(10, HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 50, 0), leads));
+        Assert.Equal(5, HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 55, 0), leads));
+        Assert.Equal(1, HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 59, 0), leads));
+        Assert.Null(HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 52, 0), leads));
+        Assert.Null(HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 0, 0), leads));   // 정각 자체는 0 lead
     }
 
     [Fact]

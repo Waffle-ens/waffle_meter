@@ -13,10 +13,7 @@ public static class ShugoAlarm
     /// be due in any given minute.
     /// </summary>
     public static int? DueLead(DateTime now, IReadOnlyCollection<int> enabledLeads)
-    {
-        int minutesUntilHour = now.Minute == 0 ? 0 : 60 - now.Minute;
-        return enabledLeads.Contains(minutesUntilHour) ? minutesUntilHour : null;
-    }
+        => HourlyAlarm.DueLead(now, enabledLeads);
 
     /// <summary>The set of enabled lead minutes from settings (0 = start).</summary>
     public static IReadOnlyCollection<int> EnabledLeads(MeterSettings s)
