@@ -47,7 +47,9 @@ public static class FieldBossTimerParser
         // Known map → accept that map's codes only, and let the record walk resync past a position block.
         if (mapId != 0 && FieldBossCatalog.IsKnownMap(mapId))
         {
-            ScanScoped(packet, start + 8, arrivedAtMs, mapId, found);
+            // +7 is the first record's leading flag byte; start there rather than at the first code so a
+            // table whose first record has no flag is not skipped (the walk resyncs byte by byte anyway).
+            ScanScoped(packet, start + 7, arrivedAtMs, mapId, found);
         }
         else
         {

@@ -29,8 +29,29 @@ public class FieldBossTimerParserTests
         "58 2D 9F 01 00 00 00 A6 EE 92 01 FA 6D 59 2D 9F 01 00 00 00 CE F4 92 01 64 1E 7E 2C 9F 01 00 00 00 " +
         "CF F4 92 01 C4 C9 7C 2C 9F 01 00 00 00 00 00";
 
+    // A REAL 베르테론 body (map 1010, 24 entries), captured 2026-07-27. This region rides per-map SLOT codes
+    // (101001..101024, three-byte var-ints) rather than mob codes, and the table is followed by a trailer of
+    // longer records carrying float positions — the shape the whole 24-boss half of the catalog depends on.
+    private const string RealVerteronBody =
+        "00 00 F2 03 00 00 18 00 8C 95 06 00 85 F7 8D A3 9F 01 00 00 00 8A 95 06 A1 01 54 A3 9F 01 00 00 " +
+        "00 89 95 06 57 D1 4B A3 9F 01 00 00 00 8B 95 06 72 0F 53 A3 9F 01 00 00 00 8F 95 06 13 8B 5A A3 " +
+        "9F 01 00 00 00 9D 95 06 DC 29 E3 A3 9F 01 00 00 00 8D 95 06 55 A0 88 A3 9F 01 00 00 00 90 95 06 " +
+        "86 4C 8B A3 9F 01 00 00 00 93 95 06 00 FE 76 F4 A3 9F 01 00 00 00 8E 95 06 CC 12 7B A3 9F 01 00 " +
+        "00 00 91 95 06 18 E8 86 A3 9F 01 00 00 00 92 95 06 A0 1B 8A A3 9F 01 00 00 00 94 95 06 14 62 ED " +
+        "A3 9F 01 00 00 00 95 95 06 80 EF F8 A3 9F 01 00 00 00 96 95 06 97 25 EE A3 9F 01 00 00 00 97 95 " +
+        "06 F4 E1 88 A3 9F 01 00 00 00 98 95 06 00 A8 18 F8 A3 9F 01 00 00 00 99 95 06 70 7E 86 A3 9F 01 " +
+        "00 00 00 9A 95 06 DD 44 F2 A3 9F 01 00 00 00 9B 95 06 04 0E 9D A3 9F 01 00 00 00 9C 95 06 71 DF " +
+        "F0 A3 9F 01 00 00 00 9E 95 06 2C 72 F2 A3 9F 01 00 00 00 9F 95 06 49 90 EF A3 9F 01 00 00 00 A0 " +
+        "95 06 61 5A E8 A3 9F 01 00 00 00 03 A3 B3 0B E7 C8 10 00 4B 4B 4C 00 00 48 FD 45 00 FC 43 C6 3D " +
+        "03 A7 46 20 A6 4B 3B A3 9F 01 00 00 A7 B3 0B EB C8 10 00 4F 4B 4C 00 19 A9 4C 47 A3 F8 FB 47 EF " +
+        "EA AC 46 02 D9 4B 3B A3 9F 01 00 00 A4 B3 0B E9 C8 10 00 4D 4B 4C 00 9A 97 73 C6 DE 38 AE 47 FA " +
+        "7D 83 46 01 A6 4B 3B A3 9F 01 00 00 00";
+
     /// <summary>~14:30 KST on the capture day — just before the earliest target in the table.</summary>
     private const long MorheimArrivedAt = 1_783_143_000_000L;
+
+    /// <summary>2026-07-27 20:05 KST — when the 베르테론 table was captured.</summary>
+    private const long VerteronArrivedAt = 1_785_150_000_000L;
 
     private static byte[] Hex(string s)
     {
@@ -95,6 +116,22 @@ public class FieldBossTimerParserTests
         Assert.Equal(12, r.Timers.Count);
         Assert.Contains(r.Timers, t => t.Code == 2406035);  // 발라크 — the live one
         Assert.Contains(r.Timers, t => t.Code == 2406129);  // 피오스 — dropped by the old 0..2 gap scan
+    }
+
+    [Fact]
+    public void Parses_a_real_verteron_table_whole()
+    {
+        FieldBossTimerParser.Result r =
+            FieldBossTimerParser.ParseTable(Hex(RealVerteronBody), 0, VerteronArrivedAt);
+
+        Assert.Equal(1010, r.MapId);
+        Assert.Equal(24, r.Timers.Count);                 // == the header's declared count
+        Assert.All(r.Timers, t => Assert.Equal(FieldBossRegion.Verteron, FieldBossCatalog.Region(t.Code)));
+        // slot code 101021 -> 영원의 가르투아, the sub-region that had to be unlocked before it showed up
+        Assert.Contains(r.Timers, t => t.Code == 2101074);
+        Assert.Contains(r.Timers, t => t.Code == 2100003);  // first slot (101001) 동쪽의 네이켈
+        Assert.Contains(r.Timers, t => t.Code == 2101131);  // last slot (101024) 군단장 라그타
+        Assert.All(r.Timers, t => Assert.InRange(t.TargetMs, VerteronArrivedAt, VerteronArrivedAt + 86_400_000L));
     }
 
     [Fact]
