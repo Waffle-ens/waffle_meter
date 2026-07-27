@@ -114,6 +114,22 @@ public class JoinRequestParsingTests
     }
 
     [Fact]
+    public void Garbage_nickname_join_request_is_rejected()
+    {
+        var (join, diag, proc) = NewProcessor();
+        // The golden frame with its 9 name bytes (indices 28..36, "쿵해쫑") overwritten with invalid UTF-8
+        // (0xFF is never a legal UTF-8 byte). This is the phantom "party 신청" with a mojibake name a
+        // mis-assembled 0x9707 frame produced while idle — it must be dropped, not shown as an applicant.
+        byte[] garbage = (byte[])GoldenJoinRequest.Clone();
+        for (int i = 28; i <= 36; i++) garbage[i] = 0xFF;
+
+        proc.OnPacketReceived(garbage, 1717_000_000);
+
+        Assert.Empty(join.Requests);        // no phantom card
+        Assert.Equal(1, diag.ParserErrors); // rejected at the trust boundary
+    }
+
+    [Fact]
     public void Truncated_join_request_is_swallowed_not_thrown()
     {
         var (join, diag, proc) = NewProcessor();

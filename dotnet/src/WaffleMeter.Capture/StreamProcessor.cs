@@ -692,8 +692,25 @@ public sealed class StreamProcessor
 
         VarIntOutput nameLen = PacketPrimitives.ReadVarInt(packet, offset);
         offset += nameLen.Length;
+        // The 0x9707 dispatch keys off just two bytes (07 97); a mis-assembled/corrupt frame that happens to
+        // carry them reaches here and reads RANDOM bytes as the applicant name — that surfaced as a phantom
+        // party-join card with a mojibake name while the user stood idle (실측 2026-07-27). Guard the trust
+        // boundary: an applicant name is a short, clean UTF-8 string, so reject an implausible length or a name
+        // that isn't text (invalid UTF-8 decodes to U+FFFD; real nicknames never carry control chars) instead of
+        // emitting a bogus request (which would also fire an official-site lookup on the garbage nickname).
+        if (nameLen.Value is <= 0 or > 48 || offset + nameLen.Value > packet.Length)
+        {
+            _sink.ParserError("join_request", "implausible name length");
+            return;
+        }
+
         string nickname = Encoding.UTF8.GetString(packet, offset, nameLen.Value);
         offset += nameLen.Value;
+        if (nickname.Contains('�') || nickname.Any(c => c < ' '))
+        {
+            _sink.ParserError("join_request", "non-text nickname");
+            return;
+        }
 
         int server = PacketPrimitives.ParseUInt16Le(packet, offset);
         offset += 6; // Kotlin skips 6 after reading the 2-byte server
