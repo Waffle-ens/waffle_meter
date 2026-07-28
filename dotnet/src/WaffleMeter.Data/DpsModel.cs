@@ -314,6 +314,15 @@ public sealed class DpsReport
     /// "이번 세션에 한 번도 못 본 파티원"이 여기에만 있다.</summary>
     public List<RosterMember> PartyIdentitiesSnapshot { get; set; } = [];
 
+    /// <summary>표시 중인 이 리포트가 <b>끝난 전투</b>인지. 전투 대상이 없는 상태(<c>CurrentTarget == -1</c>)에서
+    /// 내보내는 리포트에만 켜진다 — 진행 중 리포트는 매 틱 새 <see cref="DpsReport"/>로 만들어지므로 언제나 false다.
+    /// <para>왜 별도 플래그인가: 표시 계층의 "파티 구성이 바뀌면 직전 전투 대신 로스터 프리뷰를 다시 띄운다"가
+    /// <see cref="PartyIdentitiesSnapshot"/>가 비었는지로 <b>"전투가 끝났는지"</b>를 대신 판정하고 있었다. 그런데
+    /// 파티 없이 혼자 잡은 전투는 스냅샷이 <b>정당하게</b> 비므로, 그 뒤 파티에 들어가도 프리뷰가 영영 뜨지 못했다
+    /// (실측: 솔로 필드보스 → 파티 가입 후에도 직전 솔로 전투가 계속 표시되고, 실제 전투가 시작돼야 파티원이 보임).
+    /// "파티가 있었나"(스냅샷)와 "전투가 끝났나"(이 플래그)는 서로 다른 질문이다 — 섞지 말 것.</para></summary>
+    public bool BattleFinished { get; set; }
+
     /// <summary>The 본인(executor) uid, frozen into a SAVED report at save time (like <see cref="BuffRates"/>
     /// and <see cref="SkillDetailsSnapshot"/>). A saved report's per-row <see cref="User.IsExecutor"/> is
     /// frozen by <c>DataManager.CopyUser</c> — usually <c>false</c>, since a battle is often saved before the

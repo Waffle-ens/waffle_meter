@@ -476,6 +476,11 @@ public sealed class DpsCalculator
                 _recentDataSaved = true;
             }
 
+            // 대기 상태에서 계속 내보내는 이 리포트는 더 이상 진행 중이 아니다. 표시 계층이 "직전 전투 위로
+            // 로스터 프리뷰를 다시 띄울지"를 판정하는 신호이며(OverlayRowBuilder Feature 1), 파티 스냅샷 유무로
+            // 대신 판정하면 솔로 전투(스냅샷이 정당하게 빔)에서 깨진다. 저장 여부와 무관하게 켠다 — 허수아비처럼
+            // 저장을 건너뛰는 전투도 "끝난 전투"인 건 같다. 진행 중 리포트는 매 틱 새 DpsReport라 여기로 새지 않는다.
+            _recentData.BattleFinished = true;
             return _recentData;
         }
 

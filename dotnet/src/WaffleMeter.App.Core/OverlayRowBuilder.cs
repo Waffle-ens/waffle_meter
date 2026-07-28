@@ -71,9 +71,9 @@ public static class OverlayRowBuilder
         // Unlike the 0x9702 roster this carries the ENTITY uid, so a bare combat row whose 0x3645 nickname was
         // missed can be named by uid DIRECTLY (no job-guessing / 1:1 ambiguity), and it survives a lost 0x9702.
         IReadOnlyList<(int Uid, string Nickname, int Server)>? memberProfiles = null,
-        // Feature 1: 표시 중인 프리즌 전투 위로 로스터 프리뷰를 다시 띄울지. 라이브 idle 경로에서만 true. 기록 재생
-        // 경로는 기본 false로 넘겨(재생 전투도 frozenParty지만 스냅샷이 라이브 로스터와 정당히 다름) 절대 안 비운다.
-        // 기존 호출자/테스트는 기본값으로 오늘 동작 그대로.
+        // Feature 1: 표시 중인 '끝난 전투'(<see cref="DpsReport.BattleFinished"/> 또는 파티 스냅샷 보유) 위로 로스터
+        // 프리뷰를 다시 띄울지. 라이브 idle 경로에서만 true. 기록 재생 경로는 false로 넘겨(재생 전투도 끝난
+        // 전투지만 스냅샷이 라이브 로스터와 정당히 다름) 절대 안 비운다. 기존 호출자/테스트는 기본값으로 그대로.
         bool allowRosterResurface = false)
     {
         double Metric(DpsInformation info) => useTotalDamage ? info.Amount : info.Dps;
@@ -395,10 +395,21 @@ public static class OverlayRowBuilder
         }
 
         // Feature 1 — 파티/공대 구성이 (닉네임+서버 기준) 바뀌면 직전 전투 대신 로스터 프리뷰를 다시 띄운다.
-        // 표시 중인 전투(frozenParty)의 파티 스냅샷과 지금 살아있는 로스터(rosterIdentities)의 신원 집합을 비교해
-        // 다르면(가입/탈퇴/교체) 프리뷰로 갈아끼운다 — 직전 전투는 전투 기록에 남으니 무해. uid는 무시(닉/서버만).
+        // 표시 중인 전투의 파티 스냅샷과 지금 살아있는 로스터(rosterIdentities)의 신원 집합을 비교해 다르면
+        // (가입/탈퇴/교체) 프리뷰로 갈아끼운다 — 직전 전투는 전투 기록에 남으니 무해. uid는 무시(닉/서버만).
+        // 프리뷰의 목적이 "전투 시작 전부터 파티/공대원 전투력을 조회 없이 본다"이므로, 파티가 새 정보가 된
+        // 순간(솔로→파티, 파티 교체, 인원 변동) 프리뷰가 이겨야 한다. 같은 파티 리풀은 직전 결과를 봐야 하는
+        // 구간이라 그대로 둔다(SetEquals가 참).
+        //
+        // ⚠️ 게이트의 첫 항은 "표시 중인 리포트가 끝난 전투인가"(BattleFinished)다. 종전에는 frozenParty
+        // (= 그 전투에 파티가 있었나)를 대용으로 썼는데, 혼자 잡은 전투는 스냅샷이 정당하게 비어 게이트가 영영
+        // 안 열렸다 — 실측: 솔로 필드보스를 잡고 파티에 들어가도 프리뷰 대신 직전 솔로 전투가 계속 떠 있고,
+        // 실제 전투가 시작돼야 파티원이 보였다. frozenParty를 OR로 남긴 것은 BattleFinished를 세팅하지 않는
+        // 호출자(기록 재생·툴·기존 테스트)의 하위호환용이다.
+        // ⚠️ 이 게이트에서 "끝난 전투" 조건 자체를 빼면 안 된다 — 진행 중 전투는 battleSet이 늘 공집합이라
+        // 매 틱 rosterChanged=true가 되어 아래 entries.Clear()가 전투 행을 계속 지운다(전투 중 미터가 빈다).
         bool rosterChanged = false;
-        if (allowRosterResurface && frozenParty && rosterIdentities is { Count: > 0 })
+        if (allowRosterResurface && (report.BattleFinished || frozenParty) && rosterIdentities is { Count: > 0 })
         {
             var currentSet = new HashSet<(string, int)>(
                 rosterIdentities.Where(m => !string.IsNullOrWhiteSpace(m.Nickname)).Select(m => (m.Nickname, m.Server)));
