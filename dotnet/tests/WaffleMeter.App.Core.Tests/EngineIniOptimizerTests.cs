@@ -137,6 +137,127 @@ public sealed class EngineIniOptimizerTests
         Assert.Contains("Paths=x", stripped);
     }
 
+    // ── 게임이 Engine.ini를 다시 쓰면서 우리 마커(주석)를 지운 뒤의 파일 모양 ──────────────────────────
+    // 실측(2026-07-28): 적용 후 게임을 한 번 켜면 마커 2줄은 사라지고 우리 키만 [SystemSettings]에 병합돼
+    // 남는다. 이 형태를 못 알아보면 UI가 "미적용"으로 뜨고, 되돌리기가 무동작이며, 재적용이 키를 중복시킨다.
+    private const string GameRewritten =
+        "[Core.System]\nPaths=../../../Content\n\n" +
+        "[SystemSettings]\n" +
+        "r.TextureStreaming=1\nr.Streaming.PoolSize=10240\nr.Streaming.LimitPoolSizeToVRAM=1\n" +
+        "r.Streaming.MaxTempMemoryAllowed=2048\nr.Streaming.FullyLoadUsedTextures=0\nr.Streaming.HLODStrategy=2\n" +
+        "r.OneFrameThreadLag=1\nr.FinishCurrentFrame=0\nr.RHICmdBypass=0\nr.RenderThread.Enable=1\n" +
+        "r.HZBOcclusion=1\nr.AllowOcclusionQueries=1\ngc.TimeBetweenPurgingPendingKillObjects=120\n" +
+        "s.ForceGCAfterLevelStreamedOut=0\n\n" +
+        "[WindowsApplication.Accessibility]\nStickyKeysHotkey=True\n";
+
+    [Fact]
+    public void Every_key_BuildBlock_writes_is_listed_in_ManagedKeys()
+    {
+        // 두 목록이 어긋나면 되돌리기가 그 키를 남긴다 — 주석으로만 적어둔 규칙은 회귀한다.
+        string block = EngineIniOptimizer.BuildBlock(EngineIniOptimizer.TierForVram(24 * GiB), includeAdvanced: true);
+        foreach (string line in block.Split('\n'))
+        {
+            string t = line.Trim();
+            if (t.Length == 0 || t[0] == ';' || t[0] == '[')
+            {
+                continue;
+            }
+
+            string key = t[..t.IndexOf('=')];
+            Assert.Contains(key, EngineIniOptimizer.ManagedKeys);
+        }
+    }
+
+    [Fact]
+    public void Applied_state_is_still_detected_after_the_game_strips_our_markers()
+    {
+        Assert.False(EngineIniOptimizer.HasBlock(GameRewritten)); // 마커는 실제로 사라졌다
+        Assert.True(EngineIniOptimizer.IsApplied(GameRewritten)); // 그래도 "적용됨"으로 읽어야 한다
+        Assert.Equal(14, EngineIniOptimizer.ManagedKeyCount(GameRewritten));
+    }
+
+    [Fact]
+    public void A_clean_user_file_is_not_mistaken_for_applied()
+    {
+        const string clean = "[Core.System]\nPaths=x\n\n[SystemSettings]\nr.TextureStreaming=1\nr.HZBOcclusion=1\n";
+        Assert.False(EngineIniOptimizer.IsApplied(clean)); // 우리 키 2개뿐 = 사용자 설정
+        Assert.False(EngineIniOptimizer.IsApplied("[Core.System]\nPaths=x\n"));
+        Assert.False(EngineIniOptimizer.IsApplied(null));
+    }
+
+    [Fact]
+    public void Revert_works_even_after_the_game_stripped_our_markers()
+    {
+        string reverted = EngineIniOptimizer.Remove(GameRewritten);
+
+        Assert.False(EngineIniOptimizer.IsApplied(reverted));
+        Assert.Equal(0, EngineIniOptimizer.ManagedKeyCount(reverted));
+        // 우리 키만 있던 섹션은 빈 헤더를 남기지 않고 통째로 사라진다
+        Assert.DoesNotContain("[SystemSettings]", reverted);
+        // 사용자의 다른 섹션·키는 그대로
+        Assert.Contains("Paths=../../../Content", reverted);
+        Assert.Contains("[WindowsApplication.Accessibility]", reverted);
+        Assert.Contains("StickyKeysHotkey=True", reverted);
+    }
+
+    [Fact]
+    public void Reapplying_after_a_game_rewrite_does_not_stack_duplicate_keys()
+    {
+        string block = EngineIniOptimizer.BuildBlock(EngineIniOptimizer.TierForVram(16 * GiB));
+        string reapplied = EngineIniOptimizer.ApplyBlock(GameRewritten, block);
+
+        Assert.Equal(1, CountOccurrences(reapplied, "[SystemSettings]"));
+        Assert.Equal(1, CountOccurrences(reapplied, "r.Streaming.PoolSize="));
+        Assert.Equal(1, CountOccurrences(reapplied, "r.TextureStreaming="));
+        Assert.Contains("Paths=../../../Content", reapplied);
+    }
+
+    [Fact]
+    public void A_user_key_in_SystemSettings_survives_the_revert()
+    {
+        // 우리 키 옆에 사용자가 직접 넣은 키가 있으면 섹션 헤더와 그 키는 남아야 한다.
+        string mixed = GameRewritten.Replace(
+            "s.ForceGCAfterLevelStreamedOut=0\n", "s.ForceGCAfterLevelStreamedOut=0\nr.MyOwnSetting=42\n");
+        string reverted = EngineIniOptimizer.Remove(mixed);
+
+        Assert.Contains("[SystemSettings]", reverted);
+        Assert.Contains("r.MyOwnSetting=42", reverted);
+        Assert.Equal(0, EngineIniOptimizer.ManagedKeyCount(reverted));
+    }
+
+    [Fact]
+    public void Managed_key_matching_ignores_case_and_unreal_prefixes()
+    {
+        const string odd = "[systemsettings]\n+R.TEXTURESTREAMING=1\nr.streaming.PoolSize = 10240\n";
+        Assert.Equal(2, EngineIniOptimizer.ManagedKeyCount(odd));
+        Assert.Equal(0, EngineIniOptimizer.ManagedKeyCount(EngineIniOptimizer.Remove(odd)));
+    }
+
+    [Fact]
+    public void Applying_onto_a_file_that_does_not_end_in_a_newline_still_starts_the_block_on_its_own_line()
+    {
+        // 실사용 Engine.ini는 손으로 편집되면 개행 없이 끝날 수 있다. 그때 마커가 마지막 줄에 들러붙으면
+        // 언리얼이 그 줄을 통째로 주석으로 먹어 사용자 설정 한 줄이 사라진다.
+        const string user = "[Core.System]\nPaths=x"; // 끝 개행 없음
+        string applied = EngineIniOptimizer.ApplyBlock(user, EngineIniOptimizer.BuildBlock(EngineIniOptimizer.TierForVram(8 * GiB)));
+
+        Assert.Contains("Paths=x\n", applied);                        // 사용자 마지막 줄이 온전하다
+        Assert.Contains("\n" + EngineIniOptimizer.StartMarker, applied); // 마커가 줄 맨 앞에서 시작
+        Assert.DoesNotContain("Paths=x" + EngineIniOptimizer.StartMarker, applied);
+        Assert.EndsWith("\n", applied);                               // 파일도 개행으로 끝난다
+    }
+
+    [Fact]
+    public void Revert_keeps_a_trailing_blank_line_the_user_already_had()
+    {
+        // 종전 구현은 줄 분해·재조립 과정에서 파일 끝 빈 줄을 함께 삼켜(실측 5273→5271바이트)
+        // "원본 100% 복원"이 실제로는 어긋났다.
+        const string user = "[Core.System]\nPaths=x\n\n"; // 끝에 빈 줄 하나
+        string applied = EngineIniOptimizer.ApplyBlock(user, EngineIniOptimizer.BuildBlock(EngineIniOptimizer.TierForVram(8 * GiB)));
+
+        Assert.Equal(user, EngineIniOptimizer.Remove(applied));
+    }
+
     private static int CountOccurrences(string haystack, string needle)
     {
         int count = 0, i = 0;

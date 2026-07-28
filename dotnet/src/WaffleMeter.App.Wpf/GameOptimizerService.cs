@@ -106,12 +106,14 @@ public sealed class GameOptimizerService
         }
     }
 
-    /// <summary>우리 최적화 블록이 이미 들어 있는가.</summary>
+    /// <summary>우리 최적화가 적용된 상태인가. 마커(주석)는 게임이 Engine.ini를 다시 쓰면 사라지므로
+    /// 마커 유무가 아니라 <see cref="EngineIniOptimizer.IsApplied"/>(마커 + 관리 키 폴백)로 판정한다 —
+    /// 종전에는 게임을 한 번 켜고 나면 실제로 적용돼 있어도 "미적용"으로 표시됐다.</summary>
     public bool IsApplied()
     {
         try
         {
-            return File.Exists(EngineIniPath) && EngineIniOptimizer.HasBlock(File.ReadAllText(EngineIniPath));
+            return File.Exists(EngineIniPath) && EngineIniOptimizer.IsApplied(File.ReadAllText(EngineIniPath));
         }
         catch
         {
@@ -135,7 +137,9 @@ public sealed class GameOptimizerService
         WriteCrlf(next);
     }
 
-    /// <summary>우리 블록만 제거한다(사용자의 다른 Engine.ini 설정은 그대로). 우리 블록이 없으면 아무것도 안 함.</summary>
+    /// <summary>우리 최적화만 제거한다(사용자의 다른 Engine.ini 설정은 그대로). 마커 블록이 살아 있으면 그
+    /// 구간을, 게임이 마커를 지우고 키만 <c>[SystemSettings]</c>에 병합해 놨으면 그 키들을 걷어낸다 — 종전에는
+    /// 마커가 없으면 조기 반환해 <b>되돌리기 버튼이 아무 일도 하지 않았다</b>. 적용된 게 없으면 무동작.</summary>
     public void Revert()
     {
         if (!File.Exists(EngineIniPath))
@@ -144,12 +148,15 @@ public sealed class GameOptimizerService
         }
 
         string existing = ReadNormalized();
-        if (!EngineIniOptimizer.HasBlock(existing))
+        if (!EngineIniOptimizer.IsApplied(existing))
         {
             return;
         }
 
-        WriteCrlf(EngineIniOptimizer.StripBlock(existing));
+        // 키 폴백으로 지우는 경우 사용자가 손수 넣은 같은 키까지 지워질 수 있다(출처를 구분할 방법이 없다).
+        // 최초 적용 때 파일이 없었으면 백업도 없으므로, 여기서 '우리가 건드리기 직전 상태'를 남긴다.
+        BackupOnce();
+        WriteCrlf(EngineIniOptimizer.Remove(existing));
     }
 
     private string ReadNormalized() =>
@@ -158,6 +165,9 @@ public sealed class GameOptimizerService
     // Engine.ini는 Windows 관례대로 CRLF로 쓴다(내부 로직은 \n 정규화).
     private void WriteCrlf(string content) => File.WriteAllText(EngineIniPath, content.Replace("\n", "\r\n"));
 
+    /// <summary>우리가 이 파일을 <b>처음 수정하기 직전</b>의 상태를 한 번만 <c>.waffle-backup</c>으로 남긴다.
+    /// 적용·되돌리기 양쪽에서 부른다 — 최초 적용 시점에 Engine.ini가 아직 없었으면(게임을 한 번도 안 켠 상태)
+    /// 그때는 백업할 것이 없고, 이후 되돌리기가 첫 수정이 되기 때문이다.</summary>
     private void BackupOnce()
     {
         try
