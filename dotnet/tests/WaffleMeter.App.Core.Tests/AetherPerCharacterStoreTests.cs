@@ -61,4 +61,29 @@ public sealed class AetherPerCharacterStoreTests
         Assert.Null(store.Get("short"));
         Assert.Null(store.Get("h2"));
     }
+
+    /// <summary>기동 시 위생 정리가 쓰는 경로: 존재할 수 없는 신원으로 남은 오드 기록을 지운다. 2026-07-30
+    /// 사고에서는 server 47200짜리 가짜 캐릭터 해시 밑에 오드가 기록됐다.</summary>
+    [Fact]
+    public void RemoveAll_drops_only_the_named_characters()
+    {
+        var store = AetherPerCharacterStore.Parse(null);
+        store.Upsert("real", new AetherSnapshot(15, 1330, 1345, 2));
+        store.Upsert("garbage", new AetherSnapshot(15, 1330, 1345, 3));
+
+        Assert.True(store.RemoveAll(["garbage", "never-seen"]));
+
+        Assert.Null(store.Get("garbage"));
+        Assert.NotNull(store.Get("real"));
+    }
+
+    [Fact]
+    public void RemoveAll_reports_false_when_nothing_matched()
+    {
+        var store = AetherPerCharacterStore.Parse(null);
+        store.Upsert("real", new AetherSnapshot(1, 2, 3, 4));
+
+        Assert.False(store.RemoveAll(["never-seen", "", "  "]));
+        Assert.NotNull(store.Get("real"));
+    }
 }

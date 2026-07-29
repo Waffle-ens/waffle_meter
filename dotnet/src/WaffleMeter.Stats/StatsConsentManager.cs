@@ -534,6 +534,56 @@ public sealed class StatsConsentManager
             lastSeenAt);
     }
 
+    /// <summary>물리적으로 존재할 수 없는 서버 번호. 하드 화이트리스트가 <b>아니라</b> 느슨한 상·하한이다 —
+    /// 운영 중 서버가 증설돼도 정상 사용자를 막지 않으면서(실제 범위는 1001-1021 / 2001-2021), 오프셋 오독이
+    /// 만드는 값은 확실히 걸러낸다. 2026-07-30 사고의 실측값 47200은 최댓값의 23배다.</summary>
+    private static bool IsImpossibleServer(int server) => server is < 1000 or > 3000;
+
+    /// <summary>기동 시 1회 위생 정리: 존재할 수 없는 신원으로 저장된 동의 레코드를 지우고, 지워진 해시 목록을
+    /// 돌려준다(호출자가 같은 해시로 남은 오드 기록도 함께 치울 수 있게).
+    /// <para>2026-07-30: 0x3633 파서가 아웃바운드 난수 프레임을 본인으로 오인해 <c>nickname="I" / server=47200</c>
+    /// 을 심었고, 그 신원으로 동의가 올라갔다가 서버에 거절당하면서(HTTP 400) 로컬에 accepted로 굳었다. 파서
+    /// 게이트(<c>SearchOwnNickname</c>)는 <b>새</b> 오염만 막으므로, 이미 저장된 레코드는 여기서 치운다.</para>
+    /// <para>판정은 <b>서버 번호만</b> 본다. 닉네임 길이/문자로 지우면 실존 캐릭터를 날릴 위험이 있고, 서버
+    /// 번호는 오독 시 예외 없이 범위를 크게 벗어나 오탐이 사실상 없다. <c>Server == 0</c>인 레코드는 손대지
+    /// 않는다 — 이름/서버가 저장되기 전 세션에서 동의한 <b>정상</b>인 구 레코드이고, 업로드는 그 결정을
+    /// 존중해야 한다(<see cref="ListCharacters"/> 주석 참조).</para></summary>
+    public IReadOnlyList<string> PurgeImpossibleCharacters()
+    {
+        Dictionary<string, CharConsent> map = LoadCharacters();
+        List<string> purged = map
+            .Where(kv => kv.Value.Server > 0 && IsImpossibleServer(kv.Value.Server))
+            .Select(kv => kv.Key)
+            .ToList();
+        if (purged.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        foreach (string hash in purged)
+        {
+            map.Remove(hash);
+        }
+
+        _props.SetProperty(KeyCharacters, JsonSerializer.Serialize(map));
+
+        // 전역 키가 같은 신원을 가리키고 있으면 함께 비운다. 안 그러면 마이그레이션 폴백(LocalInfo 2번 분기)이
+        // 방금 지운 신원의 상태를 계속 되살린다. 거기 남은 sync 상태/오류도 그 신원의 것이므로 같이 지운다
+        // (실측 잔존값: syncStatus=sync_failed / "HTTP 400 invalid_schema").
+        string? globalIdentity = NonBlank(_props.GetProperty(KeyIdentityHash));
+        if (globalIdentity != null && purged.Contains(globalIdentity, StringComparer.Ordinal))
+        {
+            _props.SetProperty(KeyIdentityHash, string.Empty);
+            _props.SetProperty(KeyState, State.unknown.ToString());
+            _props.SetProperty(KeyUploadEnabled, BoolStr(false));
+            _props.SetProperty(KeyPublicCharacter, BoolStr(false));
+            _props.SetProperty(KeySyncStatus, "local");
+            _props.SetProperty(KeySyncError, string.Empty);
+        }
+
+        return purged;
+    }
+
     private Dictionary<string, CharConsent> LoadCharacters()
     {
         string? raw = _props.GetProperty(KeyCharacters);
