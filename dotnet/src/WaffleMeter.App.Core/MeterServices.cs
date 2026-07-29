@@ -226,6 +226,21 @@ public sealed class MeterServices
         StatsBuilder = new StatsPayloadBuilder(Data, () => consent.GetInfo().PublicCharacter);
         consent = new StatsConsentManager(props, Data, StatsApi, () => StatsBuilder.OwnCharacter());
         Consent = consent;
+
+        // 기동 시 1회 위생 정리. 신원 파서가 뚫려 저장된 "존재할 수 없는 캐릭터"의 동의 레코드와, 같은 해시로
+        // 남은 오드 기록을 함께 치운다 — 파서 게이트(StreamProcessor.SearchOwnNickname)는 새 오염만 막으므로
+        // 이미 굳은 레코드는 여기서만 사라진다. MeterSettings는 이 뒤에 만들어지므로(App.xaml.cs) 정리된
+        // aether.perCharacter를 읽는다. 실측 오염: nickname="I" / server=47200 (2026-07-30).
+        IReadOnlyList<string> purgedCharacters = consent.PurgeImpossibleCharacters();
+        if (purgedCharacters.Count > 0)
+        {
+            AetherPerCharacterStore aether = AetherPerCharacterStore.Parse(props.GetProperty("aether.perCharacter"));
+            if (aether.RemoveAll(purgedCharacters))
+            {
+                props.SetProperty("aether.perCharacter", aether.Serialize());
+            }
+        }
+
         UploadQueue = new StatsUploadQueue(consent, StatsBuilder, StatsApi, Data, props);
         UploadQueue.Configure(Version);
 

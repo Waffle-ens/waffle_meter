@@ -69,6 +69,21 @@ public sealed class AetherPerCharacterStore
         return true;
     }
 
+    /// <summary>Drop the given characters' remembered balances. Returns true when anything was removed (so the
+    /// caller can skip re-serializing). Used by the startup hygiene pass that deletes records written under an
+    /// impossible identity — a mis-parsed own-load packet once made the meter believe it was a character with
+    /// server 47200, and its 오드 got recorded under that hash (2026-07-30).</summary>
+    public bool RemoveAll(IEnumerable<string> identityHashes)
+    {
+        bool removed = false;
+        foreach (string hash in identityHashes)
+        {
+            removed |= !string.IsNullOrWhiteSpace(hash) && _byHash.Remove(hash);
+        }
+
+        return removed;
+    }
+
     /// <summary>Serialize back to the settings blob (records ordered newest-first for stability).</summary>
     public string Serialize() => string.Join(';', _byHash
         .OrderByDescending(kv => kv.Value.SavedAtMs)
