@@ -1011,6 +1011,11 @@ public sealed class StreamProcessor
     private static bool IsPartyServer(int server) =>
         (server is >= 1001 and <= 1021) || (server is >= 2001 and <= 2021);
 
+    /// <summary>엔티티 id 상한. <c>DataManager.MaxEntityUid</c>와 같은 값이지만 Capture는 Data를 참조하지
+    /// 않으므로(의존 방향이 Data → Capture다) 여기에 둔다. 오프셋을 잘못 잡은 varint는 곧바로 이 범위를
+    /// 벗어나므로(실측 106900) 신원 파싱의 1차 sanity가 된다. 코퍼스 실측 최대 정상 본인 uid = 15510.</summary>
+    private const int MaxEntityUid = 16383;
+
     /// <summary>Own nickname snapshot 0x3633. Kotlin searchOwnNickname (192-250).</summary>
     private void SearchOwnNickname(byte[] packet, VarIntOutput lengthInfo, long arrivedAt)
     {
@@ -1022,6 +1027,17 @@ public sealed class StreamProcessor
 
         VarIntOutput userInfo = PacketPrimitives.ReadVarInt(packet, offset);
         if (userInfo.Length < 0) return;
+
+        // 이 파서는 미터에서 **유일하게 executor 포인터를 직접 갈아치우는** 경로다(SaveNickname isExecutor:true
+        // → SaveExecutorId). 그래서 신원 파서 중 유일하게 fail-closed여야 하는데, 종전에는 uid·서버·닉네임을
+        // 하나도 검증하지 않는 유일한 경로이기도 했다. 캡처는 방향 제한이 없어(WinDivertBackend) 클라→서버
+        // 아웃바운드(암호문 = 사실상 난수)와 루프백까지 같은 파이프라인에 들어오는데, 길이 varint는 평문이라
+        // 난수 페이로드도 정상 프레이밍되고 그 뒤 2바이트가 우연히 33 36이면 그대로 여기로 온다.
+        // 실측: 2026-07-28 코퍼스의 아웃바운드 프레임 `0E 33 36 94 C3 06 D0 60 01 51 0C`가 uid=106900,
+        // nickname="Q"로 파싱됐고, 2026-07-30에는 같은 형태가 nickname="I" / server=47200(0xB860)을 본인으로
+        // 심어 로스터·오드·버프 초기화 + 통계 동의 모달 재출현 + 업로드 차단까지 갔다.
+        // 엔티티 id 상한부터 건다(오프셋 오독은 varint를 폭주시켜 곧바로 상한을 넘는다 — 실측 106900).
+        if (userInfo.Value is <= 0 or > MaxEntityUid) return;
         offset += userInfo.Length;
         if (offset >= packet.Length) return;
 
@@ -1032,35 +1048,59 @@ public sealed class StreamProcessor
         // offsets for a valid [varint len][UTF-8 nickname] instead — the same robust approach as
         // SearchOtherNickname — which handles both the old (0x07) and new (fixed-prefix) layouts.
         string? nickname = null;
-        int nameEndOffset = -1;
+        int server = -1;
+        int job = -1;
+        bool sawNameWithoutServer = false;
         for (int probe = 0; probe < 12; probe++)
         {
             int p = offset + probe;
             if (p >= packet.Length) break;
             VarIntOutput nl = PacketPrimitives.ReadVarInt(packet, p);
             if (nl.Length is <= 0 or > 71) continue;
-            if (nl.Value is < 1 or > 71) continue;
+            // 길이 1은 정의상 ASCII 한 글자다 — 한글은 UTF-8 3바이트라 정상 닉의 최소 길이는 3이고, 실측
+            // 오탐은 전부 이 형태였다("I", "Q"). IsValidNickname 자체는 손대지 않는다: 타인 닉 경로엔 1글자
+            // 한글 닉('벵','쭌')이 실재하고, 그건 UTF-8 3바이트라 여기 하한에 걸리지 않는다.
+            if (nl.Value is < 2 or > 71) continue;
             int q = p + nl.Length;
             if (q + nl.Value > packet.Length) continue;
             string candidate = Encoding.UTF8.GetString(packet[q..(q + nl.Value)]);
             if (!IsValidNickname(candidate)) continue;
+
+            // 서버 검증을 **후보 채택 조건으로** 끌어올린다. 종전에는 이름을 먼저 확정하고 그 뒤 2바이트를
+            // 무검증으로 읽어 server에 넣어서(0xB860 = 47200이 그대로 통과), 이름 앵커가 틀린 프레임도
+            // executor를 뒤집었다. 타인 닉 파서(SearchOtherNickname)는 처음부터 이 범위를 검증하고 있었다 —
+            // 판돈이 가장 큰 본인 경로에만 빠져 있던 게 이 버그의 린치핀이다.
+            int nameEnd = q + nl.Value;
+            if (nameEnd + 2 > packet.Length)
+            {
+                sawNameWithoutServer = true;
+                continue;
+            }
+
+            int serverCandidate = PacketPrimitives.ParseUInt16Le(packet, nameEnd);
+            if (!IsPartyServer(serverCandidate))
+            {
+                sawNameWithoutServer = true;
+                continue;
+            }
+
             nickname = candidate;
-            nameEndOffset = q + nl.Value;
+            server = serverCandidate;
+            job = nameEnd + 2 < packet.Length ? packet[nameEnd + 2] & 0xFF : -1;
             break;
         }
-        if (nickname is null || nameEndOffset < 0) return;
 
-        int server = -1;
-        int job = -1;
-        offset = nameEndOffset;
-        if (packet.Length >= offset + 2)
+        if (nickname is null)
         {
-            server = PacketPrimitives.ParseUInt16Le(packet, offset);
-            offset += 2;
-            if (packet.Length >= offset + 1)
+            // 2026-07-01 패치가 이미 한 번 본인 로드 레이아웃을 바꿔 본인 인식을 통째로 깨뜨린 적이 있다
+            // (위 주석 참조). 그때처럼 서버가 필드를 옮기면 이 게이트가 조용히 본인 인식을 막게 되므로,
+            // "이름은 찾았는데 그 뒤가 유효 서버가 아니다"를 흔적으로 남겨 다음 패치 때 즉시 보이게 한다.
+            if (sawNameWithoutServer)
             {
-                job = packet[offset] & 0xFF;
+                _sink.ParserError("own_nickname", "name candidate found but no valid server followed");
             }
+
+            return;
         }
 
         // req 3 fix: own power comes from the live 0x3656 packet, which is keyed to the executor uid. On
@@ -1153,7 +1193,7 @@ public sealed class StreamProcessor
             i2++;
             if (packet.Length < offset + 2) break;
             int serverCandidate = PacketPrimitives.ParseUInt16Le(packet, offset);
-            if (!((serverCandidate is >= 1001 and <= 1021) || (serverCandidate is >= 2001 and <= 2021))) continue;
+            if (!IsPartyServer(serverCandidate)) continue; // 같은 범위가 세 군데 흩어져 있던 것을 한 곳으로
             offset += 2;
             if (packet.Length < offset) continue;
             VarIntOutput legionNameLengthInfo = PacketPrimitives.ReadVarInt(packet, offset);
