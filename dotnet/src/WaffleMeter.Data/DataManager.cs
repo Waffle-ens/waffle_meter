@@ -924,6 +924,16 @@ public sealed class DataManager : ICaptureGameData
 
     public void SaveNickname(int uid, string nickname, bool isExecutor, int server, int jobByte)
     {
+        // 2차 방어선. executor 승격은 되돌리기가 비싼 부작용을 줄줄이 단다(파티 로스터·오드·슈고열쇠·버프
+        // 초기화 + 통계 신원 교체 + 동의 모달). 파서가 뚫리면 신원 저장소까지 바로 오염되므로, 엔티티 id
+        // 상한만은 여기서 한 번 더 막는다 — 오프셋을 잘못 잡은 varint는 예외 없이 이 범위를 넘는다
+        // (2026-07-30 실측 106900). 서버 범위 검증은 파서(SearchOwnNickname)가 담당한다: isExecutor:true의
+        // 유일한 생산자가 그 파서이고, 여기에 서버 게이트를 두면 테스트 픽스처의 임의 server 값까지 막힌다.
+        if (isExecutor && uid is <= 0 or > MaxEntityUid)
+        {
+            return;
+        }
+
         JobClass? job = JobClassInfo.ConvertFromCode(jobByte);
         User? user = _userRepository.Get(uid);
         if (user == null)
