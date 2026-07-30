@@ -1830,8 +1830,8 @@ public sealed class StreamProcessor
             return;
         }
 
-        _data.SaveShugoKey(s.Split, s.Base, s.Bonus, s.Total);
-        _sink.Meta("shugokey", ("split", s.Split), ("base", s.Base), ("bonus", s.Bonus), ("total", s.Total));
+        _data.SaveShugoKey(s.Base, s.Bonus);
+        _sink.Meta("shugokey", ("base", s.Base), ("bonus", s.Bonus), ("total", s.Total));
     }
 
     /// <summary>Field-boss respawn timers 0x9101. Extracts boss-code → target-time records and forwards them

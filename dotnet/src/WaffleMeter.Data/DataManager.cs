@@ -638,32 +638,16 @@ public sealed class DataManager : ICaptureGameData
         get { lock (_shugoKeyGate) { return (_shugoKeyBase, _shugoKeyBonus, _shugoKeyTotal, _shugoKeyHasValue); } }
     }
 
-    public void SaveShugoKey(bool split, int baseVal, int bonus, int total)
+    /// <summary>Record the shugo-festa key count. Like aether, every broadcast carries both pools
+    /// authoritatively, so there is nothing to back-compute. (The old total-only branch here was unreachable —
+    /// the parser never produced one — but it kept alive the same wrong premise that broke aether.)</summary>
+    public void SaveShugoKey(int baseVal, int bonus)
     {
         lock (_shugoKeyGate)
         {
-            if (split)
-            {
-                _shugoKeyBase = baseVal;
-                _shugoKeyBonus = bonus;
-            }
-            else
-            {
-                int delta = total - _shugoKeyTotal;
-                if (delta >= 0)
-                {
-                    _shugoKeyBase += delta;
-                }
-                else
-                {
-                    int drop = -delta;
-                    int fromBase = Math.Min(_shugoKeyBase, drop);
-                    _shugoKeyBase -= fromBase;
-                    _shugoKeyBonus = Math.Max(0, _shugoKeyBonus - (drop - fromBase));
-                }
-            }
-
-            _shugoKeyTotal = total;
+            _shugoKeyBase = baseVal;
+            _shugoKeyBonus = bonus;
+            _shugoKeyTotal = baseVal + bonus;
             _shugoKeyHasValue = true;
         }
 
