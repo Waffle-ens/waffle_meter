@@ -2,8 +2,13 @@ using System.Globalization;
 
 namespace WaffleMeter.App.Core;
 
-/// <summary>One character's last-seen aether (오드) balance, tagged with when it was recorded.</summary>
-public readonly record struct AetherSnapshot(int Base, int Bonus, int Total, long SavedAtMs);
+/// <summary>One character's last-seen aether (오드) balance, tagged with when it was recorded.
+/// <paramref name="Base"/> = 자연회복 오드, <paramref name="Bonus"/> = 추가 오드.</summary>
+public readonly record struct AetherSnapshot(int Base, int Bonus, long SavedAtMs)
+{
+    /// <summary>What the character can spend.</summary>
+    public int Total => Base + Bonus;
+}
 
 /// <summary>
 /// Remembers each character's last-seen aether balance, keyed by its stats identity hash, so the character-
@@ -21,7 +26,11 @@ public sealed class AetherPerCharacterStore
 
     private AetherPerCharacterStore(Dictionary<string, AetherSnapshot> byHash) => _byHash = byHash;
 
-    /// <summary>Parse the serialized blob. Never throws — malformed records are skipped.</summary>
+    /// <summary>Parse the serialized blob. Never throws — malformed records are skipped.
+    /// <para>Records are <c>hash,base,bonus,savedAtMs</c>. The pre-2026-07-30 format carried a fourth numeric
+    /// field (a separately-stored total) and so has FIVE fields; those records are deliberately dropped here
+    /// rather than migrated, because they were written while the parser mis-read the single-pool packet and
+    /// their 자연회복/추가 split is wrong. Each character's chip refills from the next live broadcast.</para></summary>
     public static AetherPerCharacterStore Parse(string? serialized)
     {
         var map = new Dictionary<string, AetherSnapshot>(StringComparer.Ordinal);
@@ -30,16 +39,15 @@ public sealed class AetherPerCharacterStore
             foreach (string record in serialized.Split(';', StringSplitOptions.RemoveEmptyEntries))
             {
                 string[] f = record.Split(',');
-                if (f.Length != 5 || string.IsNullOrWhiteSpace(f[0])
+                if (f.Length != 4 || string.IsNullOrWhiteSpace(f[0])
                     || !int.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int b)
                     || !int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out int bonus)
-                    || !int.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out int total)
-                    || !long.TryParse(f[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out long ms))
+                    || !long.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out long ms))
                 {
                     continue;
                 }
 
-                map[f[0]] = new AetherSnapshot(b, bonus, total, ms);
+                map[f[0]] = new AetherSnapshot(b, bonus, ms);
             }
         }
 
@@ -91,6 +99,5 @@ public sealed class AetherPerCharacterStore
             kv.Key,
             kv.Value.Base.ToString(CultureInfo.InvariantCulture),
             kv.Value.Bonus.ToString(CultureInfo.InvariantCulture),
-            kv.Value.Total.ToString(CultureInfo.InvariantCulture),
             kv.Value.SavedAtMs.ToString(CultureInfo.InvariantCulture))));
 }

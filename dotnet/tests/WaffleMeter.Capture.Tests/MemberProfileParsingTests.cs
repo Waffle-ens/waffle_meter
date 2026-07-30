@@ -25,7 +25,7 @@ public sealed class MemberProfileParsingTests
             Bound.Add((uid, nickname, server));
 
         public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
-        public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
+        public void SaveAetherStatus(int baseVal, int bonus) { }
         public void SaveShugoKey(bool split, int baseVal, int bonus, int total) { }
         public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 

@@ -18,7 +18,7 @@ public sealed class PartyRosterParsingTests
         public IReadOnlyList<(string Nickname, int Server, int Slot)>? Last;
 
         public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) => Last = members;
-        public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
+        public void SaveAetherStatus(int baseVal, int bonus) { }
         public void SaveShugoKey(bool split, int baseVal, int bonus, int total) { }
         public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 

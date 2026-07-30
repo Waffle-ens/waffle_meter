@@ -1,64 +1,85 @@
 namespace WaffleMeter.Capture;
 
-/// <summary>Outcome of decoding an aether (오드) resource packet: either a full split (base + bonus both
-/// present) or a total-only update (the data layer back-computes base/bonus from the previous value).</summary>
+/// <summary>Outcome of decoding an aether (오드) record: the two pools the game keeps, each authoritative.
+/// A pool the record omits is ZERO — the field mask leaves a field out precisely because it is empty, so an
+/// omitted field must never be read as "unchanged".</summary>
 /// <param name="Ok">A recognized aether record was found.</param>
-/// <param name="Split">True = base and bonus were both read; false = only the total was carried.</param>
-public readonly record struct AetherParse(bool Ok, bool Split, int Base, int Bonus, int Total)
+/// <param name="Base">자연회복 오드 — regenerates +15 on the server's timer, and is spent first.</param>
+/// <param name="Bonus">추가 오드 — granted by 오드 회복 소모품 (+10/+40) and other grants.</param>
+public readonly record struct AetherParse(bool Ok, int Base, int Bonus)
 {
     public static readonly AetherParse None = default;
+
+    /// <summary>What the player can actually spend.</summary>
+    public int Total => Base + Bonus;
 }
 
 /// <summary>
-/// Decodes the aether (오드) resource value carried in the 0x610B/0x610C status family. The value rides
-/// behind one of two fixed marker sequences anywhere in the packet body; we scan for the marker (never a
-/// fixed offset, so a future field shift can't silently mis-read) and read the trailing var-ints. Pure and
-/// allocation-free — the caller gates it behind the resource opcode so the markers can't false-match a
-/// coincidental byte run in an unrelated packet.
+/// Decodes the aether (오드) balance carried in the 0x610B/0x610C status family. Records in that family are
+/// <c>&lt;fieldMask&gt; &lt;resourceKey&gt; &lt;groupId(3)&gt; &lt;value var-ints…&gt;</c>, and the same packet
+/// carries several resources back to back (keys 0x01, 0x02, 0x06…), so we scan for the 오드 record's key +
+/// group id rather than a fixed offset — a future field shift can't silently mis-read.
+///
+/// <para><b>The field mask is a bitmask of which of the two pools the record carries</b> (0x04 = 자연회복,
+/// 0x08 = 추가, 0x0C = both), and the game omits a pool when it is zero. Reading the single-field 0x08 form as
+/// a <i>total</i> — as this parser did until 2026-07-30 — silently corrupted the split: a 오드 회복 소모품
+/// (+10/+40) arrives as a 추가-only record, and back-computing a "total" delta from it credited the gain to
+/// 자연회복 instead, so the number outside the parentheses grew. Verified against 28 capture sessions: a 0x08
+/// record's value always equals the 추가 pool of the neighbouring 0x0C record, never the sum.</para>
+///
+/// Pure and allocation-free — the caller gates this behind the resource opcode so the key + group id can't
+/// false-match a coincidental byte run in an unrelated packet.
 /// </summary>
 public static class AetherStatusParser
 {
-    // base + bonus follow this marker (two var-ints).
-    private static readonly byte[] SplitMarker = { 0x0C, 0x01, 0x87, 0x93, 0x03 };
-    // a single total var-int follows this marker.
-    private static readonly byte[] TotalMarker = { 0x08, 0x01, 0x87, 0x93, 0x03 };
-    private const int MaxComponent = 10_000; // sanity bound on a single base/bonus/total field
+    private const byte ResourceKey = 0x01;                       // 오드 (0x02, 0x06… are other resources)
+    private static readonly byte[] GroupId = { 0x87, 0x93, 0x03 };
+    private const byte MaskBase = 0x04;                          // 자연회복 오드 only (추가 = 0)
+    private const byte MaskBonus = 0x08;                         // 추가 오드 only (자연회복 = 0)
+    private const byte MaskBoth = 0x0C;                          // both, 자연회복 first
+    private const int MaxComponent = 10_000;                     // sanity bound on a single pool
 
-    /// <summary>Scan <paramref name="packet"/> from <paramref name="bodyStart"/> for an aether record.</summary>
+    /// <summary>Scan <paramref name="packet"/> from <paramref name="bodyStart"/> for the 오드 record.</summary>
     public static AetherParse TryParse(byte[] packet, int bodyStart)
     {
-        int split = IndexOf(packet, bodyStart, SplitMarker);
-        if (split >= 0)
+        int from = Math.Max(0, bodyStart);
+        for (int g = IndexOf(packet, from + 2, GroupId); g >= 0; g = IndexOf(packet, g + 1, GroupId))
         {
-            int o = split + SplitMarker.Length;
-            VarIntOutput b = PacketPrimitives.ReadVarInt(packet, o);
-            if (b.Length <= 0 || b.Value < 0 || b.Value > MaxComponent)
+            if (g - 2 < from || packet[g - 1] != ResourceKey)
             {
-                return AetherParse.None;
+                continue; // a different resource's record (or the group id straddling the header)
             }
 
-            VarIntOutput bonus = PacketPrimitives.ReadVarInt(packet, o + b.Length);
-            if (bonus.Length <= 0 || bonus.Value < 0 || bonus.Value > MaxComponent)
+            int o = g + GroupId.Length;
+            byte mask = packet[g - 2];
+            if (mask == MaskBoth)
             {
-                return AetherParse.None;
+                if (TryReadPool(packet, o, out int b, out int next) && TryReadPool(packet, next, out int bonus, out _))
+                {
+                    return new AetherParse(true, b, bonus);
+                }
+            }
+            else if (mask == MaskBase && TryReadPool(packet, o, out int baseOnly, out _))
+            {
+                return new AetherParse(true, baseOnly, 0);
+            }
+            else if (mask == MaskBonus && TryReadPool(packet, o, out int bonusOnly, out _))
+            {
+                return new AetherParse(true, 0, bonusOnly);
             }
 
-            return new AetherParse(true, Split: true, b.Value, bonus.Value, b.Value + bonus.Value);
-        }
-
-        int total = IndexOf(packet, bodyStart, TotalMarker);
-        if (total >= 0)
-        {
-            VarIntOutput t = PacketPrimitives.ReadVarInt(packet, total + TotalMarker.Length);
-            if (t.Length <= 0 || t.Value < 0 || t.Value > MaxComponent * 2)
-            {
-                return AetherParse.None;
-            }
-
-            return new AetherParse(true, Split: false, Base: 0, Bonus: 0, Total: t.Value);
+            // an unknown mask (or an out-of-range value) — keep scanning; a later record may still be ours
         }
 
         return AetherParse.None;
+    }
+
+    private static bool TryReadPool(byte[] packet, int at, out int value, out int next)
+    {
+        VarIntOutput v = PacketPrimitives.ReadVarInt(packet, at);
+        value = v.Value;
+        next = at + v.Length;
+        return v.Length > 0 && v.Value >= 0 && v.Value <= MaxComponent;
     }
 
     private static int IndexOf(byte[] hay, int start, byte[] needle)

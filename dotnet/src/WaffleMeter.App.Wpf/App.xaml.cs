@@ -1499,14 +1499,17 @@ public partial class App : Application
     // (values change between sessions), so we skip the restore and wait for a fresh broadcast instead.
     private const long AetherRestoreMaxAgeMs = 12L * 60 * 60 * 1000; // 12h
 
-    /// <summary>Seed the aether balance from the persisted "base,bonus,total,unixMs" value, if it's recent
-    /// enough. Clamped for sanity. Never overrides a live value (RestoreAetherStatus is onlyIfEmpty).</summary>
+    /// <summary>Seed the aether balance from the persisted "base,bonus,unixMs" value, if it's recent enough.
+    /// Clamped for sanity. Never overrides a live value (RestoreAetherStatus is onlyIfEmpty).
+    /// <para>The pre-2026-07-30 format had a fourth field (a separately-stored total) — those values were
+    /// written while the parser mis-read the single-pool packet, so their 자연회복/추가 split is wrong and the
+    /// field-count check below drops them. The badge then simply waits for the next live broadcast.</para></summary>
     private void RestoreAetherFromSettings(MeterServices services)
     {
         string[] parts = _settings!.AetherLastValue.Split(',');
-        if (parts.Length != 4
+        if (parts.Length != 3
             || !int.TryParse(parts[0], out int b) || !int.TryParse(parts[1], out int bonus)
-            || !int.TryParse(parts[2], out int total) || !long.TryParse(parts[3], out long savedAtMs))
+            || !long.TryParse(parts[2], out long savedAtMs))
         {
             return;
         }
@@ -1519,13 +1522,12 @@ public partial class App : Application
 
         b = Math.Clamp(b, 0, 10000);
         bonus = Math.Clamp(bonus, 0, 10000);
-        total = Math.Clamp(total, 0, 20000);
-        if (b == 0 && bonus == 0 && total == 0)
+        if (b == 0 && bonus == 0)
         {
             return;
         }
 
-        services.Data.RestoreAetherStatus(b, bonus, total);
+        services.Data.RestoreAetherStatus(b, bonus);
     }
 
     /// <summary>Persist the current aether value (with a timestamp) so the next launch can restore it. On a
@@ -1533,11 +1535,11 @@ public partial class App : Application
     /// character's balance isn't restored next time.</summary>
     private void PersistAether(MeterServices services)
     {
-        (int b, int bonus, int total, bool has) = services.Data.CurrentAether;
+        (int b, int bonus, int _, bool has) = services.Data.CurrentAether;
         long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         _settings!.AetherLastValue = has
             ? string.Concat(b.ToString(CultureInfo.InvariantCulture), ",", bonus.ToString(CultureInfo.InvariantCulture), ",",
-                total.ToString(CultureInfo.InvariantCulture), ",", nowMs.ToString(CultureInfo.InvariantCulture))
+                nowMs.ToString(CultureInfo.InvariantCulture))
             : string.Empty;
 
         // Also remember this balance UNDER the current character's identity, so the 캐릭터 관리 list can show
@@ -1548,7 +1550,7 @@ public partial class App : Application
             if (!string.IsNullOrEmpty(hash))
             {
                 AetherPerCharacterStore store = AetherPerCharacterStore.Parse(_settings.AetherPerCharacter);
-                if (store.Upsert(hash, new AetherSnapshot(b, bonus, total, nowMs)))
+                if (store.Upsert(hash, new AetherSnapshot(b, bonus, nowMs)))
                 {
                     _settings.AetherPerCharacter = store.Serialize();
                 }

@@ -36,7 +36,7 @@ public sealed class RemainHpStatDecodeTests
         public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) { }
         public void RequestOfficialCharacterLookup(int uid) { }
         public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
-        public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
+        public void SaveAetherStatus(int baseVal, int bonus) { }
         public void SaveShugoKey(bool split, int baseVal, int bonus, int total) { }
         public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
     }

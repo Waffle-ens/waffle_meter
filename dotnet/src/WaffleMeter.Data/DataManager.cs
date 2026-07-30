@@ -567,36 +567,19 @@ public sealed class DataManager : ICaptureGameData
         get { lock (_aetherGate) { return (_aetherBase, _aetherBonus, _aetherTotal, _aetherHasValue); } }
     }
 
-    public void SaveAetherStatus(bool split, int baseVal, int bonus, int total)
+    /// <summary>Record the 오드 balance. Every broadcast carries BOTH pools authoritatively — the packet's
+    /// field mask omits a pool only when it is zero — so there is nothing to back-compute here. (Until
+    /// 2026-07-30 the single-pool form was mis-read as a "total" and its delta was absorbed into 자연회복,
+    /// which is why a 오드 회복 소모품 grew the number outside the parentheses instead of the one inside.)</summary>
+    public void SaveAetherStatus(int baseVal, int bonus)
     {
         lock (_aetherGate)
         {
-        if (split)
-        {
             _aetherBase = baseVal;
             _aetherBonus = bonus;
+            _aetherTotal = baseVal + bonus;
+            _aetherHasValue = true;
         }
-        else
-        {
-            // Total-only: back-compute base/bonus from the previous split by absorbing the delta into base
-            // first, then bonus (matching the game's spend order). The total is always authoritative.
-            int delta = total - _aetherTotal;
-            if (delta >= 0)
-            {
-                _aetherBase += delta;
-            }
-            else
-            {
-                int drop = -delta;
-                int fromBase = Math.Min(_aetherBase, drop);
-                _aetherBase -= fromBase;
-                _aetherBonus = Math.Max(0, _aetherBonus - (drop - fromBase));
-            }
-        }
-
-        _aetherTotal = total;
-        _aetherHasValue = true;
-        } // _aetherGate
 
         AetherStatusChanged?.Invoke(); // outside the lock (avoid holding it during event dispatch)
     }
@@ -604,7 +587,7 @@ public sealed class DataManager : ICaptureGameData
     /// <summary>Seed the aether balance from a persisted value at startup so the badge isn't blank until the
     /// game's next resource broadcast. Overwritten by the first live broadcast; cleared on a character switch.
     /// A live broadcast is never overridden (guarded by <paramref name="onlyIfEmpty"/>).</summary>
-    public void RestoreAetherStatus(int baseVal, int bonus, int total, bool onlyIfEmpty = true)
+    public void RestoreAetherStatus(int baseVal, int bonus, bool onlyIfEmpty = true)
     {
         lock (_aetherGate)
         {
@@ -615,7 +598,7 @@ public sealed class DataManager : ICaptureGameData
 
             _aetherBase = baseVal;
             _aetherBonus = bonus;
-            _aetherTotal = total;
+            _aetherTotal = baseVal + bonus;
             _aetherHasValue = true;
         }
 

@@ -98,14 +98,15 @@ public interface ICaptureGameData
     /// <paramref name="uid"/>는 회복받은 본인. 기본 no-op(캡처 전용 모드).</summary>
     void SaveRevivalHeal(int uid, int skillCode, long amount, long arrivedAt) { }
 
-    /// <summary>Aether (오드) resource update from the 0x610x family. <paramref name="split"/> true =
-    /// <paramref name="baseVal"/>/<paramref name="bonus"/> were both carried; false = only
-    /// <paramref name="total"/> is meaningful and the data layer back-computes base/bonus from its previous
-    /// value. No-op in capture-only mode.</summary>
-    void SaveAetherStatus(bool split, int baseVal, int bonus, int total);
+    /// <summary>Aether (오드) balance from the 0x610x family. BOTH pools are authoritative every time — the
+    /// packet's field mask omits a pool only when it is zero, so a pool the record left out arrives here as 0
+    /// rather than "unchanged". <paramref name="baseVal"/> = 자연회복 오드, <paramref name="bonus"/> = 추가 오드.
+    /// No-op in capture-only mode.</summary>
+    void SaveAetherStatus(int baseVal, int bonus);
 
     /// <summary>Shugo-festa key (슈고 페스타 보상 열쇠) count update from the 0x610x family (same packets as
-    /// aether; a different key byte). <paramref name="split"/> semantics mirror <see cref="SaveAetherStatus"/>.
+    /// aether; a different key byte). <paramref name="split"/> true = base/bonus were both carried; false =
+    /// only <paramref name="total"/> is meaningful and the data layer back-computes from its previous value.
     /// No-op in capture-only mode.</summary>
     void SaveShugoKey(bool split, int baseVal, int bonus, int total);
 
@@ -145,7 +146,7 @@ public sealed class NullCaptureGameData : ICaptureGameData
     public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId) { }
     public void RequestOfficialCharacterLookup(int uid) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
-    public void SaveAetherStatus(bool split, int baseVal, int bonus, int total) { }
+    public void SaveAetherStatus(int baseVal, int bonus) { }
     public void SaveShugoKey(bool split, int baseVal, int bonus, int total) { }
     public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 }
