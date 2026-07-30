@@ -325,12 +325,14 @@
                 </StackPanel>
                 <!-- right: resource badges (오드 / 슈고 열쇠 / ping) with icons, pinned to the footer's right end -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- 오드 (aether): a cyan diamond icon + base(+bonus) -->
+                    <!-- 오드: the game's own 오드 에너지 icon + 자연회복(+추가) -->
                     <Border Margin="6,0,0,0" Padding="5,1" CornerRadius="4" VerticalAlignment="Center"
-                            Background="{DynamicResource Skin.StatBg}" Visibility="{Binding AetherVisibility}" ToolTip="오드">
+                            Background="{DynamicResource Skin.StatBg}" Visibility="{Binding AetherVisibility}"
+                            ToolTip="오드 — 앞 숫자는 자연회복 오드, 괄호 안은 소모품 등으로 채운 추가 오드">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="M 5,0 L 10,5 L 5,10 L 0,5 Z" Fill="#7EE7FF" Width="10" Height="10" Stretch="Uniform"
-                                  VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <Image Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Icons/ode.png"
+                                   Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,4,0"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
                             <TextBlock Text="{Binding AetherText}" Foreground="#7EE7FF" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>

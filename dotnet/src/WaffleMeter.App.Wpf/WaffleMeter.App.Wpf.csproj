@@ -67,6 +67,9 @@
     <Resource Include="..\..\Assets\JobIcons\*.png" Link="JobIcons\%(Filename)%(Extension)" />
     <!-- 332 skill icons (filename = skill code) for the join-panel skill badges; embedded as resources. -->
     <Resource Include="..\..\Assets\SkillIcons\*.png" Link="SkillIcons\%(Filename)%(Extension)" />
+    <!-- Small UI glyphs used by the footer resource badges (오드). Embedded so they paint instantly on the
+         software-rendered overlay, same as the job icons. -->
+    <Resource Include="..\..\Assets\Icons\*.png" Link="Icons\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1265,12 +1265,13 @@
                                                             VerticalAlignment="Center" Visibility="{Binding CurrentBadgeVisibility}">
                                                         <TextBlock Text="현재 접속" FontSize="10" Foreground="{DynamicResource Skin.Accent}"/>
                                                     </Border>
-                                                    <!-- 오드 (aether) chip — matches the meter footer badge; last-seen per character. -->
+                                                    <!-- 오드 chip — matches the meter footer badge; last-seen per character. -->
                                                     <Border Background="{DynamicResource Skin.StatBg}" CornerRadius="4" Padding="5,1" Margin="6,0,0,0"
                                                             VerticalAlignment="Center" Visibility="{Binding AetherVisibility}" ToolTip="오드 (마지막으로 확인된 값)">
                                                         <StackPanel Orientation="Horizontal">
-                                                            <Path Data="M 5,0 L 10,5 L 5,10 L 0,5 Z" Fill="#7EE7FF" Width="10" Height="10" Stretch="Uniform"
-                                                                  VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                            <Image Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Icons/ode.png"
+                                                                   Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,4,0"
+                                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
                                                             <TextBlock Text="{Binding AetherText}" Foreground="#7EE7FF" FontSize="10" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                         </StackPanel>
                                                     </Border>
