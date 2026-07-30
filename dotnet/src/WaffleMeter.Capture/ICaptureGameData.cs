@@ -105,10 +105,10 @@ public interface ICaptureGameData
     void SaveAetherStatus(int baseVal, int bonus);
 
     /// <summary>Shugo-festa key (슈고 페스타 보상 열쇠) count update from the 0x610x family (same packets as
-    /// aether; a different key byte). <paramref name="split"/> true = base/bonus were both carried; false =
-    /// only <paramref name="total"/> is meaningful and the data layer back-computes from its previous value.
+    /// aether; a different resource key). BOTH pools are authoritative every time, exactly as for
+    /// <see cref="SaveAetherStatus"/> — a pool the record left out arrives here as 0, not "unchanged".
     /// No-op in capture-only mode.</summary>
-    void SaveShugoKey(bool split, int baseVal, int bonus, int total);
+    void SaveShugoKey(int baseVal, int bonus);
 
     /// <summary>Field-boss respawn timers (boss code → target Unix-ms) from the 0x9101 broadcast. No-op in
     /// capture-only mode.</summary>
@@ -147,6 +147,6 @@ public sealed class NullCaptureGameData : ICaptureGameData
     public void RequestOfficialCharacterLookup(int uid) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
     public void SaveAetherStatus(int baseVal, int bonus) { }
-    public void SaveShugoKey(bool split, int baseVal, int bonus, int total) { }
+    public void SaveShugoKey(int baseVal, int bonus) { }
     public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 }

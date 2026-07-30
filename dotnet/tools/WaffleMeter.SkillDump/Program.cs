@@ -134,7 +134,7 @@ Console.WriteLine($"\n=== ⑥ aether / shugo-key (0x610x) parses ===");
 Console.WriteLine($"aether: {spy.Aethers.Count}");
 foreach (var a in spy.Aethers) Console.WriteLine($"   base={a.Base} bonus={a.Bonus} total={a.Base + a.Bonus}");
 Console.WriteLine($"shugokey: {spy.ShugoKeys.Count}");
-foreach (var s in spy.ShugoKeys) Console.WriteLine($"   split={s.Split} base={s.Base} bonus={s.Bonus} total={s.Total}");
+foreach (var s in spy.ShugoKeys) Console.WriteLine($"   base={s.Base} bonus={s.Bonus} total={s.Base + s.Bonus}");
 
 Console.WriteLine($"\n=== ⑤ buff/debuff intervals (SaveUseBuff) — top by apply-count ===");
 Console.WriteLine($"total buff-apply packets={spy.Buffs.Count}");
@@ -223,8 +223,8 @@ sealed class Spy(DataManager dm) : IStreamProcessorSink, ICaptureGameData
     public void RequestOfficialCharacterLookup(int uid) { }
     public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
     public readonly List<(int Base, int Bonus)> Aethers = new();
-    public readonly List<(bool Split, int Base, int Bonus, int Total)> ShugoKeys = new();
+    public readonly List<(int Base, int Bonus)> ShugoKeys = new();
     public void SaveAetherStatus(int baseVal, int bonus) => Aethers.Add((baseVal, bonus));
-    public void SaveShugoKey(bool split, int baseVal, int bonus, int total) => ShugoKeys.Add((split, baseVal, bonus, total));
+    public void SaveShugoKey(int baseVal, int bonus) => ShugoKeys.Add((baseVal, bonus));
     public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
 }

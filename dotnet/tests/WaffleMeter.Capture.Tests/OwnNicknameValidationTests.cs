@@ -42,7 +42,7 @@ public sealed class OwnNicknameValidationTests
         public void RequestOfficialCharacterLookup(int uid) { }
         public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) { }
         public void SaveAetherStatus(int baseVal, int bonus) { }
-        public void SaveShugoKey(bool split, int baseVal, int bonus, int total) { }
+        public void SaveShugoKey(int baseVal, int bonus) { }
         public void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers) { }
     }
 
