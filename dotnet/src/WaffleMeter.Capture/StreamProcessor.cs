@@ -1816,8 +1816,8 @@ public sealed class StreamProcessor
             return;
         }
 
-        _data.SaveAetherStatus(a.Split, a.Base, a.Bonus, a.Total);
-        _sink.Meta("aether", ("split", a.Split), ("base", a.Base), ("bonus", a.Bonus), ("total", a.Total));
+        _data.SaveAetherStatus(a.Base, a.Bonus);
+        _sink.Meta("aether", ("base", a.Base), ("bonus", a.Bonus), ("total", a.Total));
     }
 
     /// <summary>Shugo-festa key (슈고 페스타 보상 열쇠) status, riding the same 0x610B/0x610C packets as aether

@@ -3,8 +3,9 @@ using Xunit;
 
 namespace WaffleMeter.Data.Tests;
 
-/// <summary>Aether (오드) balance state on <see cref="DataManager"/>: split updates set base/bonus directly;
-/// total-only updates back-compute base/bonus from the previous value (spend base first, then bonus).</summary>
+/// <summary>Aether (오드) balance state on <see cref="DataManager"/>. Every broadcast carries both pools
+/// authoritatively — 자연회복 (the number shown outside the parentheses) and 추가 (inside) — so the data layer
+/// stores what it is told and derives the spendable total. Nothing is back-computed.</summary>
 public sealed class DataManagerAetherTests
 {
     [Fact]
@@ -15,10 +16,10 @@ public sealed class DataManagerAetherTests
     }
 
     [Fact]
-    public void Split_update_sets_base_bonus_total()
+    public void Update_sets_natural_bonus_and_the_derived_total()
     {
         var dm = new DataManager();
-        dm.SaveAetherStatus(split: true, baseVal: 90, bonus: 870, total: 960);
+        dm.SaveAetherStatus(baseVal: 90, bonus: 870);
 
         (int b, int bonus, int total, bool has) = dm.CurrentAether;
         Assert.True(has);
@@ -27,24 +28,47 @@ public sealed class DataManagerAetherTests
         Assert.Equal(960, total);
     }
 
+    /// <summary>The 2026-07-30 regression. A 오드 회복 소모품 arrives as a 추가-only broadcast; the number
+    /// outside the parentheses must not move. (The old back-compute treated that packet as a total and
+    /// absorbed its delta into 자연회복.)</summary>
     [Fact]
-    public void Total_only_spend_reduces_base_first_then_bonus()
+    public void A_consumable_grant_moves_only_the_additional_pool()
     {
         var dm = new DataManager();
-        dm.SaveAetherStatus(split: true, baseVal: 100, bonus: 50, total: 150);
+        dm.SaveAetherStatus(baseVal: 375, bonus: 385); // 375(+385)
+        dm.SaveAetherStatus(baseVal: 375, bonus: 395); // 오드 회복 소모품 +10
 
-        dm.SaveAetherStatus(split: false, 0, 0, total: 130); // spent 20 → all from base
-        Assert.Equal((80, 50, 130), (dm.CurrentAether.Base, dm.CurrentAether.Bonus, dm.CurrentAether.Total));
+        Assert.Equal((375, 395, 770), (dm.CurrentAether.Base, dm.CurrentAether.Bonus, dm.CurrentAether.Total));
+    }
 
-        dm.SaveAetherStatus(split: false, 0, 0, total: 40);  // spent 90 → 80 from base, 10 from bonus
-        Assert.Equal((0, 40, 40), (dm.CurrentAether.Base, dm.CurrentAether.Bonus, dm.CurrentAether.Total));
+    /// <summary>Natural regeneration ticks the 자연회복 pool by 15 and leaves 추가 alone.</summary>
+    [Fact]
+    public void A_natural_tick_moves_only_the_natural_pool()
+    {
+        var dm = new DataManager();
+        dm.SaveAetherStatus(baseVal: 520, bonus: 385);
+        dm.SaveAetherStatus(baseVal: 535, bonus: 385);
+
+        Assert.Equal((535, 385, 920), (dm.CurrentAether.Base, dm.CurrentAether.Bonus, dm.CurrentAether.Total));
+    }
+
+    /// <summary>A pool the packet omits is zero, not "unchanged" — spending 80 out of 80(+750) empties
+    /// 자연회복, and the game then broadcasts the 추가 pool alone.</summary>
+    [Fact]
+    public void An_omitted_pool_is_zero_not_carried_over()
+    {
+        var dm = new DataManager();
+        dm.SaveAetherStatus(baseVal: 80, bonus: 750);
+        dm.SaveAetherStatus(baseVal: 0, bonus: 750); // 추가-only broadcast after the 80 spend
+
+        Assert.Equal((0, 750, 750), (dm.CurrentAether.Base, dm.CurrentAether.Bonus, dm.CurrentAether.Total));
     }
 
     [Fact]
     public void Restore_seeds_the_balance_when_empty()
     {
         var dm = new DataManager();
-        dm.RestoreAetherStatus(240, 295, 535);
+        dm.RestoreAetherStatus(240, 295);
 
         (int b, int bonus, int total, bool has) = dm.CurrentAether;
         Assert.True(has);
@@ -55,27 +79,17 @@ public sealed class DataManagerAetherTests
     public void Restore_does_not_clobber_a_live_value()
     {
         var dm = new DataManager();
-        dm.SaveAetherStatus(split: true, baseVal: 100, bonus: 50, total: 150); // live broadcast arrived first
-        dm.RestoreAetherStatus(240, 295, 535); // a late restore must not override it
+        dm.SaveAetherStatus(baseVal: 100, bonus: 50); // live broadcast arrived first
+        dm.RestoreAetherStatus(240, 295);             // a late restore must not override it
 
         Assert.Equal((100, 50, 150), (dm.CurrentAether.Base, dm.CurrentAether.Bonus, dm.CurrentAether.Total));
-    }
-
-    [Fact]
-    public void Total_only_gain_adds_to_base()
-    {
-        var dm = new DataManager();
-        dm.SaveAetherStatus(split: true, baseVal: 100, bonus: 50, total: 150);
-        dm.SaveAetherStatus(split: false, 0, 0, total: 200); // +50 → base grows
-
-        Assert.Equal((150, 50, 200), (dm.CurrentAether.Base, dm.CurrentAether.Bonus, dm.CurrentAether.Total));
     }
 
     [Fact]
     public void Hard_reset_clears_the_balance()
     {
         var dm = new DataManager();
-        dm.SaveAetherStatus(split: true, 90, 870, 960);
+        dm.SaveAetherStatus(90, 870);
         dm.HardReset();
         Assert.False(dm.CurrentAether.HasValue);
     }
@@ -86,7 +100,7 @@ public sealed class DataManagerAetherTests
         var dm = new DataManager();
         int fired = 0;
         dm.AetherStatusChanged += () => fired++;
-        dm.SaveAetherStatus(split: true, 90, 870, 960);
+        dm.SaveAetherStatus(90, 870);
         Assert.Equal(1, fired);
     }
 }

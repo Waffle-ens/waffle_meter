@@ -411,7 +411,8 @@ public sealed class MeterSettings : INotifyPropertyChanged
     public string BuffUiPresets { get => _buffUiPresets; set => SetProp(ref _buffUiPresets, "buffUi.presets", value); }
 
     private string _aetherLastValue;
-    /// <summary>The last observed aether balance as "base,bonus,total,unixMs", persisted so it can be shown
+    /// <summary>The last observed aether balance as "base,bonus,unixMs" (base = 자연회복, bonus = 추가;
+    /// the spendable total is their sum), persisted so it can be shown
     /// immediately on the next launch (the game only broadcasts the resource on its own schedule — zone load
     /// etc. — so without this the badge is blank for the first minutes). Restored only within a staleness
     /// window and cleared on a character switch. The shugo-festa key is deliberately NOT persisted: a stale
