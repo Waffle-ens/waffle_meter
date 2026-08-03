@@ -16,7 +16,8 @@ public sealed record TierServiceStatus(
     int Rows,
     int Mobs,
     int Failures,
-    string? LastError);
+    string? LastError,
+    int Dungeons = 0);
 
 /// <summary>
 /// Owns the tier distribution artifact: fetches it rarely, verifies it, caches it on disk, and hands the parsed
@@ -115,7 +116,8 @@ public sealed class TierService : IDisposable
         _artifact?.RowCount ?? 0,
         _artifact?.MobCount ?? 0,
         _failures,
-        _lastError);
+        _lastError,
+        _artifact?.DungeonCount ?? 0);
 
     /// <summary>Settings' 티어 갱신 button. Rate-limited; returns false when the cooldown blocks it.</summary>
     public bool RequestManualRefresh()

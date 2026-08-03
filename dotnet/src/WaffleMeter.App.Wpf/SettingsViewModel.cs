@@ -484,7 +484,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 ? $"{(int)age.TotalHours}시간 전 기준"
                 : $"{(int)age.TotalDays}일 전 기준";
         string stale = age.TotalDays >= 14 ? " · 오래된 기준이에요" : string.Empty;
-        TierStatus = $"던전 {status.Mobs}개 · 구간 {status.Rows}개 · {freshness}{stale}";
+        TierStatus = $"던전 {status.Dungeons}개 · 보스 {status.Mobs}종 · 구간 {status.Rows:N0}개 · {freshness}{stale}";
     }
 
     /// <summary>Settings' 새로고침 button. Returns false when the 60s cooldown swallowed it.</summary>

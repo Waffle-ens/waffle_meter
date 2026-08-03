@@ -52,6 +52,10 @@ public sealed class TierServiceTests : IDisposable
         Assert.True(status.HasArtifact);
         Assert.Equal(0, status.Failures);
         Assert.Null(status.LastError);
+        // Dungeons and bosses are different counts — the settings line said "던전 41개" when 41 was the
+        // mobCode total across 7 dungeons. Pin them apart so the label can't silently drift back.
+        Assert.Equal(1, status.Dungeons);
+        Assert.Equal(1, status.Mobs);
     }
 
     [Fact]

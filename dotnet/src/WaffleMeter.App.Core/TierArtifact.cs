@@ -87,6 +87,10 @@ public sealed class TierArtifact
 
     public int MobCount => _mobs.Count;
 
+    /// <summary>Distinct dungeons the artifact covers. NOT the same as <see cref="MobCount"/> — one dungeon
+    /// contributes one boss mobCode per boss per difficulty, so a 7-dungeon artifact carries ~41 codes.</summary>
+    public int DungeonCount => _dungeonNames.Count;
+
     /// <summary>Dungeon/variant/boss for a boss mobCode, or null when the code is not in the catalog.
     /// <b>Unmapped = no tier</b> (fail-closed) — never fall back to a neighbouring dungeon.</summary>
     public TierMobPlacement? Placement(int mobCode) =>
