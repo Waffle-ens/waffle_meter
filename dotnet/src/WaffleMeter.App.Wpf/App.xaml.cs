@@ -1109,6 +1109,7 @@ public partial class App : Application
         _joinViewModel = new JoinRequestViewModel(
             _settings!, skillVisibility.Codes, services.Tier, () => _skin?.IsLight == true);
         _joinPanel = new JoinRequestPanel { DataContext = _joinViewModel };
+        MigrateJoinPanelWidthForTierChip(services.Props);
         LoadWindowSize(services.Props, "joinPanelWidth", "joinPanelHeight", _joinPanel);
 
         // Build the HWND + assert the overlay ex-style, then park (hidden) until a request arrives.
@@ -1437,22 +1438,29 @@ public partial class App : Application
     /// them without touching anyone who chose their own width. Runs once (guarded by its own settings key) so a
     /// user who later shrinks back to 420 on purpose is never re-widened.
     /// </summary>
-    private static void MigrateMeterWidthForTierChip(PropertyHandler props)
-    {
-        const string doneKey = "meterWidthTierChipMigrated";
-        const double oldDefault = 420.0;
-        const double newDefault = 490.0;
+    private static void MigrateMeterWidthForTierChip(PropertyHandler props) =>
+        MigrateDefaultWidth(props, "meterWidthTierChipMigrated", "meterWidth", 420.0, 490.0);
 
+    private static void MigrateJoinPanelWidthForTierChip(PropertyHandler props) =>
+        MigrateDefaultWidth(props, "joinPanelWidthTierChipMigrated", "joinPanelWidth", 300.0, 350.0);
+
+    /// <summary>Carry a widened default onto users who still sit at the OLD default. A width is only persisted
+    /// once the user drags the window, so someone who never touched it would otherwise keep the old size forever
+    /// and see the new chip crowd the nickname out. A width the user actually chose (anything but the old
+    /// default) is left alone — the run-once flag makes sure we never second-guess it twice.</summary>
+    private static void MigrateDefaultWidth(
+        PropertyHandler props, string doneKey, string widthKey, double oldDefault, double newDefault)
+    {
         if (props.GetProperty(doneKey) == "true")
         {
             return;
         }
 
         props.SetProperty(doneKey, "true");
-        if (double.TryParse(props.GetProperty("meterWidth"), NumberStyles.Float, CultureInfo.InvariantCulture, out double w)
+        if (double.TryParse(props.GetProperty(widthKey), NumberStyles.Float, CultureInfo.InvariantCulture, out double w)
             && Math.Abs(w - oldDefault) < 0.5)
         {
-            props.SetProperty("meterWidth", newDefault.ToString("0", CultureInfo.InvariantCulture));
+            props.SetProperty(widthKey, newDefault.ToString("0", CultureInfo.InvariantCulture));
         }
     }
 

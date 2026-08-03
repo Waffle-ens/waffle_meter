@@ -282,8 +282,10 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
         }
 
         Tier = TierPalette.For(rank, isLight);
-        TierText = name;
-        TierToolTip = $"{name} · {TierLadder.FormatTopPercent(topPercent)}";
+        // 미터 푸터와 같은 문구("챌린저 · 상위 0.7%"). 등급만으로는 밴드가 넓어(플래티넘 하나가 10~30%) 신청자
+        // 비교가 안 되고, 백분위만으로는 색이 무슨 등급인지 안 읽힌다 — 둘을 같이 보여준다.
+        TierText = $"{name} · {TierLadder.FormatTopPercent(topPercent)}";
+        TierToolTip = $"{TierText} — 와플미터에 공개된 캐릭터의 최근 성적";
         TierVisibility = Visibility.Visible;
     }
 
