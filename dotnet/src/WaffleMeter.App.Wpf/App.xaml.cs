@@ -152,6 +152,18 @@ public partial class App : Application
         // meter, and it costs no extra request.
         services.UploadQueue.TierReceived = (hash, tier) => _careerTiers[hash] = tier.TierRank;
 
+        // 던전 티어는 표시 중인 리포트에서 파생시킨다 — 라이브든 저장 전투든 같은 함수를 탄다. 순수 로컬 계산이라
+        // (받아둔 분포에 그 전투의 dps를 대입할 뿐) 네트워크를 타지 않는다.
+        //
+        // 저장 전투에는 커리어 티어를 얹지 않는다. 커리어 티어는 "지금 이 캐릭터의 성적"이라, 지난 전투 화면에
+        // 오늘의 등급을 섞으면 칩이 '실버 · 상위 12.3%'처럼 서로 다른 시점을 한 줄에 붙여 말하게 된다. 기록 화면은
+        // 전부 그 전투 기준이다.
+        viewModel.TierResolver = report => TierEvaluator.Evaluate(
+            report,
+            services.Tier.Artifact,
+            _viewingHistory ? null : _careerTiers,
+            u => StatsIdentity.CharacterIdentityHash(u.Server, u.Nickname));
+
         MigrateMeterWidthForTierChip(services.Props);
         LoadWindowWidth(services.Props, "meterWidth", window);
         window.Show();
@@ -536,13 +548,6 @@ public partial class App : Application
                 services.Data.MemberProfileRoster(PreCombatPartyTtlMs));
             viewModel.SetRoster(partyRoster);
             viewModel.SetRosterResurface(true); // Feature 1: 라이브 idle 경로 — 파티(닉/서버) 변경 시 로스터 프리뷰 재노출 허용
-            // 던전 티어. 순수 로컬 계산 — 받아둔 분포에 이번 전투의 dps를 대입할 뿐이라 네트워크를 타지 않는다.
-            // 반드시 Update 직전에 넣어야 한 틱의 행이 같은 쌍으로 한 번만 만들어진다.
-            viewModel.SetTiers(TierEvaluator.Evaluate(
-                report,
-                services.Tier.Artifact,
-                _careerTiers,
-                u => StatsIdentity.CharacterIdentityHash(u.Server, u.Nickname)));
             viewModel.Update(report);
             (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
             viewModel.SetAether(aBase, aBonus, aHas); // live aether badge (read each tick; fires even when idle)
@@ -1635,7 +1640,7 @@ public partial class App : Application
                 return; // no section for this version (e.g. a hotfix with no entry) — skip silently
             }
 
-            new PatchNotesWindow(baseVer, notes).Show();
+            new PatchNotesWindow(baseVer, notes, _skin?.IsLight == true).Show();
         }
         catch
         {

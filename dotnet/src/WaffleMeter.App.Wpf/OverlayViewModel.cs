@@ -64,10 +64,16 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Publish the per-row tier state, keyed by entity uid (what the row builder hands back).
-    /// <para>Store-only: call it immediately BEFORE <see cref="Update"/> in the same report tick, so the rows are
-    /// built once from a consistent pair. Repainting from here instead would double every tick's row rebuild.</para>
+    /// Derives the per-row tier state FOR THE REPORT BEING RENDERED. Set once at startup.
+    /// <para>🔑 The tier must be a function of the displayed report, not a value pushed in beside it. Pushing it
+    /// separately meant a saved battle rendered whatever the live loop happened to leave behind: every boss of a
+    /// run showed the same percentages (the last live evaluation, reused), and an older run showed none at all
+    /// (its participants have different entity uids, so the stale map had no entry for them).</para>
     /// </summary>
+    public Func<DpsReport, IReadOnlyDictionary<int, RowTier>>? TierResolver { get; set; }
+
+    /// <summary>Inject tier state directly. Only for the UI preview and unit tests — the app sets
+    /// <see cref="TierResolver"/> instead so history and live can never disagree.</summary>
     public void SetTiers(IReadOnlyDictionary<int, RowTier>? byUid) => _rowTiers = byUid ?? EmptyTiers;
 
     /// <summary>Re-theme on a skin swap (light/dark stat colors) and repaint.</summary>
@@ -439,6 +445,11 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
         // "off" is the hard kill switch: no ring, no chip, no timer — the row renders through the IsNone
         // trigger and is pixel-identical to a build without the feature.
+        if (TierResolver is { } resolveTiers)
+        {
+            _rowTiers = resolveTiers(report) ?? EmptyTiers;
+        }
+
         bool tierOn = _settings.TierShow && _settings.TierEffects != "off" && _rowTiers.Count > 0;
         bool isLightSkin = _isLight();
         int animatedTierRows = 0;
