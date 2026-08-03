@@ -23,6 +23,8 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private static readonly string[] CaptureBackends = { "windivert", "npcap" };
     private static readonly string[] TargetInfoDisplayModes = { "hp_full_percent", "hp_percent", "remain_full_percent", "remain_percent", "percent" };
     private static readonly string[] BarStyles = { "fill", "bar", "none" };
+    /// <summary>던전 티어 장식 강도. "off" = 현행 픽셀 그대로, "static" = 테두리만, "animated" = 상위 2티어 광택.</summary>
+    private static readonly string[] TierEffectModes = { "off", "static", "animated" };
 
     private readonly PropertyHandler _props;
 
@@ -42,6 +44,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showCombatTimerInMinimal = ReadBool("showCombatTimerInMinimal", true);
         _showTargetInfoInMinimal = ReadBool("showTargetInfoInMinimal", true);
         _showServerTag = ReadBool("showServerTag", true);
+        _tierShow = ReadBool("tier.show", true);
+        _tierEffects = ReadEnum("tier.effects", "static", TierEffectModes);
+        _tierShowOthers = ReadBool("tier.showOthers", true);
+        _tierShowSelfChip = ReadBool("tier.showSelfChip", true);
         _showJoinPanel = ReadBool("showJoinPanel", true);
         _showPreCombatRoster = ReadBool("showPreCombatRoster", true);
         _forceInstanceTracking = ReadBool("forceInstanceTracking", false);
@@ -144,6 +150,25 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private bool _showServerTag;
     /// <summary>Show the abbreviated server label "[xx]" next to each player nickname in the meter rows.</summary>
     public bool ShowServerTag { get => _showServerTag; set => SetBool(ref _showServerTag, "showServerTag", value); }
+
+    private bool _tierShow;
+    /// <summary>Master switch for the 던전 티어 decoration (badge rings + 상위 X.X% chip).</summary>
+    public bool TierShow { get => _tierShow; set => SetBool(ref _tierShow, "tier.show", value); }
+
+    private string _tierEffects;
+    /// <summary>"off" = no decoration at all (pixel-identical to pre-tier), "static" = rings only,
+    /// "animated" = rings + the 챌린저/마스터 sheen. LowSpecMode pins this down to "static".</summary>
+    public string TierEffects { get => _tierEffects; set => SetProp(ref _tierEffects, "tier.effects", value); }
+
+    private bool _tierShowOthers;
+    /// <summary>Decorate party members' rows too (ring + outline + their own 이번 전투 상위 X.X% chip). Off
+    /// leaves everyone but you undecorated.</summary>
+    public bool TierShowOthers { get => _tierShowOthers; set => SetBool(ref _tierShowOthers, "tier.showOthers", value); }
+
+    private bool _tierShowSelfChip;
+    /// <summary>Show the footer summary chip ("챌린저 · 상위 0.7%") next to the combat timer. The per-row
+    /// percentile chips are governed by <see cref="TierShow"/>/<see cref="TierShowOthers"/> instead.</summary>
+    public bool TierShowSelfChip { get => _tierShowSelfChip; set => SetBool(ref _tierShowSelfChip, "tier.showSelfChip", value); }
 
     private string _targetInfoDisplayMode;
     public string TargetInfoDisplayMode { get => _targetInfoDisplayMode; set => SetProp(ref _targetInfoDisplayMode, "targetInfoDisplayMode", value); }

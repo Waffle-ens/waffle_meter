@@ -28,6 +28,12 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Brush _amountBrush = null!, _dpsBrush = null!, _percentBrush = null!;
     private DpsReport? _lastReport;
 
+    // Tier state, keyed by entity uid. Supplied by TierService (career tier from the upload response, live
+    // battle percentile computed locally against the downloaded distribution) and read during the row rebuild.
+    // Empty by default so a meter with the feature off — or with no artifact yet — renders exactly as before.
+    private IReadOnlyDictionary<int, RowTier> _rowTiers = EmptyTiers;
+    private static readonly Dictionary<int, RowTier> EmptyTiers = [];
+
     // React isLightOverlay hardcoded stat colors — used when the active skin is "light" so values stay
     // readable on the light background (the user theme colors are tuned for dark).
     private static readonly Brush LightName = Frozen(Color.FromRgb(0x1E, 0x29, 0x3B));
@@ -56,6 +62,13 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         };
         _status = $"waffle_meter {version}";
     }
+
+    /// <summary>
+    /// Publish the per-row tier state, keyed by entity uid (what the row builder hands back).
+    /// <para>Store-only: call it immediately BEFORE <see cref="Update"/> in the same report tick, so the rows are
+    /// built once from a consistent pair. Repainting from here instead would double every tick's row rebuild.</para>
+    /// </summary>
+    public void SetTiers(IReadOnlyDictionary<int, RowTier>? byUid) => _rowTiers = byUid ?? EmptyTiers;
 
     /// <summary>Re-theme on a skin swap (light/dark stat colors) and repaint.</summary>
     public void RefreshSkin()
@@ -424,6 +437,14 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
         double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);
 
+        // "off" is the hard kill switch: no ring, no chip, no timer — the row renders through the IsNone
+        // trigger and is pixel-identical to a build without the feature.
+        bool tierOn = _settings.TierShow && _settings.TierEffects != "off" && _rowTiers.Count > 0;
+        bool isLightSkin = _isLight();
+        int animatedTierRows = 0;
+        TierBadge selfTier = TierBadge.None;
+        RowTier selfRowTier = default;
+
         for (int i = 0; i < display.Count; i++)
         {
             OverlayRowBuilder.Row e = display[i];
@@ -441,6 +462,31 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             Brush jobBar = e.User?.Job is JobClass jcb && _jobBars.TryGetValue(jcb, out Brush? jbr) ? jbr : _normalBar;
 
             string displayName = MeterFormat.DisplayName(e.User?.Nickname, nameMode, isUser);
+
+            // Tier decoration. Others only get the ring (their career tier is a server lookup gated on consent);
+            // the "상위 X.X%" chip is self-only so it can never eat another row's 150px name column.
+            TierBadge badge = TierBadge.None;
+            TierRowInfo tierInfo = TierRowInfo.Empty;
+            if (tierOn && _rowTiers.TryGetValue(e.Uid, out RowTier rt))
+            {
+                if (isUser || _settings.TierShowOthers)
+                {
+                    badge = TierPalette.For(rt.TierRank, isLightSkin);
+                    if (badge.Animated)
+                    {
+                        animatedTierRows++;
+                    }
+                }
+
+                tierInfo = TierRowInfo.Build(badge, rt);
+
+                if (isUser)
+                {
+                    selfTier = badge;
+                    selfRowTier = rt;
+                }
+            }
+
             var row = new RowViewModel(
                 Id: e.Uid,
                 Rank: i + 1,
@@ -471,7 +517,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 IconSource: JoinIcons.Job(jobName),
                 AccentOpacity: isUser ? 0.95 : 0.82,
                 BarFillVisibility: fillVis,
-                BottomBarVisibility: barVis);
+                BottomBarVisibility: barVis,
+                Tier: badge,
+                TierInfo: tierInfo);
 
             if (i < Rows.Count)
             {
@@ -488,6 +536,13 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             Rows.RemoveAt(i);
         }
 
+        // Idle CPU must be exactly zero when no animated tier is on screen, so the sheen timer is demand-driven.
+        // LowSpecMode force-disables it — that property's doc comment has always claimed to "force-disable
+        // display-only embellishments" while only pinning the refresh interval; this is the first thing it
+        // actually switches off.
+        TierSheen.SetDemand(animatedTierRows, _settings.TierEffects == "animated" && !_settings.LowSpecMode);
+        ApplySelfTierChip(selfTier, selfRowTier);
+
         PlaceholderVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         // React TargetInfo/CombatTimer show when players>0; compact mode can hide each (with overrides).
         // hasCombatRows is the count of DISPLAYABLE (named) combat rows from OverlayRowBuilder above — NOT
@@ -497,6 +552,47 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         TargetInfoVisibility = hasCombatRows && (!minimal || _settings.ShowTargetInfoInMinimal) ? Visibility.Visible : Visibility.Collapsed;
         CombatTimerVisibility = durationMs > 0 && hasCombatRows && (!minimal || _settings.ShowCombatTimerInMinimal)
             ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private string _selfTierChipText = string.Empty;
+    public string SelfTierChipText { get => _selfTierChipText; private set => Set(ref _selfTierChipText, value); }
+
+    private string _selfTierChipToolTip = string.Empty;
+    public string SelfTierChipToolTip { get => _selfTierChipToolTip; private set => Set(ref _selfTierChipToolTip, value); }
+
+    private Visibility _selfTierChipVisibility = Visibility.Collapsed;
+    public Visibility SelfTierChipVisibility { get => _selfTierChipVisibility; private set => Set(ref _selfTierChipVisibility, value); }
+
+    private Brush _selfTierChipBg = Brushes.Transparent;
+    public Brush SelfTierChipBg { get => _selfTierChipBg; private set => Set(ref _selfTierChipBg, value); }
+
+    private Brush _selfTierChipFg = Brushes.Transparent;
+    public Brush SelfTierChipFg { get => _selfTierChipFg; private set => Set(ref _selfTierChipFg, value); }
+
+    private Brush _selfTierChipRing = Brushes.Transparent;
+    public Brush SelfTierChipRing { get => _selfTierChipRing; private set => Set(ref _selfTierChipRing, value); }
+
+    /// <summary>Publish the footer chip: "챌린저 · 상위 0.7%". Hidden when the feature is off, when the fight's
+    /// cohort had no shipped distribution row (표본 부족 — we never guess a number), or when the user turned the
+    /// chip off. The tier NAME still shows on its own so a rank without a live percentile is not a blank chip.</summary>
+    private void ApplySelfTierChip(TierBadge badge, RowTier tier)
+    {
+        bool wanted = _settings.TierShow && _settings.TierShowSelfChip && !badge.IsNone;
+        string percent = tier.BattleTopPercent is double p ? TierLadder.FormatTopPercent(p) : string.Empty;
+        if (!wanted)
+        {
+            SelfTierChipVisibility = Visibility.Collapsed;
+            return;
+        }
+
+        SelfTierChipText = percent.Length > 0 ? $"{badge.Name} · {percent}" : badge.Name;
+        SelfTierChipToolTip = tier.DungeonLabel is { Length: > 0 } label
+            ? $"{label} · {(percent.Length > 0 ? percent : "이번 전투 표본 부족")}"
+            : SelfTierChipText;
+        SelfTierChipBg = badge.ChipBg;
+        SelfTierChipFg = badge.ChipFg;
+        SelfTierChipRing = badge.RankRing;
+        SelfTierChipVisibility = Visibility.Visible;
     }
 
     /// <summary>Combat-time readout: under a minute keeps "12.3s"; from a minute up it converts to
@@ -578,4 +674,35 @@ public sealed record RowViewModel(
     System.Windows.Media.ImageSource? IconSource,
     double AccentOpacity,
     Visibility BarFillVisibility,
-    Visibility BottomBarVisibility);
+    Visibility BottomBarVisibility,
+    TierBadge Tier,
+    TierRowInfo TierInfo);
+
+
+/// <summary>Per-row tier text. Separate from <see cref="TierBadge"/> (a shared singleton) because these values
+/// differ per row — keeping them in one record adds two positional parameters to RowViewModel instead of four,
+/// which matters because that record has same-typed neighbours a transposition would not fail to compile.</summary>
+public sealed record TierRowInfo(string PercentText, Visibility PercentVisibility, string ToolTip, bool HasToolTip)
+{
+    public static readonly TierRowInfo Empty = new(string.Empty, Visibility.Collapsed, string.Empty, false);
+
+    public static TierRowInfo Build(TierBadge badge, RowTier tier)
+    {
+        if (badge.IsNone)
+        {
+            return Empty;
+        }
+
+        string percent = tier.BattleTopPercent is double p ? TierLadder.FormatTopPercent(p) : string.Empty;
+        string dungeon = tier.DungeonLabel is { Length: > 0 } d ? $" · {d}" : string.Empty;
+        string tip = percent.Length > 0
+            ? $"{badge.Name}{dungeon} · 이번 전투 {percent}"
+            : $"{badge.Name}{dungeon} · 이번 전투 표본 부족";
+
+        return new TierRowInfo(
+            percent,
+            percent.Length > 0 ? Visibility.Visible : Visibility.Collapsed,
+            tip,
+            true);
+    }
+}

@@ -9,7 +9,7 @@
         Topmost="True"
         ResizeMode="CanResize"
         SizeToContent="Height"
-        Width="420" Height="300" MinWidth="320" MinHeight="150"
+        Width="490" Height="300" MinWidth="320" MinHeight="150"
         Left="40" Top="40"
         UseLayoutRounding="True"
         FontFamily="Segoe UI">
@@ -202,15 +202,28 @@
                                 ClipToBounds="True" MouseLeftButtonUp="OnRowClick" MinHeight="{Binding RowHeight}"
                                 Typography.NumeralAlignment="Tabular">
                             <Border.Style>
-                                <!-- Resting card fill + soft border (matches React .meter-row); hover lightens. -->
+                                <!-- Resting card fill + soft border (matches React .meter-row); hover lightens.
+                                     A tiered row carries its tier colour on the OUTLINE as well — the rings on
+                                     two 20px badges alone were easy to miss at a glance. The untiered path is
+                                     unchanged, hover included, so the feature-off render stays pixel-identical. -->
                                 <Style TargetType="Border">
                                     <Setter Property="Background" Value="{DynamicResource Skin.RowBg}"/>
-                                    <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
+                                    <Setter Property="BorderBrush" Value="{Binding Tier.RowBorder}"/>
                                     <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Tier.IsNone}" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
+                                        </DataTrigger>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter Property="Background" Value="{DynamicResource Skin.RowHover}"/>
-                                            <Setter Property="BorderBrush" Value="{DynamicResource Skin.Border}"/>
                                         </Trigger>
+                                        <!-- hover on an untiered row still lightens the outline, exactly as before -->
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding Tier.IsNone}" Value="True"/>
+                                                <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Skin.Border}"/>
+                                        </MultiDataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
@@ -237,22 +250,72 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <!-- left accent rail -->
                                     <Border Grid.Column="0" Width="3" CornerRadius="2" Margin="0,2,8,2" VerticalAlignment="Stretch"
                                             Background="{Binding FillBrush}" Opacity="{Binding AccentOpacity}"/>
-                                    <!-- rank -->
-                                    <Border Grid.Column="1" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
-                                            CornerRadius="4" MinWidth="22" Height="20" Padding="4,0" Margin="0,0,6,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Rank}" Foreground="{DynamicResource Skin.MutedFg}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.32:9'}"/>
+                                    <!-- rank — 던전 티어 tints the fill/ring/number. Every dimension (MinWidth,
+                                         Height, Padding, Margin, BorderThickness, CornerRadius) is UNCHANGED:
+                                         the window is SizeToContent="Height" and growing a badge by a pixel
+                                         re-opens the auto-height regression that bit v2.7.5 and v2.8.1.
+                                         Tier.IsNone restores the skin's own brushes so an untiered row (or the
+                                         feature switched off) is pixel-identical to before across all 4 skins. -->
+                                    <Border Grid.Column="1" BorderThickness="1" SnapsToDevicePixels="True"
+                                            CornerRadius="4" MinWidth="22" Height="20" Padding="4,0" Margin="0,0,6,0" VerticalAlignment="Center"
+                                            ToolTip="{Binding TierInfo.ToolTip}" ToolTipService.IsEnabled="{Binding TierInfo.HasToolTip}">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{Binding Tier.RankBg}"/>
+                                                <Setter Property="BorderBrush" Value="{Binding Tier.RankRing}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Tier.IsNone}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource Skin.StatBg}"/>
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding Rank}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.32:9'}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{Binding Tier.RankFg}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Tier.IsNone}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                     </Border>
-                                    <!-- job icon -->
-                                    <Border Grid.Column="2" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.IconRing}" BorderThickness="1"
+                                    <!-- job icon — the tier ring replaces Skin.IconRing; the second ring for the
+                                         top three tiers is a size-less Grid child, so it contributes nothing to
+                                         DesiredSize and the badge keeps its exact dimensions. -->
+                                    <Border Grid.Column="2" Background="{DynamicResource Skin.StatBg}" BorderThickness="1" SnapsToDevicePixels="True"
                                             CornerRadius="6" Margin="0,0,8,0" VerticalAlignment="Center"
                                             Width="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.66:18'}"
-                                            Height="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.66:18'}">
-                                        <Image Source="{Binding IconSource}" Stretch="Uniform" Margin="2"/>
+                                            Height="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.66:18'}"
+                                            ToolTip="{Binding TierInfo.ToolTip}" ToolTipService.IsEnabled="{Binding TierInfo.HasToolTip}">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="BorderBrush" Value="{Binding Tier.IconRing}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Tier.IsNone}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource Skin.IconRing}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Grid>
+                                            <Image Source="{Binding IconSource}" Stretch="Uniform" Margin="2"/>
+                                            <!-- IsHitTestVisible=False: the row is a click target (OnRowClick) and a
+                                                 transparent overlay hit-tests per-pixel alpha, so a decorative ring
+                                                 must never become clickable. -->
+                                            <Border CornerRadius="4.5" BorderThickness="1" IsHitTestVisible="False" SnapsToDevicePixels="True"
+                                                    BorderBrush="{Binding Tier.InnerRing}" Visibility="{Binding Tier.InnerRingVisibility}"/>
+                                        </Grid>
                                     </Border>
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Name}" Foreground="{Binding NameBrush}" VerticalAlignment="Center"
@@ -268,12 +331,24 @@
                                                        FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.32:9'}"/>
                                         </Border>
                                     </StackPanel>
-                                    <Border Grid.Column="4" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
+                                    <!-- 이번 전투 상위 X.X% — per player, computed locally from the downloaded
+                                         distribution (this row's dps against its own class cohort). No server
+                                         call and nothing about anyone's account: it is derived from the same
+                                         combat packets the row already shows. Its own Auto column so it can
+                                         never be clipped by the name column, and Collapsed when the cohort had
+                                         no shipped distribution row (표본 부족 — we never guess a number). -->
+                                    <Border Grid.Column="4" Background="{Binding Tier.ChipBg}" BorderBrush="{Binding Tier.RankRing}" BorderThickness="1"
+                                            CornerRadius="4" Padding="5,0" Margin="6,0,0,0" VerticalAlignment="Center" SnapsToDevicePixels="True"
+                                            Visibility="{Binding TierInfo.PercentVisibility}" ToolTip="{Binding TierInfo.ToolTip}">
+                                        <TextBlock Text="{Binding TierInfo.PercentText}" Foreground="{Binding Tier.ChipFg}" FontWeight="SemiBold"
+                                                   FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.32:9'}"/>
+                                    </Border>
+                                    <Border Grid.Column="5" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
                                             CornerRadius="4" Padding="5,0" Margin="6,0,4,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding DamageText}" Foreground="{Binding DamageBrush}"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
                                     </Border>
-                                    <Border Grid.Column="5" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
+                                    <Border Grid.Column="6" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
                                             CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding PercentText}" Foreground="{Binding PercentBrush}" MinWidth="40" TextAlignment="Center"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
@@ -304,10 +379,24 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Ellipse Grid.Column="0" Width="8" Height="8" Fill="{Binding CombatStatusBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBlock Grid.Column="1" Text="{Binding CombatStatusText}" Foreground="{Binding CombatStatusBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="2" Text="{Binding Duration}" Foreground="{Binding CombatTimeBrush}" FontSize="12" FontWeight="SemiBold"
+                    <!-- 이번 전투 상위 X.X% (self only). It lives HERE and not on the row because the row's
+                         420px default width is already fully spent on name/server/power — a chip there gets
+                         clipped at the column boundary. This is also the honest place for it: it is one
+                         number about one fight, not a per-player column. -->
+                    <Border Grid.Column="2" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center"
+                            BorderThickness="1" CornerRadius="4" Padding="6,0" SnapsToDevicePixels="True"
+                            Background="{Binding SelfTierChipBg}" BorderBrush="{Binding SelfTierChipRing}"
+                            Visibility="{Binding SelfTierChipVisibility}" ToolTip="{Binding SelfTierChipToolTip}">
+                        <!-- FontSize 10 + zero vertical padding keeps the chip inside the timer row's existing
+                             line height, so showing it never grows the window (SizeToContent="Height"). -->
+                        <TextBlock Text="{Binding SelfTierChipText}" Foreground="{Binding SelfTierChipFg}"
+                                   FontSize="10" FontWeight="SemiBold"/>
+                    </Border>
+                    <TextBlock Grid.Column="3" Text="{Binding Duration}" Foreground="{Binding CombatTimeBrush}" FontSize="12" FontWeight="SemiBold"
                                HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
             </Border>

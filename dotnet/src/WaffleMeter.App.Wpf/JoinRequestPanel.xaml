@@ -72,12 +72,22 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <Image Grid.Column="0" Source="{Binding JobIcon}" Width="24" Height="24"
                                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding Nickname}" Foreground="{DynamicResource Skin.Fg}"
                                                            FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                <Border Grid.Column="2" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.Border}"
+                                                <!-- 던전 티어. Collapsed unless the stats web actually returned a
+                                                     standing for this character — an applicant who never consented
+                                                     is indistinguishable from one with too few battles, and both
+                                                     simply show nothing rather than an "unranked" label. -->
+                                                <Border Grid.Column="2" Background="{Binding Tier.ChipBg}" BorderBrush="{Binding Tier.RankRing}"
+                                                        BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="6,0,0,0"
+                                                        SnapsToDevicePixels="True" Visibility="{Binding TierVisibility}" ToolTip="{Binding TierToolTip}">
+                                                    <TextBlock Text="{Binding TierText}" Foreground="{Binding Tier.ChipFg}" FontSize="12" FontWeight="SemiBold"/>
+                                                </Border>
+                                                <Border Grid.Column="3" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.Border}"
                                                         BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="6,0,0,0">
                                                     <TextBlock Text="{Binding PowerText}" Foreground="{DynamicResource Skin.Accent}" FontSize="12"/>
                                                 </Border>

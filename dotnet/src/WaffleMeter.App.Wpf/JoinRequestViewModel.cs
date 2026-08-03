@@ -20,10 +20,44 @@ public sealed record JoinSkillBadge(System.Windows.Media.ImageSource? Icon, stri
 /// </summary>
 public sealed class JoinRequestViewModel : INotifyPropertyChanged
 {
-    public JoinRequestViewModel(MeterSettings settings, IEnumerable<int>? visibleCodes = null)
+    private readonly TierService? _tier;
+    private readonly Func<bool> _isLight;
+
+    /// <param name="tier">Career-tier source for applicants. Optional so the UI preview and unit tests can
+    /// build a panel without a network stack; when absent the cards simply carry no tier.</param>
+    public JoinRequestViewModel(
+        MeterSettings settings,
+        IEnumerable<int>? visibleCodes = null,
+        TierService? tier = null,
+        Func<bool>? isLight = null)
     {
         Settings = settings;
         _visibleCodes = visibleCodes != null ? new HashSet<int>(visibleCodes) : new HashSet<int>(SkillCatalog.DefaultVisibleCodes);
+        _tier = tier;
+        _isLight = isLight ?? (() => false);
+    }
+
+    /// <summary>
+    /// Ask the tier service about everyone currently on screen, then paint whatever it already knows.
+    /// <para>Requesting is idempotent and rate-limited inside the service (batched, 12 at a time, at most one
+    /// request a minute), so calling it on every roster change and every tick costs nothing extra. Reading is a
+    /// pure cache hit, which is why the panel can just re-read on its existing heartbeat instead of needing the
+    /// worker to marshal results back onto the UI thread.</para>
+    /// </summary>
+    private void RefreshTiers()
+    {
+        if (_tier == null || Rows.Count == 0 || !Settings.TierShow || Settings.TierEffects == "off")
+        {
+            return;
+        }
+
+        _tier.RequestCareerTiers(Rows.Select(r => r.IdentityHash));
+
+        bool light = _isLight();
+        foreach (JoinRequestRowViewModel row in Rows)
+        {
+            row.ApplyTier(_tier.CareerTier(row.IdentityHash), light);
+        }
     }
 
     /// <summary>Exposed so the panel can bind the user's overlay font.</summary>
@@ -93,6 +127,7 @@ public sealed class JoinRequestViewModel : INotifyPropertyChanged
             }
         }
 
+        RefreshTiers();
         UpdateCount();
         if (_lastCount == 0 && Rows.Count > 0)
         {
@@ -130,6 +165,8 @@ public sealed class JoinRequestViewModel : INotifyPropertyChanged
                 Rows.RemoveAt(i);
             }
         }
+
+        RefreshTiers(); // a lookup that landed since the last beat paints here
 
         if (Rows.Count != _lastCount)
         {
@@ -195,6 +232,9 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
 
         string label = ServerNames.GetServerLabel(u.Server);
         Nickname = label.Length > 0 ? $"{u.Nickname}[{label}]" : u.Nickname;
+        // The anonymous key the stats web joins on. Null for a garbled/serverless request — those simply
+        // never get a tier rather than being asked about with a bogus hash.
+        IdentityHash = WaffleMeter.Stats.StatsIdentity.CharacterIdentityHash(u.Server, u.Nickname);
 
         PowerText = u.Power > 0 ? MeterFormat.FormatPower(u.Power) : "-";
         JobIcon = JoinIcons.Job(u.Job);
@@ -209,6 +249,42 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
         StigmaBadges = stigma;
         NormalBadgesVisibility = normal.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         StigmaBadgesVisibility = stigma.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Anonymous stats identity for this applicant, or null when nickname/server are unusable.</summary>
+    public string? IdentityHash { get; }
+
+    private TierBadge _tier = TierBadge.None;
+
+    /// <summary>The applicant's career tier colours, or <see cref="TierBadge.None"/> while unknown.</summary>
+    public TierBadge Tier { get => _tier; private set => Set(ref _tier, value); }
+
+    private string _tierText = string.Empty;
+    public string TierText { get => _tierText; private set => Set(ref _tierText, value); }
+
+    private Visibility _tierVisibility = Visibility.Collapsed;
+
+    /// <summary>Collapsed until a tier is known — an applicant who has not consented, or has too few battles,
+    /// shows no chip at all rather than an empty or "unranked" one.</summary>
+    public Visibility TierVisibility { get => _tierVisibility; private set => Set(ref _tierVisibility, value); }
+
+    private string _tierToolTip = string.Empty;
+    public string TierToolTip { get => _tierToolTip; private set => Set(ref _tierToolTip, value); }
+
+    /// <summary>Paint (or clear) this applicant's tier. Idempotent — the panel calls it on every heartbeat.</summary>
+    public void ApplyTier((int Rank, string Name, double TopPercent)? tier, bool isLight)
+    {
+        if (tier is not (int rank, string name, double topPercent))
+        {
+            Tier = TierBadge.None;
+            TierVisibility = Visibility.Collapsed;
+            return;
+        }
+
+        Tier = TierPalette.For(rank, isLight);
+        TierText = name;
+        TierToolTip = $"{name} · {TierLadder.FormatTopPercent(topPercent)}";
+        TierVisibility = Visibility.Visible;
     }
 
     /// <summary>True if the underlying request changed in a way that affects the card — the official-API
