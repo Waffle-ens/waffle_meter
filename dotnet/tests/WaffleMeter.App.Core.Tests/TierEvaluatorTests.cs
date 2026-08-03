@@ -80,6 +80,35 @@ public sealed class TierEvaluatorTests
         Assert.Equal(battle.BattleTopPercent, career.BattleTopPercent);
     }
 
+    [Fact]
+    public void Falls_through_to_the_dps_rungs_when_the_exact_cell_is_missing()
+    {
+        // 🔑 R2~R6 are ndps, which the meter cannot compute, so a cohort with no R0/R1 row used to render
+        // nothing even though the sample existed one rung down. Measured 2026-08-03: only 43.5% of cells were
+        // reachable, 0% genuinely lacked samples. R7~R10 carry the same relaxation in dps.
+        TierArtifact artifact = BuildArtifact(Row(bossIndex: 1, cutFloor: 100_000, rung: 9));
+
+        RowTier tier = TierEvaluator.Evaluate(Report(FirstBoss, (7, "본인", 900_000)), artifact)[7];
+
+        Assert.NotNull(tier.BattleTopPercent);   // reached R9 — the exact boss cell never existed
+    }
+
+    [Fact]
+    public void Prefers_the_exact_cell_over_a_pooled_one()
+    {
+        // Order still matters: a pooled rung must never win over the cell that actually describes this fight.
+        TierArtifact artifact = BuildArtifact(
+            Row(bossIndex: 1, cutFloor: 100_000, rung: 0),
+            Row(bossIndex: 1, cutFloor: 5_000_000, rung: 9));
+
+        RowTier exact = TierEvaluator.Evaluate(Report(FirstBoss, (7, "본인", 900_000)), artifact)[7];
+        RowTier pooledOnly = TierEvaluator.Evaluate(
+            Report(FirstBoss, (7, "본인", 900_000)),
+            BuildArtifact(Row(bossIndex: 1, cutFloor: 5_000_000, rung: 9)))[7];
+
+        Assert.NotEqual(exact.BattleTopPercent, pooledOnly.BattleTopPercent);
+    }
+
     private static DpsReport Report(int mobCode, params (int Uid, string Nick, double Dps)[] rows)
     {
         var report = new DpsReport
@@ -98,8 +127,9 @@ public sealed class TierEvaluatorTests
         return report;
     }
 
-    /// <summary>An R0 row (per-boss, per-job, dps) — the rung a normal 5-man fight lands on.</summary>
-    private static object Row(int bossIndex, long cutFloor)
+    /// <summary>A dps row for the client ladder. <paramref name="rung"/> 0 is the exact cell; 7~10 are the
+    /// pooled fallbacks that keep the synergy bucket.</summary>
+    private static object Row(int bossIndex, long cutFloor, int rung = 0)
     {
         long step = Math.Max(100, cutFloor / 10);
         var encoded = new long[Grid.Length];
@@ -113,15 +143,15 @@ public sealed class TierEvaluatorTests
 
         return new
         {
-            r = 0,
+            r = rung,
             m = "dps",
             k = bossIndex == 1 ? "원정" : "초월",
-            d = bossIndex == 1 ? 11 : 12,
-            v = bossIndex == 1 ? 3 : 1,
-            b = 1,
+            d = rung >= 10 ? -1 : bossIndex == 1 ? 11 : 12,
+            v = rung >= 9 ? -1 : bossIndex == 1 ? 3 : 1,
+            b = rung >= 7 ? -1 : 1,
             j = "살성",
             s = 0,
-            p = 5,
+            p = rung is 1 or 8 or 9 or 10 ? 0 : 5,
             n = 1842,
             c = encoded,
         };

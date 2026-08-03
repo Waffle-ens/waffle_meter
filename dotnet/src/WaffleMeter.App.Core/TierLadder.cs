@@ -150,16 +150,16 @@ public static class TierLadder
             return null;
         }
 
-        for (int rung = 0; rung <= 6; rung++)
+        foreach (int rung in RungOrder)
         {
-            // R0/R1 bucket by synergy; an untrusted raid mask would place the row in a cohort it never
-            // belonged to, so those rungs are skipped exactly as the server skips them when aggregating.
-            if (rung <= 1 && !cohort.SynergyTrusted)
+            // Synergy-bucketed rungs need a trustworthy mask; an untrusted raid mask would place the row in a
+            // cohort it never belonged to, so they are skipped exactly as the server skips them when aggregating.
+            if (KeepsSynergy(rung) && !cohort.SynergyTrusted)
             {
                 continue;
             }
 
-            int metricId = rung <= 1 ? MetricDps : MetricNdps;
+            int metricId = MetricFor(rung);
             double? observed = metricId == MetricDps ? dps : ndps;
             if (observed is not double sample || sample <= 0)
             {
@@ -188,6 +188,24 @@ public static class TierLadder
 
     /// <summary>The row coordinate a given rung looks up. Sentinels: -1 removes an axis, party mode uses 0.
     /// Category and job are carried through every rung untouched.</summary>
+    /// <summary>
+    /// The order the ladder is walked, most specific first.
+    /// <para>🔑 R2~R6 are published in <c>ndps</c>, which the METER CANNOT COMPUTE — normalising away received
+    /// buffs needs the server's buff-attribution model. So the client ladder is R0 → R1 → R7 → R10: the same
+    /// progressive relaxation, but keeping the synergy bucket (which is what lets the raw <c>dps</c> metric stay
+    /// correct) and giving up the location axes instead. R2~R6 stay in the walk so they light up for free if a
+    /// caller ever supplies ndps; without it they are skipped at the metric check below.</para>
+    /// <para>Measured 2026-08-03: with R0/R1 alone only 43.5% of (boss × job × synergy) cells were reachable
+    /// while 0% genuinely lacked samples — every missing cell existed, in a rung the meter could not read.</para>
+    /// </summary>
+    private static readonly int[] RungOrder = [0, 1, 7, 8, 9, 10, 2, 3, 4, 5, 6];
+
+    /// <summary>Rungs that bucket by synergy — and therefore use raw <c>dps</c>. Exactly one synergy correction
+    /// per lookup: bucket it (dps) or pool it (ndps), never both.</summary>
+    private static bool KeepsSynergy(int rung) => rung <= 1 || rung >= 7;
+
+    private static int MetricFor(int rung) => KeepsSynergy(rung) ? MetricDps : MetricNdps;
+
     internal static TierRowKey KeyFor(int rung, int metricId, TierCohort c) => rung switch
     {
         // R0: everything explicit.
@@ -199,7 +217,13 @@ public static class TierLadder
         3 => new TierRowKey(3, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, -1, 0),
         4 => new TierRowKey(4, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, -1, c.JobId, -1, 0),
         5 => new TierRowKey(5, metricId, c.CategoryId, c.DungeonOrd, -1, -1, c.JobId, -1, 0),
-        _ => new TierRowKey(6, metricId, c.CategoryId, -1, -1, -1, c.JobId, -1, 0),
+        6 => new TierRowKey(6, metricId, c.CategoryId, -1, -1, -1, c.JobId, -1, 0),
+        // R7~R10: the client ladder. Same relaxation order as R2~R6 — boss, then party mode, then variant, then
+        // dungeon — except the synergy bucket is KEPT, so these stay on dps.
+        7 => new TierRowKey(7, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, -1, c.JobId, c.SynergyCount, c.PartyMode),
+        8 => new TierRowKey(8, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, -1, c.JobId, c.SynergyCount, 0),
+        9 => new TierRowKey(9, metricId, c.CategoryId, c.DungeonOrd, -1, -1, c.JobId, c.SynergyCount, 0),
+        _ => new TierRowKey(10, metricId, c.CategoryId, -1, -1, -1, c.JobId, c.SynergyCount, 0),
     };
 
     /// <summary>Build a cohort from a finished/live battle. Returns null when the fight is outside the
