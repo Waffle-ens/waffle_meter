@@ -187,6 +187,35 @@ internal static class Program
                     new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp), spresets, new GameOptimizerService()) { SelectedNav = "replay" };
                 Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_replay_Dark.png"), fixedSize: true);
 
+                // 화면 탭: the new 던전 티어 block (mode combo + two toggles + the 기준표 status line).
+                // It sits well below the fold, so scroll the shared ScrollViewer to it before rendering —
+                // otherwise the shot is just the top of the tab.
+                svm.SelectedNav = "display";
+                svm.RefreshTierStatus();
+                Capture(
+                    () =>
+                    {
+                        var w = new SettingsWindow(svm);
+                        w.Loaded += (_, _) =>
+                        {
+                            if (w.FindName("ContentScroll") is System.Windows.Controls.ScrollViewer scroll
+                                && w.FindName("TierSectionHeader") is FrameworkElement header)
+                            {
+                                scroll.UpdateLayout();
+                                // BringIntoView parks the element at the nearest edge (the bottom here); push on
+                                // by a viewport so the whole 던전 티어 block sits under the fold line.
+                                header.BringIntoView();
+                                scroll.UpdateLayout();
+                                scroll.ScrollToVerticalOffset(scroll.VerticalOffset + scroll.ViewportHeight - header.ActualHeight - 8);
+                                scroll.UpdateLayout();
+                            }
+                        };
+                        return w;
+                    },
+                    palette,
+                    Path.Combine(outDir, "settings_tier_Dark.png"),
+                    fixedSize: true);
+
                 // 캐릭터 관리 tab: 오드 chips beside each character (populate the list directly — the preview has
                 // no consent state to enumerate).
                 svm.SelectedNav = "stats";

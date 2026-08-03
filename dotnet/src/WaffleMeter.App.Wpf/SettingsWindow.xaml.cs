@@ -22,8 +22,10 @@ public partial class SettingsWindow : Window
         {
             _viewModel.RefreshCharacterStatus();
             _viewModel.RefreshLogging();
+            _viewModel.RefreshTierStatus(); // local read of the cached artifact — no network
         };
         _statusTimer.Start();
+        _viewModel.RefreshTierStatus(); // fill the line before the first tick so it never opens blank
         Closed += (_, _) => { _statusTimer.Stop(); _viewModel.DisposeBuffPicker(); };
     }
 
@@ -193,6 +195,18 @@ public partial class SettingsWindow : Window
     private void OnRefreshConsent(object sender, RoutedEventArgs e) => RunThenRefresh(_viewModel.RefreshConsentFromServer);
 
     private void OnOpenMyStats(object sender, RoutedEventArgs e) => _viewModel.OpenMyStats();
+
+    /// <summary>등급 기준표 새로고침. The fetch itself is the tier worker's job — this only nudges it and
+    /// re-reads the status line, so the click never blocks the UI thread on a 15s HTTP timeout.</summary>
+    private void OnRefreshTier(object sender, RoutedEventArgs e)
+    {
+        if (!_viewModel.RequestTierRefresh())
+        {
+            return; // inside the 60s cooldown — silently ignore rather than pretending to work
+        }
+
+        _viewModel.RefreshTierStatus();
+    }
 
     private void OnToggleCharacterPublic(object sender, RoutedEventArgs e)
     {

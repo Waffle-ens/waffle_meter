@@ -217,6 +217,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("표시 안 함", "none"),
     };
 
+    public IReadOnlyList<SettingOption> TierEffectModes { get; } = new[]
+    {
+        new SettingOption("테두리 + 효과", "animated"),
+        new SettingOption("테두리만", "static"),
+        new SettingOption("표시 안 함", "off"),
+    };
+
     public IReadOnlyList<SettingOption> BarColorModes { get; } = new[]
     {
         new SettingOption("본인 강조", "self"),
@@ -434,6 +441,56 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool ShowCombatTimerInMinimal { get => _settings.ShowCombatTimerInMinimal; set { _settings.ShowCombatTimerInMinimal = value; OnPropertyChanged(); } }
     public bool ShowTargetInfoInMinimal { get => _settings.ShowTargetInfoInMinimal; set { _settings.ShowTargetInfoInMinimal = value; OnPropertyChanged(); } }
     public bool ShowServerTag { get => _settings.ShowServerTag; set { _settings.ShowServerTag = value; OnPropertyChanged(); } }
+
+    public string TierEffects
+    {
+        get => _settings.TierEffects;
+        set
+        {
+            _settings.TierEffects = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(TierDetailEnabled));
+        }
+    }
+
+    /// <summary>The per-row toggles only mean something while the decoration is on at all.</summary>
+    public bool TierDetailEnabled => _settings.TierEffects != "off";
+
+    public bool TierShowOthers { get => _settings.TierShowOthers; set { _settings.TierShowOthers = value; OnPropertyChanged(); } }
+
+    public bool TierShowSelfChip { get => _settings.TierShowSelfChip; set { _settings.TierShowSelfChip = value; OnPropertyChanged(); } }
+
+    private string _tierStatus = string.Empty;
+
+    /// <summary>One line under the refresh button: what we have and how old it is.</summary>
+    public string TierStatus { get => _tierStatus; private set { _tierStatus = value; OnPropertyChanged(); } }
+
+    /// <summary>Re-read the tier service state for display. Cheap — no network.</summary>
+    public void RefreshTierStatus()
+    {
+        TierServiceStatus status = _services.Tier.Status();
+        if (!status.HasArtifact)
+        {
+            TierStatus = status.Failures > 0
+                ? $"기준표를 아직 받지 못했어요 (실패 {status.Failures}회{FormatReason(status.LastError)})"
+                : "기준표를 아직 받지 못했어요.";
+            return;
+        }
+
+        TimeSpan age = _services.Tier.Age;
+        string freshness = age.TotalHours < 1
+            ? "방금 갱신"
+            : age.TotalDays < 1
+                ? $"{(int)age.TotalHours}시간 전 기준"
+                : $"{(int)age.TotalDays}일 전 기준";
+        string stale = age.TotalDays >= 14 ? " · 오래된 기준이에요" : string.Empty;
+        TierStatus = $"던전 {status.Mobs}개 · 구간 {status.Rows}개 · {freshness}{stale}";
+    }
+
+    /// <summary>Settings' 새로고침 button. Returns false when the 60s cooldown swallowed it.</summary>
+    public bool RequestTierRefresh() => _services.Tier.RequestManualRefresh();
+
+    private static string FormatReason(string? reason) => string.IsNullOrEmpty(reason) ? string.Empty : $", {reason}";
     public bool ShowAetherStatus { get => _settings.ShowAetherStatus; set { _settings.ShowAetherStatus = value; OnPropertyChanged(); } }
     public bool ShowLatencyIndicator { get => _settings.ShowLatencyIndicator; set { _settings.ShowLatencyIndicator = value; OnPropertyChanged(); } }
     public bool VrrCompatMode { get => _settings.VrrCompatMode; set { _settings.VrrCompatMode = value; OnPropertyChanged(); } }

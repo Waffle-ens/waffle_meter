@@ -654,6 +654,47 @@
                             <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="24" Maximum="80" Value="{Binding RowHeight}" TickFrequency="1" IsSnapToTickEnabled="True"/>
                         </Grid>
 
+                        <!-- 던전 티어 -->
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock x:Name="TierSectionHeader" Text="던전 티어" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="티어 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="던전별 등급을 순위·직업 뱃지와 행 테두리에 표시합니다. 저사양 모드에서는 효과 없이 테두리만 그려요." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding TierEffectModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding TierEffects}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14" IsEnabled="{Binding TierDetailEnabled}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="파티원 티어도 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="파티원 행에도 등급 테두리와 '상위 X.X%'를 표시합니다. 끄면 본인 행에만 표시돼요." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TierShowOthers}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14" IsEnabled="{Binding TierDetailEnabled}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="전투 시간 옆 요약 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="미터 아래 전투 시간 옆에 '챌린저 · 상위 0.7%' 형태로 내 등급을 함께 보여줍니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TierShowSelfChip}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="등급 기준표" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="{Binding TierStatus}" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="새로고침" VerticalAlignment="Center" Padding="14,6" Click="OnRefreshTier"/>
+                        </Grid>
+
                         <!-- 표시 최적화: 저사양/프레임 드랍 완화 -->
                         <Border Style="{StaticResource SectionDivider}"/>
                         <TextBlock Text="표시 최적화" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
