@@ -94,6 +94,10 @@ public sealed class StatsUploadQueue : IDisposable
 
     public void Configure(string version) => _clientVersion = version;
 
+    /// <summary>Raised on the upload worker thread when the server returned the uploader character's career
+    /// tier alongside the receipt: <c>(identityHash, tier)</c>. Handlers must be thread-safe.</summary>
+    public Action<string, TierSnapshotDto>? TierReceived { get; set; }
+
     public void OfferIfEligible(DpsLog log)
     {
         if (!_consent.IsUploadAllowed())
@@ -227,6 +231,13 @@ public sealed class StatsUploadQueue : IDisposable
                     if (response.Granted)
                     {
                         _consent.MarkGranted(payload.Character.IdentityHash, _clientVersion);
+                    }
+
+                    // 던전 티어는 업로드 응답에 얹혀 온다 — 본인 등급을 얻는 데 요청이 0회 더 든다는 뜻이다.
+                    // 서버가 줄 게 없으면 키 자체가 빠지므로 구버전 서버에서도 그냥 null이다.
+                    if (response.Tier is { } tier && payload.Character.IdentityHash is { Length: > 0 } hash)
+                    {
+                        TierReceived?.Invoke(hash, tier);
                     }
 
                     Interlocked.Increment(ref _uploaded);

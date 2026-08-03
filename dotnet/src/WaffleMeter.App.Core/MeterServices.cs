@@ -44,6 +44,9 @@ public sealed class MeterServices
     public StatsConsentManager Consent { get; }
     public StatsPayloadBuilder StatsBuilder { get; }
     public StatsUploadQueue UploadQueue { get; }
+
+    /// <summary>던전 티어 분포 기준표(로컬 캐시 + 주기 갱신). 전투 중에는 절대 네트워크를 타지 않는다.</summary>
+    public TierService Tier { get; }
     public string Version { get; }
 
     /// <summary>Pending party-join requests (Kotlin PacketEvent.JoinRequest family). The WPF layer
@@ -243,6 +246,10 @@ public sealed class MeterServices
 
         UploadQueue = new StatsUploadQueue(consent, StatsBuilder, StatsApi, Data, props);
         UploadQueue.Configure(Version);
+
+        // 던전 티어 기준표. 자체 백그라운드 스레드에서 12시간마다 한 번만 받고, 전투 중에는 어떤 요청도
+        // 하지 않는다 — 라이브 '상위 X.X%'는 받아둔 분포로 로컬 계산한다.
+        Tier = new TierService(StatsApi, props);
 
         // The only Data -> Stats edge: a saved battle log is offered to the upload queue. Also refresh
         // the history-panel snapshot (both run on the consumer thread inside the save).

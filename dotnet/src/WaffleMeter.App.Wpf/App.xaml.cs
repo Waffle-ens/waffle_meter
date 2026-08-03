@@ -54,6 +54,11 @@ public partial class App : Application
     private readonly HashSet<string> _consentPrompted = new();
     private bool _consentDialogOpen;
     private int _lastConsentBackfillId; // executor uid whose name was last persisted into its consent record
+
+    /// <summary>identityHash → career tier rank, as the server reported it. Written on the upload worker thread
+    /// (the receipt carries the uploader's tier) and read on the UI thread every report tick, hence concurrent.
+    /// A character absent here still gets a 이번 전투 등급 computed locally.</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _careerTiers = new(StringComparer.Ordinal);
     private UpdateToast? _updateToast;
     private UpdateToastViewModel? _updateToastVm;
     private AlarmToast? _alarmToast;
@@ -143,6 +148,10 @@ public partial class App : Application
         LoadPosition(services.Props, window);
         // The meter auto-sizes its HEIGHT to the row count (SizeToContent=Height) so no scrollbar appears;
         // only WIDTH is user-resizable + persisted.
+        // The upload receipt carries the uploader character's career tier — the only place a standing enters the
+        // meter, and it costs no extra request.
+        services.UploadQueue.TierReceived = (hash, tier) => _careerTiers[hash] = tier.TierRank;
+
         MigrateMeterWidthForTierChip(services.Props);
         LoadWindowWidth(services.Props, "meterWidth", window);
         window.Show();
@@ -527,6 +536,13 @@ public partial class App : Application
                 services.Data.MemberProfileRoster(PreCombatPartyTtlMs));
             viewModel.SetRoster(partyRoster);
             viewModel.SetRosterResurface(true); // Feature 1: 라이브 idle 경로 — 파티(닉/서버) 변경 시 로스터 프리뷰 재노출 허용
+            // 던전 티어. 순수 로컬 계산 — 받아둔 분포에 이번 전투의 dps를 대입할 뿐이라 네트워크를 타지 않는다.
+            // 반드시 Update 직전에 넣어야 한 틱의 행이 같은 쌍으로 한 번만 만들어진다.
+            viewModel.SetTiers(TierEvaluator.Evaluate(
+                report,
+                services.Tier.Artifact,
+                _careerTiers,
+                u => StatsIdentity.CharacterIdentityHash(u.Server, u.Nickname)));
             viewModel.Update(report);
             (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
             viewModel.SetAether(aBase, aBonus, aHas); // live aether badge (read each tick; fires even when idle)

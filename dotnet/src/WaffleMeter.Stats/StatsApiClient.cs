@@ -9,6 +9,18 @@ namespace WaffleMeter.Stats;
 /// <summary>One HTTP response (status + body), the unit the injected transport returns.</summary>
 public sealed record StatsHttpResponse(int StatusCode, string Body);
 
+/// <summary>A binary HTTP response — the raw, still-compressed bytes exactly as they came off the wire.</summary>
+public sealed record StatsBinaryResponse(int StatusCode, byte[] Body);
+
+/// <summary>The two reads the tier service needs, as a seam so it can be exercised without a socket
+/// (same pattern as <see cref="IStatsSigner"/>). <see cref="StatsApiClient"/> is the live implementation.</summary>
+public interface ITierApi
+{
+    TierManifestResponse GetTierManifest();
+
+    StatsBinaryResponse GetTierArtifactGzip(string path);
+}
+
 /// <summary>Thrown on a non-OK stats response. Carries the HTTP status + raw body so callers can branch
 /// on a server error code (e.g. <c>public_requires_ownership</c>) without re-parsing. Derives from
 /// <see cref="InvalidOperationException"/> so existing <c>Assert.Throws&lt;InvalidOperationException&gt;</c>
@@ -32,16 +44,22 @@ public sealed class StatsApiException : InvalidOperationException
 /// unit-testable without a network; the default uses a shared <see cref="HttpClient"/>.
 /// Non-2xx and <c>ok=false</c> responses throw, exactly like the Kotlin client.
 /// </summary>
-public sealed class StatsApiClient
+public sealed class StatsApiClient : ITierApi
 {
     private const string BaseUrl = "https://xn--ok0b896b9wh.kr";
     private const string ReportEndpointUrl = BaseUrl + "/api/v1/reports";
     private const string ConsentStatusEndpoint = BaseUrl + "/api/v1/consent/status";
     private const string ConsentEventsEndpoint = BaseUrl + "/api/v1/consent/events";
+    private const string TierManifestEndpoint = BaseUrl + "/api/v1/tiers/manifest";
+    private const string TierLookupEndpoint = BaseUrl + "/api/v1/tiers/lookup";
     private const int ConnectTimeoutMs = 8_000;
     private const int ReadTimeoutMs = 15_000;
 
     public delegate StatsHttpResponse RequestFunc(string method, string url, string? body, IReadOnlyDictionary<string, string> headers);
+
+    /// <summary>Binary GET transport for the tier artifact. Separate from <see cref="RequestFunc"/> because the
+    /// artifact must arrive as the EXACT bytes the server stored — see <see cref="GetTierArtifactGzip"/>.</summary>
+    public delegate StatsBinaryResponse BinaryRequestFunc(string method, string url, IReadOnlyDictionary<string, string> headers);
 
     private static readonly HttpClient SharedClient = new(
         new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromMilliseconds(ConnectTimeoutMs) })
@@ -50,6 +68,7 @@ public sealed class StatsApiClient
     };
 
     private readonly RequestFunc _request;
+    private readonly BinaryRequestFunc _binaryRequest;
     private readonly Func<string> _installIdProvider;
     private readonly IStatsSigner? _signer;
     private readonly Func<long> _clock;
@@ -65,10 +84,12 @@ public sealed class StatsApiClient
         RequestFunc? request = null,
         IStatsSigner? signer = null,
         Func<long>? clock = null,
-        Func<string>? nonceProvider = null)
+        Func<string>? nonceProvider = null,
+        BinaryRequestFunc? binaryRequest = null)
     {
         _installIdProvider = installIdProvider;
         _request = request ?? DefaultRequest;
+        _binaryRequest = binaryRequest ?? DefaultBinaryRequest;
         _signer = signer;
         _clock = clock ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         _nonceProvider = nonceProvider ?? DefaultNonce;
@@ -138,6 +159,68 @@ public sealed class StatsApiClient
         if (!parsed.Ok)
         {
             throw new StatsApiException("report_upload_not_ok", response.StatusCode, response.Body);
+        }
+
+        return parsed;
+    }
+
+    /// <summary>Current distribution artifact pointer. Unsigned read (§2.1) and cheap — nginx serves it from a
+    /// 60s cache, so the origin sees at most one request a minute no matter how many meters are running.</summary>
+    public TierManifestResponse GetTierManifest()
+    {
+        StatsHttpResponse response = Request("GET", TierManifestEndpoint, null, null, null, null, signed: false);
+        TierManifestResponse parsed = StatsJson.Deserialize<TierManifestResponse>(response.Body);
+        if (!parsed.Ok || string.IsNullOrEmpty(parsed.ArtifactId))
+        {
+            throw new StatsApiException("tier_manifest_not_ok", response.StatusCode, response.Body);
+        }
+
+        return parsed;
+    }
+
+    /// <summary>
+    /// Download the artifact as the RAW GZIP BYTES.
+    /// <para>🔑 The transport must not decompress. The server answers with <c>Content-Encoding: gzip</c> regardless
+    /// of <c>Accept-Encoding</c>, and <c>manifest.sha256</c> is the hash of the COMPRESSED bytes. If the HTTP stack
+    /// transparently inflates (HttpClientHandler.AutomaticDecompression), the bytes we could hash are the plaintext
+    /// and the integrity check can never pass. The default handler below leaves AutomaticDecompression at None for
+    /// exactly this reason — do not "fix" it.</para>
+    /// <para><paramref name="path"/> is the manifest's <c>url</c> field (server-relative), not a full URL.</para>
+    /// </summary>
+    public StatsBinaryResponse GetTierArtifactGzip(string path)
+    {
+        string url = path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? path : BaseUrl + path;
+        var headers = new Dictionary<string, string> { ["Accept"] = "application/json" };
+        StatsBinaryResponse response = _binaryRequest("GET", url, headers);
+        if (response.StatusCode is < 200 or > 299)
+        {
+            // 410 means the artifact rotated out; the caller re-reads the manifest rather than retrying this id.
+            throw new StatsApiException($"tier_artifact_http_{response.StatusCode}", response.StatusCode, null);
+        }
+
+        return response;
+    }
+
+    /// <summary>
+    /// Batch tier lookup for party applicants. SIGNED — the server forces signature mode "on" for this route
+    /// regardless of its rollout setting, so an unsigned request is 401 rather than silently degraded.
+    /// <para>Server caps: 12 hashes, 4,096-byte body, 120 requests/hour per install. Exceeding them returns
+    /// 400/413/429; the exception carries the status so the caller can back off instead of hammering.</para>
+    /// </summary>
+    public TierLookupResponse PostTierLookup(TierLookupRequest request, string clientVersion, string? installId = null)
+    {
+        StatsHttpResponse response = Request(
+            "POST",
+            TierLookupEndpoint,
+            StatsJson.Serialize(request),
+            clientVersion,
+            installId ?? _installIdProvider(),
+            StatsConsentManager.ConsentVersion,
+            signed: true);
+        TierLookupResponse parsed = StatsJson.Deserialize<TierLookupResponse>(response.Body);
+        if (!parsed.Ok)
+        {
+            throw new StatsApiException("tier_lookup_not_ok", response.StatusCode, response.Body);
         }
 
         return parsed;
@@ -221,6 +304,22 @@ public sealed class StatsApiClient
     }
 
     private static string DefaultNonce() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(16));
+
+    /// <summary>Binary GET over the shared client. <see cref="SharedClient"/>'s handler leaves
+    /// AutomaticDecompression at None, so this returns the gzip bytes the server actually sent — which is what
+    /// <c>manifest.sha256</c> is computed over.</summary>
+    private static StatsBinaryResponse DefaultBinaryRequest(string method, string url, IReadOnlyDictionary<string, string> headers)
+    {
+        using var request = new HttpRequestMessage(new HttpMethod(method), url);
+        foreach (KeyValuePair<string, string> header in headers)
+        {
+            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+
+        using HttpResponseMessage response = SharedClient.Send(request);
+        byte[] bytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+        return new StatsBinaryResponse((int)response.StatusCode, bytes);
+    }
 
     private static StatsHttpResponse DefaultRequest(string method, string url, string? body, IReadOnlyDictionary<string, string> headers)
     {

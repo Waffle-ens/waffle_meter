@@ -64,20 +64,11 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// Publish the per-row tier state. Keyed by entity uid because that is what the row builder hands back;
-    /// characters that are absent simply render without a badge.
-    /// <para>Call this from the tier service, NOT from the report loop — the badge must not change mid-fight
-    /// (a tier that flickers between rows steals attention and the career percentile only moves once per hour
-    /// anyway). <see cref="Update"/> picks the new state up on its next tick.</para>
+    /// Publish the per-row tier state, keyed by entity uid (what the row builder hands back).
+    /// <para>Store-only: call it immediately BEFORE <see cref="Update"/> in the same report tick, so the rows are
+    /// built once from a consistent pair. Repainting from here instead would double every tick's row rebuild.</para>
     /// </summary>
-    public void SetTiers(IReadOnlyDictionary<int, RowTier>? byUid)
-    {
-        _rowTiers = byUid ?? EmptyTiers;
-        if (_lastReport is { } report)
-        {
-            Update(report);
-        }
-    }
+    public void SetTiers(IReadOnlyDictionary<int, RowTier>? byUid) => _rowTiers = byUid ?? EmptyTiers;
 
     /// <summary>Re-theme on a skin swap (light/dark stat colors) and repaint.</summary>
     public void RefreshSkin()
@@ -687,10 +678,6 @@ public sealed record RowViewModel(
     TierBadge Tier,
     TierRowInfo TierInfo);
 
-/// <summary>What the tier service knows about one visible row.
-/// <paramref name="TierRank"/> 1..8 (career tier, from the server); <paramref name="BattleTopPercent"/> is this
-/// fight's locally-computed percentile, null when the cohort had no shipped distribution row.</summary>
-public readonly record struct RowTier(int TierRank, double? BattleTopPercent, string? DungeonLabel = null);
 
 /// <summary>Per-row tier text. Separate from <see cref="TierBadge"/> (a shared singleton) because these values
 /// differ per row — keeping them in one record adds two positional parameters to RowViewModel instead of four,
