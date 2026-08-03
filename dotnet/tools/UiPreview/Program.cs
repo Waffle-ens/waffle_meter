@@ -88,6 +88,13 @@ internal static class Program
                     if (next < 0) { next = md.IndexOf("\n---", StringComparison.Ordinal); }
                     string section = start >= 0 && next > start ? md[start..next].Trim() : md[..Math.Min(2000, md.Length)];
                     Capture(() => new PatchNotesWindow("2.9.0", section, currentSkin == "Light"), palette, Path.Combine(outDir, $"patchnotes_{skin}.png"));
+                    // The popup scrolls, so the first capture only ever shows the top. Render the LAST sections
+                    // on their own too — that is where the wider tables live, and they are otherwise unreviewable.
+                    int tail = section.IndexOf("## [변경]", StringComparison.Ordinal);
+                    if (tail > 0)
+                    {
+                        Capture(() => new PatchNotesWindow("2.9.0", section[tail..], currentSkin == "Light"), palette, Path.Combine(outDir, $"patchnotes_tail_{skin}.png"));
+                    }
                 }
 
             if (skin is "Dark" or "Light")

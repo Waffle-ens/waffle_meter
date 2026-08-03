@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using WaffleMeter.App.Core;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -43,12 +44,28 @@ public partial class PatchNotesWindow : Window
     private void Render(string notes)
     {
         bool first = true;
+        var table = new List<string[]>();
         foreach (string raw in notes.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n'))
         {
             // Indentation carries meaning (a nested bullet is a detail of the one above), so it must be read
             // BEFORE trimming — the previous version trimmed first and rendered nested bullets as bare prose.
             int indent = raw.Length - raw.TrimStart().Length;
             string line = Clean(raw.Trim());
+
+            // A run of "| a | b |" lines is one table. Buffered rather than rendered per line, because a Grid
+            // needs its column and row count up front.
+            if (line.StartsWith('|'))
+            {
+                string[] cells = SplitRow(line);
+                if (!IsRule(cells))
+                {
+                    table.Add(cells);
+                }
+
+                continue;
+            }
+
+            FlushTable(table);
             if (line.Length == 0)
             {
                 NotesPanel.Children.Add(new Border { Height = 6 });
@@ -76,7 +93,122 @@ public partial class PatchNotesWindow : Window
 
             first = false;
         }
+
+        FlushTable(table); // a table that ends the section has no following line to flush it
     }
+
+    private static string[] SplitRow(string line) =>
+        line.Trim('|').Split('|').Select(c => c.Trim()).ToArray();
+
+    /// <summary>The "|---|---|" rule under a header carries no content — it exists so the same source renders
+    /// as a table on GitHub, where these notes are also read.</summary>
+    private static bool IsRule(string[] cells) =>
+        cells.Length > 0 && cells.All(c => c.Length > 0 && c.All(ch => ch is '-' or ':'));
+
+    private void FlushTable(List<string[]> rows)
+    {
+        if (rows.Count == 0)
+        {
+            return;
+        }
+
+        NotesPanel.Children.Add(BuildTable(rows));
+        rows.Clear();
+    }
+
+    /// <summary>First row is the header. Column 0 hugs its content and the rest share the remainder, which fits
+    /// every table these notes carry (a short label plus prose).</summary>
+    private UIElement BuildTable(List<string[]> rows)
+    {
+        int columns = rows.Max(r => r.Length);
+        var grid = new Grid { Margin = new Thickness(2, 4, 0, 6) };
+        for (int c = 0; c < columns; c++)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition
+            {
+                Width = c == 0 ? GridLength.Auto : new GridLength(1, GridUnitType.Star),
+            });
+        }
+
+        for (int r = 0; r < rows.Count; r++)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            bool header = r == 0;
+            for (int c = 0; c < columns; c++)
+            {
+                string text = c < rows[r].Length ? rows[r][c] : string.Empty;
+                FrameworkElement cell = !header && c == 0 && TierRankOf(text) is int rank and > 0
+                    ? TierChip(text, rank)
+                    : TextCell(text, header, c);
+                Grid.SetRow(cell, r);
+                Grid.SetColumn(cell, c);
+                grid.Children.Add(cell);
+            }
+
+            if (header)
+            {
+                var underline = new Border
+                {
+                    Height = 1, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 2),
+                };
+                underline.SetResourceReference(Border.BackgroundProperty, "Skin.SoftBorder");
+                Grid.SetRow(underline, 0);
+                Grid.SetColumnSpan(underline, columns);
+                grid.Children.Add(underline);
+            }
+        }
+
+        var frame = new Border
+        {
+            CornerRadius = new CornerRadius(6),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 6, 10, 6),
+            Margin = new Thickness(0, 2, 0, 4),
+            Child = grid,
+        };
+        frame.SetResourceReference(Border.BackgroundProperty, "Skin.StatBg");
+        frame.SetResourceReference(Border.BorderBrushProperty, "Skin.SoftBorder");
+        return frame;
+    }
+
+    private static FrameworkElement TextCell(string text, bool header, int column)
+    {
+        var block = new TextBlock
+        {
+            Text = text,
+            FontSize = header ? 11.5 : 12,
+            FontWeight = header ? FontWeights.Bold : FontWeights.Normal,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(column == 0 ? 0 : 12, 3, 0, 3),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        block.SetResourceReference(TextBlock.ForegroundProperty,
+            header ? "Skin.Accent" : column == 0 ? "Skin.Fg" : "Skin.MutedFg");
+        return block;
+    }
+
+    /// <summary>A tier name in the first column renders as the badge the meter actually draws, so the table
+    /// teaches the colour mapping instead of just listing names.</summary>
+    private FrameworkElement TierChip(string name, int rank)
+    {
+        TierBadge badge = TierPalette.For(rank, _isLight);
+        return new Border
+        {
+            Background = badge.ChipBg,
+            BorderBrush = badge.RankRing,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(7, 1, 7, 1),
+            Margin = new Thickness(0, 3, 0, 3),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Child = new TextBlock
+            {
+                Text = name, Foreground = badge.ChipFg, FontSize = 11.5, FontWeight = FontWeights.Bold,
+            },
+        };
+    }
+
+    private static int TierRankOf(string name) => Array.IndexOf(TierLadder.TierNames, name) + 1;
 
     /// <summary>"[추가] 던전 티어" → a coloured 추가 chip followed by the plain title. An unknown or missing tag
     /// falls back to the whole line as the title, so a note that skips the convention still renders.</summary>
