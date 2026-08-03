@@ -15,6 +15,13 @@
     <Window.Resources>
         <local:RatioToStarConverter x:Key="RatioToStar"/>
         <local:FontFamilyConverter x:Key="FontConv"/>
+        <!-- 신청자 카드 위에 얹히는 요소의 색. 스킨을 의도적으로 따르지 않는다 — 카드 자체가 스킨과 무관하게
+             늘 어둡기 때문에(JoinPanelPalette의 slate-950 고정 fill), 라이트 스킨의 어두운 Accent를 쓰면
+             어두운 글자가 어두운 카드에 얹혀 뭉갠다. 받침은 아주 옅게(슬레이트 34%) 깔고 글자를 밝게 둬서
+             대비를 만든다. 카드가 스킨을 타게 되는 날 이 세 개도 같이 스킨으로 옮겨야 한다. -->
+        <SolidColorBrush x:Key="OnCardChipBg" Color="#57020617"/>
+        <SolidColorBrush x:Key="OnCardChipBorder" Color="#2E94A3B8"/>
+        <SolidColorBrush x:Key="OnCardAccent" Color="#FF2DD4BF"/>
     </Window.Resources>
     <Border CornerRadius="6" BorderThickness="1"
             Background="{DynamicResource Skin.PanelBg}"
@@ -87,9 +94,9 @@
                                                         SnapsToDevicePixels="True" Visibility="{Binding TierVisibility}" ToolTip="{Binding TierToolTip}">
                                                     <TextBlock Text="{Binding TierText}" Foreground="{Binding Tier.ChipFg}" FontSize="12" FontWeight="SemiBold"/>
                                                 </Border>
-                                                <Border Grid.Column="3" Background="{DynamicResource Skin.OnCardChipBg}" BorderBrush="{DynamicResource Skin.OnCardChipBorder}"
+                                                <Border Grid.Column="3" Background="{StaticResource OnCardChipBg}" BorderBrush="{StaticResource OnCardChipBorder}"
                                                         BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="6,0,0,0">
-                                                    <TextBlock Text="{Binding PowerText}" Foreground="{DynamicResource Skin.Accent}" FontSize="12"/>
+                                                    <TextBlock Text="{Binding PowerText}" Foreground="{StaticResource OnCardAccent}" FontSize="12"/>
                                                 </Border>
                                             </Grid>
                                             <!-- skill badges (일반 / 스티그마) -->

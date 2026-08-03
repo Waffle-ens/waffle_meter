@@ -20,11 +20,6 @@
     <SolidColorBrush x:Key="Skin.RowSelected" Color="#2910B981"/>
     <SolidColorBrush x:Key="Skin.RowSelectedBorder" Color="#61059669"/>
     <SolidColorBrush x:Key="Skin.StatBg" Color="#0E0F172A"/>
-    <!-- 라이트 스킨의 Accent(#0F766E)는 어두운 색이라, 늘 어두운 신청자 카드 위에선 받침이 밝아야 읽힌다.
-         반투명 slate-50을 깔아 유리 라벨처럼 띄운다(실제 블러가 아니라 반투명 — WPF에는 배경 블러가 없고,
-         이 앱은 소프트웨어 렌더라 BlurEffect는 카드마다 비싸다). 대비 12:1 이상. -->
-    <SolidColorBrush x:Key="Skin.OnCardChipBg" Color="#EDF8FAFC"/>
-    <SolidColorBrush x:Key="Skin.OnCardChipBorder" Color="#5EFFFFFF"/>
     <SolidColorBrush x:Key="Skin.IconRing" Color="#290F172A"/>
 
     <!-- controls -->

@@ -21,20 +21,17 @@ public sealed record JoinSkillBadge(System.Windows.Media.ImageSource? Icon, stri
 public sealed class JoinRequestViewModel : INotifyPropertyChanged
 {
     private readonly TierService? _tier;
-    private readonly Func<bool> _isLight;
 
     /// <param name="tier">Career-tier source for applicants. Optional so the UI preview and unit tests can
     /// build a panel without a network stack; when absent the cards simply carry no tier.</param>
     public JoinRequestViewModel(
         MeterSettings settings,
         IEnumerable<int>? visibleCodes = null,
-        TierService? tier = null,
-        Func<bool>? isLight = null)
+        TierService? tier = null)
     {
         Settings = settings;
         _visibleCodes = visibleCodes != null ? new HashSet<int>(visibleCodes) : new HashSet<int>(SkillCatalog.DefaultVisibleCodes);
         _tier = tier;
-        _isLight = isLight ?? (() => false);
     }
 
     /// <summary>
@@ -53,10 +50,9 @@ public sealed class JoinRequestViewModel : INotifyPropertyChanged
 
         _tier.RequestCareerTiers(Rows.Select(r => r.IdentityHash));
 
-        bool light = _isLight();
         foreach (JoinRequestRowViewModel row in Rows)
         {
-            row.ApplyTier(_tier.CareerTier(row.IdentityHash), light);
+            row.ApplyTier(_tier.CareerTier(row.IdentityHash));
         }
     }
 
@@ -272,7 +268,10 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
     public string TierToolTip { get => _tierToolTip; private set => Set(ref _tierToolTip, value); }
 
     /// <summary>Paint (or clear) this applicant's tier. Idempotent — the panel calls it on every heartbeat.</summary>
-    public void ApplyTier((int Rank, string Name, double TopPercent)? tier, bool isLight)
+    /// <summary>The dark-card palette is used in EVERY skin on purpose: the applicant card is a fixed dark
+    /// fill, and the light palette's saturated-dark chip text would sink into it. The dark variants are already
+    /// the shape we want here — a very faint tinted backing under bright text.</summary>
+    public void ApplyTier((int Rank, string Name, double TopPercent)? tier)
     {
         if (tier is not (int rank, string name, double topPercent))
         {
@@ -281,7 +280,7 @@ public sealed class JoinRequestRowViewModel : INotifyPropertyChanged
             return;
         }
 
-        Tier = TierPalette.For(rank, isLight);
+        Tier = TierPalette.For(rank, isLight: false);
         // 미터 푸터와 같은 문구("챌린저 · 상위 0.7%"). 등급만으로는 밴드가 넓어(플래티넘 하나가 10~30%) 신청자
         // 비교가 안 되고, 백분위만으로는 색이 무슨 등급인지 안 읽힌다 — 둘을 같이 보여준다.
         TierText = $"{name} · {TierLadder.FormatTopPercent(topPercent)}";

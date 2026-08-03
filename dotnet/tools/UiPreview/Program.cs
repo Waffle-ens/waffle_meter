@@ -63,9 +63,8 @@ internal static class Program
                 // 파티 신청 카드의 티어 칩. The live path fills these from a batched, rate-limited lookup; here
                 // they are painted directly so the layout can be checked offline. The third applicant keeps no
                 // tier on purpose — that is what a non-consenting (or too-new) character looks like.
-                bool light = skin == "Light";
-                join.Rows[0].ApplyTier((1, "챌린저", 0.6), light);
-                join.Rows[1].ApplyTier((4, "플래티넘", 24.8), light);
+                join.Rows[0].ApplyTier((1, "챌린저", 0.6));
+                join.Rows[1].ApplyTier((4, "플래티넘", 24.8));
                 Capture(() => new JoinRequestPanel { DataContext = join }, palette, Path.Combine(outDir, $"join_tier_{skin}.png"));
             }
 
@@ -77,6 +76,19 @@ internal static class Program
             var overlay = new OverlayViewModel("1.7.8", settings, theme, () => currentSkin == "Light") { Status = "캡처 중" };
             overlay.Update(SampleMeterReport(now));
             Capture(() => new OverlayWindow { DataContext = overlay }, palette, Path.Combine(outDir, $"meter_{skin}.png"));
+
+                // 패치노트 팝업: render the REAL top section of RELEASE_NOTES.md through the same provider the
+                // app uses, so what ships is exactly what was reviewed.
+                string notesPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "RELEASE_NOTES.md");
+                if (File.Exists(notesPath))
+                {
+                    string md = File.ReadAllText(notesPath);
+                    int start = md.IndexOf("## ", StringComparison.Ordinal);
+                    int next = md.IndexOf(Environment.NewLine + "---", StringComparison.Ordinal);
+                    if (next < 0) { next = md.IndexOf("\n---", StringComparison.Ordinal); }
+                    string section = start >= 0 && next > start ? md[start..next].Trim() : md[..Math.Min(2000, md.Length)];
+                    Capture(() => new PatchNotesWindow("2.9.0", section, currentSkin == "Light"), palette, Path.Combine(outDir, $"patchnotes_{skin}.png"));
+                }
 
             if (skin is "Dark" or "Light")
             {

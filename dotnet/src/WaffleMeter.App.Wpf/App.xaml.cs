@@ -1107,7 +1107,7 @@ public partial class App : Application
     {
         var skillVisibility = new SkillVisibility(services.Props);
         _joinViewModel = new JoinRequestViewModel(
-            _settings!, skillVisibility.Codes, services.Tier, () => _skin?.IsLight == true);
+            _settings!, skillVisibility.Codes, services.Tier);
         _joinPanel = new JoinRequestPanel { DataContext = _joinViewModel };
         MigrateJoinPanelWidthForTierChip(services.Props);
         LoadWindowSize(services.Props, "joinPanelWidth", "joinPanelHeight", _joinPanel);
