@@ -22,6 +22,11 @@
     <SolidColorBrush x:Key="Skin.RowSelected" Color="#2114B8A6"/> <!-- meter-row-selected -->
     <SolidColorBrush x:Key="Skin.RowSelectedBorder" Color="#5C2DD4BF"/>
     <SolidColorBrush x:Key="Skin.StatBg" Color="#57020617"/>     <!-- meter-stat-bg -->
+    <!-- 신청자 카드 위에 얹히는 칩. 카드 자체는 스킨과 무관하게 늘 어둡기 때문에(JoinPanelPalette의 slate-950
+         고정 fill), 그 위 요소가 Skin.Accent 같은 스킨 색을 쓰면 라이트 스킨에선 '어두운 글자 위 어두운 배경'이
+         되어 뭉개진다. 글자색은 그대로 두고 받침을 스킨별로 갈라 대비를 만든다. -->
+    <SolidColorBrush x:Key="Skin.OnCardChipBg" Color="#57020617"/>
+    <SolidColorBrush x:Key="Skin.OnCardChipBorder" Color="#2E94A3B8"/>
     <SolidColorBrush x:Key="Skin.IconRing" Color="#2994A3B8"/>    <!-- meter-icon-ring -->
 
     <!-- controls -->

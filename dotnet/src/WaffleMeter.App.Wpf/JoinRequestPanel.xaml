@@ -87,7 +87,7 @@
                                                         SnapsToDevicePixels="True" Visibility="{Binding TierVisibility}" ToolTip="{Binding TierToolTip}">
                                                     <TextBlock Text="{Binding TierText}" Foreground="{Binding Tier.ChipFg}" FontSize="12" FontWeight="SemiBold"/>
                                                 </Border>
-                                                <Border Grid.Column="3" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.Border}"
+                                                <Border Grid.Column="3" Background="{DynamicResource Skin.OnCardChipBg}" BorderBrush="{DynamicResource Skin.OnCardChipBorder}"
                                                         BorderThickness="1" CornerRadius="4" Padding="6,1" VerticalAlignment="Center" Margin="6,0,0,0">
                                                     <TextBlock Text="{Binding PowerText}" Foreground="{DynamicResource Skin.Accent}" FontSize="12"/>
                                                 </Border>
