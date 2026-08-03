@@ -134,18 +134,37 @@ public sealed class TierLadderTests
     }
 
     [Fact]
-    public void Refuses_to_compare_raw_dps_against_a_normalised_distribution()
+    public void Reaches_the_pooled_rungs_because_the_whole_ladder_is_raw_dps()
     {
-        // R2+ rows are ndps. The meter cannot compute ndps, so those rungs stay unreachable and the caller
-        // must render 표본 부족 — feeding raw dps in would over-rate everyone who received synergies.
+        // The lower rungs used to ship as ndps, which the meter cannot compute, so a cohort with no exact cell
+        // resolved to null — the "only two of five party members show a percentile" report. Measured on the live
+        // artifact: 43.5% of cells reachable, 56.5% present but unreadable, 0% genuinely sampleless. The web now
+        // emits the whole ladder in raw dps, so a pooled rung answers.
         TierArtifact artifact = BuildArtifact(
-            Row(rung: 3, metric: "ndps", category: "원정", d: 11, v: 3, b: 1, job: "검성", s: -1, p: 0, cutFloor: 10_000));
+            Row(rung: 3, metric: "dps", category: "원정", d: 11, v: 3, b: 1, job: "검성", s: -1, p: 0, cutFloor: 10_000));
 
         TierCohort cohort = Cohort(artifact, 11, 3, 1, "검성", 3, 5, trusted: true);
-        Assert.Null(TierLadder.Evaluate(artifact, cohort, dps: 12_000));
+        TierEvaluation? result = TierLadder.Evaluate(artifact, cohort, dps: 12_000);
 
-        // Supplying a real ndps unlocks the same rung — the ladder itself is already correct.
-        Assert.NotNull(TierLadder.Evaluate(artifact, cohort, dps: 12_000, ndps: 11_000));
+        Assert.NotNull(result);
+        Assert.Equal(3, result!.Value.Rung); // fell through R0/R1/R2, answered at R3
+    }
+
+    [Fact]
+    public void Untrusted_raid_still_skips_the_synergy_bucketed_rungs_but_keeps_the_pooled_ones()
+    {
+        // R0/R1 are aggregated only from synergy-trusted rows (the web's dps_trusted branch), so an incomplete
+        // raid roster must not read them. R2+ pool synergy and carry every row, so they stay available — that is
+        // what keeps a half-resolved raid from losing its percentile entirely.
+        TierArtifact artifact = BuildArtifact(
+            Row(rung: 0, metric: "dps", category: "원정", d: 11, v: 3, b: 1, job: "검성", s: 3, p: 10, cutFloor: 1_000_000),
+            Row(rung: 2, metric: "dps", category: "원정", d: 11, v: 3, b: 1, job: "검성", s: -1, p: 10, cutFloor: 10_000));
+
+        TierCohort untrusted = Cohort(artifact, 11, 3, 1, "검성", 3, 10, trusted: false);
+        TierEvaluation? result = TierLadder.Evaluate(artifact, untrusted, dps: 12_000);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result!.Value.Rung); // R0 skipped (untrusted mask), R2 answered
     }
 
     [Fact]
@@ -153,12 +172,12 @@ public sealed class TierLadderTests
     {
         // R6 keeps one row per category; ignoring 'k' would match whichever sorted first.
         TierArtifact artifact = BuildArtifact(
-            Row(6, "ndps", "성역", -1, -1, -1, "검성", -1, 0, cutFloor: 1_000),
-            Row(6, "ndps", "초월", -1, -1, -1, "검성", -1, 0, cutFloor: 100_000));
+            Row(6, "dps", "성역", -1, -1, -1, "검성", -1, 0, cutFloor: 1_000),
+            Row(6, "dps", "초월", -1, -1, -1, "검성", -1, 0, cutFloor: 100_000));
 
         // Dungeon 12 is registered as 초월 by BuildArtifact, so the 초월 curve (high floor) must answer.
         TierCohort cohort = Cohort(artifact, 12, 1, 1, "검성", 0, 5, trusted: true);
-        TierEvaluation? result = TierLadder.Evaluate(artifact, cohort, dps: 12_000, ndps: 12_000);
+        TierEvaluation? result = TierLadder.Evaluate(artifact, cohort, dps: 12_000);
 
         Assert.NotNull(result);
         Assert.Equal(6, result!.Value.Rung);

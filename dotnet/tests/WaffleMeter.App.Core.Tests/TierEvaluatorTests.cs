@@ -83,14 +83,14 @@ public sealed class TierEvaluatorTests
     [Fact]
     public void Falls_through_to_the_dps_rungs_when_the_exact_cell_is_missing()
     {
-        // 🔑 R2~R6 are ndps, which the meter cannot compute, so a cohort with no R0/R1 row used to render
+        // 🔑 R2~R6 used to ship as ndps, which the meter cannot compute, so a cohort with no R0/R1 row rendered
         // nothing even though the sample existed one rung down. Measured 2026-08-03: only 43.5% of cells were
-        // reachable, 0% genuinely lacked samples. R7~R10 carry the same relaxation in dps.
-        TierArtifact artifact = BuildArtifact(Row(bossIndex: 1, cutFloor: 100_000, rung: 9));
+        // reachable, 0% genuinely lacked samples. The whole ladder is raw dps now.
+        TierArtifact artifact = BuildArtifact(Row(bossIndex: 1, cutFloor: 100_000, rung: 5));
 
         RowTier tier = TierEvaluator.Evaluate(Report(FirstBoss, (7, "본인", 900_000)), artifact)[7];
 
-        Assert.NotNull(tier.BattleTopPercent);   // reached R9 — the exact boss cell never existed
+        Assert.NotNull(tier.BattleTopPercent);   // reached R5 — the exact boss cell never existed
     }
 
     [Fact]
@@ -99,12 +99,12 @@ public sealed class TierEvaluatorTests
         // Order still matters: a pooled rung must never win over the cell that actually describes this fight.
         TierArtifact artifact = BuildArtifact(
             Row(bossIndex: 1, cutFloor: 100_000, rung: 0),
-            Row(bossIndex: 1, cutFloor: 5_000_000, rung: 9));
+            Row(bossIndex: 1, cutFloor: 5_000_000, rung: 5));
 
         RowTier exact = TierEvaluator.Evaluate(Report(FirstBoss, (7, "본인", 900_000)), artifact)[7];
         RowTier pooledOnly = TierEvaluator.Evaluate(
             Report(FirstBoss, (7, "본인", 900_000)),
-            BuildArtifact(Row(bossIndex: 1, cutFloor: 5_000_000, rung: 9)))[7];
+            BuildArtifact(Row(bossIndex: 1, cutFloor: 5_000_000, rung: 5)))[7];
 
         Assert.NotEqual(exact.BattleTopPercent, pooledOnly.BattleTopPercent);
     }
@@ -127,8 +127,9 @@ public sealed class TierEvaluatorTests
         return report;
     }
 
-    /// <summary>A dps row for the client ladder. <paramref name="rung"/> 0 is the exact cell; 7~10 are the
-    /// pooled fallbacks that keep the synergy bucket.</summary>
+    /// <summary>A row of the ladder. <paramref name="rung"/> 0 is the exact cell; 1~6 progressively pool party
+    /// mode, synergy, boss, variant and dungeon. Sentinels must match the server's, or the lookup silently
+    /// misses — which is exactly how 56.5% of cells went dark before.</summary>
     private static object Row(int bossIndex, long cutFloor, int rung = 0)
     {
         long step = Math.Max(100, cutFloor / 10);
@@ -146,12 +147,12 @@ public sealed class TierEvaluatorTests
             r = rung,
             m = "dps",
             k = bossIndex == 1 ? "원정" : "초월",
-            d = rung >= 10 ? -1 : bossIndex == 1 ? 11 : 12,
-            v = rung >= 9 ? -1 : bossIndex == 1 ? 3 : 1,
-            b = rung >= 7 ? -1 : 1,
+            d = rung >= 6 ? -1 : bossIndex == 1 ? 11 : 12,
+            v = rung >= 5 ? -1 : bossIndex == 1 ? 3 : 1,
+            b = rung >= 4 ? -1 : 1,
             j = "살성",
-            s = 0,
-            p = rung is 1 or 8 or 9 or 10 ? 0 : 5,
+            s = rung >= 2 ? -1 : 0,
+            p = rung is 0 or 2 ? 5 : 0,
             n = 1842,
             c = encoded,
         };

@@ -136,14 +136,11 @@ public static class TierLadder
     /// <summary>
     /// Walk R0 → R6 and answer with the FIRST rung that has a shipped row. Rows below the server's sample floor
     /// are simply absent, so "present == qualified" and there is nothing to re-check here.
-    /// <para><b>ndps rungs (R2..R6) are only reachable when <paramref name="ndps"/> is supplied.</b> The meter does
-    /// not compute ndps — normalising out received buffs needs the web's buff-gain model, which is a second source
-    /// of truth we deliberately do not fork. Until that ships, a cohort that only has ndps rows resolves to null and
-    /// the UI shows 표본 부족 rather than comparing a raw dps against a normalised distribution (which would
-    /// systematically over-rate every player who received synergies).</para>
+    /// <para>Every rung is compared on raw <c>dps</c> — see <see cref="RungOrder"/> for why the ladder no longer
+    /// carries a second metric, and for the fairness trade-off that came with it.</para>
     /// </summary>
     /// <returns>null when no rung matched — the caller must render "표본 부족", never a guessed number.</returns>
-    public static TierEvaluation? Evaluate(TierArtifact artifact, TierCohort cohort, double dps, double? ndps = null)
+    public static TierEvaluation? Evaluate(TierArtifact artifact, TierCohort cohort, double dps)
     {
         if (artifact == null || cohort.CategoryId < 0 || cohort.JobId < 0 || dps <= 0)
         {
@@ -159,28 +156,21 @@ public static class TierLadder
                 continue;
             }
 
-            int metricId = MetricFor(rung);
-            double? observed = metricId == MetricDps ? dps : ndps;
-            if (observed is not double sample || sample <= 0)
-            {
-                continue;
-            }
-
-            TierRowKey key = KeyFor(rung, metricId, cohort);
+            TierRowKey key = KeyFor(rung, MetricDps, cohort);
             long[]? cuts = artifact.Cuts(key);
             if (cuts == null)
             {
                 continue;
             }
 
-            double? raw = TopPercentIn(artifact.Grid, cuts, sample);
+            double? raw = TopPercentIn(artifact.Grid, cuts, dps);
             if (raw is not double percent)
             {
                 continue;
             }
 
             double rounded = RoundTopPercent(percent);
-            return new TierEvaluation(rung, metricId, rounded, TierRankOf(rounded));
+            return new TierEvaluation(rung, MetricDps, rounded, TierRankOf(rounded));
         }
 
         return null;
@@ -190,21 +180,22 @@ public static class TierLadder
     /// Category and job are carried through every rung untouched.</summary>
     /// <summary>
     /// The order the ladder is walked, most specific first.
-    /// <para>🔑 R2~R6 are published in <c>ndps</c>, which the METER CANNOT COMPUTE — normalising away received
-    /// buffs needs the server's buff-attribution model. So the client ladder is R0 → R1 → R7 → R10: the same
-    /// progressive relaxation, but keeping the synergy bucket (which is what lets the raw <c>dps</c> metric stay
-    /// correct) and giving up the location axes instead. R2~R6 stay in the walk so they light up for free if a
-    /// caller ever supplies ndps; without it they are skipped at the metric check below.</para>
-    /// <para>Measured 2026-08-03: with R0/R1 alone only 43.5% of (boss × job × synergy) cells were reachable
-    /// while 0% genuinely lacked samples — every missing cell existed, in a rung the meter could not read.</para>
+    /// <para>🔑 EVERY rung is <c>dps</c>. The lower rungs used to ship as <c>ndps</c> — a metric the meter
+    /// cannot compute, since normalising away received buffs needs the server's buff-attribution model — so the
+    /// meter could only ever read R0/R1 and rendered nothing whenever the exact (boss × job × synergy) cell was
+    /// missing. Measured against the live artifact on 2026-08-03: 43.5% of cells reachable, 56.5% present but
+    /// unreadable, 0% genuinely sampleless. The web now emits the whole ladder in raw dps
+    /// (<c>dps_trusted</c> for R0/R1, <c>dps_pooled</c> for R2~R6), both labelled <c>dps</c> on the wire.</para>
+    /// <para>The trade-off that comes with it: R2~R6 pool synergy WITHOUT normalising, so on a fallback rung a
+    /// player in a high-synergy party is compared against a pool that also holds low-synergy parties. The
+    /// fallback was always an approximation; this makes it a slightly generous one.</para>
     /// </summary>
-    private static readonly int[] RungOrder = [0, 1, 7, 8, 9, 10, 2, 3, 4, 5, 6];
+    private static readonly int[] RungOrder = [0, 1, 2, 3, 4, 5, 6];
 
-    /// <summary>Rungs that bucket by synergy — and therefore use raw <c>dps</c>. Exactly one synergy correction
-    /// per lookup: bucket it (dps) or pool it (ndps), never both.</summary>
-    private static bool KeepsSynergy(int rung) => rung <= 1 || rung >= 7;
-
-    private static int MetricFor(int rung) => KeepsSynergy(rung) ? MetricDps : MetricNdps;
+    /// <summary>R0/R1 bucket by synergy and are aggregated only from synergy-trusted rows (the web's
+    /// <c>dps_trusted</c> branch), so an untrusted raid mask must not reach them. R2~R6 pool synergy and carry
+    /// every row, so they stay available.</summary>
+    private static bool KeepsSynergy(int rung) => rung <= 1;
 
     internal static TierRowKey KeyFor(int rung, int metricId, TierCohort c) => rung switch
     {
@@ -217,13 +208,7 @@ public static class TierLadder
         3 => new TierRowKey(3, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, -1, 0),
         4 => new TierRowKey(4, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, -1, c.JobId, -1, 0),
         5 => new TierRowKey(5, metricId, c.CategoryId, c.DungeonOrd, -1, -1, c.JobId, -1, 0),
-        6 => new TierRowKey(6, metricId, c.CategoryId, -1, -1, -1, c.JobId, -1, 0),
-        // R7~R10: the client ladder. Same relaxation order as R2~R6 — boss, then party mode, then variant, then
-        // dungeon — except the synergy bucket is KEPT, so these stay on dps.
-        7 => new TierRowKey(7, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, -1, c.JobId, c.SynergyCount, c.PartyMode),
-        8 => new TierRowKey(8, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, -1, c.JobId, c.SynergyCount, 0),
-        9 => new TierRowKey(9, metricId, c.CategoryId, c.DungeonOrd, -1, -1, c.JobId, c.SynergyCount, 0),
-        _ => new TierRowKey(10, metricId, c.CategoryId, -1, -1, -1, c.JobId, c.SynergyCount, 0),
+        _ => new TierRowKey(6, metricId, c.CategoryId, -1, -1, -1, c.JobId, -1, 0),
     };
 
     /// <summary>Build a cohort from a finished/live battle. Returns null when the fight is outside the
