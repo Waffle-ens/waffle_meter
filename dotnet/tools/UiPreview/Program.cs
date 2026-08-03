@@ -67,6 +67,24 @@ internal static class Program
             overlay.Update(SampleMeterReport(now));
             Capture(() => new OverlayWindow { DataContext = overlay }, palette, Path.Combine(outDir, $"meter_{skin}.png"));
 
+            if (skin is "Dark" or "Light")
+            {
+                // 던전 티어: every tier on one screen so the eight ring treatments can be compared at the real
+                // badge size. Rank 1~3 carry the inner ring, 4~7 a single ring, 8 (아이언) stays unaccented, and
+                // the footer carries the self "티어 · 상위 X.X%" chip. Light is captured too because a palette
+                // tuned for the dark skins can vanish on #FAFCFF.
+                var tierVm = new OverlayViewModel("1.7.8", settings, theme, () => currentSkin == "Light") { Status = "캡처 중" };
+                tierVm.Update(SampleTierReport(now));
+                tierVm.SetTiers(SampleTiers());
+                Capture(() => new OverlayWindow { DataContext = tierVm }, palette, Path.Combine(outDir, $"meter_tier_{skin}.png"));
+
+                // …and the same rows with the feature off: must be pixel-identical to today's meter, including
+                // the window height (a badge that grows a row re-opens the SizeToContent regression).
+                var tierOffVm = new OverlayViewModel("1.7.8", settings, theme, () => currentSkin == "Light") { Status = "캡처 중" };
+                tierOffVm.Update(SampleTierReport(now));
+                Capture(() => new OverlayWindow { DataContext = tierOffVm }, palette, Path.Combine(outDir, $"meter_tier_off_{skin}.png"));
+            }
+
             if (skin == "Dark")
             {
                 // gauge-form variants: "fill" (above), "bar" (thin bottom bar), "none".
@@ -118,10 +136,10 @@ internal static class Program
                 buffVm.Update(new List<WaffleMeter.Data.OwnerBuffView>
                 {
                     // 폭주: an indefinite stance shown with a short refresh-based fallback duration (~6s).
-                    new(19130000, "폭주", 5_400, 6_000, 5_400, false, true, false),
-                    new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false),
-                    new(11400000, "축복", 45_000, 60_000, 45_000, true, true, false),
-                    new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, true), // on cooldown → grayed
+                    new(19130000, "폭주", 5_400, 6_000, 5_400, false, true, false, true),
+                    new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false, false),
+                    new(11400000, "축복", 45_000, 60_000, 45_000, true, true, false, false),
+                    new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, true, false), // on cooldown → grayed
                 }, grayOnCooldown: true);
                 Capture(() => new BuffOverlayPanel(buffVm), palette, Path.Combine(outDir, "buffoverlay_Dark.png"));
 
@@ -130,9 +148,9 @@ internal static class Program
                 buffSmallVm.SetIconSize(34);
                 buffSmallVm.Update(new List<WaffleMeter.Data.OwnerBuffView>
                 {
-                    new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false),
-                    new(11400000, "축복", 45_000, 60_000, 45_000, true, true, false),
-                    new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, false),
+                    new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false, false),
+                    new(11400000, "축복", 45_000, 60_000, 45_000, true, true, false, false),
+                    new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, false, false),
                 }, grayOnCooldown: false);
                 Capture(() => new BuffOverlayPanel(buffSmallVm), palette, Path.Combine(outDir, "buffoverlay_small_Dark.png"));
 
@@ -166,7 +184,7 @@ internal static class Program
                 var ssettings = new MeterSettings(sp);
                 var spresets = new BuffPresetManager(ssettings, _ => { }, _ => { }); // temp props; no store to update
                 var svm = new SettingsViewModel(ssvc, ssettings, new MeterColorTheme(sp), new SkinManager(sp),
-                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp), spresets) { SelectedNav = "replay" };
+                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp), spresets, new GameOptimizerService()) { SelectedNav = "replay" };
                 Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_replay_Dark.png"), fixedSize: true);
 
                 // 캐릭터 관리 tab: 오드 chips beside each character (populate the list directly — the preview has
@@ -439,7 +457,7 @@ internal static class Program
         var controller = new OverlayController(new OverlayWindow(), props);
         var hotkeys = new HotkeyHandler(props);
         var presets = new BuffPresetManager(settings, _ => { }, _ => { });
-        var vm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, presets);
+        var vm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, presets, new GameOptimizerService());
 
         int pass = 0, fail = 0;
         void Check(string name, bool ok)
@@ -578,6 +596,53 @@ internal static class Program
         Battle(0, "들판의 늑대", false, now - 600_000, now - 600_000 + 45_000, 120_000, 95_000),
         Battle(1, "발탄 군주", true, now - 300_000, now - 300_000 + 183_000, 8_200_000, 6_400_000, 3_100_000),
         Battle(2, "그림자 추적자", true, now - 120_000, now - 120_000 + 92_000, 4_200_000, 3_800_000),
+    };
+
+    /// <summary>Eight rows, one per tier, so every ring treatment is visible in a single shot.</summary>
+    private static DpsReport SampleTierReport(long now)
+    {
+        (int Uid, string Name, int Server, JobClass Job, int Power, long Damage, double Dps, double Share)[] rows =
+        [
+            (1, "콘팡", 1001, JobClass.SORCERER, 656_000, 59_300_000, 408_239, 24.1),
+            (2, "쌈", 1001, JobClass.GLADIATOR, 663_400, 52_200_000, 359_394, 21.2),
+            (3, "강까", 1001, JobClass.RANGER, 659_500, 44_300_000, 305_003, 18.0),
+            (4, "띵보", 1002, JobClass.ASSASSIN, 641_200, 33_100_000, 227_915, 13.5),
+            (5, "마르틴", 2001, JobClass.CHANTER, 598_400, 24_600_000, 169_374, 10.0),
+            (6, "콰과과", 2003, JobClass.TEMPLAR, 574_900, 16_400_000, 112_912, 6.7),
+            (7, "빛의사제", 1005, JobClass.CLERIC, 552_300, 9_800_000, 67_474, 4.0),
+            (8, "느림보", 1007, JobClass.FIGHTER, 501_100, 6_300_000, 43_376, 2.5),
+        ];
+
+        var report = new DpsReport
+        {
+            BattleStart = now - 145_300,
+            BattleEnd = now,
+            Target = new MobInfo(999, new Mob(2301060, "칼드릭스", true), remainHp: 0, maxHp: 168_750_000),
+            Contributors = [],
+            Information = new Dictionary<int, DpsInformation>(),
+        };
+
+        foreach ((int uid, string name, int server, JobClass job, int power, long damage, double dps, double share) in rows)
+        {
+            report.Contributors.Add(new User(uid, name, server, job, isExecutor: uid == 1, power: power));
+            report.Information[uid] = new DpsInformation(damage, dps, share, share);
+        }
+
+        return report;
+    }
+
+    /// <summary>Uid → tier. Row 1 is self and also carries a live battle percentile, so the "상위 X.X%" chip
+    /// renders next to its 전투력 badge.</summary>
+    private static Dictionary<int, RowTier> SampleTiers() => new()
+    {
+        [1] = new RowTier(1, 0.7, "무스펠의 성배 · 어려움"),   // 챌린저 + chip
+        [2] = new RowTier(2, null, "무스펠의 성배 · 어려움"),   // 마스터
+        [3] = new RowTier(3, null, "무스펠의 성배 · 어려움"),   // 다이아
+        [4] = new RowTier(4, null, "무스펠의 성배 · 어려움"),   // 플래티넘
+        [5] = new RowTier(5, null, "무스펠의 성배 · 어려움"),   // 골드
+        [6] = new RowTier(6, null, "무스펠의 성배 · 어려움"),   // 실버
+        [7] = new RowTier(7, null, "무스펠의 성배 · 어려움"),   // 브론즈
+        [8] = new RowTier(8, null, "무스펠의 성배 · 어려움"),   // 아이언
     };
 
     private static DpsReport SampleMeterReport(long now)
