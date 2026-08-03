@@ -161,11 +161,13 @@ public sealed class MeterSettings : INotifyPropertyChanged
     public string TierEffects { get => _tierEffects; set => SetProp(ref _tierEffects, "tier.effects", value); }
 
     private bool _tierShowOthers;
-    /// <summary>Ring party members' badges too (their own row, never a chip).</summary>
+    /// <summary>Decorate party members' rows too (ring + outline + their own 이번 전투 상위 X.X% chip). Off
+    /// leaves everyone but you undecorated.</summary>
     public bool TierShowOthers { get => _tierShowOthers; set => SetBool(ref _tierShowOthers, "tier.showOthers", value); }
 
     private bool _tierShowSelfChip;
-    /// <summary>Show the "상위 X.X%" chip on your own row.</summary>
+    /// <summary>Show the footer summary chip ("챌린저 · 상위 0.7%") next to the combat timer. The per-row
+    /// percentile chips are governed by <see cref="TierShow"/>/<see cref="TierShowOthers"/> instead.</summary>
     public bool TierShowSelfChip { get => _tierShowSelfChip; set => SetBool(ref _tierShowSelfChip, "tier.showSelfChip", value); }
 
     private string _targetInfoDisplayMode;

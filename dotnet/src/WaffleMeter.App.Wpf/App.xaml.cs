@@ -143,6 +143,7 @@ public partial class App : Application
         LoadPosition(services.Props, window);
         // The meter auto-sizes its HEIGHT to the row count (SizeToContent=Height) so no scrollbar appears;
         // only WIDTH is user-resizable + persisted.
+        MigrateMeterWidthForTierChip(services.Props);
         LoadWindowWidth(services.Props, "meterWidth", window);
         window.Show();
         _overlayWindow = window;
@@ -1405,6 +1406,31 @@ public partial class App : Application
             {
                 ScreenClamp.Apply(w, allow);
             }
+        }
+    }
+
+    /// <summary>
+    /// One-time widen for the per-row "상위 X.X%" chip. The meter's default grew 420 → 490 to make room; a user
+    /// who never dragged the edge has exactly the old default saved, so bumping only that exact value widens
+    /// them without touching anyone who chose their own width. Runs once (guarded by its own settings key) so a
+    /// user who later shrinks back to 420 on purpose is never re-widened.
+    /// </summary>
+    private static void MigrateMeterWidthForTierChip(PropertyHandler props)
+    {
+        const string doneKey = "meterWidthTierChipMigrated";
+        const double oldDefault = 420.0;
+        const double newDefault = 490.0;
+
+        if (props.GetProperty(doneKey) == "true")
+        {
+            return;
+        }
+
+        props.SetProperty(doneKey, "true");
+        if (double.TryParse(props.GetProperty("meterWidth"), NumberStyles.Float, CultureInfo.InvariantCulture, out double w)
+            && Math.Abs(w - oldDefault) < 0.5)
+        {
+            props.SetProperty("meterWidth", newDefault.ToString("0", CultureInfo.InvariantCulture));
         }
     }
 

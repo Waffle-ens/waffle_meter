@@ -695,9 +695,9 @@ public readonly record struct RowTier(int TierRank, double? BattleTopPercent, st
 /// <summary>Per-row tier text. Separate from <see cref="TierBadge"/> (a shared singleton) because these values
 /// differ per row — keeping them in one record adds two positional parameters to RowViewModel instead of four,
 /// which matters because that record has same-typed neighbours a transposition would not fail to compile.</summary>
-public sealed record TierRowInfo(string ToolTip, bool HasToolTip)
+public sealed record TierRowInfo(string PercentText, Visibility PercentVisibility, string ToolTip, bool HasToolTip)
 {
-    public static readonly TierRowInfo Empty = new(string.Empty, false);
+    public static readonly TierRowInfo Empty = new(string.Empty, Visibility.Collapsed, string.Empty, false);
 
     public static TierRowInfo Build(TierBadge badge, RowTier tier)
     {
@@ -710,8 +710,12 @@ public sealed record TierRowInfo(string ToolTip, bool HasToolTip)
         string dungeon = tier.DungeonLabel is { Length: > 0 } d ? $" · {d}" : string.Empty;
         string tip = percent.Length > 0
             ? $"{badge.Name}{dungeon} · 이번 전투 {percent}"
-            : $"{badge.Name}{dungeon}";
+            : $"{badge.Name}{dungeon} · 이번 전투 표본 부족";
 
-        return new TierRowInfo(tip, true);
+        return new TierRowInfo(
+            percent,
+            percent.Length > 0 ? Visibility.Visible : Visibility.Collapsed,
+            tip,
+            true);
     }
 }

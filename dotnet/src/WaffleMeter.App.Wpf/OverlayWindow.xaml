@@ -9,7 +9,7 @@
         Topmost="True"
         ResizeMode="CanResize"
         SizeToContent="Height"
-        Width="420" Height="300" MinWidth="320" MinHeight="150"
+        Width="490" Height="300" MinWidth="320" MinHeight="150"
         Left="40" Top="40"
         UseLayoutRounding="True"
         FontFamily="Segoe UI">
@@ -202,15 +202,28 @@
                                 ClipToBounds="True" MouseLeftButtonUp="OnRowClick" MinHeight="{Binding RowHeight}"
                                 Typography.NumeralAlignment="Tabular">
                             <Border.Style>
-                                <!-- Resting card fill + soft border (matches React .meter-row); hover lightens. -->
+                                <!-- Resting card fill + soft border (matches React .meter-row); hover lightens.
+                                     A tiered row carries its tier colour on the OUTLINE as well — the rings on
+                                     two 20px badges alone were easy to miss at a glance. The untiered path is
+                                     unchanged, hover included, so the feature-off render stays pixel-identical. -->
                                 <Style TargetType="Border">
                                     <Setter Property="Background" Value="{DynamicResource Skin.RowBg}"/>
-                                    <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
+                                    <Setter Property="BorderBrush" Value="{Binding Tier.RowBorder}"/>
                                     <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Tier.IsNone}" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Skin.SoftBorder}"/>
+                                        </DataTrigger>
                                         <Trigger Property="IsMouseOver" Value="True">
                                             <Setter Property="Background" Value="{DynamicResource Skin.RowHover}"/>
-                                            <Setter Property="BorderBrush" Value="{DynamicResource Skin.Border}"/>
                                         </Trigger>
+                                        <!-- hover on an untiered row still lightens the outline, exactly as before -->
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding Tier.IsNone}" Value="True"/>
+                                                <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="BorderBrush" Value="{DynamicResource Skin.Border}"/>
+                                        </MultiDataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
@@ -235,6 +248,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
@@ -317,12 +331,24 @@
                                                        FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.32:9'}"/>
                                         </Border>
                                     </StackPanel>
-                                    <Border Grid.Column="4" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
+                                    <!-- 이번 전투 상위 X.X% — per player, computed locally from the downloaded
+                                         distribution (this row's dps against its own class cohort). No server
+                                         call and nothing about anyone's account: it is derived from the same
+                                         combat packets the row already shows. Its own Auto column so it can
+                                         never be clipped by the name column, and Collapsed when the cohort had
+                                         no shipped distribution row (표본 부족 — we never guess a number). -->
+                                    <Border Grid.Column="4" Background="{Binding Tier.ChipBg}" BorderBrush="{Binding Tier.RankRing}" BorderThickness="1"
+                                            CornerRadius="4" Padding="5,0" Margin="6,0,0,0" VerticalAlignment="Center" SnapsToDevicePixels="True"
+                                            Visibility="{Binding TierInfo.PercentVisibility}" ToolTip="{Binding TierInfo.ToolTip}">
+                                        <TextBlock Text="{Binding TierInfo.PercentText}" Foreground="{Binding Tier.ChipFg}" FontWeight="SemiBold"
+                                                   FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.32:9'}"/>
+                                    </Border>
+                                    <Border Grid.Column="5" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
                                             CornerRadius="4" Padding="5,0" Margin="6,0,4,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding DamageText}" Foreground="{Binding DamageBrush}"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
                                     </Border>
-                                    <Border Grid.Column="5" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
+                                    <Border Grid.Column="6" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1"
                                             CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding PercentText}" Foreground="{Binding PercentBrush}" MinWidth="40" TextAlignment="Center"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>

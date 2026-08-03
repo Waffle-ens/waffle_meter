@@ -32,6 +32,11 @@ public sealed class TierBadge
 
     public Brush IconRing { get; init; } = Brushes.Transparent;
 
+    /// <summary>The row's own 1px outline. Two 20px badge rings read as decoration; the outline is what makes a
+    /// tier readable at a glance down a list of eight. Thickness stays 1 — a Border reserves space for its
+    /// stroke, so widening it would move every row.</summary>
+    public Brush RowBorder { get; init; } = Brushes.Transparent;
+
     /// <summary>Second ring drawn INSIDE the job-icon badge for the top three tiers. It is a zero-size stretch
     /// child of a Grid, so it contributes nothing to DesiredSize — the badge keeps its exact dimensions and the
     /// window's SizeToContent height never recalculates.</summary>
@@ -98,6 +103,9 @@ public static class TierPalette
                 RankBg = fill,
                 RankFg = text,
                 IconRing = ring,
+                // The outline runs the full row width, so it is dialled back to ~72% (아이언 stays at its own
+                // faint alpha) — at full strength eight of them fight the damage gauges for attention.
+                RowBorder = stops.Length == 1 ? Frozen(WithAlpha(stops[0], rank == 8 ? (byte)0x66 : (byte)0xB8)) : Gradient(stops),
                 InnerRing = inner
                     ? (animated ? TierSheen.BrushFor(rank) : Frozen(WithAlpha(stops[^1], 0x8C)))
                     : Brushes.Transparent,

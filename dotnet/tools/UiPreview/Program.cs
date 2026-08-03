@@ -633,17 +633,23 @@ internal static class Program
 
     /// <summary>Uid → tier. Row 1 is self and also carries a live battle percentile, so the "상위 X.X%" chip
     /// renders next to its 전투력 badge.</summary>
-    private static Dictionary<int, RowTier> SampleTiers() => new()
+    private static Dictionary<int, RowTier> SampleTiers()
     {
-        [1] = new RowTier(1, 0.7, "무스펠의 성배 · 어려움"),   // 챌린저 + chip
-        [2] = new RowTier(2, null, "무스펠의 성배 · 어려움"),   // 마스터
-        [3] = new RowTier(3, null, "무스펠의 성배 · 어려움"),   // 다이아
-        [4] = new RowTier(4, null, "무스펠의 성배 · 어려움"),   // 플래티넘
-        [5] = new RowTier(5, null, "무스펠의 성배 · 어려움"),   // 골드
-        [6] = new RowTier(6, null, "무스펠의 성배 · 어려움"),   // 실버
-        [7] = new RowTier(7, null, "무스펠의 성배 · 어려움"),   // 브론즈
-        [8] = new RowTier(8, null, "무스펠의 성배 · 어려움"),   // 아이언
-    };
+        const string dungeon = "무스펠의 성배 · 어려움";
+        return new Dictionary<int, RowTier>
+        {
+            [1] = new RowTier(1, 0.7, dungeon),   // 챌린저
+            [2] = new RowTier(2, 3.2, dungeon),   // 마스터
+            [3] = new RowTier(3, 8.4, dungeon),   // 다이아
+            [4] = new RowTier(4, 22.6, dungeon),  // 플래티넘
+            [5] = new RowTier(5, 41.3, dungeon),  // 골드
+            [6] = new RowTier(6, 63.8, dungeon),  // 실버
+            [7] = new RowTier(7, 84.1, dungeon),  // 브론즈
+            // Career tier known but THIS fight's cohort shipped no distribution row — the chip collapses
+            // rather than inventing a number. Worth seeing in the preview.
+            [8] = new RowTier(8, null, dungeon),  // 아이언, 표본 부족
+        };
+    }
 
     private static DpsReport SampleMeterReport(long now)
     {
