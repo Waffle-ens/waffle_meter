@@ -249,7 +249,7 @@ public sealed class MeterServices
 
         // 던전 티어 기준표. 자체 백그라운드 스레드에서 12시간마다 한 번만 받고, 전투 중에는 어떤 요청도
         // 하지 않는다 — 라이브 '상위 X.X%'는 받아둔 분포로 로컬 계산한다.
-        Tier = new TierService(StatsApi, props);
+        Tier = new TierService(StatsApi, props, clientVersion: Version);
 
         // The only Data -> Stats edge: a saved battle log is offered to the upload queue. Also refresh
         // the history-panel snapshot (both run on the consumer thread inside the save).

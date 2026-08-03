@@ -671,7 +671,7 @@
                         <Grid Margin="0,0,0,14" IsEnabled="{Binding TierDetailEnabled}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="파티원 티어도 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="파티원 티어 표시" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="파티원 행에도 등급 테두리와 '상위 X.X%'를 표시합니다. 끄면 본인 행에만 표시돼요." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TierShowOthers}"/>
@@ -689,10 +689,10 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="등급 기준표" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="티어 갱신" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="{Binding TierStatus}" Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
-                            <Button Grid.Column="1" Content="새로고침" VerticalAlignment="Center" Padding="14,6" Click="OnRefreshTier"/>
+                            <Button Grid.Column="1" Content="갱신" VerticalAlignment="Center" Padding="14,6" Click="OnRefreshTier"/>
                         </Grid>
 
                         <!-- 표시 최적화: 저사양/프레임 드랍 완화 -->

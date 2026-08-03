@@ -43,6 +43,24 @@ public sealed class TierService : IDisposable
     private const string KeyFetchedAt = "tier.fetchedAtMs";
     private const int KeepCachedArtifacts = 2;
 
+    /// <summary>Server hard cap per lookup request.</summary>
+    private const int LookupBatchSize = 12;
+
+    /// <summary>Minimum spacing between lookups. The server allows 120/hour per install; at one per minute we
+    /// use at most half that even if the roster churns constantly.</summary>
+    private static readonly TimeSpan LookupInterval = TimeSpan.FromSeconds(60);
+
+    /// <summary>How long a resolved tier is reused. The server recomputes hourly, so re-asking sooner cannot
+    /// produce a different answer.</summary>
+    private static readonly TimeSpan LookupTtl = TimeSpan.FromMinutes(30);
+
+    /// <summary>"이 캐릭터에 대해 줄 것이 없다"는 답은 훨씬 오래 캐시한다 — 미동의·표본부족은 분 단위로
+    /// 바뀌지 않으므로, 짧게 캐시하면 같은 사람을 계속 다시 묻게 된다.</summary>
+    private static readonly TimeSpan EmptyLookupTtl = TimeSpan.FromHours(2);
+
+    /// <summary>Bound on remembered lookups — a busy recruiting session sees a lot of applicants.</summary>
+    private const int MaxCachedLookups = 512;
+
     private readonly ITierApi _api;
     private readonly PropertyHandler _props;
     private readonly Func<long> _clock;
@@ -56,9 +74,18 @@ public sealed class TierService : IDisposable
     private string? _lastError;
     private long _lastManualMs;
 
-    public TierService(ITierApi api, PropertyHandler props, Func<long>? clock = null, bool startWorker = true)
+    // Career-tier lookups for OTHER characters (party applicants). Written by the worker, read by the UI, so
+    // both maps are concurrent. `_pending` holds hashes we have not asked about yet.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, CachedTier> _lookups = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _pending = new(StringComparer.Ordinal);
+    private long _nextLookupMs;
+    private long _nextArtifactMs;
+    private string _clientVersion;
+
+    public TierService(ITierApi api, PropertyHandler props, Func<long>? clock = null, bool startWorker = true, string clientVersion = "dev")
     {
         _api = api;
+        _clientVersion = clientVersion;
         _props = props;
         _clock = clock ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
@@ -90,7 +117,7 @@ public sealed class TierService : IDisposable
         _failures,
         _lastError);
 
-    /// <summary>Settings' "등급 기준표 새로고침". Rate-limited; returns false when the cooldown blocks it.</summary>
+    /// <summary>Settings' 티어 갱신 button. Rate-limited; returns false when the cooldown blocks it.</summary>
     public bool RequestManualRefresh()
     {
         long now = _clock();
@@ -121,8 +148,24 @@ public sealed class TierService : IDisposable
         while (!_stopped)
         {
             _wake.Reset();
-            TryRefresh();
-            if (_wake.Wait(RefreshInterval) && _stopped)
+            long now = _clock();
+
+            if (now >= _nextArtifactMs)
+            {
+                TryRefresh();
+                _nextArtifactMs = _clock() + (long)RefreshInterval.TotalMilliseconds;
+            }
+
+            if (!_pending.IsEmpty && now >= _nextLookupMs)
+            {
+                TryLookupBatch();
+                _nextLookupMs = _clock() + (long)LookupInterval.TotalMilliseconds;
+            }
+
+            // Sleep exactly until the next thing is due — no idle polling.
+            long wakeAt = _pending.IsEmpty ? _nextArtifactMs : Math.Min(_nextArtifactMs, _nextLookupMs);
+            int waitMs = (int)Math.Clamp(wakeAt - _clock(), 0, (long)RefreshInterval.TotalMilliseconds);
+            if (_wake.Wait(waitMs) && _stopped)
             {
                 return;
             }
@@ -185,6 +228,137 @@ public sealed class TierService : IDisposable
     {
         _failures++;
         _lastError = reason;
+    }
+
+    /// <summary>A remembered lookup answer. <see cref="Rank"/> 0 means the server had nothing for this
+    /// character — not consented, revoked, unknown, or too few battles. Those cases are deliberately
+    /// indistinguishable on the wire, so we do not try to tell them apart here either.</summary>
+    private readonly record struct CachedTier(int Rank, string Name, double TopPercent, long ExpiresAtMs);
+
+    /// <summary>
+    /// The career tier for another character, or null when we do not (yet) have one.
+    /// <para>Pure cache read — safe to call from the UI thread every tick. A miss quietly schedules a lookup,
+    /// so a caller can just ask again on its next frame.</para>
+    /// </summary>
+    public (int Rank, string Name, double TopPercent)? CareerTier(string? identityHash)
+    {
+        if (string.IsNullOrEmpty(identityHash))
+        {
+            return null;
+        }
+
+        if (_lookups.TryGetValue(identityHash!, out CachedTier cached))
+        {
+            if (_clock() < cached.ExpiresAtMs)
+            {
+                return cached.Rank > 0 ? (cached.Rank, cached.Name, cached.TopPercent) : null;
+            }
+
+            _lookups.TryRemove(identityHash!, out _);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Ask about these characters' career tiers. Cheap and idempotent: hashes we already know (or have already
+    /// queued) are dropped, so calling this on every roster change costs nothing extra.
+    /// <para>The request itself is batched and rate-limited on the worker — the panel never waits on it.</para>
+    /// </summary>
+    public void RequestCareerTiers(IEnumerable<string?> identityHashes)
+    {
+        bool queued = false;
+        long now = _clock();
+        foreach (string? hash in identityHashes)
+        {
+            if (string.IsNullOrEmpty(hash) || hash!.Length != 64)
+            {
+                continue;
+            }
+
+            if (_lookups.TryGetValue(hash, out CachedTier cached) && now < cached.ExpiresAtMs)
+            {
+                continue; // still fresh, including a remembered "nothing to show"
+            }
+
+            queued |= _pending.TryAdd(hash, 0);
+        }
+
+        if (queued)
+        {
+            _wake.Set();
+        }
+    }
+
+    /// <summary>Run one pending lookup batch synchronously (tests only — the worker owns this in the app).</summary>
+    internal void DrainLookupsForTest() => TryLookupBatch();
+
+    /// <summary>One batched lookup. Everything we asked about gets an entry — including the ones the server
+    /// declined to describe — so a non-consenting applicant is asked about once every couple of hours rather
+    /// than on every roster change.</summary>
+    private void TryLookupBatch()
+    {
+        string[] batch = _pending.Keys.Take(LookupBatchSize).ToArray();
+        if (batch.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            TierLookupResponse response = _api.PostTierLookup(new TierLookupRequest(batch), _clientVersion);
+            long now = _clock();
+            var answered = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (TierLookupResult result in response.Results ?? [])
+            {
+                answered.Add(result.IdentityHash);
+                bool ok = string.Equals(result.Status, "ok", StringComparison.Ordinal) && result.TierRank is >= 1 and <= 8;
+                Remember(result.IdentityHash, ok
+                    ? new CachedTier(result.TierRank, result.TierName ?? string.Empty, result.TopPercent, now + (long)LookupTtl.TotalMilliseconds)
+                    : new CachedTier(0, string.Empty, 0, now + (long)EmptyLookupTtl.TotalMilliseconds));
+            }
+
+            // A hash the server did not mention at all is treated the same as "nothing to show" — otherwise it
+            // would sit in the queue forever and every batch would re-send it.
+            foreach (string hash in batch)
+            {
+                if (!answered.Contains(hash))
+                {
+                    Remember(hash, new CachedTier(0, string.Empty, 0, now + (long)EmptyLookupTtl.TotalMilliseconds));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // 429 (rate limited) included. The batch stays QUEUED on purpose — dropping it here would mean a
+            // rate limit silently costs those applicants their tier until the panel happens to ask again,
+            // which it only does when the roster changes.
+            Fail(ex is StatsApiException api ? $"lookup_http_{api.StatusCode}" : $"lookup_{ex.GetType().Name}");
+            return;
+        }
+
+        // Only a completed request retires its hashes; every one of them now has a cache entry.
+        foreach (string hash in batch)
+        {
+            _pending.TryRemove(hash, out _);
+        }
+    }
+
+    private void Remember(string hash, CachedTier entry)
+    {
+        _lookups[hash] = entry;
+        if (_lookups.Count <= MaxCachedLookups)
+        {
+            return;
+        }
+
+        // Bounded: drop whatever expires soonest. A recruiting session can see hundreds of applicants and this
+        // map must not become the reason the meter's memory grows all evening.
+        foreach (KeyValuePair<string, CachedTier> oldest in _lookups.OrderBy(kv => kv.Value.ExpiresAtMs).Take(_lookups.Count - MaxCachedLookups))
+        {
+            _lookups.TryRemove(oldest.Key, out _);
+        }
     }
 
     /// <summary>🔑 The digest is over the COMPRESSED bytes exactly as received. The server sends

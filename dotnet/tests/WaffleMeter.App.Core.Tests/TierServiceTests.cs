@@ -179,6 +179,103 @@ public sealed class TierServiceTests : IDisposable
         Assert.True(service.RequestManualRefresh());
     }
 
+    [Fact]
+    public void Batches_career_lookups_and_caches_the_answers()
+    {
+        long now = 1_000_000;
+        var api = new FakeTierApi();
+        string a = Hash('a');
+        string b = Hash('b');
+        api.LookupAnswers[a] = new TierLookupResult(a, "ok", TierRank: 2, TierName: "마스터", TopPercent: 3.4, Job: "검성", Battles: 12, CohortSize: 800);
+
+        using var service = new TierService(api, new PropertyHandler(_dir), clock: () => now, startWorker: false);
+        service.RequestCareerTiers([a, b]);
+        service.DrainLookupsForTest();
+
+        Assert.Single(api.LookupBatches);
+        Assert.Equal(2, api.LookupBatches[0].Count);
+
+        Assert.Equal((2, "마스터", 3.4), service.CareerTier(a));
+        Assert.Null(service.CareerTier(b)); // "none" is a real answer, just not a displayable one
+
+        // Asking again inside the TTL must not produce a second request — neither for the hit nor the miss.
+        service.RequestCareerTiers([a, b]);
+        service.DrainLookupsForTest();
+        Assert.Single(api.LookupBatches);
+    }
+
+    [Fact]
+    public void Never_asks_about_more_than_the_server_accepts_in_one_request()
+    {
+        long now = 1_000_000;
+        var api = new FakeTierApi();
+        using var service = new TierService(api, new PropertyHandler(_dir), clock: () => now, startWorker: false);
+
+        // A raid-sized flood of applicants: the server hard-caps a lookup at 12 hashes.
+        service.RequestCareerTiers(Enumerable.Range(0, 30).Select(i => Hash((char)('a' + (i % 26)), i)));
+        service.DrainLookupsForTest();
+
+        Assert.Single(api.LookupBatches);
+        Assert.Equal(12, api.LookupBatches[0].Count);
+    }
+
+    [Fact]
+    public void Ignores_hashes_that_are_not_identity_hashes()
+    {
+        var api = new FakeTierApi();
+        using var service = new TierService(api, new PropertyHandler(_dir), startWorker: false);
+
+        service.RequestCareerTiers([null, "", "too-short", new string('Z', 64)]);
+        service.DrainLookupsForTest();
+
+        // "too-short"/null never queue; the 64-char one is queued (length is all we can check client-side).
+        Assert.Single(api.LookupBatches);
+        Assert.Single(api.LookupBatches[0]);
+    }
+
+    [Fact]
+    public void Keeps_a_failed_lookup_queued_instead_of_forgetting_it()
+    {
+        long now = 1_000_000;
+        var api = new FakeTierApi { ThrowOnLookup = new StatsApiException("rate limited", 429, null) };
+        string a = Hash('a');
+        using var service = new TierService(api, new PropertyHandler(_dir), clock: () => now, startWorker: false);
+
+        service.RequestCareerTiers([a]);
+        service.DrainLookupsForTest();
+        Assert.Equal("lookup_http_429", service.Status().LastError);
+
+        // The rate limit lifts: the same hash is retried without the panel having to ask again.
+        api.ThrowOnLookup = null;
+        api.LookupAnswers[a] = new TierLookupResult(a, "ok", TierRank: 5, TierName: "골드", TopPercent: 44.0);
+        service.DrainLookupsForTest();
+
+        Assert.Equal((5, "골드", 44.0), service.CareerTier(a));
+    }
+
+    [Fact]
+    public void Forgets_a_tier_once_it_goes_stale()
+    {
+        long now = 1_000_000;
+        var api = new FakeTierApi();
+        string a = Hash('a');
+        api.LookupAnswers[a] = new TierLookupResult(a, "ok", TierRank: 3, TierName: "다이아", TopPercent: 8.0);
+
+        using var service = new TierService(api, new PropertyHandler(_dir), clock: () => now, startWorker: false);
+        service.RequestCareerTiers([a]);
+        service.DrainLookupsForTest();
+        Assert.NotNull(service.CareerTier(a));
+
+        now += (long)TimeSpan.FromMinutes(31).TotalMilliseconds; // past the 30 min reuse window
+        Assert.Null(service.CareerTier(a));
+    }
+
+    private static string Hash(char fill, int salt = 0)
+    {
+        string body = new(fill, 64);
+        return salt == 0 ? body : body[..(64 - 2)] + (salt % 100).ToString("00");
+    }
+
     // ---- helpers -------------------------------------------------------------------------------------
 
     private static FakeTierApi FakeApi(byte[] gzip, string sha256, string artifactId, Action? onDownload = null) => new()
@@ -270,6 +367,31 @@ public sealed class TierServiceTests : IDisposable
         {
             OnDownload?.Invoke();
             return new StatsBinaryResponse(200, Gzip);
+        }
+
+        public List<IReadOnlyList<string>> LookupBatches { get; } = [];
+
+        public Dictionary<string, TierLookupResult> LookupAnswers { get; } = new(StringComparer.Ordinal);
+
+        public Exception? ThrowOnLookup { get; set; }
+
+        public TierLookupResponse PostTierLookup(TierLookupRequest request, string clientVersion, string? installId = null)
+        {
+            if (ThrowOnLookup != null)
+            {
+                throw ThrowOnLookup;
+            }
+
+            LookupBatches.Add(request.IdentityHashes);
+            var results = new List<TierLookupResult>();
+            foreach (string hash in request.IdentityHashes)
+            {
+                results.Add(LookupAnswers.TryGetValue(hash, out TierLookupResult? answer)
+                    ? answer
+                    : new TierLookupResult(hash, "none"));
+            }
+
+            return new TierLookupResponse(true, "2026-08-03T05:00:00.000Z", results);
         }
     }
 }

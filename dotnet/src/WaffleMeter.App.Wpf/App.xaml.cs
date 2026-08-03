@@ -1101,7 +1101,8 @@ public partial class App : Application
     private void WireJoinPanel(MeterServices services, OverlayWindow overlay)
     {
         var skillVisibility = new SkillVisibility(services.Props);
-        _joinViewModel = new JoinRequestViewModel(_settings!, skillVisibility.Codes);
+        _joinViewModel = new JoinRequestViewModel(
+            _settings!, skillVisibility.Codes, services.Tier, () => _skin?.IsLight == true);
         _joinPanel = new JoinRequestPanel { DataContext = _joinViewModel };
         LoadWindowSize(services.Props, "joinPanelWidth", "joinPanelHeight", _joinPanel);
 

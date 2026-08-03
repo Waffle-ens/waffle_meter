@@ -58,6 +58,17 @@ internal static class Program
             });
             Capture(() => new JoinRequestPanel { DataContext = join }, palette, Path.Combine(outDir, $"join_{skin}.png"));
 
+            if (skin is "Dark" or "Light")
+            {
+                // 파티 신청 카드의 티어 칩. The live path fills these from a batched, rate-limited lookup; here
+                // they are painted directly so the layout can be checked offline. The third applicant keeps no
+                // tier on purpose — that is what a non-consenting (or too-new) character looks like.
+                bool light = skin == "Light";
+                join.Rows[0].ApplyTier((1, "챌린저", 0.6), light);
+                join.Rows[1].ApplyTier((4, "플래티넘", 24.8), light);
+                Capture(() => new JoinRequestPanel { DataContext = join }, palette, Path.Combine(outDir, $"join_tier_{skin}.png"));
+            }
+
             var history = new BattleHistoryViewModel(theme, settings);
             history.SetBattles(SampleBattles(now));
             Capture(() => new HistoryPanel { DataContext = history }, palette, Path.Combine(outDir, $"history_{skin}.png"));

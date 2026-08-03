@@ -472,8 +472,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         if (!status.HasArtifact)
         {
             TierStatus = status.Failures > 0
-                ? $"기준표를 아직 받지 못했어요 (실패 {status.Failures}회{FormatReason(status.LastError)})"
-                : "기준표를 아직 받지 못했어요.";
+                ? $"티어 지표를 받지 못했어요 (실패 {status.Failures}회{FormatReason(status.LastError)})"
+                : "티어 지표를 받지 못했어요.";
             return;
         }
 

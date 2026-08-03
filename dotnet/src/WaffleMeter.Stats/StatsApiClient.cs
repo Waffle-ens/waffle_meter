@@ -19,6 +19,8 @@ public interface ITierApi
     TierManifestResponse GetTierManifest();
 
     StatsBinaryResponse GetTierArtifactGzip(string path);
+
+    TierLookupResponse PostTierLookup(TierLookupRequest request, string clientVersion, string? installId = null);
 }
 
 /// <summary>Thrown on a non-OK stats response. Carries the HTTP status + raw body so callers can branch

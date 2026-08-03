@@ -196,7 +196,7 @@ public partial class SettingsWindow : Window
 
     private void OnOpenMyStats(object sender, RoutedEventArgs e) => _viewModel.OpenMyStats();
 
-    /// <summary>등급 기준표 새로고침. The fetch itself is the tier worker's job — this only nudges it and
+    /// <summary>티어 갱신. The fetch itself is the tier worker's job — this only nudges it and
     /// re-reads the status line, so the click never blocks the UI thread on a 15s HTTP timeout.</summary>
     private void OnRefreshTier(object sender, RoutedEventArgs e)
     {
