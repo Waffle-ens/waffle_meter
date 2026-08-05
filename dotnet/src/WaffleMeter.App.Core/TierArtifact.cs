@@ -1,5 +1,6 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
+using WaffleMeter.Data;
 
 namespace WaffleMeter.App.Core;
 
@@ -26,6 +27,42 @@ public readonly record struct TierRowKey(
 
 /// <summary>Where a mobCode sits in the dungeon catalog. <paramref name="BossIndex"/> is <b>1-based</b>.</summary>
 public readonly record struct TierMobPlacement(int DungeonOrd, int VariantOrd, int BossIndex);
+
+/// <summary>
+/// How a client reaches a variant that no mobCode can point at.
+/// <para>시련's levels 4~16 share three boss mobCodes, so its top-difficulty variant cannot appear in
+/// <c>mobs</c> — that map is 1:1 and those codes already belong to the pooled 시련 variant, which is not
+/// ranked. This carries the missing half: the codes, the exact coordinate to use instead, and the affix values
+/// that must hold for it to apply.</para>
+/// <para>The codes stay out of <c>mobs</c> deliberately. A build that does not know about this section keeps
+/// resolving 바크론 to nothing, which is the right answer for a client that cannot tell the difficulties
+/// apart — whereas putting them in <c>mobs</c> would make every already-shipped meter score a level-4 clear
+/// against top-difficulty cuts.</para>
+/// </summary>
+public sealed class TierTrialGate
+{
+    public TierTrialGate(
+        int dungeonOrd,
+        int variantOrd,
+        IReadOnlyDictionary<int, int> bossIndexByMobCode,
+        IReadOnlyDictionary<string, int> axes)
+    {
+        DungeonOrd = dungeonOrd;
+        VariantOrd = variantOrd;
+        BossIndexByMobCode = bossIndexByMobCode;
+        Axes = axes;
+    }
+
+    public int DungeonOrd { get; }
+
+    public int VariantOrd { get; }
+
+    /// <summary>mobCode → bossIndex. Replaces what <c>mobs</c> would have supplied.</summary>
+    public IReadOnlyDictionary<int, int> BossIndexByMobCode { get; }
+
+    /// <summary>Affix name → the value that must hold. Every entry must match.</summary>
+    public IReadOnlyDictionary<string, int> Axes { get; }
+}
 
 /// <summary>
 /// The downloaded tier distribution artifact — the immutable quantile ladder the meter evaluates locally so a
@@ -70,6 +107,7 @@ public sealed class TierArtifact
 
     private readonly Dictionary<TierRowKey, long[]> _rows;
     private readonly Dictionary<int, TierMobPlacement> _mobs;
+    private readonly List<TierTrialGate> _trialGates;
     private readonly Dictionary<int, int> _dungeonCategoryId;
     private readonly Dictionary<int, string> _dungeonNames;
     private readonly Dictionary<(int DungeonOrd, int Ord), string> _variantLabels;
@@ -83,6 +121,7 @@ public sealed class TierArtifact
         double[] grid,
         Dictionary<TierRowKey, long[]> rows,
         Dictionary<int, TierMobPlacement> mobs,
+        List<TierTrialGate> trialGates,
         Dictionary<int, int> dungeonCategoryId,
         Dictionary<int, string> dungeonNames,
         Dictionary<(int, int), string> variantLabels,
@@ -95,6 +134,7 @@ public sealed class TierArtifact
         Grid = grid;
         _rows = rows;
         _mobs = mobs;
+        _trialGates = trialGates;
         _dungeonCategoryId = dungeonCategoryId;
         _dungeonNames = dungeonNames;
         _variantLabels = variantLabels;
@@ -125,6 +165,49 @@ public sealed class TierArtifact
     /// <b>Unmapped = no tier</b> (fail-closed) — never fall back to a neighbouring dungeon.</summary>
     public TierMobPlacement? Placement(int mobCode) =>
         _mobs.TryGetValue(mobCode, out TierMobPlacement p) ? p : null;
+
+    /// <summary>
+    /// Placement for a mobCode whose difficulty the code alone cannot express — 시련's, in practice.
+    /// <para>Falls back to <see cref="TierArtifact.Placement(int)"/> first; only when that misses does it try
+    /// the trial gates, and a gate applies only when EVERY affix it lists equals what the packet stream
+    /// actually reported. Fail-closed in three directions, all deliberate: no gates in the artifact means no
+    /// tier rather than a guessed one; an affix the meter could not read is not equal to anything, so it does
+    /// not match; and an axis name this build does not know can never match, so a newer server cannot
+    /// half-apply a gate to an older meter.</para>
+    /// </summary>
+    public TierMobPlacement? Placement(int mobCode, TrialDifficulty trial)
+    {
+        if (_mobs.TryGetValue(mobCode, out TierMobPlacement p))
+        {
+            return p;
+        }
+
+        foreach (TierTrialGate gate in _trialGates)
+        {
+            if (!gate.BossIndexByMobCode.TryGetValue(mobCode, out int bossIndex))
+            {
+                continue;
+            }
+
+            if (gate.Axes.All(axis => AffixValue(trial, axis.Key) == axis.Value))
+            {
+                return new TierMobPlacement(gate.DungeonOrd, gate.VariantOrd, bossIndex);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The observed value of a named affix, or null when this build does not know the name or the
+    /// meter never read it. Null never equals a required value, which is what closes the gate.</summary>
+    private static int? AffixValue(TrialDifficulty trial, string axis) => axis switch
+    {
+        "timelimit" => trial.Timelimit,
+        "rebirthlimit" => trial.Rebirthlimit,
+        "bossBuff" => trial.BossBuff,
+        "skillUpgrade" => trial.SkillUpgrade,
+        _ => null,
+    };
 
     /// <summary>Display name for a dungeon ord (settings/tooltips), or null.</summary>
     public string? DungeonName(int dungeonOrd) =>
@@ -221,6 +304,9 @@ public sealed class TierArtifact
             var mobs = new Dictionary<int, TierMobPlacement>();
             ParseMobs(root, mobs);
 
+            var trialGates = new List<TierTrialGate>();
+            ParseTrialGates(root, trialGates);
+
             var rows = new Dictionary<TierRowKey, long[]>();
             ParseRows(root, grid.Length, categoryIds, jobIds, rows);
 
@@ -230,7 +316,7 @@ public sealed class TierArtifact
             }
 
             return new TierArtifact(
-                artifactId, windowDays, generatedAt, grid, rows, mobs,
+                artifactId, windowDays, generatedAt, grid, rows, mobs, trialGates,
                 dungeonCategoryId, dungeonNames, variantLabels, categoryIds, jobIds);
         }
         catch
@@ -375,6 +461,57 @@ public sealed class TierArtifact
             if (n == 3)
             {
                 mobs[mobCode] = new TierMobPlacement(dungeonOrd, variantOrd, bossIndex);
+            }
+        }
+    }
+
+    private static void ParseTrialGates(JsonElement root, List<TierTrialGate> gates)
+    {
+        if (!root.TryGetProperty("trialGates", out JsonElement list) || list.ValueKind != JsonValueKind.Array)
+        {
+            return; // an artifact built before the gate existed simply yields no tier for those bosses
+        }
+
+        foreach (JsonElement gate in list.EnumerateArray())
+        {
+            if (gate.ValueKind != JsonValueKind.Object
+                || !TryInt(gate, "dungeonOrd", out int dungeonOrd)
+                || !TryInt(gate, "variantOrd", out int variantOrd)
+                || !gate.TryGetProperty("mobs", out JsonElement mobs) || mobs.ValueKind != JsonValueKind.Object
+                || !gate.TryGetProperty("axes", out JsonElement axes) || axes.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var bossIndexByMobCode = new Dictionary<int, int>();
+            foreach (JsonProperty entry in mobs.EnumerateObject())
+            {
+                if (int.TryParse(entry.Name, NumberStyles.Integer, CultureInfo.InvariantCulture, out int mobCode)
+                    && entry.Value.ValueKind == JsonValueKind.Number
+                    && entry.Value.TryGetInt32(out int bossIndex))
+                {
+                    bossIndexByMobCode[mobCode] = bossIndex;
+                }
+            }
+
+            var required = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (JsonProperty entry in axes.EnumerateObject())
+            {
+                if (entry.Value.ValueKind == JsonValueKind.Number && entry.Value.TryGetInt32(out int value))
+                {
+                    required[entry.Name] = value;
+                }
+                else
+                {
+                    // An axis whose value we cannot read must not be silently dropped — dropping it would
+                    // loosen the gate. Poison the whole gate instead so it can never match.
+                    required[entry.Name] = int.MinValue;
+                }
+            }
+
+            if (bossIndexByMobCode.Count > 0 && required.Count > 0)
+            {
+                gates.Add(new TierTrialGate(dungeonOrd, variantOrd, bossIndexByMobCode, required));
             }
         }
     }

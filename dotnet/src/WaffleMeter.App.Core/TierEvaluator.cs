@@ -1,4 +1,4 @@
-using WaffleMeter.Data;
+﻿using WaffleMeter.Data;
 
 namespace WaffleMeter.App.Core;
 
@@ -40,17 +40,16 @@ public static class TierEvaluator
     /// response, others from a consent-gated batch lookup). Rows missing here still get a 이번 전투 등급.</param>
     /// <param name="identityHashOf">Resolves a row's identity hash; returns null when the character is not
     /// identified yet (a bare mid-join actor), in which case only the local percentile applies.</param>
-    /// <param name="rankThisFight">False when this fight must not produce a 이번 전투 상위 %, even though the
-    /// artifact has a row for its boss. The trial is the only encounter that needs it: all of its difficulties
-    /// share one set of boss mobCodes, so the artifact's mob map cannot tell them apart and would hand a
-    /// level-4 run the level-16 distribution. The career tier still shows — that is the character's standing,
-    /// not this fight's.</param>
+    /// <param name="trial">The 시련 affixes this run was observed at, if any. Only the trial needs them: its
+    /// difficulties share one set of boss mobCodes, so the artifact's mob map cannot place it and the
+    /// artifact's trial gate does — but only when these match what the gate requires. Default (all unknown)
+    /// closes every gate, which is the right answer for a run nothing was read for.</param>
     public static Dictionary<int, RowTier> Evaluate(
         DpsReport report,
         TierArtifact? artifact,
         IReadOnlyDictionary<string, int>? careerTiers = null,
         Func<User, string?>? identityHashOf = null,
-        bool rankThisFight = true)
+        TrialDifficulty trial = default)
     {
         var result = new Dictionary<int, RowTier>();
         if (artifact == null || report.Target is not MobInfo target)
@@ -64,7 +63,7 @@ public static class TierEvaluator
             return result;
         }
 
-        if (artifact.Placement(target.Mob.Code) is not TierMobPlacement placement)
+        if (artifact.Placement(target.Mob.Code, trial) is not TierMobPlacement placement)
         {
             return result; // fail-closed: an unmapped boss gets no tier at all
         }
@@ -84,10 +83,8 @@ public static class TierEvaluator
             string? job = user.Job is JobClass jc ? jc.ClassName() : null;
             int synergyCount = SynergyCountFor(report, user, partySize, trusted);
 
-            TierCohort? cohort = rankThisFight
-                ? TierLadder.CohortFor(
-                    artifact, target.Mob.Code, job, user.Power, durationMs, synergyCount, partyMode, trusted)
-                : null;
+            TierCohort? cohort = TierLadder.CohortFor(
+                artifact, target.Mob.Code, job, user.Power, durationMs, synergyCount, partyMode, trusted, trial);
 
             double? battlePercent = cohort is TierCohort c
                 ? TierLadder.Evaluate(artifact, c, info.Dps)?.TopPercent

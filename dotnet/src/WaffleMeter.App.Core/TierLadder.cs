@@ -1,3 +1,5 @@
+﻿using WaffleMeter.Data;
+
 namespace WaffleMeter.App.Core;
 
 /// <summary>The cohort a single combat row belongs to, in artifact coordinates.
@@ -241,14 +243,17 @@ public static class TierLadder
         long durationMs,
         int synergyCount,
         int partyMode,
-        bool synergyTrusted)
+        bool synergyTrusted,
+        TrialDifficulty trial = default)
     {
         if (artifact == null || durationMs < MinBattleDurationMs || power < MinPower)
         {
             return null;
         }
 
-        if (artifact.Placement(mobCode) is not TierMobPlacement placement)
+        // 시련's difficulties share their boss codes, so its coordinate cannot come from the mob map — the
+        // artifact's trial gates supply it, and only when the affixes read as the difficulty they name.
+        if (artifact.Placement(mobCode, trial) is not TierMobPlacement placement)
         {
             return null; // fail-closed: an unmapped mobCode gets no tier, ever.
         }

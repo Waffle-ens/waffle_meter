@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -175,9 +175,9 @@ public partial class App : Application
             services.Tier.Artifact,
             _viewingHistory ? null : _careerTiers,
             u => StatsIdentity.CharacterIdentityHash(u.Server, u.Nickname),
-            // 시련은 난이도가 mobCode에 안 실려서, 아티팩트의 몹 맵만 보면 4단계 런에 16단계 분포를 씌우게
-            // 된다. 어픽스로 읽은 난이도가 최고일 때만 이번 전투 상위%를 낸다.
-            rankThisFight: RankThisFight(services, report));
+            // 시련은 난이도가 mobCode에 안 실려서 아티팩트의 몹 맵으로는 좌표가 안 나온다. 어픽스로 읽은
+            // 값을 넘겨주면 아티팩트의 trial gate가 "이 난이도가 맞을 때만" 좌표를 내준다.
+            services.Data.TrialDifficulty.Current);
 
         MigrateMeterWidthForTierChip(services.Props);
         LoadWindowWidth(services.Props, "meterWidth", window);
@@ -1346,23 +1346,6 @@ public partial class App : Application
             _historyPanelVisible = true;
             _historyPanel.Present(true);
         };
-    }
-
-    /// <summary>
-    /// Whether this fight may produce a 이번 전투 상위 %.
-    /// <para>Only the trial can answer no. Every other encounter's mobCode implies its difficulty, so the
-    /// artifact's mob map alone places it correctly. The trial's four difficulties share one set of boss
-    /// codes, so the map would place a level-4 run in the same cell as a level-16 one — and the top setting
-    /// gives the boss 2.2x the max HP. Ranked only when the affixes read as the top difficulty.</para>
-    /// </summary>
-    private static bool RankThisFight(MeterServices services, DpsReport report)
-    {
-        if (report.Target is not MobInfo target || !services.Data.Encounters.IsTrialEncounter(target.Mob.Code))
-        {
-            return true;
-        }
-
-        return services.Data.TrialDifficulty.Current.IsTopDifficulty;
     }
 
     /// <summary>The 오드 목록 panel: every character this install has seen and the 오드 it last held. Opened
