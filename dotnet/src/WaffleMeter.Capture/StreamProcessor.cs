@@ -1884,14 +1884,21 @@ public sealed class StreamProcessor
 
         // Both ends must be plausible epoch-ms and ordered. Without this a stray 4-byte match on a map id
         // would turn arbitrary bytes into a "window".
-        if (mapId <= 0 || phase <= 0
-            || startMs < MinPlausibleEpochMs || startMs > MaxPlausibleEpochMs
-            || endMs <= startMs || endMs > MaxPlausibleEpochMs)
-        {
-            return;
-        }
+        bool sane = mapId > 0 && phase > 0
+            && startMs >= MinPlausibleEpochMs && startMs <= MaxPlausibleEpochMs
+            && endMs > startMs && endMs <= MaxPlausibleEpochMs;
 
-        _data.SaveInstancePhaseWindow(mapId, phase, startMs, endMs - startMs);
+        // Logged either way, and BEFORE the gate: this frame spans TCP segments, so it can't be recovered
+        // from a packet log by scanning raw bytes — the only way to see what it actually said is to record
+        // what the parser made of it. A rejected frame is the more interesting one to see.
+        _sink.Meta("instance-phase",
+            ("mapId", mapId), ("phase", phase),
+            ("windowMs", endMs - startMs), ("startMs", startMs), ("accepted", sane));
+
+        if (sane)
+        {
+            _data.SaveInstancePhaseWindow(mapId, phase, startMs, endMs - startMs);
+        }
     }
 
     /// <summary>Field-boss respawn timers 0x9101. Extracts boss-code → target-time records and forwards them
