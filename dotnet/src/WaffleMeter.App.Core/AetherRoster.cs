@@ -57,10 +57,13 @@ public static class AetherRoster
             string? nickname = FirstNonBlank(snapshot.Nickname, known.Nickname);
             int server = snapshot.Server > 0 ? snapshot.Server : known.Server;
 
+            // GetServerLabel returns "" for an id the table doesn't know (a new server, or a record left by
+            // the 2026-07-30 identity corruption) — appending empty brackets would read as a rendering bug.
+            string serverLabel = server > 0 ? ServerNames.GetServerLabel(server) : string.Empty;
             string label = nickname is null
                 ? "이름 없는 캐릭터"
-                : server > 0
-                    ? $"{nickname} [{ServerNames.GetServerLabel(server)}]"
+                : serverLabel.Length > 0
+                    ? $"{nickname} [{serverLabel}]"
                     : nickname;
 
             rows.Add(new AetherRosterRow(

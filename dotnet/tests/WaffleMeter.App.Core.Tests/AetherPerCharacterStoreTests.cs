@@ -90,8 +90,8 @@ public sealed class AetherPerCharacterStoreTests
         Assert.NotNull(store.Get("real"));
     }
 
-    /// <summary>The store's key is a one-way hash, so the 오드 목록 can only name a character from the record
-    /// itself or from a consent entry — and a character with no consent decision has no consent entry at all.
+    /// <summary>The store's key is a one-way hash, so the 오드 목록 can only name a character from a stored
+    /// name or from a consent entry — and a character with no consent decision has no consent entry at all.
     /// The nickname is Base64'd on the wire because <c>,</c> and <c>;</c> are the separators.</summary>
     [Fact]
     public void Round_trips_the_character_name_and_server()
@@ -99,7 +99,9 @@ public sealed class AetherPerCharacterStoreTests
         var store = AetherPerCharacterStore.Parse(null);
         store.Upsert("h", new AetherSnapshot(120, 30, 1000, "와플, 님;)", 3));
 
-        AetherSnapshot? got = AetherPerCharacterStore.Parse(store.Serialize()).Get("h");
+        AetherSnapshot? got = AetherPerCharacterStore
+            .Parse(store.Serialize(), store.SerializeNames())
+            .Get("h");
 
         Assert.Equal("와플, 님;)", got!.Value.Nickname);
         Assert.Equal(3, got.Value.Server);
@@ -107,41 +109,65 @@ public sealed class AetherPerCharacterStoreTests
         Assert.Equal(30, got.Value.Bonus);
     }
 
-    /// <summary>A record with no name known yet stays in the original 4-field shape, so an install that has
-    /// never seen one writes byte-identical settings to what earlier versions wrote.</summary>
+    /// <summary>🔑 The balance blob stays EXACTLY the 4-field form earlier versions wrote, names and all.
+    /// Rolling back to a meter that predates the 오드 목록 must lose nothing: an older build ignores an unknown
+    /// settings key, but a balance record it can't parse it DROPS — and since every aether broadcast rewrites
+    /// the whole blob, one packet under the old build would have made that loss permanent.</summary>
     [Fact]
-    public void A_nameless_record_keeps_the_four_field_form()
+    public void Names_never_touch_the_balance_blob()
+    {
+        var store = AetherPerCharacterStore.Parse(null);
+        store.Upsert("h", new AetherSnapshot(120, 30, 1000, "와플", 3));
+
+        Assert.Equal("h,120,30,1000", store.Serialize());
+        Assert.Equal("h,3," + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("와플")), store.SerializeNames());
+    }
+
+    /// <summary>An install that has never learned a name writes no names key at all.</summary>
+    [Fact]
+    public void A_nameless_record_serializes_no_name()
     {
         var store = AetherPerCharacterStore.Parse(null);
         store.Upsert("h", new AetherSnapshot(120, 30, 1000));
 
         Assert.Equal("h,120,30,1000", store.Serialize());
+        Assert.Equal(string.Empty, store.SerializeNames());
     }
 
-    /// <summary>Field count alone separates the three formats: 4 = current-without-name, 5 = the bad
-    /// pre-2026-07-30 records (dropped), 6 = current-with-name.</summary>
+    /// <summary>The bad pre-2026-07-30 five-field records stay dropped now that names moved out.</summary>
     [Fact]
-    public void The_named_form_does_not_collide_with_the_dropped_legacy_form()
+    public void Legacy_records_stay_dropped_alongside_a_names_blob()
     {
         var named = AetherPerCharacterStore.Parse(null);
         named.Upsert("new", new AetherSnapshot(470, 610, 1000, "이름", 3));
 
         AetherPerCharacterStore store = AetherPerCharacterStore.Parse(
-            "old,20,590,610,1000;" + named.Serialize());
+            "old,20,590,610,1000;" + named.Serialize(), named.SerializeNames());
 
         Assert.Null(store.Get("old"));
         Assert.Equal("이름", store.Get("new")!.Value.Nickname);
     }
 
     [Fact]
-    public void A_corrupt_name_field_costs_only_the_name()
+    public void A_corrupt_name_costs_only_the_name()
     {
-        AetherPerCharacterStore store = AetherPerCharacterStore.Parse("h,1,2,3,4,!!!not-base64!!!");
+        AetherPerCharacterStore store = AetherPerCharacterStore.Parse("h,1,2,3", "h,4,!!!not-base64!!!");
 
         AetherSnapshot? got = store.Get("h");
         Assert.NotNull(got);
         Assert.Null(got!.Value.Nickname);
         Assert.Equal(1, got.Value.Base);
+    }
+
+    /// <summary>A name for a hash with no balance is ignored — the balance is what the list is for.</summary>
+    [Fact]
+    public void An_orphan_name_is_ignored()
+    {
+        AetherPerCharacterStore store = AetherPerCharacterStore.Parse(
+            "h,1,2,3", "ghost,3," + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("유령")));
+
+        Assert.Null(store.Get("ghost"));
+        Assert.Single(store.All());
     }
 
     [Fact]

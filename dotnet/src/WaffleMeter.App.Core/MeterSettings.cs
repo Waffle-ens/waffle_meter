@@ -101,6 +101,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffUiPresets = _props.GetProperty("buffUi.presets") ?? "";
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
         _aetherPerCharacter = _props.GetProperty("aether.perCharacter") ?? "";
+        _aetherCharacterNames = _props.GetProperty("aether.characterNames") ?? "";
         _dummyTestMode = ReadBool("dummy.testMode", false);
         _dummyDurationSec = ReadInt("dummy.durationSeconds", 60);
         _patchNotesLastShownVersion = _props.GetProperty("patchNotes.lastShownVersion") ?? "";
@@ -450,6 +451,14 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// not only the one currently logged in. Unlike <see cref="AetherLastValue"/> this is NOT cleared on a
     /// character switch — that's the whole point: it accumulates each character's balance as they're played.</summary>
     public string AetherPerCharacter { get => _aetherPerCharacter; set => SetProp(ref _aetherPerCharacter, "aether.perCharacter", value); }
+
+    private string _aetherCharacterNames;
+    /// <summary>Each character's name for <see cref="AetherPerCharacter"/>, as <c>hash,server,nicknameB64</c>
+    /// records. Kept in its OWN key rather than as extra fields on the balance record so that rolling back to a
+    /// meter that predates the 오드 목록 loses nothing: an older build ignores an unknown settings key, but a
+    /// balance record it can't parse would be dropped — and since every aether broadcast rewrites the whole
+    /// blob, one packet under the old build would have made that loss permanent.</summary>
+    public string AetherCharacterNames { get => _aetherCharacterNames; set => SetProp(ref _aetherCharacterNames, "aether.characterNames", value); }
 
     // ---- 허수아비 (training-dummy) test mode ----
     private bool _dummyTestMode;

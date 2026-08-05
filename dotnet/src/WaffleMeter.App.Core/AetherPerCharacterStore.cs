@@ -32,15 +32,17 @@ public sealed class AetherPerCharacterStore
 
     private AetherPerCharacterStore(Dictionary<string, AetherSnapshot> byHash) => _byHash = byHash;
 
-    /// <summary>Parse the serialized blob. Never throws — malformed records are skipped.
-    /// <para>Records are <c>hash,base,bonus,savedAtMs</c>, or <c>hash,base,bonus,savedAtMs,server,nicknameB64</c>
-    /// once the character's name is known (the nickname is Base64'd because <c>,</c> and <c>;</c> are the
-    /// separators). The pre-2026-07-30 format carried a fifth numeric field (a separately-stored total); those
-    /// FIVE-field records are deliberately dropped rather than migrated, because they were written while the
-    /// parser mis-read the single-pool packet and their 자연회복/추가 split is wrong. Each character's chip
-    /// refills from the next live broadcast. Field count alone tells the three apart: 4 = current-without-name,
-    /// 5 = the bad legacy format, 6 = current-with-name.</para></summary>
-    public static AetherPerCharacterStore Parse(string? serialized)
+    /// <summary>Parse the serialized blob, optionally merging the names blob over it. Never throws — malformed
+    /// records are skipped.
+    /// <para>Balance records are <c>hash,base,bonus,savedAtMs</c>. The pre-2026-07-30 format carried a fifth
+    /// numeric field (a separately-stored total); those FIVE-field records are deliberately dropped rather than
+    /// migrated, because they were written while the parser mis-read the single-pool packet and their
+    /// 자연회복/추가 split is wrong. Each character's chip refills from the next live broadcast.</para>
+    /// <para>Names live in their OWN settings string rather than as extra fields here, so that a rollback to a
+    /// meter that predates them loses nothing: an older build ignores a settings key it doesn't know, whereas a
+    /// record it can't parse would be dropped — and since every aether broadcast rewrites the whole blob, one
+    /// packet under the old build would have made that loss permanent.</para></summary>
+    public static AetherPerCharacterStore Parse(string? serialized, string? names = null)
     {
         var map = new Dictionary<string, AetherSnapshot>(StringComparer.Ordinal);
         if (!string.IsNullOrEmpty(serialized))
@@ -48,7 +50,7 @@ public sealed class AetherPerCharacterStore
             foreach (string record in serialized.Split(';', StringSplitOptions.RemoveEmptyEntries))
             {
                 string[] f = record.Split(',');
-                if ((f.Length != 4 && f.Length != 6) || string.IsNullOrWhiteSpace(f[0])
+                if (f.Length != 4 || string.IsNullOrWhiteSpace(f[0])
                     || !int.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int b)
                     || !int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out int bonus)
                     || !long.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out long ms))
@@ -56,15 +58,24 @@ public sealed class AetherPerCharacterStore
                     continue;
                 }
 
-                string? nickname = null;
-                int server = 0;
-                if (f.Length == 6)
+                map[f[0]] = new AetherSnapshot(b, bonus, ms);
+            }
+        }
+
+        // Names blob: hash,server,nicknameB64 (Base64 because , and ; are the separators). A name for a hash
+        // with no balance is simply ignored — the balance is what the list is for.
+        if (!string.IsNullOrEmpty(names))
+        {
+            foreach (string record in names.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] f = record.Split(',');
+                if (f.Length != 3 || !map.TryGetValue(f[0], out AetherSnapshot snapshot))
                 {
-                    int.TryParse(f[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out server);
-                    nickname = DecodeName(f[5]);
+                    continue;
                 }
 
-                map[f[0]] = new AetherSnapshot(b, bonus, ms, nickname, server);
+                int.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int server);
+                map[f[0]] = snapshot with { Nickname = DecodeName(f[2]), Server = server };
             }
         }
 
@@ -114,26 +125,25 @@ public sealed class AetherPerCharacterStore
         .OrderByDescending(kv => kv.Value.SavedAtMs)
         .ToList();
 
-    /// <summary>Serialize back to the settings blob (records ordered newest-first for stability). A record only
-    /// grows the name fields once a nickname is known, so an install that has never seen one stays byte-identical
-    /// to what earlier versions wrote.</summary>
+    /// <summary>Serialize the balances (records ordered newest-first for stability). Byte-identical to what
+    /// versions before the 오드 목록 wrote — names go in <see cref="SerializeNames"/>.</summary>
     public string Serialize() => string.Join(';', _byHash
         .OrderByDescending(kv => kv.Value.SavedAtMs)
-        .Select(kv =>
-        {
-            string head = string.Join(',',
-                kv.Key,
-                kv.Value.Base.ToString(CultureInfo.InvariantCulture),
-                kv.Value.Bonus.ToString(CultureInfo.InvariantCulture),
-                kv.Value.SavedAtMs.ToString(CultureInfo.InvariantCulture));
+        .Select(kv => string.Join(',',
+            kv.Key,
+            kv.Value.Base.ToString(CultureInfo.InvariantCulture),
+            kv.Value.Bonus.ToString(CultureInfo.InvariantCulture),
+            kv.Value.SavedAtMs.ToString(CultureInfo.InvariantCulture))));
 
-            return string.IsNullOrWhiteSpace(kv.Value.Nickname)
-                ? head
-                : string.Join(',',
-                    head,
-                    kv.Value.Server.ToString(CultureInfo.InvariantCulture),
-                    EncodeName(kv.Value.Nickname!));
-        }));
+    /// <summary>Serialize the character names, for the companion settings key. Only characters whose name is
+    /// known appear; the empty string when none is.</summary>
+    public string SerializeNames() => string.Join(';', _byHash
+        .OrderByDescending(kv => kv.Value.SavedAtMs)
+        .Where(kv => !string.IsNullOrWhiteSpace(kv.Value.Nickname))
+        .Select(kv => string.Join(',',
+            kv.Key,
+            kv.Value.Server.ToString(CultureInfo.InvariantCulture),
+            EncodeName(kv.Value.Nickname!))));
 
     private static string EncodeName(string nickname) =>
         Convert.ToBase64String(Encoding.UTF8.GetBytes(nickname));

@@ -90,7 +90,11 @@ public sealed class AetherRowViewModel
     /// row but the current one is a memory — saying how old it is, is the whole point.</summary>
     private static string FormatSeen(long savedAtMs)
     {
-        if (savedAtMs <= 0)
+        // The store parses any long that TryParse accepts, so a hand-edited settings file can carry a value
+        // outside DateTimeOffset's range — which would throw here and take the whole list down.
+        if (savedAtMs <= 0
+            || savedAtMs < DateTimeOffset.MinValue.ToUnixTimeMilliseconds()
+            || savedAtMs > DateTimeOffset.MaxValue.ToUnixTimeMilliseconds())
         {
             return string.Empty;
         }

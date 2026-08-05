@@ -51,6 +51,7 @@ public partial class ReplayWindow : Window
     private static readonly ReplaySkillShapes SkillShapes = ReplaySkillShapes.Load();
 
     private readonly ReplayRecording _rec;
+    private readonly WaffleMeter.Data.EncounterCatalog _encounters;
     private readonly DispatcherTimer _timer;
     private readonly Stopwatch _stopwatch = new();
     private readonly List<TrackVisual> _visuals = new();
@@ -82,17 +83,19 @@ public partial class ReplayWindow : Window
     private readonly bool _autoPlay;
     private readonly double _startMs;
 
-    public ReplayWindow(ReplayRecording recording) : this(recording, autoPlay: true, startMs: 0)
+    public ReplayWindow(ReplayRecording recording, WaffleMeter.Data.EncounterCatalog? encounters = null)
+        : this(recording, autoPlay: true, startMs: 0, encounters)
     {
     }
 
     /// <param name="autoPlay">Start playing immediately (false = paused, e.g. for a static preview).</param>
     /// <param name="startMs">Initial playhead position in ms.</param>
-    public ReplayWindow(ReplayRecording recording, bool autoPlay, double startMs)
+    public ReplayWindow(ReplayRecording recording, bool autoPlay, double startMs, WaffleMeter.Data.EncounterCatalog? encounters = null)
     {
         _rec = recording;
         _autoPlay = autoPlay;
         _startMs = startMs;
+        _encounters = encounters ?? WaffleMeter.Data.EncounterCatalog.Empty;
         InitializeComponent();
         DarkTitleBar.Apply(this); // same OS chrome as the settings window — one app, one look
 
@@ -116,8 +119,12 @@ public partial class ReplayWindow : Window
         _map = MapCatalog.ForBoss(_rec.TargetCode);
 
         // Header carries the matched map's name so a wrong/missing background is visible at a glance
-        // (no map matched = relative plot, no dungeon name shown).
-        string? title = _rec.TargetName is { Length: > 0 } name ? name : _map?.NameKo;
+        // (no map matched = relative plot, no dungeon name shown). The boss name gets its difficulty the way
+        // the meter and the history rows do — the map name alone can't tell two difficulties apart, because
+        // every difficulty of a dungeon IS the same map.
+        string? title = _rec.TargetName is { Length: > 0 } name
+            ? _encounters.DisplayName(_rec.TargetCode ?? 0, name)
+            : _map?.NameKo;
         if (title is { Length: > 0 } && _map is { } mapInfo && title != mapInfo.NameKo)
         {
             title = $"{title} · {mapInfo.NameKo}";

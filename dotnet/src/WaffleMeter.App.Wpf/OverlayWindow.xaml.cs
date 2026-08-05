@@ -63,6 +63,10 @@ public partial class OverlayWindow : Window
     /// <summary>Footer 오드 badge clicked (App toggles the per-character 오드 panel).</summary>
     public event Action? AetherListRequested;
 
+    /// <summary>Raise <see cref="AetherListRequested"/> from outside — the tray menu offers the same toggle,
+    /// because the badge is hidden while 오드 표시 is off or before this session's first broadcast.</summary>
+    public void RequestAetherList() => AetherListRequested?.Invoke();
+
     /// <summary>Header update badge clicked (App shows the restart toast on demand).</summary>
     public event Action? UpdateRequested;
 

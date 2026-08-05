@@ -222,7 +222,8 @@ public sealed class StatsUploadQueueTests : IDisposable
         StatsUploadStatus status = queue.Status();
         Assert.Equal(0, status.Uploaded);
         Assert.Equal(1, status.Skipped);
-        Assert.Equal("unsupported_encounter", status.LastReason);
+        // 사유에 코드와 이름이 실린다 — 이 게이트가 잘못 걸렸을 때 드러나는 유일한 경로다.
+        Assert.Equal("unsupported_encounter:2600068:보스", status.LastReason);
     }
 
     [Fact]
@@ -266,6 +267,6 @@ public sealed class StatsUploadQueueTests : IDisposable
         queue.OfferIfEligible(BossLog(remainHp: 500_000, mobCode: 2600068)); // 미확정 킬 + 미지원 보스
 
         Assert.False(waited);
-        Assert.Equal("unsupported_encounter", queue.Status().LastReason);
+        Assert.StartsWith("unsupported_encounter:", queue.Status().LastReason);
     }
 }

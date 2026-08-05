@@ -136,7 +136,10 @@ public sealed class StatsUploadQueue : IDisposable
         // IsSupported가 전부 true라 예전 동작 그대로다.
         if (!_data.Encounters.IsSupported(target.Mob.Code))
         {
-            MarkSkipped("unsupported_encounter");
+            // 코드와 이름을 사유에 싣는다 — 이 게이트가 잘못 걸렸을 때(웹이 새 던전을 등록했는데 동봉
+            // 카탈로그가 아직 옛것) 드러나는 유일한 경로가 여기고, 코드 없는 고정 문자열은 "안 올라간다"는
+            // 제보를 미동의·보스아님·미상보스와 구분해주지 못한다.
+            MarkSkipped($"unsupported_encounter:{target.Mob.Code}:{target.Mob.Name}");
             return;
         }
 

@@ -237,10 +237,12 @@ public sealed class MeterServices
         IReadOnlyList<string> purgedCharacters = consent.PurgeImpossibleCharacters();
         if (purgedCharacters.Count > 0)
         {
-            AetherPerCharacterStore aether = AetherPerCharacterStore.Parse(props.GetProperty("aether.perCharacter"));
+            AetherPerCharacterStore aether = AetherPerCharacterStore.Parse(
+                props.GetProperty("aether.perCharacter"), props.GetProperty("aether.characterNames"));
             if (aether.RemoveAll(purgedCharacters))
             {
                 props.SetProperty("aether.perCharacter", aether.Serialize());
+                props.SetProperty("aether.characterNames", aether.SerializeNames()); // 오염된 신원의 이름도 함께
             }
         }
 

@@ -15,8 +15,11 @@ public sealed class TrayIconController : IDisposable
 
     /// <param name="loadPacketLog">Dev builds only — replays a recorded capture so the history/detail
     /// windows have a battle to show without running a dungeon. App passes null in release builds.</param>
+    /// <param name="openAetherList">Toggle the 캐릭터별 오드 panel. The footer 오드 badge is its other entry
+    /// point, but that badge is hidden while 오드 표시 is off or before the first broadcast of a session — and
+    /// the list is about the OTHER characters, so it has to stay reachable when the badge isn't there.</param>
     public TrayIconController(OverlayWindow window, OverlayController controller, Action exit,
-        Action? openReplay = null, Action? loadPacketLog = null)
+        Action? openReplay = null, Action? loadPacketLog = null, Action? openAetherList = null)
     {
         _icon = new WinForms.NotifyIcon
         {
@@ -32,6 +35,11 @@ public sealed class TrayIconController : IDisposable
             window.SetClickThrough(false);
             controller.Present();
         }));
+        if (openAetherList is not null)
+        {
+            menu.Items.Add("캐릭터별 오드", null, (_, _) => window.Dispatcher.Invoke(openAetherList));
+        }
+
         // Only present when movement recording is enabled (replay.recordMovement=true); App passes null otherwise.
         if (openReplay is not null)
         {

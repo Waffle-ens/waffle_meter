@@ -44,6 +44,9 @@ public partial class App : Application
     private BattleHistoryViewModel? _historyViewModel;
     private bool _historyPanelPositioned;
     private bool _historyPanelVisible;
+    /// <summary>The supported-encounter catalog, held here so windows built outside the startup scope (the
+    /// replay player) can label a boss with its difficulty too. Empty until the catalogs load.</summary>
+    private WaffleMeter.Data.EncounterCatalog _encounters = WaffleMeter.Data.EncounterCatalog.Empty;
     private AetherPanel? _aetherPanel;
     private AetherPanelViewModel? _aetherViewModel;
     private bool _aetherPanelPositioned;
@@ -138,6 +141,7 @@ public partial class App : Application
 
         var services = new MeterServices(props);
         TryLoadCatalogs(services);
+        _encounters = services.Data.Encounters;
 
         // Apply the persisted skin (palette) into Application.Resources before any window is built.
         _skin = new SkinManager(services.Props);
@@ -225,7 +229,9 @@ public partial class App : Application
         }
         _tray = new TrayIconController(window, _controller, () => Dispatcher.Invoke(ExitApp),
             services.Movement != null ? () => OpenReplay(services, window) : null,
-            DevPacketLogReplay.IsAvailable(VersionConfig.Resolve().Version) ? () => LoadPacketLog(services) : null);
+            DevPacketLogReplay.IsAvailable(VersionConfig.Resolve().Version) ? () => LoadPacketLog(services) : null,
+            // Resolved at click time: WireAetherPanel subscribes later in this same startup.
+            window.RequestAetherList);
         window.PositionChanged += (left, top) => SavePosition(services.Props, left, top);
 
         // Single-instance: surface this (running) instance when a later launch signals us, so relaunching
@@ -987,7 +993,7 @@ public partial class App : Application
     {
         _replayWindow?.Close();
 
-        var win = new ReplayWindow(rec);
+        var win = new ReplayWindow(rec, _encounters);
         if (owner != null && owner.IsLoaded)
         {
             win.Owner = owner;
@@ -1380,8 +1386,10 @@ public partial class App : Application
 
             if (!_aetherPanelPositioned)
             {
+                // Offset from the history panel's dock spot: both are topmost, so identical defaults would
+                // stack this exactly on top of an open 전투 기록 and read as that panel having changed.
                 _aetherPanel.Left = overlay.Left + overlay.ActualWidth + 8;
-                _aetherPanel.Top = overlay.Top;
+                _aetherPanel.Top = overlay.Top + 40;
             }
 
             RefreshAetherRoster(services);
@@ -1404,7 +1412,7 @@ public partial class App : Application
             .ToList();
 
         _aetherViewModel.SetRows(AetherRoster.Build(
-            AetherPerCharacterStore.Parse(_settings!.AetherPerCharacter),
+            AetherPerCharacterStore.Parse(_settings!.AetherPerCharacter, _settings.AetherCharacterNames),
             names,
             services.Consent.CurrentCharacterHash()));
     }
@@ -1492,7 +1500,7 @@ public partial class App : Application
                 if (_aetherPanel is { } ap && _aetherPanelVisible)
                 {
                     ap.Left = overlay.Left + overlay.ActualWidth + 8;
-                    ap.Top = overlay.Top;
+                    ap.Top = overlay.Top + 40;
                 }
 
                 break;
@@ -1708,10 +1716,12 @@ public partial class App : Application
                 // name a character from a record like this one or from a consent entry — and a character the
                 // user never gave a consent decision for has no consent entry at all.
                 User? self = services.Data.User(services.Data.ExecutorId());
-                AetherPerCharacterStore store = AetherPerCharacterStore.Parse(_settings.AetherPerCharacter);
+                AetherPerCharacterStore store = AetherPerCharacterStore.Parse(
+                    _settings.AetherPerCharacter, _settings.AetherCharacterNames);
                 if (store.Upsert(hash, new AetherSnapshot(b, bonus, nowMs, self?.Nickname, self?.Server ?? 0)))
                 {
                     _settings.AetherPerCharacter = store.Serialize();
+                    _settings.AetherCharacterNames = store.SerializeNames();
                 }
             }
         }
