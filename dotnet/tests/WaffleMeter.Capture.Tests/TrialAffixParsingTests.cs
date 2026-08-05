@@ -133,6 +133,32 @@ public sealed class TrialAffixParsingTests
         Assert.Equal(1, data.BuffSaves);
     }
 
+    /// <summary>The affixes ride the mob-spawn packet far more often than the buff-apply one — measured over a
+    /// four-run capture, 360 broadcasts reached the client and only 8 were buff-applies, so reading applies
+    /// alone leaves whole runs unlabelled.</summary>
+    [Fact]
+    public void An_affix_embedded_in_a_spawn_packet_is_recovered()
+    {
+        // 0x3641 spawn: [0x41][0x36][varint entity]...[affix code somewhere in the body]...
+        var body = new List<byte> { 0x41, 0x36, 0x40, 0x11, 0x22, 0x33 };
+        AddU32(body, 19993601);            // 보스 강화 3단계
+        body.AddRange(new byte[] { 0x00, 0x40, 0x02, 0x44, 0x55, 0x66 });
+
+        RecordingData data = Run(body);
+
+        Assert.Contains((TrialAffixGroup.BossBuff, 3), data.Affixes);
+    }
+
+    [Fact]
+    public void A_spawn_without_an_affix_reports_none()
+    {
+        var body = new List<byte> { 0x41, 0x36, 0x40, 0x11, 0x22, 0x33 };
+        AddU32(body, 2300582);             // an ordinary mobCode, not an affix
+        body.AddRange(new byte[] { 0x00, 0x40, 0x02, 0x44, 0x55, 0x66 });
+
+        Assert.Empty(Run(body).Affixes);
+    }
+
     /// <summary>0x6100 body: [u32 mapId][u8 phase][u64 startMs][u64 endMs].</summary>
     private static List<byte> PhaseWindow(int opcodeLow, int mapId, int phase, long startMs, long endMs)
     {

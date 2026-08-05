@@ -1254,6 +1254,31 @@ public sealed class StreamProcessor
         return null;
     }
 
+    /// <summary>
+    /// Recover the 시련 난이도 affixes from a spawn packet's embedded buff list.
+    /// <para>The affixes are applied to the dungeon's mobs, so they ride the buff-apply packet AND every
+    /// spawn — and the spawn is overwhelmingly the bigger source: measured over a four-run capture, 360 affix
+    /// broadcasts reached the client but only 8 came through the buff-apply path, so reading applies alone
+    /// misses ~98% of them and whole runs can go unlabelled (one of those four did).</para>
+    /// <para>The embedded list's structure is not decoded — the packet is scanned for the sixteen known affix
+    /// codes as u32-LE instead. That is safe precisely because the codes are the identity: each is a specific
+    /// 8-digit value, so a coincidental 4-byte match is a ~1-in-4-billion event per position, and a wrong hit
+    /// could at worst mislabel a difficulty the very next spawn corrects.</para>
+    /// </summary>
+    private void ScanSpawnForTrialAffix(byte[] packet, int bodyStart)
+    {
+        for (int i = bodyStart; i + 4 <= packet.Length; i++)
+        {
+            int code = PacketPrimitives.ParseUInt32Le(packet, i);
+            if (TrialAffixCatalog.TryResolve(code, out TrialAffix affix))
+            {
+                _data.SaveTrialAffix(affix.Group, affix.Level, 0);
+                _sink.Meta("trial-affix",
+                    ("group", (int)affix.Group), ("level", affix.Level), ("code", code), ("from", "spawn"));
+            }
+        }
+    }
+
     /// <summary>Summon / mob-spawn packet 0x3640. Kotlin parseSummonPacket (502-559). Emits a
     /// mob_spawn meta (and records the instanceId-&gt;mobCode map) plus a summon_map meta.</summary>
     private void ParseSummonPacket(byte[] packet, bool extraFlag)
@@ -1276,6 +1301,8 @@ public sealed class StreamProcessor
         {
             return;
         }
+
+        ScanSpawnForTrialAffix(packet, offset);
 
         int codeMarkerIdx = FindArrayIndex(packet, 0x00, 0x40, 0x02);
         if (codeMarkerIdx == -1)
