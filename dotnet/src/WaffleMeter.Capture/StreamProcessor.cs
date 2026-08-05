@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using K4os.Compression.LZ4;
 
@@ -121,6 +121,16 @@ public sealed class StreamProcessor
     private const int AetherKeyB = 0x0C | (0x61 << 8);         // 0x610C
     // Field-boss respawn-timer broadcast (0x91 category). Carries a table of boss-code → target-time records.
     private const int FieldBossTimerKey = 0x01 | (0x91 << 8);  // 0x9101
+    // Dungeon instance phase windows (same 0x61 category as the resource family). Body is
+    // [u32-LE mapId][u8 phase][u64-LE startMs][u64-LE endMs]. Only the trial needs it: its main phase length
+    // IS the 제한 시간 난이도 setting, and that setting is not an abnormal so nothing else carries it.
+    private const int InstancePhaseKeyA = 0x00 | (0x61 << 8);  // 0x6100
+    private const int InstancePhaseKeyB = 0x01 | (0x61 << 8);  // 0x6101
+
+    // Epoch-ms sanity bounds for the phase window (2020-01-01 .. 2100-01-01). A window is only believed when
+    // both ends land inside these, so a coincidental map-id match can't manufacture one.
+    private const long MinPlausibleEpochMs = 1_577_836_800_000L;
+    private const long MaxPlausibleEpochMs = 4_102_444_800_000L;
 
     // Opcodes safe to replay from a DUP-SUPPRESSED second game stream (see OnPacketReceived identityOnly). These
     // are all IDEMPOTENT — nickname (own/other), power, party roster, member profile, and mob spawn just
@@ -160,6 +170,8 @@ public sealed class StreamProcessor
         [MemberProfileKey] = "MemberProfile",
         [AetherKeyA] = "AetherStatus",
         [AetherKeyB] = "AetherStatus",
+        [InstancePhaseKeyA] = "InstancePhase",
+        [InstancePhaseKeyB] = "InstancePhase",
         [FieldBossTimerKey] = "FieldBossTimer",
     };
 
@@ -379,6 +391,10 @@ public sealed class StreamProcessor
                     break;
                 case FieldBossTimerKey:
                     ParseFieldBossTimers(packet, opcodeOffset + 2, arrivedAt);
+                    break;
+                case InstancePhaseKeyA:
+                case InstancePhaseKeyB:
+                    ParseInstancePhase(packet, opcodeOffset + 2);
                     break;
             }
         }
@@ -1558,6 +1574,16 @@ public sealed class StreamProcessor
             int skillCode = PacketPrimitives.ParseUInt32Le(packet, offset);
             offset += 4;
 
+            // 시련 난이도 어픽스는 던전 안 몹에 걸리는 무기한 버프다. 아래 두 게이트(직업 버프 대역 / 무기한
+            // 지속)에서 각각 한 번씩 버려지므로 여기서 가로채고, 버프 저장소로는 보내지 않는다 — 보내면 몹
+            // 버프가 버프 오버레이에 뜬다. 코드 자체가 단계를 1:1로 말해줘서 값 디코딩이 필요 없다.
+            if (TrialAffixCatalog.TryResolve(skillCode, out TrialAffix affix))
+            {
+                _data.SaveTrialAffix(affix.Group, affix.Level, arrivedAt);
+                _sink.Meta("trial-affix", ("group", (int)affix.Group), ("level", affix.Level), ("code", skillCode));
+                return;
+            }
+
             // Job-buff codes are <2-digit job prefix><...>: 11xxxxxxx(검성)..19xxxxxxx(권성, 2026-07-01 패치).
             // The upper bound was 190_000_000 (8 classes, max 18x); 권성 buffs are 190_000_000..199_999_999,
             // so it must reach 199_999_999 or every 권성 buff/debuff is dropped here.
@@ -1832,6 +1858,40 @@ public sealed class StreamProcessor
 
         _data.SaveShugoKey(s.Base, s.Bonus);
         _sink.Meta("shugokey", ("base", s.Base), ("bonus", s.Bonus), ("total", s.Total));
+    }
+
+    /// <summary>
+    /// Dungeon instance phase window (0x6100 / 0x6101): <c>[u32-LE mapId][u8 phase][u64-LE startMs][u64-LE
+    /// endMs]</c>. The trial's main phase (2) is exactly its 제한 시간 setting, which is one of the four
+    /// difficulty knobs and the only one with no abnormal to read it from.
+    /// <para>Layout verified two ways: the trial's phase-2 window measures 600 s in both captured runs (=
+    /// 제한 시간 4단계, matching the two abnormal-borne affixes in the same runs, which are also 4), and a
+    /// non-trial control (무스펠의 성배) measures 7,200 s — its catalogued dungeon time exactly. Both
+    /// timestamps are validated as plausible epoch-ms so a coincidental mapId match can't be mistaken for a
+    /// window.</para>
+    /// </summary>
+    private void ParseInstancePhase(byte[] packet, int bodyStart)
+    {
+        if (bodyStart + 21 > packet.Length)
+        {
+            return;
+        }
+
+        int mapId = PacketPrimitives.ParseUInt32Le(packet, bodyStart);
+        int phase = packet[bodyStart + 4];
+        long startMs = PacketPrimitives.ReadUInt64Le(packet, bodyStart + 5);
+        long endMs = PacketPrimitives.ReadUInt64Le(packet, bodyStart + 13);
+
+        // Both ends must be plausible epoch-ms and ordered. Without this a stray 4-byte match on a map id
+        // would turn arbitrary bytes into a "window".
+        if (mapId <= 0 || phase <= 0
+            || startMs < MinPlausibleEpochMs || startMs > MaxPlausibleEpochMs
+            || endMs <= startMs || endMs > MaxPlausibleEpochMs)
+        {
+            return;
+        }
+
+        _data.SaveInstancePhaseWindow(mapId, phase, startMs, endMs - startMs);
     }
 
     /// <summary>Field-boss respawn timers 0x9101. Extracts boss-code → target-time records and forwards them

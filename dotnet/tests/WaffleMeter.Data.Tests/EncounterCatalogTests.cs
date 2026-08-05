@@ -164,6 +164,30 @@ public sealed class EncounterCatalogTests
         Assert.Equal("바크론 (시련)", catalog.DisplayName(2300582, blank));
     }
 
+    /// <summary>The trial needs this: every one of its levels 4~16 shares one dungeonId and one set of boss
+    /// codes, so the catalogue can only ever say "시련" and the level has to come from the packet stream.</summary>
+    [Fact]
+    public void A_variant_override_replaces_the_catalogued_label()
+    {
+        EncounterCatalog catalog = EncounterCatalog.Parse(Json);
+
+        Assert.Equal("바크론 (시련 16단계)", catalog.DisplayName(2300582, "바크론", "시련 16단계"));
+        Assert.Equal("바크론 (시련 13~16단계)", catalog.DisplayName(2300582, "바크론", "시련 13~16단계"));
+        Assert.Equal("바크론 (시련)", catalog.DisplayName(2300582, "바크론", null));
+        Assert.Equal("바크론 (시련)", catalog.DisplayName(2300582, "바크론", "   "));
+    }
+
+    /// <summary>An override must not conjure a suffix onto a dungeon that has none, nor onto an
+    /// uncatalogued boss.</summary>
+    [Fact]
+    public void A_variant_override_does_not_add_a_suffix_where_there_was_none()
+    {
+        EncounterCatalog catalog = EncounterCatalog.Parse(Json);
+
+        Assert.Equal("영겁의 루드라", catalog.DisplayName(2301014, "영겁의 루드라", "시련 9단계"));
+        Assert.Equal("정령왕 아그로", catalog.DisplayName(2600068, "정령왕 아그로", "시련 9단계"));
+    }
+
     [Fact]
     public void A_missing_file_loads_as_empty_instead_of_throwing()
     {

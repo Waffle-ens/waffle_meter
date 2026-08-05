@@ -454,7 +454,28 @@ public sealed class StatsPayloadBuilder
             Category: info.Category,
             Difficulty: info.Difficulty,
             Stage: info.Stage,
-            BossIndex: info.BossIndex);
+            BossIndex: info.BossIndex,
+            Trial: BuildTrialPayload());
+    }
+
+    /// <summary>The 시련 난이도 block, or null when this run carried no difficulty knobs — which is every
+    /// dungeon except the trial, and a trial run we somehow observed nothing for.</summary>
+    private StatsTrialDifficultyPayload? BuildTrialPayload()
+    {
+        Data.TrialDifficulty trial = _data.TrialDifficulty.Current;
+        if (!trial.IsTrial)
+        {
+            return null;
+        }
+
+        return new StatsTrialDifficultyPayload(
+            trial.Level,
+            trial.LevelMin,
+            trial.LevelMax,
+            trial.Timelimit,
+            trial.Rebirthlimit,
+            trial.BossBuff,
+            trial.SkillUpgrade);
     }
 
     private static StatsResultPayload BuildResultPayload(DpsInformation info, RateSummary rates) => new(

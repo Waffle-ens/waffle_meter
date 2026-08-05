@@ -151,7 +151,10 @@ public partial class App : Application
         _theme = new MeterColorTheme(services.Props);
         SkinManager skinManager = _skin;
         var viewModel = new OverlayViewModel(
-            services.Version, _settings, _theme, () => skinManager.IsLight, services.Data.Encounters);
+            services.Version, _settings, _theme, () => skinManager.IsLight, services.Data.Encounters,
+            // Evaluated per report tick: the trial's difficulty arrives a few seconds after zone-in, so it is
+            // not known when the target line is first drawn.
+            () => services.Data.TrialDifficulty.Current is { IsTrial: true } t ? t.Label : null);
         skinManager.Changed += viewModel.RefreshSkin; // re-theme stat colors on light/dark swap
         var window = new OverlayWindow { DataContext = viewModel };
         LoadPosition(services.Props, window);

@@ -180,12 +180,20 @@ public sealed class EncounterCatalog
     /// <summary>The boss name to SHOW for a mobCode — with its difficulty/stage appended when the catalog knows
     /// one. Falls back to <paramref name="mobName"/> untouched for anything uncatalogued (field bosses, trash,
     /// new content). Never used for the upload payload: the web matches on the raw name.</summary>
-    public string DisplayName(int mobCode, string? mobName)
+    /// <param name="variantOverride">Replaces the catalogued variant label. The trial uses it to say which of
+    /// its 4~16 levels this was — the catalogue only knows the run was "시련", because every level shares one
+    /// dungeonId and one set of boss codes.</param>
+    public string DisplayName(int mobCode, string? mobName, string? variantOverride = null)
     {
         string fallback = mobName ?? string.Empty;
         if (Lookup(mobCode) is not EncounterInfo info || !info.HasVariants || info.VariantLabel.Length == 0)
         {
             return fallback;
+        }
+
+        if (!string.IsNullOrWhiteSpace(variantOverride))
+        {
+            info = info with { VariantLabel = variantOverride! };
         }
 
         // Prefer the live mob name over the catalog's: the catalog's boss names are the web's display names and

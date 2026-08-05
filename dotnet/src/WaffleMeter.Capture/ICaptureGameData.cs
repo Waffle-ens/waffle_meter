@@ -1,4 +1,4 @@
-namespace WaffleMeter.Capture;
+﻿namespace WaffleMeter.Capture;
 
 /// <summary>
 /// The game-state / catalog dependencies the packet parser needs — a narrow subset of Kotlin
@@ -113,6 +113,16 @@ public interface ICaptureGameData
     /// <summary>Field-boss respawn timers (boss code → target Unix-ms) from the 0x9101 broadcast. No-op in
     /// capture-only mode.</summary>
     void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers);
+
+    /// <summary>One 시련 난이도 affix observed for the current instance. The party picks four of these (each
+    /// 1~4) before entering and the displayed difficulty is their sum, so every run of the trial is a
+    /// different fight sharing one map and one set of boss codes. No-op in capture-only mode.</summary>
+    void SaveTrialAffix(TrialAffixGroup group, int level, long arrivedAt) { }
+
+    /// <summary>A dungeon instance's phase window. Only the trial uses it here: its main phase is the
+    /// 제한 시간 affix, which is an instance setting rather than a buff and so has no other carrier.
+    /// No-op in capture-only mode.</summary>
+    void SaveInstancePhaseWindow(int mapId, int phase, long startMs, long windowMs) { }
 
     /// <summary>Full party/raid roster snapshot (each member's nickname + server + sub-group slot 1-8)
     /// from the 0x9702 roster packet. Lets the data layer match members to known uids for the pre-combat

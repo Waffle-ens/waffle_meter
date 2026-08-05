@@ -1,4 +1,4 @@
-using WaffleMeter.Capture;
+﻿using WaffleMeter.Capture;
 
 namespace WaffleMeter.Data;
 
@@ -163,6 +163,16 @@ public sealed class DataManager : ICaptureGameData
     /// <summary>The encounters the stats web publishes statistics for. Drives the upload gate and the
     /// difficulty/stage suffix on a boss name. <see cref="EncounterCatalog.Empty"/> until the asset loads.</summary>
     public EncounterCatalog Encounters { get; private set; } = EncounterCatalog.Empty;
+
+    /// <summary>The 시련 난이도 knobs seen for the current instance. Every trial level shares one map and one
+    /// set of boss codes, so this is the only thing that tells a level-4 run from a level-16 one.</summary>
+    public TrialDifficultyTracker TrialDifficulty { get; } = new();
+
+    public void SaveTrialAffix(TrialAffixGroup group, int level, long arrivedAt) =>
+        TrialDifficulty.Observe(group, level);
+
+    public void SaveInstancePhaseWindow(int mapId, int phase, long startMs, long windowMs) =>
+        TrialDifficulty.ObservePhaseWindow(mapId, phase, startMs, windowMs);
 
     public void LoadEncounters(EncounterCatalog catalog) => Encounters = catalog;
 

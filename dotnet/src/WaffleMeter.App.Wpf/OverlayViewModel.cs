@@ -24,6 +24,10 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     // of a dungeon, so "바크론" alone can't say whether this was 탐험 or 시련.
     private readonly EncounterCatalog _encounters;
 
+    // 시련 바크론's level, when the parser has pinned it. Every trial level shares the same boss codes, so
+    // the catalogue alone can only ever say "시련" — this is what turns that into "시련 16단계".
+    private readonly Func<string?> _trialLabel;
+
     // Rebuilt from the theme whenever a color changes (MeterColorTheme.Changed); rows are records that
     // bake in the brush references, so a theme change re-runs Update on the last report.
     private Brush _userBar = null!, _normalBar = null!, _warningBar = null!, _errorBar = null!;
@@ -53,8 +57,10 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         MeterSettings settings,
         MeterColorTheme theme,
         Func<bool>? isLight = null,
-        EncounterCatalog? encounters = null)
+        EncounterCatalog? encounters = null,
+        Func<string?>? trialLabel = null)
     {
+        _trialLabel = trialLabel ?? (() => null);
         _settings = settings;
         Settings = settings;
         _theme = theme;
@@ -395,7 +401,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         string? mobName = report.Target?.Mob.Name;
         bool hasTarget = !string.IsNullOrEmpty(mobName);
         TargetName = hasTarget
-            ? _encounters.DisplayName(report.Target!.Mob.Code, mobName)
+            ? _encounters.DisplayName(report.Target!.Mob.Code, mobName, _trialLabel())
             : "타겟 인식 실패";
         TargetFailedVisibility = hasTarget ? Visibility.Collapsed : Visibility.Visible;
         if (report.Target is { MaxHp: > 0 } tgt)
