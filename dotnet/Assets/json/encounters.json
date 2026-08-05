@@ -1,0 +1,1619 @@
+{
+ "_comment": "Supported-encounter catalog: mobCode -> (dungeon, variant, boss). Mirrors the stats web's encounter seed — regenerate with dotnet/tools/export-encounters.ts whenever that catalog changes. A battle whose boss mobCode is absent here is never uploaded; the web answers 400 unsupported_encounter for it.",
+ "schemaVersion": 1,
+ "dungeons": [
+  {
+   "key": "expedition-krao-cave",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "크라오 동굴",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "완성체 베르크"
+    },
+    {
+     "index": 2,
+     "name": "강화된 하르콘"
+    },
+    {
+     "index": 3,
+     "name": "방치된 가디오톤"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600002,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2310171,
+       1
+      ],
+      [
+       2310104,
+       2
+      ],
+      [
+       2310108,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600001,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2300171,
+       1
+      ],
+      [
+       2300104,
+       2
+      ],
+      [
+       2300108,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600004,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2320171,
+       1
+      ],
+      [
+       2320104,
+       2
+      ],
+      [
+       2320108,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-urugugu-gorge",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "우루구구 협곡",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "수호대장 라우르"
+    },
+    {
+     "index": 2,
+     "name": "심판자 우라훔"
+    },
+    {
+     "index": 3,
+     "name": "신성한 아욜도르"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600011,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2310206,
+       1
+      ],
+      [
+       2310207,
+       2
+      ],
+      [
+       2310218,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600012,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2300206,
+       1
+      ],
+      [
+       2300207,
+       2
+      ],
+      [
+       2300218,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600013,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2320206,
+       1
+      ],
+      [
+       2320207,
+       2
+      ],
+      [
+       2320218,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-fire-temple",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "불의 신전",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "붉은불꽃 이그누스"
+    },
+    {
+     "index": 2,
+     "name": "검은연기 무르트"
+    },
+    {
+     "index": 3,
+     "name": "크로메데의 욕망"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600021,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2310311,
+       1
+      ],
+      [
+       2310312,
+       2
+      ],
+      [
+       2310371,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600022,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2300311,
+       1
+      ],
+      [
+       2300312,
+       2
+      ],
+      [
+       2300371,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600023,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2320311,
+       1
+      ],
+      [
+       2320312,
+       2
+      ],
+      [
+       2320371,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-draupnir",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "드라웁니르",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "초월한 바카르마"
+    },
+    {
+     "index": 2,
+     "name": "몽환의 라크슈미"
+    },
+    {
+     "index": 3,
+     "name": "포식자 사라스와티"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600031,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2310471,
+       1
+      ],
+      [
+       2310401,
+       2
+      ],
+      [
+       2310403,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600032,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2300471,
+       1
+      ],
+      [
+       2300401,
+       2
+      ],
+      [
+       2300403,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600033,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2320471,
+       1
+      ],
+      [
+       2320401,
+       2
+      ],
+      [
+       2320403,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-bakron-floating-island",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "바크론의 공중섬",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "티에"
+    },
+    {
+     "index": 2,
+     "name": "타몬"
+    },
+    {
+     "index": 3,
+     "name": "바크론"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600071,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2310810,
+       1
+      ],
+      [
+       2310811,
+       2
+      ],
+      [
+       2310812,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600072,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2300810,
+       1
+      ],
+      [
+       2300811,
+       2
+      ],
+      [
+       2300812,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600073,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2320810,
+       1
+      ],
+      [
+       2320811,
+       2
+      ],
+      [
+       2320812,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "시련",
+     "dungeonId": 600074,
+     "difficulty": "시련",
+     "stage": null,
+     "mobs": [
+      [
+       2300580,
+       1
+      ],
+      [
+       2300581,
+       2
+      ],
+      [
+       2300582,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-savage-horn-cavern",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "사나운 뿔 암굴",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "번견 쿠하푸"
+    },
+    {
+     "index": 2,
+     "name": "강령술사 두안카"
+    },
+    {
+     "index": 3,
+     "name": "사나운 뿔 누아쿰"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600091,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2310908,
+       1
+      ],
+      [
+       2310909,
+       2
+      ],
+      [
+       2310910,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600092,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2300908,
+       1
+      ],
+      [
+       2300909,
+       2
+      ],
+      [
+       2300910,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600093,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2320908,
+       1
+      ],
+      [
+       2320909,
+       2
+      ],
+      [
+       2320910,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-dead-dramata-nest",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "죽은 드라마타의 둥지",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "부화의 나야트만"
+    },
+    {
+     "index": 2,
+     "name": "관리자 나지움"
+    },
+    {
+     "index": 3,
+     "name": "부패한 두르바티"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600041,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2300508,
+       1
+      ],
+      [
+       2300507,
+       2
+      ],
+      [
+       2300509,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600042,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2310508,
+       1
+      ],
+      [
+       2310507,
+       2
+      ],
+      [
+       2310509,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 610044,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2300154,
+       1
+      ],
+      [
+       2300153,
+       2
+      ],
+      [
+       2300155,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-cradle-of-nothingness",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "무의 요람",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "다차원의 벨티라스"
+    },
+    {
+     "index": 2,
+     "name": "엄숙한 발칸"
+    },
+    {
+     "index": 3,
+     "name": "고뇌하는 바카르마"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600121,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2311302,
+       1
+      ],
+      [
+       2311303,
+       2
+      ],
+      [
+       2311301,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600122,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2301302,
+       1
+      ],
+      [
+       2301303,
+       2
+      ],
+      [
+       2301301,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600123,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2321302,
+       1
+      ],
+      [
+       2321303,
+       2
+      ],
+      [
+       2321301,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-hall-of-illusion",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "환영의 회랑",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "글래스베인"
+    },
+    {
+     "index": 2,
+     "name": "나사라크"
+    },
+    {
+     "index": 3,
+     "name": "나트하라"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600131,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2311401,
+       1
+      ],
+      [
+       2311402,
+       2
+      ],
+      [
+       2311403,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600132,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2301401,
+       1
+      ],
+      [
+       2301402,
+       2
+      ],
+      [
+       2301403,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600133,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2321401,
+       1
+      ],
+      [
+       2321402,
+       2
+      ],
+      [
+       2321403,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-blue-breath-island",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "푸른 숨의 섬",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "현명한 바움누트"
+    },
+    {
+     "index": 2,
+     "name": "팽창하는 자이르페"
+    },
+    {
+     "index": 3,
+     "name": "깨어난 알투라돈"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600141,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2300189,
+       1
+      ],
+      [
+       2300190,
+       2
+      ],
+      [
+       2300188,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600142,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2300219,
+       1
+      ],
+      [
+       2300230,
+       2
+      ],
+      [
+       2300200,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600143,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2300244,
+       1
+      ],
+      [
+       2300245,
+       2
+      ],
+      [
+       2300243,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "expedition-fallen-deva-castle",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "타락한 데바의 성",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "의지의 투르겐"
+    },
+    {
+     "index": 2,
+     "name": "금기의 마수 그리오사"
+    },
+    {
+     "index": 3,
+     "name": "바실루스"
+    }
+   ],
+   "variants": [
+    {
+     "label": "탐험",
+     "dungeonId": 600151,
+     "difficulty": "탐험",
+     "stage": null,
+     "mobs": [
+      [
+       2301601,
+       1
+      ],
+      [
+       2301602,
+       2
+      ],
+      [
+       2301603,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "보통",
+     "dungeonId": 600152,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2301701,
+       1
+      ],
+      [
+       2301702,
+       2
+      ],
+      [
+       2301703,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600153,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2301721,
+       1
+      ],
+      [
+       2301722,
+       2
+      ],
+      [
+       2301723,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "transcend-deus-research-base",
+   "category": "초월",
+   "categoryOrd": 2,
+   "name": "데우스 연구기지",
+   "variantType": "stage",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "겔코스"
+    },
+    {
+     "index": 2,
+     "name": "나즈문"
+    },
+    {
+     "index": 3,
+     "name": "아티엘"
+    }
+   ],
+   "variants": [
+    {
+     "label": "1단계",
+     "dungeonId": 600053,
+     "difficulty": null,
+     "stage": "1",
+     "mobs": [
+      [
+       2330616,
+       1
+      ],
+      [
+       2330615,
+       2
+      ],
+      [
+       2330601,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "2단계",
+     "dungeonId": 600055,
+     "difficulty": null,
+     "stage": "2",
+     "mobs": [
+      [
+       2340616,
+       1
+      ],
+      [
+       2340615,
+       2
+      ],
+      [
+       2340601,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "3단계",
+     "dungeonId": 600058,
+     "difficulty": null,
+     "stage": "3",
+     "mobs": [
+      [
+       2343616,
+       1
+      ],
+      [
+       2343615,
+       2
+      ],
+      [
+       2343601,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "4단계",
+     "dungeonId": 610052,
+     "difficulty": null,
+     "stage": "4",
+     "mobs": [
+      [
+       2347616,
+       1
+      ],
+      [
+       2347615,
+       2
+      ],
+      [
+       2347601,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "transcend-shattered-arcanis",
+   "category": "초월",
+   "categoryOrd": 2,
+   "name": "조각난 아르카니스",
+   "variantType": "stage",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "거짓의 실리아토르"
+    },
+    {
+     "index": 2,
+     "name": "고통의 루탈리스"
+    },
+    {
+     "index": 3,
+     "name": "공허의 탈리스라"
+    }
+   ],
+   "variants": [
+    {
+     "label": "1단계",
+     "dungeonId": 600063,
+     "difficulty": null,
+     "stage": "1",
+     "mobs": [
+      [
+       2330707,
+       1
+      ],
+      [
+       2330708,
+       2
+      ],
+      [
+       2330709,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "2단계",
+     "dungeonId": 600065,
+     "difficulty": null,
+     "stage": "2",
+     "mobs": [
+      [
+       2350707,
+       1
+      ],
+      [
+       2350708,
+       2
+      ],
+      [
+       2350709,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "3단계",
+     "dungeonId": 600068,
+     "difficulty": null,
+     "stage": "3",
+     "mobs": [
+      [
+       2353707,
+       1
+      ],
+      [
+       2353708,
+       2
+      ],
+      [
+       2353709,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "4단계",
+     "dungeonId": 610062,
+     "difficulty": null,
+     "stage": "4",
+     "mobs": [
+      [
+       2356707,
+       1
+      ],
+      [
+       2356708,
+       2
+      ],
+      [
+       2356709,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "transcend-sunken-life-temple",
+   "category": "초월",
+   "categoryOrd": 2,
+   "name": "가라앉은 생명의 신전",
+   "variantType": "stage",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "노래하는 엘라이드"
+    },
+    {
+     "index": 2,
+     "name": "심해의 파이디온"
+    },
+    {
+     "index": 3,
+     "name": "가라앉은 에몬"
+    }
+   ],
+   "variants": [
+    {
+     "label": "1단계",
+     "dungeonId": 610010,
+     "difficulty": null,
+     "stage": "1",
+     "mobs": [
+      [
+       2301503,
+       1
+      ],
+      [
+       2301502,
+       2
+      ],
+      [
+       2301501,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "2단계",
+     "dungeonId": 610011,
+     "difficulty": null,
+     "stage": "2",
+     "mobs": [
+      [
+       2300002,
+       1
+      ],
+      [
+       2300001,
+       2
+      ],
+      [
+       2300000,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "3단계",
+     "dungeonId": 610012,
+     "difficulty": null,
+     "stage": "3",
+     "mobs": [
+      [
+       2300017,
+       1
+      ],
+      [
+       2300016,
+       2
+      ],
+      [
+       2300015,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "4단계",
+     "dungeonId": 610013,
+     "difficulty": null,
+     "stage": "4",
+     "mobs": [
+      [
+       2300133,
+       1
+      ],
+      [
+       2300132,
+       2
+      ],
+      [
+       2300131,
+       3
+      ],
+      [
+       2311101,
+       3
+      ],
+      [
+       2311102,
+       2
+      ],
+      [
+       2311103,
+       1
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "transcend-abyss-horn-cavern",
+   "category": "초월",
+   "categoryOrd": 2,
+   "name": "심연의 뿔 암굴",
+   "variantType": "stage",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "어미잃은 변견 카푸"
+    },
+    {
+     "index": 2,
+     "name": "대강령술사 다칸"
+    },
+    {
+     "index": 3,
+     "name": "돌아온 추방자 가르가움"
+    }
+   ],
+   "variants": [
+    {
+     "label": "1단계",
+     "dungeonId": 610030,
+     "difficulty": null,
+     "stage": "1",
+     "mobs": [
+      [
+       2300473,
+       1
+      ],
+      [
+       2300474,
+       2
+      ],
+      [
+       2300475,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "2단계",
+     "dungeonId": 610031,
+     "difficulty": null,
+     "stage": "2",
+     "mobs": [
+      [
+       2300491,
+       1
+      ],
+      [
+       2300492,
+       2
+      ],
+      [
+       2300493,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "3단계",
+     "dungeonId": 610032,
+     "difficulty": null,
+     "stage": "3",
+     "mobs": [
+      [
+       2300527,
+       1
+      ],
+      [
+       2300528,
+       2
+      ],
+      [
+       2300529,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "4단계",
+     "dungeonId": 610033,
+     "difficulty": null,
+     "stage": "4",
+     "mobs": [
+      [
+       2300544,
+       1
+      ],
+      [
+       2300545,
+       2
+      ],
+      [
+       2300546,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "transcend-mirror-of-crimson-love",
+   "category": "초월",
+   "categoryOrd": 2,
+   "name": "붉은 연심의 거울",
+   "variantType": "stage",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "로타르"
+    },
+    {
+     "index": 2,
+     "name": "롭스티노"
+    },
+    {
+     "index": 3,
+     "name": "크로메데의 심연"
+    }
+   ],
+   "variants": [
+    {
+     "label": "1단계",
+     "dungeonId": 610020,
+     "difficulty": null,
+     "stage": "1",
+     "mobs": [
+      [
+       2300259,
+       1
+      ],
+      [
+       2300260,
+       2
+      ],
+      [
+       2300261,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "2단계",
+     "dungeonId": 610021,
+     "difficulty": null,
+     "stage": "2",
+     "mobs": [
+      [
+       2300299,
+       1
+      ],
+      [
+       2300300,
+       2
+      ],
+      [
+       2300317,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "3단계",
+     "dungeonId": 610022,
+     "difficulty": null,
+     "stage": "3",
+     "mobs": [
+      [
+       2300334,
+       1
+      ],
+      [
+       2300335,
+       2
+      ],
+      [
+       2300336,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "4단계",
+     "dungeonId": 610023,
+     "difficulty": null,
+     "stage": "4",
+     "mobs": [
+      [
+       2300353,
+       1
+      ],
+      [
+       2300354,
+       2
+      ],
+      [
+       2300355,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "sanctuary-rudra",
+   "category": "성역",
+   "categoryOrd": 3,
+   "name": "심연의 재련 : 루드라",
+   "variantType": "all",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "영겁의 루드라"
+    },
+    {
+     "index": 2,
+     "name": "중앙 심연 융합로"
+    },
+    {
+     "index": 3,
+     "name": "심연의 날개 케투"
+    },
+    {
+     "index": 4,
+     "name": "이격의 라후"
+    }
+   ],
+   "variants": [
+    {
+     "label": "전체",
+     "dungeonId": 600082,
+     "difficulty": null,
+     "stage": null,
+     "mobs": [
+      [
+       2301014,
+       1
+      ],
+      [
+       2301008,
+       2
+      ],
+      [
+       2301007,
+       3
+      ],
+      [
+       2301006,
+       4
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "sanctuary-corrupted-purification-site",
+   "category": "성역",
+   "categoryOrd": 3,
+   "name": "침식의 정화소",
+   "variantType": "all",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "포식하는 뉴트라"
+    },
+    {
+     "index": 2,
+     "name": "감시 장치"
+    },
+    {
+     "index": 3,
+     "name": "검은 피 블라트"
+    },
+    {
+     "index": 4,
+     "name": "중합체 바고트"
+    }
+   ],
+   "variants": [
+    {
+     "label": "전체",
+     "dungeonId": 620011,
+     "difficulty": null,
+     "stage": null,
+     "mobs": [
+      [
+       2301209,
+       1
+      ],
+      [
+       2301216,
+       2
+      ],
+      [
+       2301207,
+       3
+      ],
+      [
+       2301208,
+       4
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "sanctuary-muspels-holy-grail",
+   "category": "성역",
+   "categoryOrd": 3,
+   "name": "무스펠의 성배",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "이스카리엘"
+    },
+    {
+     "index": 2,
+     "name": "칼드릭스"
+    }
+   ],
+   "variants": [
+    {
+     "label": "보통",
+     "dungeonId": 620021,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2301089,
+       1
+      ],
+      [
+       2301090,
+       2
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 620021,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2301059,
+       1
+      ],
+      [
+       2301060,
+       2
+      ]
+     ]
+    }
+   ]
+  }
+ ]
+}

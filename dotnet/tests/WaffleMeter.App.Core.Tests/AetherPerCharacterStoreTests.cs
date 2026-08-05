@@ -90,6 +90,71 @@ public sealed class AetherPerCharacterStoreTests
         Assert.NotNull(store.Get("real"));
     }
 
+    /// <summary>The store's key is a one-way hash, so the 오드 목록 can only name a character from the record
+    /// itself or from a consent entry — and a character with no consent decision has no consent entry at all.
+    /// The nickname is Base64'd on the wire because <c>,</c> and <c>;</c> are the separators.</summary>
+    [Fact]
+    public void Round_trips_the_character_name_and_server()
+    {
+        var store = AetherPerCharacterStore.Parse(null);
+        store.Upsert("h", new AetherSnapshot(120, 30, 1000, "와플, 님;)", 3));
+
+        AetherSnapshot? got = AetherPerCharacterStore.Parse(store.Serialize()).Get("h");
+
+        Assert.Equal("와플, 님;)", got!.Value.Nickname);
+        Assert.Equal(3, got.Value.Server);
+        Assert.Equal(120, got.Value.Base);
+        Assert.Equal(30, got.Value.Bonus);
+    }
+
+    /// <summary>A record with no name known yet stays in the original 4-field shape, so an install that has
+    /// never seen one writes byte-identical settings to what earlier versions wrote.</summary>
+    [Fact]
+    public void A_nameless_record_keeps_the_four_field_form()
+    {
+        var store = AetherPerCharacterStore.Parse(null);
+        store.Upsert("h", new AetherSnapshot(120, 30, 1000));
+
+        Assert.Equal("h,120,30,1000", store.Serialize());
+    }
+
+    /// <summary>Field count alone separates the three formats: 4 = current-without-name, 5 = the bad
+    /// pre-2026-07-30 records (dropped), 6 = current-with-name.</summary>
+    [Fact]
+    public void The_named_form_does_not_collide_with_the_dropped_legacy_form()
+    {
+        var named = AetherPerCharacterStore.Parse(null);
+        named.Upsert("new", new AetherSnapshot(470, 610, 1000, "이름", 3));
+
+        AetherPerCharacterStore store = AetherPerCharacterStore.Parse(
+            "old,20,590,610,1000;" + named.Serialize());
+
+        Assert.Null(store.Get("old"));
+        Assert.Equal("이름", store.Get("new")!.Value.Nickname);
+    }
+
+    [Fact]
+    public void A_corrupt_name_field_costs_only_the_name()
+    {
+        AetherPerCharacterStore store = AetherPerCharacterStore.Parse("h,1,2,3,4,!!!not-base64!!!");
+
+        AetherSnapshot? got = store.Get("h");
+        Assert.NotNull(got);
+        Assert.Null(got!.Value.Nickname);
+        Assert.Equal(1, got.Value.Base);
+    }
+
+    [Fact]
+    public void All_lists_every_character_newest_first()
+    {
+        var store = AetherPerCharacterStore.Parse(null);
+        store.Upsert("a", new AetherSnapshot(1, 0, 100));
+        store.Upsert("b", new AetherSnapshot(2, 0, 300));
+        store.Upsert("c", new AetherSnapshot(3, 0, 200));
+
+        Assert.Equal(["b", "c", "a"], store.All().Select(kv => kv.Key));
+    }
+
     [Fact]
     public void RemoveAll_reports_false_when_nothing_matched()
     {

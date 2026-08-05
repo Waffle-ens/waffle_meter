@@ -17,12 +17,14 @@ namespace WaffleMeter.App.Wpf;
 public sealed class BattleHistoryViewModel : INotifyPropertyChanged
 {
     private readonly MeterColorTheme _theme;
+    private readonly EncounterCatalog _encounters;
     private List<(int Index, DpsReport Report)> _battles = [];
 
-    public BattleHistoryViewModel(MeterColorTheme theme, MeterSettings settings)
+    public BattleHistoryViewModel(MeterColorTheme theme, MeterSettings settings, EncounterCatalog? encounters = null)
     {
         _theme = theme;
         Settings = settings;
+        _encounters = encounters ?? EncounterCatalog.Empty;
         theme.Changed += (_, _) => Rebuild();
     }
 
@@ -63,7 +65,7 @@ public sealed class BattleHistoryViewModel : INotifyPropertyChanged
         Brush durationBrush = FrozenSolid(ToColor(_theme.BossRightValue));
 
         Rows.Clear();
-        foreach (BattleHistoryItem item in BattleHistory.Build(_battles))
+        foreach (BattleHistoryItem item in BattleHistory.Build(_battles, _encounters))
         {
             if (!reportByIndex.TryGetValue(item.Index, out DpsReport? report))
             {

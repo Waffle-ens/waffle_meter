@@ -160,6 +160,12 @@ public sealed class DataManager : ICaptureGameData
     /// gate for the opt-in "던전 강제 집계" display bypass.</summary>
     public bool IsInstancedBoss(int mobCode) => _contentTypes.ContainsKey(mobCode);
 
+    /// <summary>The encounters the stats web publishes statistics for. Drives the upload gate and the
+    /// difficulty/stage suffix on a boss name. <see cref="EncounterCatalog.Empty"/> until the asset loads.</summary>
+    public EncounterCatalog Encounters { get; private set; } = EncounterCatalog.Empty;
+
+    public void LoadEncounters(EncounterCatalog catalog) => Encounters = catalog;
+
     public void LoadBuffs(IEnumerable<Buff> buffs)
     {
         foreach (Buff b in buffs)

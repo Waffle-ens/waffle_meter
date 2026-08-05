@@ -1,0 +1,97 @@
+using System.Globalization;
+
+namespace WaffleMeter.App.Core;
+
+/// <summary>A name the roster can put to an identity hash, sourced from the consent list.</summary>
+public readonly record struct AetherRosterName(string IdentityHash, string? Nickname, int Server, string? Job);
+
+/// <summary>One row of the 오드 목록 — a character and what it currently holds.</summary>
+public readonly record struct AetherRosterRow(
+    string IdentityHash,
+    string Label,
+    string SubLabel,
+    int Base,
+    int Bonus,
+    int Total,
+    long SavedAtMs,
+    bool IsCurrent)
+{
+    /// <summary>"자연회복(+추가)" as the chip shows it; the bonus half is dropped when there is none.</summary>
+    public string AetherText => Bonus > 0
+        ? string.Concat(Base.ToString(CultureInfo.InvariantCulture), "(+", Bonus.ToString(CultureInfo.InvariantCulture), ")")
+        : Base.ToString(CultureInfo.InvariantCulture);
+}
+
+/// <summary>
+/// Builds the 오드 목록 rows from the per-character store. Pure (no WPF) so the ordering and the
+/// name-resolution fallbacks are unit-testable.
+/// <para>The store is keyed by a one-way identity hash, so a name has to come from somewhere: the record itself
+/// (written since 2026-08-05) or the consent list. Deliberately NOT gated on consent state — the settings
+/// screen's character list only shows <c>accepted</c> characters because it manages consent, but this list
+/// only reports a local balance and has nothing to do with uploading.</para>
+/// </summary>
+public static class AetherRoster
+{
+    public static IReadOnlyList<AetherRosterRow> Build(
+        AetherPerCharacterStore store,
+        IEnumerable<AetherRosterName>? names = null,
+        string? currentHash = null)
+    {
+        var byHash = new Dictionary<string, AetherRosterName>(StringComparer.Ordinal);
+        foreach (AetherRosterName name in names ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(name.IdentityHash))
+            {
+                byHash[name.IdentityHash] = name;
+            }
+        }
+
+        var rows = new List<AetherRosterRow>();
+        foreach ((string hash, AetherSnapshot snapshot) in store.All())
+        {
+            byHash.TryGetValue(hash, out AetherRosterName known);
+
+            // The record's own nickname wins: it is written from the live executor every broadcast, whereas a
+            // consent entry can predate a rename. Fall back to the consent list for records written before the
+            // name was stored, then to a stable stub so the row still shows its balance.
+            string? nickname = FirstNonBlank(snapshot.Nickname, known.Nickname);
+            int server = snapshot.Server > 0 ? snapshot.Server : known.Server;
+
+            string label = nickname is null
+                ? "이름 없는 캐릭터"
+                : server > 0
+                    ? $"{nickname} [{ServerNames.GetServerLabel(server)}]"
+                    : nickname;
+
+            rows.Add(new AetherRosterRow(
+                IdentityHash: hash,
+                Label: label,
+                SubLabel: known.Job ?? string.Empty,
+                Base: snapshot.Base,
+                Bonus: snapshot.Bonus,
+                Total: snapshot.Total,
+                SavedAtMs: snapshot.SavedAtMs,
+                IsCurrent: currentHash != null && string.Equals(hash, currentHash, StringComparison.Ordinal)));
+        }
+
+        // Current character first (that's the one the user is looking at), then most-recently-seen. Ordering by
+        // balance would make the list jump around as the active character spends.
+        return rows
+            .OrderByDescending(r => r.IsCurrent)
+            .ThenByDescending(r => r.SavedAtMs)
+            .ToList();
+    }
+
+    private static string? FirstNonBlank(params string?[] candidates)
+    {
+        foreach (string? candidate in candidates)
+        {
+            if (!string.IsNullOrWhiteSpace(candidate))
+            {
+                return candidate.Trim();
+            }
+        }
+
+        return null;
+    }
+}

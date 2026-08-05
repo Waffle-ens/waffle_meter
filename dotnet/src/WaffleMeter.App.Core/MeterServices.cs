@@ -300,6 +300,15 @@ public sealed class MeterServices
         {
             Data.LoadContentTypes(ReferenceJson.LoadContentTypes(contentTypes));
         }
+
+        // Supported-encounter catalog (mobCode -> dungeon/difficulty/boss). Optional in the same way: without it
+        // EncounterCatalog.Empty gates nothing and boss names keep their bare form.
+        string encounters = Path.Combine(jsonDir, "encounters.json");
+        if (File.Exists(encounters))
+        {
+            Data.LoadEncounters(EncounterCatalog.Load(encounters));
+        }
+
         foreach (string buffFile in new[] { "buff.json", "buff_custom.json" })
         {
             string path = Path.Combine(jsonDir, buffFile);

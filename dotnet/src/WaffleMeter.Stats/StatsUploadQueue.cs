@@ -130,6 +130,16 @@ public sealed class StatsUploadQueue : IDisposable
             return;
         }
 
+        // 통계 웹이 집계하는 던전(원정/초월/성역)의 보스가 아니면 보내지 않는다. 서버는 카탈로그에 없는 mobCode를
+        // 400 unsupported_encounter로 거절하는데 미터엔 재시도 경로가 없어서, 그렇게 거절된 전투는 그대로 사라진다
+        // — 필드보스처럼 애초에 집계 대상이 아닌 전투로 그 실패를 만들 이유가 없다. 카탈로그가 없으면(자산 누락)
+        // IsSupported가 전부 true라 예전 동작 그대로다.
+        if (!_data.Encounters.IsSupported(target.Mob.Code))
+        {
+            MarkSkipped("unsupported_encounter");
+            return;
+        }
+
         if (IsKillConfirmed(log))
         {
             Enqueue(log, killConfirmed: true);

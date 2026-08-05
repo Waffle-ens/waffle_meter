@@ -20,6 +20,10 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private readonly MeterColorTheme _theme;
     private readonly Func<bool> _isLight;
 
+    // Supplies the difficulty/stage suffix on the target name. The same boss NAME appears in every difficulty
+    // of a dungeon, so "바크론" alone can't say whether this was 탐험 or 시련.
+    private readonly EncounterCatalog _encounters;
+
     // Rebuilt from the theme whenever a color changes (MeterColorTheme.Changed); rows are records that
     // bake in the brush references, so a theme change re-runs Update on the last report.
     private Brush _userBar = null!, _normalBar = null!, _warningBar = null!, _errorBar = null!;
@@ -44,13 +48,19 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private static readonly Brush LightPercent = Frozen(Color.FromRgb(0x04, 0x78, 0x57));
     private static readonly Brush LightCombatTime = Frozen(Color.FromRgb(0x33, 0x41, 0x55));
 
-    public OverlayViewModel(string version, MeterSettings settings, MeterColorTheme theme, Func<bool>? isLight = null)
+    public OverlayViewModel(
+        string version,
+        MeterSettings settings,
+        MeterColorTheme theme,
+        Func<bool>? isLight = null,
+        EncounterCatalog? encounters = null)
     {
         _settings = settings;
         Settings = settings;
         _theme = theme;
         Theme = theme;
         _isLight = isLight ?? (() => false);
+        _encounters = encounters ?? EncounterCatalog.Empty;
         RebuildBrushes();
         theme.Changed += (_, _) =>
         {
@@ -384,7 +394,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         _lastReport = report;
         string? mobName = report.Target?.Mob.Name;
         bool hasTarget = !string.IsNullOrEmpty(mobName);
-        TargetName = hasTarget ? mobName! : "타겟 인식 실패";
+        TargetName = hasTarget
+            ? _encounters.DisplayName(report.Target!.Mob.Code, mobName)
+            : "타겟 인식 실패";
         TargetFailedVisibility = hasTarget ? Visibility.Collapsed : Visibility.Visible;
         if (report.Target is { MaxHp: > 0 } tgt)
         {

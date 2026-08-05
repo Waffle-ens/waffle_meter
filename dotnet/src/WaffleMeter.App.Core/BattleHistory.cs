@@ -18,8 +18,13 @@ public sealed record BattleHistoryItem(
 /// </summary>
 public static class BattleHistory
 {
-    public static IReadOnlyList<BattleHistoryItem> Build(IEnumerable<(int Index, DpsReport Report)> battles)
+    /// <param name="encounters">Supplies the difficulty/stage suffix, so two saved runs of the same dungeon at
+    /// different difficulties don't show as identical rows. Omit for the bare boss names.</param>
+    public static IReadOnlyList<BattleHistoryItem> Build(
+        IEnumerable<(int Index, DpsReport Report)> battles,
+        EncounterCatalog? encounters = null)
     {
+        EncounterCatalog catalog = encounters ?? EncounterCatalog.Empty;
         var items = new List<BattleHistoryItem>();
         foreach ((int index, DpsReport report) in battles)
         {
@@ -31,7 +36,9 @@ public static class BattleHistory
 
             items.Add(new BattleHistoryItem(
                 Index: index,
-                MobName: report.Target?.Mob.Name ?? "알 수 없음",
+                MobName: report.Target is { } target
+                    ? catalog.DisplayName(target.Mob.Code, target.Mob.Name)
+                    : "알 수 없음",
                 IsBoss: report.Target?.Mob.Boss ?? false,
                 TotalAmount: report.Information.Values.Sum(i => i.Amount),
                 BattleTimeMs: battleTime,

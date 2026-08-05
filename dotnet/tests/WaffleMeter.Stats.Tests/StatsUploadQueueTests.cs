@@ -54,7 +54,7 @@ public sealed class StatsUploadQueueTests : IDisposable
             dispatch: job => job(), killRecheckDelay: () => { }, clock: () => 1);
     }
 
-    private DpsLog BossLog(int remainHp, bool boss = true)
+    private DpsLog BossLog(int remainHp, bool boss = true, int mobCode = 12345)
     {
         User me = _dm.User(1)!;
         User ally = _dm.User(2)!;
@@ -63,7 +63,7 @@ public sealed class StatsUploadQueueTests : IDisposable
             Contributors = new List<User> { me, ally },
             BattleStart = 1_000_000,
             BattleEnd = 1_030_000,
-            Target = new MobInfo(100, new Mob(12345, "보스", boss), remainHp: remainHp, maxHp: 1_000_000),
+            Target = new MobInfo(100, new Mob(mobCode, "보스", boss), remainHp: remainHp, maxHp: 1_000_000),
             Information = new Dictionary<int, DpsInformation>
             {
                 [1] = new DpsInformation(1_000_000, 50_000, 60.0, 40.0),
@@ -192,5 +192,80 @@ public sealed class StatsUploadQueueTests : IDisposable
         Assert.Equal(0, status.Uploaded);
         Assert.Equal(1, status.Failed);
         Assert.StartsWith("upload_failed:", status.LastReason);
+    }
+
+    // ── 지원 던전 게이트 ──────────────────────────────────────────────────────────────────────────
+    // 웹은 카탈로그에 없는 mobCode를 400 unsupported_encounter로 거절하고 미터엔 재시도가 없다 — 그 전투는
+    // 그대로 사라진다. 필드보스처럼 애초에 집계 대상이 아닌 전투로 그 실패를 만들 이유가 없다.
+
+    private const string TwoDungeonCatalog = """
+    {
+      "dungeons": [
+        {
+          "key": "expedition-bakron-floating-island", "category": "원정", "categoryOrd": 1,
+          "name": "바크론의 공중섬", "variantType": "difficulty",
+          "bosses": [{"index": 1, "name": "바크론"}],
+          "variants": [{"label": "시련", "dungeonId": 600074, "mobs": [[2300582, 1]]}]
+        }
+      ]
+    }
+    """;
+
+    [Fact]
+    public void Skips_a_boss_the_stats_web_has_no_catalog_for()
+    {
+        _dm.LoadEncounters(EncounterCatalog.Parse(TwoDungeonCatalog));
+        using StatsUploadQueue queue = NewQueue(AcceptingApi(), accept: true);
+
+        queue.OfferIfEligible(BossLog(remainHp: 0, mobCode: 2600068)); // 정령왕 아그로 — 어비스 필드보스
+
+        StatsUploadStatus status = queue.Status();
+        Assert.Equal(0, status.Uploaded);
+        Assert.Equal(1, status.Skipped);
+        Assert.Equal("unsupported_encounter", status.LastReason);
+    }
+
+    [Fact]
+    public void Uploads_a_boss_that_is_in_the_catalog()
+    {
+        _dm.LoadEncounters(EncounterCatalog.Parse(TwoDungeonCatalog));
+        using StatsUploadQueue queue = NewQueue(AcceptingApi(), accept: true);
+
+        queue.OfferIfEligible(BossLog(remainHp: 0, mobCode: 2300582)); // 시련 바크론
+
+        StatsUploadStatus status = queue.Status();
+        Assert.Equal(1, status.Uploaded);
+        Assert.Equal(0, status.Skipped);
+    }
+
+    /// <summary>Fail-open: an install whose catalog asset is missing must keep uploading exactly as before,
+    /// not go silent.</summary>
+    [Fact]
+    public void Uploads_everything_when_no_catalog_is_loaded()
+    {
+        using StatsUploadQueue queue = NewQueue(AcceptingApi(), accept: true);
+
+        queue.OfferIfEligible(BossLog(remainHp: 0, mobCode: 2600068));
+
+        Assert.Equal(1, queue.Status().Uploaded);
+    }
+
+    /// <summary>The gate runs before the kill re-check, so an unsupported encounter never costs the 4s wait.</summary>
+    [Fact]
+    public void The_catalog_gate_precedes_the_kill_recheck()
+    {
+        _dm.LoadEncounters(EncounterCatalog.Parse(TwoDungeonCatalog));
+        bool waited = false;
+        var builder = new StatsPayloadBuilder(_dm, () => false);
+        StatsApiClient api = AcceptingApi();
+        var consent = new StatsConsentManager(_props, _dm, api, () => builder.OwnCharacter());
+        consent.Set("accepted", uploadEnabled: true, publicCharacter: false);
+        using var queue = new StatsUploadQueue(consent, builder, api, _dm, _props,
+            dispatch: job => job(), killRecheckDelay: () => waited = true, clock: () => 1);
+
+        queue.OfferIfEligible(BossLog(remainHp: 500_000, mobCode: 2600068)); // 미확정 킬 + 미지원 보스
+
+        Assert.False(waited);
+        Assert.Equal("unsupported_encounter", queue.Status().LastReason);
     }
 }

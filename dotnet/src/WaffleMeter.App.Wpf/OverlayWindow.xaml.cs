@@ -60,6 +60,9 @@ public partial class OverlayWindow : Window
     public event Action? ThemeRequested;
     public event Action? JoinRequested;
 
+    /// <summary>Footer 오드 badge clicked (App toggles the per-character 오드 panel).</summary>
+    public event Action? AetherListRequested;
+
     /// <summary>Header update badge clicked (App shows the restart toast on demand).</summary>
     public event Action? UpdateRequested;
 
@@ -293,6 +296,13 @@ public partial class OverlayWindow : Window
     private void OnDummyTestButton(object sender, RoutedEventArgs e) => DummyTestToggleRequested?.Invoke();
 
     private void OnHistoryButton(object sender, RoutedEventArgs e) => HistoryRequested?.Invoke();
+
+    // The footer badge, not a header button: mark it handled so the click can't bubble on to anything else.
+    private void OnAetherBadgeClick(object sender, MouseButtonEventArgs e)
+    {
+        AetherListRequested?.Invoke();
+        e.Handled = true;
+    }
 
     private void OnThemeButton(object sender, RoutedEventArgs e) => ThemeRequested?.Invoke();
 

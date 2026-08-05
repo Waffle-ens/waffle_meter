@@ -44,6 +44,10 @@ public partial class App : Application
     private BattleHistoryViewModel? _historyViewModel;
     private bool _historyPanelPositioned;
     private bool _historyPanelVisible;
+    private AetherPanel? _aetherPanel;
+    private AetherPanelViewModel? _aetherViewModel;
+    private bool _aetherPanelPositioned;
+    private bool _aetherPanelVisible;
     private bool _viewingHistory;
     private long _historyBaselineBattleStart;
     // Pre-combat party preview: the roster = recent boss-combat contributors (the party). Combat is the only
@@ -142,7 +146,8 @@ public partial class App : Application
         _settings = new MeterSettings(services.Props);
         _theme = new MeterColorTheme(services.Props);
         SkinManager skinManager = _skin;
-        var viewModel = new OverlayViewModel(services.Version, _settings, _theme, () => skinManager.IsLight);
+        var viewModel = new OverlayViewModel(
+            services.Version, _settings, _theme, () => skinManager.IsLight, services.Data.Encounters);
         skinManager.Changed += viewModel.RefreshSkin; // re-theme stat colors on light/dark swap
         var window = new OverlayWindow { DataContext = viewModel };
         LoadPosition(services.Props, window);
@@ -319,6 +324,9 @@ public partial class App : Application
 
         // Battle-history panel (React HistoryPanel): the 기록 header button toggles it.
         WireHistoryPanel(services, window, viewModel);
+
+        // 오드 목록 panel: the footer 오드 badge toggles it.
+        WireAetherPanel(services, window);
 
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
         // EnsureServing (below) already launches the helper, absorbs any UAC prompt, and WAITS for the
@@ -682,7 +690,14 @@ public partial class App : Application
         // BEFORE wiring the persister so the restore doesn't refresh the saved timestamp. The shugo-festa key
         // is deliberately not persisted — a stale key count would be misleading, so it waits for a broadcast.
         RestoreAetherFromSettings(services);
-        services.Data.AetherStatusChanged += () => Dispatcher.BeginInvoke(() => PersistAether(services));
+        services.Data.AetherStatusChanged += () => Dispatcher.BeginInvoke(() =>
+        {
+            PersistAether(services);
+            if (_aetherPanelVisible)
+            {
+                RefreshAetherRoster(services); // keep an open 오드 목록 in step with the live balance
+            }
+        });
 
         // Combat-assist overlay: the local player's active buff slots, refreshed twice a second.
         _buffOverlayVm = new BuffOverlayViewModel();
@@ -1245,7 +1260,7 @@ public partial class App : Application
 
     private void WireHistoryPanel(MeterServices services, OverlayWindow overlay, OverlayViewModel meterViewModel)
     {
-        _historyViewModel = new BattleHistoryViewModel(_theme!, _settings!);
+        _historyViewModel = new BattleHistoryViewModel(_theme!, _settings!, services.Data.Encounters);
         _historyPanel = new HistoryPanel { DataContext = _historyViewModel };
         LoadWindowSize(services.Props, "historyPanelWidth", "historyPanelHeight", _historyPanel);
         _historyPanel.Show();
@@ -1319,6 +1334,79 @@ public partial class App : Application
             _historyPanelVisible = true;
             _historyPanel.Present(true);
         };
+    }
+
+    /// <summary>The 오드 목록 panel: every character this install has seen and the 오드 it last held. Opened
+    /// from the meter's footer 오드 badge. Rows are rebuilt on open (and while it is on screen) because the
+    /// packet only ever carries the ACTIVE character's balance — the rest of the list is remembered state.</summary>
+    private void WireAetherPanel(MeterServices services, OverlayWindow overlay)
+    {
+        _aetherViewModel = new AetherPanelViewModel(_settings!);
+        _aetherPanel = new AetherPanel { DataContext = _aetherViewModel };
+        LoadWindowSize(services.Props, "aetherPanelWidth", "aetherPanelHeight", _aetherPanel);
+        _aetherPanel.Show();
+        _aetherPanel.Park();
+        _controller?.RegisterOverlay(_aetherPanel);
+        AttachScreenClamp(_aetherPanel);
+        AttachResize(_aetherPanel, services.Props, "aetherPanelWidth", "aetherPanelHeight");
+
+        if (LoadPanelPosition(services.Props, _aetherPanel, "aetherPanelX", "aetherPanelY"))
+        {
+            _aetherPanelPositioned = true;
+        }
+
+        ClampWhenLoaded(_aetherPanel);
+
+        _aetherPanel.PositionChanged += (left, top) =>
+        {
+            _aetherPanelPositioned = true;
+            services.Props.SetProperty("aetherPanelX", left.ToString("0", CultureInfo.InvariantCulture));
+            services.Props.SetProperty("aetherPanelY", top.ToString("0", CultureInfo.InvariantCulture));
+        };
+        _aetherPanel.CloseRequested += () =>
+        {
+            _aetherPanelVisible = false;
+            _aetherPanel.Park();
+        };
+
+        overlay.AetherListRequested += () =>
+        {
+            if (_aetherPanelVisible)
+            {
+                _aetherPanelVisible = false;
+                _aetherPanel.Park();
+                return;
+            }
+
+            if (!_aetherPanelPositioned)
+            {
+                _aetherPanel.Left = overlay.Left + overlay.ActualWidth + 8;
+                _aetherPanel.Top = overlay.Top;
+            }
+
+            RefreshAetherRoster(services);
+            _aetherPanelVisible = true;
+            _aetherPanel.Present(true);
+        };
+    }
+
+    /// <summary>Rebuild the 오드 목록 rows from the persisted store. Cheap (a few dozen records parsed from one
+    /// settings string), so it simply re-reads instead of maintaining an incremental cache.</summary>
+    private void RefreshAetherRoster(MeterServices services)
+    {
+        if (_aetherViewModel is null)
+        {
+            return;
+        }
+
+        var names = services.Consent.ListCharacters()
+            .Select(c => new AetherRosterName(c.IdentityHash, c.Nickname, c.Server, c.Job))
+            .ToList();
+
+        _aetherViewModel.SetRows(AetherRoster.Build(
+            AetherPerCharacterStore.Parse(_settings!.AetherPerCharacter),
+            names,
+            services.Consent.CurrentCharacterHash()));
     }
 
     /// <summary>Show the stats-consent modal once per detected character that has no decision yet
@@ -1605,8 +1693,12 @@ public partial class App : Application
             string? hash = services.Consent.CurrentCharacterHash();
             if (!string.IsNullOrEmpty(hash))
             {
+                // Record the name alongside the balance. The key is a one-way hash, so the 오드 목록 can only
+                // name a character from a record like this one or from a consent entry — and a character the
+                // user never gave a consent decision for has no consent entry at all.
+                User? self = services.Data.User(services.Data.ExecutorId());
                 AetherPerCharacterStore store = AetherPerCharacterStore.Parse(_settings.AetherPerCharacter);
-                if (store.Upsert(hash, new AetherSnapshot(b, bonus, nowMs)))
+                if (store.Upsert(hash, new AetherSnapshot(b, bonus, nowMs, self?.Nickname, self?.Server ?? 0)))
                 {
                     _settings.AetherPerCharacter = store.Serialize();
                 }

@@ -1,10 +1,16 @@
 using System.Globalization;
+using System.Text;
 
 namespace WaffleMeter.App.Core;
 
 /// <summary>One character's last-seen aether (오드) balance, tagged with when it was recorded.
-/// <paramref name="Base"/> = 자연회복 오드, <paramref name="Bonus"/> = 추가 오드.</summary>
-public readonly record struct AetherSnapshot(int Base, int Bonus, long SavedAtMs)
+/// <paramref name="Base"/> = 자연회복 오드, <paramref name="Bonus"/> = 추가 오드.
+/// <para><paramref name="Nickname"/>/<paramref name="Server"/> are stored so the 오드 목록 can name a character
+/// the consent list has never heard of — the store's key is a one-way hash, so without them a character that
+/// never recorded a consent decision would be an anonymous row. Null/0 on records written before this was
+/// added; the next broadcast from that character fills them in.</para></summary>
+public readonly record struct AetherSnapshot(
+    int Base, int Bonus, long SavedAtMs, string? Nickname = null, int Server = 0)
 {
     /// <summary>What the character can spend.</summary>
     public int Total => Base + Bonus;
@@ -27,10 +33,13 @@ public sealed class AetherPerCharacterStore
     private AetherPerCharacterStore(Dictionary<string, AetherSnapshot> byHash) => _byHash = byHash;
 
     /// <summary>Parse the serialized blob. Never throws — malformed records are skipped.
-    /// <para>Records are <c>hash,base,bonus,savedAtMs</c>. The pre-2026-07-30 format carried a fourth numeric
-    /// field (a separately-stored total) and so has FIVE fields; those records are deliberately dropped here
-    /// rather than migrated, because they were written while the parser mis-read the single-pool packet and
-    /// their 자연회복/추가 split is wrong. Each character's chip refills from the next live broadcast.</para></summary>
+    /// <para>Records are <c>hash,base,bonus,savedAtMs</c>, or <c>hash,base,bonus,savedAtMs,server,nicknameB64</c>
+    /// once the character's name is known (the nickname is Base64'd because <c>,</c> and <c>;</c> are the
+    /// separators). The pre-2026-07-30 format carried a fifth numeric field (a separately-stored total); those
+    /// FIVE-field records are deliberately dropped rather than migrated, because they were written while the
+    /// parser mis-read the single-pool packet and their 자연회복/추가 split is wrong. Each character's chip
+    /// refills from the next live broadcast. Field count alone tells the three apart: 4 = current-without-name,
+    /// 5 = the bad legacy format, 6 = current-with-name.</para></summary>
     public static AetherPerCharacterStore Parse(string? serialized)
     {
         var map = new Dictionary<string, AetherSnapshot>(StringComparer.Ordinal);
@@ -39,7 +48,7 @@ public sealed class AetherPerCharacterStore
             foreach (string record in serialized.Split(';', StringSplitOptions.RemoveEmptyEntries))
             {
                 string[] f = record.Split(',');
-                if (f.Length != 4 || string.IsNullOrWhiteSpace(f[0])
+                if ((f.Length != 4 && f.Length != 6) || string.IsNullOrWhiteSpace(f[0])
                     || !int.TryParse(f[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int b)
                     || !int.TryParse(f[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out int bonus)
                     || !long.TryParse(f[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out long ms))
@@ -47,7 +56,15 @@ public sealed class AetherPerCharacterStore
                     continue;
                 }
 
-                map[f[0]] = new AetherSnapshot(b, bonus, ms);
+                string? nickname = null;
+                int server = 0;
+                if (f.Length == 6)
+                {
+                    int.TryParse(f[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out server);
+                    nickname = DecodeName(f[5]);
+                }
+
+                map[f[0]] = new AetherSnapshot(b, bonus, ms, nickname, server);
             }
         }
 
@@ -92,12 +109,45 @@ public sealed class AetherPerCharacterStore
         return removed;
     }
 
-    /// <summary>Serialize back to the settings blob (records ordered newest-first for stability).</summary>
+    /// <summary>Every remembered character, newest-recorded first.</summary>
+    public IReadOnlyList<KeyValuePair<string, AetherSnapshot>> All() => _byHash
+        .OrderByDescending(kv => kv.Value.SavedAtMs)
+        .ToList();
+
+    /// <summary>Serialize back to the settings blob (records ordered newest-first for stability). A record only
+    /// grows the name fields once a nickname is known, so an install that has never seen one stays byte-identical
+    /// to what earlier versions wrote.</summary>
     public string Serialize() => string.Join(';', _byHash
         .OrderByDescending(kv => kv.Value.SavedAtMs)
-        .Select(kv => string.Join(',',
-            kv.Key,
-            kv.Value.Base.ToString(CultureInfo.InvariantCulture),
-            kv.Value.Bonus.ToString(CultureInfo.InvariantCulture),
-            kv.Value.SavedAtMs.ToString(CultureInfo.InvariantCulture))));
+        .Select(kv =>
+        {
+            string head = string.Join(',',
+                kv.Key,
+                kv.Value.Base.ToString(CultureInfo.InvariantCulture),
+                kv.Value.Bonus.ToString(CultureInfo.InvariantCulture),
+                kv.Value.SavedAtMs.ToString(CultureInfo.InvariantCulture));
+
+            return string.IsNullOrWhiteSpace(kv.Value.Nickname)
+                ? head
+                : string.Join(',',
+                    head,
+                    kv.Value.Server.ToString(CultureInfo.InvariantCulture),
+                    EncodeName(kv.Value.Nickname!));
+        }));
+
+    private static string EncodeName(string nickname) =>
+        Convert.ToBase64String(Encoding.UTF8.GetBytes(nickname));
+
+    private static string? DecodeName(string encoded)
+    {
+        try
+        {
+            string name = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+            return string.IsNullOrWhiteSpace(name) ? null : name;
+        }
+        catch (FormatException)
+        {
+            return null; // a hand-edited settings file shouldn't cost the whole record
+        }
+    }
 }
