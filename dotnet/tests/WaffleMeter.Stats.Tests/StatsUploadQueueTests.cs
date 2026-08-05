@@ -51,7 +51,7 @@ public sealed class StatsUploadQueueTests : IDisposable
         }
 
         return new StatsUploadQueue(consent, builder, api, _dm, _props,
-            dispatch: job => job(), killRecheckDelay: () => { }, clock: () => 1);
+            dispatch: job => job(), killRecheckDelay: () => { }, clock: () => 1, retryDelay: _ => { });
     }
 
     private DpsLog BossLog(int remainHp, bool boss = true, int mobCode = 12345)
@@ -169,7 +169,7 @@ public sealed class StatsUploadQueueTests : IDisposable
         var consent = new StatsConsentManager(_props, _dm, api, () => builder.OwnCharacter());
         consent.Set("accepted", uploadEnabled: true, publicCharacter: false);
         using var queue = new StatsUploadQueue(consent, builder, api, _dm, _props,
-            dispatch: job => job(), killRecheckDelay: () => { }, clock: () => 1);
+            dispatch: job => job(), killRecheckDelay: () => { }, clock: () => 1, retryDelay: _ => { });
 
         queue.OfferIfEligible(BossLog(remainHp: 0));
 
@@ -262,7 +262,7 @@ public sealed class StatsUploadQueueTests : IDisposable
         var consent = new StatsConsentManager(_props, _dm, api, () => builder.OwnCharacter());
         consent.Set("accepted", uploadEnabled: true, publicCharacter: false);
         using var queue = new StatsUploadQueue(consent, builder, api, _dm, _props,
-            dispatch: job => job(), killRecheckDelay: () => waited = true, clock: () => 1);
+            dispatch: job => job(), killRecheckDelay: () => waited = true, clock: () => 1, retryDelay: _ => { });
 
         queue.OfferIfEligible(BossLog(remainHp: 500_000, mobCode: 2600068)); // 미확정 킬 + 미지원 보스
 

@@ -181,7 +181,7 @@ public sealed class TierService : IDisposable
         try
         {
             TierManifestResponse manifest = _api.GetTierManifest();
-            if (manifest.SchemaVersion != TierArtifact.SupportedSchemaVersion)
+            if (!TierArtifact.IsSupportedSchemaVersion(manifest.SchemaVersion))
             {
                 // A newer document shape: keep serving the cached one rather than guessing at its meaning.
                 Fail($"unsupported_schema_{manifest.SchemaVersion}");

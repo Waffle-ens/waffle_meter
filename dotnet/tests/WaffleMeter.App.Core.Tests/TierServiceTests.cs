@@ -115,12 +115,31 @@ public sealed class TierServiceTests : IDisposable
         Assert.NotNull(service.Artifact);
 
         // Server moves to a shape this build does not know: keep serving the old ladder rather than guessing.
-        api.ManifestSchemaVersion = 2;
+        // v2 is deliberately NOT used here — this build reads it, and the point of the test is the refusal.
+        api.ManifestSchemaVersion = 3;
         service.TryRefresh();
 
         Assert.NotNull(service.Artifact);
         Assert.Equal("abc0123456789def", service.Artifact!.ArtifactId);
-        Assert.Equal("unsupported_schema_2", service.Status().LastError);
+        Assert.Equal("unsupported_schema_3", service.Status().LastError);
+    }
+
+    /// <summary>The rollout depends on this: the meter has to take a v2 manifest BEFORE the server starts
+    /// sending one, or the flip stops tier updates for everyone who has not updated yet.</summary>
+    [Fact]
+    public void Accepts_a_v2_manifest()
+    {
+        byte[] good = GzipArtifact("v2artifact000001", schemaVersion: 2);
+        var api = FakeApi(good, Sha256Hex(good), "v2artifact000001");
+        api.ManifestSchemaVersion = 2;
+        var props = new PropertyHandler(_dir);
+        using var service = new TierService(api, props, startWorker: false);
+
+        service.TryRefresh();
+
+        Assert.NotNull(service.Artifact);
+        Assert.Equal("v2artifact000001", service.Artifact!.ArtifactId);
+        Assert.Null(service.Status().LastError);
     }
 
     [Fact]
@@ -292,9 +311,9 @@ public sealed class TierServiceTests : IDisposable
 
     private static string Sha256Hex(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
-    private static byte[] GzipArtifact(string artifactId)
+    private static byte[] GzipArtifact(string artifactId, int schemaVersion = 1)
     {
-        byte[] raw = Encoding.UTF8.GetBytes(ArtifactJson(artifactId));
+        byte[] raw = Encoding.UTF8.GetBytes(ArtifactJson(artifactId, schemaVersion));
         using var output = new MemoryStream();
         using (var gz = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
         {
@@ -304,7 +323,7 @@ public sealed class TierServiceTests : IDisposable
         return output.ToArray();
     }
 
-    private static string ArtifactJson(string artifactId)
+    private static string ArtifactJson(string artifactId, int schemaVersion = 1)
     {
         var grid = new List<double>();
         for (int i = 0; i < 31; i++)
@@ -323,7 +342,7 @@ public sealed class TierServiceTests : IDisposable
 
         return JsonSerializer.Serialize(new
         {
-            schemaVersion = 1,
+            schemaVersion,
             artifactId,
             windowDays = 30,
             generatedAt = "2026-08-03T04:00:11.000Z",
@@ -335,7 +354,7 @@ public sealed class TierServiceTests : IDisposable
             mobs = new Dictionary<string, int[]> { ["2301060"] = [19, 2, 2] },
             rows = new object[]
             {
-                new { r = 0, m = "dps", k = "성역", d = 19, v = 2, b = 2, j = "검성", s = 3, p = 5, n = 900, c = cuts },
+                new { r = 0, m = "dps", k = "성역", d = 19, v = 2, b = 2, j = "검성", s = 3, p = 5, n = 900, c = cuts, g = -1 },
             },
         });
     }

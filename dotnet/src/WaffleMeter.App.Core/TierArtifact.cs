@@ -4,11 +4,14 @@ using System.Text.Json;
 namespace WaffleMeter.App.Core;
 
 /// <summary>One cohort cell's coordinate in the tier distribution artifact. Mirrors the server's row keys
-/// (<c>r,m,k,d,v,b,j,s,p</c>) as small ints so lookups allocate nothing.
+/// (<c>r,m,k,d,v,b,j,s,p,g</c>) as small ints so lookups allocate nothing.
 /// <para><b>Sentinels:</b> <see cref="DungeonOrd"/>/<see cref="VariantOrd"/>/<see cref="BossIndex"/>/
 /// <see cref="SynergyCount"/> use <b>-1</b> for "axis removed"; <see cref="PartyMode"/> uses <b>0</b> (not -1).
 /// <see cref="CategoryId"/> and <see cref="JobId"/> are NEVER dropped — a rung that ignored category would
-/// match the first of the three co-existing R6 rows (성역/원정/초월) and apply the wrong distribution.</para></summary>
+/// match the first of the three co-existing R6 rows (성역/원정/초월) and apply the wrong distribution.</para>
+/// <para><see cref="PowerBand"/> is the schema-v2 combat-power axis: the band's lower bound, or <b>-1</b> for
+/// the whole-cohort row. A v1 artifact carries no such field, so every one of its rows parses as -1 and the
+/// same lookup code serves both schemas.</para></summary>
 public readonly record struct TierRowKey(
     int Rung,
     int MetricId,      // 0 = dps, 1 = ndps
@@ -18,7 +21,8 @@ public readonly record struct TierRowKey(
     int BossIndex,
     int JobId,
     int SynergyCount,
-    int PartyMode);
+    int PartyMode,
+    int PowerBand = TierArtifact.WholeCohortBand);
 
 /// <summary>Where a mobCode sits in the dungeon catalog. <paramref name="BossIndex"/> is <b>1-based</b>.</summary>
 public readonly record struct TierMobPlacement(int DungeonOrd, int VariantOrd, int BossIndex);
@@ -32,8 +36,34 @@ public readonly record struct TierMobPlacement(int DungeonOrd, int VariantOrd, i
 /// </summary>
 public sealed class TierArtifact
 {
-    /// <summary>Artifact schema this build understands. A different value is refused outright (fail-closed).</summary>
-    public const int SupportedSchemaVersion = 1;
+    /// <summary>
+    /// Artifact schemas this build can read. Anything else is refused outright (fail-closed).
+    /// <para>🔑 This is a SET, not a single value, and it has to stay one. The check is exact-match, so a build
+    /// that understands only the newest schema stops taking tier updates until the server flips — and a build
+    /// that understands only the oldest stops the moment it does. Both directions have to be live at once for
+    /// a rollout to have no gap, and the meter is the side that must go first.</para>
+    /// <para>v1 → v2 added the combat-power band axis (<c>g</c>) to each row. v1 rows read back as
+    /// <see cref="WholeCohortBand"/>, which is exactly what they are.</para>
+    /// </summary>
+    public static readonly IReadOnlySet<int> SupportedSchemaVersions = new HashSet<int> { 1, 2 };
+
+    /// <summary>Row sentinel for "not split by combat power" — the fallback every banded lookup falls back to,
+    /// and what every row of a v1 artifact is.</summary>
+    public const int WholeCohortBand = -1;
+
+    /// <summary>Width of a combat-power band (schema v2). The server picked 50k because a 20k band leaves only
+    /// 55.7% of characters above the sample floor against 79.3% at 50k.</summary>
+    public const int PowerBandSize = 50_000;
+
+    /// <summary>Bands start here; everything below shares the lowest band. Matches the ladder's own
+    /// <see cref="TierLadder.MinPower"/> floor, so in practice no battle lands under it.</summary>
+    public const int PowerBandFloor = 400_000;
+
+    /// <summary>The band a character's combat power belongs to.</summary>
+    public static int BandFor(int power) =>
+        Math.Max(PowerBandFloor, power / PowerBandSize * PowerBandSize);
+
+    public static bool IsSupportedSchemaVersion(int version) => SupportedSchemaVersions.Contains(version);
 
     /// <summary>Cuts are transported as /100-quantized deltas; this scales them back.</summary>
     private const int CutQuantum = 100;
@@ -139,7 +169,7 @@ public sealed class TierArtifact
                 return null;
             }
 
-            if (!TryInt(root, "schemaVersion", out int schemaVersion) || schemaVersion != SupportedSchemaVersion)
+            if (!TryInt(root, "schemaVersion", out int schemaVersion) || !IsSupportedSchemaVersion(schemaVersion))
             {
                 return null;
             }
@@ -399,7 +429,13 @@ public sealed class TierArtifact
                 continue;
             }
 
-            var key = new TierRowKey(rung, metricId, categoryId, dungeonOrd, variantOrd, bossIndex, jobId, synergyCount, partyMode);
+            // 'g' is schema-v2 only. Absent means the row is not split by combat power, which is precisely what
+            // every v1 row is — so a v1 artifact becomes a v2 one whose bands are all whole-cohort, and the
+            // lookup needs no schema branch at all.
+            int powerBand = TryInt(row, "g", out int band) ? band : WholeCohortBand;
+
+            var key = new TierRowKey(
+                rung, metricId, categoryId, dungeonOrd, variantOrd, bossIndex, jobId, synergyCount, partyMode, powerBand);
             rows[key] = cuts;
         }
     }

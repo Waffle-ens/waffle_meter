@@ -1,4 +1,4 @@
-using System.Buffers.Text;
+﻿using System.Buffers.Text;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -7,7 +7,9 @@ using System.Text;
 namespace WaffleMeter.Stats;
 
 /// <summary>One HTTP response (status + body), the unit the injected transport returns.</summary>
-public sealed record StatsHttpResponse(int StatusCode, string Body);
+/// <param name="RetryAfterSeconds">The server's <c>Retry-After</c>, when it sent one. Only 429 uses it in
+/// practice (nginx <c>limit_req_status 429</c>), and honouring it beats guessing at a backoff.</param>
+public sealed record StatsHttpResponse(int StatusCode, string Body, int? RetryAfterSeconds = null);
 
 /// <summary>A binary HTTP response — the raw, still-compressed bytes exactly as they came off the wire.</summary>
 public sealed record StatsBinaryResponse(int StatusCode, byte[] Body);
@@ -32,11 +34,23 @@ public sealed class StatsApiException : InvalidOperationException
     public int StatusCode { get; }
     public string? ResponseBody { get; }
 
-    public StatsApiException(string message, int statusCode, string? responseBody) : base(message)
+    /// <summary>The server's <c>Retry-After</c>, when it sent one. Null for everything but a rate limit.</summary>
+    public int? RetryAfterSeconds { get; }
+
+    public StatsApiException(string message, int statusCode, string? responseBody, int? retryAfterSeconds = null)
+        : base(message)
     {
         StatusCode = statusCode;
         ResponseBody = responseBody;
+        RetryAfterSeconds = retryAfterSeconds;
     }
+
+    /// <summary>Whether re-sending the identical request could plausibly succeed.
+    /// <para>5xx and transport faults are transient by definition. 429 is a rate limit, so retrying IS the
+    /// correct response — the server sets <c>limit_req_status 429</c>, which makes it a code we actually
+    /// receive. 408 is a request timeout, likewise. Every other 4xx is a verdict on the request itself
+    /// (400 unsupported_encounter, 401, 409): sending it again returns the same answer.</para></summary>
+    public bool IsTransient => StatusCode >= 500 || StatusCode == 429 || StatusCode == 408 || StatusCode == 0;
 }
 
 /// <summary>
@@ -63,10 +77,37 @@ public sealed class StatsApiClient : ITierApi
     /// artifact must arrive as the EXACT bytes the server stored — see <see cref="GetTierArtifactGzip"/>.</summary>
     public delegate StatsBinaryResponse BinaryRequestFunc(string method, string url, IReadOnlyDictionary<string, string> headers);
 
-    private static readonly HttpClient SharedClient = new(
-        new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromMilliseconds(ConnectTimeoutMs) })
+    /// <summary>How long the artifact GET may take. It is a much bigger body than any other call here —
+    /// currently ~115 KB, and the server's move to combat-power bands can take it toward 700 KB — so the
+    /// 15 s that suits a JSON POST would start timing out on a slow line. A timeout there is not even a
+    /// diagnosable failure: the retry is 12 hours away, and nothing distinguishes it from a stale artifact.</summary>
+    private const int ArtifactReadTimeoutMs = 60_000;
+
+    /// <summary>How long a pooled connection may live before it is reopened.
+    /// <para>The default is Infinite, which means the process never resolves the hostname again. Measured on
+    /// the 2026-08-05 origin move: nine hours after the address changed, 45% of uploads were still going to
+    /// the old one, and the set of stragglers never refreshed — only restarting the meter cleared it. That
+    /// migration kept the old origin as a proxy, so nothing was lost; without it, and with uploads having no
+    /// retry, that 45% would simply have been gone.</para></summary>
+    private static readonly TimeSpan ConnectionLifetime = TimeSpan.FromMinutes(2);
+
+    private static SocketsHttpHandler NewHandler() => new()
+    {
+        ConnectTimeout = TimeSpan.FromMilliseconds(ConnectTimeoutMs),
+        PooledConnectionLifetime = ConnectionLifetime,
+    };
+
+    private static readonly HttpClient SharedClient = new(NewHandler())
     {
         Timeout = TimeSpan.FromMilliseconds(ReadTimeoutMs),
+    };
+
+    /// <summary>Separate client purely for the artifact download's longer timeout — HttpClient.Timeout is
+    /// per-instance, not per-request. Its handler leaves AutomaticDecompression at None for the same reason
+    /// <see cref="SharedClient"/> does (see <see cref="GetTierArtifactGzip"/>).</summary>
+    private static readonly HttpClient ArtifactClient = new(NewHandler())
+    {
+        Timeout = TimeSpan.FromMilliseconds(ArtifactReadTimeoutMs),
     };
 
     private readonly RequestFunc _request;
@@ -160,7 +201,8 @@ public sealed class StatsApiClient : ITierApi
         ReportUploadResponse parsed = StatsJson.Deserialize<ReportUploadResponse>(response.Body);
         if (!parsed.Ok)
         {
-            throw new StatsApiException("report_upload_not_ok", response.StatusCode, response.Body);
+            throw new StatsApiException(
+                "report_upload_not_ok", response.StatusCode, response.Body, response.RetryAfterSeconds);
         }
 
         return parsed;
@@ -299,7 +341,8 @@ public sealed class StatsApiClient : ITierApi
                 summary = "empty_response";
             }
 
-            throw new StatsApiException($"HTTP {response.StatusCode}: {summary}", response.StatusCode, response.Body);
+            throw new StatsApiException(
+                $"HTTP {response.StatusCode}: {summary}", response.StatusCode, response.Body, response.RetryAfterSeconds);
         }
 
         return response;
@@ -307,9 +350,9 @@ public sealed class StatsApiClient : ITierApi
 
     private static string DefaultNonce() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(16));
 
-    /// <summary>Binary GET over the shared client. <see cref="SharedClient"/>'s handler leaves
-    /// AutomaticDecompression at None, so this returns the gzip bytes the server actually sent — which is what
-    /// <c>manifest.sha256</c> is computed over.</summary>
+    /// <summary>Binary GET for the artifact, over <see cref="ArtifactClient"/> and its longer timeout. The
+    /// handler leaves AutomaticDecompression at None, so this returns the gzip bytes the server actually sent —
+    /// which is what <c>manifest.sha256</c> is computed over.</summary>
     private static StatsBinaryResponse DefaultBinaryRequest(string method, string url, IReadOnlyDictionary<string, string> headers)
     {
         using var request = new HttpRequestMessage(new HttpMethod(method), url);
@@ -318,7 +361,7 @@ public sealed class StatsApiClient : ITierApi
             request.Headers.TryAddWithoutValidation(header.Key, header.Value);
         }
 
-        using HttpResponseMessage response = SharedClient.Send(request);
+        using HttpResponseMessage response = ArtifactClient.Send(request);
         byte[] bytes = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
         return new StatsBinaryResponse((int)response.StatusCode, bytes);
     }
@@ -343,6 +386,14 @@ public sealed class StatsApiClient : ITierApi
 
         using HttpResponseMessage response = SharedClient.Send(request);
         string text = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-        return new StatsHttpResponse((int)response.StatusCode, text);
+        return new StatsHttpResponse((int)response.StatusCode, text, ReadRetryAfterSeconds(response));
     }
+
+    /// <summary>The response's <c>Retry-After</c> in seconds, or null. Only the delta-seconds form is read —
+    /// the HTTP-date form would need the server's clock to agree with ours, and this server sends the delta
+    /// (nginx's rate limiter does).</summary>
+    private static int? ReadRetryAfterSeconds(HttpResponseMessage response) =>
+        response.Headers.RetryAfter?.Delta is { } delta && delta > TimeSpan.Zero
+            ? (int)Math.Ceiling(delta.TotalSeconds)
+            : null;
 }

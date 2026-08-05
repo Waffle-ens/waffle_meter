@@ -40,6 +40,22 @@ public sealed class StatsUploadQueue : IDisposable
     private readonly BlockingCollection<Action>? _queue;
     private readonly Thread? _worker;
 
+    /// <summary>Total tries per battle, initial attempt included. Two waits (1 s + 2 s) on top of the read
+    /// timeouts the single attempt already cost.</summary>
+    private const int MaxUploadAttempts = 3;
+    private const int BaseRetryDelayMs = 1_000;
+
+    /// <summary>Ceiling on a server-supplied <c>Retry-After</c>. A rate limit measured in minutes must not
+    /// park the upload worker for minutes.</summary>
+    private const int MaxRetryAfterMs = 10_000;
+
+    /// <summary>How long to stop retrying after a battle exhausted its attempts. Bounds the damage of a real
+    /// outage: without it every queued battle would pay the full retry budget in turn.</summary>
+    private const int RetryPauseMs = 60_000;
+
+    private readonly Action<int> _retryDelay;
+    private long _retryPausedUntilMs;
+
     public StatsUploadQueue(
         StatsConsentManager consent,
         StatsPayloadBuilder builder,
@@ -48,8 +64,10 @@ public sealed class StatsUploadQueue : IDisposable
         PropertyHandler props,
         Action<Action>? dispatch = null,
         Action? killRecheckDelay = null,
-        Func<long>? clock = null)
+        Func<long>? clock = null,
+        Action<int>? retryDelay = null)
     {
+        _retryDelay = retryDelay ?? Thread.Sleep;
         _consent = consent;
         _builder = builder;
         _api = api;
@@ -233,7 +251,7 @@ public sealed class StatsUploadQueue : IDisposable
 
                 try
                 {
-                    ReportUploadResponse response = _api.PostReport(payload, _clientVersion);
+                    ReportUploadResponse response = PostWithRetry(payload);
                     lock (_hashLock)
                     {
                         _uploadedHashes.Add(payload.BattleHash);
@@ -265,6 +283,66 @@ public sealed class StatsUploadQueue : IDisposable
 
                 break;
         }
+    }
+
+    /// <summary>
+    /// Upload, retrying a transient failure a couple of times.
+    /// <para>Before this, one 502 or one network blip was a battle gone for good — the queue caught the
+    /// exception, bumped a counter and dropped the payload. Observed twice in two days: six uploads lost on
+    /// 2026-08-04 when nginx marked both upstreams down over slow responses, two more on 08-05 to the same
+    /// cause. Re-sending is safe because the server keys on <c>battle_hash</c>, and this side only records the
+    /// hash as uploaded after a success.</para>
+    /// <para>⚠️ This runs on the single upload worker, so its sleeping delays every battle queued behind it.
+    /// That is why the budget is small (two waits, ~3 s) and why a run of failures opens
+    /// <see cref="_retryPausedUntilMs"/>: during a real outage the first battle pays for the retries and the
+    /// rest fail fast instead of the queue growing a minute per battle.</para>
+    /// </summary>
+    private ReportUploadResponse PostWithRetry(StatsUploadPayload payload)
+    {
+        bool paused = _clock() < Interlocked.Read(ref _retryPausedUntilMs);
+        int attempts = paused ? 1 : MaxUploadAttempts;
+
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                ReportUploadResponse response = _api.PostReport(payload, _clientVersion);
+                Interlocked.Exchange(ref _retryPausedUntilMs, 0); // the server is answering again
+                return response;
+            }
+            catch (Exception e) when (IsRetryable(e) && attempt < attempts)
+            {
+                _retryDelay(RetryDelayMs(attempt, (e as StatsApiException)?.RetryAfterSeconds));
+            }
+            catch (Exception e) when (IsRetryable(e))
+            {
+                // Out of attempts (or already paused). Stop paying the retry cost for a while — see the pause
+                // note above. Rethrown so the caller records the failure exactly as it always did.
+                Interlocked.Exchange(ref _retryPausedUntilMs, _clock() + RetryPauseMs);
+                throw;
+            }
+
+            // Anything else is a verdict on this request (400/401/409/…): it propagates on the first attempt.
+        }
+    }
+
+    /// <summary>Whether re-sending could plausibly succeed. A transport fault never arrives as
+    /// <see cref="StatsApiException"/> — it is an <c>HttpRequestException</c> or a timeout's
+    /// <c>TaskCanceledException</c>, which is the very case retrying exists for.</summary>
+    private static bool IsRetryable(Exception e) =>
+        e is not StatsApiException api || api.IsTransient;
+
+    /// <summary>Backoff for the given attempt, honouring the server's <c>Retry-After</c> when it sent one.
+    /// The header wins because it is the server saying how long it needs, but it is capped so a large value
+    /// cannot stall the worker.</summary>
+    private static int RetryDelayMs(int attempt, int? retryAfterSeconds)
+    {
+        if (retryAfterSeconds is > 0 and int seconds)
+        {
+            return Math.Min(seconds * 1_000, MaxRetryAfterMs);
+        }
+
+        return BaseRetryDelayMs << (attempt - 1); // 1s, 2s
     }
 
     private bool IsKillConfirmed(DpsLog log)

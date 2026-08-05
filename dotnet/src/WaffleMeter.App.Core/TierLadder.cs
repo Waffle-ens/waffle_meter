@@ -13,7 +13,11 @@ public readonly record struct TierCohort(
     int JobId,
     int SynergyCount,
     int PartyMode,
-    bool SynergyTrusted);
+    bool SynergyTrusted,
+    // Schema-v2 combat-power band. A 400k character and a 900k one were being ranked against one another;
+    // this is the axis that stops that. Defaults to the whole-cohort sentinel so a cohort built without it
+    // behaves exactly as it did before v2.
+    int PowerBand = TierArtifact.WholeCohortBand);
 
 /// <summary>A resolved live percentile: which rung answered, and the rounded top-percent + tier it maps to.</summary>
 public readonly record struct TierEvaluation(int Rung, int MetricId, double TopPercent, int TierRank)
@@ -156,8 +160,14 @@ public static class TierLadder
                 continue;
             }
 
-            TierRowKey key = KeyFor(rung, MetricDps, cohort);
-            long[]? cuts = artifact.Cuts(key);
+            // Within a rung, prefer the row for this character's combat-power band and fall back to the
+            // whole-cohort row. The fallback is INSIDE the rung loop on purpose: rung order is cohort
+            // specificity (boss → job → synergy), and a banded R6 row would otherwise beat an exact R0 one —
+            // trading the right cohort for the right power range, which is the worse half of the deal. The
+            // server ships a whole-cohort row alongside every banded one, so this picks the same rung it
+            // always did and only sharpens which distribution that rung answers with.
+            long[]? cuts = artifact.Cuts(KeyFor(rung, MetricDps, cohort))
+                ?? artifact.Cuts(KeyFor(rung, MetricDps, cohort with { PowerBand = TierArtifact.WholeCohortBand }));
             if (cuts == null)
             {
                 continue;
@@ -200,15 +210,15 @@ public static class TierLadder
     internal static TierRowKey KeyFor(int rung, int metricId, TierCohort c) => rung switch
     {
         // R0: everything explicit.
-        0 => new TierRowKey(0, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, c.SynergyCount, c.PartyMode),
+        0 => new TierRowKey(0, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, c.SynergyCount, c.PartyMode, c.PowerBand),
         // R1: drop party mode (synergy matters more than raid size).
-        1 => new TierRowKey(1, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, c.SynergyCount, 0),
+        1 => new TierRowKey(1, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, c.SynergyCount, 0, c.PowerBand),
         // R2: pool synergy (safe now that the metric is normalised), keep party mode.
-        2 => new TierRowKey(2, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, -1, c.PartyMode),
-        3 => new TierRowKey(3, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, -1, 0),
-        4 => new TierRowKey(4, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, -1, c.JobId, -1, 0),
-        5 => new TierRowKey(5, metricId, c.CategoryId, c.DungeonOrd, -1, -1, c.JobId, -1, 0),
-        _ => new TierRowKey(6, metricId, c.CategoryId, -1, -1, -1, c.JobId, -1, 0),
+        2 => new TierRowKey(2, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, -1, c.PartyMode, c.PowerBand),
+        3 => new TierRowKey(3, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, -1, 0, c.PowerBand),
+        4 => new TierRowKey(4, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, -1, c.JobId, -1, 0, c.PowerBand),
+        5 => new TierRowKey(5, metricId, c.CategoryId, c.DungeonOrd, -1, -1, c.JobId, -1, 0, c.PowerBand),
+        _ => new TierRowKey(6, metricId, c.CategoryId, -1, -1, -1, c.JobId, -1, 0, c.PowerBand),
     };
 
     /// <summary>Build a cohort from a finished/live battle. Returns null when the fight is outside the
@@ -254,6 +264,9 @@ public static class TierLadder
             jobId,
             Math.Clamp(synergyCount, 0, 3),
             partyMode,
-            synergyTrusted);
+            synergyTrusted,
+            // The same power this battle reports in its upload. The server bands by the span's max, so a
+            // character who gained power mid-span can land one band off — the whole-cohort fallback covers it.
+            TierArtifact.BandFor(power));
     }
 }
