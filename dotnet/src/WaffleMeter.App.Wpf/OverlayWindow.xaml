@@ -391,10 +391,20 @@
                             BorderThickness="1" CornerRadius="4" Padding="6,0" SnapsToDevicePixels="True"
                             Background="{Binding SelfTierChipBg}" BorderBrush="{Binding SelfTierChipRing}"
                             Visibility="{Binding SelfTierChipVisibility}" ToolTip="{Binding SelfTierChipToolTip}">
-                        <!-- FontSize 10 + zero vertical padding keeps the chip inside the timer row's existing
-                             line height, so showing it never grows the window (SizeToContent="Height"). -->
-                        <TextBlock Text="{Binding SelfTierChipText}" Foreground="{Binding SelfTierChipFg}"
-                                   FontSize="10" FontWeight="SemiBold"/>
+                        <!-- FontSize 10 + zero vertical padding keeps the first line inside the timer row's
+                             existing line height. -->
+                        <StackPanel>
+                            <TextBlock Text="{Binding SelfTierChipText}" Foreground="{Binding SelfTierChipFg}"
+                                       FontSize="10" FontWeight="SemiBold"/>
+                            <!-- 무엇과 비교한 값인지. 인라인으로 붙는다 — 툴팁에만 두면 전체 구간으로 폴백된
+                                 사람이 그 사실을 모른 채 지나간다. 서버가 전투력 구간 분포를 아직 안 내보내면
+                                 "전체 전투력 기준"이 뜨고, 내보내기 시작하면 같은 자리 문구만 바뀐다.
+                                 LineHeight를 글자 크기에 맞춰 눌러 두 번째 줄이 더하는 높이를 최소로 잡는다. -->
+                            <TextBlock Text="{Binding SelfTierChipBasis}" Foreground="{Binding SelfTierChipFg}"
+                                       Visibility="{Binding SelfTierChipBasisVisibility}"
+                                       FontSize="9" Opacity="0.75" LineHeight="10" LineStackingStrategy="BlockLineHeight"
+                                       Margin="0,-1,0,0"/>
+                        </StackPanel>
                     </Border>
                     <TextBlock Grid.Column="3" Text="{Binding Duration}" Foreground="{Binding CombatTimeBrush}" FontSize="12" FontWeight="SemiBold"
                                HorizontalAlignment="Right" VerticalAlignment="Center"/>

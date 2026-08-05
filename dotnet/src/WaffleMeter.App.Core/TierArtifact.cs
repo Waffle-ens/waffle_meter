@@ -102,6 +102,12 @@ public sealed class TierArtifact
 
     public static bool IsSupportedSchemaVersion(int version) => SupportedSchemaVersions.Contains(version);
 
+    /// <summary>What the manifest request asks for. Derived from <see cref="SupportedSchemaVersions"/> so that
+    /// teaching this build a new schema is one edit — a second literal somewhere in the HTTP layer would drift
+    /// the moment only one of the two got updated, and the failure is silent (the server keeps answering the
+    /// older document forever).</summary>
+    public static int MaxSupportedSchemaVersion => SupportedSchemaVersions.Max();
+
     /// <summary>Cuts are transported as /100-quantized deltas; this scales them back.</summary>
     private const int CutQuantum = 100;
 

@@ -589,6 +589,12 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private string _selfTierChipToolTip = string.Empty;
     public string SelfTierChipToolTip { get => _selfTierChipToolTip; private set => Set(ref _selfTierChipToolTip, value); }
 
+    private string _selfTierChipBasis = string.Empty;
+    public string SelfTierChipBasis { get => _selfTierChipBasis; private set => Set(ref _selfTierChipBasis, value); }
+
+    private Visibility _selfTierChipBasisVisibility = Visibility.Collapsed;
+    public Visibility SelfTierChipBasisVisibility { get => _selfTierChipBasisVisibility; private set => Set(ref _selfTierChipBasisVisibility, value); }
+
     private Visibility _selfTierChipVisibility = Visibility.Collapsed;
     public Visibility SelfTierChipVisibility { get => _selfTierChipVisibility; private set => Set(ref _selfTierChipVisibility, value); }
 
@@ -601,9 +607,13 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Brush _selfTierChipRing = Brushes.Transparent;
     public Brush SelfTierChipRing { get => _selfTierChipRing; private set => Set(ref _selfTierChipRing, value); }
 
-    /// <summary>Publish the footer chip: "챌린저 · 상위 0.7%". Hidden when the feature is off, when the fight's
-    /// cohort had no shipped distribution row (표본 부족 — we never guess a number), or when the user turned the
-    /// chip off. The tier NAME still shows on its own so a rank without a live percentile is not a blank chip.</summary>
+    /// <summary>Publish the footer chip: "챌린저 · 상위 0.7%" with the comparison basis on a second line. Hidden
+    /// when the feature is off, when the fight's cohort had no shipped distribution row (표본 부족 — we never
+    /// guess a number), or when the user turned the chip off. The tier NAME still shows on its own so a rank
+    /// without a live percentile is not a blank chip.
+    /// <para>The basis is rendered, not tucked into the ToolTip. Whether a percentile was measured against
+    /// comparable gear or against everyone changes what it claims, and the reader most affected is the one who
+    /// fell back to the whole cohort without asking to — they would never hover to find that out.</para></summary>
     private void ApplySelfTierChip(TierBadge badge, RowTier tier)
     {
         bool wanted = _settings.TierShow && _settings.TierShowSelfChip && !badge.IsNone;
@@ -614,7 +624,13 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             return;
         }
 
+        // No percentile, nothing to qualify — a lone "전체 전투력 기준" under a bare tier name would describe a
+        // measurement that was never made.
+        string basis = percent.Length > 0 ? tier.ComparisonBasis ?? string.Empty : string.Empty;
+
         SelfTierChipText = percent.Length > 0 ? $"{badge.Name} · {percent}" : badge.Name;
+        SelfTierChipBasis = basis;
+        SelfTierChipBasisVisibility = basis.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         SelfTierChipToolTip = tier.DungeonLabel is { Length: > 0 } label
             ? $"{label} · {(percent.Length > 0 ? percent : "이번 전투 표본 부족")}"
             : SelfTierChipText;
@@ -724,8 +740,13 @@ public sealed record TierRowInfo(string PercentText, Visibility PercentVisibilit
 
         string percent = tier.BattleTopPercent is double p ? TierLadder.FormatTopPercent(p) : string.Empty;
         string dungeon = tier.DungeonLabel is { Length: > 0 } d ? $" · {d}" : string.Empty;
+        // Each row is banded by ITS OWN combat power, so party members can be measured against different pools
+        // than the player is. The row has no space for a second line (the 490px width is spent on
+        // name/server/power), so here the basis rides the ToolTip — the player's own basis is on the footer
+        // chip, rendered.
+        string basis = percent.Length > 0 && tier.ComparisonBasis is { Length: > 0 } b ? $" ({b})" : string.Empty;
         string tip = percent.Length > 0
-            ? $"{badge.Name}{dungeon} · 이번 전투 {percent}"
+            ? $"{badge.Name}{dungeon} · 이번 전투 {percent}{basis}"
             : $"{badge.Name}{dungeon} · 이번 전투 표본 부족";
 
         return new TierRowInfo(

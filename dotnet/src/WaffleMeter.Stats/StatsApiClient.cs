@@ -112,6 +112,10 @@ public sealed class StatsApiClient : ITierApi
 
     private readonly RequestFunc _request;
     private readonly BinaryRequestFunc _binaryRequest;
+
+    /// <summary>Highest artifact schema this build can read, supplied by the composition root so the client
+    /// does not have to know about the artifact parser (the dependency runs the other way).</summary>
+    private readonly int _readableSchemaVersion;
     private readonly Func<string> _installIdProvider;
     private readonly IStatsSigner? _signer;
     private readonly Func<long> _clock;
@@ -128,8 +132,10 @@ public sealed class StatsApiClient : ITierApi
         IStatsSigner? signer = null,
         Func<long>? clock = null,
         Func<string>? nonceProvider = null,
-        BinaryRequestFunc? binaryRequest = null)
+        BinaryRequestFunc? binaryRequest = null,
+        int readableSchemaVersion = 1)
     {
+        _readableSchemaVersion = readableSchemaVersion;
         _installIdProvider = installIdProvider;
         _request = request ?? DefaultRequest;
         _binaryRequest = binaryRequest ?? DefaultBinaryRequest;
@@ -212,7 +218,14 @@ public sealed class StatsApiClient : ITierApi
     /// 60s cache, so the origin sees at most one request a minute no matter how many meters are running.</summary>
     public TierManifestResponse GetTierManifest()
     {
-        StatsHttpResponse response = Request("GET", TierManifestEndpoint, null, null, null, null, signed: false);
+        // The readable schema rides as a QUERY PARAMETER, not a header. The manifest is CDN-cached with
+        // s-maxage=60, so if the body varied by header the v2 document one client fetched would be served
+        // straight back to a v1-only client — and `Vary` on a custom header fails silently the moment
+        // something in the path drops it. A query parameter splits the cache key instead.
+        // The server treats an absent parameter as 1 and answers with the highest version it publishes that
+        // is <= this, so the response's own schemaVersion is the authority — not what was asked for.
+        string url = $"{TierManifestEndpoint}?schema={_readableSchemaVersion}";
+        StatsHttpResponse response = Request("GET", url, null, null, null, null, signed: false);
         TierManifestResponse parsed = StatsJson.Deserialize<TierManifestResponse>(response.Body);
         if (!parsed.Ok || string.IsNullOrEmpty(parsed.ArtifactId))
         {

@@ -224,7 +224,10 @@ public sealed class MeterServices
         // Stats stack. Break the consent <-> builder cycle with a deferred reference. The install key signs
         // every write (reports / consent events) from the first run per §2.1/§2.5 — the server takes signed
         // writes in warn mode and gates public transitions on the resulting grant.
-        StatsApi = new StatsApiClient(() => StatsInstall.InstallId(props), statsTransport, new StatsInstallKey(props));
+        StatsApi = new StatsApiClient(
+            () => StatsInstall.InstallId(props), statsTransport, new StatsInstallKey(props),
+            // Derived, never a literal: supporting a future schema means editing the set and nothing else.
+            readableSchemaVersion: TierArtifact.MaxSupportedSchemaVersion);
         StatsConsentManager consent = null!;
         StatsBuilder = new StatsPayloadBuilder(Data, () => consent.GetInfo().PublicCharacter);
         consent = new StatsConsentManager(props, Data, StatsApi, () => StatsBuilder.OwnCharacter());

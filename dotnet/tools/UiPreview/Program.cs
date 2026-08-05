@@ -103,9 +103,11 @@ internal static class Program
                 // badge size. Rank 1~3 carry the inner ring, 4~7 a single ring, 8 (아이언) stays unaccented, and
                 // the footer carries the self "티어 · 상위 X.X%" chip. Light is captured too because a palette
                 // tuned for the dark skins can vanish on #FAFCFF.
+                // The resolver, not SetTiers: Update builds the rows and reads the tier map WHILE building, so a
+                // map handed over afterwards lands one frame late and the capture came out with no tiers at all.
                 var tierVm = new OverlayViewModel("1.7.8", settings, theme, () => currentSkin == "Light") { Status = "캡처 중" };
+                tierVm.TierResolver = _ => SampleTiers();
                 tierVm.Update(SampleTierReport(now));
-                tierVm.SetTiers(SampleTiers());
                 Capture(() => new OverlayWindow { DataContext = tierVm }, palette, Path.Combine(outDir, $"meter_tier_{skin}.png"));
 
                 // …and the same rows with the feature off: must be pixel-identical to today's meter, including
@@ -695,17 +697,21 @@ internal static class Program
     private static Dictionary<int, RowTier> SampleTiers()
     {
         const string dungeon = "무스펠의 성배 · 어려움";
+        // Self shows the longest basis the wording can produce (four grouped digits on both ends), so the
+        // preview exercises the widest the chip's second line ever gets.
+        const string band = "전투력 1,250k–1,300k 미만 기준";
+        const string whole = "전체 전투력 기준";
         return new Dictionary<int, RowTier>
         {
-            [1] = new RowTier(1, 0.7, dungeon),   // 챌린저
-            [2] = new RowTier(2, 3.2, dungeon),   // 마스터
-            [3] = new RowTier(3, 8.4, dungeon),   // 다이아
-            [4] = new RowTier(4, 22.6, dungeon),  // 플래티넘
-            [5] = new RowTier(5, 41.3, dungeon),  // 골드
-            [6] = new RowTier(6, 63.8, dungeon),  // 실버
-            [7] = new RowTier(7, 84.1, dungeon),  // 브론즈
+            [1] = new RowTier(1, 0.7, dungeon, false, band),    // 챌린저
+            [2] = new RowTier(2, 3.2, dungeon, false, band),    // 마스터
+            [3] = new RowTier(3, 8.4, dungeon, false, whole),   // 다이아
+            [4] = new RowTier(4, 22.6, dungeon, false, whole),  // 플래티넘
+            [5] = new RowTier(5, 41.3, dungeon, false, whole),  // 골드
+            [6] = new RowTier(6, 63.8, dungeon, false, whole),  // 실버
+            [7] = new RowTier(7, 84.1, dungeon, false, whole),  // 브론즈
             // Career tier known but THIS fight's cohort shipped no distribution row — the chip collapses
-            // rather than inventing a number. Worth seeing in the preview.
+            // rather than inventing a number, and carries no basis. Worth seeing in the preview.
             [8] = new RowTier(8, null, dungeon),  // 아이언, 표본 부족
         };
     }

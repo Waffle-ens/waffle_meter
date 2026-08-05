@@ -21,10 +21,17 @@ public readonly record struct TierCohort(
     // behaves exactly as it did before v2.
     int PowerBand = TierArtifact.WholeCohortBand);
 
-/// <summary>A resolved live percentile: which rung answered, and the rounded top-percent + tier it maps to.</summary>
-public readonly record struct TierEvaluation(int Rung, int MetricId, double TopPercent, int TierRank)
+/// <summary>A resolved live percentile: which rung answered, and the rounded top-percent + tier it maps to.
+/// <para><paramref name="PowerBand"/> is the band of the row that ACTUALLY answered — not the one asked for.
+/// A v1 artifact, a v2 row with no <c>g</c>, and a v2 whole-cohort row all land on
+/// <see cref="TierArtifact.WholeCohortBand"/>, which is exactly what each of them is.</para></summary>
+public readonly record struct TierEvaluation(
+    int Rung, int MetricId, double TopPercent, int TierRank, int PowerBand = TierArtifact.WholeCohortBand)
 {
     public string TierName => TierLadder.TierNameOf(TierRank);
+
+    /// <summary>"전체 전투력 기준" / "전투력 700k–750k 미만 기준" — what this percentile was measured against.</summary>
+    public string ComparisonBasis => TierLadder.FormatComparisonBasis(PowerBand);
 }
 
 /// <summary>
@@ -88,6 +95,25 @@ public static class TierLadder
 
         return TierNames.Length;
     }
+
+    /// <summary>
+    /// Which pool a percentile was measured against, worded exactly as the stats site words it.
+    /// <para>"상위 3%" against comparable gear and "상위 3%" against everyone are different claims, and the
+    /// number alone cannot tell them apart. Two players in the same party can now be measured differently —
+    /// one on 2.9.1 reading a banded row, one on an older build reading the whole cohort — so without this
+    /// they would compare figures that were never comparable.</para>
+    /// <para>🔑 Byte-identical to the web's <c>formatTierComparisonBasis</c>. The whole point is that the two
+    /// screens can be read side by side, so a wording drift defeats the feature. The number format is the
+    /// web's <c>formatPower</c>: thousands, en-US grouping, one optional decimal, a <c>k</c> suffix — hence
+    /// "1,250k" with the comma, which ko-KR formatting would not produce. The separator is an EN DASH.</para>
+    /// </summary>
+    public static string FormatComparisonBasis(int powerBand) =>
+        powerBand < 0
+            ? "전체 전투력 기준"
+            : $"전투력 {FormatPowerThousands(powerBand)}–{FormatPowerThousands(powerBand + TierArtifact.PowerBandSize)} 미만 기준";
+
+    private static string FormatPowerThousands(int power) =>
+        (power / 1000.0).ToString("#,0.#", System.Globalization.CultureInfo.InvariantCulture) + "k";
 
     /// <summary>"상위 12.3%" — the single display format, so every surface agrees.</summary>
     public static string FormatTopPercent(double topPercent) =>
@@ -168,8 +194,14 @@ public static class TierLadder
             // trading the right cohort for the right power range, which is the worse half of the deal. The
             // server ships a whole-cohort row alongside every banded one, so this picks the same rung it
             // always did and only sharpens which distribution that rung answers with.
-            long[]? cuts = artifact.Cuts(KeyFor(rung, MetricDps, cohort))
-                ?? artifact.Cuts(KeyFor(rung, MetricDps, cohort with { PowerBand = TierArtifact.WholeCohortBand }));
+            int band = cohort.PowerBand;
+            long[]? cuts = artifact.Cuts(KeyFor(rung, MetricDps, cohort));
+            if (cuts == null)
+            {
+                band = TierArtifact.WholeCohortBand;
+                cuts = artifact.Cuts(KeyFor(rung, MetricDps, cohort with { PowerBand = band }));
+            }
+
             if (cuts == null)
             {
                 continue;
@@ -182,7 +214,7 @@ public static class TierLadder
             }
 
             double rounded = RoundTopPercent(percent);
-            return new TierEvaluation(rung, MetricDps, rounded, TierRankOf(rounded));
+            return new TierEvaluation(rung, MetricDps, rounded, TierRankOf(rounded), band);
         }
 
         return null;

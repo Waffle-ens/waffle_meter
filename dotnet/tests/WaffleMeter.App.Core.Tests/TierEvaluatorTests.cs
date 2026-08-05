@@ -109,6 +109,41 @@ public sealed class TierEvaluatorTests
         Assert.NotEqual(exact.BattleTopPercent, pooledOnly.BattleTopPercent);
     }
 
+    /// <summary>The basis reaches the row, not just the ladder. It is what the overlay renders under the chip,
+    /// so dropping it here would leave the percentile unqualified on screen while every ladder test still passed.
+    /// A v1 artifact — what the server publishes today — is the whole cohort, and says so.</summary>
+    [Fact]
+    public void Every_row_carries_what_its_percentile_was_measured_against()
+    {
+        TierArtifact artifact = BuildArtifact(Row(bossIndex: 1, cutFloor: 100_000));
+
+        RowTier tier = TierEvaluator.Evaluate(Report(FirstBoss, (7, "본인", 900_000)), artifact)[7];
+
+        Assert.Equal("전체 전투력 기준", tier.ComparisonBasis);
+    }
+
+    /// <summary>No measurement, nothing to qualify. A cohort with no shipped row renders 표본 부족, and a basis
+    /// beside it would describe a comparison that never happened.</summary>
+    [Fact]
+    public void A_row_with_no_percentile_carries_no_basis()
+    {
+        // A career tier keeps the row on screen; the fight itself has no distribution row at any rung.
+        TierArtifact artifact = BuildArtifact(Row(bossIndex: 2, cutFloor: 100_000));
+
+        RowTier tier = TierEvaluator.Evaluate(
+            Report(SecondBoss, (7, "본인", 900_000)), artifact, new Dictionary<string, int> { ["h"] = 1 }, _ => "h")[7];
+
+        Assert.NotNull(tier.BattleTopPercent);
+        Assert.Equal("전체 전투력 기준", tier.ComparisonBasis);
+
+        // ...and the genuinely sampleless case: an artifact holding only the OTHER boss's rows.
+        RowTier none = TierEvaluator.Evaluate(
+            Report(FirstBoss, (7, "본인", 900_000)), artifact, new Dictionary<string, int> { ["h"] = 1 }, _ => "h")[7];
+
+        Assert.Null(none.BattleTopPercent);
+        Assert.Null(none.ComparisonBasis);
+    }
+
     private static DpsReport Report(int mobCode, params (int Uid, string Nick, double Dps)[] rows)
     {
         var report = new DpsReport

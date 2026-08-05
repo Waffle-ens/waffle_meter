@@ -7,12 +7,17 @@ namespace WaffleMeter.App.Core;
 /// server-computed career tier; otherwise it is derived from THIS fight's percentile and must be worded as
 /// 이번 전투 등급, never as a standing.</para>
 /// <para><paramref name="BattleTopPercent"/> is this fight's locally computed percentile, null when the cohort
-/// shipped no distribution row (표본 부족) — the caller renders nothing rather than guessing.</para></summary>
+/// shipped no distribution row (표본 부족) — the caller renders nothing rather than guessing.</para>
+/// <para><paramref name="ComparisonBasis"/> names the pool that percentile was measured against ("전체 전투력
+/// 기준" / "전투력 700k–750k 미만 기준"). It travels WITH the number because the two are meaningless apart:
+/// the same "상위 3%" means one thing against comparable gear and another against everyone, and nothing in the
+/// figure itself distinguishes them. Null exactly when there is no percentile to qualify.</para></summary>
 public readonly record struct RowTier(
     int TierRank,
     double? BattleTopPercent,
     string? DungeonLabel = null,
-    bool IsCareer = false);
+    bool IsCareer = false,
+    string? ComparisonBasis = null);
 
 /// <summary>
 /// Turns a live/finished report into per-row tier state, entirely locally.
@@ -86,9 +91,13 @@ public static class TierEvaluator
             TierCohort? cohort = TierLadder.CohortFor(
                 artifact, target.Mob.Code, job, user.Power, durationMs, synergyCount, partyMode, trusted, trial);
 
-            double? battlePercent = cohort is TierCohort c
-                ? TierLadder.Evaluate(artifact, c, info.Dps)?.TopPercent
+            // Keep the whole evaluation, not just the number: which power band actually answered is decided
+            // inside the ladder (the requested band can be absent and fall back), so the basis has to be read
+            // off the result rather than recomputed from what we asked for.
+            TierEvaluation? evaluation = cohort is TierCohort c
+                ? TierLadder.Evaluate(artifact, c, info.Dps)
                 : null;
+            double? battlePercent = evaluation?.TopPercent;
 
             string? hash = identityHashOf?.Invoke(user);
             bool hasCareer = hash != null && careerTiers != null && careerTiers.TryGetValue(hash, out int careerRank);
@@ -101,7 +110,8 @@ public static class TierEvaluator
                 continue; // neither a standing nor a measurable fight — render nothing
             }
 
-            result[user.Id] = new RowTier(rank, battlePercent, dungeonLabel, hasCareer);
+            result[user.Id] = new RowTier(
+                rank, battlePercent, dungeonLabel, hasCareer, evaluation?.ComparisonBasis);
         }
 
         return result;
