@@ -65,7 +65,9 @@ public sealed class EncounterCatalog
     {
         try
         {
-            return Parse(File.ReadAllText(path));
+            // The shipped asset carries 19 dungeons / 177 codes, so anything far under that is damage rather
+            // than a small catalog — and refusing to gate beats gating on a fragment.
+            return Parse(File.ReadAllText(path), minimumCodes: 100);
         }
         catch (Exception)
         {
@@ -75,7 +77,11 @@ public sealed class EncounterCatalog
 
     /// <summary>Parse from JSON text. Malformed dungeons/variants are skipped individually so one bad entry
     /// cannot cost the whole catalog.</summary>
-    public static EncounterCatalog Parse(string json)
+    /// <param name="minimumCodes">Below this many codes the result is <see cref="Empty"/> instead — the
+    /// fail-open contract has to cover PARTIAL damage too, since a catalog that "loaded" gates every code it
+    /// doesn't have, and a seed whose schema shifted could leave a handful of dungeons standing. 0 disables
+    /// the floor (tests build deliberately tiny catalogs); <see cref="Load"/> applies the real one.</param>
+    public static EncounterCatalog Parse(string json, int minimumCodes = 0)
     {
         var map = new Dictionary<int, EncounterInfo>();
         using JsonDocument doc = JsonDocument.Parse(json);
@@ -160,7 +166,7 @@ public sealed class EncounterCatalog
             }
         }
 
-        return map.Count > 0 ? new EncounterCatalog(map) : Empty;
+        return map.Count > 0 && map.Count >= minimumCodes ? new EncounterCatalog(map) : Empty;
     }
 
     /// <summary>The catalog entry for a boss mobCode, or null when the web does not publish stats for it.</summary>
@@ -184,7 +190,9 @@ public sealed class EncounterCatalog
 
         // Prefer the live mob name over the catalog's: the catalog's boss names are the web's display names and
         // can drift from mobs.json (e.g. "바실루스" vs "위악의 바실루스"). Only the SUFFIX comes from here.
-        return fallback.Length > 0 ? $"{fallback} ({info.VariantLabel})" : info.DisplayBossName;
+        // Blank-not-empty has to be caught as well, or a whitespace name renders as a bare "  (시련)".
+        string name = fallback.Trim().Length > 0 ? fallback : info.BossName;
+        return name.Trim().Length > 0 ? $"{name} ({info.VariantLabel})" : fallback;
     }
 
     private static string? NullableStr(JsonElement el, string name) =>

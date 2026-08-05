@@ -132,6 +132,38 @@ public sealed class EncounterCatalogTests
         Assert.Equal("아무개", catalog.DisplayName(2300582, "아무개"));
     }
 
+    /// <summary>The fail-open contract has to cover PARTIAL damage. Individual dungeons are skipped silently,
+    /// so a seed whose schema shifted could leave a fragment standing — and a catalog that "loaded" gates every
+    /// code it doesn't have. A fragment must gate nothing rather than gate almost everything.</summary>
+    [Fact]
+    public void A_fragment_of_the_expected_catalog_gates_nothing()
+    {
+        EncounterCatalog fragment = EncounterCatalog.Parse(Json, minimumCodes: 100);
+
+        Assert.False(fragment.IsLoaded);
+        Assert.True(fragment.IsSupported(2600068));
+        Assert.True(fragment.IsSupported(2300582));
+    }
+
+    [Fact]
+    public void A_full_sized_catalog_passes_the_floor()
+    {
+        Assert.True(EncounterCatalog.Parse(Json, minimumCodes: 2).IsLoaded);
+    }
+
+    /// <summary>A blank (not empty) mob name must not render as a bare suffix — " (시련)" with nothing
+    /// in front reads as a rendering bug.</summary>
+    [Theory]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    public void Display_name_does_not_leave_a_bare_suffix(string blank)
+    {
+        EncounterCatalog catalog = EncounterCatalog.Parse(Json);
+
+        // Falls back to the catalog's own boss name rather than emitting "  (시련)".
+        Assert.Equal("바크론 (시련)", catalog.DisplayName(2300582, blank));
+    }
+
     [Fact]
     public void A_missing_file_loads_as_empty_instead_of_throwing()
     {

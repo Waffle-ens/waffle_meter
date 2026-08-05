@@ -74,6 +74,17 @@ const dungeons = seed.encounterDungeons.map((dungeon) => {
       mobs: [
         ...variant.mobCodes.flatMap((mobCode, i) => {
           const boss = dungeon.bosses[i];
+
+          // mobCodes pair with bosses BY POSITION. A variant listing more codes than the dungeon has bosses
+          // would silently lose the extras — and a code missing from the catalog is a battle the meter's
+          // upload gate refuses while the server would have taken it. Loud, like the duplicate check.
+          if (mobCode !== undefined && !boss) {
+            throw new Error(
+              `${dungeon.key} / ${variant.label}: mobCode ${mobCode} at index ${i} has no boss ` +
+                `(dungeon declares ${dungeon.bosses.length}). Use mobCodeAliases for extra codes.`,
+            );
+          }
+
           return mobCode === undefined || !boss ? [] : [[mobCode, boss.index]];
         }),
         ...(variant.mobCodeAliases ?? []).map((alias) => [alias.mobCode, alias.bossIndex]),
