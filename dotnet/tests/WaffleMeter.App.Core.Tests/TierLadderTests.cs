@@ -167,23 +167,39 @@ public sealed class TierLadderTests
         Assert.Equal(2, result!.Value.Rung); // R0 skipped (untrusted mask), R2 answered
     }
 
+    /// <summary>
+    /// 🔑 R6 is not walked. It drops the dungeon, so answering from it means ranking a fight against OTHER
+    /// dungeons' records — and the dungeons it would fire for are precisely the ones whose own samples are
+    /// thin, where the pooled number is least defensible. 시련 바크론's boss carries 2.2x the HP of its
+    /// 탐험 tier; folding that into "원정, 검성" is not an approximation, it is a different fight.
+    /// <para>The contract on <see cref="TierLadder.Evaluate"/> already said so — "null when no rung matched —
+    /// the caller must render 표본 부족, never a guessed number". R6 was intercepting it.</para>
+    /// </summary>
     [Fact]
-    public void Keeps_categories_apart_so_a_transcend_fight_never_reads_a_sanctuary_curve()
+    public void A_fight_whose_only_row_is_R6_gets_no_tier_rather_than_another_dungeons_curve()
     {
-        // R6 keeps one row per category; ignoring 'k' would match whichever sorted first.
         TierArtifact artifact = BuildArtifact(
-            Row(6, "dps", "성역", -1, -1, -1, "검성", -1, 0, cutFloor: 1_000),
             Row(6, "dps", "초월", -1, -1, -1, "검성", -1, 0, cutFloor: 100_000));
 
-        // Dungeon 12 is registered as 초월 by BuildArtifact, so the 초월 curve (high floor) must answer.
+        TierCohort cohort = Cohort(artifact, 12, 1, 1, "검성", 0, 5, trusted: true);
+
+        Assert.Null(TierLadder.Evaluate(artifact, cohort, dps: 12_000));
+    }
+
+    /// <summary>R5 is the floor because it is the last rung that still keys on the dungeon. Every walked rung
+    /// carries <c>DungeonOrd</c>, and a dungeon belongs to exactly one category — so the category-crossing the
+    /// old R6 test guarded against can no longer be reached at all.</summary>
+    [Fact]
+    public void R5_still_answers_because_it_keeps_the_dungeon()
+    {
+        TierArtifact artifact = BuildArtifact(
+            Row(5, "dps", "초월", 12, -1, -1, "검성", -1, 0, cutFloor: 100_000));
+
         TierCohort cohort = Cohort(artifact, 12, 1, 1, "검성", 0, 5, trusted: true);
         TierEvaluation? result = TierLadder.Evaluate(artifact, cohort, dps: 12_000);
 
         Assert.NotNull(result);
-        Assert.Equal(6, result!.Value.Rung);
-        // 12,000 sits at the very bottom of the 초월 curve (floor 100,000) → 상위 100%.
-        // Against the 성역 curve (floor 1,000) it would have read far better, which is the bug this guards.
-        Assert.Equal(99.9, result.Value.TopPercent);
+        Assert.Equal(5, result!.Value.Rung);
     }
 
     [Fact]

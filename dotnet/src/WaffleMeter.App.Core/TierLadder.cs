@@ -200,7 +200,14 @@ public static class TierLadder
     /// player in a high-synergy party is compared against a pool that also holds low-synergy parties. The
     /// fallback was always an approximation; this makes it a slightly generous one.</para>
     /// </summary>
-    private static readonly int[] RungOrder = [0, 1, 2, 3, 4, 5, 6];
+    /// <para>🔑 R6 is deliberately NOT walked. It drops <c>DungeonOrd</c>, so it is "every dungeon in this
+    /// category, by job" — answering a fight in one dungeon with other dungeons' records. A dungeon whose own
+    /// samples are thin is exactly where that fires, and exactly where the number is least defensible: the
+    /// 시련 tier of 바크론의 공중섬 has a boss with 2.2x the HP of its 탐험 tier, so pooling it with the rest
+    /// of 원정 is not an approximation, it is a different fight. R5 is the last rung that still keys on the
+    /// dungeon, so it is the floor. Below it, <see cref="Evaluate"/> returns null and the caller renders
+    /// "표본 부족" — which is the contract, and the honest answer.</para>
+    private static readonly int[] RungOrder = [0, 1, 2, 3, 4, 5];
 
     /// <summary>R0/R1 bucket by synergy and are aggregated only from synergy-trusted rows (the web's
     /// <c>dps_trusted</c> branch), so an untrusted raid mask must not reach them. R2~R6 pool synergy and carry
@@ -218,6 +225,8 @@ public static class TierLadder
         3 => new TierRowKey(3, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, c.BossIndex, c.JobId, -1, 0, c.PowerBand),
         4 => new TierRowKey(4, metricId, c.CategoryId, c.DungeonOrd, c.VariantOrd, -1, c.JobId, -1, 0, c.PowerBand),
         5 => new TierRowKey(5, metricId, c.CategoryId, c.DungeonOrd, -1, -1, c.JobId, -1, 0, c.PowerBand),
+        // R6 drops the dungeon entirely. The server still ships those rows and this still describes them, but
+        // RungOrder no longer walks it — see the note there.
         _ => new TierRowKey(6, metricId, c.CategoryId, -1, -1, -1, c.JobId, -1, 0, c.PowerBand),
     };
 
