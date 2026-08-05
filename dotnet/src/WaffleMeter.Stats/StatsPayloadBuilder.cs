@@ -218,7 +218,7 @@ public sealed class StatsPayloadBuilder
                 resolvedOwn.Job?.ClassName(),
                 resolvedOwn.Power,
                 _publicCharacter()),
-            Encounter: new StatsEncounterPayload(mob.Code, mob.Name),
+            Encounter: BuildEncounterPayload(mob),
             Battle: new StatsBattlePayload(report.BattleStart, report.BattleEnd, duration, report.Contributors.Count),
             PartyComposition: new StatsPartyCompositionPayload(jobCounts, synergy),
             Participants: participantPayloads,
@@ -433,6 +433,28 @@ public sealed class StatsPayloadBuilder
         }
 
         return entries.OrderByDescending(e => e.Damage).ToList();
+    }
+
+    /// <summary>The encounter block. <c>mobCode</c> is the authority — the server resolves the dungeon and its
+    /// difficulty/stage from it, because a boss mobCode is unique per (dungeon, variant). The descriptive fields
+    /// come from the meter's own copy of the same catalog: redundant while the two agree, and a record of what
+    /// the client believed when they don't. <c>bossName</c> stays the RAW mob name (the server falls back to
+    /// matching on it), never the difficulty-decorated one the UI shows.</summary>
+    private StatsEncounterPayload BuildEncounterPayload(Mob mob)
+    {
+        if (_data.Encounters.Lookup(mob.Code) is not EncounterInfo info)
+        {
+            return new StatsEncounterPayload(mob.Code, mob.Name);
+        }
+
+        return new StatsEncounterPayload(
+            mob.Code,
+            mob.Name,
+            DungeonName: info.DungeonName,
+            Category: info.Category,
+            Difficulty: info.Difficulty,
+            Stage: info.Stage,
+            BossIndex: info.BossIndex);
     }
 
     private static StatsResultPayload BuildResultPayload(DpsInformation info, RateSummary rates) => new(

@@ -13,7 +13,12 @@ public readonly record struct EncounterInfo(
     int DungeonId,
     int BossIndex,
     string BossName,
-    bool HasVariants)
+    bool HasVariants,
+    // The web models a variant as EITHER a difficulty (원정: 탐험/보통/어려움/시련, 성역 무스펠: 보통/어려움)
+    // OR a numbered stage (초월: "1".."4"); exactly one is set, both are null for a single-variant dungeon.
+    // Kept apart from VariantLabel so the upload payload can state them the way the server models them.
+    string? Difficulty = null,
+    string? Stage = null)
 {
     /// <summary>The boss name carrying its difficulty/stage — <c>"바크론 (시련)"</c>. The same boss NAME recurs
     /// across every difficulty of a dungeon (only the mobCode differs), so without this the meter shows the same
@@ -115,6 +120,8 @@ public sealed class EncounterCatalog
                 string label = Str(variant, "label");
                 int dungeonId = variant.TryGetProperty("dungeonId", out JsonElement di)
                     && di.ValueKind == JsonValueKind.Number ? di.GetInt32() : 0;
+                string? difficulty = NullableStr(variant, "difficulty");
+                string? stage = NullableStr(variant, "stage");
 
                 if (!variant.TryGetProperty("mobs", out JsonElement mobs) || mobs.ValueKind != JsonValueKind.Array)
                 {
@@ -146,7 +153,9 @@ public sealed class EncounterCatalog
                         DungeonId: dungeonId,
                         BossIndex: bossIndex,
                         BossName: bossNames.GetValueOrDefault(bossIndex, string.Empty),
-                        HasVariants: hasVariants);
+                        HasVariants: hasVariants,
+                        Difficulty: difficulty,
+                        Stage: stage);
                 }
             }
         }
@@ -177,6 +186,11 @@ public sealed class EncounterCatalog
         // can drift from mobs.json (e.g. "바실루스" vs "위악의 바실루스"). Only the SUFFIX comes from here.
         return fallback.Length > 0 ? $"{fallback} ({info.VariantLabel})" : info.DisplayBossName;
     }
+
+    private static string? NullableStr(JsonElement el, string name) =>
+        el.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.String
+            ? v.GetString()
+            : null;
 
     private static string Str(JsonElement el, string name) =>
         el.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.String

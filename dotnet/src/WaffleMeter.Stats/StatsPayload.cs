@@ -52,13 +52,19 @@ public sealed record StatsCharacterPayload(
     int Power,
     [property: JsonPropertyName("public")] bool Public);
 
+/// <summary>Which encounter this battle was. <see cref="MobCode"/> is the authority — the server resolves the
+/// dungeon, difficulty/stage and boss order from it, because a boss mobCode is unique per (dungeon, variant).
+/// The rest is what the meter's own catalog made of that code: redundant when the two agree, and a readable
+/// record of what the client believed when they don't.
+/// <para><see cref="Stage"/> is a STRING ("1".."4"), not a number — the server's schema types it as nullable
+/// text alongside <see cref="Difficulty"/>, and a numeric one is rejected outright.</para></summary>
 public sealed record StatsEncounterPayload(
     int MobCode,
     string BossName,
     string? DungeonName = null,
     string? Category = null,
     string? Difficulty = null,
-    int? Stage = null,
+    string? Stage = null,
     int? BossIndex = null);
 
 public sealed record StatsBattlePayload(

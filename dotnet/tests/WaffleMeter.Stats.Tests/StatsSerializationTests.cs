@@ -31,9 +31,11 @@ public sealed class StatsSerializationTests
         Assert.DoesNotContain("dungeonName", omitted);
         Assert.DoesNotContain("stage", omitted);
 
-        string set = StatsJson.Serialize(new StatsEncounterPayload(5, "Boss", DungeonName: "Abyss", Stage: 2));
+        // stage is TEXT on the wire, not a number — the server's schema types it as nullable text next to
+        // difficulty, and a numeric one is rejected outright.
+        string set = StatsJson.Serialize(new StatsEncounterPayload(5, "Boss", DungeonName: "Abyss", Stage: "2"));
         Assert.Contains("\"dungeonName\":\"Abyss\"", set);
-        Assert.Contains("\"stage\":2", set);
+        Assert.Contains("\"stage\":\"2\"", set);
     }
 
     [Fact]
