@@ -1485,6 +1485,17 @@ public partial class App : Application
                 }
 
                 break;
+            case "aether":
+                services.Props.SetProperty("aetherPanelX", string.Empty);
+                services.Props.SetProperty("aetherPanelY", string.Empty);
+                _aetherPanelPositioned = false;
+                if (_aetherPanel is { } ap && _aetherPanelVisible)
+                {
+                    ap.Left = overlay.Left + overlay.ActualWidth + 8;
+                    ap.Top = overlay.Top;
+                }
+
+                break;
         }
     }
 
@@ -1511,7 +1522,7 @@ public partial class App : Application
     private void ClampAllWindows()
     {
         bool allow = _settings?.MultiMonitorMode ?? false;
-        foreach (Window? w in new Window?[] { _overlayWindow, _joinPanel, _historyPanel, _skillFlyout, _detailWindow })
+        foreach (Window? w in new Window?[] { _overlayWindow, _joinPanel, _historyPanel, _aetherPanel, _skillFlyout, _detailWindow })
         {
             if (w != null)
             {

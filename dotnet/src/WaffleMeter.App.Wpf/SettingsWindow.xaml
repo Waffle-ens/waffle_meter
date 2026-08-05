@@ -1444,7 +1444,8 @@
                         <StackPanel Orientation="Horizontal">
                             <Button Content="미터기 위치" Click="OnResetMeterPosition" Margin="0,0,8,0"/>
                             <Button Content="파티 신청 위치" Click="OnResetJoinPosition" Margin="0,0,8,0"/>
-                            <Button Content="전투 기록 위치" Click="OnResetHistoryPosition"/>
+                            <Button Content="전투 기록 위치" Click="OnResetHistoryPosition" Margin="0,0,8,0"/>
+                            <Button Content="오드 목록 위치" Click="OnResetAetherPosition"/>
                         </StackPanel>
                     </StackPanel>
                 </Grid>

@@ -595,6 +595,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public void ResetMeterPosition() => ResetPositionRequested?.Invoke("meter");
     public void ResetJoinPosition() => ResetPositionRequested?.Invoke("join");
     public void ResetHistoryPosition() => ResetPositionRequested?.Invoke("history");
+    public void ResetAetherPosition() => ResetPositionRequested?.Invoke("aether");
 
     // ---- overlay tab (live) ----
     public double MeterOpacity { get => _settings.MeterOpacity; set { _settings.MeterOpacity = value; OnPropertyChanged(); } }

@@ -190,6 +190,8 @@ public partial class SettingsWindow : Window
 
     private void OnResetHistoryPosition(object sender, RoutedEventArgs e) => _viewModel.ResetHistoryPosition();
 
+    private void OnResetAetherPosition(object sender, RoutedEventArgs e) => _viewModel.ResetAetherPosition();
+
     private void OnApplyConsent(object sender, RoutedEventArgs e) => RunThenRefresh(_viewModel.ApplyConsent);
 
     private void OnRefreshConsent(object sender, RoutedEventArgs e) => RunThenRefresh(_viewModel.RefreshConsentFromServer);
