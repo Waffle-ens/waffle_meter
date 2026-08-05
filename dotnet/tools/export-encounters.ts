@@ -71,8 +71,11 @@ const dungeons = seed.encounterDungeons.map((dungeon) => {
       difficulty: variant.difficulty,
       stage: variant.stage,
       // [mobCode, bossIndex] pairs — primary seeds in boss order, then the alias codes.
+      // A variant may legitimately carry NO codes: the trial's difficulty buckets are chosen from the upload
+      // payload rather than identified by a mobCode, so they exist purely as labels. Tolerate both the empty
+      // array and the absent field — the meter's build runs this script, and a crash here blocks it.
       mobs: [
-        ...variant.mobCodes.flatMap((mobCode, i) => {
+        ...(variant.mobCodes ?? []).flatMap((mobCode, i) => {
           const boss = dungeon.bosses[i];
 
           // mobCodes pair with bosses BY POSITION. A variant listing more codes than the dungeon has bosses
