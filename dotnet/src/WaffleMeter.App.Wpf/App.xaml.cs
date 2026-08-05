@@ -1375,6 +1375,22 @@ public partial class App : Application
             _aetherPanel.Park();
         };
 
+        // ✕ on a row forgets that character. The store's key is a hash of (server, nickname), so a rename
+        // leaves the old character behind as a row that can never update — this is the only way to clear it.
+        // Removing the character that's currently logged in is allowed; its next broadcast simply re-adds it.
+        _aetherViewModel.RemoveRequested += hash =>
+        {
+            AetherPerCharacterStore store = AetherPerCharacterStore.Parse(
+                _settings!.AetherPerCharacter, _settings.AetherCharacterNames);
+            if (store.RemoveAll([hash]))
+            {
+                _settings.AetherPerCharacter = store.Serialize();
+                _settings.AetherCharacterNames = store.SerializeNames();
+            }
+
+            RefreshAetherRoster(services);
+        };
+
         overlay.AetherListRequested += () =>
         {
             if (_aetherPanelVisible)

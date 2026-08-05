@@ -22,6 +22,19 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
 
     public ObservableCollection<AetherRowViewModel> Rows { get; } = new();
 
+    /// <summary>Raised when a row's ✕ is clicked, with that character's identity hash (App forgets it and
+    /// refreshes). The list is the only place a remembered character can be dropped — a renamed character
+    /// keeps its old hash forever otherwise, since the key is a hash of (server, nickname).</summary>
+    public event Action<string>? RemoveRequested;
+
+    public void RequestRemove(string identityHash)
+    {
+        if (!string.IsNullOrWhiteSpace(identityHash))
+        {
+            RemoveRequested?.Invoke(identityHash);
+        }
+    }
+
     private Visibility _emptyVisibility = Visibility.Visible;
     public Visibility EmptyVisibility { get => _emptyVisibility; private set => Set(ref _emptyVisibility, value); }
 
@@ -65,6 +78,7 @@ public sealed class AetherRowViewModel
 {
     public AetherRowViewModel(AetherRosterRow row)
     {
+        IdentityHash = row.IdentityHash;
         Label = row.Label;
         JobText = row.SubLabel;
         JobVisibility = row.SubLabel.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -76,8 +90,10 @@ public sealed class AetherRowViewModel
         SeenText = FormatSeen(row.SavedAtMs);
     }
 
+    public string IdentityHash { get; }
     public string Label { get; }
     public string JobText { get; }
+    public string RemoveTooltip => $"{Label} 기록 삭제";
     public Visibility JobVisibility { get; }
     public string BaseText { get; }
     public string BonusText { get; }

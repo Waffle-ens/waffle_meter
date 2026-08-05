@@ -14,6 +14,33 @@
         FontFamily="Segoe UI">
     <Window.Resources>
         <local:FontFamilyConverter x:Key="FontConv"/>
+
+        <!-- Per-row ✕. Kept faint until the row is hovered so a list of characters doesn't read as a row of
+             delete buttons, but never fully hidden — a control you can't see is a control you don't know about. -->
+        <Style x:Key="RowRemoveButton" TargetType="Button">
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Opacity" Value="0.35"/>
+            <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" CornerRadius="9" Background="Transparent">
+                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="9"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{TemplateBinding Foreground}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#33FF6B6B"/>
+                                <Setter Property="Foreground" Value="#FF8A8A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
     <Border CornerRadius="6" BorderThickness="1"
             Background="{DynamicResource Skin.PanelBg}"
@@ -55,11 +82,12 @@
                     <ItemsControl ItemsSource="{Binding Rows}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border CornerRadius="8" Margin="8,3" MinHeight="44"
+                                <Border x:Name="row" CornerRadius="8" Margin="8,3" MinHeight="44"
                                         Background="{DynamicResource Skin.StatBg}">
                                     <Grid Margin="12,7">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
@@ -85,17 +113,31 @@
                                             </StackPanel>
                                         </StackPanel>
 
-                                        <!-- 자연회복 오드 + (추가 오드). Same split the meter's footer badge shows. -->
+                                        <!-- 오드 아이콘 + 자연회복 + (추가 오드). Same icon and split the meter's
+                                             footer badge shows, so the two read as the same number. -->
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
                                                     Margin="10,0,0,0">
+                                            <Image Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Icons/ode.png"
+                                                   Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,4,0"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
                                             <TextBlock Text="{Binding BaseText}" Foreground="#7EE7FF"
                                                        FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding BonusText}" Foreground="#7EE7FF" Opacity="0.66"
                                                        FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center"
                                                        Visibility="{Binding BonusVisibility}"/>
                                         </StackPanel>
+
+                                        <Button x:Name="remove" Grid.Column="2" Style="{StaticResource RowRemoveButton}"
+                                                Margin="8,0,0,0" VerticalAlignment="Center"
+                                                ToolTip="{Binding RemoveTooltip}" Click="OnRemoveClick"/>
                                     </Grid>
                                 </Border>
+                                <DataTemplate.Triggers>
+                                    <Trigger SourceName="row" Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="row" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
+                                        <Setter TargetName="remove" Property="Opacity" Value="1"/>
+                                    </Trigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
