@@ -173,6 +173,22 @@ public sealed class EncounterCatalog
     public EncounterInfo? Lookup(int mobCode) =>
         _byMobCode.TryGetValue(mobCode, out EncounterInfo info) ? info : null;
 
+    /// <summary>The dungeon whose difficulties all share one set of boss mobCodes — 시련: 바크론의 공중섬.
+    /// It is the sole encounter where the code does NOT imply the difficulty, so it is the sole one whose
+    /// live percentile has to be gated on what the packet stream said the difficulty was.</summary>
+    private const string TrialDungeonKey = "expedition-bakron-floating-island";
+
+    /// <summary>Whether this boss belongs to the trial, i.e. whether its mobCode leaves the difficulty
+    /// undetermined.</summary>
+    public bool IsTrialEncounter(int mobCode) =>
+        Lookup(mobCode) is { } info
+        && string.Equals(info.DungeonKey, TrialDungeonKey, StringComparison.Ordinal)
+        && info.DungeonId == TrialDungeonId;
+
+    /// <summary>The trial tier's own dungeonId; the other three difficulties of the same dungeon have their
+    /// own ids and their own codes, so they are ordinary encounters.</summary>
+    private const int TrialDungeonId = 600074;
+
     /// <summary>Whether a battle on this boss is worth uploading. An unloaded catalog answers true for
     /// everything, so a missing asset degrades to the pre-catalog behaviour instead of blocking uploads.</summary>
     public bool IsSupported(int mobCode) => !IsLoaded || _byMobCode.ContainsKey(mobCode);

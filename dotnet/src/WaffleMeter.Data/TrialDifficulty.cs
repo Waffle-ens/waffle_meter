@@ -35,6 +35,17 @@ public readonly record struct TrialDifficulty(int? Timelimit, int? Rebirthlimit,
         !IsTrial ? string.Empty
         : Level is { } exact ? $"시련 {exact}단계"
         : $"시련 {LevelMin}~{LevelMax}단계";
+
+    /// <summary>
+    /// The top difficulty — the only one this fight gets ranked at.
+    /// <para>보스 강화 4 raises the boss's max HP 120%, its damage amplification 50%, its combat speed 40%
+    /// and its groggy gauge 50%; 바크론 패턴 강화 4 adds 가시 속박, more 덩굴, and 탄환초 소환. Both change
+    /// how much damage a run can put out, so a percentile that mixed them with lower settings would not be
+    /// measuring anything. 시간 제한 and 부활 제한 leave the boss alone, but at this setting all three
+    /// readable knobs are 4 anyway.</para>
+    /// </summary>
+    public bool IsTopDifficulty =>
+        Timelimit == 4 && BossBuff == 4 && SkillUpgrade == 4;
 }
 
 /// <summary>
