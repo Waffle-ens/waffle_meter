@@ -30,6 +30,7 @@ public class StreamProcessorTests
     private const int DamageKey = 0x04 | (0x38 << 8); // 0x3804 = "Damage" (known)
     private const int DoTKey = 0x05 | (0x38 << 8);    // 0x3805 = "DoT" (known)
     private const int UnknownKey = 0x03 | (0x36 << 8); // 0x3603 (seen as unknown in real corpus)
+    private const int PartyRosterKey = 0x02 | (0x97 << 8); // 0x9702 — replayed even on a suppressed stream
 
     [Fact]
     public void Skips_three_byte_packet()
@@ -96,6 +97,48 @@ public class StreamProcessorTests
         Assert.Equal(new[] { DamageKey, DamageKey }, sink.Dispatched); // both inner frames dispatched
         Assert.Equal(0, sink.Unknown);
         Assert.Equal(0, sink.ParserErrors);
+    }
+
+    [Fact]
+    public void Identity_only_applies_inside_a_compressed_bundle_too()
+    {
+        // The dup-suppressed second game stream runs with identityOnly:true so ONLY idempotent identity/roster
+        // opcodes are replayed and the single-game-stream damage lock holds. But the FF FF branch is taken
+        // BEFORE that gate, and it used to re-enter OnPacketReceived without the flag — so everything inside a
+        // compressed bundle was processed in full. Measured on four real corpora: 40-73% of damage packets ride
+        // inside compressed frames, so a VPN dual-capture user got that share of their damage counted twice.
+        static byte[] InnerFrame(int realLength, byte opcodeLow, byte opcodeHigh)
+        {
+            var f = new byte[realLength];
+            f[0] = (byte)(realLength + 3);
+            f[1] = opcodeLow;
+            f[2] = opcodeHigh;
+            return f;
+        }
+
+        // One damage frame (must be dropped) + one party-roster frame (must survive — that is the whole point
+        // of the identity replay: the roster often rides the suppressed connection).
+        byte[] restored = [.. InnerFrame(5, 0x04, 0x38), .. InnerFrame(6, 0x02, 0x97)];
+
+        var compressed = new byte[LZ4Codec.MaximumOutputSize(restored.Length)];
+        int clen = LZ4Codec.Encode(restored, 0, restored.Length, compressed, 0, compressed.Length);
+        var outer = new List<byte> { 0x01, 0xFF, 0xFF };
+        int n = restored.Length;
+        outer.Add((byte)(n & 0xFF));
+        outer.Add((byte)((n >> 8) & 0xFF));
+        outer.Add((byte)((n >> 16) & 0xFF));
+        outer.Add((byte)((n >> 24) & 0xFF));
+        outer.AddRange(compressed[..clen]);
+        byte[] bundle = outer.ToArray();
+
+        var full = new RecordingSink();
+        new StreamProcessor(full).OnPacketReceived(bundle, 0);
+        Assert.Equal(new[] { DamageKey, PartyRosterKey }, full.Dispatched); // normal stream: both
+
+        var identity = new RecordingSink();
+        new StreamProcessor(identity).OnPacketReceived(bundle, 0, identityOnly: true);
+        Assert.Equal(1, identity.Compressed);                     // the bundle WAS opened...
+        Assert.Equal(new[] { PartyRosterKey }, identity.Dispatched); // ...but only the roster came out
     }
 
     [Fact]

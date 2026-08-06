@@ -259,10 +259,16 @@ public sealed class StatsPayloadBuilder
         Func<int, string?> actorIdentity)
     {
         var result = new List<StatsParticipantPayload>();
-        // 10-인 공대(5+5, 2026-07-01 패치): a slot 6-10 means a 2nd party exists. Tag each participant's
-        // sub-party (slots 1-5 → party 1 = uploader's party, 6-10 → party 2); for a non-raid roster (a single
-        // party of up to 5) the tags stay null and are omitted on send.
-        bool isRaid = log.Report.PartySlots.Values.Any(s => s > 5);
+        // Tag each participant's sub-party slot for a 공대 so the stats site can split raid synergy. Two sizes
+        // exist: 8-인 (two parties of 4) and 10-인 (two parties of 5, since the 2026-07-01 patch).
+        //
+        // The roster SIZE decides whether this is a raid — not the slot values. The old test
+        // (PartySlots.Values.Any(s => s > 5)) really asked "did a second-party member get a slot", so an 공대
+        // whose party-2 members dealt no damage read as a normal party and lost its tags entirely; it also
+        // counted stale non-participant entries, which could tag a 5-인 party as a raid. PartyRosterSize is 0 on
+        // battles saved before that field existed, so those fall back to the old inference.
+        bool isRaid = log.Report.PartyRosterSize is 8 or 10
+            || (log.Report.PartyRosterSize == 0 && log.Report.PartySlots.Values.Any(s => s > 5));
         foreach (User user in participants)
         {
             if (!log.Report.Information.TryGetValue(user.Id, out DpsInformation? info))
@@ -272,7 +278,14 @@ public sealed class StatsPayloadBuilder
 
             long totalDamage = RoundToLong(info.Amount);
             int? partySlot = isRaid && log.Report.PartySlots.TryGetValue(user.Id, out int slot) ? slot : null;
-            int? partyNumber = partySlot is int s ? (s - 1) / 5 + 1 : null;
+            // Deliberately NOT derived here. The sub-party boundary depends on the raid size — 4 for an 8-인
+            // 공대, 5 for a 10-인 — and this builder cannot know it reliably (battle.partySize below is the
+            // number of people who DEALT DAMAGE, not the roster size). The old formula hardcoded /5, so every
+            // 8-인 공대 sent slot 5 as party 1 while the site computes party 2; the site's consistency check
+            // then rejected the sub-party split for the WHOLE battle even though all 8 slots were correct.
+            // Sending null loses nothing: the site derives partyNumber from partySlot itself once it knows the
+            // raid size, and its check passes when this field is absent.
+            int? partyNumber = null;
             Dictionary<string, AnalyzedSkill> skills = log.SkillDetails.GetValueOrDefault(user.Id) ?? new Dictionary<string, AnalyzedSkill>();
             RateSummary rates = SummarizeRates(skills.Values);
             string? identityHash = NonBlank(user.Nickname) is { } nickname
