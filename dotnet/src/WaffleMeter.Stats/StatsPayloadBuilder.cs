@@ -30,6 +30,11 @@ public sealed class StatsPayloadBuilder
         JobClass.TEMPLAR, JobClass.GLADIATOR, JobClass.CHANTER, JobClass.CLERIC,
     };
 
+    /// <summary>How stale the 0x9702 roster snapshot may be before its combat-power numbers stop counting as
+    /// this battle's. Uploads normally run within seconds of a kill, so this only has to survive a queued
+    /// retry; past it the fallback simply does not fire and the official lookup takes over as before.</summary>
+    private const long RosterPowerTtlMs = 30L * 60 * 1000;
+
     private readonly DataManager _data;
     private readonly Func<bool> _publicCharacter;
     private readonly Func<long> _clock;
@@ -331,6 +336,21 @@ public sealed class StatsPayloadBuilder
         if (resolved.Power <= 0 && nickname != null && server > 0)
         {
             MergeUserInfo(resolved, _data.FindUserByNicknameAndServer(nickname, server));
+        }
+
+        // The 0x9702 roster carries each member's combat power, and the parser already stores it — until now
+        // only the pre-combat preview read it. Ask it BEFORE the official lookup: the lookup is a synchronous
+        // HTTP call on the upload worker that caches a failure for ten minutes, so one hiccup at the site
+        // silently drops every battle for the next ten. This costs no network at all, and it is the only
+        // source that ever works for a character whose profile is private or whose name is shared — for those
+        // players the lookup returns nothing forever, so every one of their battles was being dropped.
+        if (resolved.Power <= 0 && nickname != null && server > 0)
+        {
+            int rosterPower = _data.PartyRosterPower(nickname, server, RosterPowerTtlMs);
+            if (rosterPower > 0)
+            {
+                resolved.Power = rosterPower;
+            }
         }
 
         if (resolved.Power <= 0 && nickname != null && server > 0)

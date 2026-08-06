@@ -134,6 +134,84 @@ public sealed class StatsPayloadPartyNumberTests
     }
 
     [Fact]
+    public void Roster_combat_power_rescues_a_battle_the_lookup_would_have_dropped()
+    {
+        // A participant with no combat power fails the whole upload (the site's schema requires a positive
+        // number for every participant), and the only source that used to cover the gap was a synchronous
+        // lookup against the official site — which returns nothing at all for a private profile, and caches a
+        // failure for ten minutes when the site hiccups. The 0x9702 roster carries the same number over the
+        // wire and the parser already stores it.
+        var dm = new DataManager { Clock = () => 1_000_000 };
+        dm.SaveNickname(1, "Me", isExecutor: true, server: 3, jobByte: 5);
+        dm.SaveUserPower(1, 5000);
+        dm.SaveNickname(2, "Ally", isExecutor: false, server: 3, jobByte: 25);
+        // Ally's power never arrived on a packet: no 0x3645 snapshot, no lookup.
+        dm.SavePartyRoster(new List<(string, int, int)> { ("Me", 3, 1), ("Ally", 3, 2) });
+        dm.SavePartyRosterJobPower(new List<(string, int, int, int)> { ("Ally", 3, 25, 3300) });
+
+        var report = new DpsReport
+        {
+            Contributors = new List<User> { dm.User(1)!, dm.User(2)! },
+            BattleStart = 1_000_000,
+            BattleEnd = 1_030_000,
+            Target = new MobInfo(100, new Mob(12345, "보스", true), remainHp: 0, maxHp: 1_000_000),
+            Information = new Dictionary<int, DpsInformation>
+            {
+                [1] = new DpsInformation(1_000_000, 50_000, 60.0, 40.0),
+                [2] = new DpsInformation(600_000, 30_000, 40.0, 24.0),
+            },
+        };
+        var log = new DpsLog
+        {
+            Report = report,
+            SkillDetails = new Dictionary<int, Dictionary<string, AnalyzedSkill>>
+            {
+                [1] = new() { ["11020001"] = new AnalyzedSkill { SkillCode = 11020001, Name = "강타", DamageAmount = 1_000_000, Times = 100 } },
+                [2] = new() { ["15210001"] = new AnalyzedSkill { SkillCode = 15210001, Name = "파이어", DamageAmount = 600_000, Times = 50 } },
+            },
+        };
+
+        StatsUploadPayload payload = Build(dm, log);
+
+        Assert.Equal(3300, payload.Participants.Single(p => !p.IsUploader).Power);
+    }
+
+    [Fact]
+    public void A_stale_roster_snapshot_does_not_supply_combat_power()
+    {
+        // Fail-safe direction: past the freshness window the roster is somebody else's party, so the fallback
+        // stays out of it and the battle is skipped exactly as before rather than tagged with a stale number.
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SaveNickname(1, "Me", isExecutor: true, server: 3, jobByte: 5);
+        dm.SaveUserPower(1, 5000);
+        dm.SaveNickname(2, "Ally", isExecutor: false, server: 3, jobByte: 25);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("Me", 3, 1), ("Ally", 3, 2) });
+        dm.SavePartyRosterJobPower(new List<(string, int, int, int)> { ("Ally", 3, 25, 3300) });
+
+        now += 31L * 60 * 1000; // past the 30-minute window
+
+        var report = new DpsReport
+        {
+            Contributors = new List<User> { dm.User(1)!, dm.User(2)! },
+            BattleStart = now,
+            BattleEnd = now + 30_000,
+            Target = new MobInfo(100, new Mob(12345, "보스", true), remainHp: 0, maxHp: 1_000_000),
+            Information = new Dictionary<int, DpsInformation>
+            {
+                [1] = new DpsInformation(1_000_000, 50_000, 60.0, 40.0),
+                [2] = new DpsInformation(600_000, 30_000, 40.0, 24.0),
+            },
+        };
+        var log = new DpsLog { Report = report, SkillDetails = new Dictionary<int, Dictionary<string, AnalyzedSkill>>() };
+
+        var builder = new StatsPayloadBuilder(dm, publicCharacterProvider: () => false, clock: () => 1_700_000_000_000);
+        BuildResult result = builder.Build(log, "2.0.0", killConfirmed: true);
+
+        Assert.Equal("participant_power_unresolved", Assert.IsType<BuildResult.Skip>(result).Reason);
+    }
+
+    [Fact]
     public void No_roster_leaves_party_tags_null()
     {
         (DataManager dm, DpsLog log) = Scene(); // PartySlots empty (no 0x9702 captured)

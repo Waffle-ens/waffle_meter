@@ -828,6 +828,22 @@ public sealed class DataManager : ICaptureGameData
             .ToList();
     }
 
+    /// <summary>0x9702 로스터가 실어 온 그 캐릭터의 전투력(없거나 스냅샷이 오래됐으면 0).
+    /// <para>본인 전투력은 0x3656이 <b>바뀔 때만</b> 오므로 평범한 세션에서는 거의 오지 않는다(실측 본인 행의
+    /// 5.3%). 그 공백을 지금까지 공식 웹 조회가 메워 왔는데, 그건 업로드 워커에서 동기 HTTP로 돌고 실패를 10분간
+    /// 캐시하므로 API가 한 번 삐끗하면 그 뒤 10분 치 전투가 통째로 스킵된다. 로스터는 같은 숫자를 패킷으로 이미
+    /// 실어 오고(실측 본인 행의 82.5%), 두 소스가 모두 있는 1,474행에서 95.3%가 정확히 일치했다.</para></summary>
+    public int PartyRosterPower(string nickname, int server, long withinMs)
+    {
+        if (string.IsNullOrWhiteSpace(nickname) || server <= 0
+            || _partyRoster.Count == 0 || Clock() - _partyRosterAtMs > withinMs)
+        {
+            return 0;
+        }
+
+        return _partyRosterJobPower.TryGetValue((nickname, server), out (int JobCode, int Power) v) ? v.Power : 0;
+    }
+
     /// <summary>0x9702 직업/전투력 스냅샷을 병합 저장(<see cref="StreamProcessor"/> ParsePartyRoster가 SavePartyRoster
     /// 직후 호출). (닉네임,서버)별 최신값으로 갱신만 한다 — 신선도 게이트는 <see cref="PartyRosterJobPower"/>가
     /// <see cref="_partyRosterAtMs"/>로 건다.</summary>

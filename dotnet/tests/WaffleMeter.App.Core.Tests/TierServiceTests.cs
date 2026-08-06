@@ -301,6 +301,55 @@ public sealed class TierServiceTests : IDisposable
 
     // ---- helpers -------------------------------------------------------------------------------------
 
+    [Fact]
+    public void A_successful_refresh_sweeps_every_older_artifact()
+    {
+        // LoadFromDisk only ever opens the file named by tier.artifactId, so anything else in the folder is
+        // never read again — it is a stale copy of a distribution nobody will look at. Once the new one is
+        // past its digest and parse checks, the rest can go.
+        var props = new PropertyHandler(_dir);
+        string cache = Path.Combine(props.AppDirectory(), "tier");
+        Directory.CreateDirectory(cache);
+        File.WriteAllBytes(Path.Combine(cache, "old111111111111.json.gz"), GzipArtifact("old111111111111"));
+        File.WriteAllBytes(Path.Combine(cache, "old222222222222.json.gz"), GzipArtifact("old222222222222"));
+        File.WriteAllText(Path.Combine(cache, "notes.txt"), "unrelated"); // only *.json.gz is swept
+
+        byte[] gzip = GzipArtifact("new333333333333");
+        using var service = new TierService(FakeApi(gzip, Sha256Hex(gzip), "new333333333333"), props, startWorker: false);
+
+        service.TryRefresh();
+
+        Assert.Equal(
+            new[] { "new333333333333.json.gz" },
+            Directory.GetFiles(cache, "*.json.gz").Select(Path.GetFileName).OrderBy(n => n).ToArray());
+        Assert.True(File.Exists(Path.Combine(cache, "notes.txt")));
+    }
+
+    [Fact]
+    public void A_failed_refresh_keeps_the_cached_artifact_on_disk()
+    {
+        // The sweep must only run behind a verified download. A bad digest has to leave the working copy alone,
+        // otherwise one corrupt response would take the meter's only distribution with it.
+        byte[] good = GzipArtifact("good11111111111");
+        var props = new PropertyHandler(_dir);
+        using (var first = new TierService(FakeApi(good, Sha256Hex(good), "good11111111111"), props, startWorker: false))
+        {
+            first.TryRefresh();
+        }
+
+        string cache = Path.Combine(props.AppDirectory(), "tier");
+        Assert.True(File.Exists(Path.Combine(cache, "good11111111111.json.gz")));
+
+        byte[] corrupt = GzipArtifact("bad222222222222");
+        using var service = new TierService(FakeApi(corrupt, Sha256Hex(good), "bad222222222222"), props, startWorker: false);
+
+        service.TryRefresh(); // digest covers the OTHER artifact -> rejected
+
+        Assert.True(File.Exists(Path.Combine(cache, "good11111111111.json.gz")));
+        Assert.False(File.Exists(Path.Combine(cache, "bad222222222222.json.gz")));
+        Assert.Equal("sha256_mismatch", service.Status().LastError);
+    }
+
     private static FakeTierApi FakeApi(byte[] gzip, string sha256, string artifactId, Action? onDownload = null) => new()
     {
         ArtifactId = artifactId,

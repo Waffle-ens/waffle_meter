@@ -788,8 +788,56 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         get
         {
             StatsUploadStatus s = _services.UploadQueue.Status();
-            return $"업로드 {s.Uploaded} · 대기 {s.Pending} · 건너뜀 {s.Skipped} · 실패 {s.Failed}";
+            string counts = $"업로드 {s.Uploaded} · 대기 {s.Pending} · 건너뜀 {s.Skipped} · 실패 {s.Failed}";
+
+            // 마지막 사유를 함께 보여준다. 큐는 사유를 코드까지 실어 만들어 두는데(예:
+            // unsupported_encounter:2301059:영겁의 루드라) 지금까지 어디에도 표시되지 않아서, "안 올라가요" 제보를
+            // 미동의·보스아님·카탈로그누락·전투력미해석 중 무엇인지 가를 방법이 없었다.
+            return DescribeUploadReason(s.LastReason) is { } reason ? $"{counts}\n최근: {reason}" : counts;
         }
+    }
+
+    /// <summary>업로드 큐/페이로드 빌더가 남긴 마지막 사유를 한국어 한 줄로. 모르는 사유는 원문 그대로 보여준다 —
+    /// 새 사유가 생겼을 때 "" 로 삼켜 버리면 진단 가치가 사라진다.</summary>
+    private static string? DescribeUploadReason(string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return null;
+        }
+
+        // 큐가 코드와 이름을 함께 싣는 형태: unsupported_encounter:<mobCode>:<보스 이름>
+        if (reason.StartsWith("unsupported_encounter:", StringComparison.Ordinal))
+        {
+            string[] parts = reason.Split(':', 3);
+            string boss = parts.Length >= 3 && !string.IsNullOrWhiteSpace(parts[2]) ? parts[2] : "이 보스";
+            return $"{boss}는 아직 통계 대상 던전이 아닙니다";
+        }
+
+        if (reason.StartsWith("upload_failed:", StringComparison.Ordinal))
+        {
+            return $"전송 실패 — {reason["upload_failed:".Length..]}";
+        }
+
+        return reason switch
+        {
+            "uploaded" or "uploaded_duplicate" => "정상 업로드됨",
+            "consent_not_allowed" => "통계 수집에 동의하지 않아 보내지 않았습니다",
+            "force_tracking_mode" => "던전 강제 집계 중에는 보내지 않습니다",
+            "not_boss" or "not_uploadable_boss" => "보스 전투가 아닙니다",
+            "estimated_boss" => "보스를 확정하지 못했습니다(미상 보스)",
+            "not_kill" => "처치하지 못한 전투입니다",
+            "duplicate" => "같은 전투가 이미 올라가 있습니다",
+            "no_report_id" => "서버가 리포트 번호를 주지 않았습니다",
+            "target_missing" => "대상 보스 정보가 없습니다",
+            "executor_missing" or "own_character_missing" => "본인 캐릭터를 아직 인식하지 못했습니다",
+            "own_nickname_missing" or "own_identity_missing" => "본인 닉네임을 확인하지 못했습니다",
+            "own_result_missing" or "own_damage_empty" => "본인 딜 기록이 없는 전투입니다",
+            "invalid_duration" => "전투 시간이 올바르지 않습니다",
+            "own_power_unresolved" => "본인 전투력을 확인하지 못했습니다",
+            "participant_power_unresolved" => "참가자 중 전투력을 확인하지 못한 사람이 있습니다",
+            _ => reason,
+        };
     }
 
     public void ApplyConsent()
