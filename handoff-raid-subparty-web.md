@@ -69,12 +69,19 @@ function getRaidPartySize(payloadPartySize: number, rosterSize?: number | null) 
 }
 ```
 
-그리고 라벨 쪽(`profile.ts:271`, `recent.ts:220`, `identity-page.ts:216`)의
-`row.partySize >= 6 && !row.subPartyKnown` 조건에서 **"공대인가"를 rosterSize로** 판정해 주세요.
+그리고 라벨 쪽(`profile.ts:271`, `recent.ts:220`, `identity-page.ts:216`)과
+`recent.ts:435`(`synergyTrusted: ![8,10].includes(row.partySize) || row.subPartyKnown`)의
+`row.partySize` 기반 "공대인가" 판정을 rosterSize로 바꿔 주세요.
 지금은 딜러가 6명 이상이기만 하면 공대로 부릅니다 — 실측 코퍼스에 **딜러 70명짜리 필드 전투**가
 "70인 공대 시너지 구분 이전 지표"로 표시되는 케이스가 있습니다.
 
-`rosterSize`가 없는 과거 리포트는 폴백이 기존 동작 그대로라 회귀가 없습니다.
+⚠️ **스키마 추가가 필요합니다.** 이 라벨들은 payload가 아니라 **DB 행**을 읽습니다
+(`battleReports.partySize`, `battleReports.subPartyKnown` — `src/db/schema.ts:157,161`).
+`battle_reports`에 `roster_size smallint NULL`을 추가하고 ingest에서 `payload.battle.rosterSize`를 채워 주세요.
+과거 행은 NULL이고, 그때는 기존 `partySize` 폴백으로 떨어지므로 회귀가 없습니다.
+
+**반대 방향 오탐도 같이 잡힙니다**: 지금은 필드 전투에서 우연히 딜러가 정확히 8명이나 10명이면
+`getRaidPartySize`가 8/10을 돌려줘 **공대가 아닌 전투를 공대로 취급**합니다. rosterSize가 있으면 그 경로가 막힙니다.
 
 ### 변경 2 — 참가자 완비 요구 완화 (진짜 공대 잔여분 해소, 2/10건)
 
@@ -96,9 +103,17 @@ function hasCoherentRaidSlots(participants, raidPartySize) {
 }
 ```
 
-**판단이 필요한 지점**: 참가자가 정원보다 적으면 그룹별 시너지 마스크가 **과소** 계산됩니다
-(그 서브파티에 있었지만 딜을 안 한 사람의 직업이 마스크에서 빠짐). 이게 허용 가능한지는 웹 쪽 판단입니다.
-허용이 어렵다면 `subPartyKnown`을 켜지 않되 **부분 크레딧 플래그**를 따로 두는 형태도 가능합니다.
+**정확도는 오히려 좋아집니다.** 지금 이 전투들이 받는 폴백은 `getWholePartySynergyMask`인데, 그건
+`payload.partyComposition.jobs`에서 계산되고 그 값은 미터가 **기여자(=딜한 사람)로만** 채웁니다
+(`StatsPayloadBuilder.cs:171-176`). 즉 폴백도 결석자를 포함하지 않습니다 — 같은 5명을 놓고
+"한 덩어리 마스크"를 주느냐 "서브파티별 마스크"를 주느냐의 차이일 뿐이고, 후자가 더 정확합니다.
+기믹 분할 전투에서는 다른 서브파티가 물리적으로 다른 장소에 있었으므로 시너지를 주지도 않았습니다.
+
+**남는 판단거리**: 같은 서브파티 안에 딜을 안 한 사람이 있으면(전투 내내 사망 등) 그 사람의 직업이
+마스크에서 빠져 **과소** 계산됩니다. 과소 마스크는 해당 참가자를 "시너지 덜 받은" 코호트로 분류하므로
+백분위가 **후하게** 나올 수 있습니다. 이 케이스가 실측 코퍼스엔 없었지만(기믹 분할은 서브파티 통째 결석),
+보수적으로 가려면 "present 서브파티의 인원이 `slotsPerSubParty`와 같을 때만 그 그룹 마스크를 신뢰"로
+좁힐 수 있습니다.
 
 ⚠️ **미터가 0딜 참가자를 채워 넣는 방식은 하지 않습니다.** 그 사람들은 실제로 다른 보스와 싸우고 있었고,
 참가자로 만들면 DPS 분포와 랭킹이 오염됩니다.
