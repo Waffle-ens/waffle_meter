@@ -6,9 +6,10 @@ using Xunit;
 namespace WaffleMeter.Stats.Tests;
 
 /// <summary>
-/// Covers the 8-인 공대 sub-party tagging on the upload payload: each participant carries its raw roster
-/// slot (1-8) and a derived party number (slots 1-4 = party 1 = uploader's party, 5-8 = party 2). For a
-/// non-raid party (only slots 1-4 / no roster) the tags stay null and are omitted on send.
+/// Covers 공대 sub-party tagging on the upload payload. Each participant carries its raw roster slot; the
+/// PARTY NUMBER is deliberately not derived here, because the sub-party boundary depends on the raid size
+/// (4 for an 8-인 공대, 5 for a 10-인) and the site is the side that knows it. For a normal party the tags
+/// stay null and are omitted on send.
 /// </summary>
 public sealed class StatsPayloadPartyNumberTests
 {
@@ -52,11 +53,10 @@ public sealed class StatsPayloadPartyNumberTests
     }
 
     [Fact]
-    public void Eight_player_raid_tags_each_participant_with_party_number()
+    public void Raid_tags_the_roster_slot_and_leaves_the_party_number_to_the_site()
     {
         (DataManager dm, DpsLog log) = Scene();
-        // Frozen 8-인 공대 roster: Me = slot 2 (party 1), Ally = slot 6 (party 2); the other six slots make
-        // a 2nd party (slots 5-8) present so the upload tags the sub-parties.
+        log.Report.PartyRosterSize = 8;
         log.Report.PartySlots = new Dictionary<int, int>
         {
             [1] = 2, [2] = 6, [10] = 1, [11] = 3, [12] = 4, [13] = 5, [14] = 7, [15] = 8,
@@ -67,16 +67,65 @@ public sealed class StatsPayloadPartyNumberTests
         StatsParticipantPayload me = payload.Participants.Single(p => p.IsUploader);
         StatsParticipantPayload ally = payload.Participants.Single(p => !p.IsUploader);
         Assert.Equal(2, me.PartySlot);
-        Assert.Equal(1, me.PartyNumber);    // slots 1-4 => party 1 (uploader's own party)
         Assert.Equal(6, ally.PartySlot);
-        Assert.Equal(2, ally.PartyNumber);  // slots 5-8 => party 2
+        // Not derived: an 8-인 공대 splits 4+4, so slot 5 is party 2 — the old (slot-1)/5+1 said party 1 and
+        // the site rejected the whole battle's sub-party split over that one disagreement.
+        Assert.Null(me.PartyNumber);
+        Assert.Null(ally.PartyNumber);
+    }
+
+    [Fact]
+    public void Raid_is_decided_by_roster_size_not_by_who_dealt_damage()
+    {
+        // An 공대 where nobody in the second party landed a hit on this boss (split mechanics do exactly this).
+        // The old test — "does any slot exceed 5" — read this as a normal party and dropped every tag.
+        (DataManager dm, DpsLog log) = Scene();
+        log.Report.PartyRosterSize = 10;
+        log.Report.PartySlots = new Dictionary<int, int> { [1] = 2, [2] = 4 };
+
+        StatsUploadPayload payload = Build(dm, log);
+
+        Assert.Equal(2, payload.Participants.Single(p => p.IsUploader).PartySlot);
+        Assert.Equal(4, payload.Participants.Single(p => !p.IsUploader).PartySlot);
+    }
+
+    [Fact]
+    public void A_stale_high_slot_no_longer_turns_a_normal_party_into_a_raid()
+    {
+        // PartySlots can hold entries for uids that aren't in this battle (a roster member resolved to a
+        // lingering uid). Judging "raid" off those values let one stale slot 6 tag a 5-인 party — which the
+        // site then warns about and discards. The roster size can't be fooled that way.
+        (DataManager dm, DpsLog log) = Scene();
+        log.Report.PartyRosterSize = 5;
+        log.Report.PartySlots = new Dictionary<int, int> { [1] = 1, [2] = 2, [99] = 6 };
+
+        StatsUploadPayload payload = Build(dm, log);
+
+        Assert.All(payload.Participants, p => Assert.Null(p.PartySlot));
+        Assert.All(payload.Participants, p => Assert.Null(p.PartyNumber));
+    }
+
+    [Fact]
+    public void A_battle_saved_before_the_roster_size_existed_falls_back_to_the_slot_inference()
+    {
+        // Re-uploading history saved by an older build: PartyRosterSize deserializes to 0, so the old
+        // "any slot above 5" inference still applies rather than silently dropping the tags.
+        (DataManager dm, DpsLog log) = Scene();
+        log.Report.PartyRosterSize = 0;
+        log.Report.PartySlots = new Dictionary<int, int> { [1] = 2, [2] = 6 };
+
+        StatsUploadPayload payload = Build(dm, log);
+
+        Assert.Equal(2, payload.Participants.Single(p => p.IsUploader).PartySlot);
+        Assert.Equal(6, payload.Participants.Single(p => !p.IsUploader).PartySlot);
     }
 
     [Fact]
     public void Non_raid_party_leaves_party_tags_null()
     {
         (DataManager dm, DpsLog log) = Scene();
-        log.Report.PartySlots = new Dictionary<int, int> { [1] = 1, [2] = 2 }; // 4-인 이하, no 2nd party
+        log.Report.PartyRosterSize = 5;
+        log.Report.PartySlots = new Dictionary<int, int> { [1] = 1, [2] = 2 };
 
         StatsUploadPayload payload = Build(dm, log);
 

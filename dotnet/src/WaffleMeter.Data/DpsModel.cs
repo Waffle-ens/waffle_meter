@@ -342,6 +342,15 @@ public sealed class DpsReport
     /// the live roster is replaced on party change, so a delayed upload stays faithful to the battle.</summary>
     public Dictionary<int, int> PartySlots { get; set; } = new();
 
+    /// <summary>Frozen size of the 0x9702 roster at save time — how many people were in the party/raid, which
+    /// is NOT the same as how many of them dealt damage. 8 or 10 means a two-sub-party 공대; anything else is a
+    /// single party. Frozen alongside <see cref="PartySlots"/> from the same snapshot.
+    /// <para>The upload used to infer "is this a raid" from <c>PartySlots.Values.Any(s =&gt; s &gt; 5)</c>, which
+    /// really asks "did any SECOND-party member get a slot" — so an 공대 whose party-2 members dealt no damage,
+    /// or whose uploader sat in party 1, was silently treated as a normal party. 0 on battles saved before this
+    /// field existed, which selects the old inference as a fallback.</para></summary>
+    public int PartyRosterSize { get; set; }
+
     public bool IsEmpty() => Information.Count == 0;
 
     public void CompareBattleTime(long time)

@@ -2148,7 +2148,8 @@ public sealed class DataManager : ICaptureGameData
             BuffRates = buffRates,         // frozen so the detail (history replay) matches the web
             BossBuffRates = bossBuffRates,
             SkillDetailsSnapshot = skillDetails, // frozen so the replayed detail's skill table + summary aren't empty
-            PartySlots = CurrentPartySlots(data.Contributors), // frozen 0x9702 sub-party slots (1-4/5-8), keyed to the actual battle uids
+            PartySlots = CurrentPartySlots(data.Contributors), // frozen 0x9702 sub-party slots (1-5/6-10), keyed to the actual battle uids
+            PartyRosterSize = _partyRoster.Count,               // ...and how many people that roster held (8/10 = 공대), from the same snapshot
             DpsSeries = data.DpsSeries,          // frozen per-second damage series so the replayed DPS graph isn't empty
             BuffIntervals = data.BuffIntervals,  // frozen buff timeline (built pre-prune by the caller) for the graph's icon lane
         };

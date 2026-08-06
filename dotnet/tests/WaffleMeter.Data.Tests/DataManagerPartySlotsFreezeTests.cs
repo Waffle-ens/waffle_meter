@@ -44,6 +44,57 @@ public sealed class DataManagerPartySlotsFreezeTests
     }
 
     [Fact]
+    public void SaveBattleLog_freezes_the_roster_size_alongside_the_slots()
+    {
+        // How many people were in the raid is a different question from how many of them dealt damage, and the
+        // upload needs the former to decide "is this a 공대" — a raid whose second party never touched this boss
+        // still has to carry its slots. Frozen from the same snapshot as the slots.
+        var dm = new DataManager { Clock = () => 1_000_000 };
+        dm.SaveNickname(1, "Me", isExecutor: true, server: 2003, jobByte: 0);
+        dm.SavePartyRoster(new List<(string, int, int)>
+        {
+            ("Me", 2003, 1), ("A", 2003, 2), ("B", 2003, 3), ("C", 2003, 4), ("D", 2003, 5),
+            ("E", 2003, 6), ("F", 2003, 7), ("G", 2003, 8), ("H", 2003, 9), ("I", 2003, 10),
+        });
+
+        var report = new DpsReport
+        {
+            Contributors = new List<User> { dm.User(1)! },
+            Information = new Dictionary<int, DpsInformation> { [1] = new(1, 1, 1, 1) },
+        };
+
+        DpsLog log = dm.SaveBattleLog(
+            report,
+            new Dictionary<int, Dictionary<string, AnalyzedSkill>>(),
+            new Dictionary<int, List<OperatingData>>(),
+            new List<OperatingData>());
+
+        Assert.Equal(10, log.Report.PartyRosterSize);   // the raid had ten members...
+        Assert.Single(log.Report.PartySlots);           // ...only one of whom is a recognized battle uid
+    }
+
+    [Fact]
+    public void SaveBattleLog_freezes_a_zero_roster_size_when_no_roster_was_seen()
+    {
+        var dm = new DataManager { Clock = () => 1_000_000 };
+        dm.SaveNickname(1, "Me", isExecutor: true, server: 2003, jobByte: 0);
+
+        var report = new DpsReport
+        {
+            Contributors = new List<User> { dm.User(1)! },
+            Information = new Dictionary<int, DpsInformation> { [1] = new(1, 1, 1, 1) },
+        };
+
+        DpsLog log = dm.SaveBattleLog(
+            report,
+            new Dictionary<int, Dictionary<string, AnalyzedSkill>>(),
+            new Dictionary<int, List<OperatingData>>(),
+            new List<OperatingData>());
+
+        Assert.Equal(0, log.Report.PartyRosterSize);
+    }
+
+    [Fact]
     public void SaveBattleLog_keys_self_slot_to_current_executor_despite_stale_duplicates()
     {
         // The executor re-registers under a FRESH uid on every zone/instance load (0x3633), leaving stale

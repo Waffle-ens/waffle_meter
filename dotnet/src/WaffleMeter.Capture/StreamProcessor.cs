@@ -271,7 +271,7 @@ public sealed class StreamProcessor
                 && packet[lengthInfo.Length + 2] == 0xFF)
             {
                 _sink.CompressedPacket(packet.Length, true);
-                DecompressPacket(packet, lengthInfo.Length, true, arrivedAt);
+                DecompressPacket(packet, lengthInfo.Length, true, arrivedAt, identityOnly);
                 return;
             }
         }
@@ -282,7 +282,7 @@ public sealed class StreamProcessor
                 && packet[lengthInfo.Length + 1] == 0xFF)
             {
                 _sink.CompressedPacket(packet.Length, false);
-                DecompressPacket(packet, lengthInfo.Length, false, arrivedAt);
+                DecompressPacket(packet, lengthInfo.Length, false, arrivedAt, identityOnly);
                 return;
             }
         }
@@ -404,7 +404,12 @@ public sealed class StreamProcessor
         }
     }
 
-    private void DecompressPacket(byte[] packet, int headerLength, bool extraFlag, long arrivedAt)
+    /// <summary>LZ4 프레임을 풀어 안쪽 패킷들을 다시 <see cref="OnPacketReceived"/>로 넣는다.
+    /// <paramref name="identityOnly"/>는 <b>반드시</b> 그대로 전파해야 한다 — 압축 분기가 identityOnly 게이트보다
+    /// 앞에 있어서(위 :270 부근), 전파하지 않으면 억제된 중복 게임 스트림의 압축 프레임 안쪽이 전부 처리된다.
+    /// 실측(코퍼스 4종): 게임 데미지 패킷의 40~73%가 압축 프레임 안에 실려 오므로, 누락 시 VPN 듀얼캡처
+    /// 이중집계 방어(single-game-stream lock)가 그 비율만큼 무력화된다.</summary>
+    private void DecompressPacket(byte[] packet, int headerLength, bool extraFlag, long arrivedAt, bool identityOnly)
     {
         try
         {
@@ -438,7 +443,7 @@ public sealed class StreamProcessor
                     break;
                 }
 
-                OnPacketReceived(restored[pastInnerOffset..(pastInnerOffset + realLength)], arrivedAt);
+                OnPacketReceived(restored[pastInnerOffset..(pastInnerOffset + realLength)], arrivedAt, identityOnly);
                 innerOffset += realLength;
             }
         }
