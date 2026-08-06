@@ -875,6 +875,18 @@ public sealed class StreamProcessor
             return;
         }
 
+        // Snapshot coherence: two members cannot hold the same slot. If they appear to, the header layout has
+        // drifted (a new marker byte, a changed stride) and every slot in this snapshot is suspect — so drop
+        // them all rather than hand out an assignment that is confidently wrong. A wrong sub-party is worse
+        // than none: the site stores what it is told, and nothing downstream can tell the two apart.
+        var claimed = new HashSet<int>();
+        bool duplicate = members.Any(m => m.Slot > 0 && !claimed.Add(m.Slot));
+        if (duplicate)
+        {
+            _sink.Meta("party_roster_slot_conflict", ("count", members.Count));
+            members = members.Select(m => (m.Nickname, m.Server, Slot: 0)).ToList();
+        }
+
         _data.SavePartyRoster(members);
         _data.SavePartyRosterJobPower(jobPower);
 
@@ -910,9 +922,15 @@ public sealed class StreamProcessor
     // 8-인 공대 never reached a full 1-8 set and the stats web's sub-party split stayed off). Anchoring on the
     // marker instead recovers every member; the byte-scan has already validated the server+name at serverOffset.
     // 2026-07-01 patch raised party 4→5 and raid 8→10 (two parties of 5), so slots now span 1-10.
+    //
+    // The four markers are one family: 0x3A, 0x3E, 0x7A, 0x7E differ only in the 0x40 and 0x04 bits. Three of
+    // them were listed and 0x3E was not, which cost that member its slot — and 0x3E lands on slots 1-5, which
+    // in a 10-인 공대 is the whole first party. Measured across the corpus: allowing it takes complete 1..N
+    // snapshots from 435 to 584 of 680, with zero duplicate slots introduced and zero snapshots that were
+    // complete before and are not after.
     private static int MemberSlot(byte[] packet, int serverOffset) =>
         serverOffset >= 8
-        && packet[serverOffset - 8] is 0x7A or 0x7E or 0x3A
+        && packet[serverOffset - 8] is 0x7A or 0x7E or 0x3A or 0x3E
         && packet[serverOffset - 7] is >= 1 and <= 10
             ? packet[serverOffset - 7]
             : 0;

@@ -186,6 +186,49 @@ public sealed class PartyRosterParsingTests
     }
 
     [Fact]
+    public void ParsePartyRoster_reads_the_3E_marker_which_lands_on_a_raids_first_party()
+    {
+        // The record markers are one family — 0x3A, 0x3E, 0x7A, 0x7E differ only in the 0x40 and 0x04 bits —
+        // and 0x3E was the one missing from the list, so those members silently fell to slot 0. It shows up on
+        // slots 1-5, which in a 10-인 공대 is the entire first party: five of ten participants lose their slot,
+        // the set can never be complete, and the site refuses the whole battle's sub-party split.
+        var data = new RecordingData();
+        var proc = new StreamProcessor(new NullSink(), data, null);
+
+        var body = new List<byte> { 0x02, 0x97, 0xb4, 0x36, 0x05, 0x00, 0x04 };
+        AddMemberWithHeader(body, "일번", 2003, 1, marker: 0x3E, handle: 0x1D381);
+        AddMemberWithHeader(body, "이번", 2003, 2, marker: 0x3E, handle: 0x8287);
+        AddMemberWithHeader(body, "육번", 2003, 6, marker: 0x7E, handle: 0x17F86);
+
+        proc.OnPacketReceived(Packet(body), 1000);
+
+        Assert.NotNull(data.Last);
+        Assert.Equal(new[] { 1, 2, 6 }, data.Last!.Select(m => m.Slot).ToArray());
+    }
+
+    [Fact]
+    public void ParsePartyRoster_drops_every_slot_when_two_members_claim_the_same_one()
+    {
+        // Fail-closed against a future header drift: if the layout moves again we would read plausible but
+        // WRONG slots, and a wrong sub-party is worse than none — the site stores what it is told and nothing
+        // downstream can tell the two apart. A duplicate inside one snapshot proves the read is unreliable,
+        // so the whole snapshot's slots are discarded and the members ride through unslotted.
+        var data = new RecordingData();
+        var proc = new StreamProcessor(new NullSink(), data, null);
+
+        var body = new List<byte> { 0x02, 0x97, 0xb4, 0x36, 0x05, 0x00, 0x04 };
+        AddMemberWithHeader(body, "하나", 2003, 3, marker: 0x7A, handle: 0x1111);
+        AddMemberWithHeader(body, "둘", 2003, 3, marker: 0x7E, handle: 0x2222); // same slot -> incoherent
+        AddMemberWithHeader(body, "셋", 2003, 5, marker: 0x3A, handle: 0x3333);
+
+        proc.OnPacketReceived(Packet(body), 1000);
+
+        Assert.NotNull(data.Last);
+        Assert.Equal(3, data.Last!.Count);                          // members still recognised...
+        Assert.All(data.Last!, m => Assert.Equal(0, m.Slot));       // ...but nobody gets a slot
+    }
+
+    [Fact]
     public void ParsePartyRoster_recovers_all_eight_slots_from_a_real_raid_packet()
     {
         // Verbatim decompressed 0x9702 packet from the 6/11 무스펠의 성배 8-인 공대 capture (20260611-201458):
