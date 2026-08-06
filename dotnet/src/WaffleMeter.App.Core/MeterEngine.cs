@@ -252,6 +252,8 @@ public sealed class MeterEngine : IDisposable
             long drops = queued >= 0 ? Math.Max(0, written - read - queued) : -1;
             long gapSkips = _services.AlignerGapSkips();
             long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            (int streams, int blindSpot, long selfHeals, long framerResets, long stallMs, long stallHeld, bool stallGame, bool stallPrimary)
+                = _services.CaptureDiagSnapshot(nowMs);
             (long jobSeen, long selfAccepted, long ownerZero, int owner, int storeCount, int cdStore, int cdActive, int buffsOnCd) = _services.Data.BuffDiagSnapshot(nowMs);
 
             long dWritten = written - _lastEmitWritten;
@@ -268,25 +270,23 @@ public sealed class MeterEngine : IDisposable
             _lastEmitOwnerZero = ownerZero;
             _lastEmitGapSkips = gapSkips;
 
-            // [combat-diag] Capture-layer loss timeline for the first-boss-miss investigation: log to
-            // combat-diag.log ONLY when a gap-skip or channel drop actually happened this interval, so it lines
-            // up with any engage_no_mobcode / spawn_no_marker written by StreamProcessor.
-            if (dGap > 0 || drops > 0)
-            {
-            }
-
-            // Skip a fully idle interval (no traffic, nothing queued) so the log only grows during play.
-            if (dWritten == 0 && dJob == 0 && dGap == 0 && queued <= 0)
+            // Skip a fully idle interval (no traffic, nothing queued) so the log only grows during play. A live
+            // stall is NOT idle — it must keep printing, because a stalled stream is precisely the case where
+            // every other counter looks healthy (segments arrive, queue empty, no drops) and only the meter is
+            // dead. That combination is the fingerprint of an app-side latch rather than capture loss.
+            if (dWritten == 0 && dJob == 0 && dGap == 0 && queued <= 0 && stallMs == 0)
             {
                 return;
             }
 
             string line = string.Format(
                 CultureInfo.InvariantCulture,
-                "owner={0} store={1} | job/5s={2} self/5s={3} ownerZero/5s={4} (cum job={5} self={6} ownerZero={7}) | cd store={8} active={9} buffsOnCd={10} | seg wr/5s={11} rd/5s={12} queued={13} dropsCum={14} | gapSkip/5s={15} cum={16}",
+                "owner={0} store={1} | job/5s={2} self/5s={3} ownerZero/5s={4} (cum job={5} self={6} ownerZero={7}) | cd store={8} active={9} buffsOnCd={10} | seg wr/5s={11} rd/5s={12} queued={13} dropsCum={14} | gapSkip/5s={15} cum={16} | streams={17} blind={18} heal={19} accReset={20} stall={21}ms/{22}KB/{23}/{24}",
                 owner, storeCount, dJob, dSelf, dOwnerZero, jobSeen, selfAccepted, ownerZero,
                 cdStore, cdActive, buffsOnCd,
-                dWritten, dRead, queued, drops, dGap, gapSkips);
+                dWritten, dRead, queued, drops, dGap, gapSkips,
+                streams, blindSpot, selfHeals, framerResets,
+                stallMs, stallHeld / 1024, stallGame ? "G" : "N", stallPrimary ? "P" : "-");
             BuffDiag.Write(line);
         }
         catch

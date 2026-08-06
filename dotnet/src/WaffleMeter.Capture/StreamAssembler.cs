@@ -12,11 +12,14 @@ namespace WaffleMeter.Capture;
 /// Behaviors ported verbatim — do NOT "fix" here; any correction belongs behind a flag after
 /// parity is proven (plan risk register):
 ///  - value == 0   → discard 1 byte and continue
-///  - value == -1  → flush the WHOLE buffer and stop. This is the "split-varint flush-everything"
-///                   trap: if a varint header is split across segments so that peek(8) lacks the
-///                   full varint, ReadVarInt returns -1 and the buffer is flushed (data loss).
+///  - value == -1  → a varint split across chunks. Under 5 bytes remaining we WAIT for the rest (see
+///                   the note at that branch); only a longer buffer that still won't decode is real
+///                   corruption and flushes. Kotlin flushed unconditionally, which lost single-shot
+///                   packets landing on a chunk boundary.
 ///  - realLength&lt;=0 → flush and stop
-///  - Size &lt; realLength → wait for more bytes (correct path for a split packet BODY)
+///  - Size &lt; realLength → wait for more bytes (correct path for a split packet BODY). Unbounded growth
+///                   is capped by PacketAccumulator (32MB since c683495); a NON-game stream sitting here
+///                   on a false length is recovered by MeterServices.SelfHealIfStalled.
 /// </summary>
 public sealed class StreamAssembler
 {
@@ -28,7 +31,22 @@ public sealed class StreamAssembler
         _onPacket = onPacket;
     }
 
-    public void Flush() => _buffer.Flush();
+    public void Flush()
+    {
+        _buffer.Flush();
+        PendingRealLength = 0;
+    }
+
+    /// <summary>진단 전용(비동작): 지금 버퍼에 들어 있는 바이트. 게임이 아닌 스트림에서 이 값이 MB 단위로 머무르면
+    /// 거짓 realLength를 기다리는 중이다 = 프레임을 하나도 못 내므로 노이즈 가드의 EmittedPackets 조건에 영원히
+    /// 걸리지 않는다.</summary>
+    public int BufferedBytes => _buffer.Size;
+
+    /// <summary>진단 전용(비동작): 몸통을 기다리는 중인 프레임의 realLength(대기 중이 아니면 0).</summary>
+    public int PendingRealLength { get; private set; }
+
+    /// <summary>진단 전용(비동작): <see cref="PacketAccumulator"/> 상한 초과 강제 리셋 횟수.</summary>
+    public long ForcedResets => _buffer.ForcedResets;
 
     public void ProcessChunk(byte[] chunk, long arrivedAt)
     {
@@ -79,10 +97,12 @@ public sealed class StreamAssembler
             // 아직 패킷 전체가 도착하지 않음 — 더 기다리기
             if (_buffer.Size < realLength)
             {
+                PendingRealLength = realLength; // 진단 전용
                 break;
             }
 
             byte[] packet = _buffer.Slice(0, realLength);
+            PendingRealLength = 0; // 진단 전용
             _onPacket(packet, arrivedAt);
             _buffer.DiscardBytes(realLength);
         }

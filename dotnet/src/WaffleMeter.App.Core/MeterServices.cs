@@ -82,6 +82,31 @@ public sealed class MeterServices
     // assembled packets — more likely under the very flood this fights) can never be misread as noise.
     private const int MinNoisePackets = 50;
     private const int MaxExcludedKeys = 16384;
+    // Stream-scoped self-heal. Until now the ONLY escape from a latched aligner/framer stall was the user
+    // pressing 초기화 — FlushAllStreams is invoked from nowhere else (DpsCalculator.HardReset /
+    // ResetKeepingCharacters), and an ACTIVE stream never hits the 30 s idle eviction because LastSeen is
+    // refreshed by every segment. Measured against a NAVER Live Streaming Connector session (its local proxy on
+    // 127.0.0.1:17080 carries the whole video over loopback TCP, so 25 of its 27 connections land in our
+    // content-based capture): the meter stopped showing combat and 초기화 restored it instantly, every time.
+    // These two thresholds re-run exactly what that button does, scoped to the one stream that is stuck.
+    //
+    // (A) The aligner has held a head-of-line gap this long while segments keep arriving. SNIFF never
+    // re-observes a segment WE dropped (the client received it, so the server never retransmits), and 3 s is
+    // past Windows' minimum RTO plus a backoff, so a genuine network loss has already been repaired by then.
+    // The aligner's own 2MB escape needs 8-28 minutes at a real game connection's rate (measured 1.2-3.8 KB/s).
+    // Tunable, and 0 turns the whole self-heal off: capture.selfHealGapMs. Below the RTO floor this would start
+    // cutting gaps that a retransmit was about to fill, so keep it comfortably past a couple of backoffs.
+    private const long DefaultSelfHealGapMs = 3_000;
+    private readonly long _selfHealGapMs;
+    // (B) A stream with no game signal is sitting on a multi-MB framer buffer: a false realLength read out of
+    // high-entropy video/P2P bytes. It emits nothing, so it can never satisfy the noise guard's
+    // MinNoisePackets gate, and it grows toward PacketAccumulator's 32MB cap (a 64MB array that never shrinks).
+    // GameSignal > 0 streams are EXEMPT, so the large zone/boss snapshot frames that raised that cap
+    // (c683495, 바크론 보스 인식) are untouched — they ride a connection that earned its game signal in the
+    // first few KB. The grace bytes keep a freshly-reconnected game stream out of this until it has had ample
+    // room to earn that signal.
+    private const long NoiseFramerHoldBytes = 2_000_000;
+    private const long NoiseFramerGraceBytes = 4_000_000;
     // Single-game-stream lock (dual-capture defense): a VPN/accelerator can expose the SAME plaintext
     // game bytes under TWO 4-tuples (dual tunnel, loopback relay, mid-session port rebind). Each StreamKey
     // owns its own aligner, so TCP-seq dedup can't collapse them and BOTH would feed the shared processor —
@@ -170,7 +195,15 @@ public sealed class MeterServices
         public int EmittedPackets { get; set; }      // assembled packets the framer emitted (stall guard)
         public int GameSignal { get; set; }          // assembled packets that look like game packets (>0 => protected)
         public bool SuppressedDuplicate { get; set; } // a concurrent duplicate of the primary game stream — drop its packets
+        public long SelfHeals { get; set; }          // stream-scoped stall recoveries (diagnostic)
     }
+
+    // Stall recoveries and gap-skips that belong to streams which have since been evicted or excluded. Without
+    // these the totals DROP when a stream disappears (AlignerGapSkips only sums live streams), which is exactly
+    // what the field log showed — `gapSkip/5s=-2 cum=0` — erasing the loss indicator at the very moment peer
+    // churn is highest. Consumer-thread only, same as _streams.
+    private long _gapSkipsRetired;
+    private long _selfHealsRetired;
 
     /// <summary>Re-admit every excluded connection (called from a user reset, on the consumer thread) so a
     /// misclassification recovers without an app relaunch. The helper's source-side drop set is cleared
@@ -192,6 +225,12 @@ public sealed class MeterServices
         // Dual-capture defense (default on): collapse a game stream that a VPN/accelerator mirrors onto two
         // 4-tuples down to one, so damage isn't double-counted. Escape hatch: capture.dedupeGameStreams=false.
         _dedupeGameStreams = props.GetProperty("capture.dedupeGameStreams", "true") != "false";
+
+        // Stream-scoped stall recovery (default on). Escape hatch: capture.selfHealGapMs=0 restores the old
+        // behavior, where the only way out of a latched stream was the user pressing 초기화.
+        _selfHealGapMs = long.TryParse(props.GetProperty("capture.selfHealGapMs", ""), out long gapMs) && gapMs >= 0
+            ? gapMs
+            : DefaultSelfHealGapMs;
 
         OfficialLookup = officialLookup ?? new OfficialCharacterLookup();
         Data = new DataManager { OfficialLookup = OfficialLookup };
@@ -347,13 +386,53 @@ public sealed class MeterServices
     /// the buff-tracking diagnosis. Called on the consumer thread (same thread that mutates <c>_streams</c>).</summary>
     public long AlignerGapSkips()
     {
-        long total = 0;
+        long total = _gapSkipsRetired;
         foreach (StreamState s in _streams.Values)
         {
             total += s.Aligner.GapSkips;
         }
 
         return total;
+    }
+
+    /// <summary>Capture-stall diagnostics for buff-diag: how many streams are live, how many are stuck in the
+    /// noise guard's blind spot (enough volume to be noise but not enough emitted frames to be classified),
+    /// the self-heal / framer-reset tallies, and the WORST current aligner stall. Consumer-thread only.
+    /// <c>StallMs</c> is 0 when nothing is stalled. This is what tells apart "packets never arrived" from
+    /// "packets arrived and the app latched" — the distinction 초기화 recovering the meter already proved.</summary>
+    public (int Streams, int GuardBlindSpot, long SelfHeals, long FramerResets, long StallMs, long StallHeldBytes, bool StallIsGame, bool StallIsPrimary) CaptureDiagSnapshot(long nowMs)
+    {
+        int blindSpot = 0;
+        long selfHeals = _selfHealsRetired;
+        long framerResets = 0;
+        long worstMs = 0, worstHeld = 0;
+        bool worstIsGame = false, worstIsPrimary = false;
+
+        foreach ((string key, StreamState s) in _streams)
+        {
+            selfHeals += s.SelfHeals;
+            framerResets += s.Assembler.ForcedResets;
+            if (s.GameSignal == 0 && s.Bytes >= NoiseVolumeBytes && s.EmittedPackets < MinNoisePackets)
+            {
+                blindSpot++;
+            }
+
+            if (s.Aligner.GapOpenAtMs is not long open)
+            {
+                continue;
+            }
+
+            long stalled = nowMs - open;
+            if (stalled > worstMs)
+            {
+                worstMs = stalled;
+                worstHeld = s.Aligner.HeldBytes;
+                worstIsGame = s.GameSignal > 0;
+                worstIsPrimary = _primaryGameKey == key;
+            }
+        }
+
+        return (_streams.Count, blindSpot, selfHeals, framerResets, worstMs, worstHeld, worstIsGame, worstIsPrimary);
     }
 
     /// <summary>Feeds one captured segment through its per-connection stream (Kotlin Main.kt consumer).</summary>
@@ -384,7 +463,17 @@ public sealed class MeterServices
                     {
                         if (created.GameSignal == 0)
                         {
+                            // The 0->1 transition, breadcrumbed ONCE. This is the line that tells a real game
+                            // connection from a false positive: LooksLikeGamePacket is a structural check
+                            // (27 opcode keys + FF FF, p≈4.3e-4 per framed packet), so high-entropy noise
+                            // eventually earns a game signal too — and that grants PERMANENT exemption from the
+                            // noise guard (the GameSignal==0 test below never decays). A game stream earns this
+                            // within the first few KB; a false positive shows up tens of MB in, so the byte
+                            // count alone separates them.
+                            DebugLogger.Meta("game_signal_first",
+                                ("key", streamKey), ("bytes", created.Bytes), ("emitted", created.EmittedPackets));
                         }
+
                         created.GameSignal++; // content signal: this connection carries the game stream — protect it
                         _lastGameStreamKey = streamKey; // for the ping matcher (independent of the dedupe toggle)
                     }
@@ -446,14 +535,18 @@ public sealed class MeterServices
             state.Assembler.ProcessChunk(chunk.Data, chunk.ArrivedAt);
         }
 
+        SelfHealIfStalled(segment.StreamKey, state, segment.ArrivedAtMs);
+
         // Classify AFTER processing (so this segment's packets count first): a connection that has pushed
         // a lot of bytes AND emitted enough framed packets, none of which look like the game, is noise.
         // The game stream earns GameSignal within the first few KB, so it is protected long before this.
         if (state.GameSignal == 0 && state.EmittedPackets >= MinNoisePackets && state.Bytes >= NoiseVolumeBytes)
         {
-            // Always drop it locally (decoupled from the notify cap). Breadcrumb it so a wrongful exclusion
-            // is diagnosable in a debug session instead of a silent blackout.
-            _streams.Remove(segment.StreamKey);
+            // Drop the stream state now, and breadcrumb it so a wrongful exclusion is diagnosable in a debug
+            // session instead of a silent blackout. ⚠️ The durable part is _excludedKeys below, which is capped:
+            // past the cap this becomes a counter reset rather than a drop (the next segment rebuilds the state
+            // and it has to re-earn NoiseVolumeBytes all over again). See the backlog note on making it LRU.
+            RetireStream(segment.StreamKey, state);
             if (_primaryGameKey == segment.StreamKey) _primaryGameKey = null; // free the lock if (defensively) it was primary
             DebugLogger.Meta("conn_excluded",
                 ("key", segment.StreamKey), ("bytes", state.Bytes), ("packets", state.EmittedPackets));
@@ -475,11 +568,73 @@ public sealed class MeterServices
         if (++_processed % EvictEvery == 0)
         {
             long cutoff = segment.ArrivedAtMs - IdleMs;
-            foreach (string key in _streams.Where(kv => kv.Value.LastSeen < cutoff).Select(kv => kv.Key).ToList())
+            foreach ((string key, StreamState idle) in _streams.Where(kv => kv.Value.LastSeen < cutoff).ToList())
             {
-                _streams.Remove(key);
+                RetireStream(key, idle);
                 if (_primaryGameKey == key) _primaryGameKey = null; // primary went idle — let the next game stream claim it
             }
+        }
+    }
+
+    /// <summary>Drops a stream, carrying its loss counters into the retired totals first so the cumulative
+    /// figures never move backwards. Consumer-thread only.</summary>
+    private void RetireStream(string key, StreamState state)
+    {
+        _gapSkipsRetired += state.Aligner.GapSkips;
+        _selfHealsRetired += state.SelfHeals;
+        _streams.Remove(key);
+    }
+
+    /// <summary>Re-runs, for ONE stream, exactly what the user's 초기화 button runs for all of them — but only
+    /// when that stream is provably stuck. Two triggers, both narrow:
+    /// <para>(A) the aligner has held a head-of-line gap for <see cref="DefaultSelfHealGapMs"/> while segments keep
+    /// arriving. Its own escape hatch is 2MB of FURTHER traffic on the same connection, which at a measured
+    /// game-stream rate of 1.2-3.8 KB/s is 8-28 minutes of a completely silent meter: no damage, no buffs, no
+    /// battle toggle, no boss HP. The framer is flushed with it because a discarded gap has already broken the
+    /// frame boundary.</para>
+    /// <para>(B) a stream that has never yielded a game packet is holding a multi-MB framer buffer — a false
+    /// realLength read out of high-entropy bytes. It emits nothing, so the noise guard's MinNoisePackets gate
+    /// can never fire on it, and it grows toward the 32MB accumulator cap. Streams WITH a game signal are
+    /// exempt, so the large snapshot frames that cap exists for are never cut.</para>
+    /// Either way the suppression flag and (if this stream held it) the primary-game lock are released: a stream
+    /// that cannot emit must not keep another one suppressed. Consumer-thread only; never throws.</summary>
+    private void SelfHealIfStalled(string streamKey, StreamState state, long nowMs)
+    {
+        if (_selfHealGapMs <= 0)
+        {
+            return;
+        }
+
+        bool alignerStalled = state.Aligner.GapOpenAtMs is long openedAt && nowMs - openedAt >= _selfHealGapMs;
+        bool framerStuck = state.GameSignal == 0
+            && state.Bytes >= NoiseFramerGraceBytes
+            && state.Assembler.BufferedBytes >= NoiseFramerHoldBytes;
+
+        if (!alignerStalled && !framerStuck)
+        {
+            return;
+        }
+
+        DebugLogger.Meta("stream_self_heal",
+            ("key", streamKey),
+            ("reason", alignerStalled ? "aligner_gap" : "framer_hold"),
+            ("stalledMs", alignerStalled ? nowMs - state.Aligner.GapOpenAtMs!.Value : 0),
+            ("heldBytes", state.Aligner.HeldBytes),
+            ("bufferedBytes", state.Assembler.BufferedBytes),
+            ("pendingLength", state.Assembler.PendingRealLength),
+            ("gameSignal", state.GameSignal));
+
+        if (alignerStalled)
+        {
+            state.Aligner.Reset();
+        }
+
+        state.Assembler.Flush();
+        state.SuppressedDuplicate = false;
+        state.SelfHeals++;
+        if (_primaryGameKey == streamKey)
+        {
+            _primaryGameKey = null; // a stalled primary must not go on suppressing the others
         }
     }
 
