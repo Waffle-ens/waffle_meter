@@ -28,7 +28,11 @@ public sealed class PacketAlignmenter
     // Bytes currently held (out-of-order, not-yet-contiguous). Above MaxHoldBytes the gap is treated as
     // permanent (a capture-dropped segment SNIFF will never re-observe) and skipped, so a stalled stream
     // can't grow the hold buffer without bound. Well above any legitimate game reorder window — only a
-    // truly-stalled (usually high-volume non-game) stream reaches it. Mirrors PacketAccumulator's 2MB reset.
+    // truly-stalled (usually high-volume non-game) stream reaches it.
+    // ⚠️ This is a MEMORY bound, not a recovery mechanism: on a real game connection (measured 1.2-3.8 KB/s)
+    // filling 2MB takes 8-28 minutes, during which the stream emits nothing at all. Timely recovery is the
+    // app's stream-scoped self-heal (MeterServices.SelfHealIfStalled), which watches GapOpenAtMs.
+    // (This once said it mirrored PacketAccumulator's 2MB reset; that cap became 32MB in c683495.)
     private const long MaxHoldBytes = 2_000_000;
     private long _heldBytes;
 
@@ -37,6 +41,19 @@ public sealed class PacketAlignmenter
     /// evidence of capture-layer loss on this stream (which, for the refresh-only buff overlay, shows up as
     /// buffs expiring early / flickering / never appearing). Read via <c>MeterServices.AlignerGapSkips</c>.</summary>
     public long GapSkips { get; private set; }
+
+    /// <summary>Diagnostic only (non-behavioral): bytes currently held out-of-order. Read by the app's
+    /// capture diagnostics; nothing here changes framing.</summary>
+    public long HeldBytes => _heldBytes;
+
+    /// <summary>Diagnostic only (non-behavioral): the arrival timestamp at which the CURRENT head-of-line gap
+    /// was first observed, or null when the stream is making forward progress. A gap that stays open while
+    /// segments keep arriving is a capture-layer loss — SNIFF never re-observes it, because the game client
+    /// DID receive the segment and so the server never retransmits it. That is the stall the app's stream-scoped
+    /// self-heal watches; the 2MB <see cref="MaxHoldBytes"/> escape below needs 8-28 minutes of game traffic to
+    /// fire on a real game connection (measured 1.2-3.8 KB/s per connection), which is far too slow to be the
+    /// only recovery path.</summary>
+    public long? GapOpenAtMs { get; private set; }
 
     /// <summary>
     /// Feed one captured segment. Returns the chunks (possibly none, possibly several) that
@@ -71,6 +88,7 @@ public sealed class PacketAlignmenter
                 _heldBytes -= chunk.Data.Length;
                 _nextExpectedSeq = (_nextExpectedSeq + chunk.Data.Length) & 0xffffffffL;
                 result.Add(chunk);
+                GapOpenAtMs = null; // forward progress — diagnostic only, no behavioral effect
             }
             else if (firstSeq < _nextExpectedSeq)
             {
@@ -91,9 +109,11 @@ public sealed class PacketAlignmenter
                 {
                     GapSkips++; // diagnostic tally only; the re-sync behavior below is unchanged
                     _nextExpectedSeq = firstSeq;
+                    GapOpenAtMs = null; // diagnostic only
                     continue;
                 }
 
+                GapOpenAtMs ??= arrivedAt; // diagnostic only: when this stall began
                 break;
             }
         }
@@ -101,11 +121,14 @@ public sealed class PacketAlignmenter
         return result;
     }
 
-    /// <summary>Reset on source-IP change (Kotlin Main.kt:43-46) — clear holds, re-init next-expected.</summary>
+    /// <summary>Reset on source-IP change (Kotlin Main.kt:43-46) — clear holds, re-init next-expected. Also the
+    /// recovery the user's 초기화 button runs (MeterServices.FlushAllStreams) and, per-stream, the app's
+    /// self-heal: re-syncing to the next segment costs the held bytes but escapes a latched stall at once.</summary>
     public void Reset()
     {
         _holdBuffer.Clear();
         _heldBytes = 0;
         _nextExpectedSeq = -1L;
+        GapOpenAtMs = null;
     }
 }

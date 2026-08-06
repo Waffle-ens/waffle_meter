@@ -195,6 +195,137 @@ public sealed class MeterServicesTests : IDisposable
         Assert.Equal(1, lines.Count(l => l.Contains("\"opcodeHex\":\"9702\""))); // roster: replayed from the suppressed stream
     }
 
+    [Fact]
+    public void A_stalled_stream_self_heals_and_resumes_dispatching()
+    {
+        // The reported failure: with a NAVER Live Streaming Connector session running, the meter stopped
+        // showing combat and only 초기화 brought it back — every time. That button is the ONLY caller of
+        // FlushAllStreams, and an active stream never hits the 30 s idle eviction, so a stream that latches on a
+        // head-of-line gap emits NOTHING until 2MB more arrives on that same connection (8-28 minutes at a
+        // measured game-stream rate). Self-heal runs the same recovery automatically, scoped to that stream.
+        string logDir = Path.Combine(_temp, "pdl_selfheal");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(new PropertyHandler(_temp), debugLogger: logger));
+
+        logger.Start();
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5000));    // dispatched; next expected = 5
+        services.Value.Feed(GameSegment(seq: 100, at: 1001, srcPort: 5000));  // gap -> held, stall opens
+        services.Value.Feed(GameSegment(seq: 200, at: 5001, srcPort: 5000));  // 4 s of silence -> self-heal
+        services.Value.Feed(GameSegment(seq: 900, at: 5002, srcPort: 5000));  // re-synced -> dispatched again
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.Equal(1, lines.Count(l => l.Contains("\"type\":\"stream_self_heal\"")));
+        Assert.Contains(lines, l => l.Contains("\"reason\":\"aligner_gap\""));
+        Assert.Equal(2, lines.Count(l => l.Contains("\"opcodeHex\":\"3804\""))); // pre-stall + post-heal
+    }
+
+    [Fact]
+    public void An_ordinary_reorder_is_not_self_healed()
+    {
+        // Out-of-order delivery inside the window is the aligner doing its job — healing there would throw away
+        // packets that were about to arrive. Only a gap that stays open past the threshold is a capture loss.
+        string logDir = Path.Combine(_temp, "pdl_reorder");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(new PropertyHandler(_temp), debugLogger: logger));
+
+        logger.Start();
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5000));   // next expected = 5
+        services.Value.Feed(GameSegment(seq: 10, at: 1001, srcPort: 5000));  // arrives early -> held
+        services.Value.Feed(GameSegment(seq: 5, at: 1500, srcPort: 5000));   // fills it 0.5 s later -> both drain
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.DoesNotContain(lines, l => l.Contains("stream_self_heal"));
+        Assert.Equal(3, lines.Count(l => l.Contains("\"opcodeHex\":\"3804\""))); // nothing was thrown away
+    }
+
+    [Fact]
+    public void Self_heal_is_disabled_when_the_property_is_zero()
+    {
+        // Escape hatch on a capture-path behavior change: capture.selfHealGapMs=0 restores the old behavior,
+        // where a latched stream only recovered when the user pressed 초기화.
+        var props = new PropertyHandler(_temp);
+        props.SetProperty("capture.selfHealGapMs", "0");
+        string logDir = Path.Combine(_temp, "pdl_heal_off");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(props, debugLogger: logger));
+
+        logger.Start();
+        services.Value.Feed(GameSegment(seq: 0, at: 1000, srcPort: 5000));
+        services.Value.Feed(GameSegment(seq: 100, at: 1001, srcPort: 5000));
+        services.Value.Feed(GameSegment(seq: 200, at: 5001, srcPort: 5000));
+        services.Value.Feed(GameSegment(seq: 900, at: 5002, srcPort: 5000));
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.DoesNotContain(lines, l => l.Contains("stream_self_heal"));
+        Assert.Equal(1, lines.Count(l => l.Contains("\"opcodeHex\":\"3804\""))); // stays latched after the gap
+    }
+
+    [Fact]
+    public void A_noise_stream_stuck_on_a_bogus_frame_length_is_cut_loose()
+    {
+        // High-entropy video/P2P bytes make the framer read a false multi-MB realLength. It then emits nothing,
+        // so the noise guard's MinNoisePackets gate can NEVER fire on it, and it grows toward the 32MB
+        // accumulator cap (a 64MB array that never shrinks) — with one such stream per peer direction.
+        string logDir = Path.Combine(_temp, "pdl_framer_noise");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(new PropertyHandler(_temp), debugLogger: logger));
+
+        logger.Start();
+        FeedBogusFrame(services.Value, srcPort: 5100, withGameSignalFirst: false);
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.Contains(lines, l => l.Contains("\"reason\":\"framer_hold\""));
+    }
+
+    [Fact]
+    public void A_large_frame_on_a_proven_game_stream_is_never_cut_short()
+    {
+        // The safety half of the same rule: a dungeon/boss-room snapshot frame legitimately spans megabytes —
+        // that is exactly why the accumulator cap was raised to 32MB (c683495, 바크론 보스 인식). A connection
+        // that has proven itself a game stream is exempt, so self-heal can never re-open that regression.
+        string logDir = Path.Combine(_temp, "pdl_framer_game");
+        var logger = new PacketDebugLogger(logDir);
+        using var services = new ServicesScope(new MeterServices(new PropertyHandler(_temp), debugLogger: logger));
+
+        logger.Start();
+        FeedBogusFrame(services.Value, srcPort: 5200, withGameSignalFirst: true);
+        logger.Stop();
+
+        string[] lines = ReadLog(logDir);
+        Assert.DoesNotContain(lines, l => l.Contains("stream_self_heal"));
+    }
+
+    // Declares a 30MB frame and then feeds 5MB of contiguous body, so the framer sits on a multi-MB buffer
+    // without ever completing a packet. withGameSignalFirst prefixes one real game packet, which is the only
+    // thing separating the two cases above.
+    private static void FeedBogusFrame(MeterServices services, int srcPort, bool withGameSignalFirst)
+    {
+        long seq = 0;
+        long at = 1000;
+        if (withGameSignalFirst)
+        {
+            services.Feed(GameSegment(seq: 0, at: at, srcPort: srcPort));
+            seq = 5;
+        }
+
+        // LEB128 for 30,000,000 -> realLength = value + varint.length - 4 = 30,000,000. Under the 32MB cap, so
+        // the accumulator keeps growing instead of force-resetting.
+        byte[] header = { 0x80, 0x87, 0xA7, 0x0E };
+        services.Feed(new CapturedSegment(seq, header, at, "10.0.0.1", srcPort, "10.0.0.2", 13328));
+        seq += header.Length;
+
+        for (int i = 0; i < 5; i++)
+        {
+            var body = new byte[1_000_000];
+            services.Feed(new CapturedSegment(seq, body, ++at, "10.0.0.1", srcPort, "10.0.0.2", 13328));
+            seq += body.Length;
+        }
+    }
+
     // A length-prefixed frame whose opcode is 0x3804 (Damage) — passes StreamProcessor.LooksLikeGamePacket
     // and dispatches as a game packet. realLength = varint.value(8) + varint.length(1) - 4 = 5 = frame size.
     private static CapturedSegment GameSegment(long seq, long at, int srcPort) =>

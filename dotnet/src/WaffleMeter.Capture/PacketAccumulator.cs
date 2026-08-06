@@ -29,6 +29,11 @@ public sealed class PacketAccumulator
 
     public int Size => _writePos - _readPos;
 
+    /// <summary>진단 전용(비동작): 상한 초과 강제 리셋 횟수. 게임 스트림에서 연발하면 32MB 상한이 정상 스냅샷보다
+    /// 낮다는 뜻이고(주석 위 재튜닝 예정 참조), 비게임 스트림에서 연발하면 고엔트로피 노이즈가 거짓 realLength를
+    /// 기다리며 버퍼를 채우고 있다는 뜻이다.</summary>
+    public long ForcedResets { get; private set; }
+
     public void Append(byte[] data)
     {
         int currentSize = _writePos - _readPos;
@@ -37,6 +42,7 @@ public sealed class PacketAccumulator
             // 버퍼 용량 제한 초과, 강제 초기화 (drop the incoming chunk, reset cursors)
             _readPos = 0;
             _writePos = 0;
+            ForcedResets++; // 진단 전용
             return;
         }
 

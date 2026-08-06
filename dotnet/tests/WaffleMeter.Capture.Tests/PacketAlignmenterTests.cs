@@ -95,4 +95,43 @@ public class PacketAlignmenterTests
         a.Reset();
         Assert.Equal(new[] { 2L }, Ids(Feed(a, 500, 10, 2)));   // next re-initializes to 500
     }
+
+    [Fact]
+    public void Gap_open_timestamp_marks_when_the_stall_began_and_clears_on_progress()
+    {
+        // Observability for the app's stream-scoped self-heal: the 2MB cap above is a memory bound, not a
+        // recovery path (it needs 8-28 minutes of traffic at a real game connection's rate), so the app needs
+        // to see HOW LONG a stream has been emitting nothing. Diagnostic only — emission is unchanged.
+        var a = new PacketAlignmenter();
+        Assert.Null(a.GapOpenAtMs);
+
+        Assert.Equal(new[] { 1L }, Ids(Feed(a, 0, 10, 1)));
+        Assert.Null(a.GapOpenAtMs);                             // in order: never stalled
+
+        Assert.Empty(Feed(a, 100, 10, 5_000));                  // gap at 10
+        Assert.Equal(5_000L, a.GapOpenAtMs);
+        Assert.Equal(10, a.HeldBytes);
+
+        Assert.Empty(Feed(a, 110, 10, 9_000));                  // still stalled: keeps the ORIGINAL open time
+        Assert.Equal(5_000L, a.GapOpenAtMs);
+        Assert.Equal(20, a.HeldBytes);
+
+        Assert.Equal(3, Feed(a, 10, 90, 9_500).Count);          // hole filled -> 90 + both held chunks drain
+        Assert.Null(a.GapOpenAtMs);
+        Assert.Equal(0, a.HeldBytes);
+    }
+
+    [Fact]
+    public void Reset_clears_the_stall_marker()
+    {
+        var a = new PacketAlignmenter();
+        Assert.Equal(new[] { 1L }, Ids(Feed(a, 0, 10, 1)));
+        Assert.Empty(Feed(a, 100, 10, 2));
+        Assert.NotNull(a.GapOpenAtMs);
+
+        a.Reset();
+
+        Assert.Null(a.GapOpenAtMs);
+        Assert.Equal(0, a.HeldBytes);
+    }
 }
