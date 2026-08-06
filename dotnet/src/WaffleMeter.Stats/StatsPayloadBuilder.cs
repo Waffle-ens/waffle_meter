@@ -219,7 +219,12 @@ public sealed class StatsPayloadBuilder
                 resolvedOwn.Power,
                 _publicCharacter()),
             Encounter: BuildEncounterPayload(mob),
-            Battle: new StatsBattlePayload(report.BattleStart, report.BattleEnd, duration, report.Contributors.Count),
+            Battle: new StatsBattlePayload(
+                report.BattleStart,
+                report.BattleEnd,
+                duration,
+                report.Contributors.Count,
+                report.PartyRosterSize > 0 ? report.PartyRosterSize : null),
             PartyComposition: new StatsPartyCompositionPayload(jobCounts, synergy),
             Participants: participantPayloads,
             Result: BuildResultPayload(ownInfo, resultRates),

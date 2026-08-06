@@ -112,6 +112,39 @@ public sealed class StatsPayloadRaidSubPartyContractTests
     }
 
     [Fact]
+    public void The_roster_size_travels_so_the_site_can_tell_a_raid_from_a_crowded_field_pull()
+    {
+        // The site currently decides "is this a 공대" from partySize, i.e. the dealer count — so a field boss
+        // with seven people swinging at it gets labelled "7인 공대", and a raid where two members never touched
+        // this boss doesn't get recognised as one. rosterSize answers that question directly.
+        (DataManager dm, DpsLog log) = Raid(10);
+        Assert.Equal(10, Build(dm, log).Battle.RosterSize);
+
+        // No roster captured -> omitted rather than a misleading zero.
+        (DataManager dm2, DpsLog log2) = Raid(10);
+        log2.Report.PartyRosterSize = 0;
+        Assert.Null(Build(dm2, log2).Battle.RosterSize);
+
+        // And it is genuinely independent of the dealer count.
+        (DataManager dm3, DpsLog log3) = Raid(10);
+        log3.Report.PartyRosterSize = 10;
+        log3.Report.Contributors = log3.Report.Contributors.Take(6).ToList();
+        foreach (int id in log3.Report.Information.Keys.Where(k => k > 6).ToList())
+        {
+            log3.Report.Information.Remove(id);
+        }
+
+        StatsUploadPayload partial = Build(dm3, log3);
+        Assert.Equal(6, partial.Battle.PartySize);
+        Assert.Equal(10, partial.Battle.RosterSize);
+
+        // Wire shape: camelCase, and absent (not null, not 0) when there was no roster — the site's zod
+        // objects strip unknown keys, so an older site simply never sees it.
+        Assert.Contains("\"rosterSize\":10", StatsJson.Serialize(partial.Battle));
+        Assert.DoesNotContain("rosterSize", StatsJson.Serialize(Build(dm2, log2).Battle));
+    }
+
+    [Fact]
     public void The_old_hardcoded_party_number_would_have_been_rejected_for_an_eight_player_raid()
     {
         // Pins down the regression this fixed, so nobody re-derives partyNumber in the builder: the formula

@@ -86,11 +86,20 @@ public sealed record StatsTrialDifficultyPayload(
     int? BossBuff,
     int? SkillUpgrade);
 
+/// <param name="PartySize">How many people DEALT DAMAGE. Load-bearing on the site (dedupe group key, cohort
+/// axis, display) — its meaning must not change.</param>
+/// <param name="RosterSize">How many people were in the party/raid, from the 0x9702 roster; null when no
+/// roster was captured. A different question from <paramref name="PartySize"/>: a 10-인 공대 where two members
+/// never touched this boss reports partySize 8 and rosterSize 10, and one where a summon lands its own rows
+/// can report partySize 12. Sent so the site can tell a real 공대 from a field pull that merely had six
+/// dealers — today it infers that from partySize alone, which mislabels a zerg as an "N인 공대". Additive and
+/// omitted when null, so a site that does not read it yet is unaffected (its zod objects strip unknown keys).</param>
 public sealed record StatsBattlePayload(
     long StartedAt,
     long EndedAt,
     long DurationMs,
-    int PartySize);
+    int PartySize,
+    int? RosterSize = null);
 
 public sealed record StatsPartyCompositionPayload(
     IReadOnlyDictionary<string, int> Jobs,
