@@ -23,16 +23,20 @@ public sealed record TierServiceStatus(
 /// Owns the tier distribution artifact: fetches it rarely, verifies it, caches it on disk, and hands the parsed
 /// ladder to whoever needs a percentile.
 /// <para><b>Never called during combat.</b> The meter's live "상위 X.X%" is computed from the cached artifact, so
-/// a fight costs zero requests. Polling the manifest more often than this would not make the number fresher —
-/// the server rebuilds the distribution on a multi-hour cadence.</para>
+/// a fight costs zero requests. The manifest is polled hourly, matching the server's rebuild cadence; because
+/// artifacts are content-addressed, an unchanged one costs one small request and no download.</para>
 /// <para>Every network call runs on a dedicated background thread. <c>StatsApiClient</c> has no async methods and
 /// its transport is a synchronous <c>HttpClient.Send</c> with an 8s connect / 15s read timeout, so touching it
 /// from the UI or report thread would stall the meter for up to 23 seconds.</para>
 /// </summary>
 public sealed class TierService : IDisposable
 {
-    /// <summary>Artifacts are content-addressed and the server rebuilds on a multi-hour cadence.</summary>
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(12);
+    /// <summary>How often the manifest is checked — matched to the server's hourly rebuild, so a fresh
+    /// distribution is picked up within the hour instead of up to half a day later.
+    /// <para>Cheap by construction: artifacts are content-addressed, so an unchanged one costs a single
+    /// manifest request and no download (see <see cref="TryRefresh"/>). This is also the retry cadence — a
+    /// failed refresh used to wait out the whole interval before trying again.</para></summary>
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(1);
 
     /// <summary>Let capture start and the update check finish before adding another socket.</summary>
     private static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(8);
@@ -42,7 +46,6 @@ public sealed class TierService : IDisposable
 
     private const string KeyArtifactId = "tier.artifactId";
     private const string KeyFetchedAt = "tier.fetchedAtMs";
-    private const int KeepCachedArtifacts = 2;
 
     /// <summary>Server hard cap per lookup request.</summary>
     private const int LookupBatchSize = 12;
@@ -398,21 +401,26 @@ public sealed class TierService : IDisposable
         {
             string dir = CacheDirectory();
             Directory.CreateDirectory(dir);
-            File.WriteAllBytes(Path.Combine(dir, $"{artifactId}.json.gz"), gzip);
+            string current = $"{artifactId}.json.gz";
+            File.WriteAllBytes(Path.Combine(dir, current), gzip);
 
-            FileInfo[] stale = new DirectoryInfo(dir).GetFiles("*.json.gz")
-                .OrderByDescending(f => f.LastWriteTimeUtc)
-                .Skip(KeepCachedArtifacts)
-                .ToArray();
-            foreach (FileInfo file in stale)
+            // Everything else is dead weight: LoadFromDisk only ever opens the file named by tier.artifactId,
+            // so an older artifact is never read again — it just sits there. We are past the digest and parse
+            // checks by the time we get here, so the file we just wrote is known good and the rest can go.
+            foreach (FileInfo file in new DirectoryInfo(dir).GetFiles("*.json.gz"))
             {
+                if (string.Equals(file.Name, current, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 try
                 {
                     file.Delete();
                 }
                 catch
                 {
-                    // a locked leftover is harmless; it is bounded by the keep count on the next success
+                    // a locked leftover is harmless — the next successful refresh sweeps it
                 }
             }
         }
