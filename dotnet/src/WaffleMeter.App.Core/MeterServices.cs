@@ -1,3 +1,4 @@
+using System.Globalization;
 using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
@@ -326,9 +327,50 @@ public sealed class MeterServices
                 }
             }
 
+            LogRaidSlotBinding(log);
             UploadQueue.OfferIfEligible(log);
             NotifyBattleListChanged();
         };
+    }
+
+    /// <summary>One line per saved 공대 battle recording how the sub-party slots came out, because the stats
+    /// site is all-or-nothing about them and its "N인 공대 시너지 구분 이전 지표" label says only that something
+    /// went wrong, never what. This separates the three possibilities without a packet capture: the roster never
+    /// arrived (<c>roster=0</c>), the slot bytes did not parse (<c>slotted</c> below <c>roster</c>), or the slots
+    /// parsed but did not reach the battle's uids (<c>bound</c> below <c>participants</c>) — and in that last
+    /// case it names who was missed. Consumer-thread only; never throws.</summary>
+    private void LogRaidSlotBinding(DpsLog log)
+    {
+        try
+        {
+            DpsReport r = log.Report;
+            if (r.PartyRosterSize is not (8 or 10))
+            {
+                return;
+            }
+
+            IReadOnlyList<(string Nickname, int Server, int Slot)> roster = Data.PartyRosterIdentities(30 * 60 * 1000L);
+            List<User> participants = r.Contributors.Where(u => r.Information.ContainsKey(u.Id)).ToList();
+            List<string> unslotted = participants
+                .Where(u => !r.PartySlots.ContainsKey(u.Id))
+                .Select(u => string.IsNullOrWhiteSpace(u.Nickname) ? $"uid{u.Id}" : u.Nickname)
+                .ToList();
+
+            BuffDiag.Write(string.Format(
+                CultureInfo.InvariantCulture,
+                "[raid] boss={0} roster={1} slotted={2} participants={3} bound={4} slots={5}{6}",
+                r.Target?.Mob.Name ?? "?",
+                r.PartyRosterSize,
+                roster.Count(m => m.Slot > 0),
+                participants.Count,
+                r.PartySlots.Count,
+                string.Join("/", r.PartySlots.Values.OrderBy(v => v)),
+                unslotted.Count > 0 ? " missing=" + string.Join(",", unslotted) : ""));
+        }
+        catch
+        {
+            // diagnostics must never disturb the save path
+        }
     }
 
     /// <summary>Loads the reference catalogs (mobs/skills/buffs/blacklist) from a json directory.</summary>
