@@ -73,6 +73,64 @@ public sealed class DataManagerPartySlotsFreezeTests
         Assert.Single(log.Report.PartySlots);           // ...only one of whom is a recognized battle uid
     }
 
+    /// <summary>A roster the player has long since left must not be stamped onto whatever they fight next.
+    /// Every other reader of the roster gates on its age; this freeze used to read it raw, so a raid finished
+    /// half an hour ago could still arrive at the stats site as the party for a solo field pull.</summary>
+    [Fact]
+    public void SaveBattleLog_drops_a_roster_that_is_no_longer_this_battles()
+    {
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SaveNickname(1, "Me", isExecutor: true, server: 2003, jobByte: 0);
+        dm.SavePartyRoster(new List<(string, int, int)>
+        {
+            ("Me", 2003, 1), ("A", 2003, 2), ("B", 2003, 3), ("C", 2003, 4), ("D", 2003, 5),
+            ("E", 2003, 6), ("F", 2003, 7), ("G", 2003, 8), ("H", 2003, 9), ("I", 2003, 10),
+        });
+
+        now += (31L * 60 * 1000); // the raid ended, the party broke up, and half an hour passed
+
+        DpsLog log = dm.SaveBattleLog(
+            new DpsReport
+            {
+                Contributors = new List<User> { dm.User(1)! },
+                Information = new Dictionary<int, DpsInformation> { [1] = new(1, 1, 1, 1) },
+            },
+            new Dictionary<int, Dictionary<string, AnalyzedSkill>>(),
+            new Dictionary<int, List<OperatingData>>(),
+            new List<OperatingData>());
+
+        Assert.Equal(0, log.Report.PartyRosterSize); // 0 = unknown, the same value a pre-rosterSize battle has
+        Assert.Empty(log.Report.PartySlots);
+    }
+
+    /// <summary>…but a roster from earlier in the same run is still this battle's. 0x9702 arrives in bursts
+    /// rather than on a cadence (measured p99 gap ≈ 9 minutes), so a tight window would strip a live raid of
+    /// its sub-party tags partway through.</summary>
+    [Fact]
+    public void SaveBattleLog_keeps_a_roster_from_earlier_in_the_same_run()
+    {
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SaveNickname(1, "Me", isExecutor: true, server: 2003, jobByte: 0);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("Me", 2003, 1), ("A", 2003, 2) });
+
+        now += (12L * 60 * 1000); // a long boss fight, no re-broadcast in between
+
+        DpsLog log = dm.SaveBattleLog(
+            new DpsReport
+            {
+                Contributors = new List<User> { dm.User(1)! },
+                Information = new Dictionary<int, DpsInformation> { [1] = new(1, 1, 1, 1) },
+            },
+            new Dictionary<int, Dictionary<string, AnalyzedSkill>>(),
+            new Dictionary<int, List<OperatingData>>(),
+            new List<OperatingData>());
+
+        Assert.Equal(2, log.Report.PartyRosterSize);
+        Assert.Equal(1, log.Report.PartySlots[1]);
+    }
+
     [Fact]
     public void SaveBattleLog_freezes_a_zero_roster_size_when_no_roster_was_seen()
     {

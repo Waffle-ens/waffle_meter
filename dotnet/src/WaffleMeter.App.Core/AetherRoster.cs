@@ -5,7 +5,16 @@ namespace WaffleMeter.App.Core;
 /// <summary>A name the roster can put to an identity hash, sourced from the consent list.</summary>
 public readonly record struct AetherRosterName(string IdentityHash, string? Nickname, int Server, string? Job);
 
-/// <summary>One row of the 오드 목록 — a character and what it currently holds.</summary>
+/// <summary>One weekly 성역 raid as it stands for one character: how many clears are left of the weekly grant.
+/// <paramref name="Known"/> is false when nothing has been recorded for this character since the last reset —
+/// the count then shows full, because "not seen" and "not cleared" look the same to the player and the
+/// optimistic reading is the one a fresh install should give.</summary>
+public readonly record struct WeeklyContentCell(WeeklyContentInfo Content, int Remaining, bool Known)
+{
+    public int Grant => WeeklyContentCatalog.WeeklyGrant;
+}
+
+/// <summary>One row of the 컨텐츠 관리 목록 — a character, what it holds, and its weekly clears.</summary>
 public readonly record struct AetherRosterRow(
     string IdentityHash,
     string Label,
@@ -14,8 +23,12 @@ public readonly record struct AetherRosterRow(
     int Bonus,
     int Total,
     long SavedAtMs,
-    bool IsCurrent)
+    bool IsCurrent,
+    IReadOnlyList<WeeklyContentCell>? Weekly = null)
 {
+    /// <summary>The weekly raids in catalog order, never null.</summary>
+    public IReadOnlyList<WeeklyContentCell> WeeklyCells => Weekly ?? [];
+
     /// <summary>"자연회복(+추가)" as the chip shows it; the bonus half is dropped when there is none.</summary>
     public string AetherText => Bonus > 0
         ? string.Concat(Base.ToString(CultureInfo.InvariantCulture), "(+", Bonus.ToString(CultureInfo.InvariantCulture), ")")
@@ -35,8 +48,12 @@ public static class AetherRoster
     public static IReadOnlyList<AetherRosterRow> Build(
         AetherPerCharacterStore store,
         IEnumerable<AetherRosterName>? names = null,
-        string? currentHash = null)
+        string? currentHash = null,
+        WeeklyContentStore? weekly = null,
+        long nowMs = 0)
     {
+        long at = nowMs > 0 ? nowMs : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
         var byHash = new Dictionary<string, AetherRosterName>(StringComparer.Ordinal);
         foreach (AetherRosterName name in names ?? [])
         {
@@ -74,7 +91,8 @@ public static class AetherRoster
                 Bonus: snapshot.Bonus,
                 Total: snapshot.Total,
                 SavedAtMs: snapshot.SavedAtMs,
-                IsCurrent: currentHash != null && string.Equals(hash, currentHash, StringComparison.Ordinal)));
+                IsCurrent: currentHash != null && string.Equals(hash, currentHash, StringComparison.Ordinal),
+                Weekly: WeeklyFor(weekly, hash, at)));
         }
 
         // Current character first (that's the one the user is looking at), then most-recently-seen. Ordering by
@@ -83,6 +101,24 @@ public static class AetherRoster
             .OrderByDescending(r => r.IsCurrent)
             .ThenByDescending(r => r.SavedAtMs)
             .ToList();
+    }
+
+    /// <summary>Every weekly raid's standing for one character, in catalog order. An unknown or stale record
+    /// reads as the full grant — the server recharges the counter at the weekly reset, so a value recorded
+    /// before it is not "0 left", it is "no longer known".</summary>
+    private static IReadOnlyList<WeeklyContentCell> WeeklyFor(WeeklyContentStore? weekly, string hash, long nowMs)
+    {
+        var cells = new List<WeeklyContentCell>(WeeklyContentCatalog.All.Count);
+        foreach (WeeklyContentInfo content in WeeklyContentCatalog.All)
+        {
+            int? remaining = weekly?.Remaining(hash, content.Slug, nowMs);
+            cells.Add(new WeeklyContentCell(
+                content,
+                remaining ?? WeeklyContentCatalog.WeeklyGrant,
+                Known: remaining.HasValue));
+        }
+
+        return cells;
     }
 
     private static string? FirstNonBlank(params string?[] candidates)

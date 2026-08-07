@@ -287,6 +287,14 @@ public sealed class MeterServices
                 props.SetProperty("aether.perCharacter", aether.Serialize());
                 props.SetProperty("aether.characterNames", aether.SerializeNames()); // 오염된 신원의 이름도 함께
             }
+
+            // 주간 성역 클리어 기록도 같은 해시로 남아 있다 — 오드와 함께 치우지 않으면 존재할 수 없는 캐릭터가
+            // 컨텐츠 관리 목록에 계속 뜬다.
+            WeeklyContentStore weekly = WeeklyContentStore.Parse(props.GetProperty("content.weeklyClears"));
+            if (weekly.RemoveAll(purgedCharacters))
+            {
+                props.SetProperty("content.weeklyClears", weekly.Serialize());
+            }
         }
 
         UploadQueue = new StatsUploadQueue(consent, StatsBuilder, StatsApi, Data, props);

@@ -49,14 +49,9 @@ public sealed class PartyRosterParsingTests
         public void Meta(string type, params (string Key, object? Value)[] fields) { }
     }
 
-    private static void AddMember(List<byte> body, string name, int server)
-    {
-        byte[] nm = Encoding.UTF8.GetBytes(name);
-        body.Add((byte)(server & 0xFF));
-        body.Add((byte)((server >> 8) & 0xFF));
-        body.Add((byte)nm.Length);
-        body.AddRange(nm);
-    }
+    // NOTE: there is deliberately no header-less AddMember helper any more. Every fixture here carries a record
+    // header, because every member in the packet corpus does — a bare [server][len][name] with nothing in front
+    // of it is not a member, it is the coincidence the parser now rejects.
 
     // Full member record incl. the fixed header the parser reads the sub-group slot from:
     // [marker][slot 1-8][handle 6-byte LE][server u16][len][name]. The handle is a full SIX-byte field; its
@@ -107,17 +102,17 @@ public sealed class PartyRosterParsingTests
 
         // [02 97][header bytes that must NOT false-match][member records...]
         var body = new List<byte> { 0x02, 0x97, 0xb4, 0x36, 0x05, 0x00, 0x04 };
-        AddMember(body, "Wildz", 1014);
-        AddMember(body, "플러시", 2003);
-        AddMember(body, "으니야", 1010);
+        AddMemberWithHeader(body, "Wildz", 1014, 1);
+        AddMemberWithHeader(body, "플러시", 2003, 2);
+        AddMemberWithHeader(body, "으니야", 1010, 3);
 
         proc.OnPacketReceived(Packet(body), 1000);
 
         Assert.NotNull(data.Last);
         Assert.Equal(3, data.Last!.Count);
-        Assert.Contains(("Wildz", 1014, 0), data.Last);    // these test members have no record header -> slot 0
-        Assert.Contains(("플러시", 2003, 0), data.Last);
-        Assert.Contains(("으니야", 1010, 0), data.Last);
+        Assert.Contains(("Wildz", 1014, 1), data.Last);
+        Assert.Contains(("플러시", 2003, 2), data.Last);
+        Assert.Contains(("으니야", 1010, 3), data.Last);
     }
 
     [Fact]
@@ -127,16 +122,100 @@ public sealed class PartyRosterParsingTests
         var proc = new StreamProcessor(new NullSink(), data, null);
 
         var body = new List<byte> { 0x02, 0x97 };
-        AddMember(body, "Far", 5000);     // server out of the valid party range -> rejected
-        AddMember(body, "Wildz", 1014);   // valid
+        AddMemberWithHeader(body, "Far", 5000, 1);     // server out of the valid party range -> rejected
+        AddMemberWithHeader(body, "Wildz", 1014, 2);   // valid
         // a [server in range][len=39 > 30] sequence must be skipped (the real packet has these).
         body.Add(0xf6); body.Add(0x03); body.Add(0x27); body.Add(0xAA);
 
         proc.OnPacketReceived(Packet(body), 1000);
 
         Assert.NotNull(data.Last);
-        Assert.Equal(new[] { ("Wildz", 1014, 0) }, data.Last);
+        Assert.Equal(new[] { ("Wildz", 1014, 2) }, data.Last);
     }
+
+    /// <summary>
+    /// The bug this gate exists for. A member's own 전투력 u32 can end in a byte that reads as a one-letter
+    /// name, and the trailer around it can read as [server][len] — so the scan used to adopt a SIXTH member
+    /// into a five-person party. The fixture is the real 301-byte 0x9702 snapshot from
+    /// packet-debug-logs/20260710-201743, 21:09:25.316: five real members (slots 1-5), and 끙's power 413042
+    /// whose low byte 0x72 is 'r'.
+    /// <para>Only THAT snapshot reproduces it — the same party's snapshots 0.7 s earlier carry powers ending
+    /// 0xd5 and 0x80, which are not name characters and so parse to five even without the gate. A synthetic
+    /// fixture would be free to be wrong about which bytes matter; this one is not.</para>
+    /// </summary>
+    [Fact]
+    public void ParsePartyRoster_does_not_adopt_a_power_u32_as_a_one_letter_member()
+    {
+        var data = new RecordingData();
+        var proc = new StreamProcessor(new NullSink(), data, null);
+
+        proc.OnPacketReceived(Hex(PhantomMemberSnapshot), 1000);
+
+        Assert.NotNull(data.Last);
+        Assert.Equal(5, data.Last!.Count);
+        Assert.DoesNotContain(data.Last, m => m.Nickname == "r");
+        Assert.Equal(
+            new[] { "플러시", "베비뇽", "랄코", "끙", "요성" },
+            data.Last.Select(m => m.Nickname).ToArray());
+        Assert.Equal(new[] { 1, 2, 3, 4, 5 }, data.Last.Select(m => m.Slot).ToArray());
+    }
+
+    /// <summary>The record marker must NOT be enumerated. It was — three values, then four — and each list was
+    /// falsified by the next capture. 0x3C carried 122 of 957 members in a 2026-08-07 session while the code
+    /// listed only 0x3A/0x3E/0x7A/0x7E, so every one of them silently lost its sub-party slot.</summary>
+    [Theory]
+    [InlineData(0x1C)]
+    [InlineData(0x1E)]
+    [InlineData(0x3C)]
+    [InlineData(0x5E)]
+    [InlineData(0x38)]
+    public void ParsePartyRoster_reads_the_slot_whatever_the_record_marker_is(byte marker)
+    {
+        var data = new RecordingData();
+        var proc = new StreamProcessor(new NullSink(), data, null);
+
+        var body = new List<byte> { 0x02, 0x97, 0xb4, 0x36, 0x05, 0x00, 0x04 };
+        AddMemberWithHeader(body, "Me", 2003, 1, marker: marker, handle: 0x17F86);
+        AddMemberWithHeader(body, "Bb", 2003, 2, marker: marker, handle: 0x1D381);
+
+        proc.OnPacketReceived(Packet(body), 1000);
+
+        Assert.NotNull(data.Last);
+        Assert.Equal(new[] { 1, 2 }, data.Last!.Select(m => m.Slot).ToArray());
+    }
+
+    /// <summary>Guard against "fix" it by requiring len >= 2. Real nicknames go down to two BYTES (38 in the
+    /// corpus), so a length floor would drop real members while a one-letter Korean name — three bytes — would
+    /// sail past it anyway. The header, not the name length, is what tells a record from a coincidence.</summary>
+    [Fact]
+    public void ParsePartyRoster_still_accepts_a_two_byte_name()
+    {
+        var data = new RecordingData();
+        var proc = new StreamProcessor(new NullSink(), data, null);
+
+        var body = new List<byte> { 0x02, 0x97, 0xb4, 0x36, 0x05, 0x00, 0x04 };
+        AddMemberWithHeader(body, "X6", 2003, 1);
+
+        proc.OnPacketReceived(Packet(body), 1000);
+
+        Assert.NotNull(data.Last);
+        Assert.Equal(new[] { ("X6", 2003, 1) }, data.Last);
+    }
+
+    // Verbatim 0x9702 from packet-debug-logs/20260710-201743-packet-debug.jsonl @ 2026-07-10 21:09:25.316.
+    // Five members (플러시·베비뇽·랄코·끙·요성, slots 1-5). At offset 234: [f1 03][01][72 ...] — 끙's 전투력
+    // 413042, whose low byte is 'r'. That is the phantom sixth member.
+    private const string PhantomMemberSnapshot =
+        "af 02 02 97 c2 48 0b 00 0f 34 35 30 2b 20 ec 9e ac eb 8f 84 20 e3 84 ba 05 e6 4e 09 00 03 03 81 " +
+        "d3 01 00 00 00 d3 07 ff 02 02 05 7e 01 81 d3 01 00 00 00 d3 07 09 ed 94 8c eb 9f ac ec 8b 9c 20 " +
+        "00 00 00 32 00 00 00 65 10 00 00 d3 07 b1 0f 04 a7 20 07 00 00 00 00 00 00 b4 00 00 00 00 00 00 " +
+        "00 01 7e 02 0d 8b 04 00 00 00 d3 07 09 eb b2 a0 eb b9 84 eb 87 bd 18 00 00 00 32 00 00 00 4b 11 " +
+        "00 00 d3 07 b1 0f 04 4c ec 06 00 00 00 00 00 00 b9 01 00 00 00 00 00 00 01 7e 03 dd a6 00 00 00 " +
+        "00 d3 07 06 eb 9e 84 ec bd 94 24 00 00 00 32 00 00 00 8e 12 00 00 d3 07 b1 0f 04 fd b8 07 00 00 " +
+        "00 00 00 00 81 01 00 00 00 00 00 00 01 3e 04 a8 8a 01 00 00 00 f1 03 03 eb 81 99 05 00 00 00 32 " +
+        "00 00 00 8e 12 00 00 06 f1 03 f1 03 01 72 4d 06 00 00 00 00 00 00 01 7e 05 8b 1f 03 00 00 00 d6 " +
+        "07 06 ec 9a 94 ec 84 b1 14 00 00 00 32 00 00 00 da 11 00 00 d6 07 b1 0f 02 e7 41 07 00 00 00 00 " +
+        "00 00 bd 00 00 00 00 00 00 00 01 00 09";
 
     [Fact]
     public void ParsePartyRoster_recovers_sub_party_slot_from_record_header()

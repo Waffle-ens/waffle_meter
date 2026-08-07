@@ -2,14 +2,14 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:WaffleMeter.App.Wpf"
-        Title="캐릭터별 오드"
+        Title="컨텐츠 관리"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
         ResizeMode="CanResize"
         SizeToContent="Manual"
-        Width="300" Height="420" MaxHeight="720" MinWidth="240" MinHeight="140"
+        Width="320" Height="460" MaxHeight="760" MinWidth="260" MinHeight="140"
         Left="40" Top="40"
         FontFamily="Segoe UI">
     <Window.Resources>
@@ -61,9 +61,10 @@
                     MouseLeftButtonDown="OnDragHandle">
                 <Grid Margin="12,8">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Image Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Icons/ode.png"
-                               Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="캐릭터별 오드" Foreground="{DynamicResource Skin.Fg}" FontWeight="SemiBold"
+                        <TextBlock Text="&#xE8FD;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   Foreground="{DynamicResource Skin.MutedFg}"
+                                   Margin="0,0,7,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="컨텐츠 관리" Foreground="{DynamicResource Skin.Fg}" FontWeight="SemiBold"
                                    FontSize="13" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SummaryText}" Foreground="{DynamicResource Skin.MutedFg}"
                                    FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"/>
@@ -75,14 +76,14 @@
 
             <!-- Body -->
             <Grid Grid.Row="1">
-                <TextBlock Text="아직 기록된 오드가 없습니다&#x0a;캐릭터로 접속하면 자동으로 쌓입니다"
+                <TextBlock Text="아직 기록된 캐릭터가 없습니다&#x0a;캐릭터로 접속하면 자동으로 쌓입니다"
                            Foreground="{DynamicResource Skin.MutedFg}" FontSize="12" TextAlignment="Center"
                            HorizontalAlignment="Center" Margin="0,26" Visibility="{Binding EmptyVisibility}"/>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,4">
                     <ItemsControl ItemsSource="{Binding Rows}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border x:Name="row" CornerRadius="8" Margin="8,3" MinHeight="44"
+                                <Border x:Name="row" CornerRadius="8" Margin="8,3" MinHeight="62"
                                         Background="{DynamicResource Skin.StatBg}">
                                     <Grid Margin="12,7">
                                         <Grid.ColumnDefinitions>
@@ -111,11 +112,53 @@
                                                 <TextBlock Text="{Binding SeenText}" Foreground="{DynamicResource Skin.MutedFg}"
                                                            FontSize="10"/>
                                             </StackPanel>
+
+                                            <!-- 주간 성역 클리어. The count is the SERVER's (it arrives on the same
+                                                 0x610x resource packet as 오드, within half a second of the final
+                                                 boss dying), so these chips are a readout, not a tally the meter
+                                                 keeps. Clicking one overrides it for the weeks the meter wasn't
+                                                 watching; the next broadcast still wins. -->
+                                            <ItemsControl ItemsSource="{Binding Weekly}" Margin="0,5,0,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="chip" CornerRadius="4" Padding="4,2" Margin="0,0,4,0"
+                                                                Background="Transparent" Cursor="Hand"
+                                                                ToolTip="{Binding ToolTip}"
+                                                                MouseLeftButtonUp="OnWeeklyChipClick">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <Image Source="{Binding IconSource}" Width="14" Height="14"
+                                                                       VerticalAlignment="Center" Margin="0,0,3,0"
+                                                                       Opacity="{Binding IconOpacity}"
+                                                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                                <TextBlock x:Name="count" Text="{Binding CountText}" FontSize="10"
+                                                                           FontWeight="SemiBold" VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource Skin.Fg}"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding Cleared}" Value="True">
+                                                                <Setter TargetName="count" Property="Foreground"
+                                                                        Value="{DynamicResource Skin.MutedFg}"/>
+                                                                <Setter TargetName="count" Property="FontWeight" Value="Normal"/>
+                                                            </DataTrigger>
+                                                            <Trigger SourceName="chip" Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="chip" Property="Background"
+                                                                        Value="{DynamicResource Skin.RowHover}"/>
+                                                            </Trigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
                                         </StackPanel>
 
                                         <!-- 오드 아이콘 + 자연회복 + (추가 오드). Same icon and split the meter's
                                              footer badge shows, so the two read as the same number. -->
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
                                                     Margin="10,0,0,0">
                                             <Image Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Icons/ode.png"
                                                    Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,4,0"
@@ -128,7 +171,7 @@
                                         </StackPanel>
 
                                         <Button x:Name="remove" Grid.Column="2" Style="{StaticResource RowRemoveButton}"
-                                                Margin="8,0,0,0" VerticalAlignment="Center"
+                                                Margin="8,0,0,0" VerticalAlignment="Top"
                                                 ToolTip="{Binding RemoveTooltip}" Click="OnRemoveClick"/>
                                     </Grid>
                                 </Border>

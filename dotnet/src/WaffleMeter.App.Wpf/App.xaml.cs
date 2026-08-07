@@ -51,6 +51,12 @@ public partial class App : Application
     private AetherPanelViewModel? _aetherViewModel;
     private bool _aetherPanelPositioned;
     private bool _aetherPanelVisible;
+    /// <summary>The 컨텐츠 관리 panel's shipped size, kept so "위치 초기화" can restore it.</summary>
+    private (double W, double H) _aetherPanelDefaultSize;
+
+    /// <summary>Weekly 성역 counters from a 0x610B dump, held until the identity they belong to is established.
+    /// See <see cref="OnWeeklyContentBroadcast"/> for why filing them on arrival is wrong.</summary>
+    private readonly Dictionary<WeeklyContentKind, (int Remaining, long AtMs)> _weeklyContentPending = new();
     private bool _viewingHistory;
     private long _historyBaselineBattleStart;
     // Pre-combat party preview: the roster = recent boss-combat contributors (the party). Combat is the only
@@ -589,6 +595,7 @@ public partial class App : Application
             }
 
             MaybePromptConsent(services, window);
+            FlushPendingWeeklyContent(services);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));
         // A reset clears the data-layer party roster; also drop the UI-side recent-combat party tracker so a stale
@@ -707,9 +714,16 @@ public partial class App : Application
             PersistAether(services);
             if (_aetherPanelVisible)
             {
-                RefreshAetherRoster(services); // keep an open 오드 목록 in step with the live balance
+                RefreshAetherRoster(services); // keep an open 컨텐츠 관리 in step with the live balance
             }
         });
+
+        // Weekly 성역 clears ride the same 0x610x packets: a full snapshot on login/zone-in and a delta within
+        // half a second of a final boss dying. Persisted per character exactly like the 오드 balance, and
+        // ALWAYS (not only while the panel is open) — the point is to know about characters you aren't looking
+        // at. PersistWeeklyContent refreshes the panel itself when the value actually changed.
+        services.Data.WeeklyContentChanged += (kind, remaining, atMs, fromSnapshot) =>
+            Dispatcher.BeginInvoke(() => OnWeeklyContentBroadcast(services, kind, remaining, atMs, fromSnapshot));
 
         // Combat-assist overlay: the local player's active buff slots, refreshed twice a second.
         _buffOverlayVm = new BuffOverlayViewModel();
@@ -1355,6 +1369,10 @@ public partial class App : Application
     {
         _aetherViewModel = new AetherPanelViewModel(_settings!);
         _aetherPanel = new AetherPanel { DataContext = _aetherViewModel };
+        // Capture the shipped size BEFORE any saved one is applied, so "위치 초기화" can put it back. The panel
+        // grew when the weekly-content chips arrived, and a user who had ever dragged its edge keeps the old,
+        // narrower width forever — with nothing in the UI able to undo it.
+        _aetherPanelDefaultSize = (_aetherPanel.Width, _aetherPanel.Height);
         LoadWindowSize(services.Props, "aetherPanelWidth", "aetherPanelHeight", _aetherPanel);
         _aetherPanel.Show();
         _aetherPanel.Park();
@@ -1394,6 +1412,31 @@ public partial class App : Application
                 _settings.AetherCharacterNames = store.SerializeNames();
             }
 
+            // The row is gone from the list, so its weekly-clear records must go too — otherwise a re-detected
+            // character would inherit the clears of the one the user just forgot.
+            WeeklyContentStore weekly = WeeklyContentStore.Parse(_settings.WeeklyContentClears);
+            if (weekly.RemoveAll([hash]))
+            {
+                _settings.WeeklyContentClears = weekly.Serialize();
+            }
+
+            RefreshAetherRoster(services);
+        };
+
+        // Clicking a weekly chip flips it. The counter is normally the server's, but the meter only hears the
+        // broadcast while it is running — a raid cleared with the meter closed reads as un-cleared until that
+        // character next logs in, and this is the way out. Stamped with 'now' so it expires at the same weekly
+        // reset a real observation would.
+        _aetherViewModel.WeeklyToggleRequested += (hash, slug) =>
+        {
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            WeeklyContentStore weekly = WeeklyContentStore.Parse(_settings!.WeeklyContentClears);
+            int shown = weekly.Remaining(hash, slug, nowMs) ?? WeeklyContentCatalog.WeeklyGrant;
+            if (weekly.Upsert(hash, slug, shown > 0 ? 0 : WeeklyContentCatalog.WeeklyGrant, nowMs))
+            {
+                _settings.WeeklyContentClears = weekly.Serialize();
+            }
+
             RefreshAetherRoster(services);
         };
 
@@ -1420,8 +1463,8 @@ public partial class App : Application
         };
     }
 
-    /// <summary>Rebuild the 오드 목록 rows from the persisted store. Cheap (a few dozen records parsed from one
-    /// settings string), so it simply re-reads instead of maintaining an incremental cache.</summary>
+    /// <summary>Rebuild the 컨텐츠 관리 rows from the persisted stores. Cheap (a few dozen records parsed from two
+    /// settings strings), so it simply re-reads instead of maintaining an incremental cache.</summary>
     private void RefreshAetherRoster(MeterServices services)
     {
         if (_aetherViewModel is null)
@@ -1436,7 +1479,87 @@ public partial class App : Application
         _aetherViewModel.SetRows(AetherRoster.Build(
             AetherPerCharacterStore.Parse(_settings!.AetherPerCharacter, _settings.AetherCharacterNames),
             names,
-            services.Consent.CurrentCharacterHash()));
+            services.Consent.CurrentCharacterHash(),
+            WeeklyContentStore.Parse(_settings.WeeklyContentClears)));
+    }
+
+    /// <summary>Persist one weekly 성역 counter under the character that broadcast it. Runs on the UI thread
+    /// (marshalled from the packet consumer) because it writes settings, which the panel then re-reads.
+    /// <para>Keyed by the same stats identity hash as the 오드 record — and dropped when that hash isn't known
+    /// yet, because a counter filed under the wrong character is worse than a missing one.</para></summary>
+    /// <summary>
+    /// A weekly counter arrived. Deciding WHOSE it is, is the whole job here.
+    /// <para>The 0x610B dump that lands on login/zone-in beats the own-load packet naming the character by
+    /// about four seconds — measured on 14 of 14 zone-ins in the capture corpus, with no counter-example. So
+    /// "file it under whoever the executor is right now" is wrong precisely when it matters: on a character
+    /// switch it writes the INCOMING character's counters onto the OUTGOING character's record, and a weekly
+    /// clear is a week-long claim, not a number that refreshes on its own. A dump is therefore held until an
+    /// identity has been established at or after it arrived — that identity is, by construction, the one the
+    /// dump describes.</para>
+    /// <para>A 0x610C delta needs none of that: it only fires when a counter actually changes, which means the
+    /// character has been in the zone fighting, so the identity settled long ago. Holding it would just delay
+    /// the 1/1 → 0/1 the user is watching for.</para>
+    /// </summary>
+    private void OnWeeklyContentBroadcast(
+        MeterServices services, WeeklyContentKind kind, int remaining, long atMs, bool fromSnapshot)
+    {
+        if (fromSnapshot)
+        {
+            _weeklyContentPending[kind] = (remaining, atMs);
+            FlushPendingWeeklyContent(services);
+            return;
+        }
+
+        PersistWeeklyContent(services, kind, remaining);
+    }
+
+    /// <summary>Write one counter under the character currently identified. Callers must already have decided
+    /// that the counter belongs to that character.</summary>
+    private void PersistWeeklyContent(MeterServices services, WeeklyContentKind kind, int remaining)
+    {
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (_settings is null || string.IsNullOrEmpty(hash))
+        {
+            return;
+        }
+
+        WeeklyContentStore store = WeeklyContentStore.Parse(_settings.WeeklyContentClears);
+        if (store.Upsert(
+                hash,
+                WeeklyContentCatalog.ByKind(kind).Slug,
+                remaining,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))
+        {
+            _settings.WeeklyContentClears = store.Serialize();
+            RefreshAetherRoster(services);
+        }
+    }
+
+    /// <summary>File any held dump values whose owning identity has since been established. Called both when a
+    /// dump arrives (the identity is usually already known — a zone-in on the same character) and from the
+    /// report loop (which is what catches the login/switch case, where the naming packet is still in flight).
+    /// A value is dropped from the pending set as soon as it is filed, so a later switch can never re-file the
+    /// previous character's numbers onto the new one.</summary>
+    private void FlushPendingWeeklyContent(MeterServices services)
+    {
+        if (_weeklyContentPending.Count == 0 || string.IsNullOrEmpty(services.Consent.CurrentCharacterHash()))
+        {
+            return;
+        }
+
+        long identityAtMs = services.Data.ExecutorIdentityAtMs;
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        foreach (WeeklyContentKind kind in _weeklyContentPending.Keys.ToList())
+        {
+            (int remaining, long atMs) = _weeklyContentPending[kind];
+            if (!WeeklyContentOwnership.CanFile(atMs, identityAtMs, nowMs))
+            {
+                continue; // still waiting for the identity this dump belongs to
+            }
+
+            _weeklyContentPending.Remove(kind);
+            PersistWeeklyContent(services, kind, remaining);
+        }
     }
 
     /// <summary>Show the stats-consent modal once per detected character that has no decision yet
@@ -1519,10 +1642,22 @@ public partial class App : Application
                 services.Props.SetProperty("aetherPanelX", string.Empty);
                 services.Props.SetProperty("aetherPanelY", string.Empty);
                 _aetherPanelPositioned = false;
-                if (_aetherPanel is { } ap && _aetherPanelVisible)
+                if (_aetherPanel is { } ap)
                 {
-                    ap.Left = overlay.Left + overlay.ActualWidth + 8;
-                    ap.Top = overlay.Top + 40;
+                    // Size too, not just position: the panel grew for the weekly-content chips, and anyone who
+                    // had ever resized it is stuck with the old width otherwise. Assigning re-saves through
+                    // AttachResize's SizeChanged, so the shipped size is what the next launch restores.
+                    if (_aetherPanelDefaultSize.W > 0)
+                    {
+                        ap.Width = _aetherPanelDefaultSize.W;
+                        ap.Height = _aetherPanelDefaultSize.H;
+                    }
+
+                    if (_aetherPanelVisible)
+                    {
+                        ap.Left = overlay.Left + overlay.ActualWidth + 8;
+                        ap.Top = overlay.Top + 40;
+                    }
                 }
 
                 break;

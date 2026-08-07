@@ -388,6 +388,7 @@ public sealed class StreamProcessor
                 case AetherKeyB:
                     ParseAetherStatus(packet, opcodeOffset + 2);
                     ParseShugoKey(packet, opcodeOffset + 2);
+                    ParseWeeklyContent(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
                     break;
                 case FieldBossTimerKey:
                     ParseFieldBossTimers(packet, opcodeOffset + 2, arrivedAt);
@@ -814,6 +815,7 @@ public sealed class StreamProcessor
         var members = new List<(string Nickname, int Server, int Slot)>();
         var jobPower = new List<(string Nickname, int Server, int JobCode, int Power)>(); // 0x9702가 실어 온 직업·전투력 (프리뷰 채움용)
         var seen = new HashSet<string>();
+        int headerless = 0; // [server][len][name] shapes with no record header in front of them
         for (int n = offset + 2; n + 3 < packet.Length; n++)
         {
             int server = PacketPrimitives.ParseUInt16Le(packet, n);
@@ -831,6 +833,24 @@ public sealed class StreamProcessor
             string name = Encoding.UTF8.GetString(packet, n + 3, len);
             if (Encoding.UTF8.GetByteCount(name) != len || !IsValidNickname(name))
             {
+                continue;
+            }
+
+            // A real member is always preceded by its record header. A [server][len][name] shape with NO
+            // header in front of it is a coincidence inside some other field, and adopting it invents a party
+            // member who does not exist. Measured: a member's own 전투력 u32 supplies exactly that shape — a
+            // 5-인 party's roster parsed as SIX because 끕's power (413042) ends in byte 0x72, and "r" is a
+            // legal one-letter name that IsValidNickname accepts. Outside 성역 a party caps at five, so that 6
+            // went to the stats site as battle.rosterSize, and SavePartyRoster's anti-shrink guard then held it
+            // for the next ten and a half minutes of that dungeon — every correct 5-member snapshot after it
+            // looked like a subset and was ignored.
+            //
+            // Rejected BEFORE seen.Add on purpose: the phantom must reach neither the member list nor the
+            // dedupe set.
+            int slot = MemberSlot(packet, n);
+            if (slot == 0)
+            {
+                headerless++;
                 continue;
             }
 
@@ -862,12 +882,21 @@ public sealed class StreamProcessor
                     }
                 }
 
-                int slot = MemberSlot(packet, n);
                 members.Add((name, server, slot));
                 jobPower.Add((name, server, jobCode, power));
             }
 
             n += 2 + len; // skip past this record (the loop's n++ steps over the final byte)
+        }
+
+        // The header gate above fails CLOSED: if the game ever changes the record stride, every member is
+        // rejected, this returns, and SavePartyRoster is never called — so the roster silently freezes on its
+        // last value instead of emptying. That is the safer failure, but it is invisible, so say so out loud.
+        // A healthy snapshot rejects zero or one shape (the trailing 전투력 coincidence); a run of these with
+        // no members kept is the signature of a layout change.
+        if (headerless > 0)
+        {
+            _sink.Meta("party_roster_headerless", ("dropped", headerless), ("kept", members.Count));
         }
 
         if (members.Count == 0)
@@ -887,7 +916,14 @@ public sealed class StreamProcessor
             members = members.Select(m => (m.Nickname, m.Server, Slot: 0)).ToList();
         }
 
-        _data.SavePartyRoster(members);
+        // The u32 that opens the body is the server's party id. It is the only thing in this packet that says
+        // WHICH party these members are — a join or a leave keeps it, re-forming the group changes it —
+        // which is what lets the data layer tell "my roster, minus someone" from "a different, smaller
+        // party". Measured over the corpus: a snapshot whose member set is a swap of, or disjoint from, the
+        // previous one ALWAYS carries a different id (15 and 7 cases, zero exceptions), while an identical
+        // member set always carries the same one (2,251 cases).
+        int partyId = offset + 6 <= packet.Length ? (int)PacketPrimitives.ReadUInt32LeAsLong(packet, offset + 2) : 0;
+        _data.SavePartyRoster(members, partyId);
         _data.SavePartyRosterJobPower(jobPower);
 
         var sb = new StringBuilder();
@@ -923,14 +959,19 @@ public sealed class StreamProcessor
     // marker instead recovers every member; the byte-scan has already validated the server+name at serverOffset.
     // 2026-07-01 patch raised party 4→5 and raid 8→10 (two parties of 5), so slots now span 1-10.
     //
-    // The four markers are one family: 0x3A, 0x3E, 0x7A, 0x7E differ only in the 0x40 and 0x04 bits. Three of
-    // them were listed and 0x3E was not, which cost that member its slot — and 0x3E lands on slots 1-5, which
-    // in a 10-인 공대 is the whole first party. Measured across the corpus: allowing it takes complete 1..N
-    // snapshots from 435 to 584 of 680, with zero duplicate slots introduced and zero snapshots that were
-    // complete before and are not after.
+    // ⚠️ The marker byte is NOT enumerated, deliberately. It was — 0x7A/0x7E/0x3A, then 0x3E was added after it
+    // cost a 10-인 공대 its whole first party — and each list was a guess that the next capture falsified. The
+    // corpus now shows at least NINE values (0x1C 0x1E 0x38 0x3A 0x3C 0x3E 0x5E 0x7A 0x7E), and in a
+    // 2026-08-07 session 0x3C alone carried 122 of 957 members, i.e. an enumeration written today would lose
+    // 13.9% of sub-party slots tomorrow. So the marker is only required to be NON-ZERO (every observed value is
+    // >= 0x1C; the byte is 0x00 where no record header exists) and the real test is the slot byte itself.
+    //
+    // That slot byte is also what separates a record from a coincidence. Measured over 1,385 members in four
+    // sessions: every real member has packet[serverOffset-7] in 1..10, and the ONLY value outside it is the
+    // phantom member the scan used to invent out of a 전투력 u32 (see the adoption gate in ParsePartyRoster).
     private static int MemberSlot(byte[] packet, int serverOffset) =>
         serverOffset >= 8
-        && packet[serverOffset - 8] is 0x7A or 0x7E or 0x3A or 0x3E
+        && packet[serverOffset - 8] != 0x00
         && packet[serverOffset - 7] is >= 1 and <= 10
             ? packet[serverOffset - 7]
             : 0;
@@ -1909,6 +1950,29 @@ public sealed class StreamProcessor
         _data.SaveShugoKey(s.Base, s.Bonus);
         _sink.Meta("shugokey", ("base", s.Base), ("bonus", s.Bonus), ("total", s.Total));
     }
+
+    /// <summary>주간 성역 '최종 보스 처치 횟수' 3종, 오드·슈고 열쇠와 같은 0x610B/0x610C 패킷에 실려 온다
+    /// (통화 id로 구분). 전체 스냅샷은 셋 다 싣고 델타는 하나만 싣기 때문에 세 번 시도한다 — 실패는 정상이다.
+    /// <para>델타는 최종 보스 사망 +0.13~0.43초에 도착한다(코퍼스 3세션 실측). 즉 이 훅은 "전투가 끝났다"를
+    /// 미터가 판정할 필요가 없다 — 서버가 차감을 알려준다.</para></summary>
+    private void ParseWeeklyContent(byte[] packet, int bodyStart, bool fromSnapshot)
+    {
+        foreach (WeeklyContentKind kind in WeeklyContentKinds)
+        {
+            WeeklyContentParse w = WeeklyContentParser.TryParse(packet, bodyStart, kind);
+            if (!w.Ok)
+            {
+                continue;
+            }
+
+            _data.SaveWeeklyContent(kind, w.Base, w.Bonus, fromSnapshot);
+            _sink.Meta("weeklycontent",
+                ("kind", (int)kind), ("base", w.Base), ("bonus", w.Bonus), ("snapshot", fromSnapshot ? 1 : 0));
+        }
+    }
+
+    private static readonly WeeklyContentKind[] WeeklyContentKinds =
+        [WeeklyContentKind.Rudra, WeeklyContentKind.ErosionPurifier, WeeklyContentKind.MuspelGrail];
 
     /// <summary>
     /// Dungeon instance phase window (0x6100 / 0x6101): <c>[u32-LE mapId][u8 phase][u64-LE startMs][u64-LE

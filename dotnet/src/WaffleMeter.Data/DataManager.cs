@@ -89,7 +89,17 @@ public sealed class DataManager : ICaptureGameData
     private readonly Dictionary<int, long> _officialLookupAttempts = new();
     // Latest full party/raid roster snapshot (0x9702 packet): each member's (nickname, server) + when it
     // arrived. Matched to known uids on demand for the pre-combat party preview (see PartyRoster).
+    /// <summary>How stale the 0x9702 roster may be and still be frozen into a saved battle as that battle's
+    /// party. Matches the window the roster's other readers already use.</summary>
+    private const long RosterFreezeTtlMs = 30L * 60 * 1000;
+
     private readonly List<(string Nickname, int Server, int Slot)> _partyRoster = new();
+    /// <summary>The server's id for the party the held roster belongs to (0 = unknown).</summary>
+    private int _partyRosterId;
+    /// <summary>When the roster CONTENT was last replaced — unlike <c>_partyRosterAtMs</c>, a held-through
+    /// partial snapshot does not refresh it. The battle freeze dates the roster by this, so a roster the meter
+    /// has merely been holding cannot pass as freshly confirmed.</summary>
+    private long _partyRosterSetAtMs;
     // 0x9702가 실어 온 (닉네임,서버)→(직업코드,전투력). 전투 전 프리뷰 행의 직업/전투력 채움용. 병합-갱신만 하고
     // (제거 없음) 신선도는 _partyRosterAtMs가 게이트한다(떠난 멤버의 잔여 엔트리는 _partyRoster에 없어 무해).
     private readonly Dictionary<(string Nickname, int Server), (int JobCode, int Power)> _partyRosterJobPower = new();
@@ -686,6 +696,37 @@ public sealed class DataManager : ICaptureGameData
         ShugoKeyChanged?.Invoke();
     }
 
+    // ---- 주간 성역 '최종 보스 처치 횟수' (컨텐츠 관리 패널) ----
+    // Rides the same 0x610x packets as aether; one counter per 성역 raid, for the ACTIVE character only.
+    // Deliberately STATELESS here, unlike aether and the shugo key: the durable answer is a per-character
+    // settings record the app owns, and a mirror of "the last value seen" would only be a second copy that can
+    // disagree with it. It did, briefly — a dedupe against that mirror swallowed exactly the broadcasts that
+    // needed to correct a record the panel's own ✕ or manual toggle had changed behind it.
+    private long _executorIdentityAtMs;
+
+    /// <summary>When the executor's identity was last established (Unix ms), or 0 if it never has been.
+    /// See the note in <see cref="SaveExecutorId"/>: the weekly counters use this to tell "the identity that
+    /// arrived after this snapshot" from "the identity that merely happened to still be current".</summary>
+    public long ExecutorIdentityAtMs => Interlocked.Read(ref _executorIdentityAtMs);
+
+    /// <summary>Raised (packet-consumer thread) when a weekly 성역 counter arrives:
+    /// <c>(kind, remaining, arrivedAtMs, fromSnapshot)</c>. <c>fromSnapshot</c> distinguishes the 0x610B
+    /// login/zone-in dump — whose owner is ambiguous until the own-load packet lands — from a 0x610C delta,
+    /// which can only happen mid-play with the identity long settled.</summary>
+    public event Action<WeeklyContentKind, int, long, bool>? WeeklyContentChanged;
+
+    /// <summary>Record one weekly 성역 counter. Both pools are authoritative — a spent counter arrives as
+    /// (0, 0) because the packet's field mask omits an empty pool, so their sum is the answer as-is.
+    /// <para>Raised UNCONDITIONALLY, exactly like <see cref="SaveAetherStatus"/> and unlike an earlier version
+    /// of this method, which skipped the event when the value matched what it already held. That optimisation
+    /// assumed this cache and the persisted store could not disagree — but the store has two other writers (the
+    /// panel's ✕ and its manual chip toggle), so a repeat broadcast that "changed nothing" was exactly the one
+    /// that had to re-sync, and the wrong value latched until the app restarted. The store's own Upsert still
+    /// skips the write when nothing changed, so the repeat costs a parse, not a disk write.</para></summary>
+    public void SaveWeeklyContent(WeeklyContentKind kind, int baseVal, int bonus, bool fromSnapshot) =>
+        WeeklyContentChanged?.Invoke(
+            kind, Math.Max(0, baseVal) + Math.Max(0, bonus), Clock(), fromSnapshot);
+
     // ---- field-boss respawn timers (boss code -> target Unix-ms), from the 0x9101 broadcast ----
     // Written on the packet-consumer thread, read (snapshot) on the UI thread → guard with a lock.
     private readonly Dictionary<int, long> _fieldBossTimers = new();
@@ -724,26 +765,52 @@ public sealed class DataManager : ICaptureGameData
     public User? FindUserByNicknameAndServer(string nickname, int server) =>
         _userRepository.FindByNicknameAndServer(nickname, server);
 
-    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members)
+    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members) =>
+        SavePartyRoster(members, partyId: 0);
+
+    public void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members, int partyId)
     {
-        // A 0x9702 snapshot can arrive PARTIAL — the byte-scan misses a record, or an incremental re-broadcast
-        // carries a subset — and a naive Clear+Replace then SHRINKS a complete roster (observed live: 5→4→3→2
-        // over ~11 s), which would strand real party members / mis-gate the display. Guard: ignore a snapshot
-        // that is a STRICT SUBSET of the current roster (same identities, fewer of them) — keep the fuller one,
-        // just refresh its freshness. Any snapshot with a NEW member (the party grew or changed) still replaces.
-        // A genuine party change/leave is handled by ClearPartyRoster (0x971D ExitParty) and the resets, not by
-        // a shrinking snapshot.
+        // A 0x9702 snapshot can arrive PARTIAL, and a naive Clear+Replace then SHRINKS a complete roster
+        // (observed live: 5→4→3→2 over ~11 s, and still reproducible in the corpus — a full set that returns
+        // 17 s later), which would strand real party members / mis-gate the display. Guard: ignore a snapshot
+        // that is a STRICT SUBSET of the current roster and keep the fuller one. Any snapshot with a NEW member
+        // (the party grew or changed) still replaces.
+        //
+        // But a subset is ALSO what a genuinely new, smaller party looks like when it is formed from people you
+        // were just grouped with — and the guard used to hold the old roster through it, for over ten minutes in
+        // one measured case. The member list cannot tell those apart. The PARTY ID can: the server keeps it
+        // across joins and leaves and changes it when the group is re-formed (corpus: every swapped or disjoint
+        // member set carried a different id, 22 of 22; every identical set carried the same one, 2,251 of
+        // 2,251). So a subset under a DIFFERENT id is a different party and replaces immediately.
+        //
+        // Only the party id speaks here. A second candidate rule — "the same smaller set arrived twice, so
+        // accept it" — was measured to release more stale rosters, but it is a heuristic with nothing behind it
+        // except a threshold, and the id already covers the case this guard was getting wrong. Releasing late
+        // costs a roster that is briefly too large, and only until the next snapshot; releasing wrongly costs a
+        // party member who was never there. Id 0 means "not read" and never counts as a change.
+        //
+        // (A note for whoever measures this next: "the full set shows up again later" does NOT make a release
+        // wrong. In one session the roster goes 5 → 1 → 5 with the full set back 17 seconds later, which looks
+        // like a spurious shrink until you notice each step carries a DIFFERENT party id — the group really did
+        // disband and re-form. In that same session an identical member set never once changed id, 64 times out
+        // of 64. Judge a release by the id, not by what the membership does afterwards.)
         var incoming = members.Select(m => (m.Nickname, m.Server)).ToHashSet();
         var current = _partyRoster.Select(m => (m.Nickname, m.Server)).ToHashSet();
-        if (_partyRoster.Count > 0 && incoming.Count < current.Count && incoming.IsSubsetOf(current))
+        bool differentParty = partyId != 0 && _partyRosterId != 0 && partyId != _partyRosterId;
+        if (!differentParty && _partyRoster.Count > 0 && incoming.Count < current.Count && incoming.IsSubsetOf(current))
         {
-            _partyRosterAtMs = Clock(); // partial re-broadcast of the same party — hold the fuller roster, stay fresh
+            // Partial re-broadcast of the same party: hold the fuller roster. Its freshness stamp is refreshed
+            // (the party demonstrably still exists, so the preview should not blank out) but _partyRosterSetAtMs
+            // is NOT — that one dates the CONTENT, and the content is exactly what did not get confirmed here.
+            _partyRosterAtMs = Clock();
             return;
         }
 
         _partyRoster.Clear();
         _partyRoster.AddRange(members);
+        _partyRosterId = partyId;
         _partyRosterAtMs = Clock();
+        _partyRosterSetAtMs = _partyRosterAtMs;
     }
 
     /// <summary>Known Users for the current party/raid roster — the 0x9702 snapshot matched to uids by
@@ -1160,6 +1227,16 @@ public sealed class DataManager : ICaptureGameData
 
             _userRepository.Executor(uid);
             newExec.IsExecutor = true;
+
+            // When this install last learned WHO it is watching. The weekly 성역 counters need it: the 0x610B
+            // login snapshot beats the own-load packet that names the character by ~4 s at every zone-in
+            // measured, so a counter filed against "whoever the executor is right now" lands on the PREVIOUS
+            // character on a switch. Stamping the identity lets the app wait for the identity that came after
+            // the snapshot rather than the one that happened to still be current when it arrived.
+            if (!string.IsNullOrWhiteSpace(newExec.Nickname))
+            {
+                Interlocked.Exchange(ref _executorIdentityAtMs, Clock());
+            }
 
             // A character switch (콘팡 -> 마이농) must drop the previous character's pre-combat preview state
             // — the 0x9702 party snapshot here, and the UI-side recent-combat tracker via the event below — so
@@ -2152,6 +2229,15 @@ public sealed class DataManager : ICaptureGameData
         Dictionary<int, List<OperatingData>> buffRates,
         List<OperatingData> bossBuffRates)
     {
+        // The roster describes THIS battle only while it is still fresh. Every other reader of _partyRoster
+        // gates on its age (PartyRoster, PartyMemberIdentities, PartyRosterJobPower, …); this freeze was the
+        // one place that read it raw, so a roster left behind by content the player had already finished got
+        // stamped verbatim onto whatever they fought next — including a solo field pull after the party broke
+        // up. 30 minutes matches the window the other readers and the payload builder's roster-power fallback
+        // already use, and is comfortably past the observed re-broadcast gap (p99 ≈ 9 minutes; 0x9702 arrives
+        // in bursts rather than on a cadence, so a tight window would drop a live party's roster mid-run).
+        bool rosterFresh = _partyRoster.Count > 0 && Clock() - _partyRosterSetAtMs <= RosterFreezeTtlMs;
+
         var snapshot = new DpsReport
         {
             Contributors = data.Contributors.Select(CopyUser).ToList(),
@@ -2164,8 +2250,11 @@ public sealed class DataManager : ICaptureGameData
             BuffRates = buffRates,         // frozen so the detail (history replay) matches the web
             BossBuffRates = bossBuffRates,
             SkillDetailsSnapshot = skillDetails, // frozen so the replayed detail's skill table + summary aren't empty
-            PartySlots = CurrentPartySlots(data.Contributors), // frozen 0x9702 sub-party slots (1-5/6-10), keyed to the actual battle uids
-            PartyRosterSize = _partyRoster.Count,               // ...and how many people that roster held (8/10 = 공대), from the same snapshot
+            // frozen 0x9702 sub-party slots (1-5/6-10), keyed to the actual battle uids, and how many people
+            // that roster held — both only when the roster is still this battle's (see rosterFresh above).
+            // 0 is the documented "unknown" roster size, which is what a pre-rosterSize saved battle carries.
+            PartySlots = rosterFresh ? CurrentPartySlots(data.Contributors) : new Dictionary<int, int>(),
+            PartyRosterSize = rosterFresh ? _partyRoster.Count : 0,
             DpsSeries = data.DpsSeries,          // frozen per-second damage series so the replayed DPS graph isn't empty
             BuffIntervals = data.BuffIntervals,  // frozen buff timeline (built pre-prune by the caller) for the graph's icon lane
         };

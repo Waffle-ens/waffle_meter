@@ -209,4 +209,61 @@ public sealed class DataManagerPartyRosterTests
         dm.SaveNickname(4, "마이농", isExecutor: true, server: 2003, jobByte: 0); // real switch
         Assert.Equal(1, fired);
     }
+
+    /// <summary>The subset guard used to have no way to tell "my roster, minus someone" from "a different,
+    /// smaller party formed out of the same people" — so leaving a raid and grouping up with four of its
+    /// members kept the ten-man roster for the next ten minutes, and the battles in that window uploaded as
+    /// raids. The server's party id separates them: it survives joins and leaves, and changes when the group
+    /// is re-formed.</summary>
+    [Fact]
+    public void A_smaller_party_under_a_new_party_id_replaces_the_roster()
+    {
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SavePartyRoster(
+            new List<(string, int, int)>
+            {
+                ("A", 1, 1), ("B", 1, 2), ("C", 1, 3), ("D", 1, 4), ("E", 1, 5),
+                ("F", 1, 6), ("G", 1, 7), ("H", 1, 8), ("I", 1, 9), ("J", 1, 10),
+            },
+            partyId: 417506);
+
+        // the raid ends and four of them re-group — a strict subset, but a different party
+        dm.SavePartyRoster(
+            new List<(string, int, int)> { ("A", 1, 1), ("B", 1, 2), ("C", 1, 3), ("D", 1, 4) },
+            partyId: 423993);
+
+        Assert.Equal(4, dm.PartyMemberIdentities(300_000).Count);
+    }
+
+    /// <summary>…and the same subset under the SAME id is still just a partial re-broadcast. This is the case
+    /// the guard exists for, and it must not be released: measured in the corpus, a 5→1 collapse of this shape
+    /// had its full roster back 17.3 seconds later.</summary>
+    [Fact]
+    public void A_partial_snapshot_under_the_same_party_id_is_still_held()
+    {
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SavePartyRoster(
+            new List<(string, int, int)> { ("A", 1, 1), ("B", 1, 2), ("C", 1, 3), ("D", 1, 4), ("E", 1, 5) },
+            partyId: 500100);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("A", 1, 1) }, partyId: 500100);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("A", 1, 1) }, partyId: 500100); // and again
+
+        Assert.Equal(5, dm.PartyMemberIdentities(300_000).Count);
+    }
+
+    /// <summary>An unread id (0) must never read as "changed" — a short packet would otherwise disarm the
+    /// guard entirely and bring back the 5→4→3→2 shrink.</summary>
+    [Fact]
+    public void An_unknown_party_id_does_not_release_the_guard()
+    {
+        long now = 1_000_000;
+        var dm = new DataManager { Clock = () => now };
+        dm.SavePartyRoster(
+            new List<(string, int, int)> { ("A", 1, 1), ("B", 1, 2), ("C", 1, 3) }, partyId: 500100);
+        dm.SavePartyRoster(new List<(string, int, int)> { ("A", 1, 1) }, partyId: 0);
+
+        Assert.Equal(3, dm.PartyMemberIdentities(300_000).Count);
+    }
 }

@@ -27,6 +27,19 @@ public readonly record struct EncounterInfo(
     /// nothing to disambiguate and the label would be noise.</para></summary>
     public string DisplayBossName =>
         HasVariants && VariantLabel.Length > 0 ? $"{BossName} ({VariantLabel})" : BossName;
+
+    /// <summary>Whether this encounter is a 공대 (raid) rather than a party dungeon — i.e. whether sub-party
+    /// slots mean anything for it.
+    /// <para>The category IS the answer, and it is the only reliable one. In the client's dungeon table every
+    /// 성역 is <c>EDungeonType::Raid</c> with 10/10 members, and every 원정 and 초월 is
+    /// <c>EDungeonType::Party</c> capped at five — including 바크론 시련, which despite its difficulty is a
+    /// five-man. Inferring it from the observed roster size instead gets it wrong in both directions: a roster
+    /// stranded from earlier content tags a four-man dungeon as a raid, and a raid whose roster snapshot
+    /// under-parsed (9 of 10 members) stops being one and silently loses every sub-party tag.</para></summary>
+    public bool IsRaid => string.Equals(Category, RaidCategory, StringComparison.Ordinal);
+
+    /// <summary>The stats web's category label for 공대 content. Matches the seed that generates the catalog.</summary>
+    public const string RaidCategory = "성역";
 }
 
 /// <summary>

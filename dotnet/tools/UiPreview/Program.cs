@@ -72,6 +72,13 @@ internal static class Program
             history.SetBattles(SampleBattles(now));
             Capture(() => new HistoryPanel { DataContext = history }, palette, Path.Combine(outDir, $"history_{skin}.png"));
 
+            // 컨텐츠 관리: characters with their 오드 and their weekly 성역 clears. The sample deliberately
+            // covers all three states a chip can be in — un-cleared, cleared, and a character with no record
+            // this week at all (which reads as un-cleared).
+            var content = new AetherPanelViewModel(settings);
+            content.SetRows(SampleContentRows(now));
+            Capture(() => new AetherPanel { DataContext = content }, palette, Path.Combine(outDir, $"content_{skin}.png"));
+
             string currentSkin = skin;
             var overlay = new OverlayViewModel("1.7.8", settings, theme, () => currentSkin == "Light") { Status = "캡처 중" };
             overlay.Update(SampleMeterReport(now));
@@ -658,6 +665,39 @@ internal static class Program
         Battle(1, "발탄 군주", true, now - 300_000, now - 300_000 + 183_000, 8_200_000, 6_400_000, 3_100_000),
         Battle(2, "그림자 추적자", true, now - 120_000, now - 120_000 + 92_000, 4_200_000, 3_800_000),
     };
+
+    /// <summary>컨텐츠 관리 rows built through the real <see cref="AetherRoster"/> and
+    /// <see cref="WeeklyContentStore"/>, so the preview exercises the same staleness rule the app does — the
+    /// last character's clears are stamped before the previous reset and must therefore show as un-cleared.</summary>
+    private static IReadOnlyList<AetherRosterRow> SampleContentRows(long now)
+    {
+        var aether = AetherPerCharacterStore.Parse(null);
+        aether.Upsert("h1", new AetherSnapshot(220, 635, now - 43_200_000, "콩팡", 1001));
+        aether.Upsert("h2", new AetherSnapshot(15, 860, now - 36_000_000, "마이농", 1001));
+        aether.Upsert("h3", new AetherSnapshot(520, 1_055, now - 57_600_000, "하아앙", 1001));
+        aether.Upsert("h4", new AetherSnapshot(0, 1_805, now - 90_000_000, "헤로롱", 1001));
+
+        long thisWeek = Math.Max(now - 1, WeeklyContentReset.LastResetAtOrBefore(now) + 1);
+        var weekly = WeeklyContentStore.Parse(null);
+        weekly.Upsert("h1", "rud", 0, thisWeek);   // cleared
+        weekly.Upsert("h1", "ero", 1, thisWeek);
+        weekly.Upsert("h1", "mus", 1, thisWeek);
+        weekly.Upsert("h2", "rud", 0, thisWeek);
+        weekly.Upsert("h2", "ero", 0, thisWeek);
+        weekly.Upsert("h2", "mus", 0, thisWeek);   // all three done
+        weekly.Upsert("h3", "mus", 0, thisWeek);
+        // h4 records nothing this week → every chip reads as the full grant
+
+        var names = new[]
+        {
+            new AetherRosterName("h1", "콩팡", 1001, "궁성"),
+            new AetherRosterName("h2", "마이농", 1001, "호법성"),
+            new AetherRosterName("h3", "하아앙", 1001, "검성"),
+            new AetherRosterName("h4", "헤로롱", 1001, "살성"),
+        };
+
+        return AetherRoster.Build(aether, names, currentHash: "h1", weekly: weekly, nowMs: now);
+    }
 
     /// <summary>Eight rows, one per tier, so every ring treatment is visible in a single shot.</summary>
     private static DpsReport SampleTierReport(long now)

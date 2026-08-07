@@ -102,6 +102,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
         _aetherPerCharacter = _props.GetProperty("aether.perCharacter") ?? "";
         _aetherCharacterNames = _props.GetProperty("aether.characterNames") ?? "";
+        _weeklyContentClears = _props.GetProperty("content.weeklyClears") ?? "";
         _dummyTestMode = ReadBool("dummy.testMode", false);
         _dummyDurationSec = ReadInt("dummy.durationSeconds", 60);
         _patchNotesLastShownVersion = _props.GetProperty("patchNotes.lastShownVersion") ?? "";
@@ -459,6 +460,18 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// balance record it can't parse would be dropped — and since every aether broadcast rewrites the whole
     /// blob, one packet under the old build would have made that loss permanent.</summary>
     public string AetherCharacterNames { get => _aetherCharacterNames; set => SetProp(ref _aetherCharacterNames, "aether.characterNames", value); }
+
+    private string _weeklyContentClears;
+    /// <summary>Each character's weekly 성역 clear counters as <c>hash,slug,remaining,savedAtMs</c> records (see
+    /// <see cref="WeeklyContentStore"/>). Its OWN key rather than extra fields on <see cref="AetherPerCharacter"/>
+    /// for the reason spelled out there: an older build drops a record it can't parse, and the aether blob is
+    /// rewritten on every broadcast, so widening that record would cost every user their 오드 history the first
+    /// time they rolled back.</summary>
+    public string WeeklyContentClears
+    {
+        get => _weeklyContentClears;
+        set => SetProp(ref _weeklyContentClears, "content.weeklyClears", value);
+    }
 
     // ---- 허수아비 (training-dummy) test mode ----
     private bool _dummyTestMode;

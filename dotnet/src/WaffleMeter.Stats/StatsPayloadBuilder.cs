@@ -253,6 +253,11 @@ public sealed class StatsPayloadBuilder
         return new BuildResult.Payload(payload);
     }
 
+    /// <summary>Whether this battle's boss belongs to a 공대 dungeon, or null when the shipped catalog cannot
+    /// say (not loaded, or a boss it does not know).</summary>
+    private bool? RaidByEncounter(DpsLog log) =>
+        log.Report.Target is { } target ? _data.Encounters.Lookup(target.Mob.Code)?.IsRaid : null;
+
     private List<User> SortedParticipantUsers(DpsLog log, IEnumerable<User> contributors)
     {
         return contributors
@@ -272,13 +277,23 @@ public sealed class StatsPayloadBuilder
         // Tag each participant's sub-party slot for a 공대 so the stats site can split raid synergy. Two sizes
         // exist: 8-인 (two parties of 4) and 10-인 (two parties of 5, since the 2026-07-01 patch).
         //
-        // The roster SIZE decides whether this is a raid — not the slot values. The old test
-        // (PartySlots.Values.Any(s => s > 5)) really asked "did a second-party member get a slot", so an 공대
-        // whose party-2 members dealt no damage read as a normal party and lost its tags entirely; it also
-        // counted stale non-participant entries, which could tag a 5-인 party as a raid. PartyRosterSize is 0 on
-        // battles saved before that field existed, so those fall back to the old inference.
-        bool isRaid = log.Report.PartyRosterSize is 8 or 10
-            || (log.Report.PartyRosterSize == 0 && log.Report.PartySlots.Values.Any(s => s > 5));
+        // WHICH DUNGEON THIS IS decides whether it is a raid — not how many people we counted. The boss mobCode
+        // names the dungeon exactly (that is what the encounter catalog is for), and in the client's own table
+        // every 성역 is a 10-인 Raid while every 원정 and 초월 is a Party capped at five — 바크론 시련 included.
+        //
+        // Counting was wrong in both directions. A roster left over from earlier content tagged a four-man
+        // dungeon as a raid (measured: a fresh 4-man party's snapshots were ignored three times running while
+        // the roster still held the previous 10-man raid, so those battles would have uploaded isRaid=true).
+        // And a real raid whose 0x9702 snapshot under-parsed — 9 of 10 members, 62 such snapshots in the corpus
+        // — stopped being a raid and silently dropped every sub-party tag it did have.
+        //
+        // The count-based test survives only as the fallback for when the catalog cannot answer: it is absent
+        // (asset missing → EncounterCatalog.Empty) or the boss is not in it. A battle with an unknown boss
+        // never uploads anyway (the queue's unsupported_encounter gate), so in practice this is the no-catalog
+        // case, where preserving the old behaviour beats inventing a new one.
+        bool isRaid = RaidByEncounter(log)
+            ?? (log.Report.PartyRosterSize is 8 or 10
+                || (log.Report.PartyRosterSize == 0 && log.Report.PartySlots.Values.Any(s => s > 5)));
         foreach (User user in participants)
         {
             if (!log.Report.Information.TryGetValue(user.Id, out DpsInformation? info))

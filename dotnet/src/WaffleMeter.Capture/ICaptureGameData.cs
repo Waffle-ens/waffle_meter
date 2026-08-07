@@ -110,6 +110,18 @@ public interface ICaptureGameData
     /// No-op in capture-only mode.</summary>
     void SaveShugoKey(int baseVal, int bonus);
 
+    /// <summary>One 성역 raid's weekly "최종 보스 처치 횟수" for the ACTIVE character, from the 0x610x family
+    /// (same packets as aether; a different currency id). The game deducts one within half a second of the
+    /// raid's final boss dying, so this is the server's own answer to "have I cleared it this week" — the meter
+    /// does not infer it. BOTH pools are authoritative every time; a spent counter arrives as
+    /// <paramref name="baseVal"/> = <paramref name="bonus"/> = 0.
+    /// <para><paramref name="fromSnapshot"/> is true for the 0x610B full dump (login / zone-in) and false for a
+    /// 0x610C delta. The distinction decides WHO the counter belongs to: the dump arrives about four seconds
+    /// before the own-load packet that names the character, so on a character switch it must not be filed
+    /// against whoever the executor still happens to be.</para>
+    /// Default no-op (capture-only mode).</summary>
+    void SaveWeeklyContent(WeeklyContentKind kind, int baseVal, int bonus, bool fromSnapshot) { }
+
     /// <summary>Field-boss respawn timers (boss code → target Unix-ms) from the 0x9101 broadcast. No-op in
     /// capture-only mode.</summary>
     void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers);
@@ -129,6 +141,15 @@ public interface ICaptureGameData
     /// party preview, and (for an 8-인 공대) tag each player's sub-party — slots 1-4 = party 1, 5-8 = party 2.
     /// Slot is 0 when the record header that carries it wasn't matched.</summary>
     void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members);
+
+    /// <summary>Same snapshot, plus the server's own party id (the u32 that opens the 0x9702 body).
+    /// <para>It is the party's IDENTITY, which the member list alone cannot supply: a member joining or
+    /// leaving keeps the id, while re-forming the group changes it. That is exactly what tells "the roster
+    /// I already have, minus someone" from "a different, smaller party" — two things that look identical
+    /// as member sets. 0 = not read (short packet); callers must treat 0 as "unknown", never as "changed".</para>
+    /// Defaults to the id-less overload so implementations that do not care are unaffected.</summary>
+    void SavePartyRoster(IReadOnlyList<(string Nickname, int Server, int Slot)> members, int partyId) =>
+        SavePartyRoster(members);
 
     /// <summary>0x9702 로스터가 실어 온 (닉네임, 서버, 직업코드, 전투력). 전투 전 파티 프리뷰의 직업 아이콘·
     /// 전투력을 채우는 display-only 보조 소스. 기본 no-op(캡처 전용/구현 안 한 컨텍스트).</summary>
