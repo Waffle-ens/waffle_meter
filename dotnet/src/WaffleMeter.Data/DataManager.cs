@@ -30,6 +30,19 @@ public sealed class DataManager : ICaptureGameData
     private const long PendingStartTtlMs = 60_000L;
     private const long DummyTimeoutMs = 5000L;
 
+    /// <summary>보스 전투 유휴 종료 임계. 추적 중인 타깃에 대해 이 시간 동안 데미지도 HP 보고도 없으면 전투를
+    /// 끝난 것으로 본다.
+    /// <para>🔑 왜 필요한가: 전투 종료 경로가 <c>0x8D21 toggle==0</c>(그리고 사망) 하나뿐이라, 보스가 죽지도
+    /// 종료 토글도 없이 조용해지면 리포트가 <b>무기한</b> 살아 있었다. 버스(캐리)에서 기사가 보스를 끌고 가거나
+    /// 승객이 AoI를 벗어나면 정확히 이 상태가 된다 — 서버가 그 엔티티 갱신을 더 이상 보내지 않는다. 2026-08-08
+    /// 제보 로그 실측: 나사라크가 HP 43%로 남은 채 41.2초에 끊겨 <b>104초</b> 동안 화면이 고착됐고, 그 사이
+    /// 캡처·조립·디스패치는 정상이었다(미터가 멈춘 게 아니다).</para>
+    /// <para>값 근거: 코퍼스 29파일 270전투의 <b>전투 중</b> 정상 공백 분포 = 중앙값 0.5s / p90 2.0s / p95 4.7s /
+    /// p99 19.1s / <b>최대 27.8s</b>(칼드릭스 페이즈 전환). 60초는 그 최대의 2.2배다. 비대칭이 크기 때문에 길게
+    /// 잡는다 — 짧으면 살아있는 전투를 반으로 갈라 저장·업로드가 오염되지만(191M 사건), 길면 고착이 조금 더
+    /// 이어질 뿐이다.</para></summary>
+    private const long BossIdleTimeoutMs = 60_000L;
+
     private readonly record struct EndedBattle(int? MobCode, long EndedAt);
 
     private readonly Dictionary<int, Mob> _mobs = new();
@@ -78,6 +91,15 @@ public sealed class DataManager : ICaptureGameData
     private const int UnresolvedStartsCap = 64;
 
     private long _lastDummyHitTime;
+
+    /// <summary>현 타깃에 대해 마지막으로 전투 신호(데미지 또는 HP 보고)를 본 시각. <see cref="BossIdleTimeoutMs"/>
+    /// 판정과, 유휴 종료 시 <b>종료 스탬프</b>에 쓴다 — 종료를 <c>now</c>로 찍으면 아무 일도 없던 유휴 구간이
+    /// 전투 길이에 들어가 DPS가 희석된다(실측상 정상 전투의 마지막 이벤트→종료 꼬리는 최대 3.5초다).
+    /// <para>소비자 스레드가 쓰고 리포트 스레드가 읽는다(<see cref="TickBossBattleIdle"/>). 64비트 정렬된 long의
+    /// 읽기/쓰기는 찢어지지 않고, 한 틱 늦게 읽혀도 종료가 한 틱 밀릴 뿐이라 <c>_lastDummyHitTime</c>과 같은
+    /// 평범한 필드로 둔다.</para></summary>
+    private long _lastBossActivityMs;
+
     // Training-dummy (허수아비) test mode. Written by the UI / hotkey thread, read by the consumer thread —
     // volatile is enough (a one-tick staleness is harmless). When OFF, a dummy hit never starts/continues a
     // battle so the meter shows NO combat for it; when ON, a dummy hit drives a live battle exactly like a boss
@@ -529,6 +551,13 @@ public sealed class DataManager : ICaptureGameData
     public void MobHp(int mobId, int mobHp)
     {
         _mobHpRepository.Set(mobId, mobHp);
+        if (mobId == CurrentTarget())
+        {
+            // HP 보고만으로도 "그 보스가 아직 우리 시야에 있다"는 증거다 — 파티가 딜을 멈춘 페이즈(칼드릭스)에도
+            // 계속 오므로, 데미지만 신호로 삼으면 정상 페이즈를 유휴로 오판한다.
+            _lastBossActivityMs = Clock();
+        }
+
         if (mobHp > 0)
         {
             _recentlyEndedBattles.Remove(mobId);
@@ -1969,6 +1998,11 @@ public sealed class DataManager : ICaptureGameData
         // 바인드 이후 그 uid가 다시는 등장하지 않는 진짜 사장된 uid라 승격되지 않는 게 맞다.
         PromotePendingAnchorIfActive(pdp.ActorId);
         PromotePendingAnchorIfActive(pdp.TargetId);
+        if (pdp.TargetId > 0 && pdp.TargetId == CurrentTarget())
+        {
+            _lastBossActivityMs = Clock();
+        }
+
         // Training-dummy test mode: a hit on a dummy drives (and is gated by) the dummy battle machine. Drop it —
         // never record — when test mode is off or the duration cut has fired, so an idle/finished dummy shows no
         // combat and post-cut damage can't inflate the frozen result. Non-dummy targets take the plain path.
@@ -2110,11 +2144,17 @@ public sealed class DataManager : ICaptureGameData
         // 미보고(null)/0은 보호하지 않는다 — 갓-시작 순간의 미세 창엔 실측상 기믹이 오지 않고, null 보호는 종료
         // 토글 유실 시 다음 보스를 얼릴 수 있어서다. 이 stomp는 잘린 전투 저장·업로드(191M 오염)도 유발하므로,
         // 막는 편이 오염 위험을 오히려 낮춘다.
+        // ⚠️ 신선도 항(2026-08-08)이 없으면 이 가드가 영구 차단이 된다: 조용해진 보스는 마지막 HP가 >0으로
+        // 남아 아래 조건을 계속 만족하므로, 다음 보스의 start가 매번 거부된다. 종전 주석은 "현 보스가 죽으면
+        // 가드가 풀린다"만 상정했고 HP=null(종료토글 유실)만 예외로 뒀다 — 살아있는데 무소식인 경우가 구멍이었다.
+        // TickBossBattleIdle이 리포트 틱마다 같은 일을 하지만, 그 틱과 이 경로(소비자 스레드)의 순서는 보장되지
+        // 않으므로 여기서도 같은 기준으로 양보한다.
         if (CurrentTarget() > 0
             && mobId != CurrentTarget()
             && CurrentBattleStart() > 0L
             && CurrentBattleEnd() == 0L
-            && (MobHp(CurrentTarget()) ?? 0) > 0)
+            && (MobHp(CurrentTarget()) ?? 0) > 0
+            && now - _lastBossActivityMs <= BossIdleTimeoutMs)
         {
             return;
         }
@@ -2126,6 +2166,8 @@ public sealed class DataManager : ICaptureGameData
         _packetRepository.SaveCurrentBattleStart(startAt);
         SaveCurrentTarget(mobId);
         _activeBattleMobCode = mobCode;
+        // 교전 직후 아직 아무 데미지/HP도 안 왔을 때 유휴 타이머가 0에서 시작해 곧바로 만료되지 않도록 기준을 둔다.
+        _lastBossActivityMs = now;
     }
 
     /// <summary>Feature 2 — 무스펠 성배 '염화의 수호검' 5/5 분할에서, 본인(executor)이 실제로 딜을 넣는 수호검으로
@@ -2209,6 +2251,27 @@ public sealed class DataManager : ICaptureGameData
         _unresolvedStarts.Remove(target);
         _recentlyEndedBattles.Remove(target);
         _pendingStart = null;
+    }
+
+    /// <summary>리포트 틱마다 부르는 보스 전투 유휴 점검(<see cref="DpsCalculator.GetDps"/> 상단, 더미 틱 옆).
+    /// 추적 중인 보스가 <see cref="BossIdleTimeoutMs"/> 동안 아무 전투 신호도 안 내면 전투를 닫는다.
+    /// <para>종료 시각은 <b>마지막 활동 시각</b>으로 찍는다 — 유휴 구간을 전투 길이에 넣지 않기 위해서다.
+    /// 사망 확인이 없으므로 업로드는 <c>not_kill</c>로 자동 스킵되고(로컬 히스토리에는 남는다), 통계는 오염되지
+    /// 않는다.</para>
+    /// <para>더미는 자기 상태기(<see cref="TickDummyBattle"/>)가 5초 유휴로 따로 처리하므로 건드리지 않는다.</para></summary>
+    public void TickBossBattleIdle()
+    {
+        int current = CurrentTarget();
+        if (current <= 0 || IsCurrentTargetDummy()) return;
+        if (CurrentBattleStart() <= 0L || CurrentBattleEnd() != 0L) return;
+
+        long last = _lastBossActivityMs;
+        if (last <= 0L || Clock() - last <= BossIdleTimeoutMs) return;
+
+        SaveCurrentBattleEnd(last);
+        SaveCurrentTarget(-1);
+        _recentlyEndedBattles[current] = new EndedBattle(_activeBattleMobCode ?? GetMobId(current), last);
+        _activeBattleMobCode = null;
     }
 
     public void EndBattle(int mobId)

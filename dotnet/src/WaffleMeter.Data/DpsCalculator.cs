@@ -421,6 +421,9 @@ public sealed class DpsCalculator
     public DpsReport GetDps()
     {
         _dm.TickDummyBattle(); // enforce the dummy duration hard-cut / idle-end / mode-off before reading state
+        // 죽지도 종료 토글도 없이 조용해진 보스(버스에서 흔하다)를 닫는다. 아래 상태 읽기보다 먼저 돌아야 이 틱에서
+        // 곧바로 종료 전이(_currentTarget == -1)를 타고 리포트가 풀린다.
+        _dm.TickBossBattleIdle();
         int storageTarget = _dm.CurrentTarget();
         long storageBattleRevision = _dm.CurrentBattleRevision();
         int previousTarget = _currentTarget;
