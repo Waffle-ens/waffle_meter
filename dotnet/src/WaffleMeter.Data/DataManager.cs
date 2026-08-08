@@ -2271,6 +2271,10 @@ public sealed class DataManager : ICaptureGameData
         _unresolvedStarts.Remove(target);
         _recentlyEndedBattles.Remove(target);
         _pendingStart = null;
+        // 타깃이 바뀌었으니 유휴 기준도 새 타깃 것으로 옮긴다. 안 옮기면 나가는 수호검이 조용했던 시간이 그대로
+        // 새 전투의 유휴로 계산돼, 방금 연 전투가 곧바로 만료될 수 있다(다음 데미지가 다시 찍어주긴 하지만
+        // 그 자가 복구에 기대지 않는다). 이 전환을 부른 타격 자체가 활동이므로 그 시각으로 찍는다.
+        _lastBossActivityMs = now;
     }
 
     /// <summary>리포트 틱마다 부르는 보스 전투 유휴 점검(<see cref="DpsCalculator.GetDps"/> 상단, 더미 틱 옆).
