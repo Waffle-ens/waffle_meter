@@ -44,9 +44,8 @@ public static class EngineIniOptimizer
         return new Tier(5, "4GB 이하", 2048, 512, false, 60);
     }
 
-    /// <summary>우리 최적화 블록(마커 포함, <c>\n</c> 개행). <paramref name="includeAdvanced"/>면 저위험
-    /// anti-hitch 몇 줄을 덧붙인다(로딩 히칭 완화, 기본 off — 사용자 opt-in).</summary>
-    public static string BuildBlock(Tier tier, bool includeAdvanced = false)
+    /// <summary>우리 최적화 블록(마커 포함, <c>\n</c> 개행).</summary>
+    public static string BuildBlock(Tier tier)
     {
         var sb = new StringBuilder();
         sb.Append(StartMarker).Append('\n');
@@ -71,13 +70,6 @@ public static class EngineIniOptimizer
         sb.Append("r.AllowOcclusionQueries=1").Append('\n');
         sb.Append("gc.TimeBetweenPurgingPendingKillObjects=").Append(tier.GcSeconds).Append('\n');
         sb.Append("s.ForceGCAfterLevelStreamedOut=0").Append('\n');
-        if (includeAdvanced)
-        {
-            sb.Append("; --- 고급(선택): 로딩/구역이동 히칭 완화 ---").Append('\n');
-            sb.Append("s.AsyncLoadingThreadEnabled=1").Append('\n');
-            sb.Append("r.Streaming.Boost=1").Append('\n');
-        }
-
         sb.Append(EndMarker).Append('\n');
         return sb.ToString();
     }
@@ -89,7 +81,11 @@ public static class EngineIniOptimizer
     /// 표시하고 ②되돌리기가 아무 일도 못 하며 ③다시 적용하면 같은 키가 한 벌 더 쌓인다. 그래서 마커가 없을
     /// 때는 이 키 목록이 감지·제거의 근거가 된다.</para>
     /// <para>⚠️ <see cref="BuildBlock"/>에 키를 추가하면 여기에도 반드시 추가한다 — 빠지면 그 키는 되돌리기
-    /// 때 남는다. 테스트가 두 목록의 일치를 강제한다.</para></summary>
+    /// 때 남는다. 테스트가 두 목록의 일치를 강제한다.</para>
+    /// <para>⚠️ 반대로 <see cref="BuildBlock"/>에서 키를 <b>빼도</b> 여기서는 빼지 않는다 — 이미 그 줄이 적힌
+    /// 사용자 파일이 존재하기 때문이다. 여기서 지우면 그 줄은 되돌리기로도 재적용으로도 사라지지 않고
+    /// <c>[SystemSettings]</c>에 영원히 남는다(마커는 게임이 지워서 블록 단위 제거도 못 탄다). 목록은 "지금 쓰는
+    /// 키"가 아니라 <b>"우리가 한 번이라도 쓴 적 있는 키"</b>다 — 그래서 단방향(BuildBlock ⊆ ManagedKeys)이다.</para></summary>
     public static readonly string[] ManagedKeys =
     [
         "r.TextureStreaming",
@@ -106,8 +102,14 @@ public static class EngineIniOptimizer
         "r.AllowOcclusionQueries",
         "gc.TimeBetweenPurgingPendingKillObjects",
         "s.ForceGCAfterLevelStreamedOut",
-        "s.AsyncLoadingThreadEnabled", // 고급
-        "r.Streaming.Boost",           // 고급
+
+        // ↓ 더 이상 쓰지 않는다(2026-08-08 클라 config 실측). 청소 목적으로만 남긴다 — 위 ⚠️ 참조.
+        // s.AsyncLoadingThreadEnabled: 게임이 이미 켠다
+        //   (pak `Aion2/Config/DefaultEngine.ini` [/Script/Engine.StreamingSettings] s.AsyncLoadingThreadEnabled=True).
+        // r.Streaming.Boost: `Engine/Config/BaseScalability.ini`의 [TextureQuality@1/2/3/Cine]이 이미 =1이라
+        //   우리가 쓰던 값과 동일 — 켜나 마나 같았다.
+        "s.AsyncLoadingThreadEnabled",
+        "r.Streaming.Boost",
     ];
 
     /// <summary>마커 없이 키만 남은 파일을 "적용됨"으로 볼 최소 키 수. 우리 블록은 항상 13개 이상을 쓴다.

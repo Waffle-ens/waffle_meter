@@ -123,7 +123,7 @@ public sealed class GameOptimizerService
 
     /// <summary>감지된 티어로 우리 블록을 적용/재적용한다. 폴더/파일이 없으면 만들고, 첫 적용 때 원본을 한 번
     /// <c>.waffle-backup</c>으로 복사해 둔다(되돌리기는 마커 제거로 하지만 안전망). 게임은 <b>재실행 후</b> 반영.</summary>
-    public void Apply(EngineIniOptimizer.Tier tier, bool includeAdvanced)
+    public void Apply(EngineIniOptimizer.Tier tier)
     {
         string? dir = Path.GetDirectoryName(EngineIniPath);
         if (dir is not null)
@@ -133,7 +133,7 @@ public sealed class GameOptimizerService
 
         BackupOnce();
         string existing = ReadNormalized();
-        string next = EngineIniOptimizer.ApplyBlock(existing, EngineIniOptimizer.BuildBlock(tier, includeAdvanced));
+        string next = EngineIniOptimizer.ApplyBlock(existing, EngineIniOptimizer.BuildBlock(tier));
         WriteCrlf(next);
     }
 

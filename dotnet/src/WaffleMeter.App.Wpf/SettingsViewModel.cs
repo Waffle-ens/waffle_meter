@@ -363,12 +363,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string TargetInfoDisplayMode { get => _settings.TargetInfoDisplayMode; set { _settings.TargetInfoDisplayMode = value; OnPropertyChanged(); } }
 
     // ---- game optimization tab (게임 최적화 · Engine.ini) ----
-    public bool GameOptAdvanced
-    {
-        get => _settings.GameOptAdvanced;
-        set { _settings.GameOptAdvanced = value; OnPropertyChanged(); }
-    }
-
     private string _gpuText = string.Empty;
     /// <summary>감지된 그래픽카드 + VRAM 요약(감지 실패 시 안내 문구).</summary>
     public string GpuText { get => _gpuText; private set => Set(ref _gpuText, value); }
@@ -412,7 +406,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         try
         {
-            _gameOpt.Apply(_gameOptTier, _settings.GameOptAdvanced);
+            _gameOpt.Apply(_gameOptTier);
         }
         catch
         {

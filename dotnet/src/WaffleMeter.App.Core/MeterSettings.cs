@@ -82,7 +82,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _showAetherStatus = ReadBool("showAetherStatus", true);
         _showLatencyIndicator = ReadBool("showLatencyIndicator", false);
         _vrrCompatMode = ReadBool("vrrCompatMode", true);
-        _gameOptAdvanced = ReadBool("gameOpt.includeAdvanced", false);
+        // gameOpt.includeAdvanced: 은퇴(2026-08-08) — 저장된 값은 읽지 않고 그대로 둔다(무해한 고아 키).
         _meterScalePercent = ReadInt("meterScalePercent", 100);
         _showBuffUi = ReadBool("buffUi.show", false);
         _buffUiIconSize = ReadInt("buffUi.iconSize", 40);
@@ -324,10 +324,6 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Frame-drop relief: pins the refresh interval to a low-churn value and force-disables any
     /// display-only embellishments, prioritizing the game's frame rate. See <see cref="EffectiveRefreshIntervalMs"/>.</summary>
     public bool LowSpecMode { get => _lowSpecMode; set => SetBool(ref _lowSpecMode, "lowSpecMode", value); }
-
-    private bool _gameOptAdvanced;
-    /// <summary>게임 최적화(Engine.ini) 적용 시 저위험 anti-hitch 추가 항목까지 포함할지(기본 꺼짐, 사용자 opt-in).</summary>
-    public bool GameOptAdvanced { get => _gameOptAdvanced; set => SetBool(ref _gameOptAdvanced, "gameOpt.includeAdvanced", value); }
 
     /// <summary>The refresh interval actually applied: low-spec pins it to 500 ms (ignoring the slider);
     /// otherwise the slider value clamped to [100, 1000].</summary>

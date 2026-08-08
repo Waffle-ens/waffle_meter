@@ -56,12 +56,39 @@ public sealed class EngineIniOptimizerTests
     }
 
     [Fact]
-    public void Advanced_lines_only_appear_when_opted_in()
+    public void Retired_no_op_keys_are_never_written_again()
     {
-        var tier = EngineIniOptimizer.TierForVram(8 * GiB);
-        Assert.DoesNotContain("s.AsyncLoadingThreadEnabled", EngineIniOptimizer.BuildBlock(tier, includeAdvanced: false));
-        Assert.Contains("s.AsyncLoadingThreadEnabled=1", EngineIniOptimizer.BuildBlock(tier, includeAdvanced: true));
-        Assert.Contains("r.Streaming.Boost=1", EngineIniOptimizer.BuildBlock(tier, includeAdvanced: true));
+        // 2026-08-08 클라 config 실측: 게임이 s.AsyncLoadingThreadEnabled=True를 이미 켜고
+        // (DefaultEngine.ini [/Script/Engine.StreamingSettings]), r.Streaming.Boost는 BaseScalability의
+        // [TextureQuality@1/2/3/Cine]이 이미 =1이다. 둘 다 우리가 써봐야 값이 그대로였다.
+        foreach (long vram in new[] { 24 * GiB, 16 * GiB, 8 * GiB, 4 * GiB })
+        {
+            string block = EngineIniOptimizer.BuildBlock(EngineIniOptimizer.TierForVram(vram));
+            Assert.DoesNotContain("s.AsyncLoadingThreadEnabled", block);
+            Assert.DoesNotContain("r.Streaming.Boost", block);
+        }
+    }
+
+    [Fact]
+    public void Retired_keys_are_still_cleaned_up_from_files_that_already_have_them()
+    {
+        // 은퇴시켰다고 ManagedKeys에서 빼면 이미 그 줄이 적힌 사용자 파일에서 영원히 안 지워진다
+        // (마커는 게임이 지우므로 블록 단위 제거도 못 탄다). 되돌리기가 반드시 걷어내야 한다.
+        const string legacy =
+            "[Core.System]\nPaths=x\n\n[SystemSettings]\n" +
+            "r.TextureStreaming=1\nr.Streaming.PoolSize=10240\nr.Streaming.LimitPoolSizeToVRAM=1\n" +
+            "r.Streaming.MaxTempMemoryAllowed=2048\nr.Streaming.FullyLoadUsedTextures=0\n" +
+            "r.Streaming.HLODStrategy=2\nr.OneFrameThreadLag=1\nr.FinishCurrentFrame=0\n" +
+            "r.RHICmdBypass=0\nr.RenderThread.Enable=1\nr.HZBOcclusion=1\nr.AllowOcclusionQueries=1\n" +
+            "gc.TimeBetweenPurgingPendingKillObjects=120\ns.ForceGCAfterLevelStreamedOut=0\n" +
+            "s.AsyncLoadingThreadEnabled=1\nr.Streaming.Boost=1\n";
+
+        string reverted = EngineIniOptimizer.Remove(legacy);
+
+        Assert.DoesNotContain("s.AsyncLoadingThreadEnabled", reverted);
+        Assert.DoesNotContain("r.Streaming.Boost", reverted);
+        Assert.DoesNotContain("[SystemSettings]", reverted); // 우리 키뿐이던 섹션은 헤더까지
+        Assert.Contains("Paths=x", reverted);                // 사용자 내용은 그대로
     }
 
     [Fact]
@@ -154,7 +181,8 @@ public sealed class EngineIniOptimizerTests
     public void Every_key_BuildBlock_writes_is_listed_in_ManagedKeys()
     {
         // 두 목록이 어긋나면 되돌리기가 그 키를 남긴다 — 주석으로만 적어둔 규칙은 회귀한다.
-        string block = EngineIniOptimizer.BuildBlock(EngineIniOptimizer.TierForVram(24 * GiB), includeAdvanced: true);
+        // 단방향이다(BuildBlock ⊆ ManagedKeys): 은퇴한 키는 청소용으로 ManagedKeys에만 남는다.
+        string block = EngineIniOptimizer.BuildBlock(EngineIniOptimizer.TierForVram(24 * GiB));
         foreach (string line in block.Split('\n'))
         {
             string t = line.Trim();
