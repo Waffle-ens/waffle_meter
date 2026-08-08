@@ -43,6 +43,17 @@ public sealed class DataManager : ICaptureGameData
     /// 이어질 뿐이다.</para></summary>
     private const long BossIdleTimeoutMs = 60_000L;
 
+    /// <summary>유휴 종료의 <b>두 번째</b> 조건: 이 시간 동안 <b>어떤 타깃에도</b> 데미지가 없어야 한다.
+    /// <para>🔑 왜 필요한가: 보스가 무적/비타격 기믹에 들어가면 그 엔티티는 <b>완전 무음</b>이 된다 — 실측
+    /// (칼드릭스 27.8초 공백 창 전수조사) 결과 HP·피격·버프 어느 이벤트에도 등장하지 않는다. 즉 공백 길이는
+    /// 곧 기믹 길이이고 원리상 상한이 없다. <see cref="BossIdleTimeoutMs"/> 하나만 보면 우리가 관측하지 못한
+    /// 더 긴 기믹에서 <b>살아있는 전투가 반으로 갈린다</b>(앞쪽은 사망 없이 저장, 뒤쪽만 킬로 업로드 → DPS·시간
+    /// 과소 기록). 그런데 그 기믹 구간에도 파티는 쫄을 계속 때리고 있다 — 실측 창에서 다른 타깃 6종에 수백 건씩.
+    /// 그래서 "아무 데도 안 때리고 있다"를 함께 요구하면 기믹 길이와 무관하게 안전해진다.</para>
+    /// <para>반대로 버려진 보스(제보 사례)는 파티가 정말로 아무것도 안 때린다 — 실측 t=50~140s 데미지 0건.
+    /// 두 경우가 이 신호로 갈린다.</para></summary>
+    private const long AnyCombatQuietMs = 20_000L;
+
     private readonly record struct EndedBattle(int? MobCode, long EndedAt);
 
     private readonly Dictionary<int, Mob> _mobs = new();
@@ -99,6 +110,10 @@ public sealed class DataManager : ICaptureGameData
     /// 읽기/쓰기는 찢어지지 않고, 한 틱 늦게 읽혀도 종료가 한 틱 밀릴 뿐이라 <c>_lastDummyHitTime</c>과 같은
     /// 평범한 필드로 둔다.</para></summary>
     private long _lastBossActivityMs;
+
+    /// <summary>타깃을 가리지 않고 마지막으로 데미지를 본 시각(<see cref="AnyCombatQuietMs"/> 판정용).
+    /// 기믹 중 쫄 딜이 여기에 찍혀 "전투가 아직 살아 있다"를 증명한다.</summary>
+    private long _lastAnyDamageMs;
 
     // Training-dummy (허수아비) test mode. Written by the UI / hotkey thread, read by the consumer thread —
     // volatile is enough (a one-tick staleness is harmless). When OFF, a dummy hit never starts/continues a
@@ -1998,9 +2013,14 @@ public sealed class DataManager : ICaptureGameData
         // 바인드 이후 그 uid가 다시는 등장하지 않는 진짜 사장된 uid라 승격되지 않는 게 맞다.
         PromotePendingAnchorIfActive(pdp.ActorId);
         PromotePendingAnchorIfActive(pdp.TargetId);
-        if (pdp.TargetId > 0 && pdp.TargetId == CurrentTarget())
+        if (pdp.TargetId > 0)
         {
-            _lastBossActivityMs = Clock();
+            long hitAt = Clock();
+            _lastAnyDamageMs = hitAt; // 기믹 중 쫄 딜 — "전투가 아직 살아 있다"의 증거
+            if (pdp.TargetId == CurrentTarget())
+            {
+                _lastBossActivityMs = hitAt;
+            }
         }
 
         // Training-dummy test mode: a hit on a dummy drives (and is gated by) the dummy battle machine. Drop it —
@@ -2266,7 +2286,12 @@ public sealed class DataManager : ICaptureGameData
         if (CurrentBattleStart() <= 0L || CurrentBattleEnd() != 0L) return;
 
         long last = _lastBossActivityMs;
-        if (last <= 0L || Clock() - last <= BossIdleTimeoutMs) return;
+        long now = Clock();
+        if (last <= 0L || now - last <= BossIdleTimeoutMs) return;
+
+        // 두 번째 조건: 파티가 아무 데도 딜을 안 넣고 있어야 한다. 기믹으로 보스만 무음인 동안에는 쫄 딜이
+        // 계속 찍히므로 여기서 걸려 전투가 유지된다 — 기믹이 아무리 길어도 안전하다.
+        if (_lastAnyDamageMs > 0L && now - _lastAnyDamageMs <= AnyCombatQuietMs) return;
 
         SaveCurrentBattleEnd(last);
         SaveCurrentTarget(-1);

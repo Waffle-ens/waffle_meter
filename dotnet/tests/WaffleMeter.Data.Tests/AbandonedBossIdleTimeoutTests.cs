@@ -145,6 +145,48 @@ public sealed class AbandonedBossIdleTimeoutTests
         }
     }
 
+    /// <summary>쫄에게 딜을 넣는다(기믹 중 파티가 하는 일).</summary>
+    private static void HitAdd(DataManager dm, int add)
+    {
+        dm.SaveDamage(new ParsedDamagePacket { ActorId = 9001, TargetId = add, Damage = 1000 }, dm.CurrentEpoch());
+    }
+
+    [Fact]
+    public void An_arbitrarily_long_gimmick_never_ends_the_fight_while_adds_are_being_hit()
+    {
+        // 🔑 무적/비타격 기믹 동안 보스 엔티티는 완전 무음이다(실측: 칼드릭스 27.8초 창에 HP·피격·버프 0건).
+        // 즉 공백 길이 = 기믹 길이라 상한이 없다. 그 사이 파티는 쫄을 계속 때리므로 그걸 생존 신호로 쓴다.
+        (DataManager dm, long[] now) = Setup();
+        Engage(dm, Boss, BossCode, hp: 9_000_000);
+
+        for (int i = 0; i < 40; i++)   // 보스 무음 400초 — 관측 최댓값(27.8s)의 14배
+        {
+            now[0] += 10_000;
+            HitAdd(dm, 555);           // 쫄 딜은 계속된다
+            dm.TickBossBattleIdle();
+            Assert.Equal(Boss, dm.CurrentTarget());
+        }
+
+        // 기믹이 끝나 보스가 돌아오면 그대로 이어진다 — 전투가 갈리지 않았다
+        dm.MobHp(Boss, 8_000_000);
+        dm.TickBossBattleIdle();
+        Assert.Equal(Boss, dm.CurrentTarget());
+        Assert.Equal(0L, dm.CurrentBattleEnd());
+    }
+
+    [Fact]
+    public void An_abandoned_boss_still_ends_because_nothing_is_being_hit_at_all()
+    {
+        // 버려진 보스(제보 사례)는 파티가 정말로 아무것도 안 때린다 — 실측 t=50~140s 데미지 0건.
+        (DataManager dm, long[] now) = Setup();
+        Engage(dm, Boss, BossCode, hp: 14_404_354);
+        HitAdd(dm, 555);               // 교전 중엔 딜이 있었다
+
+        now[0] += 61_000;              // 이후 전면 무음
+        dm.TickBossBattleIdle();
+        Assert.True(dm.CurrentTarget() <= 0);
+    }
+
     [Fact]
     public void An_idle_tick_does_nothing_when_there_is_no_battle()
     {
