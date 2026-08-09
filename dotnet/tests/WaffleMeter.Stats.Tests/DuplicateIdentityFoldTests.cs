@@ -139,6 +139,20 @@ public sealed class DuplicateIdentityFoldTests
     }
 
     [Fact]
+    public void Head_count_party_size_and_job_composition_all_use_the_folded_count()
+    {
+        // 🔑 웹의 중복 병합 그룹 키가 partySize + jobs 조합이다(battle-group.ts). 접기 전 값으로 보내면 같은
+        // 전투를 올린 두 미터의 키가 갈려 하나로 안 묶인다. 정원과 직업 구성도 사람 수 기준이어야 맞다.
+        DataManager dm = PartyWithRezonedSelf();
+        StatsUploadPayload payload = Build(dm, LogWithDuplicate(dm, ghostSlot: 8, realSlot: 2));
+
+        Assert.Equal(2, payload.Battle.PartySize);              // 기여자 uid 3개가 아니라 사람 2명
+        Assert.Equal(payload.Participants.Count, payload.Battle.PartySize);
+        Assert.Equal(1, payload.PartyComposition.Jobs["검성"]); // 재등록된 본인이 두 번 세어지지 않는다
+        Assert.Equal(1, payload.PartyComposition.Jobs["마도성"]);
+    }
+
+    [Fact]
     public void The_top_level_own_result_matches_the_folded_participant_row()
     {
         // 참가자 행은 접힌 합인데 최상위 Result 만 한쪽 uid 몫이면 같은 전투에서 업로더 숫자가 두 군데서

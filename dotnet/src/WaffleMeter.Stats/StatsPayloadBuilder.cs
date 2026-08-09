@@ -191,12 +191,18 @@ public sealed class StatsPayloadBuilder
             return new BuildResult.Skip("own_identity_missing");
         }
 
-        Dictionary<string, int> jobCounts = contributors
+        // 인원 세 곳(partySize·jobs·synergy)은 전부 <b>접힌</b> 대표 기준이다. 접기 전 기여자로 세면 재등록된
+        // 한 사람이 두 번 세어져 ①정원이 부풀고 ②그 사람의 직업이 두 번 들어가 시너지 구성이 틀린다. 게다가 웹의
+        // 중복 병합 그룹 키가 partySize와 jobs 조합을 쓰므로(battle-group.ts), 같은 전투를 올린 두 미터의 키가
+        // 갈려 하나로 안 묶인다 — 접으면 양쪽이 같은 값에 수렴한다.
+        // 값이 실제로 달라지는 건 중복이 있을 때뿐이다: 운영 실측(7일 12.7만건)에서 partySize가 참가자 수보다
+        // 큰 리포트는 0건, 즉 딜 0인 기여자는 없다.
+        Dictionary<string, int> jobCounts = folded.Representatives
             .Where(u => u.Job != null)
             .Select(u => u.Job!.Value.ClassName())
             .GroupBy(name => name)
             .ToDictionary(g => g.Key, g => g.Count());
-        StatsSynergyPayload synergy = BuildSynergy(contributors);
+        StatsSynergyPayload synergy = BuildSynergy(folded.Representatives);
         string battleHash = BattleHash(own.Server, ownNickname, mob.Code, report.BattleStart, report.BattleEnd, totalDamage, duration);
 
         // ── Combat-detail DPS graph sources (uploader only; frozen at save time, so present here — but omit if a
@@ -246,7 +252,7 @@ public sealed class StatsPayloadBuilder
                 report.BattleStart,
                 report.BattleEnd,
                 duration,
-                report.Contributors.Count,
+                participantPayloads.Count, // 접힌 인원 — 위 jobCounts 주석 참조
                 report.PartyRosterSize > 0 ? report.PartyRosterSize : null),
             PartyComposition: new StatsPartyCompositionPayload(jobCounts, synergy),
             Participants: participantPayloads,
