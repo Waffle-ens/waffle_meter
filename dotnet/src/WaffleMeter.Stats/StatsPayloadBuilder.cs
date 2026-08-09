@@ -144,19 +144,37 @@ public sealed class StatsPayloadBuilder
             return resolved;
         }
 
-        long totalDamage = RoundToLong(ownInfo.Amount);
-        Dictionary<string, AnalyzedSkill> ownSkills = log.SkillDetails.GetValueOrDefault(own.Id) ?? new Dictionary<string, AnalyzedSkill>();
+        // 같은 캐릭터가 두 uid로 들어온 경우를 여기서 접는다(FoldParticipants 참조). 이 아래로는 uid가 아니라
+        // '대표 uid' 기준이며, 본인 성적도 접힌 값을 쓴다 — 안 그러면 자기 딜이 한쪽 uid 몫만 올라간다.
+        FoldedParticipants folded = FoldParticipants(log, SortedParticipantUsers(log, contributors));
+        List<User> participantUsers = folded.Representatives;
+        int ownRepresentativeId = folded.RepresentativeOf.GetValueOrDefault(own.Id, own.Id);
+        DpsInformation ownFoldedInfo = folded.Information.GetValueOrDefault(ownRepresentativeId) ?? ownInfo;
+
+        long totalDamage = RoundToLong(ownFoldedInfo.Amount);
+        Dictionary<string, AnalyzedSkill> ownSkills = folded.Skills.GetValueOrDefault(ownRepresentativeId)
+            ?? log.SkillDetails.GetValueOrDefault(own.Id)
+            ?? new Dictionary<string, AnalyzedSkill>();
         List<StatsSkillPayload> skillPayloads = BuildSkillPayloads(ownSkills, totalDamage);
         RateSummary resultRates = SummarizeRates(ownSkills.Values);
-        List<User> participantUsers = SortedParticipantUsers(log, contributors);
 
-        var participantIndexById = new Dictionary<int, int>();
+        // 접힌 uid도 대표의 인덱스를 가리켜야 버프의 시전자 참조가 끊기지 않는다.
+        var indexByRepresentative = new Dictionary<int, int>();
         for (int i = 0; i < participantUsers.Count; i++)
         {
-            participantIndexById[participantUsers[i].Id] = i;
+            indexByRepresentative[participantUsers[i].Id] = i;
         }
 
-        List<StatsParticipantPayload> participantPayloads = BuildParticipantPayloads(log, own.Id, participantUsers, participantIndexById, ActorIdentity);
+        var participantIndexById = new Dictionary<int, int>();
+        foreach (KeyValuePair<int, int> alias in folded.RepresentativeOf)
+        {
+            if (indexByRepresentative.TryGetValue(alias.Value, out int index))
+            {
+                participantIndexById[alias.Key] = index;
+            }
+        }
+
+        List<StatsParticipantPayload> participantPayloads = BuildParticipantPayloads(log, ownRepresentativeId, folded, participantIndexById, ActorIdentity);
         if (resolvedOwn.Power <= 0)
         {
             return new BuildResult.Skip("own_power_unresolved");
@@ -266,13 +284,142 @@ public sealed class StatsPayloadBuilder
             .ToList();
     }
 
+    /// <summary>같은 캐릭터가 여러 uid로 들어온 것을 하나로 접은 결과. <see cref="RepresentativeOf"/>는
+    /// <b>모든</b> uid(대표 포함)를 대표 uid로 보낸다.</summary>
+    private sealed record FoldedParticipants(
+        List<User> Representatives,
+        Dictionary<int, int> RepresentativeOf,
+        Dictionary<int, DpsInformation> Information,
+        Dictionary<int, Dictionary<string, AnalyzedSkill>> Skills,
+        Dictionary<int, List<OperatingData>> Buffs,
+        Dictionary<int, int> PartySlots);
+
+    /// <summary>
+    /// 같은 캐릭터가 두 uid로 참가자에 들어온 경우를 하나로 접는다.
+    /// <para>🔑 왜: executor는 존/인스턴스 로드마다 새 uid로 재등록되는데, 그 경계에서 한 전투의 데미지가 두
+    /// uid에 걸치면 <b>같은 사람이 참가자 목록에 두 번</b> 올라간다. 실측(2026-08-09 운영 DB): 10인 공대 리포트
+    /// 중 참가자가 로스터를 넘는 11건이 있었고 그중 2건이 이 중복이었다 — 한쪽은 실제 딜(1.1억/1,302타),
+    /// 다른 쪽은 <c>딜 1 / 1타</c>였다. 전 참가자 행 기준으로는 2.9.3에서 146,527행 중 2행으로 드물다.</para>
+    /// <para>피해는 드문 것보다 크다: ①웹은 참가자 <b>전원</b>이 슬롯을 가져야 서브파티를 신뢰하는데,
+    /// 로스터 매칭이 두 uid 중 <b>먼저 만난 쪽</b>에만 슬롯을 붙여 나머지 한 행이 슬롯 없이 남는다(그 리포트는
+    /// 통째로 '구분 이전 지표'가 된다) ②참가자 수가 정원을 넘어 웹의 소거법도 못 쓴다 ③그 캐릭터의 성적이
+    /// 두 행으로 쪼개져 보인다.</para>
+    /// <para>접는 키는 <b>신원 해시</b>(server|nickname)다 — 웹이 참가자를 식별하는 키와 같아야 하기 때문이다.
+    /// 닉네임이나 서버가 없어 해시를 못 만드는 행은 접지 않는다(서로 다른 사람일 수 있다). 대표는 <b>딜이 가장
+    /// 많은 uid</b>이고(호출부가 이미 내림차순으로 넘긴다) 숫자·스킬·버프는 전부 합산한다 — 버리는 값이 없다.
+    /// 슬롯은 접힌 uid 중 하나라도 갖고 있으면 대표가 물려받는다(①의 직접 해소).</para>
+    /// </summary>
+    private FoldedParticipants FoldParticipants(DpsLog log, List<User> damageSorted)
+    {
+        var representatives = new List<User>();
+        var representativeOf = new Dictionary<int, int>();
+        var byIdentity = new Dictionary<string, int>(StringComparer.Ordinal);
+        var information = new Dictionary<int, DpsInformation>();
+        var skills = new Dictionary<int, Dictionary<string, AnalyzedSkill>>();
+        var buffs = new Dictionary<int, List<OperatingData>>();
+        var partySlots = new Dictionary<int, int>();
+
+        foreach (User user in damageSorted)
+        {
+            string? identity = NonBlank(user.Nickname) is { } nickname
+                ? StatsIdentity.CharacterIdentityHash(user.Server, nickname)
+                : null;
+
+            int representative;
+            if (identity != null && byIdentity.TryGetValue(identity, out int existing))
+            {
+                representative = existing;
+            }
+            else
+            {
+                representative = user.Id;
+                if (identity != null)
+                {
+                    byIdentity[identity] = representative;
+                }
+
+                representatives.Add(user);
+                information[representative] = new DpsInformation();
+                skills[representative] = new Dictionary<string, AnalyzedSkill>(StringComparer.Ordinal);
+                buffs[representative] = new List<OperatingData>();
+            }
+
+            representativeOf[user.Id] = representative;
+
+            if (log.Report.Information.TryGetValue(user.Id, out DpsInformation? source))
+            {
+                DpsInformation target = information[representative];
+                target.Amount += source.Amount;
+                target.Dps += source.Dps;                            // 같은 전투 길이를 나눈 값이라 더해도 정합
+                target.Contribution += source.Contribution;          // 비중은 합이 곧 그 캐릭터의 몫
+                target.EntireContribution += source.EntireContribution;
+            }
+
+            MergeSkillsInto(skills[representative], log.SkillDetails.GetValueOrDefault(user.Id));
+            if (log.BuffRates.GetValueOrDefault(user.Id) is { } rates)
+            {
+                buffs[representative].AddRange(rates);
+            }
+
+            if (log.Report.PartySlots.TryGetValue(user.Id, out int slot) && !partySlots.ContainsKey(representative))
+            {
+                partySlots[representative] = slot;
+            }
+        }
+
+        return new FoldedParticipants(representatives, representativeOf, information, skills, buffs, partySlots);
+    }
+
+    /// <summary>스킬 분해를 대상 사전에 더한다. 카운터는 전부 가산이고, 스킬코드·특화(RawSkillCode)·이름은
+    /// 같은 캐릭터의 같은 스킬이라 먼저 채워진 값을 유지한다.</summary>
+    private static void MergeSkillsInto(
+        Dictionary<string, AnalyzedSkill> target,
+        Dictionary<string, AnalyzedSkill>? source)
+    {
+        if (source == null)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<string, AnalyzedSkill> entry in source)
+        {
+            if (!target.TryGetValue(entry.Key, out AnalyzedSkill? merged))
+            {
+                target[entry.Key] = entry.Value.Copy();
+                continue;
+            }
+
+            AnalyzedSkill add = entry.Value;
+            merged.DamageAmount += add.DamageAmount;
+            merged.DotDamageAmount += add.DotDamageAmount;
+            merged.DotTimes += add.DotTimes;
+            merged.CritTimes += add.CritTimes;
+            merged.Times += add.Times;
+            merged.BackTimes += add.BackTimes;
+            merged.FrontTimes += add.FrontTimes;
+            merged.PerfectTimes += add.PerfectTimes;
+            merged.DoubleTimes += add.DoubleTimes;
+            merged.ParryTimes += add.ParryTimes;
+            merged.ShardTimes += add.ShardTimes;
+            merged.MultiHitTimes += add.MultiHitTimes;
+            merged.FlaggedTimes += add.FlaggedTimes;
+            if (merged.RawSkillCode == 0)
+            {
+                merged.RawSkillCode = add.RawSkillCode;
+            }
+
+            merged.Name ??= add.Name;
+        }
+    }
+
     private List<StatsParticipantPayload> BuildParticipantPayloads(
         DpsLog log,
         int ownId,
-        List<User> participants,
+        FoldedParticipants folded,
         Dictionary<int, int> participantIndexById,
         Func<int, string?> actorIdentity)
     {
+        List<User> participants = folded.Representatives;
         var result = new List<StatsParticipantPayload>();
         // Tag each participant's sub-party slot for a 공대 so the stats site can split raid synergy. Two sizes
         // exist: 8-인 (two parties of 4) and 10-인 (two parties of 5, since the 2026-07-01 patch).
@@ -296,13 +443,13 @@ public sealed class StatsPayloadBuilder
                 || (log.Report.PartyRosterSize == 0 && log.Report.PartySlots.Values.Any(s => s > 5)));
         foreach (User user in participants)
         {
-            if (!log.Report.Information.TryGetValue(user.Id, out DpsInformation? info))
+            if (!folded.Information.TryGetValue(user.Id, out DpsInformation? info))
             {
                 continue;
             }
 
             long totalDamage = RoundToLong(info.Amount);
-            int? partySlot = isRaid && log.Report.PartySlots.TryGetValue(user.Id, out int slot) ? slot : null;
+            int? partySlot = isRaid && folded.PartySlots.TryGetValue(user.Id, out int slot) ? slot : null;
             // Deliberately NOT derived here. The sub-party boundary depends on the raid size — 4 for an 8-인
             // 공대, 5 for a 10-인 — and this builder cannot know it reliably (battle.partySize below is the
             // number of people who DEALT DAMAGE, not the roster size). The old formula hardcoded /5, so every
@@ -311,7 +458,7 @@ public sealed class StatsPayloadBuilder
             // Sending null loses nothing: the site derives partyNumber from partySlot itself once it knows the
             // raid size, and its check passes when this field is absent.
             int? partyNumber = null;
-            Dictionary<string, AnalyzedSkill> skills = log.SkillDetails.GetValueOrDefault(user.Id) ?? new Dictionary<string, AnalyzedSkill>();
+            Dictionary<string, AnalyzedSkill> skills = folded.Skills.GetValueOrDefault(user.Id) ?? new Dictionary<string, AnalyzedSkill>();
             RateSummary rates = SummarizeRates(skills.Values);
             string? identityHash = NonBlank(user.Nickname) is { } nickname
                 ? StatsIdentity.CharacterIdentityHash(user.Server, nickname)
@@ -326,7 +473,7 @@ public sealed class StatsPayloadBuilder
                 Power: user.Power,
                 Result: BuildResultPayload(info, rates),
                 Skills: BuildSkillPayloads(skills, totalDamage),
-                Buffs: (log.BuffRates.GetValueOrDefault(user.Id) ?? new List<OperatingData>())
+                Buffs: (folded.Buffs.GetValueOrDefault(user.Id) ?? new List<OperatingData>())
                     .Select(v => ToBuffPayload(
                         v, "participant", "buff", user.Id, user.Job,
                         IndexOrNull(participantIndexById, user.Id),
