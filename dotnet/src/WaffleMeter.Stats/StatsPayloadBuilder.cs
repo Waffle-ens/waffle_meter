@@ -250,12 +250,16 @@ public sealed class StatsPayloadBuilder
                 report.PartyRosterSize > 0 ? report.PartyRosterSize : null),
             PartyComposition: new StatsPartyCompositionPayload(jobCounts, synergy),
             Participants: participantPayloads,
-            Result: BuildResultPayload(ownInfo, resultRates),
+            // ⚠️ 최상위 Result·Buffs 도 접힌 값을 써야 한다. 참가자 행은 접힌 합인데 여기만 한쪽 uid 몫이면
+            // 같은 전투에서 업로더의 숫자가 두 군데서 다르게 나간다(skillPayloads/resultRates는 이미 접힌 값).
+            Result: BuildResultPayload(ownFoldedInfo, resultRates),
             Skills: skillPayloads,
-            Buffs: (log.BuffRates.GetValueOrDefault(own.Id) ?? new List<OperatingData>())
+            Buffs: (folded.Buffs.GetValueOrDefault(ownRepresentativeId)
+                    ?? log.BuffRates.GetValueOrDefault(own.Id)
+                    ?? new List<OperatingData>())
                 .Select(v => ToBuffPayload(
-                    v, "participant", "buff", own.Id, resolvedOwn.Job,
-                    IndexOrNull(participantIndexById, own.Id),
+                    v, "participant", "buff", ownRepresentativeId, resolvedOwn.Job,
+                    IndexOrNull(participantIndexById, ownRepresentativeId),
                     IndexOrNull(participantIndexById, v.ActorId),
                     ActorIdentity(v.ActorId)))
                 .ToList(),

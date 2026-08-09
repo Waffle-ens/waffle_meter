@@ -139,6 +139,20 @@ public sealed class DuplicateIdentityFoldTests
     }
 
     [Fact]
+    public void The_top_level_own_result_matches_the_folded_participant_row()
+    {
+        // 참가자 행은 접힌 합인데 최상위 Result 만 한쪽 uid 몫이면 같은 전투에서 업로더 숫자가 두 군데서
+        // 다르게 나간다. 웹은 둘 다 읽는다.
+        DataManager dm = PartyWithRezonedSelf();
+        StatsUploadPayload payload = Build(dm, LogWithDuplicate(dm, ghostSlot: 8, realSlot: 2));
+
+        StatsParticipantPayload me = payload.Participants.Single(p => p.IsUploader);
+        Assert.Equal(me.Result.TotalDamage, payload.Result.TotalDamage);
+        Assert.Equal(1_000_001, payload.Result.TotalDamage);
+        Assert.Equal(2, payload.Buffs.Count); // 최상위 버프도 두 uid 합
+    }
+
+    [Fact]
     public void Buff_caster_references_follow_the_fold()
     {
         // 유령 uid가 시전자로 적힌 버프도 접힌 참가자의 인덱스를 가리켜야 참조가 끊기지 않는다.
