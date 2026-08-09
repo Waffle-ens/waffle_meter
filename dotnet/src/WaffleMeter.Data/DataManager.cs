@@ -2473,9 +2473,17 @@ public sealed class DataManager : ICaptureGameData
     /// then the live executor (a recognized self that dealt no damage — keeps its slot for isRaid even if it isn't
     /// among the contributors, and never a stale repository uid), and only then fall back to the repository for a
     /// roster member who didn't deal damage (keeps the party-2 slots present so the sub-party detection still
-    /// fires). Contributor-first means a same-name dealer always wins over a possibly-lagging executor pointer.</summary>
+    /// fires). Contributor-first means a same-name dealer always wins over a possibly-lagging executor pointer.
+    /// <para>🔑 서버 비교는 <b>양쪽이 모두 &gt;0일 때만</b> 한다. 잘린 0x3633은 Server=-1을, 아직 스냅샷을 못 본
+    /// 기여자는 0을 남기는데, 그걸 불일치로 읽으면 이름이 맞는데도 매칭이 통째로 실패한다. 같은 완화가
+    /// <c>identityChanged</c> 판정(이 파일 위쪽)에 이미 같은 이유로 들어가 있다 — 여기만 빠져 있었다.
+    /// 정확 일치(이름+서버)를 먼저 한 바퀴 돌아 항상 이기게 하고, 느슨한 일치는 그 다음 바퀴에서만 쓴다.</para>
+    /// <para>실측(2026-08-09, 운영 DB): 2.9.3 공대 미신뢰 24건이 전부 "정확히 1명만 슬롯 없음"이고 그중
+    /// <b>19건(79%)이 업로더 본인</b>이었다. 참가자(평균 6.9)가 로스터(10)보다 적은 기믹 분할이라 웹의 소거법으로는
+    /// 메울 수 없는 구간이고, 여기서 본인 uid를 제대로 돌려주는 것이 유일한 해법이다.</para></summary>
     private int? ResolveRosterMemberUid(string nickname, int server, User? executor, IReadOnlyList<User> contributors)
     {
+        // 1) 정확 일치 — 가장 강한 근거이므로 항상 먼저 이긴다.
         foreach (User contributor in contributors)
         {
             if (string.Equals(contributor.Nickname, nickname, StringComparison.Ordinal) && contributor.Server == server)
@@ -2484,15 +2492,29 @@ public sealed class DataManager : ICaptureGameData
             }
         }
 
+        // 2) 서버가 한쪽이라도 미상이면 이름만으로 인정. 기여자는 페이로드가 실제로 태그하는 uid라
+        //    executor/저장소 폴백보다 항상 낫다 — 그 둘은 이 전투에 없는 uid를 돌려줄 수 있다.
+        foreach (User contributor in contributors)
+        {
+            if (string.Equals(contributor.Nickname, nickname, StringComparison.Ordinal) && ServerCompatible(contributor.Server, server))
+            {
+                return contributor.Id;
+            }
+        }
+
         if (executor != null
             && string.Equals(executor.Nickname, nickname, StringComparison.Ordinal)
-            && executor.Server == server)
+            && ServerCompatible(executor.Server, server))
         {
             return executor.Id;
         }
 
         return _userRepository.FindByNicknameAndServer(nickname, server)?.Id;
     }
+
+    /// <summary>두 서버 값이 서로 모순되지 않는가. 어느 한쪽이라도 미상(0 또는 음수)이면 모순이 아니다 —
+    /// 미상을 불일치로 읽으면 이름이 맞는 본인/파티원도 놓친다.</summary>
+    private static bool ServerCompatible(int a, int b) => a <= 0 || b <= 0 || a == b;
 
     private static User CopyUser(User u) => new(u.Id, u.Nickname, u.Server, u.Job, u.IsExecutor, u.Power) { JobSource = u.JobSource };
 
