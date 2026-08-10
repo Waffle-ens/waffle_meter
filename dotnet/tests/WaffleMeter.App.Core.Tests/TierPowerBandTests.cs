@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.Json;
 using WaffleMeter.App.Core;
 using Xunit;
@@ -112,7 +112,7 @@ public sealed class TierPowerBandTests
     [InlineData(100_000, 400_000)]   // below the floor shares the lowest band
     public void Band_is_the_floor_of_the_fifty_thousand_step(int power, int expected)
     {
-        Assert.Equal(expected, TierArtifact.BandFor(power));
+        Assert.Equal(expected, TierArtifact.BandFor(power, TierArtifact.DefaultPowerBandSize, TierArtifact.DefaultPowerBandFloor));
     }
 
     [Fact]

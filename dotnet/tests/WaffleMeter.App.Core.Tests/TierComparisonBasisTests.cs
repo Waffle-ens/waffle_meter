@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Text.Json;
 using WaffleMeter.App.Core;
 using WaffleMeter.Stats;
@@ -22,7 +22,7 @@ public sealed class TierComparisonBasisTests
     [Fact]
     public void The_whole_cohort_says_so()
     {
-        Assert.Equal("전체 전투력 기준", TierLadder.FormatComparisonBasis(TierArtifact.WholeCohortBand));
+        Assert.Equal("전체 전투력 기준", TierLadder.FormatComparisonBasis(TierArtifact.WholeCohortBand, TierArtifact.DefaultPowerBandSize));
     }
 
     /// <summary>The web formats through <c>Intl.NumberFormat("en-US", { maximumFractionDigits: 1 })</c> on
@@ -35,15 +35,15 @@ public sealed class TierComparisonBasisTests
     [InlineData(950_000, "전투력 950k–1,000k 미만 기준")]
     public void A_band_names_its_range(int powerBand, string expected)
     {
-        Assert.Equal(expected, TierLadder.FormatComparisonBasis(powerBand));
+        Assert.Equal(expected, TierLadder.FormatComparisonBasis(powerBand, TierArtifact.DefaultPowerBandSize));
     }
 
     /// <summary>The separator is an EN DASH (U+2013), not a hyphen — the web's template uses one.</summary>
     [Fact]
     public void The_separator_is_an_en_dash()
     {
-        Assert.Contains('–', TierLadder.FormatComparisonBasis(700_000));
-        Assert.DoesNotContain('-', TierLadder.FormatComparisonBasis(700_000));
+        Assert.Contains('–', TierLadder.FormatComparisonBasis(700_000, TierArtifact.DefaultPowerBandSize));
+        Assert.DoesNotContain('-', TierLadder.FormatComparisonBasis(700_000, TierArtifact.DefaultPowerBandSize));
     }
 
     // ── which basis, decided by the row that answered ────────────────────────────────────────────

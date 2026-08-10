@@ -26,12 +26,15 @@ public readonly record struct TierCohort(
 /// A v1 artifact, a v2 row with no <c>g</c>, and a v2 whole-cohort row all land on
 /// <see cref="TierArtifact.WholeCohortBand"/>, which is exactly what each of them is.</para></summary>
 public readonly record struct TierEvaluation(
-    int Rung, int MetricId, double TopPercent, int TierRank, int PowerBand = TierArtifact.WholeCohortBand)
+    int Rung, int MetricId, double TopPercent, int TierRank, int PowerBand = TierArtifact.WholeCohortBand,
+    int PowerBandSize = TierArtifact.DefaultPowerBandSize)
 {
     public string TierName => TierLadder.TierNameOf(TierRank);
 
-    /// <summary>"전체 전투력 기준" / "전투력 700k–750k 미만 기준" — what this percentile was measured against.</summary>
-    public string ComparisonBasis => TierLadder.FormatComparisonBasis(PowerBand);
+    /// <summary>"전체 전투력 기준" / "전투력 700k–750k 미만 기준" — what this percentile was measured against.
+    /// <para>폭을 값으로 들고 다니는 이유: 이 평가는 특정 아티팩트가 낸 것이고, 라벨은 <b>그 아티팩트의</b>
+    /// 밴드 폭으로 읽어야 맞다. 표시 시점에 상수를 다시 가져오면 아티팩트가 갱신된 뒤 라벨만 옛 폭으로 남는다.</para></summary>
+    public string ComparisonBasis => TierLadder.FormatComparisonBasis(PowerBand, PowerBandSize);
 }
 
 /// <summary>
@@ -107,10 +110,13 @@ public static class TierLadder
     /// web's <c>formatPower</c>: thousands, en-US grouping, one optional decimal, a <c>k</c> suffix — hence
     /// "1,250k" with the comma, which ko-KR formatting would not produce. The separator is an EN DASH.</para>
     /// </summary>
-    public static string FormatComparisonBasis(int powerBand) =>
+    /// <param name="powerBandSize">이 백분위를 낸 아티팩트가 선언한 밴드 폭. 라벨의 위 끝은 이 값으로만
+    /// 정해진다 — 상수로 두면 서버가 폭을 바꾼 날 "800k–850k"라고 적어 놓고 실제로는 800k–820k 분포를
+    /// 보여주게 된다(숫자가 틀린 게 아니라 <b>문장이</b> 틀린다).</param>
+    public static string FormatComparisonBasis(int powerBand, int powerBandSize) =>
         powerBand < 0
             ? "전체 전투력 기준"
-            : $"전투력 {FormatPowerThousands(powerBand)}–{FormatPowerThousands(powerBand + TierArtifact.PowerBandSize)} 미만 기준";
+            : $"전투력 {FormatPowerThousands(powerBand)}–{FormatPowerThousands(powerBand + powerBandSize)} 미만 기준";
 
     private static string FormatPowerThousands(int power) =>
         (power / 1000.0).ToString("#,0.#", System.Globalization.CultureInfo.InvariantCulture) + "k";
@@ -214,7 +220,7 @@ public static class TierLadder
             }
 
             double rounded = RoundTopPercent(percent);
-            return new TierEvaluation(rung, MetricDps, rounded, TierRankOf(rounded), band);
+            return new TierEvaluation(rung, MetricDps, rounded, TierRankOf(rounded), band, artifact.PowerBandSize);
         }
 
         return null;
@@ -313,6 +319,6 @@ public static class TierLadder
             synergyTrusted,
             // The same power this battle reports in its upload. The server bands by the span's max, so a
             // character who gained power mid-span can land one band off — the whole-cohort fallback covers it.
-            TierArtifact.BandFor(power));
+            artifact.BandFor(power));
     }
 }

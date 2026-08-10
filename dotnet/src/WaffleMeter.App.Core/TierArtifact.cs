@@ -88,17 +88,42 @@ public sealed class TierArtifact
     /// and what every row of a v1 artifact is.</summary>
     public const int WholeCohortBand = -1;
 
-    /// <summary>Width of a combat-power band (schema v2). The server picked 50k because a 20k band leaves only
-    /// 55.7% of characters above the sample floor against 79.3% at 50k.</summary>
-    public const int PowerBandSize = 50_000;
+    /// <summary>Band width to assume when the artifact does not declare one. The server picked 50k because a
+    /// 20k band leaves only 55.7% of characters above the sample floor against 79.3% at 50k.
+    /// <para>⚠️ This is only a FALLBACK for artifacts published before the spec was carried on the wire — read
+    /// <see cref="PowerBandSize"/> instead. See that property for why.</para></summary>
+    public const int DefaultPowerBandSize = 50_000;
 
-    /// <summary>Bands start here; everything below shares the lowest band. Matches the ladder's own
-    /// <see cref="TierLadder.MinPower"/> floor, so in practice no battle lands under it.</summary>
-    public const int PowerBandFloor = 400_000;
+    /// <summary>Floor to assume when the artifact does not declare one. Matches the ladder's own
+    /// <see cref="TierLadder.MinPower"/>, so in practice no battle lands under it.</summary>
+    public const int DefaultPowerBandFloor = 400_000;
 
-    /// <summary>The band a character's combat power belongs to.</summary>
-    public static int BandFor(int power) =>
-        Math.Max(PowerBandFloor, power / PowerBandSize * PowerBandSize);
+    /// <summary>
+    /// Width of a combat-power band, as THIS artifact declares it.
+    /// <para>🔑 Why it is read rather than hardcoded: the band a character belongs to is computed here
+    /// (<see cref="BandFor"/>) and looked up as part of the row key, while the rows themselves are bucketed by
+    /// the server. If the two disagree the lookup simply misses — every user silently drops to the whole-cohort
+    /// fallback and nobody sees an error, only a worse comparison. That made the width impossible to change:
+    /// the server could not narrow or widen it without shipping a meter on the same day.</para>
+    /// <para>The width is expected to MOVE. It is a function of how much data the population has produced —
+    /// 50k today, and narrower (20k) once the sample floor is comfortably cleared, which is a better comparison
+    /// because the band is closer to the player's actual gear. So the artifact declares it and this follows.</para>
+    /// <para>Absent from the document (every artifact published before this shipped) → the defaults above,
+    /// which are exactly what those artifacts were built with.</para>
+    /// </summary>
+    public int PowerBandSize { get; }
+
+    /// <summary>Bands start here; everything below shares the lowest band. Declared by the artifact for the
+    /// same reason as <see cref="PowerBandSize"/>.</summary>
+    public int PowerBandFloor { get; }
+
+    /// <summary>The band a character's combat power belongs to, under THIS artifact's spec.</summary>
+    public int BandFor(int power) => BandFor(power, PowerBandSize, PowerBandFloor);
+
+    /// <summary>Band arithmetic on an explicit spec — the artifact-free form, so the rule stays testable and
+    /// the two callers cannot drift apart.</summary>
+    public static int BandFor(int power, int bandSize, int bandFloor) =>
+        bandSize <= 0 ? bandFloor : Math.Max(bandFloor, power / bandSize * bandSize);
 
     public static bool IsSupportedSchemaVersion(int version) => SupportedSchemaVersions.Contains(version);
 
@@ -124,6 +149,8 @@ public sealed class TierArtifact
         string artifactId,
         int windowDays,
         string generatedAt,
+        int powerBandSize,
+        int powerBandFloor,
         double[] grid,
         Dictionary<TierRowKey, long[]> rows,
         Dictionary<int, TierMobPlacement> mobs,
@@ -137,6 +164,8 @@ public sealed class TierArtifact
         ArtifactId = artifactId;
         WindowDays = windowDays;
         GeneratedAt = generatedAt;
+        PowerBandSize = powerBandSize;
+        PowerBandFloor = powerBandFloor;
         Grid = grid;
         _rows = rows;
         _mobs = mobs;
@@ -271,6 +300,15 @@ public sealed class TierArtifact
 
             TryInt(root, "windowDays", out int windowDays);
             string generatedAt = TryString(root, "generatedAt") ?? string.Empty;
+            // 밴드 규격은 서버가 정하고 여기서 따른다(PowerBandSize 참조). 문서에 없으면 — 이 필드가
+            // 생기기 전 아티팩트 — 그때 쓰던 값이 곧 정답이므로 기본값으로 읽는다. 0/음수는 문서가 깨진
+            // 것이므로 마찬가지로 기본값으로 되돌린다(밴드 나눗셈이 0으로 나누는 것을 막는다).
+            int powerBandSize = TryInt(root, "powerBandSize", out int declaredSize) && declaredSize > 0
+                ? declaredSize
+                : DefaultPowerBandSize;
+            int powerBandFloor = TryInt(root, "powerBandFloor", out int declaredFloor) && declaredFloor > 0
+                ? declaredFloor
+                : DefaultPowerBandFloor;
 
             double[]? grid = ParseGrid(root);
             if (grid == null)
@@ -322,7 +360,7 @@ public sealed class TierArtifact
             }
 
             return new TierArtifact(
-                artifactId, windowDays, generatedAt, grid, rows, mobs, trialGates,
+                artifactId, windowDays, generatedAt, powerBandSize, powerBandFloor, grid, rows, mobs, trialGates,
                 dungeonCategoryId, dungeonNames, variantLabels, categoryIds, jobIds);
         }
         catch
