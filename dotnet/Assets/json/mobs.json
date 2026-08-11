@@ -40466,5 +40466,496 @@
     "code": 2980309,
     "name": "부관 히브란",
     "boss": true
+  },
+  {
+    "code": 2300366,
+    "name": "오염된 슈라크 노역꾼",
+    "boss": false
+  },
+  {
+    "code": 2300370,
+    "name": "오염된 슈라크 보초병",
+    "boss": false
+  },
+  {
+    "code": 2300372,
+    "name": "오염된 슈라크 감독관",
+    "boss": false
+  },
+  {
+    "code": 2300376,
+    "name": "오염된 슈라크 노역꾼",
+    "boss": false
+  },
+  {
+    "code": 2300378,
+    "name": "오염된 슈라크 보초병",
+    "boss": false
+  },
+  {
+    "code": 2300379,
+    "name": "오염된 슈라크 감독관",
+    "boss": false
+  },
+  {
+    "code": 2300383,
+    "name": "오염된 슈라크 노역꾼",
+    "boss": false
+  },
+  {
+    "code": 2300385,
+    "name": "오염된 슈라크 보초병",
+    "boss": false
+  },
+  {
+    "code": 2300386,
+    "name": "오염된 슈라크 감독관",
+    "boss": false
+  },
+  {
+    "code": 2300390,
+    "name": "오염된 슈라크 노역꾼",
+    "boss": false
+  },
+  {
+    "code": 2300392,
+    "name": "오염된 슈라크 보초병",
+    "boss": false
+  },
+  {
+    "code": 2300393,
+    "name": "오염된 슈라크 감독관",
+    "boss": false
+  },
+  {
+    "code": 2300407,
+    "name": "오만의 아티엘",
+    "boss": true
+  },
+  {
+    "code": 2300409,
+    "name": "연구소장 자일러스",
+    "boss": true
+  },
+  {
+    "code": 2300410,
+    "name": "감독관 그롬카스",
+    "boss": true
+  },
+  {
+    "code": 2300427,
+    "name": "실험체 혼종",
+    "boss": false
+  },
+  {
+    "code": 2300432,
+    "name": "오염된 슬라임",
+    "boss": false
+  },
+  {
+    "code": 2300433,
+    "name": "오염된 슬라임",
+    "boss": false
+  },
+  {
+    "code": 2300434,
+    "name": "오염된 슬라임",
+    "boss": false
+  },
+  {
+    "code": 2300435,
+    "name": "오염된 슬라임",
+    "boss": false
+  },
+  {
+    "code": 2300436,
+    "name": "아스크란",
+    "boss": true
+  },
+  {
+    "code": 2300437,
+    "name": "불완전한 브라운트",
+    "boss": true
+  },
+  {
+    "code": 2300438,
+    "name": "광기의 클로민스터",
+    "boss": true
+  },
+  {
+    "code": 2300439,
+    "name": "아스크란",
+    "boss": true
+  },
+  {
+    "code": 2300440,
+    "name": "불완전한 브라운트",
+    "boss": true
+  },
+  {
+    "code": 2300441,
+    "name": "광기의 클로민스터",
+    "boss": true
+  },
+  {
+    "code": 2300442,
+    "name": "아스크란",
+    "boss": true
+  },
+  {
+    "code": 2300443,
+    "name": "불완전한 브라운트",
+    "boss": true
+  },
+  {
+    "code": 2300444,
+    "name": "광기의 클로민스터",
+    "boss": true
+  },
+  {
+    "code": 2300445,
+    "name": "아스크란",
+    "boss": true
+  },
+  {
+    "code": 2300446,
+    "name": "불완전한 브라운트",
+    "boss": true
+  },
+  {
+    "code": 2300447,
+    "name": "광기의 클로민스터",
+    "boss": true
+  },
+  {
+    "code": 2300448,
+    "name": "오염된 덩어리",
+    "boss": false
+  },
+  {
+    "code": 2300450,
+    "name": "오염된 덩어리",
+    "boss": false
+  },
+  {
+    "code": 2300452,
+    "name": "오염된 덩어리",
+    "boss": false
+  },
+  {
+    "code": 2300454,
+    "name": "오염된 덩어리",
+    "boss": false
+  },
+  {
+    "code": 2300456,
+    "name": "레파르단 경비대장",
+    "boss": false
+  },
+  {
+    "code": 2300457,
+    "name": "레파르단 경비대원",
+    "boss": false
+  },
+  {
+    "code": 2300458,
+    "name": "기지 연구원",
+    "boss": false
+  },
+  {
+    "code": 2300459,
+    "name": "레파르단 수석 경비대원",
+    "boss": false
+  },
+  {
+    "code": 2300460,
+    "name": "레파르단 경비대원",
+    "boss": false
+  },
+  {
+    "code": 2300461,
+    "name": "오염된 슬라임",
+    "boss": false
+  },
+  {
+    "code": 2300462,
+    "name": "실험체 변이체",
+    "boss": false
+  },
+  {
+    "code": 2300463,
+    "name": "실험체 포식자",
+    "boss": false
+  },
+  {
+    "code": 2300481,
+    "name": "오만의 아티엘",
+    "boss": true
+  },
+  {
+    "code": 2300555,
+    "name": "연구소장 자일러스",
+    "boss": true
+  },
+  {
+    "code": 2300556,
+    "name": "감독관 그롬카스",
+    "boss": true
+  },
+  {
+    "code": 2300557,
+    "name": "실험체 혼종",
+    "boss": false
+  },
+  {
+    "code": 2300558,
+    "name": "레파르단 경비대장",
+    "boss": false
+  },
+  {
+    "code": 2300559,
+    "name": "레파르단 경비대원",
+    "boss": false
+  },
+  {
+    "code": 2300560,
+    "name": "기지 연구원",
+    "boss": false
+  },
+  {
+    "code": 2300561,
+    "name": "레파르단 수석 경비대원",
+    "boss": false
+  },
+  {
+    "code": 2300562,
+    "name": "레파르단 경비대원",
+    "boss": false
+  },
+  {
+    "code": 2300563,
+    "name": "오염된 슬라임",
+    "boss": false
+  },
+  {
+    "code": 2300564,
+    "name": "실험체 변이체",
+    "boss": false
+  },
+  {
+    "code": 2300565,
+    "name": "실험체 포식자",
+    "boss": false
+  },
+  {
+    "code": 2300566,
+    "name": "오염된 영혼 매듭기",
+    "boss": false
+  },
+  {
+    "code": 2300568,
+    "name": "오드 연구실 레이저",
+    "boss": false
+  },
+  {
+    "code": 2300595,
+    "name": "탄환초",
+    "boss": false
+  },
+  {
+    "code": 2300621,
+    "name": "냉혹한 기술자",
+    "boss": false
+  },
+  {
+    "code": 2300622,
+    "name": "광기 어린 연구원",
+    "boss": false
+  },
+  {
+    "code": 2300623,
+    "name": "악랄한 해부학자",
+    "boss": false
+  },
+  {
+    "code": 2300624,
+    "name": "무자비한 경호원",
+    "boss": false
+  },
+  {
+    "code": 2300625,
+    "name": "변이 실험체",
+    "boss": false
+  },
+  {
+    "code": 2300626,
+    "name": "냉혹한 기술자",
+    "boss": false
+  },
+  {
+    "code": 2300627,
+    "name": "광기 어린 연구원",
+    "boss": false
+  },
+  {
+    "code": 2300628,
+    "name": "악랄한 해부학자",
+    "boss": false
+  },
+  {
+    "code": 2300629,
+    "name": "무자비한 경호원",
+    "boss": false
+  },
+  {
+    "code": 2300630,
+    "name": "변이 실험체",
+    "boss": false
+  },
+  {
+    "code": 2300631,
+    "name": "냉혹한 기술자",
+    "boss": false
+  },
+  {
+    "code": 2300632,
+    "name": "광기 어린 연구원",
+    "boss": false
+  },
+  {
+    "code": 2300633,
+    "name": "악랄한 해부학자",
+    "boss": false
+  },
+  {
+    "code": 2300634,
+    "name": "무자비한 경호원",
+    "boss": false
+  },
+  {
+    "code": 2300635,
+    "name": "변이 실험체",
+    "boss": false
+  },
+  {
+    "code": 2300636,
+    "name": "냉혹한 기술자",
+    "boss": false
+  },
+  {
+    "code": 2300637,
+    "name": "광기 어린 연구원",
+    "boss": false
+  },
+  {
+    "code": 2300638,
+    "name": "악랄한 해부학자",
+    "boss": false
+  },
+  {
+    "code": 2300639,
+    "name": "무자비한 경호원",
+    "boss": false
+  },
+  {
+    "code": 2300640,
+    "name": "변이 실험체",
+    "boss": false
+  },
+  {
+    "code": 2301748,
+    "name": "오만의 아티엘",
+    "boss": true
+  },
+  {
+    "code": 2301749,
+    "name": "연구소장 자일러스",
+    "boss": true
+  },
+  {
+    "code": 2301750,
+    "name": "감독관 그롬카스",
+    "boss": true
+  },
+  {
+    "code": 2301751,
+    "name": "실험체 혼종",
+    "boss": false
+  },
+  {
+    "code": 2301752,
+    "name": "레파르단 경비대장",
+    "boss": false
+  },
+  {
+    "code": 2301753,
+    "name": "레파르단 경비대원",
+    "boss": false
+  },
+  {
+    "code": 2301754,
+    "name": "기지 연구원",
+    "boss": false
+  },
+  {
+    "code": 2301755,
+    "name": "레파르단 수석 경비대원",
+    "boss": false
+  },
+  {
+    "code": 2301756,
+    "name": "레파르단 경비대원",
+    "boss": false
+  },
+  {
+    "code": 2301757,
+    "name": "오염된 슬라임",
+    "boss": false
+  },
+  {
+    "code": 2301758,
+    "name": "실험체 변이체",
+    "boss": false
+  },
+  {
+    "code": 2301759,
+    "name": "실험체 포식자",
+    "boss": false
+  },
+  {
+    "code": 2301760,
+    "name": "오염된 영혼 매듭기",
+    "boss": false
+  },
+  {
+    "code": 2301762,
+    "name": "오드 연구실 레이저",
+    "boss": false
+  },
+  {
+    "code": 2400035,
+    "name": "근접 훈련용 허수아비",
+    "boss": false,
+    "isDummy": true
+  },
+  {
+    "code": 2921400,
+    "name": "피실험체 저격",
+    "boss": false
+  },
+  {
+    "code": 2921401,
+    "name": "피실험체 저격",
+    "boss": false
+  },
+  {
+    "code": 2921402,
+    "name": "화염탄 폭격",
+    "boss": false
+  },
+  {
+    "code": 2921511,
+    "name": "오만의 아티엘",
+    "boss": false
   }
 ]

@@ -116,6 +116,18 @@ public sealed class ShippedEncounterCatalogTests
         Assert.True(empty.Count == 0, "variants with no mobs: " + string.Join(", ", empty));
     }
 
+    /// <summary>The one dungeonId clash we know about and cannot yet resolve: 610030~610033.
+    /// <para>The client puts 노이란의 숨겨진 유산 there (Dungeon.dat rows → Map.dat LegacyNoiran_G_01~04, whose
+    /// MapData.dat did not exist before the 2026-08-12 patch), while the seed has long put 심연의 뿔 암굴 there —
+    /// and the capture corpus backs the seed, having seen phase mapId 610030 paired with 심연의 뿔 암굴's bosses
+    /// ten times. The client meanwhile files 심연의 뿔 암굴 under 610070~610073 (map FafniteGully_G_01~04), in the
+    /// 2026-08-05 build too, so nothing was renumbered: the id the game BROADCASTS and the id the client's Dungeon
+    /// table carries simply differ for that dungeon. Nobody has run 노이란 yet, so its broadcast id is unknown and
+    /// the client value stands. Resolve with <c>docs/tools/corpus-encounter/empirical_pairing.py</c> once a capture
+    /// exists. Harmless meanwhile: DungeonId is stored on EncounterInfo and read by nothing — not the upload
+    /// payload, not the gate.</para></summary>
+    private static readonly HashSet<int> KnownDungeonIdClashes = [610030, 610031, 610032, 610033];
+
     /// <summary>A dungeonId identifies ONE instance, so two variants claiming the same one cannot both be right
     /// — and the pairing is what any map-based cross-check would have to trust.
     /// <para>Found 2026-08-11: 무스펠의 성배 보통 and 어려움 both claimed 620021, while the capture corpus shows
@@ -135,7 +147,10 @@ public sealed class ShippedEncounterCatalogTests
                 string here = $"{name} / {variant.GetProperty("label").GetString()}";
                 if (seen.TryGetValue(id, out string? there))
                 {
-                    clashes.Add($"{id}: {there} vs {here}");
+                    if (!KnownDungeonIdClashes.Contains(id))
+                    {
+                        clashes.Add($"{id}: {there} vs {here}");
+                    }
                 }
                 else
                 {
@@ -145,6 +160,32 @@ public sealed class ShippedEncounterCatalogTests
         }
 
         Assert.True(clashes.Count == 0, "dungeonId claimed twice: " + string.Join("; ", clashes));
+    }
+
+    /// <summary>The known clash must stay exactly as documented — if one side moves, the exemption above is
+    /// stale and the ids should be reconciled rather than silently kept exempt.</summary>
+    [Fact]
+    public void The_known_dungeon_id_clash_is_still_exactly_those_two_dungeons()
+    {
+        var byId = new Dictionary<int, List<string>>();
+        foreach (JsonElement dungeon in ShippedJson().GetProperty("dungeons").EnumerateArray())
+        {
+            string name = dungeon.GetProperty("name").GetString() ?? "?";
+            foreach (JsonElement variant in dungeon.GetProperty("variants").EnumerateArray())
+            {
+                int id = variant.GetProperty("dungeonId").GetInt32();
+                if (KnownDungeonIdClashes.Contains(id))
+                {
+                    (byId.TryGetValue(id, out List<string>? xs) ? xs : byId[id] = []).Add(name);
+                }
+            }
+        }
+
+        Assert.Equal(KnownDungeonIdClashes.Count, byId.Count);
+        foreach ((int id, List<string> names) in byId)
+        {
+            Assert.Equal(["노이란의 숨겨진 유산", "심연의 뿔 암굴"], names.OrderBy(n => n, StringComparer.Ordinal).ToList());
+        }
     }
 
     /// <summary>The case that motivated the catalog: 시련 바크론 shares its boss NAMES with the other three
@@ -164,6 +205,38 @@ public sealed class ShippedEncounterCatalogTests
         Assert.Equal("탐험", catalog.Lookup(2310812)!.Value.VariantLabel);
         Assert.Equal("보통", catalog.Lookup(2300812)!.Value.VariantLabel);
         Assert.Equal("어려움", catalog.Lookup(2320812)!.Value.VariantLabel);
+    }
+
+    /// <summary>The 2026-08-12 patch's two dungeons, entered by hand ahead of the web seed. Their mobCodes come
+    /// from each map's <c>MapData.dat SpawnInfoList.NpcIdList</c> filtered to <c>NpcSubType::HeroMonster</c> — the
+    /// game's own spawn list, not a naming rule: the code prefix does NOT encode difficulty (데우스 연구기지 spans
+    /// 232xxxx~234xxxx across its four stages), so only the spawn data can pair a code with a variant.</summary>
+    [Theory]
+    // 잠식된 데우스 연구기지 (원정) — map BlasphemyLab_Easy/Normal/Hard = dungeonId 600161/600162/600163
+    [InlineData(2300410, "잠식된 데우스 연구기지", "탐험", "감독관 그롬카스")]
+    [InlineData(2300409, "잠식된 데우스 연구기지", "탐험", "연구소장 자일러스")]
+    [InlineData(2300407, "잠식된 데우스 연구기지", "탐험", "오만의 아티엘")]
+    [InlineData(2301750, "잠식된 데우스 연구기지", "보통", "감독관 그롬카스")]
+    [InlineData(2301749, "잠식된 데우스 연구기지", "보통", "연구소장 자일러스")]
+    [InlineData(2301748, "잠식된 데우스 연구기지", "보통", "오만의 아티엘")]
+    [InlineData(2300556, "잠식된 데우스 연구기지", "어려움", "감독관 그롬카스")]
+    [InlineData(2300555, "잠식된 데우스 연구기지", "어려움", "연구소장 자일러스")]
+    [InlineData(2300481, "잠식된 데우스 연구기지", "어려움", "오만의 아티엘")]
+    // 노이란의 숨겨진 유산 (초월) — map LegacyNoiran_G_01~04, 단계는 PartyDungeonLevel.DungeonLevel
+    [InlineData(2300437, "노이란의 숨겨진 유산", "1단계", "불완전한 브라운트")]
+    [InlineData(2300438, "노이란의 숨겨진 유산", "1단계", "광기의 클로민스터")]
+    [InlineData(2300436, "노이란의 숨겨진 유산", "1단계", "아스크란")]
+    [InlineData(2300441, "노이란의 숨겨진 유산", "2단계", "광기의 클로민스터")]
+    [InlineData(2300444, "노이란의 숨겨진 유산", "3단계", "광기의 클로민스터")]
+    [InlineData(2300445, "노이란의 숨겨진 유산", "4단계", "아스크란")]
+    public void The_2026_08_12_dungeons_are_catalogued(int mobCode, string dungeon, string variant, string boss)
+    {
+        EncounterInfo? info = Shipped().Lookup(mobCode);
+
+        Assert.NotNull(info);
+        Assert.Equal(dungeon, info!.Value.DungeonName);
+        Assert.Equal(variant, info.Value.VariantLabel);
+        Assert.Equal(boss, info.Value.BossName);
     }
 
     /// <summary>The gate has to be tight where it matters: a field boss must NOT be uploadable, or we are back
