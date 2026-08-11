@@ -104,11 +104,23 @@ public interface ICaptureGameData
     /// No-op in capture-only mode.</summary>
     void SaveAetherStatus(int baseVal, int bonus);
 
+    /// <summary>As <see cref="SaveAetherStatus(int, int)"/>, plus where the reading came from:
+    /// <paramref name="fromSnapshot"/> is true for the 0x610B login/zone-in dump and false for a 0x610C change
+    /// notice. Only a consumer that files the balance under a CHARACTER needs the distinction (the dump arrives
+    /// ~4 s before the packet that names its owner), so the default simply forwards — capture-only stubs that
+    /// just want the number are unaffected.</summary>
+    void SaveAetherStatus(int baseVal, int bonus, bool fromSnapshot) => SaveAetherStatus(baseVal, bonus);
+
     /// <summary>Shugo-festa key (슈고 페스타 보상 열쇠) count update from the 0x610x family (same packets as
     /// aether; a different resource key). BOTH pools are authoritative every time, exactly as for
     /// <see cref="SaveAetherStatus"/> — a pool the record left out arrives here as 0, not "unchanged".
     /// No-op in capture-only mode.</summary>
     void SaveShugoKey(int baseVal, int bonus);
+
+    /// <summary>As <see cref="SaveShugoKey(int, int)"/>, plus whether the reading came from the 0x610B
+    /// login/zone-in dump. Same reason as aether: only a consumer that has to decide WHOSE reading it is needs
+    /// the distinction, so the default forwards.</summary>
+    void SaveShugoKey(int baseVal, int bonus, bool fromSnapshot) => SaveShugoKey(baseVal, bonus);
 
     /// <summary>One 성역 raid's weekly "최종 보스 처치 횟수" for the ACTIVE character, from the 0x610x family
     /// (same packets as aether; a different currency id). The game deducts one within half a second of the

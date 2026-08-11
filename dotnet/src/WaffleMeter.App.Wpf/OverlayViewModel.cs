@@ -203,6 +203,16 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     private Visibility _aetherVisibility = Visibility.Collapsed;
     public Visibility AetherVisibility { get => _aetherVisibility; private set => Set(ref _aetherVisibility, value); }
 
+    private const string AetherToolTipBase =
+        "오드 — 앞 숫자는 자연회복 오드, 괄호 안은 소모품 등으로 채운 추가 오드";
+    private const string AetherToolTipClick = "\n클릭: 컨텐츠 관리 열기";
+
+    private string _aetherToolTip = AetherToolTipBase + AetherToolTipClick;
+    /// <summary>Badge tooltip. Says so when the number is CARRIED FORWARD rather than measured — the game only
+    /// broadcasts the balance on its own schedule, so between sessions the meter projects the 자연회복 that
+    /// accrued while it was closed. Showing an estimate is right; showing it as if it were a reading is not.</summary>
+    public string AetherToolTip { get => _aetherToolTip; private set => Set(ref _aetherToolTip, value); }
+
     private string _shugoKeyText = string.Empty;
     /// <summary>Shugo-festa key balance as "base(+bonus)", shown in the footer's resource badges.</summary>
     public string ShugoKeyText { get => _shugoKeyText; private set => Set(ref _shugoKeyText, value); }
@@ -249,7 +259,10 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
 
     /// <summary>Push the latest aether balance (read from the data layer each report tick). Hidden when the
     /// setting is off or no value has been seen.</summary>
-    public void SetAether(int baseVal, int bonus, bool hasValue)
+    /// <param name="estimated">True when the value was carried forward from a remembered reading rather than
+    /// read off a live broadcast. Only the tooltip changes — the number itself is the best answer available, and
+    /// dimming or annotating it would make the common case (a correct, if projected, balance) look broken.</param>
+    public void SetAether(int baseVal, int bonus, bool hasValue, bool estimated = false)
     {
         if (!_settings.ShowAetherStatus || !hasValue)
         {
@@ -260,6 +273,12 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         AetherText = bonus > 0
             ? $"{baseVal:N0}(+{bonus:N0})"
             : baseVal.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+        AetherToolTip = estimated
+            ? AetherToolTipBase
+                + "\n\n※ 마지막으로 확인한 값에 자연회복(3시간마다 +15)을 더한 추정치입니다."
+                + "\n   게임에서 오드가 갱신되면 실제 값으로 바뀝니다."
+                + AetherToolTipClick
+            : AetherToolTipBase + AetherToolTipClick;
         AetherVisibility = Visibility.Visible;
     }
 

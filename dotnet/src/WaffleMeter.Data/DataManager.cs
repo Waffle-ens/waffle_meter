@@ -627,6 +627,17 @@ public sealed class DataManager : ICaptureGameData
     private int _aetherBonus;
     private int _aetherTotal;
     private bool _aetherHasValue;
+    private long _aetherAtMs;
+    private bool _aetherFromSnapshot;
+    private bool _aetherIsLive;
+
+    /// <summary>How long after a broadcast the balance still counts as "just arrived" for the character-switch
+    /// decision below. The 0x610B login dump lands ~4-6 s before the packet that names its character (measured:
+    /// 7 of 7 switches, 5.7-6.1 s, no counter-example), so at the moment a switch is detected the newest reading
+    /// is the INCOMING character's, not the outgoing one's. Deliberately tighter than the 30 s the weekly
+    /// counters wait: keeping the wrong character's balance shows a wrong number, whereas dropping the right
+    /// one now merely costs a re-seed from the per-character store.</summary>
+    private const long AetherHandoverGraceMs = 15_000;
 
     /// <summary>Raised (packet-consumer thread) when the aether balance changes, so the overlay can refresh.</summary>
     public event Action? AetherStatusChanged;
@@ -637,27 +648,53 @@ public sealed class DataManager : ICaptureGameData
         get { lock (_aetherGate) { return (_aetherBase, _aetherBonus, _aetherTotal, _aetherHasValue); } }
     }
 
+    /// <summary>Where the current balance came from.
+    /// <list type="bullet">
+    /// <item><c>AtMs</c> — when the balance was OBSERVED (Unix ms, 0 = unknown). For a live broadcast that is
+    /// its arrival; for a restored one it is when the reading being restored was originally taken, which is what
+    /// the offline 자연회복 projection measures elapsed time from.</item>
+    /// <item><c>FromSnapshot</c> — the 0x610B login/zone-in dump rather than a 0x610C change notice. A dump
+    /// arrives ~4 s before its owner is named, so filing one on arrival writes the incoming character's 오드 onto
+    /// the outgoing character's record.</item>
+    /// <item><c>IsLive</c> — read off the wire this session, as opposed to restored from memory. Only a live
+    /// reading is authoritative; a restored one is displayed as an estimate and never persisted.</item>
+    /// </list></summary>
+    public (long AtMs, bool FromSnapshot, bool IsLive) AetherOrigin
+    {
+        get { lock (_aetherGate) { return (_aetherAtMs, _aetherFromSnapshot, _aetherIsLive); } }
+    }
+
     /// <summary>Record the 오드 balance. Every broadcast carries BOTH pools authoritatively — the packet's
     /// field mask omits a pool only when it is zero — so there is nothing to back-compute here. (Until
     /// 2026-07-30 the single-pool form was mis-read as a "total" and its delta was absorbed into 자연회복,
     /// which is why a 오드 회복 소모품 grew the number outside the parentheses instead of the one inside.)</summary>
-    public void SaveAetherStatus(int baseVal, int bonus)
+    public void SaveAetherStatus(int baseVal, int bonus) => SaveAetherStatus(baseVal, bonus, fromSnapshot: false);
+
+    /// <inheritdoc cref="SaveAetherStatus(int, int)"/>
+    public void SaveAetherStatus(int baseVal, int bonus, bool fromSnapshot)
     {
+        long at = Clock();
         lock (_aetherGate)
         {
             _aetherBase = baseVal;
             _aetherBonus = bonus;
             _aetherTotal = baseVal + bonus;
             _aetherHasValue = true;
+            _aetherAtMs = at;
+            _aetherFromSnapshot = fromSnapshot;
+            _aetherIsLive = true;
         }
 
         AetherStatusChanged?.Invoke(); // outside the lock (avoid holding it during event dispatch)
     }
 
-    /// <summary>Seed the aether balance from a persisted value at startup so the badge isn't blank until the
-    /// game's next resource broadcast. Overwritten by the first live broadcast; cleared on a character switch.
-    /// A live broadcast is never overridden (guarded by <paramref name="onlyIfEmpty"/>).</summary>
-    public void RestoreAetherStatus(int baseVal, int bonus, bool onlyIfEmpty = true)
+    /// <summary>Seed the aether balance from a remembered value so the badge isn't blank until the game's next
+    /// resource broadcast. A live broadcast is never overridden (guarded by <paramref name="onlyIfEmpty"/>).
+    /// <para>Store the reading EXACTLY as it was taken, with <paramref name="observedAtMs"/> saying when — the
+    /// offline 자연회복 projection is then applied at display time, by whoever renders it. Projecting here
+    /// instead would bake an estimate into the stored value, and any later re-projection would compound on top
+    /// of it.</para></summary>
+    public void RestoreAetherStatus(int baseVal, int bonus, long observedAtMs = 0, bool onlyIfEmpty = true)
     {
         lock (_aetherGate)
         {
@@ -670,9 +707,51 @@ public sealed class DataManager : ICaptureGameData
             _aetherBonus = bonus;
             _aetherTotal = baseVal + bonus;
             _aetherHasValue = true;
+            _aetherAtMs = observedAtMs;
+            _aetherFromSnapshot = false;
+
+            // A restore is NOT an observation. This is what keeps it from passing as a just-arrived login dump
+            // on the next character switch, and what tells the persister not to write it back — its timestamp
+            // is older than the record it came from and re-stamping would lose the accrual it stands for.
+            _aetherIsLive = false;
         }
 
         AetherStatusChanged?.Invoke();
+    }
+
+    /// <summary>Forget a RESTORED balance (a live one is left alone). Called once the identity is established
+    /// and turns out to have no remembered balance of its own: the launch-time cache is a single global value,
+    /// so what is on screen is then some other character's, and showing nothing beats showing that.</summary>
+    public void DropRestoredAether()
+    {
+        lock (_aetherGate)
+        {
+            if (_aetherIsLive || !_aetherHasValue)
+            {
+                return;
+            }
+        }
+
+        ClearAetherStatus();
+    }
+
+    /// <summary>Whether the balance now held arrived close enough to <paramref name="identityAtMs"/> to be the
+    /// INCOMING character's login dump rather than the outgoing character's last reading.
+    /// <para>Restricted to the 0x610B DUMP, because that is the whole of the evidence: the dump is what precedes
+    /// its naming packet. A 0x610C change notice is by definition the outgoing character's — it only fires when
+    /// a balance changes, which means someone was logged in and playing — so letting one through here would pin
+    /// the previous character's 오드 to the new one AND suppress the re-seed that would have corrected it.</para>
+    /// A restored value never qualifies either; it is not an observation at all.</summary>
+    private bool AetherArrivedWithHandover(long identityAtMs)
+    {
+        lock (_aetherGate)
+        {
+            return _aetherHasValue
+                && _aetherIsLive
+                && _aetherFromSnapshot
+                && _aetherAtMs > 0
+                && identityAtMs - _aetherAtMs is >= 0 and <= AetherHandoverGraceMs;
+        }
     }
 
     private void ClearAetherStatus()
@@ -686,6 +765,9 @@ public sealed class DataManager : ICaptureGameData
 
             _aetherBase = _aetherBonus = _aetherTotal = 0;
             _aetherHasValue = false;
+            _aetherAtMs = 0;
+            _aetherFromSnapshot = false;
+            _aetherIsLive = false;
         }
 
         AetherStatusChanged?.Invoke();
@@ -698,6 +780,8 @@ public sealed class DataManager : ICaptureGameData
     private int _shugoKeyBonus;
     private int _shugoKeyTotal;
     private bool _shugoKeyHasValue;
+    private long _shugoKeyAtMs;
+    private bool _shugoKeyFromSnapshot;
 
     /// <summary>Raised (packet-consumer thread) when the shugo-key count changes, so the overlay can refresh.</summary>
     public event Action? ShugoKeyChanged;
@@ -711,17 +795,40 @@ public sealed class DataManager : ICaptureGameData
     /// <summary>Record the shugo-festa key count. Like aether, every broadcast carries both pools
     /// authoritatively, so there is nothing to back-compute. (The old total-only branch here was unreachable —
     /// the parser never produced one — but it kept alive the same wrong premise that broke aether.)</summary>
-    public void SaveShugoKey(int baseVal, int bonus)
+    public void SaveShugoKey(int baseVal, int bonus) => SaveShugoKey(baseVal, bonus, fromSnapshot: false);
+
+    /// <inheritdoc cref="SaveShugoKey(int, int)"/>
+    public void SaveShugoKey(int baseVal, int bonus, bool fromSnapshot)
     {
+        long at = Clock();
         lock (_shugoKeyGate)
         {
             _shugoKeyBase = baseVal;
             _shugoKeyBonus = bonus;
             _shugoKeyTotal = baseVal + bonus;
             _shugoKeyHasValue = true;
+            _shugoKeyAtMs = at;
+            _shugoKeyFromSnapshot = fromSnapshot;
         }
 
         ShugoKeyChanged?.Invoke();
+    }
+
+    /// <summary>The shugo-key counterpart of <see cref="AetherArrivedWithHandover"/>, kept SEPARATE on purpose.
+    /// Deciding this resource's fate from the other one's arrival stamp is wrong in a way that shows: the key
+    /// parser has no empty-mask branch (its group id is <c>00 00 00</c>, which is far too weak a needle to scan
+    /// for), so a character holding ZERO keys produces no reading at all. Its login dump would then keep the
+    /// previous character's key count alive — and the aether stamp, which did arrive, would have vetoed the
+    /// clear that used to save us.</summary>
+    private bool ShugoArrivedWithHandover(long identityAtMs)
+    {
+        lock (_shugoKeyGate)
+        {
+            return _shugoKeyHasValue
+                && _shugoKeyFromSnapshot
+                && _shugoKeyAtMs > 0
+                && identityAtMs - _shugoKeyAtMs is >= 0 and <= AetherHandoverGraceMs;
+        }
     }
 
     private void ClearShugoKey()
@@ -735,6 +842,8 @@ public sealed class DataManager : ICaptureGameData
 
             _shugoKeyBase = _shugoKeyBonus = _shugoKeyTotal = 0;
             _shugoKeyHasValue = false;
+            _shugoKeyAtMs = 0;
+            _shugoKeyFromSnapshot = false;
         }
 
         ShugoKeyChanged?.Invoke();
@@ -1277,9 +1386,10 @@ public sealed class DataManager : ICaptureGameData
             // measured, so a counter filed against "whoever the executor is right now" lands on the PREVIOUS
             // character on a switch. Stamping the identity lets the app wait for the identity that came after
             // the snapshot rather than the one that happened to still be current when it arrived.
+            long identityAtMs = Clock();
             if (!string.IsNullOrWhiteSpace(newExec.Nickname))
             {
-                Interlocked.Exchange(ref _executorIdentityAtMs, Clock());
+                Interlocked.Exchange(ref _executorIdentityAtMs, identityAtMs);
             }
 
             // A character switch (콘팡 -> 마이농) must drop the previous character's pre-combat preview state
@@ -1304,8 +1414,27 @@ public sealed class DataManager : ICaptureGameData
             {
                 _partyRoster.Clear();
                 _partyRosterAtMs = 0;
-                ClearAetherStatus(); // the aether balance is the previous character's — drop it on a real switch
-                ClearShugoKey();     // the shugo-festa key count, likewise
+
+                // 오드 / 슈고 열쇠 ride the 0x610B login dump, which the comment above records as arriving ~4 s
+                // BEFORE this naming packet. So the newest reading at this instant is usually the INCOMING
+                // character's, and clearing it unconditionally — as this did until 2026-08-11 — threw away the
+                // one correct value we had, blanking the footer badge until the game next chose to broadcast
+                // (observed: 9 s to 15 min, sometimes not for the rest of the session). A reading older than the
+                // grace window really is the outgoing character's and still goes.
+                // Judged per resource, from that resource's OWN arrival stamp. Sharing one verdict looks tidy and
+                // is wrong: the two travel in the same packet but not in the same records, and the shugo key
+                // goes silent entirely at zero (see ShugoArrivedWithHandover), so the aether stamp would veto
+                // exactly the clear that keeps the previous character's key count off the new character.
+                if (!AetherArrivedWithHandover(identityAtMs))
+                {
+                    ClearAetherStatus();
+                }
+
+                if (!ShugoArrivedWithHandover(identityAtMs))
+                {
+                    ClearShugoKey();
+                }
+
                 ClearOwnerBuffs();   // the previous character's buffs, likewise
                 ExecutorIdentityChanged?.Invoke();
             }

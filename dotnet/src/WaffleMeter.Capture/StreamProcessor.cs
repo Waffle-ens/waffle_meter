@@ -139,9 +139,15 @@ public sealed class StreamProcessor
     // never reached the parser because a second server connection was suppressed as a VPN duplicate). Spawn is
     // included because a boss whose 0x3641 rode the suppressed stream then registers + retro-promotes here.
     // Damage / DoT / buff / cooldown / battle-toggle / HP stay suppressed so the single-stream damage lock holds.
+    //
+    // The 0x610x resource family (오드 / 슈고 열쇠 / 주간 성역) joined the list on 2026-08-11. It is idempotent in
+    // the strongest sense — every record is an ABSOLUTE balance that overwrites, never a delta that accumulates —
+    // and leaving it out produced exactly the reported symptom: the login snapshot rode the suppressed connection
+    // while 0x3633 came through the kept one, so the character was recognized with no 오드 beside it.
     private static readonly HashSet<int> IdentityReplayOpcodes = new()
     {
         OwnNicknameKey, OtherNicknameKey, OwnCombatPowerKey, SummonKey, PartyRosterKey, MemberProfileKey,
+        AetherKeyA, AetherKeyB,
     };
 
     private static readonly Dictionary<int, string> OpcodeNames = new()
@@ -386,8 +392,8 @@ public sealed class StreamProcessor
                     break;
                 case AetherKeyA:
                 case AetherKeyB:
-                    ParseAetherStatus(packet, opcodeOffset + 2);
-                    ParseShugoKey(packet, opcodeOffset + 2);
+                    ParseAetherStatus(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
+                    ParseShugoKey(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
                     ParseWeeklyContent(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
                     break;
                 case FieldBossTimerKey:
@@ -1925,7 +1931,10 @@ public sealed class StreamProcessor
     /// <summary>Aether (오드) resource status 0x610B/0x610C. Gated behind the opcode so the marker scan can't
     /// false-match a coincidental byte run in an unrelated packet (the compact marker prefix occurs in HP /
     /// damage payloads too).</summary>
-    private void ParseAetherStatus(byte[] packet, int bodyStart)
+    /// <param name="fromSnapshot">True for the 0x610B login/zone-in dump, false for a 0x610C change notice. The
+    /// dump beats the packet that NAMES the character by ~4 s, so whoever files this away per-character has to
+    /// know which of the two it is — same distinction the weekly counters already draw.</param>
+    private void ParseAetherStatus(byte[] packet, int bodyStart, bool fromSnapshot)
     {
         AetherParse a = AetherStatusParser.TryParse(packet, bodyStart);
         if (!a.Ok)
@@ -1933,13 +1942,14 @@ public sealed class StreamProcessor
             return;
         }
 
-        _data.SaveAetherStatus(a.Base, a.Bonus);
+        _data.SaveAetherStatus(a.Base, a.Bonus, fromSnapshot);
         _sink.Meta("aether", ("base", a.Base), ("bonus", a.Bonus), ("total", a.Total));
     }
 
     /// <summary>Shugo-festa key (슈고 페스타 보상 열쇠) status, riding the same 0x610B/0x610C packets as aether
     /// (a different key byte selects it). Tried alongside aether so both resources update from one packet.</summary>
-    private void ParseShugoKey(byte[] packet, int bodyStart)
+    /// <param name="fromSnapshot">True for the 0x610B login/zone-in dump — see the aether overload.</param>
+    private void ParseShugoKey(byte[] packet, int bodyStart, bool fromSnapshot)
     {
         ShugoKeyParse s = ShugoKeyParser.TryParse(packet, bodyStart);
         if (!s.Ok)
@@ -1947,7 +1957,7 @@ public sealed class StreamProcessor
             return;
         }
 
-        _data.SaveShugoKey(s.Base, s.Bonus);
+        _data.SaveShugoKey(s.Base, s.Bonus, fromSnapshot);
         _sink.Meta("shugokey", ("base", s.Base), ("bonus", s.Bonus), ("total", s.Total));
     }
 

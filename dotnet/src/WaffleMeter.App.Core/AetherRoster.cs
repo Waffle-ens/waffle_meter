@@ -83,13 +83,19 @@ public static class AetherRoster
                     ? $"{nickname} [{serverLabel}]"
                     : nickname;
 
+            // Carry the reading forward over the 자연회복 that accrued since it was taken. Every row but the
+            // current character's is by definition a memory, and showing last night's number for a character
+            // that has been regenerating all night is the mismatch this list exists to avoid.
+            (int projectedBase, int projectedBonus) =
+                AetherRegen.Project(snapshot.Base, snapshot.Bonus, snapshot.SavedAtMs, at);
+
             rows.Add(new AetherRosterRow(
                 IdentityHash: hash,
                 Label: label,
                 SubLabel: known.Job ?? string.Empty,
-                Base: snapshot.Base,
-                Bonus: snapshot.Bonus,
-                Total: snapshot.Total,
+                Base: projectedBase,
+                Bonus: projectedBonus,
+                Total: projectedBase + projectedBonus,
                 SavedAtMs: snapshot.SavedAtMs,
                 IsCurrent: currentHash != null && string.Equals(hash, currentHash, StringComparison.Ordinal),
                 Weekly: WeeklyFor(weekly, hash, at)));
