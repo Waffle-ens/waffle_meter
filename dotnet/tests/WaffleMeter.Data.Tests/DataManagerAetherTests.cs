@@ -103,4 +103,90 @@ public sealed class DataManagerAetherTests
         dm.SaveAetherStatus(90, 870);
         Assert.Equal(1, fired);
     }
+
+    // ---- character switch: whose balance is the one we are holding? ----
+    //
+    // The 0x610B login dump arrives BEFORE the own-load packet that names its character (measured ~4-6 s, no
+    // counter-example), so at the instant a switch is detected the newest reading is the INCOMING character's.
+    // Clearing unconditionally — as this did until 2026-08-11 — threw away the one correct value we had and left
+    // the footer badge blank until the game next chose to broadcast.
+
+    private const long T0 = 1_786_000_000_000L;
+
+    [Fact]
+    public void A_switch_keeps_the_balance_that_arrived_with_the_incoming_login_dump()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+        dm.SaveNickname(9549, "콘팡", isExecutor: true, server: 2003, jobByte: 16);
+        dm.SaveAetherStatus(300, 100, fromSnapshot: false); // 콘팡's own balance, long settled
+
+        clock += 60_000;                                    // log out, character select, load
+        dm.SaveAetherStatus(45, 900, fromSnapshot: true);   // 마이농's 0x610B dump lands FIRST
+        clock += 5_000;
+        dm.SaveNickname(9550, "마이농", isExecutor: true, server: 2003, jobByte: 12); // ...then its name
+
+        (int b, int bonus, int total, bool has) = dm.CurrentAether;
+        Assert.True(has);
+        Assert.Equal((45, 900, 945), (b, bonus, total));
+    }
+
+    [Fact]
+    public void A_switch_drops_a_balance_that_predates_the_handover()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+        dm.SaveNickname(9549, "콘팡", isExecutor: true, server: 2003, jobByte: 16);
+        dm.SaveAetherStatus(300, 100, fromSnapshot: false);
+
+        clock += 60_000; // no dump arrived for the incoming character — this really is the old one's
+        dm.SaveNickname(9550, "마이농", isExecutor: true, server: 2003, jobByte: 12);
+
+        Assert.False(dm.CurrentAether.HasValue);
+    }
+
+    [Fact]
+    public void A_same_character_reinstance_never_drops_the_balance()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+        dm.SaveNickname(9549, "콘팡", isExecutor: true, server: 2003, jobByte: 16);
+        dm.SaveAetherStatus(300, 100);
+
+        clock += 10L * 60 * 1000;                            // a zone load, an hour into the session
+        dm.SaveNickname(9600, "콘팡", isExecutor: true, server: 2003, jobByte: 16); // same name, fresh uid
+
+        Assert.True(dm.CurrentAether.HasValue);
+        Assert.Equal(300, dm.CurrentAether.Base);
+    }
+
+    [Fact]
+    public void A_restored_balance_never_passes_as_the_incoming_dump()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+        dm.SaveNickname(9549, "콘팡", isExecutor: true, server: 2003, jobByte: 16);
+        dm.RestoreAetherStatus(300, 100); // a cache, not an observation — arrival stamp stays 0
+
+        clock += 1_000;                   // well inside the handover grace, and still not the new character's
+        dm.SaveNickname(9550, "마이농", isExecutor: true, server: 2003, jobByte: 12);
+
+        Assert.False(dm.CurrentAether.HasValue);
+    }
+
+    [Fact]
+    public void Origin_tells_a_live_reading_apart_from_a_restore()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+
+        dm.SaveAetherStatus(90, 870, fromSnapshot: true);
+        Assert.Equal((T0, true), dm.AetherOrigin);
+
+        dm.SaveAetherStatus(90, 880, fromSnapshot: false);
+        Assert.Equal((T0, false), dm.AetherOrigin);
+
+        dm.RestoreAetherStatus(1, 2, onlyIfEmpty: false);
+        Assert.Equal((0L, false), dm.AetherOrigin); // a restore has no observation time
+    }
 }

@@ -627,6 +627,16 @@ public sealed class DataManager : ICaptureGameData
     private int _aetherBonus;
     private int _aetherTotal;
     private bool _aetherHasValue;
+    private long _aetherAtMs;
+    private bool _aetherFromSnapshot;
+
+    /// <summary>How long after a broadcast the balance still counts as "just arrived" for the character-switch
+    /// decision below. The 0x610B login dump lands ~4-6 s before the packet that names its character (measured:
+    /// 7 of 7 switches, 5.7-6.1 s, no counter-example), so at the moment a switch is detected the newest reading
+    /// is the INCOMING character's, not the outgoing one's. Deliberately tighter than the 30 s the weekly
+    /// counters wait: keeping the wrong character's balance shows a wrong number, whereas dropping the right
+    /// one now merely costs a re-seed from the per-character store.</summary>
+    private const long AetherHandoverGraceMs = 15_000;
 
     /// <summary>Raised (packet-consumer thread) when the aether balance changes, so the overlay can refresh.</summary>
     public event Action? AetherStatusChanged;
@@ -637,18 +647,33 @@ public sealed class DataManager : ICaptureGameData
         get { lock (_aetherGate) { return (_aetherBase, _aetherBonus, _aetherTotal, _aetherHasValue); } }
     }
 
+    /// <summary>Where the current balance came from: when it arrived (Unix ms, 0 = never) and whether it was the
+    /// 0x610B login/zone-in dump rather than a 0x610C change notice. Read by the UI to decide WHICH CHARACTER to
+    /// file the balance under — a dump arrives before its owner is named, so filing it on arrival writes the
+    /// incoming character's 오드 onto the outgoing character's record.</summary>
+    public (long AtMs, bool FromSnapshot) AetherOrigin
+    {
+        get { lock (_aetherGate) { return (_aetherAtMs, _aetherFromSnapshot); } }
+    }
+
     /// <summary>Record the 오드 balance. Every broadcast carries BOTH pools authoritatively — the packet's
     /// field mask omits a pool only when it is zero — so there is nothing to back-compute here. (Until
     /// 2026-07-30 the single-pool form was mis-read as a "total" and its delta was absorbed into 자연회복,
     /// which is why a 오드 회복 소모품 grew the number outside the parentheses instead of the one inside.)</summary>
-    public void SaveAetherStatus(int baseVal, int bonus)
+    public void SaveAetherStatus(int baseVal, int bonus) => SaveAetherStatus(baseVal, bonus, fromSnapshot: false);
+
+    /// <inheritdoc cref="SaveAetherStatus(int, int)"/>
+    public void SaveAetherStatus(int baseVal, int bonus, bool fromSnapshot)
     {
+        long at = Clock();
         lock (_aetherGate)
         {
             _aetherBase = baseVal;
             _aetherBonus = bonus;
             _aetherTotal = baseVal + bonus;
             _aetherHasValue = true;
+            _aetherAtMs = at;
+            _aetherFromSnapshot = fromSnapshot;
         }
 
         AetherStatusChanged?.Invoke(); // outside the lock (avoid holding it during event dispatch)
@@ -670,9 +695,28 @@ public sealed class DataManager : ICaptureGameData
             _aetherBonus = bonus;
             _aetherTotal = baseVal + bonus;
             _aetherHasValue = true;
+
+            // A restore is NOT an observation: leaving the arrival stamp at 0 keeps it from passing as a
+            // just-arrived login dump on the next character switch, and tells the persister not to re-stamp the
+            // stored record (whose timestamp is what the offline 자연회복 projection measures elapsed time from).
+            _aetherAtMs = 0;
+            _aetherFromSnapshot = false;
         }
 
         AetherStatusChanged?.Invoke();
+    }
+
+    /// <summary>Whether the balance now held arrived close enough to <paramref name="identityAtMs"/> to be the
+    /// INCOMING character's login dump rather than the outgoing character's last reading. A restored value never
+    /// qualifies — its arrival stamp is 0 by construction.</summary>
+    private bool AetherArrivedWithHandover(long identityAtMs)
+    {
+        lock (_aetherGate)
+        {
+            return _aetherHasValue
+                && _aetherAtMs > 0
+                && identityAtMs - _aetherAtMs is >= 0 and <= AetherHandoverGraceMs;
+        }
     }
 
     private void ClearAetherStatus()
@@ -686,6 +730,8 @@ public sealed class DataManager : ICaptureGameData
 
             _aetherBase = _aetherBonus = _aetherTotal = 0;
             _aetherHasValue = false;
+            _aetherAtMs = 0;
+            _aetherFromSnapshot = false;
         }
 
         AetherStatusChanged?.Invoke();
@@ -1277,9 +1323,10 @@ public sealed class DataManager : ICaptureGameData
             // measured, so a counter filed against "whoever the executor is right now" lands on the PREVIOUS
             // character on a switch. Stamping the identity lets the app wait for the identity that came after
             // the snapshot rather than the one that happened to still be current when it arrived.
+            long identityAtMs = Clock();
             if (!string.IsNullOrWhiteSpace(newExec.Nickname))
             {
-                Interlocked.Exchange(ref _executorIdentityAtMs, Clock());
+                Interlocked.Exchange(ref _executorIdentityAtMs, identityAtMs);
             }
 
             // A character switch (콘팡 -> 마이농) must drop the previous character's pre-combat preview state
@@ -1304,8 +1351,19 @@ public sealed class DataManager : ICaptureGameData
             {
                 _partyRoster.Clear();
                 _partyRosterAtMs = 0;
-                ClearAetherStatus(); // the aether balance is the previous character's — drop it on a real switch
-                ClearShugoKey();     // the shugo-festa key count, likewise
+
+                // 오드 / 슈고 열쇠 ride the 0x610B login dump, which the comment above records as arriving ~4 s
+                // BEFORE this naming packet. So the newest reading at this instant is usually the INCOMING
+                // character's, and clearing it unconditionally — as this did until 2026-08-11 — threw away the
+                // one correct value we had, blanking the footer badge until the game next chose to broadcast
+                // (observed: 9 s to 15 min, sometimes not for the rest of the session). A reading older than the
+                // grace window really is the outgoing character's and still goes.
+                if (!AetherArrivedWithHandover(identityAtMs))
+                {
+                    ClearAetherStatus();
+                    ClearShugoKey();
+                }
+
                 ClearOwnerBuffs();   // the previous character's buffs, likewise
                 ExecutorIdentityChanged?.Invoke();
             }

@@ -104,6 +104,13 @@ public interface ICaptureGameData
     /// No-op in capture-only mode.</summary>
     void SaveAetherStatus(int baseVal, int bonus);
 
+    /// <summary>As <see cref="SaveAetherStatus(int, int)"/>, plus where the reading came from:
+    /// <paramref name="fromSnapshot"/> is true for the 0x610B login/zone-in dump and false for a 0x610C change
+    /// notice. Only a consumer that files the balance under a CHARACTER needs the distinction (the dump arrives
+    /// ~4 s before the packet that names its owner), so the default simply forwards — capture-only stubs that
+    /// just want the number are unaffected.</summary>
+    void SaveAetherStatus(int baseVal, int bonus, bool fromSnapshot) => SaveAetherStatus(baseVal, bonus);
+
     /// <summary>Shugo-festa key (슈고 페스타 보상 열쇠) count update from the 0x610x family (same packets as
     /// aether; a different resource key). BOTH pools are authoritative every time, exactly as for
     /// <see cref="SaveAetherStatus"/> — a pool the record left out arrives here as 0, not "unchanged".

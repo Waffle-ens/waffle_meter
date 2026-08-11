@@ -87,6 +87,25 @@ public class AetherStatusParserTests
         Assert.Equal(0, a.Bonus);
     }
 
+    /// <summary>Mask 0x00 = BOTH pools omitted, i.e. a balance of exactly zero — the game leaves out a pool
+    /// precisely when it is empty, so an empty mask carries no value fields at all.
+    /// <para>Until 2026-08-11 this fell through as a parse failure, which the badge could not tell apart from
+    /// "no reading has ever arrived": a character that had spent everything got no footer badge until the next
+    /// 자연회복 tick, up to three hours later. Zero is a balance.</para></summary>
+    [Fact]
+    public void Empty_mask_is_a_balance_of_zero_not_a_failed_parse()
+    {
+        // 0E 0C 61 00 | [00] 01 87 93 03 | (no value fields) followed by the neighbouring key-02 record
+        byte[] p = { 0x0E, 0x0C, 0x61, 0x00, 0x00, 0x01, 0x87, 0x93, 0x03,
+                     0x04, 0x02, 0x87, 0x93, 0x03, 0x02 };
+        AetherParse a = AetherStatusParser.TryParse(p, BodyStart);
+
+        Assert.True(a.Ok);
+        Assert.Equal(0, a.Base);
+        Assert.Equal(0, a.Bonus);
+        Assert.Equal(0, a.Total);
+    }
+
     /// <summary>Two packets arrived in one segment; only the first 오드 record is read and the parse must not
     /// run on into the following key-02 resource record.</summary>
     [Fact]

@@ -21,7 +21,8 @@ public readonly record struct AetherParse(bool Ok, int Base, int Bonus)
 /// group id rather than a fixed offset — a future field shift can't silently mis-read.
 ///
 /// <para><b>The field mask is a bitmask of which of the two pools the record carries</b> (0x04 = 자연회복,
-/// 0x08 = 추가, 0x0C = both), and the game omits a pool when it is zero. Reading the single-field 0x08 form as
+/// 0x08 = 추가, 0x0C = both, 0x00 = neither, i.e. a balance of exactly zero), and the game omits a pool when it
+/// is zero — so an empty mask is a real reading, not a malformed record. Reading the single-field 0x08 form as
 /// a <i>total</i> — as this parser did until 2026-07-30 — silently corrupted the split: a 오드 회복 소모품
 /// (+10/+40) arrives as a 추가-only record, and back-computing a "total" delta from it credited the gain to
 /// 자연회복 instead, so the number outside the parentheses grew. Verified against 28 capture sessions: a 0x08
@@ -34,6 +35,7 @@ public static class AetherStatusParser
 {
     private const byte ResourceKey = 0x01;                       // 오드 (0x02, 0x06… are other resources)
     private static readonly byte[] GroupId = { 0x87, 0x93, 0x03 };
+    private const byte MaskEmpty = 0x00;                         // both pools zero (the game omits BOTH fields)
     private const byte MaskBase = 0x04;                          // 자연회복 오드 only (추가 = 0)
     private const byte MaskBonus = 0x08;                         // 추가 오드 only (자연회복 = 0)
     private const byte MaskBoth = 0x0C;                          // both, 자연회복 first
@@ -66,6 +68,16 @@ public static class AetherStatusParser
             else if (mask == MaskBonus && TryReadPool(packet, o, out int bonusOnly, out _))
             {
                 return new AetherParse(true, 0, bonusOnly);
+            }
+            else if (mask == MaskEmpty)
+            {
+                // Both pools empty, so the record carries NO value fields at all. Reporting this as a parse
+                // FAILURE (as this did until 2026-08-11) is what left the footer badge blank for a character
+                // that has spent everything: the badge's only gate is "has a value ever arrived", so a player
+                // at 0 read as "never seen" and the badge stayed hidden until the next 자연회복 tick — up to
+                // three hours. Zero is a balance, not the absence of one. <see cref="WeeklyContentParser"/>
+                // documents the same mask on the neighbouring currencies.
+                return new AetherParse(true, 0, 0);
             }
 
             // an unknown mask (or an out-of-range value) — keep scanning; a later record may still be ours

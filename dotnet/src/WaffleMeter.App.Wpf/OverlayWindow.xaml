@@ -431,7 +431,7 @@
                     <Border Margin="6,0,0,0" Padding="5,1" CornerRadius="4" VerticalAlignment="Center" Cursor="Hand"
                             Background="{DynamicResource Skin.StatBg}" Visibility="{Binding AetherVisibility}"
                             MouseLeftButtonUp="OnAetherBadgeClick"
-                            ToolTip="오드 — 앞 숫자는 자연회복 오드, 괄호 안은 소모품 등으로 채운 추가 오드 (클릭: 컨텐츠 관리 열기)">
+                            ToolTip="{Binding AetherToolTip}">
                         <StackPanel Orientation="Horizontal">
                             <Image Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Icons/ode.png"
                                    Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,4,0"

@@ -869,6 +869,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         ConsentCharacters.Clear();
         AetherPerCharacterStore aether = AetherPerCharacterStore.Parse(_settings.AetherPerCharacter);
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         foreach (StatsConsentManager.CharacterConsentInfo c in _services.Consent.ListCharacters())
         {
             if (c.State != "accepted")
@@ -876,10 +877,17 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 continue; // the management list = currently-consented characters
             }
 
+            // Projected forward over the 자연회복 accrued since the reading was taken, exactly as the 컨텐츠 관리
+            // list does — the two show the same characters and must not disagree.
             AetherSnapshot? snap = aether.Get(c.IdentityHash);
-            string aetherText = snap is { } a
-                ? (a.Bonus > 0 ? $"{a.Base}(+{a.Bonus})" : a.Base.ToString(CultureInfo.InvariantCulture))
-                : string.Empty;
+            string aetherText = string.Empty;
+            if (snap is { } a)
+            {
+                (int aBase, int aBonus) = AetherRegen.Project(a.Base, a.Bonus, a.SavedAtMs, nowMs);
+                aetherText = aBonus > 0
+                    ? $"{aBase}(+{aBonus})"
+                    : aBase.ToString(CultureInfo.InvariantCulture);
+            }
 
             string label = !string.IsNullOrWhiteSpace(c.Nickname)
                 ? (c.Server > 0 ? $"{c.Nickname} [{ServerNames.GetServerLabel(c.Server)}]" : c.Nickname!)
@@ -1182,13 +1190,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
         string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
         string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
-        bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster)
+        bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster, bool ShowAetherStatus)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
             s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
             s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
-            s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster);
+            s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster, s.ShowAetherStatus);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -1210,6 +1218,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.BarStyle = BarStyle;
             s.ShowJoinPanel = ShowJoinPanel;
             s.ShowPreCombatRoster = ShowPreCombatRoster;
+            // Every setter here writes through to the properties file immediately, so a toggle left out of this
+            // record is not "unsaved on Cancel" — it is saved and unrevertable. 오드 표시 was missing, which made
+            // turning it off and cancelling a one-way trip: the footer badge (and the shugo key badge it gates)
+            // stayed hidden across restarts with no way back except finding the same toggle again.
+            s.ShowAetherStatus = ShowAetherStatus;
         }
     }
 

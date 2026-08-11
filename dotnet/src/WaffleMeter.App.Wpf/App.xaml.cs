@@ -385,6 +385,18 @@ public partial class App : Application
             // combat" gate always reflects real combat, not the displayed (frozen) battle.
             _combatActive = report.Information.Count > 0
                 && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - report.BattleEnd < 5000;
+
+            // The footer's resource badges (오드 / 슈고 열쇠 / ping) describe the LIVE session, not the battle on
+            // screen, so they are pushed before the history early-return below. Leaving them after it froze all
+            // three the moment a saved battle was opened — and since _viewingHistory only clears when a NEW
+            // battle starts or on reset, a badge that happened to be hidden then stayed hidden indefinitely.
+            (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
+            // No observation time = the value was restored/projected, not read off a broadcast.
+            viewModel.SetAether(aBase, aBonus, aHas, estimated: services.Data.AetherOrigin.AtMs <= 0);
+            (int sBase, int sBonus, int _, bool sHas) = services.Data.CurrentShugoKey;
+            viewModel.SetShugoKey(sBase, sBonus, sHas);
+            viewModel.SetPing(services.CurrentPing());
+
             // While viewing a saved battle, hold the overlay until a NEW battle begins (React resets the
             // selected history when isInCombat); the open detail follows the SAME displayed battle (below).
             if (_viewingHistory)
@@ -575,11 +587,6 @@ public partial class App : Application
             viewModel.SetRoster(partyRoster);
             viewModel.SetRosterResurface(true); // Feature 1: 라이브 idle 경로 — 파티(닉/서버) 변경 시 로스터 프리뷰 재노출 허용
             viewModel.Update(report);
-            (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
-            viewModel.SetAether(aBase, aBonus, aHas); // live aether badge (read each tick; fires even when idle)
-            (int sBase, int sBonus, int _, bool sHas) = services.Data.CurrentShugoKey;
-            viewModel.SetShugoKey(sBase, sBonus, sHas); // live shugo-festa key badge
-            viewModel.SetPing(services.CurrentPing()); // live server-latency badge
             _detailViewModel?.Refresh(report); // live-refresh the open detail window
             StatsOwnCharacter own = services.StatsBuilder.OwnCharacter();
             // Pass the executor's known job (from its User) so the VM can recover 본인 when it re-instances and
@@ -592,10 +599,14 @@ public partial class App : Application
             {
                 _lastConsentBackfillId = own.Id;
                 services.Consent.BackfillCurrentCharacterIdentity();
+                // Now that we know WHO this is, the badge can fall back to what this character last held —
+                // which is the moment the user expects a recognized character to come with its 오드.
+                ReseedAetherFromStore(services);
             }
 
             MaybePromptConsent(services, window);
             FlushPendingWeeklyContent(services);
+            FlushPendingAether(services);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));
         // A reset clears the data-layer party roster; also drop the UI-side recent-combat party tracker so a stale
@@ -606,7 +617,17 @@ public partial class App : Application
         // the previous character doesn't linger as a stale 0/s idle preview row under the new one (the data layer
         // drops its 0x9702 roster snapshot in lockstep). Mirrors the ResetCompleted ordering — queued from the
         // consumer thread before the next idle report, so there's no one-frame flash.
-        _engine.ExecutorChanged += () => Dispatcher.Invoke(() => _partyLastCombatMs.Clear());
+        _engine.ExecutorChanged += () => Dispatcher.Invoke(() =>
+        {
+            _partyLastCombatMs.Clear();
+            // The identity that just arrived is, by construction, the one a held balance dump was waiting for:
+            // the dump precedes its naming packet, which is this very event. File it now rather than let it sit
+            // until the next report tick.
+            FlushPendingAether(services);
+            // If the switch DID drop a balance (one too old to be the incoming character's login dump), show
+            // what the incoming character last held rather than nothing until the game next speaks.
+            ReseedAetherFromStore(services);
+        });
 
         viewModel.Status = "캡처 헬퍼 시작 중…";
         // Launch + connect entirely off the UI thread. EnsureServing registers/triggers the elevated helper
@@ -705,9 +726,11 @@ public partial class App : Application
         _buffPresets = new BuffPresetManager(_settings, services.Data.SetHiddenBuffBases, services.Data.SetVoiceBuffBases);
 
         // Aether badge: restore the last value so it shows immediately (the game only broadcasts the resource
-        // on its own schedule — zone load etc. — so without this it's blank for the first minutes). Restore
-        // BEFORE wiring the persister so the restore doesn't refresh the saved timestamp. The shugo-festa key
-        // is deliberately not persisted — a stale key count would be misleading, so it waits for a broadcast.
+        // on its own schedule — zone load etc. — so without this it's blank for the first minutes), carried
+        // forward over the 자연회복 that accrued while the meter was closed. Restore BEFORE wiring the persister;
+        // the persister ignores restores anyway (their arrival stamp is 0), but the order keeps that a belt AND
+        // braces. The shugo-festa key is deliberately not persisted — nothing accrues it on a timer, so a stale
+        // key count would just be wrong, and it waits for a broadcast.
         RestoreAetherFromSettings(services);
         services.Data.AetherStatusChanged += () => Dispatcher.BeginInvoke(() =>
         {
@@ -1815,12 +1838,22 @@ public partial class App : Application
         }
     }
 
-    // The aether badge is worth showing immediately from a cached value; older than this it's likely stale
-    // (values change between sessions), so we skip the restore and wait for a fresh broadcast instead.
-    private const long AetherRestoreMaxAgeMs = 12L * 60 * 60 * 1000; // 12h
+    // How old a cached balance may be and still be worth showing. Was 12 h, on the reasoning that "values change
+    // between sessions" — true, but the change is now MODELLED rather than skipped: 자연회복 accrues on the
+    // server whether or not anyone is logged in, so AetherRegen carries the reading forward. Deliberately the
+    // SAME window as the projection: a reading we will not carry forward is one we cannot vouch for at all, and
+    // showing it flat would be the very mismatch this is meant to remove.
+    private const long AetherRestoreMaxAgeMs = AetherRegen.MaxProjectionMs;
 
-    /// <summary>Seed the aether balance from the persisted "base,bonus,unixMs" value, if it's recent enough.
-    /// Clamped for sanity. Never overrides a live value (RestoreAetherStatus is onlyIfEmpty).
+    /// <summary>The 0x610B balance dump held until the identity it belongs to is established — the dump beats the
+    /// packet that NAMES the character by ~4 s, so filing it on arrival writes the incoming character's 오드 onto
+    /// the outgoing character's record. Exactly the hold <see cref="_weeklyContentPending"/> applies to the
+    /// counters that ride the same packet.</summary>
+    private (int Base, int Bonus, long AtMs)? _aetherPending;
+
+    /// <summary>Seed the aether balance from the persisted "base,bonus,unixMs" value, projected forward over the
+    /// 자연회복 that accrued while the meter was closed. Never overrides a live value (RestoreAetherStatus is
+    /// onlyIfEmpty).
     /// <para>The pre-2026-07-30 format had a fourth field (a separately-stored total) — those values were
     /// written while the parser mis-read the single-pool packet, so their 자연회복/추가 split is wrong and the
     /// field-count check below drops them. The badge then simply waits for the next live broadcast.</para></summary>
@@ -1834,53 +1867,144 @@ public partial class App : Application
             return;
         }
 
-        long ageMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - savedAtMs;
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        long ageMs = nowMs - savedAtMs;
         if (ageMs < 0 || ageMs > AetherRestoreMaxAgeMs)
         {
-            return; // too old (or a clock skew) — wait for a fresh broadcast rather than show a stale value
+            return; // a clock that has gone backwards, or older than we are willing to vouch for
         }
 
-        b = Math.Clamp(b, 0, 10000);
-        bonus = Math.Clamp(bonus, 0, 10000);
-        if (b == 0 && bonus == 0)
+        (b, bonus) = AetherRegen.Project(b, bonus, savedAtMs, nowMs);
+        services.Data.RestoreAetherStatus(b, bonus);
+    }
+
+    /// <summary>Show what this character last held when nothing live has arrived yet. The badge's only gate is
+    /// "has a value ever been seen", and the game speaks on its own schedule — so without this, a character that
+    /// is recognized and whose balance we ALREADY KNOW (the 컨텐츠 관리 list is showing it) still renders a blank
+    /// footer until the next zone-in. Deliberately a fallback: <c>onlyIfEmpty</c> means a live reading always
+    /// wins, and the value is projected forward over the 자연회복 accrued since it was recorded.</summary>
+    private void ReseedAetherFromStore(MeterServices services)
+    {
+        if (_settings is null)
         {
             return;
         }
 
-        services.Data.RestoreAetherStatus(b, bonus);
+        // A LIVE reading wins and stops here. A restored one does not: the launch-time cache is a single global
+        // value, so it can easily be the character the user played last night rather than the one on screen now
+        // — and this character's own record, once we know who they are, is strictly the better answer.
+        if (services.Data.CurrentAether.HasValue && services.Data.AetherOrigin.AtMs > 0)
+        {
+            return;
+        }
+
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (string.IsNullOrEmpty(hash))
+        {
+            return; // we don't know who this is yet — a balance under the wrong character is worse than none
+        }
+
+        AetherSnapshot? remembered = AetherPerCharacterStore
+            .Parse(_settings.AetherPerCharacter, _settings.AetherCharacterNames)
+            .Get(hash);
+        if (remembered is not { } snapshot || snapshot.SavedAtMs <= 0)
+        {
+            return;
+        }
+
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (nowMs - snapshot.SavedAtMs > AetherRestoreMaxAgeMs)
+        {
+            return;
+        }
+
+        (int b, int bonus) = AetherRegen.Project(snapshot.Base, snapshot.Bonus, snapshot.SavedAtMs, nowMs);
+        services.Data.RestoreAetherStatus(b, bonus, onlyIfEmpty: false);
     }
 
-    /// <summary>Persist the current aether value (with a timestamp) so the next launch can restore it. On a
-    /// character switch the value is cleared (HasValue=false) → we drop the persisted value so a different
-    /// character's balance isn't restored next time.</summary>
+    /// <summary>Persist the current aether value so the next launch can restore it, and remember it under the
+    /// character it belongs to.
+    /// <para>The record is stamped with when the value was OBSERVED, not when this ran — the offline 자연회복
+    /// projection measures elapsed time from that stamp, so re-stamping a value we merely re-displayed would
+    /// quietly reset the clock and lose the accrual. A restore has no observation time (arrival stamp 0) and is
+    /// therefore skipped entirely.</para></summary>
     private void PersistAether(MeterServices services)
     {
         (int b, int bonus, int _, bool has) = services.Data.CurrentAether;
-        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        _settings!.AetherLastValue = has
-            ? string.Concat(b.ToString(CultureInfo.InvariantCulture), ",", bonus.ToString(CultureInfo.InvariantCulture), ",",
-                nowMs.ToString(CultureInfo.InvariantCulture))
-            : string.Empty;
+        (long atMs, bool fromSnapshot) = services.Data.AetherOrigin;
 
-        // Also remember this balance UNDER the current character's identity, so the 캐릭터 관리 list can show
-        // every character's 오드 — not just the active one. Keyed by the same stats identity hash the list uses.
-        if (has)
+        if (!has)
         {
-            string? hash = services.Consent.CurrentCharacterHash();
-            if (!string.IsNullOrEmpty(hash))
-            {
-                // Record the name alongside the balance. The key is a one-way hash, so the 오드 목록 can only
-                // name a character from a record like this one or from a consent entry — and a character the
-                // user never gave a consent decision for has no consent entry at all.
-                User? self = services.Data.User(services.Data.ExecutorId());
-                AetherPerCharacterStore store = AetherPerCharacterStore.Parse(
-                    _settings.AetherPerCharacter, _settings.AetherCharacterNames);
-                if (store.Upsert(hash, new AetherSnapshot(b, bonus, nowMs, self?.Nickname, self?.Server ?? 0)))
-                {
-                    _settings.AetherPerCharacter = store.Serialize();
-                    _settings.AetherCharacterNames = store.SerializeNames();
-                }
-            }
+            // A real character switch: the cached value is the previous character's, so drop it rather than
+            // restore it under someone else next launch. The per-character record stays — that IS the memory.
+            _settings!.AetherLastValue = string.Empty;
+            _aetherPending = null;
+            return;
+        }
+
+        if (atMs <= 0)
+        {
+            return; // a restore, not an observation
+        }
+
+        _settings!.AetherLastValue = string.Join(',',
+            b.ToString(CultureInfo.InvariantCulture),
+            bonus.ToString(CultureInfo.InvariantCulture),
+            atMs.ToString(CultureInfo.InvariantCulture));
+
+        if (fromSnapshot)
+        {
+            // The login/zone-in dump: hold it until an identity established at or after it says whose it is.
+            _aetherPending = (b, bonus, atMs);
+            FlushPendingAether(services);
+            return;
+        }
+
+        UpsertAetherForCurrentCharacter(services, b, bonus, atMs);
+    }
+
+    /// <summary>File a held balance dump once the identity it belongs to has been established. Called both when
+    /// the dump arrives (usually a zone-in on the same character, where the identity is already known) and from
+    /// the report loop, which is what catches the login/switch case with the naming packet still in flight.</summary>
+    private void FlushPendingAether(MeterServices services)
+    {
+        if (_aetherPending is not { } pending || string.IsNullOrEmpty(services.Consent.CurrentCharacterHash()))
+        {
+            return;
+        }
+
+        // Same rule, same packet family: see WeeklyContentOwnership for the measurement behind it.
+        if (!WeeklyContentOwnership.CanFile(
+                pending.AtMs, services.Data.ExecutorIdentityAtMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()))
+        {
+            return;
+        }
+
+        _aetherPending = null;
+        UpsertAetherForCurrentCharacter(services, pending.Base, pending.Bonus, pending.AtMs);
+    }
+
+    /// <summary>Remember a balance under the character currently identified, so the 컨텐츠 관리 list can show every
+    /// character's 오드 — not just the active one. Callers must already have decided it belongs to that
+    /// character.</summary>
+    private void UpsertAetherForCurrentCharacter(MeterServices services, int b, int bonus, long atMs)
+    {
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (_settings is null || string.IsNullOrEmpty(hash))
+        {
+            return;
+        }
+
+        // Record the name alongside the balance. The key is a one-way hash, so the 오드 목록 can only name a
+        // character from a record like this one or from a consent entry — and a character the user never gave a
+        // consent decision for has no consent entry at all.
+        User? self = services.Data.User(services.Data.ExecutorId());
+        AetherPerCharacterStore store = AetherPerCharacterStore.Parse(
+            _settings.AetherPerCharacter, _settings.AetherCharacterNames);
+        if (store.Upsert(hash, new AetherSnapshot(b, bonus, atMs, self?.Nickname, self?.Server ?? 0)))
+        {
+            _settings.AetherPerCharacter = store.Serialize();
+            _settings.AetherCharacterNames = store.SerializeNames();
         }
     }
 
