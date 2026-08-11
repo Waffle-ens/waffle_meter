@@ -2,7 +2,8 @@ namespace WaffleMeter.App.Core;
 
 /// <summary>
 /// Server id → name, ported from React utils/parser.ts SERVER_NAMES. <see cref="GetServerLabel"/>
-/// returns the first two characters (the join panel shows "nickname[label]").
+/// returns the first two characters (the join panel shows "nickname[label]"), except where
+/// <see cref="LabelOverrides"/> says otherwise.
 /// </summary>
 public static class ServerNames
 {
@@ -20,14 +21,41 @@ public static class ServerNames
         [2021] = "이스할겐",
     };
 
-    /// <summary>First two chars of the server name, or "" if unknown (React getServerLabel).</summary>
+    /// <summary>
+    /// Abbreviations that are not just the first two characters. 이스라펠(2001)과 이스할겐(2021)은
+    /// 앞 두 글자가 똑같아 라벨이 겹쳤고, 2026-08-12 라이브 패치가 이걸 이스/할겐으로 갈랐다.
+    /// ⚠️ 클라이언트의 <c>ServerName_&lt;id&gt;_short_desc</c>를 정본 삼아 재생성하지 마라 —
+    /// 2026-08-05 빌드에서도 두 서버가 여전히 둘 다 "이스"라 충돌이 남아 있다(라이브가 앞서 있다).
+    /// </summary>
+    private static readonly Dictionary<int, string> LabelOverrides = new()
+    {
+        [2021] = "할겐",
+    };
+
+    /// <summary>
+    /// The server's abbreviation: an entry from <see cref="LabelOverrides"/> when one exists, else the
+    /// first two chars of the name, else "" if unknown (React getServerLabel).
+    /// </summary>
     public static string GetServerLabel(int server)
     {
-        if (server <= 0 || !Names.TryGetValue(server, out string? name) || string.IsNullOrEmpty(name))
+        if (server <= 0)
+        {
+            return string.Empty;
+        }
+
+        if (LabelOverrides.TryGetValue(server, out string? label))
+        {
+            return label;
+        }
+
+        if (!Names.TryGetValue(server, out string? name) || string.IsNullOrEmpty(name))
         {
             return string.Empty;
         }
 
         return name.Length <= 2 ? name : name[..2];
     }
+
+    /// <summary>Every known server id — lets tests assert that no two servers share a label.</summary>
+    internal static IEnumerable<int> KnownServerIds => Names.Keys;
 }
