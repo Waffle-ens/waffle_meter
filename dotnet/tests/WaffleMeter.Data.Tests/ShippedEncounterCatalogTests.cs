@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using WaffleMeter.Capture;
 using WaffleMeter.Data;
 using Xunit;
@@ -38,6 +39,11 @@ public sealed class ShippedEncounterCatalogTests
 
     private static Dictionary<int, Mob> ShippedMobs() =>
         ReferenceJson.LoadMobs(Path.Combine(AssetsJsonDir(), "mobs.json"));
+
+    /// <summary>The raw asset. <see cref="EncounterCatalog"/> keys by mobCode, so defects that live at the
+    /// VARIANT level — a duplicate dungeonId, a variant with no mobs — are invisible through it.</summary>
+    private static JsonElement ShippedJson() =>
+        JsonDocument.Parse(File.ReadAllText(Path.Combine(AssetsJsonDir(), "encounters.json"))).RootElement;
 
     [Fact]
     public void The_shipped_catalog_loads()
@@ -83,6 +89,62 @@ public sealed class ShippedEncounterCatalogTests
         List<int> codes = AllCodes(Shipped()).ToList();
 
         Assert.Equal(codes.Count, codes.Distinct().Count());
+    }
+
+    /// <summary>Every variant must carry mobs. A variant with an empty mob list maps no code, so it can never
+    /// label a battle — it is dead weight that only shows the seed grew a row it shouldn't have.
+    /// <para>Found 2026-08-11: 바크론의 공중섬 carried a second 시련 row labelled <c>"시련 13~16단계"</c> with no
+    /// mobs at all. That string is the METER's runtime label for an unpinned trial level, so something on the
+    /// round trip is minting variants out of what the client displayed rather than out of the game's data. The
+    /// meter itself is not the culprit — its payload sends the canonical <c>difficulty</c> ("시련") and the level
+    /// separately as numbers — but this asserts we notice next time.</para></summary>
+    [Fact]
+    public void Every_variant_carries_at_least_one_mob()
+    {
+        var empty = new List<string>();
+        foreach (JsonElement dungeon in ShippedJson().GetProperty("dungeons").EnumerateArray())
+        {
+            foreach (JsonElement variant in dungeon.GetProperty("variants").EnumerateArray())
+            {
+                if (variant.GetProperty("mobs").GetArrayLength() == 0)
+                {
+                    empty.Add($"{dungeon.GetProperty("name").GetString()} / {variant.GetProperty("label").GetString()}");
+                }
+            }
+        }
+
+        Assert.True(empty.Count == 0, "variants with no mobs: " + string.Join(", ", empty));
+    }
+
+    /// <summary>A dungeonId identifies ONE instance, so two variants claiming the same one cannot both be right
+    /// — and the pairing is what any map-based cross-check would have to trust.
+    /// <para>Found 2026-08-11: 무스펠의 성배 보통 and 어려움 both claimed 620021, while the capture corpus shows
+    /// the game running them as 620022 and 620021 respectively. Harmless for the meter's own labels (those key
+    /// off mobCode, which is unique) but wrong in the seed the web aggregates by.</para></summary>
+    [Fact]
+    public void No_dungeon_id_belongs_to_two_variants()
+    {
+        var seen = new Dictionary<int, string>();
+        var clashes = new List<string>();
+        foreach (JsonElement dungeon in ShippedJson().GetProperty("dungeons").EnumerateArray())
+        {
+            string name = dungeon.GetProperty("name").GetString() ?? "?";
+            foreach (JsonElement variant in dungeon.GetProperty("variants").EnumerateArray())
+            {
+                int id = variant.GetProperty("dungeonId").GetInt32();
+                string here = $"{name} / {variant.GetProperty("label").GetString()}";
+                if (seen.TryGetValue(id, out string? there))
+                {
+                    clashes.Add($"{id}: {there} vs {here}");
+                }
+                else
+                {
+                    seen[id] = here;
+                }
+            }
+        }
+
+        Assert.True(clashes.Count == 0, "dungeonId claimed twice: " + string.Join("; ", clashes));
     }
 
     /// <summary>The case that motivated the catalog: 시련 바크론 shares its boss NAMES with the other three

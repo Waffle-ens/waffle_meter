@@ -109,6 +109,38 @@ public sealed class StatsPayloadEncounterTests
         Assert.Equal("4", encounter.Stage);
     }
 
+    /// <summary>The 시련 difficulty block rides along for a trial boss — that is the whole reason it exists,
+    /// since the mobCode cannot express which of the 4~16 levels was run.</summary>
+    [Fact]
+    public void Attaches_the_trial_difficulty_block_to_a_trial_boss()
+    {
+        DataManager dm = Party();
+        dm.SaveTrialAffix(TrialAffixGroup.BossBuff, 4, arrivedAt: 0);
+        dm.SaveTrialAffix(TrialAffixGroup.BakronSkillUpgrade, 4, arrivedAt: 0);
+
+        StatsEncounterPayload encounter = Encounter(dm, 2300582, "바크론");
+
+        Assert.NotNull(encounter.Trial);
+        Assert.Equal(4, encounter.Trial!.BossBuff);
+    }
+
+    /// <summary>...and never to anything else. The knobs are read from abnormals only the trial broadcasts, but
+    /// they had no expiry until 2026-08-11 and outlived the run — so a 초월 battle fought after a trial uploaded
+    /// that trial's difficulty attached to it, the upload-side twin of the "(시련 13~16단계)" label bug. The
+    /// tracker now clears on leaving; this keeps the payload right even if it ever leaks again.</summary>
+    [Fact]
+    public void Never_attaches_a_trial_difficulty_block_to_another_dungeon()
+    {
+        DataManager dm = Party();
+        dm.SaveTrialAffix(TrialAffixGroup.BossBuff, 4, arrivedAt: 0);
+        dm.SaveTrialAffix(TrialAffixGroup.BakronSkillUpgrade, 4, arrivedAt: 0);
+        Assert.True(dm.TrialDifficulty.Current.IsTrial); // the tracker is still holding the trial's knobs
+
+        StatsEncounterPayload encounter = Encounter(dm, 2300544, "어미잃은 변견 카푸"); // 초월 4단계
+
+        Assert.Null(encounter.Trial);
+    }
+
     /// <summary>The decorated name is a UI concern only. The server falls back to matching on bossName, so
     /// sending "바크론 (시련)" would break that fallback for anything the mobCode doesn't resolve.</summary>
     [Fact]

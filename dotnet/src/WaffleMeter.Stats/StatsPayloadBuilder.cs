@@ -665,15 +665,20 @@ public sealed class StatsPayloadBuilder
             Difficulty: info.Difficulty,
             Stage: info.Stage,
             BossIndex: info.BossIndex,
-            Trial: BuildTrialPayload());
+            Trial: BuildTrialPayload(info));
     }
 
     /// <summary>The 시련 난이도 block, or null when this run carried no difficulty knobs — which is every
-    /// dungeon except the trial, and a trial run we somehow observed nothing for.</summary>
-    private StatsTrialDifficultyPayload? BuildTrialPayload()
+    /// dungeon except the trial, and a trial run we somehow observed nothing for.
+    /// <para>Gated on the ENCOUNTER, not just on the tracker holding something. The knobs are read from
+    /// abnormals that only the trial broadcasts, but they had no expiry until 2026-08-11 and outlived the run —
+    /// so a 초월 battle fought after a trial uploaded that trial's difficulty attached to it. The tracker now
+    /// clears on leaving; this makes the payload right even if it ever leaks again, exactly as
+    /// <see cref="EncounterCatalog.DisplayName"/> does for the label.</para></summary>
+    private StatsTrialDifficultyPayload? BuildTrialPayload(EncounterInfo info)
     {
         Data.TrialDifficulty trial = _data.TrialDifficulty.Current;
-        if (!trial.IsTrial)
+        if (!info.IsTrial || !trial.IsTrial)
         {
             return null;
         }

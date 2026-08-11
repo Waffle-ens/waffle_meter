@@ -1,5 +1,5 @@
 {
- "_comment": "Supported-encounter catalog: mobCode -> (dungeon, variant, boss). Mirrors the stats web's encounter seed — regenerate with dotnet/tools/export-encounters.ts whenever that catalog changes. A battle whose boss mobCode is absent here is never uploaded; the web answers 400 unsupported_encounter for it.",
+ "_comment": "Supported-encounter catalog: mobCode -> (dungeon, variant, boss). Mirrors the stats web's encounter seed — regenerate with dotnet/tools/export-encounters.ts whenever that catalog changes. A battle whose boss mobCode is absent here is never uploaded; the web answers 400 unsupported_encounter for it.  LOCAL CORRECTIONS (2026-08-11, see the ShippedEncounterCatalogTests guards): dropped a mobless '시련 13~16단계' variant that duplicated 바크론 시련's dungeonId 600074, and moved 무스펠의 성배 보통 off the dungeonId 620021 it shared with 어려움 to the 620022 the capture corpus shows the game using. Neither field feeds the meter (it keys on mobCode); both are wrong in the web seed and should be fixed there — regenerating this asset will re-introduce them and the guards will fail again, which is the point.",
  "schemaVersion": 1,
  "dungeons": [
   {
@@ -434,13 +434,6 @@
        3
       ]
      ]
-    },
-    {
-     "label": "시련 13~16단계",
-     "dungeonId": 600074,
-     "difficulty": "시련 13~16단계",
-     "stage": null,
-     "mobs": []
     }
    ]
   },
@@ -1590,7 +1583,7 @@
    "variants": [
     {
      "label": "보통",
-     "dungeonId": 620021,
+     "dungeonId": 620022,
      "difficulty": "보통",
      "stage": null,
      "mobs": [
