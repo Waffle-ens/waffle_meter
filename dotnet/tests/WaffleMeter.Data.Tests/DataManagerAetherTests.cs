@@ -113,6 +113,24 @@ public sealed class DataManagerAetherTests
 
     private const long T0 = 1_786_000_000_000L;
 
+    /// <summary>Only the 0x610B DUMP earns the handover grace. A 0x610C change notice fires when a balance
+    /// CHANGES, which means its character was logged in and playing — so it is the outgoing character's, and
+    /// letting one through would pin their 오드 to the new character and suppress the re-seed that corrects it.</summary>
+    [Fact]
+    public void A_change_notice_inside_the_grace_window_is_still_the_outgoing_characters()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+        dm.SaveNickname(9549, "콘팡", isExecutor: true, server: 2003, jobByte: 16);
+
+        clock += 60_000;
+        dm.SaveAetherStatus(300, 100, fromSnapshot: false); // 콘팡 spent 오드 seconds before logging out
+        clock += 5_000;
+        dm.SaveNickname(9550, "마이농", isExecutor: true, server: 2003, jobByte: 12);
+
+        Assert.False(dm.CurrentAether.HasValue);
+    }
+
     [Fact]
     public void A_switch_keeps_the_balance_that_arrived_with_the_incoming_login_dump()
     {
@@ -181,12 +199,82 @@ public sealed class DataManagerAetherTests
         var dm = new DataManager { Clock = () => clock };
 
         dm.SaveAetherStatus(90, 870, fromSnapshot: true);
-        Assert.Equal((T0, true), dm.AetherOrigin);
+        Assert.Equal((T0, true, true), dm.AetherOrigin);
 
         dm.SaveAetherStatus(90, 880, fromSnapshot: false);
-        Assert.Equal((T0, false), dm.AetherOrigin);
+        Assert.Equal((T0, false, true), dm.AetherOrigin);
 
-        dm.RestoreAetherStatus(1, 2, onlyIfEmpty: false);
-        Assert.Equal((0L, false), dm.AetherOrigin); // a restore has no observation time
+        // A restore carries the time the reading it revives was ORIGINALLY taken — that is what the offline
+        // 자연회복 projection measures elapsed time from — but is never marked live.
+        dm.RestoreAetherStatus(1, 2, observedAtMs: T0 - 90_000, onlyIfEmpty: false);
+        Assert.Equal((T0 - 90_000, false, false), dm.AetherOrigin);
+    }
+
+    [Fact]
+    public void A_restore_is_never_treated_as_authoritative_over_a_live_reading()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+        dm.SaveAetherStatus(100, 50);
+
+        dm.RestoreAetherStatus(999, 999, observedAtMs: T0 - 1000); // onlyIfEmpty defaults to true
+
+        Assert.Equal((100, 50), (dm.CurrentAether.Base, dm.CurrentAether.Bonus));
+        Assert.True(dm.AetherOrigin.IsLive);
+    }
+
+    [Fact]
+    public void Dropping_a_restored_balance_leaves_a_live_one_alone()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+
+        dm.RestoreAetherStatus(300, 100, observedAtMs: T0 - 1000);
+        dm.DropRestoredAether();
+        Assert.False(dm.CurrentAether.HasValue); // no record for this character: better empty than a stranger's
+
+        dm.SaveAetherStatus(120, 30);
+        dm.DropRestoredAether();
+        Assert.True(dm.CurrentAether.HasValue);
+        Assert.Equal(120, dm.CurrentAether.Base);
+    }
+
+    // ---- the shugo-festa key rides the same packet but must be judged on its OWN arrival ----
+
+    /// <summary>The key parser has no empty-mask branch, so a character holding ZERO keys produces no reading at
+    /// all. Judging the key by the AETHER stamp therefore kept the previous character's count alive on the new
+    /// character — the clear that used to save us was vetoed by a resource that did arrive.</summary>
+    [Fact]
+    public void A_switch_drops_the_key_count_even_when_the_aether_reading_is_kept()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+        dm.SaveNickname(9549, "콘팡", isExecutor: true, server: 2003, jobByte: 16);
+        dm.SaveShugoKey(3, 0);                              // 콘팡 holds three keys
+
+        clock += 60_000;
+        dm.SaveAetherStatus(45, 900, fromSnapshot: true);   // 마이농's dump: 오드 present, keys absent (zero)
+        clock += 5_000;
+        dm.SaveNickname(9550, "마이농", isExecutor: true, server: 2003, jobByte: 12);
+
+        Assert.True(dm.CurrentAether.HasValue);             // the 오드 reading IS the incoming character's
+        Assert.False(dm.CurrentShugoKey.HasValue);          // ...but the key count was 콘팡's and must go
+    }
+
+    [Fact]
+    public void A_switch_keeps_a_key_count_that_arrived_with_the_incoming_login_dump()
+    {
+        long clock = T0;
+        var dm = new DataManager { Clock = () => clock };
+        dm.SaveNickname(9549, "콘팡", isExecutor: true, server: 2003, jobByte: 16);
+        dm.SaveShugoKey(3, 0);
+
+        clock += 60_000;
+        dm.SaveShugoKey(7, 0, fromSnapshot: true);          // 마이농 holds seven, so its record IS carried
+        clock += 5_000;
+        dm.SaveNickname(9550, "마이농", isExecutor: true, server: 2003, jobByte: 12);
+
+        Assert.True(dm.CurrentShugoKey.HasValue);
+        Assert.Equal(7, dm.CurrentShugoKey.Base);
     }
 }

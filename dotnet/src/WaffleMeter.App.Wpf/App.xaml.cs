@@ -391,11 +391,25 @@ public partial class App : Application
             // three the moment a saved battle was opened — and since _viewingHistory only clears when a NEW
             // battle starts or on reset, a badge that happened to be hidden then stayed hidden indefinitely.
             (int aBase, int aBonus, int _, bool aHas) = services.Data.CurrentAether;
-            // No observation time = the value was restored/projected, not read off a broadcast.
-            viewModel.SetAether(aBase, aBonus, aHas, estimated: services.Data.AetherOrigin.AtMs <= 0);
+            (long aAtMs, bool _, bool aLive) = services.Data.AetherOrigin;
+            if (aHas && !aLive)
+            {
+                // Restored, not measured: carry it over the 자연회복 accrued since it was taken. Projected HERE,
+                // every tick, from the stored raw reading — so the badge keeps up with a long session instead of
+                // freezing on the estimate made at launch, and agrees with the two lists (which do the same).
+                // Because the stored value is never the projected one, re-projecting cannot compound.
+                (aBase, aBonus) = AetherRegen.Project(
+                    aBase, aBonus, aAtMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            }
+
+            viewModel.SetAether(aBase, aBonus, aHas, estimated: !aLive);
             (int sBase, int sBonus, int _, bool sHas) = services.Data.CurrentShugoKey;
             viewModel.SetShugoKey(sBase, sBonus, sHas);
             viewModel.SetPing(services.CurrentPing());
+
+            // Filing a held balance dump is live bookkeeping too — it must not stall behind the history
+            // early-return below, or a zone-in while a saved battle is open would never reach the store.
+            FlushPendingAether(services);
 
             // While viewing a saved battle, hold the overlay until a NEW battle begins (React resets the
             // selected history when isInCombat); the open detail follows the SAME displayed battle (below).
@@ -606,7 +620,6 @@ public partial class App : Application
 
             MaybePromptConsent(services, window);
             FlushPendingWeeklyContent(services);
-            FlushPendingAether(services);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));
         // A reset clears the data-layer party roster; also drop the UI-side recent-combat party tracker so a stale
@@ -1874,8 +1887,9 @@ public partial class App : Application
             return; // a clock that has gone backwards, or older than we are willing to vouch for
         }
 
-        (b, bonus) = AetherRegen.Project(b, bonus, savedAtMs, nowMs);
-        services.Data.RestoreAetherStatus(b, bonus);
+        // Stored RAW, with the time it was taken — the 자연회복 projection is applied where it is displayed, so
+        // the badge keeps up as the session runs instead of freezing on the estimate made at launch.
+        services.Data.RestoreAetherStatus(b, bonus, savedAtMs);
     }
 
     /// <summary>Show what this character last held when nothing live has arrived yet. The badge's only gate is
@@ -1893,7 +1907,7 @@ public partial class App : Application
         // A LIVE reading wins and stops here. A restored one does not: the launch-time cache is a single global
         // value, so it can easily be the character the user played last night rather than the one on screen now
         // — and this character's own record, once we know who they are, is strictly the better answer.
-        if (services.Data.CurrentAether.HasValue && services.Data.AetherOrigin.AtMs > 0)
+        if (services.Data.AetherOrigin.IsLive && services.Data.CurrentAether.HasValue)
         {
             return;
         }
@@ -1907,19 +1921,22 @@ public partial class App : Application
         AetherSnapshot? remembered = AetherPerCharacterStore
             .Parse(_settings.AetherPerCharacter, _settings.AetherCharacterNames)
             .Get(hash);
-        if (remembered is not { } snapshot || snapshot.SavedAtMs <= 0)
-        {
-            return;
-        }
-
         long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        if (nowMs - snapshot.SavedAtMs > AetherRestoreMaxAgeMs)
+
+        if (remembered is not { } snapshot
+            || snapshot.SavedAtMs <= 0
+            || nowMs - snapshot.SavedAtMs > AetherRestoreMaxAgeMs)
         {
+            // Nothing remembered for THIS character — so whatever the launch-time cache put on screen belongs to
+            // some other one, and leaving it there is worse than an empty badge: the tooltip would vouch for a
+            // stranger's balance. (Widening that cache from 12 h to 7 days is what made this reachable often.)
+            services.Data.DropRestoredAether();
             return;
         }
 
-        (int b, int bonus) = AetherRegen.Project(snapshot.Base, snapshot.Bonus, snapshot.SavedAtMs, nowMs);
-        services.Data.RestoreAetherStatus(b, bonus, onlyIfEmpty: false);
+        // Raw, with its own timestamp: projected where it is displayed, never baked into the stored value.
+        services.Data.RestoreAetherStatus(
+            snapshot.Base, snapshot.Bonus, snapshot.SavedAtMs, onlyIfEmpty: false);
     }
 
     /// <summary>Persist the current aether value so the next launch can restore it, and remember it under the
@@ -1931,7 +1948,7 @@ public partial class App : Application
     private void PersistAether(MeterServices services)
     {
         (int b, int bonus, int _, bool has) = services.Data.CurrentAether;
-        (long atMs, bool fromSnapshot) = services.Data.AetherOrigin;
+        (long atMs, bool fromSnapshot, bool isLive) = services.Data.AetherOrigin;
 
         if (!has)
         {
@@ -1942,7 +1959,7 @@ public partial class App : Application
             return;
         }
 
-        if (atMs <= 0)
+        if (!isLive || atMs <= 0)
         {
             return; // a restore, not an observation
         }
@@ -1960,6 +1977,11 @@ public partial class App : Application
             return;
         }
 
+        // A 0x610C change notice supersedes any dump still waiting: it is newer AND it is unambiguous about its
+        // owner (a balance only changes while its character is logged in and playing). Left in place, the held
+        // dump would come off hold up to 30 s later and write its older numbers back over this one — losing, for
+        // instance, the +40 from a 오드 회복 소모품 used just after a zone-in.
+        _aetherPending = null;
         UpsertAetherForCurrentCharacter(services, b, bonus, atMs);
     }
 
@@ -1995,12 +2017,21 @@ public partial class App : Application
             return;
         }
 
+        AetherPerCharacterStore store = AetherPerCharacterStore.Parse(
+            _settings.AetherPerCharacter, _settings.AetherCharacterNames);
+
+        // Never let an older reading overwrite a newer one. Readings do not arrive in order — a dump can be held
+        // for its owner while a change notice files immediately — and the record's timestamp is what the offline
+        // projection measures from, so going backwards here would both show a stale balance and mis-date it.
+        if (store.Get(hash) is { } existing && existing.SavedAtMs > atMs)
+        {
+            return;
+        }
+
         // Record the name alongside the balance. The key is a one-way hash, so the 오드 목록 can only name a
         // character from a record like this one or from a consent entry — and a character the user never gave a
         // consent decision for has no consent entry at all.
         User? self = services.Data.User(services.Data.ExecutorId());
-        AetherPerCharacterStore store = AetherPerCharacterStore.Parse(
-            _settings.AetherPerCharacter, _settings.AetherCharacterNames);
         if (store.Upsert(hash, new AetherSnapshot(b, bonus, atMs, self?.Nickname, self?.Server ?? 0)))
         {
             _settings.AetherPerCharacter = store.Serialize();

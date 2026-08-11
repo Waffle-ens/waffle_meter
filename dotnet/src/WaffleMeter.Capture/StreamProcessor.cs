@@ -393,7 +393,7 @@ public sealed class StreamProcessor
                 case AetherKeyA:
                 case AetherKeyB:
                     ParseAetherStatus(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
-                    ParseShugoKey(packet, opcodeOffset + 2);
+                    ParseShugoKey(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
                     ParseWeeklyContent(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
                     break;
                 case FieldBossTimerKey:
@@ -1948,7 +1948,8 @@ public sealed class StreamProcessor
 
     /// <summary>Shugo-festa key (슈고 페스타 보상 열쇠) status, riding the same 0x610B/0x610C packets as aether
     /// (a different key byte selects it). Tried alongside aether so both resources update from one packet.</summary>
-    private void ParseShugoKey(byte[] packet, int bodyStart)
+    /// <param name="fromSnapshot">True for the 0x610B login/zone-in dump — see the aether overload.</param>
+    private void ParseShugoKey(byte[] packet, int bodyStart, bool fromSnapshot)
     {
         ShugoKeyParse s = ShugoKeyParser.TryParse(packet, bodyStart);
         if (!s.Ok)
@@ -1956,7 +1957,7 @@ public sealed class StreamProcessor
             return;
         }
 
-        _data.SaveShugoKey(s.Base, s.Bonus);
+        _data.SaveShugoKey(s.Base, s.Bonus, fromSnapshot);
         _sink.Meta("shugokey", ("base", s.Base), ("bonus", s.Bonus), ("total", s.Total));
     }
 
