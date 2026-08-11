@@ -40,6 +40,14 @@ public readonly record struct EncounterInfo(
 
     /// <summary>The stats web's category label for 공대 content. Matches the seed that generates the catalog.</summary>
     public const string RaidCategory = "성역";
+
+    /// <summary>Whether this is the 바크론 시련 — the one variant whose difficulty is NOT determined by the boss
+    /// code, because all sixteen of its levels share one map and one set of codes. It is therefore the only
+    /// encounter allowed to have its label overridden by what the affix reader worked out.</summary>
+    public bool IsTrial => string.Equals(Difficulty, TrialDifficultyLabel, StringComparison.Ordinal);
+
+    /// <summary>The web's difficulty label for 바크론 시련.</summary>
+    public const string TrialDifficultyLabel = "시련";
 }
 
 /// <summary>
@@ -193,9 +201,11 @@ public sealed class EncounterCatalog
     /// <summary>The boss name to SHOW for a mobCode — with its difficulty/stage appended when the catalog knows
     /// one. Falls back to <paramref name="mobName"/> untouched for anything uncatalogued (field bosses, trash,
     /// new content). Never used for the upload payload: the web matches on the raw name.</summary>
-    /// <param name="variantOverride">Replaces the catalogued variant label. The trial uses it to say which of
-    /// its 4~16 levels this was — the catalogue only knows the run was "시련", because every level shares one
-    /// dungeonId and one set of boss codes.</param>
+    /// <param name="variantOverride">Replaces the catalogued variant label — but ONLY for the 시련, the one
+    /// encounter whose difficulty the boss code cannot express (all sixteen levels share one dungeonId and one
+    /// set of codes). Everywhere else the code already IS the answer, so an override could only overwrite a
+    /// fact with a guess: applying it unconditionally, as this did until 2026-08-11, is what stamped
+    /// "(시련 13~16단계)" onto a 초월 2단계 boss for the rest of a session that happened to open with a trial.</param>
     public string DisplayName(int mobCode, string? mobName, string? variantOverride = null)
     {
         string fallback = mobName ?? string.Empty;
@@ -204,7 +214,7 @@ public sealed class EncounterCatalog
             return fallback;
         }
 
-        if (!string.IsNullOrWhiteSpace(variantOverride))
+        if (info.IsTrial && !string.IsNullOrWhiteSpace(variantOverride))
         {
             info = info with { VariantLabel = variantOverride! };
         }

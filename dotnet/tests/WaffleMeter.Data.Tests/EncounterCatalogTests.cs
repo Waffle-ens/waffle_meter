@@ -23,8 +23,10 @@ public sealed class EncounterCatalogTests
           "variantType": "difficulty",
           "bosses": [{"index": 1, "name": "티에"}, {"index": 2, "name": "타몬"}, {"index": 3, "name": "바크론"}],
           "variants": [
-            {"label": "보통", "dungeonId": 600072, "mobs": [[2300810, 1], [2300811, 2], [2300812, 3]]},
-            {"label": "시련", "dungeonId": 600074, "mobs": [[2300580, 1], [2300581, 2], [2300582, 3]]}
+            {"label": "보통", "dungeonId": 600072, "difficulty": "보통", "stage": null,
+             "mobs": [[2300810, 1], [2300811, 2], [2300812, 3]]},
+            {"label": "시련", "dungeonId": 600074, "difficulty": "시련", "stage": null,
+             "mobs": [[2300580, 1], [2300581, 2], [2300582, 3]]}
           ]
         },
         {
@@ -75,6 +77,29 @@ public sealed class EncounterCatalogTests
 
         Assert.Equal("바크론 (시련)", catalog.DisplayName(2300582, "바크론"));
         Assert.Equal("바크론 (보통)", catalog.DisplayName(2300812, "바크론"));
+    }
+
+    /// <summary>The 시련 is the one encounter whose difficulty its boss code cannot express — all sixteen levels
+    /// share one dungeonId and one set of codes — so it alone accepts the affix reader's answer.</summary>
+    [Fact]
+    public void Display_name_takes_the_variant_override_for_the_trial()
+    {
+        EncounterCatalog catalog = EncounterCatalog.Parse(Json);
+
+        Assert.Equal("바크론 (시련 13~16단계)", catalog.DisplayName(2300582, "바크론", "시련 13~16단계"));
+    }
+
+    /// <summary>Everywhere else the boss code IS the difficulty, so an override could only overwrite a fact with
+    /// a guess. Applying it unconditionally is what stamped "(시련 13~16단계)" onto every dungeon that followed a
+    /// trial — the difficulty tracker latched, and this had no opinion about who it was labelling.</summary>
+    [Fact]
+    public void Display_name_ignores_the_variant_override_for_every_other_encounter()
+    {
+        EncounterCatalog catalog = EncounterCatalog.Parse(Json);
+
+        Assert.Equal("바크론 (보통)", catalog.DisplayName(2300812, "바크론", "시련 13~16단계"));
+        Assert.Equal("영겁의 루드라", catalog.DisplayName(2301014, "영겁의 루드라", "시련 13~16단계"));
+        Assert.Equal("정령왕 아그로", catalog.DisplayName(2600068, "정령왕 아그로", "시련 13~16단계"));
     }
 
     /// <summary>A dungeon with one variant has nothing to disambiguate — "(전체)" would be noise.</summary>

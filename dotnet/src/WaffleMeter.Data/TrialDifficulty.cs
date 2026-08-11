@@ -88,7 +88,27 @@ public sealed class TrialDifficultyTracker
     /// would file the second run under the first one's level.</para></summary>
     public void ObservePhaseWindow(int mapId, int phase, long startMs, long windowMs)
     {
-        if (mapId != TrialMapId || phase != MainPhase)
+        if (mapId <= 0)
+        {
+            return;
+        }
+
+        if (mapId != TrialMapId)
+        {
+            // A phase window for ANOTHER map is proof the trial is over, and it is the only such proof the
+            // meter gets — there is no "you left the instance" packet. Until 2026-08-11 this method returned
+            // here without clearing, so the knobs outlived the run: one 시련 at the start of a session relabelled
+            // every dungeon after it, and 돌아온 추방자 가르가움 — a 초월 2단계 boss — rendered as
+            // "(시련 13~16단계)" for the rest of the evening.
+            //
+            // Deliberately NOT symmetrical: entering the trial's map must not clear, because this window is not
+            // ordered against the affix broadcasts and clearing on arrival would discard settings that got here
+            // first. Leaving has no such hazard — everything held is the old run's by definition.
+            Reset();
+            return;
+        }
+
+        if (phase != MainPhase)
         {
             return;
         }

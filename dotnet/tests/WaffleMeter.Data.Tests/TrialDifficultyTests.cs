@@ -145,6 +145,60 @@ public sealed class TrialDifficultyTests
         Assert.False(tracker.Current.IsTrial);
     }
 
+    /// <summary>A phase window for another map is the only proof the meter gets that the trial is over — there
+    /// is no "you left the instance" packet. Without this the knobs outlived the run and one 시련 at the start
+    /// of a session relabelled every dungeon after it (돌아온 추방자 가르가움, a 초월 2단계 boss, rendered as
+    /// "(시련 13~16단계)" all evening).</summary>
+    [Fact]
+    public void Entering_another_dungeon_ends_the_trial_run()
+    {
+        var tracker = new TrialDifficultyTracker();
+        tracker.ObservePhaseWindow(TrialDifficultyTracker.TrialMapId, 2, startMs: 1000, windowMs: 600_000);
+        tracker.Observe(TrialAffixGroup.BossBuff, 4);
+        tracker.Observe(TrialAffixGroup.BakronSkillUpgrade, 4);
+        Assert.True(tracker.Current.IsTrial);
+
+        // 심연의 뿔 암굴 2단계 — any phase of it, including a transition.
+        tracker.ObservePhaseWindow(610031, 2, startMs: 900_000, windowMs: 1_800_000);
+
+        Assert.False(tracker.Current.IsTrial);
+        Assert.Equal(string.Empty, tracker.Current.Label);
+    }
+
+    [Fact]
+    public void A_transition_phase_of_another_dungeon_also_ends_the_run()
+    {
+        var tracker = new TrialDifficultyTracker();
+        tracker.Observe(TrialAffixGroup.BossBuff, 4);
+        tracker.ObservePhaseWindow(610031, 3, startMs: 900_000, windowMs: 10_000);
+
+        Assert.False(tracker.Current.IsTrial);
+    }
+
+    /// <summary>Re-entering the trial must not clear on arrival: this window is not ordered against the affix
+    /// broadcasts, so clearing here would discard settings that got in first. Only LEAVING clears.</summary>
+    [Fact]
+    public void Coming_back_to_the_trial_keeps_affixes_that_arrived_first()
+    {
+        var tracker = new TrialDifficultyTracker();
+        tracker.ObservePhaseWindow(610031, 2, startMs: 1000, windowMs: 1_800_000); // elsewhere first
+        tracker.Observe(TrialAffixGroup.BossBuff, 4);                              // affix beats the window
+        tracker.ObservePhaseWindow(TrialDifficultyTracker.TrialMapId, 2, startMs: 900_000, windowMs: 600_000);
+
+        Assert.Equal(4, tracker.Current.BossBuff);
+        Assert.Equal(4, tracker.Current.Timelimit);
+    }
+
+    [Fact]
+    public void A_zero_map_id_is_ignored_rather_than_treated_as_leaving()
+    {
+        var tracker = new TrialDifficultyTracker();
+        tracker.Observe(TrialAffixGroup.BossBuff, 4);
+        tracker.ObservePhaseWindow(0, 2, startMs: 1000, windowMs: 600_000);
+
+        Assert.Equal(4, tracker.Current.BossBuff);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(5)]
