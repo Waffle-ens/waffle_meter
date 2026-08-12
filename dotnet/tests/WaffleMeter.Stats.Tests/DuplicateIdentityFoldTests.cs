@@ -43,6 +43,14 @@ public sealed class DuplicateIdentityFoldTests
             },
             PartyRosterSize = 10,
             PartySlots = new Dictionary<int, int> { [3] = ghostSlot, [2] = realSlot },
+            // 동결된 초당 시계열도 uid별로 갈린다. 각 배열의 합 = 그 uid의 Information.Amount 이어야 접은 뒤에도
+            // sum(damage) == Result.TotalDamage 가 성립한다.
+            DpsSeries = new Dictionary<int, long[]>
+            {
+                [1] = [400_000, 600_000, 0],
+                [2] = [600_000, 0, 0],
+                [3] = [0, 0, 1],
+            },
         };
 
         return new DpsLog
@@ -164,6 +172,43 @@ public sealed class DuplicateIdentityFoldTests
         Assert.Equal(me.Result.TotalDamage, payload.Result.TotalDamage);
         Assert.Equal(1_000_001, payload.Result.TotalDamage);
         Assert.Equal(2, payload.Buffs.Count); // 최상위 버프도 두 uid 합
+    }
+
+    [Fact]
+    public void The_dps_series_is_folded_element_wise_so_the_graph_matches_the_row_it_sits_on()
+    {
+        // 접기가 숫자만 합치고 시계열을 안 접으면, 같은 참가자 행에서 Result.TotalDamage 는 두 uid의 합인데
+        // 그래프는 한쪽 uid 몫만 그려진다 — 웹이 바로 잡아낼 수 있는 자기모순이다.
+        DataManager dm = PartyWithRezonedSelf();
+        StatsUploadPayload payload = Build(dm, LogWithDuplicate(dm, ghostSlot: 8, realSlot: 2));
+
+        StatsParticipantPayload me = payload.Participants.Single(p => p.IsUploader);
+        Assert.Equal([400_000L, 600_000L, 1L], me.DpsSeries!.Damage); // uid 1 + uid 3, 원소별 합
+        Assert.Equal(me.Result.TotalDamage, me.DpsSeries.Damage.Sum());
+
+        // 최상위 시계열도 접힌 대표 기준이어야 한다. 예전엔 접기 전 own.Id로 읽어서 여기만 유령의 1딜이 빠졌다.
+        Assert.Equal(me.DpsSeries.Damage, payload.DpsSeries!.Damage);
+        Assert.Equal(payload.Result.TotalDamage, payload.DpsSeries.Damage.Sum());
+
+        StatsParticipantPayload ally = payload.Participants.Single(p => !p.IsUploader);
+        Assert.Equal([600_000L, 0L, 0L], ally.DpsSeries!.Damage); // 남의 것이 섞이지 않는다
+    }
+
+    [Fact]
+    public void Folding_never_writes_into_the_frozen_snapshot_arrays()
+    {
+        // 🚨 DataManager.SaveBattleLog 는 DpsSeries dict와 그 배열을 '참조로' 넘긴다 — 히스토리 패널, 지금 화면에
+        // 떠 있는 전투 리포트, 리플레이 엔진이 같은 인스턴스를 본다. 게다가 이 빌더는 업로드 워커 스레드에서 돈다.
+        // 합산을 제자리에서 하면 남의 화면이 오염되고 스레드 레이스까지 된다.
+        DataManager dm = PartyWithRezonedSelf();
+        DpsLog log = LogWithDuplicate(dm, ghostSlot: 8, realSlot: 2);
+        long[] frozenReal = log.Report.DpsSeries[1];
+        long[] frozenGhost = log.Report.DpsSeries[3];
+
+        Build(dm, log);
+
+        Assert.Equal([400_000L, 600_000L, 0L], frozenReal);
+        Assert.Equal([0L, 0L, 1L], frozenGhost);
     }
 
     [Fact]

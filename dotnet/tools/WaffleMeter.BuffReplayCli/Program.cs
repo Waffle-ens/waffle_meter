@@ -236,8 +236,13 @@ void PrintPayload(DpsLog log)
         Console.WriteLine($"      !! participant category != \"buff\" ({badCategory.Count}행) — 통계웹 zod가 payload 전체를 거절한다");
     }
 
-    if (p.SchemaVersion != 4)
+    // 미터가 찍는 스키마 번호가 <b>라이브</b> 웹이 실제로 받아들이는 범위를 넘었는지 보는 카나리아. 웹 zod는
+    // schemaVersion을 리터럴 유니온으로 못박고 있어 범위를 넘으면 400 invalid_schema이고, 미터는 4xx를 재시도하지
+    // 않으므로 그 전투는 영구 소실된다. ⚠️ 이 상한은 웹에 z.literal(N)이 <b>배포된 뒤에</b> 올린다 — 미터를 먼저
+    // 올리라는 신호가 아니다. (이 경고를 오래 방치해 !=4로 굳었던 전례가 있다.)
+    const int liveWebMaxSchemaVersion = 5;
+    if (p.SchemaVersion > liveWebMaxSchemaVersion)
     {
-        Console.WriteLine($"      !! schemaVersion={p.SchemaVersion} — 라이브 웹은 2|3|4만 허용");
+        Console.WriteLine($"      !! schemaVersion={p.SchemaVersion} — 라이브 웹은 2~{liveWebMaxSchemaVersion}만 허용 (웹 배포 전이면 업로드가 400난다)");
     }
 }

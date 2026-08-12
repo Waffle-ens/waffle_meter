@@ -81,7 +81,7 @@ public sealed class StatsPayloadBuilderTests
         DataManager dm = TwoPlayerParty();
         StatsUploadPayload payload = BuildOk(dm, SampleLog(dm));
 
-        Assert.Equal(5, payload.SchemaVersion);
+        Assert.Equal(6, payload.SchemaVersion);
         Assert.Equal("1.7.9", payload.ClientVersion);
         Assert.Equal(1_700_000_000_000, payload.UploadedAt);
         Assert.Equal(StatsIdentity.CharacterIdentityHash(3, "Me"), payload.Character.IdentityHash);
@@ -176,6 +176,80 @@ public sealed class StatsPayloadBuilderTests
     }
 
     [Fact]
+    public void Every_participant_carries_its_own_frozen_dps_series()
+    {
+        // v6의 본체: 그래프 소스를 업로더 한 명이 아니라 참가자 전원이 싣는다. 계산·동결은 원래부터 전원분으로
+        // 돌고 있었고(DpsCalculator.BuildDpsSeries) payload가 업로더 것만 꺼내 쓰느라 나머지를 버리던 것이다.
+        DataManager dm = TwoPlayerParty();
+        DpsLog log = SampleLog(dm);
+        log.Report.DpsSeries = new Dictionary<int, long[]>
+        {
+            [1] = [100, 0, 200], // 업로더
+            [2] = [10, 20, 30],  // 동료
+        };
+
+        StatsUploadPayload payload = BuildOk(dm, log);
+
+        StatsParticipantPayload me = payload.Participants.Single(p => p.IsUploader);
+        StatsParticipantPayload ally = payload.Participants.Single(p => !p.IsUploader);
+
+        Assert.Equal([100L, 0L, 200L], me.DpsSeries!.Damage);
+        Assert.Equal(1, me.DpsSeries.Step);
+        Assert.Equal([10L, 20L, 30L], ally.DpsSeries!.Damage); // 동료 것이 업로더 것으로 뭉개지지 않는다
+        Assert.Equal(1, ally.DpsSeries.Step);
+
+        // 최상위 dpsSeries는 v5까지만 읽는 웹을 위한 업로더 하위호환 필드 — 참가자 행과 값이 같아야 한다.
+        Assert.Equal(me.DpsSeries.Damage, payload.DpsSeries!.Damage);
+        Assert.Equal(me.DpsSeries.Step, payload.DpsSeries.Step);
+    }
+
+    [Fact]
+    public void A_participant_without_a_frozen_series_omits_it_rather_than_sending_an_empty_one()
+    {
+        // 딜은 있는데 시계열이 없는 참가자는 실제로 생긴다(타임스탬프 없는 타격만 있었던 경우 등). 그 한 명 때문에
+        // 전투 전체를 버리거나 빈 배열을 보내면 안 된다 — 빈 배열은 null과 달리 그대로 직렬화된다.
+        DataManager dm = TwoPlayerParty();
+        DpsLog log = SampleLog(dm);
+        log.Report.DpsSeries = new Dictionary<int, long[]> { [1] = [100, 0, 200] }; // 동료 것만 없다
+
+        StatsUploadPayload payload = BuildOk(dm, log);
+
+        Assert.NotNull(payload.Participants.Single(p => p.IsUploader).DpsSeries);
+        Assert.Null(payload.Participants.Single(p => !p.IsUploader).DpsSeries);
+    }
+
+    [Theory]
+    [InlineData(900, 1, 900)]      // 상한 정확히(≈15분) — 접지 않는다
+    [InlineData(901, 2, 450)]      // 한 칸 넘으면 2초 버킷, 마지막 홀수 초는 버린다
+    [InlineData(1801, 3, 600)]     // 30분 초과 → 3초 버킷
+    [InlineData(3600, 4, 900)]     // 1시간 → 4초 버킷 (예전엔 3,600 샘플 그대로 나가 웹 상한 3,600에 걸렸다)
+    [InlineData(54_001, 60, 900)]  // 전투 창이 비정상적으로 길어져도 step은 웹 상한 60에서 멈춘다(400 = 전투 소실 회피)
+    public void A_long_battle_is_folded_into_buckets_that_stay_under_the_sample_cap(int seconds, int expectedStep, int expectedSamples)
+    {
+        // 웹은 damage 배열을 3,600개로 제한한다. 그건 업로더 한 명 기준이라 16명 × 3,600이면 본문 1MB 한도에
+        // 붙는다 — 그래서 참가자당 900샘플로 접는다. 웹 표시는 어차피 3초 버킷이라 시각적 손실은 없다.
+        DataManager dm = TwoPlayerParty();
+        DpsLog log = SampleLog(dm);
+        long[] perSecond = Enumerable.Repeat(7L, seconds).ToArray();
+        log.Report.DpsSeries = new Dictionary<int, long[]> { [1] = perSecond };
+
+        StatsUploadPayload payload = BuildOk(dm, log);
+
+        StatsDpsSeriesPayload series = payload.Participants.Single(p => p.IsUploader).DpsSeries!;
+        Assert.Equal(expectedStep, series.Step);
+        Assert.Equal(expectedSamples, series.Damage.Count);
+        Assert.True(series.Damage.Count <= 900);
+        Assert.True(series.Step <= 60);   // 웹 zod가 step에 건 상한
+        // 최상위(v5 하위호환) 시계열도 같은 다운샘플을 거쳐야 한다 — 두 자리가 갈리면 웹이 어느 쪽을 믿을지 모른다.
+        Assert.Equal(series.Step, payload.DpsSeries!.Step);
+        Assert.Equal(series.Damage, payload.DpsSeries.Damage);
+        // 버킷 값은 그 구간 피해의 '합'이다. 평균을 넣으면 웹이 합/(샘플수×step)으로 나누면서 표시 DPS가 1/N로 준다.
+        Assert.All(series.Damage, v => Assert.Equal(7L * expectedStep, v));
+        // 마지막 불완전 버킷은 버린다 — 잔여 초를 그대로 실으면 웹이 step초로 간주해 마지막 점이 과소 표시된다.
+        Assert.Equal(7L * expectedStep * expectedSamples, series.Damage.Sum());
+    }
+
+    [Fact]
     public void Missing_dps_snapshot_omits_the_graph_fields()
     {
         // A report without the frozen snapshot (old/pre-freeze) must omit dpsSeries/selfBuffIntervals, not send empty.
@@ -184,6 +258,7 @@ public sealed class StatsPayloadBuilderTests
 
         Assert.Null(payload.DpsSeries);
         Assert.Null(payload.SelfBuffIntervals);
+        Assert.All(payload.Participants, p => Assert.Null(p.DpsSeries)); // 참가자 행도 마찬가지로 생략
     }
 
     [Fact]
@@ -247,7 +322,12 @@ public sealed class StatsPayloadBuilderTests
 
         Assert.All(payload.Buffs, b => Assert.Equal("buff", b.Category));
         Assert.All(payload.BossDebuffs, b => Assert.Equal("debuff", b.Category));
-        Assert.Equal(5, payload.SchemaVersion); // v5 = additive frontRate + dpsSeries + selfBuffIntervals (web accepts v5)
+        // 스키마 이력 (이 레포에서 어떤 필드가 어느 버전에 들어갔는지 적어두는 유일한 자리):
+        //   v5 = frontRate + dpsSeries(업로더) + selfBuffIntervals
+        //   v6 = participants[].dpsSeries — 파티원 전원의 DPS 추이 그래프
+        // ⚠️ 웹 zod의 리터럴 유니온이 이 번호를 받아들여야 한다. 웹 배포 전에 미터를 내면 400 invalid_schema로
+        //    전투가 영구 소실된다(미터에 4xx 재시도 없음).
+        Assert.Equal(6, payload.SchemaVersion);
     }
 
     [Fact]

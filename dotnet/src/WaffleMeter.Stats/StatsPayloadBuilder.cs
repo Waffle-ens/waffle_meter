@@ -205,12 +205,18 @@ public sealed class StatsPayloadBuilder
         StatsSynergyPayload synergy = BuildSynergy(folded.Representatives);
         string battleHash = BattleHash(own.Server, ownNickname, mob.Code, report.BattleStart, report.BattleEnd, totalDamage, duration);
 
-        // ── Combat-detail DPS graph sources (uploader only; frozen at save time, so present here — but omit if a
-        //    report somehow lacks them, e.g. an old/pre-freeze snapshot). ──
-        long[]? ownSeries = report.DpsSeries.GetValueOrDefault(own.Id);
-        StatsDpsSeriesPayload? dpsSeries =
-            ownSeries is { Length: > 0 } ? new StatsDpsSeriesPayload(Step: 1, Damage: ownSeries) : null;
+        // ── Combat-detail DPS graph sources (frozen at save time, so present here — but omit if a report somehow
+        //    lacks them, e.g. an old/pre-freeze snapshot). ──
+        // 시계열은 v6부터 참가자 <b>전원</b>이 각자 싣는다(BuildParticipantPayloads). 이 최상위 필드는 업로더 몫으로
+        // 남는다 — v5까지만 읽는 웹이 업로더 그래프를 잃지 않게 하는 하위호환 자리이고, 같은 소스·같은 다운샘플을
+        // 거치므로 참가자 행과 항상 같은 값이다.
+        // ⚠️ 접기 전 own.Id가 아니라 <b>대표 uid</b>로 읽는다. 본인이 재등록돼 두 uid로 갈린 전투에서 예전 코드는
+        //    최상위 Result·Skills·Buffs 는 접힌 합인데 그래프만 한쪽 uid 몫이라, 같은 payload 안에서
+        //    sum(dpsSeries.damage) != result.totalDamage 였다.
+        StatsDpsSeriesPayload? dpsSeries = BuildSeriesPayload(folded.Series.GetValueOrDefault(ownRepresentativeId));
 
+        // 버프 인터벌은 아직 업로더 전용이고 접기 전 uid를 쓴다. 참가자별 버프 레인은 웹 UI가 "내 버프" 전제로
+        // 만들어져 있어 이번 슬라이스 밖이다 — 손대려면 시전자 필터를 참가자별로 일반화하는 게 먼저다.
         IReadOnlyList<StatsSelfBuffIntervalPayload>? selfBuffIntervals = null;
         if (report.BuffIntervals.GetValueOrDefault(own.Id) is { Count: > 0 } ownTimelines)
         {
@@ -231,7 +237,10 @@ public sealed class StatsPayloadBuilder
         }
 
         var payload = new StatsUploadPayload(
-            SchemaVersion: 5,
+            // v6 = participants[].dpsSeries (전원 DPS 추이 그래프). ⚠️ 웹의 zod가 스키마 번호를 리터럴 유니온으로
+            // 못박고 있고 미터는 4xx를 재시도하지 않는다 — 웹이 6을 받아들이기 전에 이 빌드를 내보내면 그 전투들은
+            // 400 invalid_schema로 <b>영구 소실</b>된다. 배포 순서: 웹 먼저, 미터 나중.
+            SchemaVersion: 6,
             ClientVersion: clientVersion,
             BattleHash: battleHash,
             IdentityHashVersion: StatsIdentity.IdentityHashVersion,
@@ -302,7 +311,8 @@ public sealed class StatsPayloadBuilder
         Dictionary<int, DpsInformation> Information,
         Dictionary<int, Dictionary<string, AnalyzedSkill>> Skills,
         Dictionary<int, List<OperatingData>> Buffs,
-        Dictionary<int, int> PartySlots);
+        Dictionary<int, int> PartySlots,
+        Dictionary<int, long[]> Series);
 
     /// <summary>
     /// 같은 캐릭터가 두 uid로 참가자에 들어온 경우를 하나로 접는다.
@@ -316,7 +326,7 @@ public sealed class StatsPayloadBuilder
     /// 두 행으로 쪼개져 보인다.</para>
     /// <para>접는 키는 <b>신원 해시</b>(server|nickname)다 — 웹이 참가자를 식별하는 키와 같아야 하기 때문이다.
     /// 닉네임이나 서버가 없어 해시를 못 만드는 행은 접지 않는다(서로 다른 사람일 수 있다). 대표는 <b>딜이 가장
-    /// 많은 uid</b>이고(호출부가 이미 내림차순으로 넘긴다) 숫자·스킬·버프는 전부 합산한다 — 버리는 값이 없다.
+    /// 많은 uid</b>이고(호출부가 이미 내림차순으로 넘긴다) 숫자·스킬·버프·초당 시계열은 전부 합산한다 — 버리는 값이 없다.
     /// 슬롯은 접힌 uid 중 하나라도 갖고 있으면 대표가 물려받는다(①의 직접 해소).</para>
     /// </summary>
     private FoldedParticipants FoldParticipants(DpsLog log, List<User> damageSorted)
@@ -328,6 +338,7 @@ public sealed class StatsPayloadBuilder
         var skills = new Dictionary<int, Dictionary<string, AnalyzedSkill>>();
         var buffs = new Dictionary<int, List<OperatingData>>();
         var partySlots = new Dictionary<int, int>();
+        var series = new Dictionary<int, long[]>();
 
         foreach (User user in damageSorted)
         {
@@ -375,9 +386,36 @@ public sealed class StatsPayloadBuilder
             {
                 partySlots[representative] = slot;
             }
+
+            // 초당 시계열도 합산 대상이다. 안 접으면 그 행의 Result.TotalDamage 는 두 uid의 합인데 그래프는 한쪽
+            // 몫이라, 같은 참가자 행 안에서 sum(damage) != totalDamage 가 된다(웹이 바로 잡아낼 수 있는 모순).
+            // 🚨 저장된 배열을 제자리에서 더하지 않는다. DataManager.SaveBattleLog 는 이 dict와 배열을 <b>참조로</b>
+            //    넘겨서 히스토리 패널·현재 표시 중인 리포트·리플레이 엔진이 같은 인스턴스를 보고 있고, 이 빌더는
+            //    업로드 워커 스레드에서 돈다 — 제자리 수정은 곧 남의 화면 오염이자 데이터 레이스다. 실제로 합칠
+            //    때만 새 배열을 만든다(중복 자체가 드물어 평상시엔 복사가 0회다).
+            if (log.Report.DpsSeries.GetValueOrDefault(user.Id) is { Length: > 0 } frozenSeries)
+            {
+                series[representative] = series.TryGetValue(representative, out long[]? mergedSoFar)
+                    ? AddSeries(mergedSoFar, frozenSeries)
+                    : frozenSeries;
+            }
         }
 
-        return new FoldedParticipants(representatives, representativeOf, information, skills, buffs, partySlots);
+        return new FoldedParticipants(representatives, representativeOf, information, skills, buffs, partySlots, series);
+    }
+
+    /// <summary>두 초당 배열을 <b>새</b> 배열에 원소별로 더한다(입력은 건드리지 않는다). 같은 전투 창에서 만들어져
+    /// 길이가 같지만(GetDpsSeries 는 BattleStart/BattleEnd 로만 길이를 정한다) 방어적으로 긴 쪽에 맞춘다.</summary>
+    private static long[] AddSeries(long[] first, long[] second)
+    {
+        long[] merged = new long[Math.Max(first.Length, second.Length)];
+        Array.Copy(first, merged, first.Length);
+        for (int i = 0; i < second.Length; i++)
+        {
+            merged[i] += second[i];
+        }
+
+        return merged;
     }
 
     /// <summary>스킬 분해를 대상 사전에 더한다. 카운터는 전부 가산이고, 스킬코드·특화(RawSkillCode)·이름은
@@ -489,10 +527,63 @@ public sealed class StatsPayloadBuilder
                         IndexOrNull(participantIndexById, user.Id),
                         IndexOrNull(participantIndexById, v.ActorId),
                         actorIdentity(v.ActorId)))
-                    .ToList()));
+                    .ToList(),
+                // 이 사람의 초당 피해 시계열. 계산·동결은 이미 전원분으로 돌고 있었고(DpsCalculator.BuildDpsSeries가
+                // 기여자 전체를 돈다) payload가 업로더 것만 꺼내 쓰느라 버려지던 값이다 — 웹 전투상세가 파티원
+                // 전원에게 DPS 추이 그래프를 그릴 수 있게 하는 유일한 소스. 없으면 null(빈 배열 아님).
+                DpsSeries: BuildSeriesPayload(folded.Series.GetValueOrDefault(user.Id))));
         }
 
         return result;
+    }
+
+    /// <summary>참가자 한 명이 실어 보내는 시계열 샘플 수 상한. 웹 스키마는 3,600까지 받지만 그건 <b>업로더 한 명</b>
+    /// 기준이라 16명 × 3,600 = 5.7만 샘플이 되면 본문 1MB 한도에 붙는다. 웹 표시는 어차피 3초 버킷이라 900샘플이면
+    /// 약 15분 전투까지 step=1 무손실이고, 그보다 긴 전투만 접힌다.</summary>
+    private const int MaxSeriesSamples = 900;
+
+    /// <summary>웹 zod가 <c>step</c>에 걸어둔 상한. 정상 전투는 근처도 못 간다(step 60 = 15시간 창). 하지만 전투
+    /// 창 길이는 이 빌더가 정하는 값이 아니라 BattleStart~BattleEnd 실측이고, 이 미터는 전투가 안 닫히는 결함을
+    /// 여러 번 겪었다 — 창이 비정상적으로 길어지면 step이 상한을 넘어 payload가 통째로 400나고, 4xx는 재시도가
+    /// 없으니 <b>그 전투가 영구 소실</b>된다. 여기서 잘라 앞부분만 그래프로 남기고 전투 자체는 살린다.</summary>
+    private const int MaxSeriesStep = 60;
+
+    /// <summary>초당 피해 배열을 payload 시계열로 만든다. 스냅샷이 없으면 null — <b>빈 배열을 보내지 않는다</b>
+    /// (StatsJson은 null만 생략하고 <c>[]</c>는 그대로 쓴다).
+    /// <para><see cref="MaxSeriesSamples"/>를 넘으면 N초 버킷의 <b>합</b>으로 접고 <c>Step=N</c>을 실어 웹이 그대로
+    /// 해석하게 한다 — 웹은 합/(샘플수×step)으로 DPS를 만들므로 여기에 평균을 넣으면 표시 DPS가 1/N로 준다.
+    /// 마지막 불완전 버킷은 <b>버린다</b>: 잔여 초를 그대로 실으면 웹이 그것도 step초로 간주해 마지막 점이 과소
+    /// 표시된다. 대신 그래프 길이가 최대 step-1초 짧아지는데, 15분 넘는 전투에서만 생기는 오차다.</para></summary>
+    private static StatsDpsSeriesPayload? BuildSeriesPayload(long[]? series)
+    {
+        if (series is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        int step = Math.Min((series.Length + MaxSeriesSamples - 1) / MaxSeriesSamples, MaxSeriesStep);
+        if (step <= 1)
+        {
+            return new StatsDpsSeriesPayload(Step: 1, Damage: series);
+        }
+
+        // 정수 누산만 쓴다 — 웹 zod가 damage 원소를 nonnegative int로 못박고 있어 소수가 섞이면 그 업로드가 통째로
+        // 400난다. 완전한 버킷만 돈다(series.Length / step): 잔여 초는 위 주석대로 버린다. step이 상한에 걸린
+        // 비정상 길이에서는 샘플 수도 같이 잘라 앞부분만 남긴다(전투를 통째로 잃는 것보다 낫다).
+        long[] bucketed = new long[Math.Min(series.Length / step, MaxSeriesSamples)];
+        for (int bucket = 0; bucket < bucketed.Length; bucket++)
+        {
+            long sum = 0;
+            int end = (bucket + 1) * step;
+            for (int i = bucket * step; i < end; i++)
+            {
+                sum += series[i];
+            }
+
+            bucketed[bucket] = sum;
+        }
+
+        return new StatsDpsSeriesPayload(step, bucketed);
     }
 
     private List<User> ResolveContributors(IEnumerable<User> contributors) =>

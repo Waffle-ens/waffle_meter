@@ -110,4 +110,26 @@ public sealed class StatsSerializationTests
         Assert.Contains("\"name\":\"원소 강화\"", interval);
         Assert.Contains("\"spans\":[5,20]", interval);
     }
+
+    [Fact]
+    public void Participant_rows_carry_their_own_dps_series_under_the_same_wire_key()
+    {
+        // v6 계약: 시계열이 participants[] 안에도 들어간다. 웹 zod가 participants 요소에 dpsSeries를 선언하기 전에는
+        // unknown 키라 조용히 strip된다(400도 안 난다) — 그래서 키 이름이 정확히 일치해야 한다.
+        var result = new StatsResultPayload(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        string withSeries = StatsJson.Serialize(new StatsParticipantPayload(
+            IdentityHash: "abc", IsUploader: false, Job: "마도성", Power: 3000,
+            Result: result, Skills: [], Buffs: [],
+            DpsSeries: new StatsDpsSeriesPayload(Step: 2, Damage: [10L, 20L])));
+
+        Assert.Contains("\"dpsSeries\":{\"step\":2,\"damage\":[10,20]}", withSeries);
+
+        // 시계열이 없는 참가자는 빈 배열이 아니라 키 자체가 빠진다(StatsJson은 null만 생략한다).
+        string without = StatsJson.Serialize(new StatsParticipantPayload(
+            IdentityHash: "abc", IsUploader: false, Job: "마도성", Power: 3000,
+            Result: result, Skills: [], Buffs: []));
+
+        Assert.DoesNotContain("dpsSeries", without);
+    }
 }

@@ -16,6 +16,7 @@ public sealed class DpsGraphDataTests
     private const int Instance = 100;
     private const int BossCode = 2301008;
     private const int Dealer = 5001;
+    private const int Ally = 5002;
 
     private static (DataManager Dm, DpsCalculator Calc, long[] Clock) Boss()
     {
@@ -27,10 +28,12 @@ public sealed class DpsGraphDataTests
         return (dm, new DpsCalculator(dm), now);
     }
 
-    private static void Hit(DataManager dm, long timestamp, int damage) =>
+    private static void HitBy(DataManager dm, int actorId, long timestamp, int damage) =>
         dm.SaveDamage(
-            new ParsedDamagePacket { ActorId = Dealer, TargetId = Instance, Damage = damage, Timestamp = timestamp },
+            new ParsedDamagePacket { ActorId = actorId, TargetId = Instance, Damage = damage, Timestamp = timestamp },
             dm.CurrentEpoch());
+
+    private static void Hit(DataManager dm, long timestamp, int damage) => HitBy(dm, Dealer, timestamp, damage);
 
     private static Buff Cat(int code, string name) => new(code, name, "요약", "효과");
 
@@ -156,5 +159,38 @@ public sealed class DpsGraphDataTests
         BuffTimeline buff = Assert.Single(frozenBuffs!);
         Assert.Equal("살기 파열", buff.Name);
         Assert.Equal(1500L, buff.Spans.Sum(s => s.End - s.Start));
+    }
+
+    [Fact]
+    public void The_saved_report_freezes_a_series_for_every_contributor_not_just_the_executor()
+    {
+        // 업로드 payload가 파티원 전원의 DPS 추이를 실을 수 있는 근거. 동결은 원래부터 기여자 전원분으로 돌고
+        // 있었고(BuildDpsSeries가 Contributors를 순회한다), payload 쪽이 업로더 것만 꺼내 쓰고 있었을 뿐이다.
+        (DataManager dm, DpsCalculator calc, long[] clock) = Boss();
+        dm.SaveNickname(Ally, "동료", isExecutor: false, server: 2003, jobByte: 25);
+        DpsLog? saved = null;
+        calc.OnBattleLogged = l => saved = l;
+
+        long toggle = clock[0];
+        dm.MobHp(Instance, 20_000);
+        dm.StartBattle(Instance);
+        Hit(dm, toggle + 1_000, 3000);          // 본인: second 0
+        HitBy(dm, Ally, toggle + 2_000, 1000);  // 동료: second 1
+        HitBy(dm, Ally, toggle + 3_000, 5000);  // 동료: second 2
+        calc.GetDps();
+
+        clock[0] = toggle + 4_000;
+        dm.EndBattle(Instance);
+        calc.GetDps();
+
+        Assert.NotNull(saved);
+        Assert.True(saved!.Report.DpsSeries.TryGetValue(Dealer, out long[]? mine));
+        Assert.True(saved.Report.DpsSeries.TryGetValue(Ally, out long[]? theirs));
+
+        Assert.Equal(3000L, mine!.Sum());   // 각자 자기 딜만 — 서로 섞이지 않는다
+        Assert.Equal(6000L, theirs!.Sum());
+        Assert.Equal(3000L, mine[0]);
+        Assert.Equal(0L, theirs![0]);
+        Assert.Equal(mine.Length, theirs.Length); // 같은 전투 창에서 만들어져 인덱스가 맞물린다
     }
 }

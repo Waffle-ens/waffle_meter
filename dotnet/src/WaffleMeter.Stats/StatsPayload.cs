@@ -29,13 +29,21 @@ public sealed record StatsUploadPayload(
     IReadOnlyList<StatsSkillPayload> Skills,
     IReadOnlyList<StatsBuffPayload> Buffs,
     IReadOnlyList<StatsBuffPayload> BossDebuffs,
-    // The uploader's (self) combat-detail DPS graph sources. Null (omitted) when the frozen snapshot is absent
-    // (e.g. a pre-save/live report) — the web then hides the chart. Uploader-only, not per participant.
+    // The uploader's (self) combat-detail DPS graph source. Null (omitted) when the frozen snapshot is absent
+    // (e.g. a pre-save/live report) — the web then hides the chart.
+    // Since v6 EVERY participant carries its own series in Participants[].DpsSeries; this root field stays as the
+    // uploader's copy so a web that only reads v5 keeps its chart. Same source and same downsampling as the
+    // uploader's participant row, so the two never disagree.
     StatsDpsSeriesPayload? DpsSeries = null,
     IReadOnlyList<StatsSelfBuffIntervalPayload>? SelfBuffIntervals = null);
 
-/// <summary>The uploader's per-second damage series. <see cref="Damage"/>[i] = damage dealt in the i-th second
-/// from battle start; <see cref="Step"/> = seconds per sample (1). The web aggregates/smooths it for display.</summary>
+/// <summary>One combatant's per-second damage series. <see cref="Damage"/>[i] = damage dealt during the i-th
+/// sample from battle start, and <see cref="Step"/> = seconds per sample — so sample i covers seconds
+/// <c>[i*Step, (i+1)*Step)</c> and its value is that window's damage SUM (never an average: the web divides by
+/// <c>samples * step</c> itself to get DPS).
+/// <para><see cref="Step"/> is 1 for any battle short enough to send raw; longer ones are folded into Step-second
+/// buckets so no single series exceeds the site's sample cap. A trailing partial bucket is dropped rather than
+/// sent as if it were a full one, so the series can end up to <c>Step-1</c> seconds short of the battle.</para></summary>
 public sealed record StatsDpsSeriesPayload(int Step, IReadOnlyList<long> Damage);
 
 /// <summary>One of the uploader's own class(딜) buffs and when it was up. <see cref="Spans"/> is a flat
@@ -123,7 +131,12 @@ public sealed record StatsParticipantPayload(
     // 10-인 공대(5+5) sub-party: PartyNumber 1 = uploader's party (slots 1-5), 2 = the other party (slots 6-10);
     // PartySlot is the raw 1-10 roster slot. Both null for a non-raid (5-인 이하) or an unmatched participant.
     int? PartyNumber = null,
-    int? PartySlot = null);
+    int? PartySlot = null,
+    // v6: THIS participant's per-second damage series — what makes the site's combat-detail DPS graph drawable for
+    // every party member instead of the uploader alone. Null (omitted, never an empty array) when the frozen
+    // snapshot has nothing for them: a pre-freeze report, or damage that never reached a second bucket. Every
+    // participant's series in one battle covers the same window, so they line up index-for-index.
+    StatsDpsSeriesPayload? DpsSeries = null);
 
 public sealed record StatsResultPayload(
     long TotalDamage,
