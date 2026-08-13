@@ -14,13 +14,29 @@ using WaffleMeter.Data;
 // Usage: dotnet run --project <ReplayCli> -c Release -- <corpus.jsonl> [skills.json]
 //   (mobs.json is loaded from the same directory as skills.json)
 
-if (args.Length < 1)
+// Optional NDJSON dump of every replayed damage packet, including the special-damage flags
+// (PERFECT / DOUBLE / BACK / …) that the packet-debug corpus itself does NOT record. Opt-in only:
+// without the flag this tool behaves exactly as before.
+string? dumpDamagePath = null;
+var positional = new List<string>();
+for (int i = 0; i < args.Length; i++)
 {
-    Console.Error.WriteLine("usage: dotnet run --project <ReplayCli> -c Release -- <corpus.jsonl> [skills.json]");
+    if (args[i] == "--dump-damage" && i + 1 < args.Length)
+    {
+        dumpDamagePath = args[++i];
+        continue;
+    }
+
+    positional.Add(args[i]);
+}
+
+if (positional.Count < 1)
+{
+    Console.Error.WriteLine("usage: dotnet run --project <ReplayCli> -c Release -- <corpus.jsonl> [skills.json] [--dump-damage <out.jsonl>]");
     return 1;
 }
 
-string path = args[0];
+string path = positional[0];
 if (!File.Exists(path))
 {
     Console.Error.WriteLine($"corpus not found: {path}");
@@ -31,9 +47,9 @@ if (!File.Exists(path))
 ICaptureGameData gameData = NullCaptureGameData.Instance;
 bool dataLoaded = false;
 int skillCount = 0, mobCount = 0;
-if (args.Length >= 2 && File.Exists(args[1]))
+if (positional.Count >= 2 && File.Exists(positional[1]))
 {
-    string skillsPath = args[1];
+    string skillsPath = positional[1];
     string mobsPath = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(skillsPath)) ?? ".", "mobs.json");
     HashSet<long> skills = ReferenceJson.LoadSkillCodes(skillsPath);
     Dictionary<int, Mob> mobs = File.Exists(mobsPath) ? ReferenceJson.LoadMobs(mobsPath) : new Dictionary<int, Mob>();
@@ -176,6 +192,41 @@ Console.WriteLine();
 Console.WriteLine("--- L3c: meta events (nickname/power/summon/mob_spawn/remain_hp/buff/battle) ---");
 Console.WriteLine($"  .NET {sink.Metas.Count}   Kotlin {metaExpected.Count}");
 rc |= ReportMetaSeq(sink.Metas, metaExpected);
+
+if (dumpDamagePath != null)
+{
+    // Separate pass on purpose: the parity replay above keeps ONE aligner and resets it whenever the
+    // source IP changes, which is faithful to the Kotlin Main.kt it is diffed against but shreds TCP
+    // reassembly on a multi-stream corpus (it yields zero frames there). The dump needs real packets, so
+    // it mirrors DevPacketLogReplay and keeps one aligner+assembler PER SOURCE IP. Parity output above is
+    // untouched.
+    var dumpSink = new CollectingSink();
+    var dumpProcessor = new StreamProcessor(dumpSink, gameData);
+    var dumpStreams = new Dictionary<string, (PacketAlignmenter Aligner, StreamAssembler Assembler)>();
+    foreach (CapturedSegment seg in captures)
+    {
+        if (!dumpStreams.TryGetValue(seg.SrcIp, out (PacketAlignmenter Aligner, StreamAssembler Assembler) stream))
+        {
+            stream = (new PacketAlignmenter(), new StreamAssembler((p, at) => dumpProcessor.OnPacketReceived(p, at)));
+            dumpStreams[seg.SrcIp] = stream;
+        }
+
+        foreach (AlignedChunk chunk in stream.Aligner.Feed(seg.Seq, seg.Payload, seg.ArrivedAtMs))
+        {
+            stream.Assembler.ProcessChunk(chunk.Data, chunk.ArrivedAt);
+        }
+    }
+
+    foreach ((PacketAlignmenter dumpAligner, StreamAssembler dumpAssembler) in dumpStreams.Values)
+    {
+        dumpAssembler.Flush();
+        dumpAligner.Reset();
+    }
+
+    File.WriteAllLines(dumpDamagePath, dumpSink.DamageDump, new UTF8Encoding(false));
+    Console.WriteLine();
+    Console.WriteLine($"--- dumped {dumpSink.DamageDump.Count} damage packets (with special flags) from {dumpStreams.Count} streams -> {dumpDamagePath} ---");
+}
 
 Console.WriteLine();
 Console.WriteLine(rc == 0 ? "RESULT: ALL PARITY OK" : "RESULT: DIVERGENCE (see above)");
@@ -323,6 +374,8 @@ sealed class CollectingSink : IStreamProcessorSink
 {
     public readonly List<int> Dispatched = [];
     public readonly List<DmgRec> Damages = [];
+    /// <summary>NDJSON lines for --dump-damage. Carries the special-damage flags the corpus omits.</summary>
+    public readonly List<string> DamageDump = [];
     public readonly List<(string Type, string Norm)> Metas = [];
     public int Unknown;
     public int Compressed;
@@ -334,8 +387,25 @@ sealed class CollectingSink : IStreamProcessorSink
     public void ParserError(string stage, string reason) => ParserErrors++;
 
     public void Damage(string kind, ParsedDamagePacket packet, bool saved, string? reason, int? mobCode)
-        => Damages.Add(new DmgRec(kind, saved, reason, packet.ActorId, packet.TargetId, packet.SkillCode,
+    {
+        Damages.Add(new DmgRec(kind, saved, reason, packet.ActorId, packet.TargetId, packet.SkillCode,
             packet.Damage, packet.IsCrit, packet.Dot, packet.Loop));
+        DamageDump.Add(string.Concat(
+            "{\"kind\":\"", kind,
+            "\",\"actor\":", packet.ActorId,
+            ",\"target\":", packet.TargetId,
+            ",\"skill\":", packet.SkillCode,
+            ",\"rawSkill\":", packet.RawSkillCode,
+            ",\"damage\":", packet.Damage,
+            ",\"type\":", packet.Type,
+            ",\"crit\":", packet.IsCrit ? "true" : "false",
+            ",\"dot\":", packet.Dot ? "true" : "false",
+            ",\"loop\":", packet.Loop,
+            ",\"position\":", packet.Position,
+            ",\"ts\":", packet.Timestamp,
+            ",\"specials\":[", string.Join(",", packet.Specials.Select(s => $"\"{s}\"")),
+            "]}"));
+    }
 
     public void Meta(string type, params (string Key, object? Value)[] fields)
     {
