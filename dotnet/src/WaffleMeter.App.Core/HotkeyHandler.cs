@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using WaffleMeter.Services;
 
 namespace WaffleMeter.App.Core;
@@ -109,6 +109,27 @@ public sealed class HotkeyHandler : IDisposable
     public HotkeyHandler(PropertyHandler props)
     {
         _props = props;
+        ReadAll();
+    }
+
+    /// <summary>
+    /// Re-read the combos from the properties file and re-register them. For the settings import.
+    /// <para>⚠ <c>RegisterHotKey</c> failure is silent by design here, so a combo that collides with another
+    /// program simply stops working with no error anywhere. That is exactly why hotkeys are carried only by the
+    /// full backup (moving to your own new PC) and never by a code you hand to someone else.</para>
+    /// </summary>
+    public void Reload()
+    {
+        ReadAll();
+        if (_running)
+        {
+            Stop();
+            Start();
+        }
+    }
+
+    private void ReadAll()
+    {
         _reset = Load(KeyReset, DefaultReset);
         _visibility = Load(KeyVisibility, DefaultVisibility);
         _clickThrough = Load(KeyClickThrough, DefaultClickThrough);

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 
 namespace WaffleMeter.App.Core;
 
@@ -64,6 +64,21 @@ public sealed class BuffPresetManager : IDisposable
 
     /// <summary>Apply a slot to the live settings + the buff store, and remember it as the active one.
     /// Re-selecting the active slot is a harmless re-apply.</summary>
+    /// <summary>
+    /// Re-read the preset set from settings and re-apply the active slot. For the settings import.
+    /// <para>Order matters and is the reason this is not just <c>_set = Load()</c>: <see cref="Apply"/> is what
+    /// pushes the slot's hidden/voice sets into the data store, so without it the picker would show the imported
+    /// preset names while the overlay kept filtering by the old ones.</para>
+    /// </summary>
+    public void Reload()
+    {
+        lock (_gate)
+        {
+            _set = Load();
+            Apply(_set.Slots[_set.Active]);
+        }
+    }
+
     public void SelectSlot(int index)
     {
         if (index < 0 || index >= SlotCount)

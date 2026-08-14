@@ -34,6 +34,22 @@ public sealed class MeterSettings : INotifyPropertyChanged
     public MeterSettings(PropertyHandler props)
     {
         _props = props;
+        Reload();
+    }
+
+    /// <summary>
+    /// Re-read every key from the properties file. The constructor is the only other caller — this exists for
+    /// the settings import, which writes the RAW stored values straight through
+    /// <see cref="PropertyHandler.SetProperty"/> and then needs the model to pick them up.
+    /// <para>Why the import cannot just assign the properties instead: <c>GetProperty</c> re-decodes on the way
+    /// out (Latin-1 → EUC-KR), so the value a model holds and the value in the file are different strings for
+    /// anything non-ASCII. Writing raw and re-reading keeps both sides in the representation each one expects;
+    /// assigning raw through the setters would render correctly this session and change after a restart.</para>
+    /// <para>Raises <c>PropertyChanged(null)</c> — WPF reads that as "every property", which is exactly right
+    /// here and far safer than listing 70-odd names that a future key would silently miss.</para>
+    /// </summary>
+    public void Reload()
+    {
         _displayMode = ReadEnum("displayMode", "dps_percent", DisplayModes);
         _damageValueMode = ReadEnum("damageValueMode", "dps", DamageValueModes);
         _contributionMode = ReadEnum("contributionMode", "contribution", ContributionModes);
@@ -115,6 +131,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _dummyTestMode = ReadBool("dummy.testMode", false);
         _dummyDurationSec = ReadInt("dummy.durationSeconds", 60);
         _patchNotesLastShownVersion = _props.GetProperty("patchNotes.lastShownVersion") ?? "";
+        OnPropertyChanged(string.Empty);
     }
 
     private string _displayMode;

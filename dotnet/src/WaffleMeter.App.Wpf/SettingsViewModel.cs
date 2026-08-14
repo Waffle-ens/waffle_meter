@@ -163,7 +163,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly HotkeyHandler _hotkeys;
     private readonly BuffPresetManager _presets;
     private readonly GameOptimizerService _gameOpt;
-    private readonly Snapshot _snapshot;
+    // NOT readonly: an import re-takes it. Cancel restores the values captured when the window opened, so
+    // after a 70-key import it would put back a mixture that neither the code nor any backup describes.
+    private Snapshot _snapshot;
 
     public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, SkinManager skin, OverlayController controller, HotkeyHandler hotkeys, BuffPresetManager presets, GameOptimizerService gameOpt)
     {
@@ -1384,6 +1386,239 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     /// <summary>Re-reads the live logging counters (polled while the window is open).</summary>
     public void RefreshLogging() => OnPropertyChanged(nameof(LoggingStatus));
+
+    // ---- 설정 백업 · 공유 ----
+
+    /// <summary>Injected by App once every collaborator exists. Null in the preview harness — the section then
+    /// reports that it is unavailable rather than throwing.</summary>
+    public SettingsBundleApplier? BundleApplier { get; set; }
+
+    /// <summary>"is a fight happening right now". Import repaints every row, swaps the skin dictionary and
+    /// re-registers five global hotkeys in one go — not something to do mid-pull.</summary>
+    public Func<bool>? IsCombatActive { get; set; }
+
+    private string _bundleStatus = string.Empty;
+
+    /// <summary>One line under the buttons: what just happened.</summary>
+    public string BundleStatus { get => _bundleStatus; private set => Set(ref _bundleStatus, value); }
+
+    private string _lastExportedCode = string.Empty;
+
+    /// <summary>The code that was just produced, shown in a read-only box. Clipboard writes can fail (another
+    /// app holding the clipboard is common), so the code is always visible to copy by hand.</summary>
+    public string LastExportedCode { get => _lastExportedCode; private set => Set(ref _lastExportedCode, value); }
+
+    public Visibility UndoVisibility =>
+        SettingsBackupStore.List(_services.Props.AppDirectory()).Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public void ExportFull() => Export(SettingsProfile.Full, "전체 설정");
+
+    public void ExportDesign() => Export(SettingsProfile.Design, "디자인");
+
+    public void ExportAlarms() => Export(SettingsProfile.Alarms, "알림");
+
+    private void Export(SettingsProfile profile, string label)
+    {
+        SettingsBundle bundle = SettingsBundleBuilder.Build(_services.Props, profile, _services.Version, DateTimeOffset.Now);
+        string code = SettingsBundleCodec.Encode(bundle);
+        LastExportedCode = code;
+
+        bool copied = TryCopy(code);
+        BundleStatus = copied
+            ? $"{label} 코드를 복사했습니다 — 설정 {bundle.Data.Count}개, {code.Length}자."
+            : $"{label} 코드를 만들었습니다 — 설정 {bundle.Data.Count}개. 클립보드 복사에 실패해 아래 상자에서 직접 복사해 주세요.";
+    }
+
+    private static bool TryCopy(string text)
+    {
+        try
+        {
+            // SetDataObject(copy: true) so the code survives this process exiting — a plain SetText leaves the
+            // clipboard owned by us and the paste fails after the app closes.
+            System.Windows.Clipboard.SetDataObject(text, true);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Read a code from the clipboard, if it holds one. Used to prefill the import box.</summary>
+    public string? ClipboardCode()
+    {
+        try
+        {
+            return System.Windows.Clipboard.ContainsText() ? SettingsBundleCodec.Extract(System.Windows.Clipboard.GetText()) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Decode and diff, writing nothing. <paramref name="error"/> carries the reason on failure.</summary>
+    public SettingsBundlePlan? PreviewImport(string? text, out string error)
+    {
+        error = string.Empty;
+        if (!SettingsBundleCodec.TryDecode(text, out SettingsBundle bundle, out SettingsCodeError code))
+        {
+            error = code switch
+            {
+                SettingsCodeError.ChecksumMismatch =>
+                    "코드가 손상됐습니다. 복사할 때 일부가 빠졌을 수 있어요 — 'WM1.' 부터 끝까지 전체를 다시 복사해 붙여넣어 주세요.",
+                SettingsCodeError.FutureVersion =>
+                    "더 새로운 버전에서 만든 코드입니다. 미터를 업데이트한 뒤 다시 시도해 주세요.",
+                SettingsCodeError.NotFound =>
+                    "설정 코드를 찾지 못했습니다. 'WM1.' 으로 시작하는 코드를 붙여넣어 주세요.",
+                _ => "코드를 읽지 못했습니다. 올바른 설정 코드인지 확인해 주세요.",
+            };
+            return null;
+        }
+
+        return SettingsBundleBuilder.Plan(_services.Props, bundle);
+    }
+
+    /// <summary>Apply a previewed plan. Returns the user-facing result line.</summary>
+    public string ApplyImport(SettingsBundlePlan plan)
+    {
+        if (BundleApplier is not { } applier)
+        {
+            return "이 빌드에서는 설정 가져오기를 쓸 수 없습니다.";
+        }
+
+        SettingsImportResult result = applier.Apply(plan, _services.Version, DateTimeOffset.Now);
+
+        // The window's own Cancel restores a 19-value snapshot taken when it opened, so after an import it would
+        // put back a mixture no backup describes. Re-take it: Cancel now means "cancel what I did after this".
+        _snapshot = Snapshot.Capture(_settings, _controller);
+        PendingReset = _hotkeys.Reset;
+        PendingVisibility = _hotkeys.Visibility;
+        PendingClickThrough = _hotkeys.ClickThrough;
+        PendingDummyToggle = _hotkeys.DummyToggle;
+        PendingDummyReset = _hotkeys.DummyReset;
+
+        Reload();
+        RebuildFontCards();
+        RebuildNameFxSamples(_skin.IsLight);
+        SyncNameFxPreview();
+        NameFxSheen.Rebuild(_settings.NameFxBrightnessPercent);
+        OnPropertyChanged(nameof(UndoVisibility));
+
+        string hint = result.RestartHint ? " 일부 항목은 미터를 다시 켜야 적용됩니다." : string.Empty;
+        string backup = result.BackupPath is null
+            ? " ⚠ 이전 설정 백업을 저장하지 못했습니다."
+            : " 적용 전 설정은 백업해 뒀습니다.";
+        BundleStatus = $"설정 {plan.Changes.Count}개를 적용했습니다.{backup}{hint}";
+        return BundleStatus;
+    }
+
+    /// <summary>Put back the snapshot taken before the most recent import.</summary>
+    public string UndoLastImport()
+    {
+        string? code = SettingsBackupStore.ReadNewest(_services.Props.AppDirectory());
+        if (code is null || !SettingsBundleCodec.TryDecode(code, out SettingsBundle bundle, out _))
+        {
+            BundleStatus = "되돌릴 백업이 없습니다.";
+            return BundleStatus;
+        }
+
+        SettingsBundlePlan plan = SettingsBundleBuilder.Plan(_services.Props, bundle);
+        ApplyImport(plan);
+        BundleStatus = "가져오기 직전 설정으로 되돌렸습니다.";
+        return BundleStatus;
+    }
+
+    private string _importText = string.Empty;
+
+    /// <summary>What the user pasted. Not necessarily just a code — the parser cuts it out of surrounding chat.</summary>
+    public string ImportText
+    {
+        get => _importText;
+        set { Set(ref _importText, value); ClearPreview(); }
+    }
+
+    private SettingsBundlePlan? _plan;
+
+    private IReadOnlyList<SettingsChange> _importChanges = Array.Empty<SettingsChange>();
+
+    /// <summary>Exactly what would change, so the user agrees to a list rather than to the word "가져오기".</summary>
+    public IReadOnlyList<SettingsChange> ImportChanges { get => _importChanges; private set => Set(ref _importChanges, value); }
+
+    private string _importSummary = string.Empty;
+
+    public string ImportSummary { get => _importSummary; private set => Set(ref _importSummary, value); }
+
+    public Visibility ImportPreviewVisibility => _plan is null ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>Blocked mid-fight: applying repaints every row, swaps the skin dictionary and re-registers five
+    /// global hotkeys at once.</summary>
+    public bool CanApplyImport => _plan is { HasWork: true } && IsCombatActive?.Invoke() != true;
+
+    public string CombatBlockNotice =>
+        IsCombatActive?.Invoke() == true ? "전투 중에는 적용할 수 없습니다. 전투가 끝난 뒤 눌러 주세요." : string.Empty;
+
+    public Visibility CombatBlockVisibility =>
+        IsCombatActive?.Invoke() == true ? Visibility.Visible : Visibility.Collapsed;
+
+    private void ClearPreview()
+    {
+        _plan = null;
+        ImportChanges = Array.Empty<SettingsChange>();
+        ImportSummary = string.Empty;
+        RaisePreviewState();
+    }
+
+    private void RaisePreviewState()
+    {
+        OnPropertyChanged(nameof(ImportPreviewVisibility));
+        OnPropertyChanged(nameof(CanApplyImport));
+        OnPropertyChanged(nameof(CombatBlockNotice));
+        OnPropertyChanged(nameof(CombatBlockVisibility));
+    }
+
+    /// <summary>Decode + diff the pasted text. Writes nothing.</summary>
+    public void PreviewPastedCode()
+    {
+        _plan = PreviewImport(ImportText, out string error);
+        if (_plan is null)
+        {
+            ImportChanges = Array.Empty<SettingsChange>();
+            ImportSummary = string.Empty;
+            BundleStatus = error;
+            RaisePreviewState();
+            return;
+        }
+
+        ImportChanges = _plan.Changes;
+        var bits = new List<string> { $"바뀌는 설정 {_plan.Changes.Count}개" };
+        if (_plan.UnchangedCount > 0) { bits.Add($"이미 같음 {_plan.UnchangedCount}개"); }
+        if (_plan.UnknownCount > 0) { bits.Add($"이 버전이 모르는 항목 {_plan.UnknownCount}개(무시)"); }
+        if (_plan.MissingCount > 0) { bits.Add($"코드에 없어 그대로 두는 항목 {_plan.MissingCount}개"); }
+        ImportSummary = string.Join(" · ", bits);
+        BundleStatus = _plan.HasWork ? string.Empty : "이 코드는 지금 설정과 같습니다. 적용해도 바뀌는 게 없어요.";
+        RaisePreviewState();
+    }
+
+    /// <summary>Apply the previewed plan.</summary>
+    public void ApplyPreviewedCode()
+    {
+        if (_plan is null || !CanApplyImport)
+        {
+            return;
+        }
+
+        ApplyImport(_plan);
+        ImportText = string.Empty; // also clears the preview
+    }
+
+    /// <summary>Open the folder holding the pre-import snapshots.</summary>
+    public void OpenBackupFolder()
+    {
+        string dir = SettingsBackupStore.Directory(_services.Props.AppDirectory());
+        Directory.CreateDirectory(dir);
+        Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
+    }
 
     /// <summary>Open the user-fonts folder. It IS the store — deleting a file there removes the card — so this
     /// doubles as the "remove a font I added" path without a separate delete UI.</summary>

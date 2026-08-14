@@ -95,9 +95,8 @@ public sealed class PropertyHandlerTests : IDisposable
     public void RunBatched_writes_the_file_once_and_persists_everything()
     {
         var ph = new PropertyHandler(_tempAppData);
-        string file = Path.Combine(_tempAppData, AppName, "settings.properties");
         ph.SetProperty("seed", "1");
-        DateTime before = File.GetLastWriteTimeUtc(file);
+        int before = ph.SaveCount;
 
         ph.RunBatched(() =>
         {
@@ -107,13 +106,15 @@ public sealed class PropertyHandlerTests : IDisposable
             }
         });
 
+        // The point of batching. Counted, not timed: 20 rewrites of a small file all land inside one filesystem
+        // timestamp tick, so a before/after timestamp cannot tell the two apart.
+        Assert.Equal(before + 1, ph.SaveCount);
+
         var reloaded = new PropertyHandler(_tempAppData);
         for (int i = 0; i < 20; i++)
         {
             Assert.Equal(i.ToString(), reloaded.GetProperty("k" + i));
         }
-
-        Assert.NotEqual(before, File.GetLastWriteTimeUtc(file));
     }
 
     [Fact]

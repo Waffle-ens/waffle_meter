@@ -178,8 +178,13 @@ public sealed class PropertyHandler
     /// full disk) part-way through left a truncated settings file — every setting gone. The batch window above
     /// widens that gap, so it is closed here in the same change.
     /// </summary>
+    /// <summary>How many times the file has been rewritten. The batching above exists to keep this from being
+    /// one-per-key, and a wall-clock timestamp cannot tell 1 write from 20 — they land in the same tick.</summary>
+    public int SaveCount { get; private set; }
+
     private void Save()
     {
+        SaveCount++;
         string dir = Path.GetDirectoryName(_settingFilePath)!;
         string temp = Path.Combine(dir, Path.GetFileName(_settingFilePath) + ".tmp");
         try
