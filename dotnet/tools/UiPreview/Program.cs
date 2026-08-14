@@ -709,6 +709,24 @@ internal static class Program
 
                 if (!contractChecked)
                 {
+                    // The font grid must not host its own ScrollViewer. WPF's ScrollViewer marks MouseWheel
+                    // Handled whether or not it can actually scroll, so a nested one inside the shared
+                    // ContentScroll means the settings window stops scrolling whenever the cursor is over the
+                    // cards. ScrollBarVisibility="Disabled" does NOT fix it — only removing the scroll host does.
+                    if (window.FindName("FontCardList") is DependencyObject cards)
+                    {
+                        // The WrapPanel proves the visual tree is actually built — without it a null
+                        // ScrollViewer would mean "nothing realized yet", not "no scroll host".
+                        bool realized = FindVisualChild<System.Windows.Controls.WrapPanel>(cards) is not null;
+                        Check("font card grid is realized", realized);
+                        Check("font card grid hosts no ScrollViewer (mouse wheel reaches the page)",
+                            realized && FindVisualChild<System.Windows.Controls.ScrollViewer>(cards) is null);
+                    }
+                    else
+                    {
+                        Check("font card grid found", false);
+                    }
+
                     Check($"nav has tags ({navKeys.Count})", navKeys.Count > 0);
                     Check("nav tags are unique", navKeys.Distinct(StringComparer.Ordinal).Count() == navKeys.Count);
                     Check($"panel count ({panelHost.Children.Count}) == nav count ({navKeys.Count})",

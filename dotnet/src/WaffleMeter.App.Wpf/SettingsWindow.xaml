@@ -429,15 +429,23 @@
                         <TextBlock x:Name="FontSectionHeader" Text="글꼴" Style="{StaticResource SettingTitle}"/>
                         <TextBlock Text="각 카드가 그 글꼴로 그려집니다. 눌러 보면 미터에 바로 적용돼요." Style="{StaticResource SettingDesc}" Margin="0,0,0,8"/>
                         <!-- ListBox(WrapPanel)인 이유: 좌측 nav 와 같은 '여럿 중 하나' 컨트롤이라 선택 동작을
-                             그대로 물려받는다. 내부 ScrollViewer 는 두지 않는다 — 공유 ContentScroll 안에
-                             또 스크롤 영역이 생기면 휠이 어디로 갈지 모르는 중첩 트랩이 된다. -->
-                        <ListBox ItemsSource="{Binding FontCards}" ItemContainerStyle="{StaticResource FontCard}"
+                             그대로 물려받는다.
+                             ⚠️ Template 을 ItemsPresenter 하나로 갈아끼운 건 스타일이 아니라 동작 때문이다.
+                             ListBox 기본 템플릿의 ScrollViewer 는 스크롤할 내용이 없어도 MouseWheel 을
+                             Handled 로 표시해서, 카드 위에 커서가 있으면 휠이 바깥 ContentScroll 까지
+                             올라가지 못하고 설정창이 통째로 안 굴러간다. ScrollBarVisibility="Disabled" 로는
+                             안 막힌다 — 스크롤바만 숨을 뿐 이벤트는 여전히 그 ScrollViewer 가 먹는다.
+                             내부 스크롤 호스트를 아예 없애야 휠이 정상적으로 버블링된다. -->
+                        <ListBox x:Name="FontCardList" ItemsSource="{Binding FontCards}" ItemContainerStyle="{StaticResource FontCard}"
                                  ItemTemplate="{StaticResource FontCardTemplate}"
                                  SelectedValuePath="Value" SelectedValue="{Binding CardFontSelection}"
                                  Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,10"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                  KeyboardNavigation.DirectionalNavigation="Contained">
+                            <ListBox.Template>
+                                <ControlTemplate TargetType="ListBox">
+                                    <ItemsPresenter/>
+                                </ControlTemplate>
+                            </ListBox.Template>
                             <ListBox.ItemsPanel>
                                 <!-- 2열 × 252px. 3열(≈176px)도 폭은 맞지만 'Spoqa Han Sans Neo (Bold)' 같은
                                      이름이 잘린다 — 어느 글꼴인지 못 읽는 미리보기는 미리보기가 아니다. -->
