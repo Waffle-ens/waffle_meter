@@ -1658,7 +1658,82 @@
 
                     <!-- ===== 고급 · 진단 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=advanced}">
-                        <TextBlock Text="캡처 방식" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="설정 백업 · 공유" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,4"
+                                   Text="설정을 짧은 코드로 뽑아 다른 PC 로 옮기거나 남에게 넘길 수 있습니다. 코드를 만들면 클립보드에 자동으로 복사됩니다."/>
+                        <TextBlock Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                   Text="⚠ 계정·캐릭터 정보(동의 상태, 설치 키), 창 위치·크기, 캡처 설정은 코드에 담기지 않습니다. 남에게 코드를 줘도 내 캐릭터 정보는 넘어가지 않아요."/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="전체 설정 복사" Click="OnExportFull" Margin="0,0,8,0"
+                                    ToolTip="새 PC 나 PC방에서 지금 세팅을 그대로 복구할 때"/>
+                            <Button Content="디자인만 복사" Click="OnExportDesign" Margin="0,0,8,0"
+                                    ToolTip="외형만 — 색·글꼴·크기·게이지. 남에게 보여줄 때"/>
+                            <Button Content="알림만 복사" Click="OnExportAlarms" Margin="0,0,8,0"
+                                    ToolTip="슈고·필드보스·카이라·커스텀 알람과 소리"/>
+                            <Button Content="백업 폴더 열기" Click="OnOpenBackupFolder"/>
+                        </StackPanel>
+
+                        <!-- 클립보드 쓰기는 다른 앱이 잡고 있으면 실패한다. 코드를 항상 눈에 보이게 둬서
+                             그 경우에도 직접 복사할 수 있게 한다. -->
+                        <TextBox Text="{Binding LastExportedCode, Mode=OneWay}" IsReadOnly="True" Height="52"
+                                 FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,14"
+                                 VerticalScrollBarVisibility="Auto"/>
+
+                        <TextBlock Text="코드 가져오기" Style="{StaticResource SettingTitle}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding ImportText, UpdateSourceTrigger=PropertyChanged}" Height="52"
+                                 FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"
+                                 VerticalScrollBarVisibility="Auto"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="클립보드에서 붙여넣기" Click="OnPasteImport" Margin="0,0,8,0"/>
+                            <Button Content="무엇이 바뀌는지 보기" Click="OnPreviewImport" Margin="0,0,8,0"/>
+                            <Button Content="되돌리기" Click="OnUndoImport"
+                                    Visibility="{Binding UndoVisibility}"
+                                    ToolTip="가장 최근 가져오기 직전 설정으로 되돌립니다"/>
+                        </StackPanel>
+
+                        <!-- 적용 전에 무엇이 바뀌는지를 항목으로 보여준다. 되돌리기가 있어도, 무엇을 되돌려야
+                             하는지 모르는 상태로 누르게 하면 안 된다. -->
+                        <Border Visibility="{Binding ImportPreviewVisibility}" Margin="0,0,0,8"
+                                Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="10,8">
+                            <StackPanel>
+                                <TextBlock Text="{Binding ImportSummary}" Style="{StaticResource SettingDesc}" Margin="0,0,0,6"/>
+                                <ItemsControl ItemsSource="{Binding ImportChanges}" MaxHeight="150">
+                                    <ItemsControl.Template>
+                                        <ControlTemplate TargetType="ItemsControl">
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsPresenter/></ScrollViewer>
+                                        </ControlTemplate>
+                                    </ItemsControl.Template>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,3">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="150"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" FontSize="11.5" Foreground="{DynamicResource Skin.Fg}"
+                                                           Text="{Binding Label}" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Grid.Column="1" FontSize="11" Foreground="{DynamicResource Skin.MutedFg}"
+                                                           TextTrimming="CharacterEllipsis">
+                                                    <Run Text="{Binding From, Mode=OneWay}"/><Run Text="  →  "/><Run Text="{Binding To, Mode=OneWay}" Foreground="{DynamicResource Skin.Accent}"/>
+                                                </TextBlock>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="{Binding CombatBlockNotice}" Visibility="{Binding CombatBlockVisibility}"
+                                           Style="{StaticResource SettingDesc}" Margin="0,6,0,0"/>
+                                <Button Content="적용" Click="OnApplyImport" HorizontalAlignment="Right" MinWidth="90"
+                                        Margin="0,8,0,0" IsEnabled="{Binding CanApplyImport}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="{Binding BundleStatus}" Style="{StaticResource SettingDesc}"
+                                   TextWrapping="Wrap" Margin="0,0,0,4"/>
+
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="캡처 방식" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -54,6 +54,18 @@ public sealed class MeterColorTheme : INotifyPropertyChanged
         _props = props;
         ResetFields();
         Load();
+    }
+
+    /// <summary>
+    /// Re-read the whole palette from the properties file. For the settings import, which writes the stored
+    /// values directly and then has to make the live theme catch up. Deliberately does NOT persist — the file
+    /// is already the source of what is being read.
+    /// </summary>
+    public void Reload()
+    {
+        ResetFields();
+        Load();
+        RaiseAll();
     }
 
     private string _userBarFrom = null!, _userBarTo = null!;

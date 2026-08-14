@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Threading;
@@ -127,6 +127,42 @@ public partial class SettingsWindow : Window
     private void OnRevertGameOpt(object sender, RoutedEventArgs e) => _viewModel.RevertGameOpt();
 
     private void OnOpenFontsFolder(object sender, RoutedEventArgs e) => _viewModel.OpenFontsFolder();
+
+    private void OnExportFull(object sender, RoutedEventArgs e) => _viewModel.ExportFull();
+
+    private void OnExportDesign(object sender, RoutedEventArgs e) => _viewModel.ExportDesign();
+
+    private void OnExportAlarms(object sender, RoutedEventArgs e) => _viewModel.ExportAlarms();
+
+    private void OnOpenBackupFolder(object sender, RoutedEventArgs e) => _viewModel.OpenBackupFolder();
+
+    private void OnPasteImport(object sender, RoutedEventArgs e)
+    {
+        string? code = _viewModel.ClipboardCode();
+        if (code is null)
+        {
+            MessageBox.Show(this, "클립보드에 설정 코드가 없습니다. 'WM1.' 으로 시작하는 코드를 복사한 뒤 다시 눌러 주세요.",
+                "설정 가져오기", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        _viewModel.ImportText = code;
+        _viewModel.PreviewPastedCode();
+    }
+
+    private void OnPreviewImport(object sender, RoutedEventArgs e) => _viewModel.PreviewPastedCode();
+
+    private void OnApplyImport(object sender, RoutedEventArgs e) => _viewModel.ApplyPreviewedCode();
+
+    private void OnUndoImport(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show(this,
+                "가장 최근 가져오기 직전의 설정으로 되돌립니다. 그 뒤에 바꾼 설정은 사라집니다. 계속할까요?",
+                "설정 되돌리기", MessageBoxButton.OKCancel, MessageBoxImage.Warning) == MessageBoxResult.OK)
+        {
+            _viewModel.UndoLastImport();
+        }
+    }
 
     /// <summary>Brightness commits on drag-end, not per tick — see the slider's comment in the XAML.</summary>
     private void OnNameFxBrightnessCommitted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)

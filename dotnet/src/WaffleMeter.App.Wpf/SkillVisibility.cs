@@ -1,4 +1,4 @@
-using WaffleMeter.App.Core;
+﻿using WaffleMeter.App.Core;
 using WaffleMeter.Services;
 
 namespace WaffleMeter.App.Wpf;
@@ -20,6 +20,24 @@ public sealed class SkillVisibility
     {
         _props = props;
         Codes = Load();
+    }
+
+    /// <summary>
+    /// Raised when the whole set was replaced from outside (a settings import). Views that snapshot the set at
+    /// construction — <c>SkillSettingsViewModel</c> builds its rows once — would otherwise keep drawing the old
+    /// state and write it back the moment the user touched a toggle.
+    /// </summary>
+    public event Action? Changed;
+
+    /// <summary>Re-read from the properties file. The set is updated IN PLACE: the same HashSet instance was
+    /// handed to <c>JoinRequestViewModel</c> and <c>SkillSettingsViewModel</c>, so replacing it would leave
+    /// them holding the old one.</summary>
+    public void Reload()
+    {
+        HashSet<int> fresh = Load();
+        Codes.Clear();
+        Codes.UnionWith(fresh);
+        Changed?.Invoke();
     }
 
     public bool IsVisible(int code) => Codes.Contains(code);

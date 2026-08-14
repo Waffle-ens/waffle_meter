@@ -301,6 +301,14 @@ public partial class App : Application
 
             // _buffPresets is assigned later in OnStartup, well before the overlay exists to raise this.
             var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, _buffPresets!, new GameOptimizerService());
+            if (_skillVisibility is { } skills)
+            {
+                svm.BundleApplier = new SettingsBundleApplier(services, settings, theme, skin, controller, hotkeys, _buffPresets!, skills);
+            }
+
+            // 전투가 도는 중에 70키를 밀면 전 행 리페인트 + 스킨 사전 교체 + 전역 핫키 재등록이 한꺼번에
+            // 일어난다. 끝나고 하면 된다.
+            svm.IsCombatActive = () => _combatActive;
             svm.CheckUpdateRequested = () => _ = _updateService?.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
             svm.PlayReplayRequested = () => PlayReplayFromPicker(services, window);
@@ -1194,11 +1202,15 @@ public partial class App : Application
         detail.Top = Math.Min(owner.Top, Math.Max(top, bottom - h));
     }
 
+    private SkillVisibility? _skillVisibility;
+
     private void WireJoinPanel(MeterServices services, OverlayWindow overlay)
     {
-        var skillVisibility = new SkillVisibility(services.Props);
+        // 필드로 두는 이유: 설정 임포트가 이 인스턴스를 Reload 해야 하고, JoinRequestViewModel 과
+        // SkillSettingsViewModel 이 같은 HashSet 을 참조로 들고 있다.
+        _skillVisibility = new SkillVisibility(services.Props);
         _joinViewModel = new JoinRequestViewModel(
-            _settings!, skillVisibility.Codes, services.Tier);
+            _settings!, _skillVisibility.Codes, services.Tier);
         _joinPanel = new JoinRequestPanel { DataContext = _joinViewModel };
         MigrateJoinPanelWidthForTierChip(services.Props);
         LoadWindowSize(services.Props, "joinPanelWidth", "joinPanelHeight", _joinPanel);
@@ -1304,7 +1316,7 @@ public partial class App : Application
         });
 
         // Skill-settings flyout (visibleSkillCodes filter). The ⚙ button toggles it; changes re-render badges.
-        var skillVm = new SkillSettingsViewModel(skillVisibility);
+        var skillVm = new SkillSettingsViewModel(_skillVisibility);
         _skillFlyout = new SkillSettingsFlyout { DataContext = skillVm };
         LoadWindowSize(services.Props, "skillFlyoutWidth", "skillFlyoutHeight", _skillFlyout);
         _skillFlyout.Show();
@@ -1315,7 +1327,7 @@ public partial class App : Application
         _skillFlyout.CloseRequested += () => { _skillFlyoutVisible = false; _skillFlyout.Park(); };
         skillVm.Changed += () =>
         {
-            _joinViewModel.SetVisibleCodes(skillVisibility.Codes);
+            _joinViewModel.SetVisibleCodes(_skillVisibility.Codes);
             _joinViewModel.Reconcile(services.JoinRequests.Snapshot()); // rebuild rows so badges honor the new set
         };
         _joinPanel.SettingsRequested += () =>

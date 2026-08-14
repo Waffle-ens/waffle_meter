@@ -779,6 +779,85 @@ internal static class Program
         vm.StopNameFxPreview();
         Check("closing the settings window releases the clock", !NameFxSheen.IsRunning);
 
+        // ---- 설정 백업 · 공유 ----
+        // The whole feature is "write a file, then make the running app agree with it". Both halves are checked
+        // here rather than in the unit tests, because only the WPF side owns the reload hooks.
+        var skills = new SkillVisibility(props);
+        vm.BundleApplier = new SettingsBundleApplier(services, settings, theme, skin, controller, hotkeys, presets, skills);
+        bool combat = false;
+        vm.IsCombatActive = () => combat;
+
+        settings.RowHeight = 41;
+        skin.Apply("light");
+        vm.ExportFull();
+        string fullCode = vm.LastExportedCode;
+        Check("export produces a code", fullCode.StartsWith("WM1.", StringComparison.Ordinal) && fullCode.Length > 40);
+
+        vm.ImportText = fullCode;
+        vm.PreviewPastedCode();
+        Check("a code exported and re-read on the same machine changes nothing",
+            vm.ImportChanges.Count == 0 && !vm.CanApplyImport);
+
+        // The real journey: settings drift, then the code puts them back — including through the live models,
+        // which is what "안 바뀌는데요" would be about.
+        settings.RowHeight = 60;
+        skin.Apply("dark");
+        vm.ImportText = fullCode;
+        vm.PreviewPastedCode();
+        Check($"drifted settings show up as changes ({vm.ImportChanges.Count})", vm.ImportChanges.Count >= 2);
+        Check("preview writes nothing", settings.RowHeight == 60 && skin.Current == "dark");
+
+        combat = true;
+        vm.PreviewPastedCode();
+        Check("전투 중 적용 차단", !vm.CanApplyImport && vm.CombatBlockVisibility == Visibility.Visible);
+        vm.ApplyPreviewedCode();
+        Check("전투 중 적용 버튼은 아무것도 쓰지 않는다", settings.RowHeight == 60);
+        combat = false;
+
+        vm.PreviewPastedCode();
+        vm.ApplyPreviewedCode();
+        Check("import restores the stored value", props.GetProperty("rowHeight") == "41");
+        Check("the live model catches up without a restart", settings.RowHeight == 41);
+        Check("the skin catches up without a restart", skin.Current == "light" && skin.IsLight);
+        Check("applying clears the pasted code and its preview",
+            vm.ImportText.Length == 0 && vm.ImportPreviewVisibility == Visibility.Collapsed);
+        Check("되돌리기 버튼이 나타난다", vm.UndoVisibility == Visibility.Visible);
+
+        vm.UndoLastImport();
+        Check("undo puts back what was there before the import", settings.RowHeight == 60 && skin.Current == "dark");
+
+        // A code handed over in chat arrives wrapped in whatever the sender typed around it.
+        vm.ImportText = "이거 내 세팅이야 " + fullCode + " 한번 써봐";
+        vm.PreviewPastedCode();
+        Check("a code pasted out of a chat message is still read",
+            vm.ImportPreviewVisibility == Visibility.Visible);
+
+        vm.ImportText = fullCode[..^3] + "aaa";
+        vm.PreviewPastedCode();
+        Check("a truncated code is refused, with a reason",
+            vm.ImportPreviewVisibility == Visibility.Collapsed && vm.BundleStatus.Contains("손상"));
+        Check("a refused code writes nothing", settings.RowHeight == 60);
+
+        vm.ImportText = "그냥 아무 문장";
+        vm.PreviewPastedCode();
+        Check("text that holds no code says so", vm.BundleStatus.Contains("WM1."));
+
+        // 디자인 코드가 알림 설정을 건드리면 "외형만 보여주려던" 사람이 남의 알람을 덮어쓴다.
+        props.SetProperty("alarms.shugoEnabled", "true");
+        vm.ExportDesign();
+        string designCode = vm.LastExportedCode;
+        props.SetProperty("alarms.shugoEnabled", "false");
+        Check("디자인 코드는 알림을 실어 나르지 않는다",
+            SettingsBundleCodec.TryDecode(designCode, out SettingsBundle designBundle, out _)
+            && !designBundle.Data.ContainsKey("alarms.shugoEnabled"));
+
+        vm.ImportText = designCode;
+        vm.PreviewPastedCode();
+        vm.ApplyPreviewedCode();
+        Check("디자인 코드를 적용해도 알림은 그대로", props.GetProperty("alarms.shugoEnabled") == "false");
+
+        vm.ImportText = string.Empty;
+
         vm.ResetDefaults();
         Check("ResetDefaults", settings.DisplayMode == "dps_percent" && settings.RowHeight == 36 && skin.Current == "dark");
 
