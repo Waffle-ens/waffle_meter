@@ -128,6 +128,10 @@ public partial class SettingsWindow : Window
 
     private void OnOpenFontsFolder(object sender, RoutedEventArgs e) => _viewModel.OpenFontsFolder();
 
+    /// <summary>Brightness commits on drag-end, not per tick — see the slider's comment in the XAML.</summary>
+    private void OnNameFxBrightnessCommitted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+        => _viewModel.CommitNameFxBrightness();
+
     private void OnAddCustomFont(object sender, RoutedEventArgs e)
     {
         var dlg = new Microsoft.Win32.OpenFileDialog

@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Media;
 using WaffleMeter.App.Core;
 using WaffleMeter.Data;
+using WaffleMeter.Stats;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -87,6 +88,51 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     /// (its participants have different entity uids, so the stale map had no entry for them).</para>
     /// </summary>
     public Func<DpsReport, IReadOnlyDictionary<int, RowTier>>? TierResolver { get; set; }
+
+    private NameFxRoster _nameFx = NameFxRoster.Empty;
+    private readonly Dictionary<(int Server, string Nickname, bool Light, string Mode), NameFxBadge> _nameFxMemo = new();
+
+    /// <summary>
+    /// Install the supporter/ranker grant list. Replacing it clears the per-row memo — the memo keys on
+    /// (server, nickname, skin) rather than the identity hash so the hot loop never hashes, which means a new
+    /// roster cannot be picked up any other way.
+    /// </summary>
+    public void SetNameFxRoster(NameFxRoster? roster)
+    {
+        _nameFx = roster ?? NameFxRoster.Empty;
+        _nameFxMemo.Clear();
+    }
+
+    private NameFxBadge ResolveNameFx(int server, string? nickname, bool isLight)
+    {
+        if (server <= 0 || string.IsNullOrWhiteSpace(nickname))
+        {
+            return NameFxBadge.None; // placeholder rows (던전 강제 집계) have no identity to grant against
+        }
+
+        // Mode is part of the key: 'static' downgrades the badge, so a memo without it would keep serving the
+        // animated one after the user switches.
+        var key = (server, nickname, isLight, _settings.NameFxMode);
+        if (_nameFxMemo.TryGetValue(key, out NameFxBadge? cached))
+        {
+            return cached;
+        }
+
+        NameFxEntry? grant = _nameFx.Find(StatsIdentity.CharacterIdentityHash(server, nickname));
+        NameFxBadge badge = grant is null
+            ? NameFxBadge.None
+            : NameFxPalette.For(grant.EffectId, isLight);
+
+        // "static" downgrades every effect to its family's still variant instead of switching them off, so the
+        // mark survives for people who do not want moving pixels.
+        if (!badge.IsNone && _settings.NameFxMode == "static" && badge.Animated)
+        {
+            badge = NameFxPalette.StillVariant(badge.Id, isLight);
+        }
+
+        _nameFxMemo[key] = badge;
+        return badge;
+    }
 
     /// <summary>Inject tier state directly. Only for the UI preview and unit tests — the app sets
     /// <see cref="TierResolver"/> instead so history and live can never disagree.</summary>
@@ -490,6 +536,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         bool tierOn = _settings.TierShow && _settings.TierEffects != "off" && _rowTiers.Count > 0;
         bool isLightSkin = _isLight();
         int animatedTierRows = 0;
+        bool nameFxOn = _settings.NameFxMode != "off" && _nameFx.Count > 0;
+        int animatedNameRows = 0;
         TierBadge selfTier = TierBadge.None;
         RowTier selfRowTier = default;
 
@@ -535,6 +583,25 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 }
             }
 
+            // 후원자·랭커 닉네임 연출. 판정 키 (서버, 닉네임) 는 여기 이미 손 안에 있으므로 행 레코드에
+            // identityHash 를 실을 필요가 없다. 매 틱 SHA-256 을 다시 돌지 않도록 소형 메모를 둔다 —
+            // 로스터가 교체되면 통째로 비운다.
+            Brush nameBrush = MeterFormat.ServerTier(server) switch
+            {
+                ServerColorTier.A => _nameServerA,
+                ServerColorTier.B => _nameServerB,
+                _ => _nameDefault,
+            };
+            NameFxBadge fx = NameFxBadge.None;
+            if (nameFxOn && (isUser ? _settings.NameFxShowSelf : _settings.NameFxShowOthers))
+            {
+                fx = ResolveNameFx(server, e.User?.Nickname, isLightSkin);
+                if (fx.Animated)
+                {
+                    animatedNameRows++;
+                }
+            }
+
             var row = new RowViewModel(
                 Id: e.Uid,
                 Rank: i + 1,
@@ -551,12 +618,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 FillBrush: _theme.BarColorMode == "job"
                     ? (isUser ? _userBar : jobBar)
                     : (isUser ? _userBar : contribution < 3 ? _errorBar : contribution < 5 ? _warningBar : _normalBar),
-                NameBrush: MeterFormat.ServerTier(server) switch
-                {
-                    ServerColorTier.A => _nameServerA,
-                    ServerColorTier.B => _nameServerB,
-                    _ => _nameDefault,
-                },
+                NameBrush: nameBrush,
                 PowerBrush: _amountBrush,
                 DamageBrush: _dpsBrush,
                 PercentBrush: _percentBrush,
@@ -567,7 +629,8 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 BarFillVisibility: fillVis,
                 BottomBarVisibility: barVis,
                 Tier: badge,
-                TierInfo: tierInfo);
+                TierInfo: tierInfo,
+                NameFillBrush: fx.IsNone ? nameBrush : fx.NameFill);
 
             if (i < Rows.Count)
             {
@@ -589,6 +652,10 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         // display-only embellishments" while only pinning the refresh interval; this is the first thing it
         // actually switches off.
         TierSheen.SetDemand(animatedTierRows, _settings.TierEffects == "animated" && !_settings.LowSpecMode);
+        NameFxSheen.SetDemand(
+            animatedNameRows,
+            _settings.NameFxMode == "animated" && !_settings.LowSpecMode,
+            _settings.NameFxSpeedPercent);
         ApplySelfTierChip(selfTier, selfRowTier);
 
         PlaceholderVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -740,7 +807,11 @@ public sealed record RowViewModel(
     Visibility BarFillVisibility,
     Visibility BottomBarVisibility,
     TierBadge Tier,
-    TierRowInfo TierInfo);
+    TierRowInfo TierInfo,
+    /// <summary>What the nickname is actually painted with — <c>NameBrush</c> unless this character carries a
+    /// supporter/ranker effect. Appended at the END on purpose: this record has same-typed neighbours, so a
+    /// parameter inserted in the middle transposes silently without failing to compile.</summary>
+    Brush NameFillBrush);
 
 
 /// <summary>Per-row tier text. Separate from <see cref="TierBadge"/> (a shared singleton) because these values

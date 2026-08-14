@@ -26,6 +26,9 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>던전 티어 장식 강도. "off" = 현행 픽셀 그대로, "static" = 테두리만, "animated" = 상위 2티어 광택.</summary>
     private static readonly string[] TierEffectModes = { "off", "static", "animated" };
 
+    /// <summary>Same three-step shape as <see cref="TierEffectModes"/>, so the two decorations read alike.</summary>
+    private static readonly string[] NameFxModes = { "off", "static", "animated" };
+
     private readonly PropertyHandler _props;
 
     public MeterSettings(PropertyHandler props)
@@ -48,6 +51,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _tierEffects = ReadEnum("tier.effects", "static", TierEffectModes);
         _tierShowOthers = ReadBool("tier.showOthers", true);
         _tierShowSelfChip = ReadBool("tier.showSelfChip", true);
+        _nameFxMode = ReadEnum("nameFx.mode", "animated", NameFxModes);
+        _nameFxShowSelf = ReadBool("nameFx.showSelf", true);
+        _nameFxShowOthers = ReadBool("nameFx.showOthers", true);
+        _nameFxSpeedPercent = ReadInt("nameFx.speedPercent", 100);
+        _nameFxBrightnessPercent = ReadInt("nameFx.brightnessPercent", 100);
         _showJoinPanel = ReadBool("showJoinPanel", true);
         _showPreCombatRoster = ReadBool("showPreCombatRoster", true);
         _forceInstanceTracking = ReadBool("forceInstanceTracking", false);
@@ -166,6 +174,37 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Decorate party members' rows too (ring + outline + their own 이번 전투 상위 X.X% chip). Off
     /// leaves everyone but you undecorated.</summary>
     public bool TierShowOthers { get => _tierShowOthers; set => SetBool(ref _tierShowOthers, "tier.showOthers", value); }
+
+    private string _nameFxMode;
+    /// <summary>후원자·랭커 닉네임 연출. "off" = 도입 전과 픽셀 동일, "static" = 움직임 없는 색만,
+    /// "animated" = 흐르는 연출. LowSpecMode 는 이 값과 무관하게 강제로 끈다 — 게임 위에 뜨는 투명 창이라
+    /// 움직이는 픽셀은 전부 CPU 합성이다.</summary>
+    public string NameFxMode { get => _nameFxMode; set => SetProp(ref _nameFxMode, "nameFx.mode", value); }
+
+    private bool _nameFxShowSelf;
+    /// <summary>내 캐릭터 행에도 연출을 그린다.</summary>
+    public bool NameFxShowSelf { get => _nameFxShowSelf; set => SetBool(ref _nameFxShowSelf, "nameFx.showSelf", value); }
+
+    private bool _nameFxShowOthers;
+    /// <summary>파티원 행에도 연출을 그린다. 끄면 내 것만 보인다.</summary>
+    public bool NameFxShowOthers { get => _nameFxShowOthers; set => SetBool(ref _nameFxShowOthers, "nameFx.showOthers", value); }
+
+    private int _nameFxSpeedPercent;
+    /// <summary>50~200. 타이머 주기가 아니라 틱당 진행량을 바꾼다 — 주기를 줄이면 비용이 같이 늘지만
+    /// 걸음을 키우는 건 공짜다.</summary>
+    public int NameFxSpeedPercent
+    {
+        get => Math.Clamp(_nameFxSpeedPercent, 50, 200);
+        set => SetInt(ref _nameFxSpeedPercent, "nameFx.speedPercent", Math.Clamp(value, 50, 200));
+    }
+
+    private int _nameFxBrightnessPercent;
+    /// <summary>70~130. HSL 밝기로 적용한다(RGB 곱은 위쪽에서 색이 바랜다).</summary>
+    public int NameFxBrightnessPercent
+    {
+        get => Math.Clamp(_nameFxBrightnessPercent, 70, 130);
+        set => SetInt(ref _nameFxBrightnessPercent, "nameFx.brightnessPercent", Math.Clamp(value, 70, 130));
+    }
 
     private bool _tierShowSelfChip;
     /// <summary>Show the footer summary chip ("챌린저 · 상위 0.7%") next to the combat timer. The per-row

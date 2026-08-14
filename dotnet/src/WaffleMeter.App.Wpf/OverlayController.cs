@@ -230,6 +230,20 @@ public sealed class OverlayController
     {
         IsVisible = false;
         _window.Fade();
+        ParkAnimations();
+    }
+
+    /// <summary>
+    /// Stop the shared decoration timers while nothing is on screen. They are demand-driven from the row
+    /// rebuild, but <c>OverlayViewModel.Update</c> keeps running while the meter is hidden, so without this the
+    /// timers stay alive re-painting a window nobody can see. (<see cref="TierSheen"/> shipped with exactly that
+    /// hole — its own doc asked for this call and never got it.) Re-arming is automatic: the next row rebuild
+    /// reports demand again.
+    /// </summary>
+    private static void ParkAnimations()
+    {
+        TierSheen.SetDemand(0, false);
+        NameFxSheen.SetDemand(0, false, 100);
     }
 
     public void ShowFromTray()
@@ -346,6 +360,7 @@ public sealed class OverlayController
                 {
                     MeterShown = false;
                     _window.Fade();
+                    ParkAnimations();
                     SyncCompanion(false); // the buff overlay fades off screen together with the meter
                 }
 

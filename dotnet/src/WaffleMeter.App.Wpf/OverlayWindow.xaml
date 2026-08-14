@@ -318,7 +318,11 @@
                                         </Grid>
                                     </Border>
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}" Foreground="{Binding NameBrush}" VerticalAlignment="Center"
+                                        <!-- NameFillBrush 는 효과가 없으면 NameBrush 와 같은 객체다 — 후원자·랭커
+                                             연출이 꺼져 있으면 이 줄은 도입 전과 픽셀 단위로 동일하다. 요소를
+                                             더하지 않고 Foreground 만 바꾸므로 DesiredSize 가 불변이고,
+                                             SizeToContent="Height" 자동 높이 재계산도 일어나지 않는다. -->
+                                        <TextBlock Text="{Binding Name}" Foreground="{Binding NameFillBrush}" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" MaxWidth="150" FontFamily="{Binding NameFontFamily}"
                                                    FontSize="{Binding RowHeight, Converter={StaticResource FontSize}, ConverterParameter='0.4:10'}"/>
                                         <!-- restored bracketed server tag; own element so masking/ellipsis can't eat it -->

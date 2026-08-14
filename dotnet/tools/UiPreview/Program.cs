@@ -122,6 +122,14 @@ internal static class Program
                 var tierOffVm = new OverlayViewModel("1.7.8", settings, theme, () => currentSkin == "Light") { Status = "캡처 중" };
                 tierOffVm.Update(SampleTierReport(now));
                 Capture(() => new OverlayWindow { DataContext = tierOffVm }, palette, Path.Combine(outDir, $"meter_tier_off_{skin}.png"));
+
+                // 닉네임 효과: one row per effect family so the warm/cold split and the still variants can be
+                // compared at the real row size. Light matters — a palette tuned on the dark skins can vanish
+                // on #FAFCFF, and the whole point is that the mark is legible.
+                var fxVm = new OverlayViewModel("1.7.8", settings, theme, () => currentSkin == "Light") { Status = "캡처 중" };
+                fxVm.SetNameFxRoster(SampleNameFxRoster(SampleMeterReport(now)));
+                fxVm.Update(SampleMeterReport(now));
+                Capture(() => new OverlayWindow { DataContext = fxVm }, palette, Path.Combine(outDir, $"meter_namefx_{skin}.png"));
             }
 
             if (skin == "Dark")
@@ -631,6 +639,45 @@ internal static class Program
         vm.PendingReset = null; vm.Commit(); // 미지정 round-trip
         Check("Hotkey unassign", hotkeys.Reset is null);
 
+        // 닉네임 효과. The property that must never regress: with the feature off the row is painted with the
+        // SAME brush instance as before the feature existed, so "off" is pixel-identical rather than merely similar.
+        var offVm = new OverlayViewModel("test", settings, theme, () => false);
+        offVm.SetNameFxRoster(SampleNameFxRoster(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())));
+        settings.NameFxMode = "off";
+        offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("nameFx off: name keeps its own brush", offVm.Rows.All(r => ReferenceEquals(r.NameFillBrush, r.NameBrush)));
+
+        settings.NameFxMode = "animated";
+        offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("nameFx animated: granted rows get an effect brush",
+            offVm.Rows.Any(r => !ReferenceEquals(r.NameFillBrush, r.NameBrush)));
+
+        settings.NameFxShowSelf = false;
+        settings.NameFxShowOthers = false;
+        offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("nameFx self/others off: nobody is decorated", offVm.Rows.All(r => ReferenceEquals(r.NameFillBrush, r.NameBrush)));
+        settings.NameFxShowSelf = true;
+        settings.NameFxShowOthers = true;
+
+        settings.NameFxMode = "static";
+        offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("nameFx static: effects survive but nothing is animated",
+            offVm.Rows.Any(r => !ReferenceEquals(r.NameFillBrush, r.NameBrush)));
+
+        Check("effect ids are unique", NameFxPalette.All.Select(e => e.Id).Distinct(StringComparer.Ordinal).Count() == NameFxPalette.All.Length);
+        Check("both families have a still variant",
+            !NameFxPalette.StillVariant("syrup", false).IsNone && !NameFxPalette.StillVariant("goldleaf", false).IsNone);
+        Check("still variants stay inside their own family",
+            NameFxPalette.StillVariant("syrup", false).Id == "crisp" && NameFxPalette.StillVariant("goldleaf", false).Id == "edge");
+        Check("unknown effect id draws nothing", NameFxPalette.For("nope", false).IsNone);
+
+        vm.NameFxBrightnessPercent = 130; vm.CommitNameFxBrightness();
+        vm.NameFxBrightnessPercent = 70; vm.CommitNameFxBrightness();
+        vm.NameFxBrightnessPercent = 100; vm.CommitNameFxBrightness();
+        Check("brightness round-trips", settings.NameFxBrightnessPercent == 100);
+        vm.NameFxSpeedPercent = 200; Check("speed round-trips", settings.NameFxSpeedPercent == 200);
+        Check("preview strip covers the catalogue", vm.NameFxSamples.Count == NameFxPalette.All.Length);
+
         vm.ResetDefaults();
         Check("ResetDefaults", settings.DisplayMode == "dps_percent" && settings.RowHeight == 36 && skin.Current == "dark");
 
@@ -749,6 +796,20 @@ internal static class Program
                     }
 
                     RenderToPng(window, Path.Combine(outDir, $"settings_tab_{key}_{skinName}.png"), fixedSize: true);
+
+                    // 닉네임 효과 section sits at the bottom of the colour tab — capture the preview strip.
+                    if (key == "theme"
+                        && window.FindName("NameFxSectionHeader") is FrameworkElement fxHeader
+                        && scroll is not null)
+                    {
+                        scroll.UpdateLayout();
+                        fxHeader.BringIntoView();
+                        scroll.UpdateLayout();
+                        scroll.ScrollToVerticalOffset(scroll.VerticalOffset + scroll.ViewportHeight - fxHeader.ActualHeight - 8);
+                        scroll.UpdateLayout();
+                        RenderToPng(window, Path.Combine(outDir, $"settings_namefx_{skinName}.png"), fixedSize: true);
+                        scroll.ScrollToTop();
+                    }
 
                     // The font grid sits below the fold. Capture it in BOTH skins: Skin.AccentSoft over the
                     // near-white Light RowBg is exactly where a selection state goes invisible, and the whole
@@ -1041,6 +1102,35 @@ internal static class Program
             // rather than inventing a number, and carries no basis. Worth seeing in the preview.
             [8] = new RowTier(8, null, dungeon),  // 아이언, 표본 부족
         };
+    }
+
+    /// <summary>
+    /// Grant every contributor in the sample report a different effect, so one screenshot covers the whole
+    /// catalogue at real row size. Hashes are computed the same way the meter computes them — if
+    /// <c>StatsIdentity</c> and the roster ever disagree, this preview goes blank and says so.
+    /// </summary>
+    private static NameFxRoster SampleNameFxRoster(DpsReport report)
+    {
+        string[] ids = NameFxPalette.All.Select(e => e.Id).ToArray();
+        var entries = new List<string>();
+        int i = 0;
+        foreach (User u in report.Contributors)
+        {
+            string? hash = WaffleMeter.Stats.StatsIdentity.CharacterIdentityHash(u.Server, u.Nickname);
+            if (hash is null)
+            {
+                continue;
+            }
+
+            NameFxPalette.Effect e = NameFxPalette.All[i++ % ids.Length];
+            string kind = e.Kind == NameFxPalette.NameFxKind.Ranker ? "ranker" : "supporter";
+            entries.Add($$"""{"h":"{{hash}}","e":"{{e.Id}}","k":"{{kind}}"}""");
+        }
+
+        return NameFxRoster.Parse(
+            $$"""{"schemaVersion":1,"entries":[{{string.Join(",", entries)}}]}""",
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            NameFxPalette.IsKnown);
     }
 
     private static DpsReport SampleMeterReport(long now)

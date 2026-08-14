@@ -716,6 +716,87 @@
                             <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.BossRightValue, Mode=TwoWay}"/></Grid>
 
                         <Button Content="테마 색상 초기화" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OnResetTheme"/>
+
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock x:Name="NameFxSectionHeader" Text="닉네임 효과" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <TextBlock Text="후원해 주신 분과 상위 랭커의 닉네임에 붙는 연출입니다. 미터의 기능·정확도·통계에는 어떤 차이도 없습니다."
+                                   Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                        <!-- 미리보기: 부여는 서버가 하므로, 이게 없으면 사용자는 이 설정이 무엇을 바꾸는지 볼
+                             방법이 없다. 애니메이션 샘플은 미터 행과 '같은 브러시 인스턴스'를 쓰므로 별도
+                             근사가 아니라 실물과 정확히 같이 움직인다. -->
+                        <ItemsControl ItemsSource="{Binding NameFxSamples}" Margin="0,0,0,12">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                            BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,8,8" Width="164">
+                                        <StackPanel>
+                                            <TextBlock Text="와플장인" FontSize="14" FontWeight="SemiBold" Foreground="{Binding Fill}"/>
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="10.5"
+                                                           Foreground="{DynamicResource Skin.MutedFg}"/>
+                                                <TextBlock Text="{Binding Kind}" FontFamily="Segoe UI" FontSize="10.5" Margin="6,0,0,0"
+                                                           Foreground="{DynamicResource Skin.Accent}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="닉네임 효과 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="'색상만'은 움직임 없이 색만 남깁니다. 저사양 모드에서는 설정과 무관하게 꺼집니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding NameFxModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding NameFxMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14" IsEnabled="{Binding NameFxDetailEnabled}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="내 닉네임에 적용" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="내 캐릭터 행에도 연출을 그립니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding NameFxShowSelf}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14" IsEnabled="{Binding NameFxDetailEnabled}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="파티원 닉네임에 적용" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="끄면 내 행에만 연출이 보입니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding NameFxShowOthers}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14" IsEnabled="{Binding NameFxAnimated}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding NameFxSpeedPercent, StringFormat='애니메이션 속도 — {0}%'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="값이 클수록 색이 빠르게 흐릅니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="50" Maximum="200" Value="{Binding NameFxSpeedPercent}"
+                                    TickFrequency="50" IsSnapToTickEnabled="True"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4" IsEnabled="{Binding NameFxDetailEnabled}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding NameFxBrightnessPercent, StringFormat='색상 밝기 — {0}%'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="어두운 스킨에서 연출이 튀면 낮춰 주세요." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <!-- 커밋은 드래그가 끝날 때 한 번. 틱마다 하면 브러시 스톱을 전부 다시 계산하면서
+                                 settings.properties 를 통째로 재기록한다. -->
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="70" Maximum="130" Value="{Binding NameFxBrightnessPercent}"
+                                    TickFrequency="5" IsSnapToTickEnabled="True"
+                                    Thumb.DragCompleted="OnNameFxBrightnessCommitted"/>
+                        </Grid>
                     </StackPanel>
 
                     <!-- ===== 창 동작 ===== -->

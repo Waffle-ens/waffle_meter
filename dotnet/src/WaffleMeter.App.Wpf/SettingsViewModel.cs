@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -11,6 +11,11 @@ using WaffleMeter.Capture.Live;
 using WaffleMeter.Stats;
 
 namespace WaffleMeter.App.Wpf;
+
+/// <summary>One effect on the settings preview strip: what it is called, which family it belongs to, and the
+/// brush it paints a nickname with. The brush is the SAME shared instance the meter row uses, so an animated
+/// sample moves in step with the real thing instead of being a separate approximation.</summary>
+public sealed record NameFxSampleViewModel(string Name, string Kind, System.Windows.Media.Brush Fill);
 
 /// <summary>A label/value choice for a settings ComboBox.</summary>
 public sealed record SettingOption(string Label, string Value);
@@ -159,6 +164,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
 
         RebuildFontCards();
+        RebuildNameFxSamples(_skin.IsLight);
         Reload();
     }
 
@@ -583,6 +589,70 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool TierShowOthers { get => _settings.TierShowOthers; set { _settings.TierShowOthers = value; OnPropertyChanged(); } }
 
     public bool TierShowSelfChip { get => _settings.TierShowSelfChip; set { _settings.TierShowSelfChip = value; OnPropertyChanged(); } }
+
+    // ---- 닉네임 효과 (후원자 · 랭커) ----
+
+    public IReadOnlyList<SettingOption> NameFxModes { get; } = new[]
+    {
+        new SettingOption("끔", "off"),
+        new SettingOption("색상만 (움직임 없음)", "static"),
+        new SettingOption("애니메이션", "animated"),
+    };
+
+    public string NameFxMode
+    {
+        get => _settings.NameFxMode;
+        set
+        {
+            _settings.NameFxMode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(NameFxDetailEnabled));
+            OnPropertyChanged(nameof(NameFxAnimated));
+        }
+    }
+
+    /// <summary>The per-row toggles and the brightness slider only mean something while effects are on at all.</summary>
+    public bool NameFxDetailEnabled => _settings.NameFxMode != "off";
+
+    /// <summary>Speed only applies to the moving variants.</summary>
+    public bool NameFxAnimated => _settings.NameFxMode == "animated";
+
+    public bool NameFxShowSelf { get => _settings.NameFxShowSelf; set { _settings.NameFxShowSelf = value; OnPropertyChanged(); } }
+
+    public bool NameFxShowOthers { get => _settings.NameFxShowOthers; set { _settings.NameFxShowOthers = value; OnPropertyChanged(); } }
+
+    public int NameFxSpeedPercent { get => _settings.NameFxSpeedPercent; set { _settings.NameFxSpeedPercent = value; OnPropertyChanged(); } }
+
+    /// <summary>
+    /// Brightness. The setter only stores; rebuilding the shared brushes is <see cref="CommitNameFxBrightness"/>,
+    /// called on drag-end — recolouring every stop on each slider tick would rebuild the palette dozens of times
+    /// per drag AND rewrite the whole properties file each time.
+    /// </summary>
+    public int NameFxBrightnessPercent
+    {
+        get => _settings.NameFxBrightnessPercent;
+        set { _settings.NameFxBrightnessPercent = value; OnPropertyChanged(); }
+    }
+
+    public void CommitNameFxBrightness() => NameFxSheen.Rebuild(_settings.NameFxBrightnessPercent);
+
+    /// <summary>
+    /// Every catalogue effect, drawn on a sample nickname. Grants come from the server, so without this a user
+    /// has no way to see what the setting even does — and the preview is also how someone decides whether the
+    /// motion bothers them before turning it off.
+    /// </summary>
+    public IReadOnlyList<NameFxSampleViewModel> NameFxSamples { get; private set; } = Array.Empty<NameFxSampleViewModel>();
+
+    private void RebuildNameFxSamples(bool isLight)
+    {
+        NameFxSamples = NameFxPalette.All
+            .Select(e => new NameFxSampleViewModel(
+                e.Name,
+                e.Kind == NameFxPalette.NameFxKind.Ranker ? "랭커" : "후원자",
+                NameFxPalette.For(e.Id, isLight).NameFill))
+            .ToArray();
+        OnPropertyChanged(nameof(NameFxSamples));
+    }
 
     private string _tierStatus = string.Empty;
 
@@ -1187,7 +1257,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string Skin
     {
         get => _skin.Current;
-        set { _skin.Apply(value); OnPropertyChanged(); }
+        set
+        {
+            _skin.Apply(value);
+            OnPropertyChanged();
+            RebuildNameFxSamples(_skin.IsLight); // the preview strip carries its own palette per skin
+        }
     }
 
     // ---- theme (color picker) ----
@@ -1365,13 +1440,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
         string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
         string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
-        bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster, bool ShowAetherStatus)
+        bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster, bool ShowAetherStatus,
+        string NameFxMode, bool NameFxShowSelf, bool NameFxShowOthers, int NameFxSpeedPercent, int NameFxBrightnessPercent)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
             s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
             s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
-            s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster, s.ShowAetherStatus);
+            s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster, s.ShowAetherStatus,
+            s.NameFxMode, s.NameFxShowSelf, s.NameFxShowOthers, s.NameFxSpeedPercent, s.NameFxBrightnessPercent);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -1398,6 +1475,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             // turning it off and cancelling a one-way trip: the footer badge (and the shugo key badge it gates)
             // stayed hidden across restarts with no way back except finding the same toggle again.
             s.ShowAetherStatus = ShowAetherStatus;
+            s.NameFxMode = NameFxMode;
+            s.NameFxShowSelf = NameFxShowSelf;
+            s.NameFxShowOthers = NameFxShowOthers;
+            s.NameFxSpeedPercent = NameFxSpeedPercent;
+            s.NameFxBrightnessPercent = NameFxBrightnessPercent;
+            NameFxSheen.Rebuild(NameFxBrightnessPercent);
         }
     }
 
