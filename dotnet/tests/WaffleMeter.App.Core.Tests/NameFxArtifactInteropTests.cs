@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using WaffleMeter.App.Core;
 using WaffleMeter.Services;
 using WaffleMeter.Stats;
@@ -20,8 +20,8 @@ public sealed class NameFxArtifactInteropTests : IDisposable
 {
     /// <summary>Straight out of the server's own output, not recomputed here — the point is to check the two
     /// sides agree, and a value derived locally would agree with itself.</summary>
-    private const string ExpectedSha256 = "56315e9303f1a7b8a4799af1876164d8896a27c8066b6bdae45fa85916650d53";
-    private const string ExpectedArtifactId = "56315e9303f1a7b8";
+    private const string ExpectedSha256 = "f19ae5287d7e1833668b3967af37a65e4eeaffe9caaa447f4545056f17ad2193";
+    private const string ExpectedArtifactId = "f19ae5287d7e1833";
 
     private static readonly string FixturePath =
         Path.Combine(AppContext.BaseDirectory, "Fixtures", "namefx-artifact-v1.json.gz");
@@ -40,12 +40,35 @@ public sealed class NameFxArtifactInteropTests : IDisposable
     [Fact]
     public void The_servers_digest_is_over_the_bytes_we_receive()
     {
-        // 서버가 압축된 바이트를 해시하고, 미터도 압축된 바이트를 해시한다. 한쪽이 평문으로 옮겨 가면
-        // 무결성 검사가 영원히 실패하고, 그 실패는 '연출이 안 붙는다'로만 보인다.
-        byte[] gzip = File.ReadAllBytes(FixturePath);
+        // 서버가 wire 로 나가는 바이트를 해시하고, 미터도 받은 그대로를 해시한다. 한쪽이 봉투 안쪽
+        // (gzip 이나 평문)으로 옮겨 가면 무결성 검사가 영원히 실패하고, 그 실패는 '연출이 안 붙는다'로만
+        // 보인다.
+        byte[] wire = File.ReadAllBytes(FixturePath);
 
-        Assert.Equal(ExpectedSha256, Convert.ToHexStringLower(SHA256.HashData(gzip)));
+        Assert.Equal(ExpectedSha256, Convert.ToHexStringLower(SHA256.HashData(wire)));
         Assert.Equal(ExpectedArtifactId, ExpectedSha256[..16]);
+    }
+
+    [Fact]
+    public void The_payload_is_sealed_and_the_meter_can_open_it()
+    {
+        // 봉투가 씌워져 있고 우리 키로 열린다는 것 — 즉 서버와 미터의 키가 같다는 것 — 을 확인한다.
+        // 어긋나면 모든 설치본이 같은 순간에 복호에 실패하고, 화면에는 아무 표시도 없다.
+        byte[] wire = File.ReadAllBytes(FixturePath);
+
+        Assert.True(NameFxEnvelope.IsSealed(wire));
+        byte[] inner = NameFxEnvelope.Open(wire);
+        Assert.Equal(0x1f, inner[0]); // gzip magic
+        Assert.Equal(0x8b, inner[1]);
+    }
+
+    [Fact]
+    public void A_tampered_payload_does_not_open()
+    {
+        byte[] wire = File.ReadAllBytes(FixturePath);
+        wire[^1] ^= 0x01;
+
+        Assert.ThrowsAny<Exception>(() => NameFxEnvelope.Open(wire));
     }
 
     [Fact]

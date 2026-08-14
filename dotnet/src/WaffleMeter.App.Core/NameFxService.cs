@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
@@ -305,8 +305,12 @@ public sealed class NameFxService : IDisposable
         }
     }
 
-    private static string Inflate(byte[] gzip)
+    /// <summary>Unwrap the envelope if there is one, then inflate.
+    /// <para>Plain gzip is still accepted so a cache written before the envelope existed keeps working —
+    /// otherwise every install would lose its roster on upgrade and sit blank until the next poll.</para></summary>
+    private static string Inflate(byte[] payload)
     {
+        byte[] gzip = NameFxEnvelope.IsSealed(payload) ? NameFxEnvelope.Open(payload) : payload;
         using var input = new MemoryStream(gzip);
         using var gz = new GZipStream(input, CompressionMode.Decompress);
         using var reader = new StreamReader(gz, Encoding.UTF8);

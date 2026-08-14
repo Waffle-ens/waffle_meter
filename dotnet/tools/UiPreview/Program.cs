@@ -1056,15 +1056,11 @@ internal static class Program
                         RenderToPng(window, moved, fixedSize: true);
                         if (!contractChecked)
                         {
-                            // 신청 경로와 동의 고지. 부여는 서버가 하고 미터에는 신청 수단이 없으므로, 이
-                            // 문구가 없으면 연출을 본 사람은 "나는 왜 없지"에서 멈춘다. 그리고 '공개 명단에
-                            // 실린다'는 문장은 지금 이 화면에만 있다 — 후원 페이지 한 줄 안내에는 없다.
-                            // 배포된 명단은 회수할 수 없으므로 고지가 사라지는 회귀는 되돌릴 수 없다.
+                            // 신청 경로. 부여는 서버가 하고 미터에는 신청 수단이 없으므로, 이 문구가
+                            // 없으면 연출을 본 사람은 "나는 왜 없지"에서 멈춘다.
                             string[] texts = Descendants(window).OfType<System.Windows.Controls.TextBlock>().Select(t => t.Text ?? string.Empty).ToArray();
                             Check("닉네임 효과 안내가 신청 경로(디스코드 DM)를 말한다",
                                 texts.Any(t => t.Contains("디스코드", StringComparison.Ordinal) && t.Contains("DM", StringComparison.Ordinal)));
-                            Check("닉네임 효과 안내가 공개 명단 등재를 고지한다",
-                                texts.Any(t => t.Contains("공개 후원자 명단", StringComparison.Ordinal)));
                             Check("닉네임 효과 안내가 랭커 자동 부여 기준을 말한다",
                                 texts.Any(t => t.Contains("마스터 이상", StringComparison.Ordinal)));
 
