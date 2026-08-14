@@ -779,6 +779,11 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     };
 
     // angle 0 = left->right, matching the React `linear-gradient(to right, ...)` bars.
+    /// <summary>The row-bar gradient for a theme colour pair. Public so the settings preview can paint its mock
+    /// row with the SAME brush the meter uses — a preview that invents its own colours cannot be trusted to say
+    /// what the meter will look like.</summary>
+    public static Brush RowGradient(string from, string to) => ThemeGradient(from, to);
+
     private static Brush ThemeGradient(string from, string to)
     {
         var brush = new LinearGradientBrush(ToColor(from), ToColor(to), 0.0);

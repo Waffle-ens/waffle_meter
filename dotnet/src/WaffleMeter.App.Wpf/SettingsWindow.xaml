@@ -15,6 +15,7 @@
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <local:StringEqualsToVisibilityConverter x:Key="NavVis"/>
             <local:FontFamilyConverter x:Key="FontConv"/>
+            <local:RatioToStarConverter x:Key="RatioToStar"/>
             <!-- day-of-week toggle chip for custom alarms: matches the meter chip aesthetic (dim when off,
                  subtle accent fill + accent border/text when on), instead of the default square CheckBox. -->
             <Style x:Key="DayChip" TargetType="ToggleButton">
@@ -751,16 +752,66 @@
                         <ItemsControl ItemsSource="{Binding GaugeSkinSamples}" Margin="0,0,0,12">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,0,0,6">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="86"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Name}" FontFamily="Segoe UI" FontSize="11"
-                                                   VerticalAlignment="Center" Foreground="{DynamicResource Skin.MutedFg}"/>
-                                        <!-- 실제 행과 같은 높이·라운딩으로 그린다. 게이지는 그 위에 숫자를 읽어야
-                                             하는 바탕이라, 좁은 견본으로는 대비가 과한지 판단할 수 없다. -->
-                                        <!-- 실제 행의 채움 게이지와 같은 0.3 불투명도. 견본만 진하게 그리면 판단해야 할 축(대비)이
-                                             부풀려져, 눈에 괜찮아 보이던 스킨이 미터에서는 흐릿해진다. -->
-                                        <Border Grid.Column="1" Height="22" CornerRadius="4" Background="{Binding Fill}" Opacity="0.3"/>
-                                    </Grid>
+                                    <StackPanel Margin="0,0,0,10">
+                                        <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="11" Margin="0,0,0,3"
+                                                   Foreground="{DynamicResource Skin.MutedFg}"/>
+                                        <!-- 미터 행의 모형. 색 견본이 아니라 행인 이유는, 게이지가 딜 숫자를 읽는
+                                             바탕이라 숫자가 실제로 올라가 있어야 과한지 아닌지가 드러나기 때문이다.
+                                             미터의 진짜 행 템플릿은 OverlayWindow.xaml 안에 있어 그대로 쓰려면 미터
+                                             렌더링을 건드려야 하므로(행 기하 때문에 두 번 회귀한 파일이다) 모형으로
+                                             둔다. 대신 판단을 좌우하는 셋은 실물과 동일하다 — 브러시 인스턴스,
+                                             채움 불투명도 0.3, 그리고 자기 색을 지키는 3px 레일. -->
+                                        <Border Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                                BorderThickness="1" CornerRadius="6" Height="38" Padding="4,0">
+                                            <Grid>
+                                                <Grid Margin="4,3">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
+                                                        <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" Background="{Binding Fill}" Opacity="0.3" CornerRadius="4"/>
+                                                </Grid>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" Width="3" CornerRadius="2" Margin="0,2,8,2" VerticalAlignment="Stretch"
+                                                            Background="{Binding RailBrush}" Opacity="0.95"/>
+                                                    <Border Grid.Column="1" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                                            BorderThickness="1" CornerRadius="4" MinWidth="22" Height="20" Padding="4,0"
+                                                            Margin="0,0,6,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Rank}" FontFamily="Segoe UI" FontSize="11" HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center" Foreground="{DynamicResource Skin.MutedFg}"/>
+                                                    </Border>
+                                                    <Border Grid.Column="2" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.IconRing}"
+                                                            BorderThickness="1" CornerRadius="6" Width="24" Height="24" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                        <Image Source="{Binding IconSource}" Stretch="Uniform" Margin="2"/>
+                                                    </Border>
+                                                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Nickname}" FontSize="14" Foreground="{DynamicResource Skin.Fg}"/>
+                                                        <TextBlock Text="{Binding ServerTag}" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource Skin.MutedFg}"/>
+                                                        <Border Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                                                BorderThickness="1" CornerRadius="4" Padding="4,0" Margin="6,0,0,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding PowerText}" FontSize="10.5" Foreground="{DynamicResource Skin.MutedFg}"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="4" Text="{Binding DpsText}" FontSize="14" Margin="0,0,8,0"
+                                                               VerticalAlignment="Center" Foreground="{DynamicResource Skin.Fg}"/>
+                                                    <Border Grid.Column="5" Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="5,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding PercentText}" FontSize="11.5" MinWidth="40" TextAlignment="Center"
+                                                                   Foreground="{DynamicResource Skin.Fg}"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

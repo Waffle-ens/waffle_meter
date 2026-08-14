@@ -17,6 +17,30 @@ namespace WaffleMeter.App.Wpf;
 /// sample moves in step with the real thing instead of being a separate approximation.</summary>
 public sealed record NameFxSampleViewModel(string Name, string Kind, System.Windows.Media.Brush Fill);
 
+/// <summary>
+/// One gauge skin, drawn as a MOCK METER ROW rather than a colour swatch.
+/// <para>A bare bar cannot answer the question this preview exists for. A gauge is the background that damage
+/// numbers are read on top of, so "is this skin too loud" only means something with the numbers actually there,
+/// at the real fill opacity, with the real proportions. A swatch made every skin look fine.</para>
+/// <para>It is a facsimile, not the meter's own row template (that template lives inside
+/// <c>OverlayWindow.xaml</c> and pulling it out would touch the meter's rendering — a file this project has
+/// regressed on twice over row geometry). What it does mirror exactly are the parts that decide the answer:
+/// the fill brush instance, its 0.3 opacity, and the 3 px accent rail keeping its own colour.</para>
+/// </summary>
+public sealed record GaugeSkinSampleViewModel(
+    string Name,
+    System.Windows.Media.Brush Fill,
+    System.Windows.Media.Brush RailBrush,
+    System.Windows.Media.ImageSource? IconSource,
+    string Rank,
+    string Nickname,
+    string ServerTag,
+    string PowerText,
+    string DpsText,
+    string PercentText,
+    double BarRatio,
+    double BarRest);
+
 /// <summary>A label/value choice for a settings ComboBox.</summary>
 public sealed record SettingOption(string Label, string Value);
 
@@ -672,7 +696,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     /// <summary>랭커 전용 DPS 게이지 스킨 미리보기. 닉네임 연출과 목록을 나눈 이유는 칠하는 자리가 달라서다 —
     /// 하나는 글자, 하나는 행을 가로지르는 막대다.</summary>
-    public IReadOnlyList<NameFxSampleViewModel> GaugeSkinSamples { get; private set; } = Array.Empty<NameFxSampleViewModel>();
+    public IReadOnlyList<GaugeSkinSampleViewModel> GaugeSkinSamples { get; private set; } = Array.Empty<GaugeSkinSampleViewModel>();
 
     public bool NameFxGauge { get => _settings.NameFxGauge; set { _settings.NameFxGauge = value; OnPropertyChanged(); } }
 
@@ -688,8 +712,21 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 e.Kind == NameFxPalette.NameFxKind.Ranker ? "랭커" : "후원자",
                 NameFxPalette.For(e.Id, isLight).NameFill))
             .ToArray();
+        // 같은 행 내용에 스킨만 갈아 끼운다 — 비교해야 할 변수가 스킨 하나뿐이어야 한다.
         GaugeSkinSamples = NameFxPalette.GaugeSkins
-            .Select(e => new NameFxSampleViewModel(e.Name, "랭커", NameFxPalette.For(e.Id, isLight).NameFill))
+            .Select(e => new GaugeSkinSampleViewModel(
+                Name: e.Name,
+                Fill: NameFxPalette.For(e.Id, isLight).NameFill,
+                RailBrush: OverlayViewModel.RowGradient(Theme.UserBarFrom, Theme.UserBarTo),
+                IconSource: JoinIcons.Job("마도성"),
+                Rank: "1",
+                Nickname: "와플장인",
+                ServerTag: "[시엘]",
+                PowerText: "656.0k",
+                DpsText: "408,239/s",
+                PercentText: "35.1%",
+                BarRatio: 0.55,
+                BarRest: 0.45))
             .ToArray();
         OnPropertyChanged(nameof(NameFxSamples));
         OnPropertyChanged(nameof(GaugeSkinSamples));
