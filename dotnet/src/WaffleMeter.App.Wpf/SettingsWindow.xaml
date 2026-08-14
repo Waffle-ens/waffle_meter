@@ -497,7 +497,7 @@
                         </ItemsControl>
                     </StackPanel>
 
-                    <!-- ===== 화면 ===== -->
+                    <!-- ===== 게임 최적화 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=gameopt}">
                         <TextBlock Text="게임 최적화" Style="{StaticResource SectionHeader}"/>
 
@@ -542,6 +542,7 @@
                                    Text="안내: 변경 사항은 게임을 재실행한 뒤부터 적용됩니다. 되돌리기는 우리가 추가한 구간만 지우므로 사용자가 직접 넣은 다른 Engine.ini 설정은 그대로 유지됩니다."/>
                     </StackPanel>
 
+                    <!-- ===== 화면 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=display}">
                         <TextBlock Text="표시 설정" Style="{StaticResource SectionHeader}"/>
 
@@ -1340,7 +1341,6 @@
                                    Visibility="{Binding CharacterDetected, Converter={StaticResource BoolToVisInverse}, FallbackValue=Collapsed}"/>
                     </StackPanel>
 
-                    <!-- ===== 진단 ===== -->
                     <!-- ===== 리플레이 (베타) ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=replay}">
                         <TextBlock Text="전투 리플레이 (베타)" Style="{StaticResource SectionHeader}"/>
@@ -1423,6 +1423,7 @@
                         </Grid>
                     </StackPanel>
 
+                    <!-- ===== 진단 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=diag}">
                         <TextBlock Text="진단 — 패킷 로깅" Style="{StaticResource SectionHeader}"/>
                         <TextBlock Text="전투를 기록해 재생 가능한 코퍼스(packet-debug-logs)를 남깁니다. 진단/검증용이며, 켜두면 디스크에 계속 기록됩니다."
