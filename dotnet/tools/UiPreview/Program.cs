@@ -792,6 +792,7 @@ internal static class Program
         vm.ExportFull();
         string fullCode = vm.LastExportedCode;
         Check("export produces a code", fullCode.StartsWith("WM1.", StringComparison.Ordinal) && fullCode.Length > 40);
+        Console.WriteLine($"        (전체 코드 {fullCode.Length}자, 설정 개수는 위 export 상태 기준)");
 
         vm.ImportText = fullCode;
         vm.PreviewPastedCode();
@@ -855,6 +856,14 @@ internal static class Program
         vm.PreviewPastedCode();
         vm.ApplyPreviewedCode();
         Check("디자인 코드를 적용해도 알림은 그대로", props.GetProperty("alarms.shugoEnabled") == "false");
+
+        // 파일 경로. 코드가 채팅 글자수 제한을 넘으면 클립보드로는 못 넘긴다.
+        string codeFile = Path.Combine(tmp, "shared.wmset");
+        File.WriteAllText(codeFile, "# 친구가 준 세팅" + Environment.NewLine + fullCode + Environment.NewLine);
+        vm.LoadCodeFromText(File.ReadAllText(codeFile));
+        Check("메모가 섞인 파일에서도 코드를 읽는다", vm.ImportPreviewVisibility == Visibility.Visible);
+        Check("파일 이름 제안은 날짜가 붙는다", vm.SuggestedFileName(new DateTimeOffset(2026, 8, 15, 0, 0, 0, TimeSpan.Zero))
+            == "waffle-settings-20260815.wmset");
 
         vm.ImportText = string.Empty;
 

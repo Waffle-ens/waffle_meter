@@ -1424,8 +1424,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         LastExportedCode = code;
 
         bool copied = TryCopy(code);
+        // 디스코드 한 메시지가 2,000자다. 그 선을 넘으면 붙여넣기가 잘려 나가고, 잘린 코드는 지문 검사에서
+        // "손상됐다"로만 보인다 — 왜 잘렸는지는 받는 쪽이 알 길이 없으므로 보내는 쪽에서 미리 말해 준다.
+        string tooLong = code.Length > 1800
+            ? " 채팅에 붙여넣기엔 깁니다 — '파일로 저장'으로 넘기는 편이 안전해요."
+            : string.Empty;
         BundleStatus = copied
-            ? $"{label} 코드를 복사했습니다 — 설정 {bundle.Data.Count}개, {code.Length}자."
+            ? $"{label} 코드를 복사했습니다 — 설정 {bundle.Data.Count}개, {code.Length}자.{tooLong}"
             : $"{label} 코드를 만들었습니다 — 설정 {bundle.Data.Count}개. 클립보드 복사에 실패해 아래 상자에서 직접 복사해 주세요.";
     }
 
@@ -1610,6 +1615,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         ApplyImport(_plan);
         ImportText = string.Empty; // also clears the preview
+    }
+
+    /// <summary>Default file name for "파일로 저장", so a folder of these is still readable a month later.</summary>
+    public string SuggestedFileName(DateTimeOffset now) => $"waffle-settings-{now:yyyyMMdd}.wmset";
+
+    /// <summary>Feed a code read from a file into the import box and diff it.</summary>
+    public void LoadCodeFromText(string text)
+    {
+        ImportText = text;
+        PreviewPastedCode();
     }
 
     /// <summary>Open the folder holding the pre-import snapshots.</summary>

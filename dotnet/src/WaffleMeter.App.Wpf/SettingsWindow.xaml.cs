@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Threading;
@@ -135,6 +136,64 @@ public partial class SettingsWindow : Window
     private void OnExportAlarms(object sender, RoutedEventArgs e) => _viewModel.ExportAlarms();
 
     private void OnOpenBackupFolder(object sender, RoutedEventArgs e) => _viewModel.OpenBackupFolder();
+
+    private void OnSaveCodeToFile(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.LastExportedCode.Length == 0)
+        {
+            MessageBox.Show(this, "먼저 위에서 어떤 범위로 코드를 만들지 골라 주세요.",
+                "설정 파일로 저장", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = _viewModel.SuggestedFileName(DateTimeOffset.Now),
+            DefaultExt = ".wmset",
+            Filter = "와플미터 설정 (*.wmset)|*.wmset|텍스트 파일 (*.txt)|*.txt|모든 파일 (*.*)|*.*",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            File.WriteAllText(dialog.FileName, _viewModel.LastExportedCode);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "파일을 저장하지 못했습니다. " + ex.Message,
+                "설정 파일로 저장", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OnLoadCodeFromFile(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            DefaultExt = ".wmset",
+            Filter = "와플미터 설정 (*.wmset)|*.wmset|텍스트 파일 (*.txt)|*.txt|모든 파일 (*.*)|*.*",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            // 파일 전체를 그대로 넘긴다 — 코드를 잘라내는 건 파서의 일이고, 그래야 메모장에 메모를 곁들여
+            // 저장해 둔 파일도 그대로 열린다.
+            _viewModel.LoadCodeFromText(File.ReadAllText(dialog.FileName));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "파일을 읽지 못했습니다. " + ex.Message,
+                "설정 불러오기", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private void OnPasteImport(object sender, RoutedEventArgs e)
     {

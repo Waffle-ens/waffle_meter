@@ -1671,6 +1671,8 @@
                                     ToolTip="외형만 — 색·글꼴·크기·게이지. 남에게 보여줄 때"/>
                             <Button Content="알림만 복사" Click="OnExportAlarms" Margin="0,0,8,0"
                                     ToolTip="슈고·필드보스·카이라·커스텀 알람과 소리"/>
+                            <Button Content="파일로 저장" Click="OnSaveCodeToFile" Margin="0,0,8,0"
+                                    ToolTip="코드가 채팅 글자수 제한보다 길 때 — 파일로 넘기면 잘리지 않습니다"/>
                             <Button Content="백업 폴더 열기" Click="OnOpenBackupFolder"/>
                         </StackPanel>
 
@@ -1687,6 +1689,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button Content="클립보드에서 붙여넣기" Click="OnPasteImport" Margin="0,0,8,0"/>
                             <Button Content="무엇이 바뀌는지 보기" Click="OnPreviewImport" Margin="0,0,8,0"/>
+                            <Button Content="파일에서 불러오기" Click="OnLoadCodeFromFile" Margin="0,0,8,0"/>
                             <Button Content="되돌리기" Click="OnUndoImport"
                                     Visibility="{Binding UndoVisibility}"
                                     ToolTip="가장 최근 가져오기 직전 설정으로 되돌립니다"/>
