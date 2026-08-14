@@ -74,44 +74,97 @@ public sealed class FontFamilyConverter : IValueConverter
 /// </summary>
 public static class FontResolver
 {
-    public static FontFamily Resolve(string name)
+    /// <summary>
+    /// A name WPF cannot possibly match, used to learn what "not found" looks like for a given font location.
+    /// </summary>
+    private const string MissingProbe = "__waffle_missing_font_probe__";
+
+    /// <summary>
+    /// 'Freesentation' shipped as a picker option, but no family by that bare name exists — the three files
+    /// register as 'Freesentation 4/6/7' (WPF matches the Win32 family, not the typographic one). The option
+    /// therefore resolved to the fallback face for every user who picked it. The stored value stays as-is
+    /// (it is in real settings files); it is corrected here so every caller is fixed at once.
+    /// </summary>
+    private static string Normalize(string name) =>
+        string.Equals(name, "Freesentation", StringComparison.Ordinal) ? "Freesentation 4" : name;
+
+    /// <summary>
+    /// The families a <see cref="FontFamily"/> actually carries, as one comparable string. When a "#name"
+    /// lookup misses, WPF does NOT return an empty family — it returns the DEFAULT one (Arial here), fully
+    /// populated with typefaces. So <c>GetTypefaces().Count &gt; 0</c> can never fail, and every name used to
+    /// look "found". Comparing the signature against a known-missing probe is what actually distinguishes them.
+    /// </summary>
+    private static string Signature(FontFamily family)
     {
         try
         {
-            // Embedded (Fonts/*.ttf as Resource) first — but only if it actually resolved to a
-            // typeface, so an unbundled name cleanly falls through to a system font instead of a blank.
-            // Assembly-qualified location so the bundled font resolves regardless of the entry assembly
-            // (the bare pack URI resolves against the host exe, which breaks UiPreview + any other host).
-            var bundled = new FontFamily(new Uri("pack://application:,,,/"), $"/WaffleMeter.App.Wpf;component/Fonts/#{name}");
-            if (bundled.GetTypefaces().Count > 0)
-            {
-                return bundled;
-            }
+            return string.Join("", family.FamilyNames.Values.OrderBy(v => v, StringComparer.Ordinal));
         }
         catch
         {
-            // fall through
+            return string.Empty;
         }
+    }
 
+    // Assembly-qualified location so the bundled font resolves regardless of the entry assembly (the bare pack
+    // URI resolves against the host exe, which breaks UiPreview + any other host).
+    private static FontFamily BundledFamily(string name) =>
+        new(new Uri("pack://application:,,,/"), $"/WaffleMeter.App.Wpf;component/Fonts/#{name}");
+
+    private static readonly Lazy<string> BundledMissSignature = new(() => Signature(BundledFamily(MissingProbe)));
+
+    /// <summary>The bundled face for this name, or null when the folder has no such family.</summary>
+    private static FontFamily? TryBundled(string name)
+    {
         try
         {
-            // User-added fonts (a .ttf/.otf dropped into the fonts folder via 설정 › 커스텀 폰트 추가): loaded
-            // straight from disk by their internal family name — no system install, no restart.
-            if (Directory.Exists(UserFontsDir()))
+            FontFamily f = BundledFamily(name);
+            if (f.GetTypefaces().Count > 0 && !string.Equals(Signature(f), BundledMissSignature.Value, StringComparison.Ordinal))
             {
-                var user = new FontFamily(UserFontsBaseUri(), $"./#{name}");
-                if (user.GetTypefaces().Count > 0)
-                {
-                    return user;
-                }
+                return f;
             }
         }
         catch
         {
-            // fall through to system lookup
+            // treat as "not bundled"
         }
 
-        return new FontFamily($"{name}, Malgun Gothic, Segoe UI");
+        return null;
+    }
+
+    /// <summary>A face from the user's fonts folder (a .ttf/.otf added via 설정 › 커스텀 폰트 추가) — loaded
+    /// straight from disk by its internal family name, no system install and no restart. Null when absent.</summary>
+    private static FontFamily? TryUser(string name)
+    {
+        try
+        {
+            if (!Directory.Exists(UserFontsDir()))
+            {
+                return null;
+            }
+
+            Uri baseUri = UserFontsBaseUri();
+            string miss = Signature(new FontFamily(baseUri, $"./#{MissingProbe}"));
+            var f = new FontFamily(baseUri, $"./#{name}");
+            if (f.GetTypefaces().Count > 0 && !string.Equals(Signature(f), miss, StringComparison.Ordinal))
+            {
+                return f;
+            }
+        }
+        catch
+        {
+            // treat as "not a user font"
+        }
+
+        return null;
+    }
+
+    public static FontFamily Resolve(string name)
+    {
+        name = Normalize(name);
+        return TryBundled(name)
+               ?? TryUser(name)
+               ?? new FontFamily($"{name}, Malgun Gothic, Segoe UI");
     }
 
     /// <summary>The folder user-added fonts are copied into (next to settings.properties).</summary>
@@ -127,6 +180,63 @@ public static class FontResolver
         string dir = UserFontsDir();
         return new Uri(dir.EndsWith(Path.DirectorySeparatorChar) ? dir : dir + Path.DirectorySeparatorChar);
     }
+
+    /// <summary>Where a font name resolves from — drives the settings badges ("사용자", "시스템").</summary>
+    public enum FontOrigin
+    {
+        /// <summary>Shipped in Fonts/ and embedded as a Resource.</summary>
+        Bundled,
+
+        /// <summary>A file the user dropped into the fonts folder.</summary>
+        User,
+
+        /// <summary>Installed on this PC (or nothing at all — WPF's comma chain then picks the fallback).</summary>
+        System,
+    }
+
+    /// <summary>Which of the three lookup steps <see cref="Resolve"/> lands on for this name.</summary>
+    public static FontOrigin Classify(string name)
+    {
+        name = Normalize(name);
+        if (TryBundled(name) is not null)
+        {
+            return FontOrigin.Bundled;
+        }
+
+        return TryUser(name) is not null ? FontOrigin.User : FontOrigin.System;
+    }
+
+    /// <summary>
+    /// Every font family installed on this PC, for the settings "시스템 글꼴" dropdown. Deliberately NOT
+    /// rendered as preview cards: this is a few hundred entries and the bundled set is the curated one.
+    /// Computed once — enumerating the system collection is the expensive part, not resolving a name.
+    /// </summary>
+    public static IReadOnlyList<string> EnumerateSystemFontFamilies() => SystemFamilies.Value;
+
+    private static readonly Lazy<IReadOnlyList<string>> SystemFamilies = new(() =>
+    {
+        var names = new List<string>();
+        try
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (FontFamily fam in Fonts.SystemFontFamilies)
+            {
+                string? n = BestFamilyName(fam);
+                if (!string.IsNullOrWhiteSpace(n) && seen.Add(n))
+                {
+                    names.Add(n);
+                }
+            }
+
+            names.Sort(StringComparer.CurrentCultureIgnoreCase);
+        }
+        catch
+        {
+            // a broken font on the machine must never empty the settings window
+        }
+
+        return names;
+    });
 
     /// <summary>Internal family names of every user-added font, for the settings font dropdown. Empty if none.</summary>
     public static IReadOnlyList<string> EnumerateUserFontFamilies()

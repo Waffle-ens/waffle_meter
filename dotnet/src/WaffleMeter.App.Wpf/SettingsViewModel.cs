@@ -158,6 +158,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             PresetSlots.Add(new BuffPresetSlotViewModel(i, presetNames[i], i == _presets.ActiveIndex, SelectPreset));
         }
 
+        RebuildFontCards();
         Reload();
     }
 
@@ -236,6 +237,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     // font's Win32 family name (e.g. "NEXON Lv2 Gothic Bold") or its family+face (e.g. "Pretendard Bold",
     // whose Win32 family is the shared "Pretendard") — so the weight needs no separate FontWeight plumbing.
     // (EX) values verified per file via GlyphTypeface resolution. Malgun Gothic is always available (fallback).
+    /// <summary>Shipped default. Must stay byte-identical to <c>MeterSettings</c>'s own default, or a fresh
+    /// install shows no card selected.</summary>
+    public const string DefaultFontFamily = "NEXON Lv2 Gothic Medium";
+
     private static readonly SettingOption[] BuiltInFonts =
     {
         new SettingOption("NEXON Lv2 Gothic (Bold, 기본)", "NEXON Lv2 Gothic Medium"),
@@ -280,7 +285,112 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
     }
 
-    /// <summary>Copy a user-picked font file into the fonts folder, add it to the dropdown, and select+apply it.
+    /// <summary>
+    /// The font picker's cards — bundled fonts plus anything the user dropped into the fonts folder. Built once
+    /// and mutated in place, because each card resolves its own <see cref="FontFamily"/> at construction and a
+    /// getter that rebuilt the list would re-enumerate the fonts folder off disk on every binding refresh.
+    /// </summary>
+    public ObservableCollection<FontCardViewModel> FontCards { get; } = new();
+
+    /// <summary>Installed system fonts. Not cards: a few hundred entries, and the bundled set is the curated one.
+    /// The picked one still previews — the 현재 글꼴 row below the dropdown renders in whatever is applied.</summary>
+    public IReadOnlyList<string> SystemFontFamilies => FontResolver.EnumerateSystemFontFamilies();
+
+    private void RebuildFontCards()
+    {
+        FontCards.Clear();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (SettingOption o in BuiltInFonts)
+        {
+            if (seen.Add(o.Value))
+            {
+                FontCards.Add(new FontCardViewModel(o.Label, o.Value, o.Value == DefaultFontFamily));
+            }
+        }
+
+        foreach (string name in FontResolver.EnumerateUserFontFamilies())
+        {
+            if (seen.Add(name))
+            {
+                FontCards.Add(new FontCardViewModel(name, name, isDefault: false));
+            }
+        }
+
+        SyncFontSelection();
+    }
+
+    private void SyncFontSelection()
+    {
+        string current = _settings.FontFamily;
+        foreach (FontCardViewModel c in FontCards)
+        {
+            c.IsSelected = string.Equals(c.Value, current, StringComparison.Ordinal);
+        }
+
+        OnPropertyChanged(nameof(CardFontSelection));
+        OnPropertyChanged(nameof(SystemFontSelection));
+        OnPropertyChanged(nameof(CurrentFontPreview));
+        OnPropertyChanged(nameof(CurrentFontSample));
+        OnPropertyChanged(nameof(CurrentFontStatus));
+    }
+
+    private bool IsCardFont(string name) => FontCards.Any(c => string.Equals(c.Value, name, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Card-grid selection. Deliberately NOT bound straight to <see cref="FontFamily"/>: the card list and the
+    /// system dropdown are two <c>Selector</c>s over the same setting, and a Selector whose bound value is absent
+    /// from ITS list coerces to null and writes that null back (SelectedValue is TwoWay by default). Routing each
+    /// through its own property means "the other one owns the value" shows as an empty selection instead of
+    /// wiping the setting.
+    /// </summary>
+    public string? CardFontSelection
+    {
+        get => IsCardFont(_settings.FontFamily) ? _settings.FontFamily : null;
+        set
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                FontFamily = value;
+            }
+        }
+    }
+
+    /// <summary>System-dropdown selection. Same null-coercion reasoning as <see cref="CardFontSelection"/>.</summary>
+    public string? SystemFontSelection
+    {
+        get => IsCardFont(_settings.FontFamily) ? null : _settings.FontFamily;
+        set
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                FontFamily = value;
+            }
+        }
+    }
+
+    /// <summary>The applied font, resolved — so the 현재 글꼴 row previews a system pick too, not just cards.</summary>
+    public System.Windows.Media.FontFamily CurrentFontPreview => FontResolver.Resolve(_settings.FontFamily);
+
+    public string CurrentFontSample =>
+        GlyphFallback.CanRender(_settings.FontFamily, "가") ? FontCardViewModel.Sample : "Waffle 1,234";
+
+    public string CurrentFontStatus
+    {
+        get
+        {
+            string name = _settings.FontFamily;
+            string where = FontResolver.Classify(name) switch
+            {
+                FontResolver.FontOrigin.Bundled => "번들 글꼴",
+                FontResolver.FontOrigin.User => "사용자 추가 글꼴",
+                _ => "시스템 글꼴",
+            };
+            string hangul = GlyphFallback.CanRender(name, "가") ? string.Empty : " · 한글 미지원(이름은 맑은 고딕으로 대체)";
+            return $"현재 글꼴 — {name} ({where}){hangul}";
+        }
+    }
+
+    /// <summary>Copy a user-picked font file into the fonts folder, add it to the picker, and select+apply it.
     /// Returns false if the file can't be read as a font (the caller shows a message). The font renders live via
     /// FontResolver — no restart needed — and persists (the folder is the store).</summary>
     public bool AddCustomFont(string sourcePath)
@@ -291,8 +401,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             return false;
         }
 
-        OnPropertyChanged(nameof(FontFamilies)); // the dropdown now includes the new font...
-        FontFamily = family;                     // ...so selecting it lands on a real item, and applies it live
+        // Re-adding a DIFFERENT file under a family name already asked about would otherwise keep serving the
+        // memoised old face. Adding a genuinely new name is safe on its own, but this is the cheap side.
+        GlyphFallback.InvalidateCache();
+        RebuildFontCards();      // the grid now includes the new font...
+        FontFamily = family;     // ...so selecting it lands on a real card, and applies it live
+        OnPropertyChanged(nameof(FontFamilies));
         return true;
     }
 
@@ -301,7 +415,23 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string DamageValueMode { get => _settings.DamageValueMode; set { _settings.DamageValueMode = value; OnPropertyChanged(); } }
     public string ContributionMode { get => _settings.ContributionMode; set { _settings.ContributionMode = value; OnPropertyChanged(); } }
     public string NameDisplay { get => _settings.NameDisplay; set { _settings.NameDisplay = value; OnPropertyChanged(); } }
-    public string FontFamily { get => _settings.FontFamily; set { _settings.FontFamily = value; OnPropertyChanged(); } }
+    /// <summary>The applied meter font. The setter drops null/empty on purpose — see
+    /// <see cref="CardFontSelection"/> for why two Selectors over one setting would otherwise erase it.</summary>
+    public string FontFamily
+    {
+        get => _settings.FontFamily;
+        set
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+
+            _settings.FontFamily = value;
+            OnPropertyChanged();
+            SyncFontSelection();
+        }
+    }
     public int RowHeight { get => _settings.RowHeight; set { _settings.RowHeight = value; OnPropertyChanged(); } }
 
     /// <summary>미터 전체 크기 배율(퍼센트 문자열, ComboBox SelectedValue용). 설정은 int로 저장된다.</summary>
@@ -1042,7 +1172,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         DamageValueMode = "dps";
         ContributionMode = "contribution";
         NameDisplay = "all";
-        FontFamily = "NEXON Lv2 Gothic Medium";
+        FontFamily = DefaultFontFamily;
         RowHeight = 36;
         MeterOpacity = 0.4;
         BarStyle = "fill";
@@ -1096,6 +1226,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     /// <summary>Re-reads the live logging counters (polled while the window is open).</summary>
     public void RefreshLogging() => OnPropertyChanged(nameof(LoggingStatus));
+
+    /// <summary>Open the user-fonts folder. It IS the store — deleting a file there removes the card — so this
+    /// doubles as the "remove a font I added" path without a separate delete UI.</summary>
+    public void OpenFontsFolder()
+    {
+        string dir = FontResolver.UserFontsDir();
+        Directory.CreateDirectory(dir);
+        Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
+    }
 
     public void OpenLogFolder()
     {
@@ -1211,6 +1350,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public void Revert()
     {
         _snapshot.Apply(_settings, _controller);
+        // Apply() writes the settings object directly, so nothing told the font grid its selection moved.
+        OnPropertyChanged(nameof(FontFamily));
+        SyncFontSelection();
         PendingReset = _hotkeys.Reset;
         PendingVisibility = _hotkeys.Visibility;
         PendingClickThrough = _hotkeys.ClickThrough;

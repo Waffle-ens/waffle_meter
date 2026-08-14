@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -552,6 +552,51 @@ internal static class Program
         vm.TargetInfoDisplayMode = "percent"; Check("TargetInfoDisplayMode", settings.TargetInfoDisplayMode == "percent");
         vm.BarStyle = "bar"; Check("BarStyle", settings.BarStyle == "bar" && props.GetProperty("barStyle") == "bar");
         vm.FontFamily = "Pretendard"; Check("FontFamily", settings.FontFamily == "Pretendard");
+
+        // Font picker cards. The value that matters is FontCardViewModel.Value: it is the string in
+        // settings.properties, and it is a font's internal family name, not a tidy label.
+        Check($"FontCards built ({vm.FontCards.Count})", vm.FontCards.Count >= 15);
+        Check("FontCards values are unique", vm.FontCards.Select(c => c.Value).Distinct(StringComparer.Ordinal).Count() == vm.FontCards.Count);
+        Check("FontCards resolve a preview face", vm.FontCards.All(c => c.Preview is not null));
+        Check("card selection mirrors the setting", vm.CardFontSelection == "Pretendard"
+            && vm.FontCards.Single(c => c.Value == "Pretendard").IsSelected);
+
+        vm.CardFontSelection = "Freesentation";
+        Check("selecting a card writes through", settings.FontFamily == "Freesentation"
+            && props.GetProperty("fontFamily") == "Freesentation");
+
+        // THE regression this feature can introduce: two Selectors (cards + system dropdown) over one setting.
+        // A Selector whose bound value is absent from ITS list coerces to null and writes that null back, which
+        // would erase the font the other one just set. Picking a system font must leave the setting intact.
+        vm.SystemFontSelection = "Segoe UI";
+        Check("system font applies", settings.FontFamily == "Segoe UI");
+        Check("card grid shows no selection for a system font", vm.CardFontSelection is null
+            && vm.FontCards.All(c => !c.IsSelected));
+        vm.CardFontSelection = null;   // the coercion WPF performs
+        Check("null from the card grid does not erase the font", settings.FontFamily == "Segoe UI");
+        vm.SystemFontSelection = null; // and the mirror case
+        Check("null from the system dropdown does not erase the font", settings.FontFamily == "Segoe UI");
+        Check("현재 글꼴 line names the system font", vm.CurrentFontStatus.Contains("Segoe UI") && vm.CurrentFontStatus.Contains("시스템"));
+
+        vm.FontFamily = SettingsViewModel.DefaultFontFamily;
+        Check("default font is a real card", vm.FontCards.Any(c => c.Value == SettingsViewModel.DefaultFontFamily && c.IsDefault));
+        Check("system font list is populated", vm.SystemFontFamilies.Count > 20);
+
+        // Every offered font must actually resolve. A "#name" miss does NOT come back empty — WPF returns the
+        // DEFAULT family fully populated, so a broken option renders as Arial and looks like a design choice.
+        // 'Freesentation' shipped exactly that way (the files register as 'Freesentation 4/6/7').
+        string[] broken = vm.FontCards
+            .Where(c => c.Value != "Malgun Gothic" && FontResolver.Classify(c.Value) != FontResolver.FontOrigin.Bundled)
+            .Select(c => c.Value)
+            .ToArray();
+        Check($"every bundled card resolves to a bundled face{(broken.Length > 0 ? " — 실패: " + string.Join(", ", broken) : string.Empty)}", broken.Length == 0);
+        Check("legacy 'Freesentation' maps to a real face",
+            FontResolver.Resolve("Freesentation").FamilyNames.Values.Any(v => v.StartsWith("Freesentation", StringComparison.Ordinal)));
+        Check("'맑은 고딕' resolves to the system face, not the bundled fallback",
+            FontResolver.Classify("Malgun Gothic") == FontResolver.FontOrigin.System
+            && FontResolver.Resolve("Malgun Gothic").FamilyNames.Values.Any(v => v.Contains("Malgun", StringComparison.OrdinalIgnoreCase)));
+        Check("an unknown name falls through to the safe chain",
+            FontResolver.Classify("ZZZ Not A Font") == FontResolver.FontOrigin.System);
         vm.RowHeight = 50; Check("RowHeight", settings.RowHeight == 50 && props.GetProperty("rowHeight") == "50");
         vm.MeterOpacity = 0.7; Check("MeterOpacity", Math.Abs(settings.MeterOpacity - 0.7) < 0.001);
 
@@ -594,6 +639,8 @@ internal static class Program
         Check("ApplyConsent (no crash)", consentOk);
 
         Console.WriteLine($"=== settings: {pass} passed, {fail} failed ===");
+
+        MeasureFontResolve(vm);
     }
 
     /// <summary>
@@ -684,6 +731,28 @@ internal static class Program
                     }
 
                     RenderToPng(window, Path.Combine(outDir, $"settings_tab_{key}_{skinName}.png"), fixedSize: true);
+
+                    // The font grid sits below the fold. Capture it in BOTH skins: Skin.AccentSoft over the
+                    // near-white Light RowBg is exactly where a selection state goes invisible, and the whole
+                    // point of the cards is that you can tell which one is picked.
+                    if (key == "display"
+                        && window.FindName("FontSectionHeader") is FrameworkElement fontHeader
+                        && scroll is not null)
+                    {
+                        scroll.UpdateLayout();
+                        fontHeader.BringIntoView();
+                        scroll.UpdateLayout();
+                        scroll.ScrollToVerticalOffset(scroll.VerticalOffset + scroll.ViewportHeight - fontHeader.ActualHeight - 8);
+                        scroll.UpdateLayout();
+                        RenderToPng(window, Path.Combine(outDir, $"settings_font_{skinName}.png"), fixedSize: true);
+
+                        // The card grid is taller than the viewport, so the other half of the feature — the
+                        // system-font dropdown and the 현재 글꼴 preview row — needs its own frame.
+                        scroll.ScrollToVerticalOffset(scroll.VerticalOffset + 360);
+                        scroll.UpdateLayout();
+                        RenderToPng(window, Path.Combine(outDir, $"settings_font_system_{skinName}.png"), fixedSize: true);
+                        scroll.ScrollToTop();
+                    }
                 }
 
                 // An unknown key must not blank the window. Today nothing guards this — the check is here so
@@ -712,6 +781,52 @@ internal static class Program
         }
 
         Console.WriteLine($"=== settings tabs: {pass} passed, {fail} failed ===");
+    }
+
+    /// <summary>
+    /// What it actually costs to resolve every selectable font, and what the overlay's hot path already pays.
+    /// <para>The font-preview-card design was justified by "the dropdown loads 1 font, a grid of 15 cards loads
+    /// 70 MB" — but <c>GlyphFallback.ForName</c> calls <c>FontResolver.Resolve</c> BEFORE its cache lookup, and
+    /// that runs per row per tick. So the claim needs a number, not an argument.</para>
+    /// </summary>
+    private static void MeasureFontResolve(SettingsViewModel vm)
+    {
+        Console.WriteLine("=== font resolve cost ===");
+        string[] names = vm.FontFamilies.Select(o => o.Value).ToArray();
+
+        var cold = System.Diagnostics.Stopwatch.StartNew();
+        foreach (string n in names)
+        {
+            FontResolver.Resolve(n);
+        }
+
+        cold.Stop();
+
+        var warm = System.Diagnostics.Stopwatch.StartNew();
+        foreach (string n in names)
+        {
+            FontResolver.Resolve(n);
+        }
+
+        warm.Stop();
+
+        // The overlay's real shape: 10 rows rebuilt every tick, each asking for its nickname's font.
+        string font = names[0];
+        var rows = new[] { "콰과과", "띵보", "마르틴", "쿵해쫑", "검사왕", "빛의사제", "달빛나그네", "샤샤샥", "무명", "와플" };
+        var hot = System.Diagnostics.Stopwatch.StartNew();
+        for (int tick = 0; tick < 100; tick++)
+        {
+            foreach (string r in rows)
+            {
+                GlyphFallback.ForName(font, r);
+            }
+        }
+
+        hot.Stop();
+
+        Console.WriteLine($"  {names.Length} fonts — cold {cold.Elapsed.TotalMilliseconds:F1} ms, warm {warm.Elapsed.TotalMilliseconds:F1} ms");
+        Console.WriteLine($"  overlay hot path — 100 ticks x 10 rows = {hot.Elapsed.TotalMilliseconds:F1} ms " +
+                          $"({hot.Elapsed.TotalMilliseconds / 100:F2} ms per tick)");
     }
 
     /// <summary>First descendant of the given type in the visual tree (breadth-first).</summary>

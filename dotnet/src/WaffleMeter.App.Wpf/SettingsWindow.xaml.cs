@@ -126,6 +126,8 @@ public partial class SettingsWindow : Window
 
     private void OnRevertGameOpt(object sender, RoutedEventArgs e) => _viewModel.RevertGameOpt();
 
+    private void OnOpenFontsFolder(object sender, RoutedEventArgs e) => _viewModel.OpenFontsFolder();
+
     private void OnAddCustomFont(object sender, RoutedEventArgs e)
     {
         var dlg = new Microsoft.Win32.OpenFileDialog

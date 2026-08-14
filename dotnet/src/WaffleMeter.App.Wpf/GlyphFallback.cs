@@ -29,6 +29,21 @@ public static class GlyphFallback
         return Cache.GetOrAdd((chosenFont, text), _ => CanRenderAll(chosen, text) ? chosen : Fallback);
     }
 
+    /// <summary>
+    /// Can this font draw every character of <paramref name="text"/> itself? Used by the settings font cards to
+    /// mark a face that has no Hangul, so a Latin-only user font is labelled instead of silently previewing as
+    /// tofu (□). Same check <see cref="ForName"/> runs, exposed without the fallback substitution.
+    /// </summary>
+    public static bool CanRender(string fontName, string text) =>
+        string.IsNullOrEmpty(text) || CanRenderAll(FontResolver.Resolve(fontName), text);
+
+    /// <summary>
+    /// Drop the memo. Needed only when a font FILE changes behind a name that was already asked about — i.e.
+    /// re-adding a different .ttf under a family name already in the cache. (Adding a NEW font is safe on its
+    /// own: the family name is part of the key, so it misses and resolves fresh.)
+    /// </summary>
+    public static void InvalidateCache() => Cache.Clear();
+
     private static bool CanRenderAll(FontFamily family, string text)
     {
         GlyphTypeface? glyphs = null;

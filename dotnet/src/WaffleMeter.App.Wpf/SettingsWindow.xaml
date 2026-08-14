@@ -72,6 +72,57 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+            <!-- Font picker card. PresetChip's visual language ('one of many'), with one deliberate
+                 difference: NO dim-when-unselected. On a chip, dim reads as "off"; here every card is a live
+                 preview of its own font, so dimming them would fight the entire point of the grid. If a later
+                 pass "restores consistency" by adding Opacity 0.5 back, it has re-broken the feature. -->
+            <Style x:Key="FontCard" TargetType="ListBoxItem">
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Margin" Value="0,0,8,8"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="b" CornerRadius="6" BorderThickness="1" Padding="10,5"
+                                    Background="{DynamicResource Skin.RowBg}" BorderBrush="{DynamicResource Skin.SoftBorder}">
+                                <ContentPresenter VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="{DynamicResource Skin.RowHover}"/>
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource Skin.Border}"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="{DynamicResource Skin.AccentSoft}"/>
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{DynamicResource Skin.Accent}"/>
+                                    <Setter TargetName="b" Property="BorderThickness" Value="2"/>
+                                    <Setter TargetName="b" Property="Padding" Value="9,4"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- Two lines, both in the offered font: the name (is this face readable?) and a digits+Hangul
+                 sample (do the numerals read at a glance?). Digits matter — the meter is mostly numbers.
+                 The badge is pinned to Segoe UI on purpose: the window root inherits the SELECTED font, so an
+                 unpinned badge would render in whatever the user picked and look inconsistent card to card. -->
+            <DataTemplate x:Key="FontCardTemplate">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding Title}" FontFamily="{Binding Preview}" FontSize="13"
+                                   Foreground="{DynamicResource Skin.Fg}" TextTrimming="CharacterEllipsis"/>
+                        <Border Grid.Column="1" CornerRadius="3" Padding="4,0" Margin="4,0,0,0" VerticalAlignment="Center"
+                                Background="{DynamicResource Skin.StatBg}"
+                                Visibility="{Binding HasBadge, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding Badge}" FontFamily="Segoe UI" FontSize="9.5"
+                                       Foreground="{DynamicResource Skin.MutedFg}"/>
+                        </Border>
+                    </Grid>
+                    <TextBlock Text="{Binding SampleText}" FontFamily="{Binding Preview}" FontSize="11.5"
+                               Foreground="{DynamicResource Skin.MutedFg}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                </StackPanel>
+            </DataTemplate>
             <!-- The preset bar, shown on both buff tabs (a preset spans them), so it lives here once. -->
             <DataTemplate x:Key="BuffPresetBar">
                 <Border CornerRadius="8" Padding="12,10" Margin="0,0,0,16"
@@ -375,19 +426,54 @@
                         </Grid>
                         <Border Style="{StaticResource SectionDivider}"/>
                         <TextBlock Text="크기와 글꼴" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
-                        <Grid Margin="0,0,0,14">
+                        <TextBlock x:Name="FontSectionHeader" Text="글꼴" Style="{StaticResource SettingTitle}"/>
+                        <TextBlock Text="각 카드가 그 글꼴로 그려집니다. 눌러 보면 미터에 바로 적용돼요." Style="{StaticResource SettingDesc}" Margin="0,0,0,8"/>
+                        <!-- ListBox(WrapPanel)인 이유: 좌측 nav 와 같은 '여럿 중 하나' 컨트롤이라 선택 동작을
+                             그대로 물려받는다. 내부 ScrollViewer 는 두지 않는다 — 공유 ContentScroll 안에
+                             또 스크롤 영역이 생기면 휠이 어디로 갈지 모르는 중첩 트랩이 된다. -->
+                        <ListBox ItemsSource="{Binding FontCards}" ItemContainerStyle="{StaticResource FontCard}"
+                                 ItemTemplate="{StaticResource FontCardTemplate}"
+                                 SelectedValuePath="Value" SelectedValue="{Binding CardFontSelection}"
+                                 Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,10"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 KeyboardNavigation.DirectionalNavigation="Contained">
+                            <ListBox.ItemsPanel>
+                                <!-- 2열 × 252px. 3열(≈176px)도 폭은 맞지만 'Spoqa Han Sans Neo (Bold)' 같은
+                                     이름이 잘린다 — 어느 글꼴인지 못 읽는 미리보기는 미리보기가 아니다. -->
+                                <ItemsPanelTemplate><WrapPanel ItemWidth="252" ItemHeight="52"/></ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                        </ListBox>
+
+                        <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="글꼴" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="번들 글꼴이 없으면 맑은 고딕으로 표시됩니다. 커스텀 폰트(.ttf/.otf)를 추가해 쓸 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="시스템 글꼴" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="이 PC에 설치된 글꼴을 그대로 씁니다. 고르면 아래 미리보기에 바로 반영돼요." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <ComboBox Width="190" ItemsSource="{Binding FontFamilies}"
-                                          ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
-                                <Button Content="커스텀 폰트 추가…" Margin="0,6,0,0" HorizontalAlignment="Right" Click="OnAddCustomFont"
-                                        ToolTip="ttf/otf 파일을 선택해 목록에 추가하고 바로 적용합니다"/>
-                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" MaxDropDownHeight="280"
+                                      IsTextSearchEnabled="True" ItemsSource="{Binding SystemFontFamilies}"
+                                      SelectedValue="{Binding SystemFontSelection}"/>
                         </Grid>
+
+                        <!-- 현재 글꼴 미리보기: 카드로 고르든 시스템 목록으로 고르든 '지금 적용된 것'을 한 줄로
+                             보여준다. 시스템 글꼴은 카드가 없으므로 이 줄이 유일한 미리보기 수단이다. -->
+                        <Border Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="{Binding CurrentFontStatus}" Style="{StaticResource SettingDesc}"
+                                           FontFamily="Segoe UI" Margin="0,0,0,4"/>
+                                <TextBlock Text="{Binding CurrentFontSample}" FontSize="17"
+                                           FontFamily="{Binding CurrentFontPreview}" Foreground="{DynamicResource Skin.Fg}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,4">
+                            <Button Content="글꼴 폴더 열기" Click="OnOpenFontsFolder" Margin="0,0,8,0"
+                                    ToolTip="추가한 글꼴 파일이 있는 폴더입니다. 여기서 지우면 목록에서도 빠집니다."/>
+                            <Button Content="커스텀 폰트 추가…" Click="OnAddCustomFont"
+                                    ToolTip="ttf/otf 파일을 선택해 목록에 추가하고 바로 적용합니다"/>
+                        </StackPanel>
 
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
