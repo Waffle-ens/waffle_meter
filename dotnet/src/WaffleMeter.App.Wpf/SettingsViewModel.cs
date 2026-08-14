@@ -768,6 +768,58 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <summary>Settings' 새로고침 button. Returns false when the 60s cooldown swallowed it.</summary>
     public bool RequestTierRefresh() => _services.Tier.RequestManualRefresh();
 
+    private string _nameFxStatus = string.Empty;
+
+    /// <summary>One line under the 후원자 목록 갱신 button.</summary>
+    public string NameFxStatus { get => _nameFxStatus; private set => Set(ref _nameFxStatus, value); }
+
+    private long _nameFxNoticeUntilMs;
+
+    /// <summary>Show a message about what the button just did, and hold it against the 2.5s status poll.
+    /// Without the hold the poll overwrites it before it can be read, which is how a button ends up looking
+    /// dead in exactly the case it is trying to explain.</summary>
+    public void SetNameFxNotice(string message, int holdMs = 4000)
+    {
+        NameFxStatus = message;
+        _nameFxNoticeUntilMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + holdMs;
+    }
+
+    /// <summary>Re-read the grant-list state for display. Cheap — no network.</summary>
+    public void RefreshNameFxStatus()
+    {
+        if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() < _nameFxNoticeUntilMs)
+        {
+            return;
+        }
+
+        NameFxServiceStatus status = _services.NameFx.Status();
+        if (status.UsingLocalFile)
+        {
+            NameFxStatus = $"로컬 파일에서 {status.Grants}명을 읽었습니다.";
+            return;
+        }
+
+        if (!status.HasArtifact)
+        {
+            NameFxStatus = status.Failures > 0
+                ? $"후원자 목록을 받지 못했어요 (실패 {status.Failures}회{FormatReason(status.LastError)})"
+                : "아직 후원자 목록을 받지 않았어요. 미터를 켜고 잠시 뒤 자동으로 받아 옵니다.";
+            return;
+        }
+
+        long age = Math.Max(0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - status.FetchedAtMs);
+        var span = TimeSpan.FromMilliseconds(age);
+        string freshness = span.TotalHours < 1
+            ? "방금 갱신"
+            : span.TotalDays < 1
+                ? $"{(int)span.TotalHours}시간 전 갱신"
+                : $"{(int)span.TotalDays}일 전 갱신";
+        NameFxStatus = $"연출이 적용된 캐릭터 {status.Grants}명 · {freshness}";
+    }
+
+    /// <summary>Settings' 후원자 목록 갱신 button. Returns false when the 60s cooldown swallowed it.</summary>
+    public bool RequestNameFxRefresh() => _services.NameFx.RequestManualRefresh();
+
     private static string FormatReason(string? reason) => string.IsNullOrEmpty(reason) ? string.Empty : $", {reason}";
     public bool ShowAetherStatus { get => _settings.ShowAetherStatus; set { _settings.ShowAetherStatus = value; OnPropertyChanged(); } }
     public bool ShowLatencyIndicator { get => _settings.ShowLatencyIndicator; set { _settings.ShowLatencyIndicator = value; OnPropertyChanged(); } }

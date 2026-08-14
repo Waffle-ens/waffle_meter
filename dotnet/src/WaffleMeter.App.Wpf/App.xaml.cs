@@ -145,7 +145,9 @@ public partial class App : Application
         // overlay (OverlayWindow.xaml) — it cut the overlay's partially-covered glyph pixels from 33% to
         // 29%. The settings window's origins already land on whole pixels, so it gains nothing there.
 
-        var services = new MeterServices(props);
+        var services = new MeterServices(
+            props,
+            nameFxCatalogue: new NameFxCatalogue(NameFxPalette.IsKnownNameEffect, NameFxPalette.IsKnownGauge));
         TryLoadCatalogs(services);
         _encounters = services.Data.Encounters;
 
@@ -192,11 +194,12 @@ public partial class App : Application
         // 저장 전투 재생에서도 그대로 뜬다 — 바로 위 커리어 티어와는 반대 결정이고, 의도한 것이다. 티어는
         // '오늘의 성적'이라 지난 전투 화면에 섞으면 서로 다른 시점을 한 줄에 붙여 말하게 되지만, 연출은
         // 시점이 아니라 '이 사람이 후원자/랭커다'라는 신원 표식이라 어제 전투에서도 같은 사실이다.
-        viewModel.SetNameFxRoster(NameFxRoster.Load(
-            services.Props.AppDirectory(),
-            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            NameFxPalette.IsKnownNameEffect,
-            NameFxPalette.IsKnownGauge));
+        viewModel.SetNameFxRoster(services.NameFx.Roster);
+
+        // 서비스가 새 명단을 받아 와도 이 배선이 없으면 화면은 다음 실행까지 안 바뀐다 — 오버레이가 부여를
+        // (서버, 닉네임)으로 메모하고 있어서 SetNameFxRoster 만이 그 메모를 비우기 때문이다. 실패도 로그도
+        // 남지 않는 종류의 무동작이라 여기에 적어 둔다. Changed 는 워커 스레드에서 온다.
+        services.NameFx.Changed += roster => Dispatcher.BeginInvoke(() => viewModel.SetNameFxRoster(roster));
         NameFxSheen.Rebuild(_settings.NameFxBrightnessPercent);
 
         MigrateMeterWidthForTierChip(services.Props);

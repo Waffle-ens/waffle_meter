@@ -867,6 +867,16 @@ internal static class Program
 
         vm.ImportText = string.Empty;
 
+        // 후원자 목록 상태선. 서버가 없어도 "받지 않았어요"로 말이 되어야 하고, 쿨다운에 먹힌 클릭은
+        // 침묵하면 안 된다 — 6시간 주기라 죽은 버튼으로 보이는 게 바로 신고 대상이다.
+        vm.RefreshNameFxStatus();
+        Check($"후원자 목록 상태선이 비어 있지 않다 ({vm.NameFxStatus})", vm.NameFxStatus.Length > 0);
+        Check("첫 갱신 요청은 통과한다", vm.RequestNameFxRefresh());
+        vm.SetNameFxNotice("테스트 공지");
+        vm.RefreshNameFxStatus();
+        Check("공지는 2.5초 폴링에 지워지지 않는다", vm.NameFxStatus == "테스트 공지");
+        Check("쿨다운 안의 재요청은 거절된다", !vm.RequestNameFxRefresh());
+
         // Cancel 취소 계약. 여기 있는 setter 는 전부 즉시 파일에 쓰므로, Snapshot 에서 빠진 토글은
         // "저장 안 됨"이 아니라 "저장됐고 되돌릴 수 없음"이 된다.
         settings.TierShow = true; settings.TierEffects = "static"; settings.TierShowOthers = true;

@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 
 namespace WaffleMeter.Stats;
 
@@ -76,6 +76,18 @@ public sealed record TierManifestResponse(
     string Sha256,
     string? GeneratedAt = null,
     string? ExpiresAt = null);
+
+/// <summary>Manifest for the current supporter/ranker grant artifact. Same content-addressed shape as the tier
+/// manifest — <paramref name="ArtifactId"/> alone decides whether a download is needed — but a SEPARATE document
+/// on a separate cadence. Sharing the tier one would tie a grant taking effect to the distribution rebuild.</summary>
+public sealed record NameFxManifestResponse(
+    bool Ok,
+    string ArtifactId,
+    int SchemaVersion,
+    string Url,
+    long ByteSize,
+    string Sha256,
+    string? GeneratedAt = null);
 
 /// <summary>Batch tier lookup for party applicants. Hard server caps: 12 hashes, 4,096-byte body, 120/hour.</summary>
 public sealed record TierLookupRequest(

@@ -25,6 +25,16 @@ public interface ITierApi
     TierLookupResponse PostTierLookup(TierLookupRequest request, string clientVersion, string? installId = null);
 }
 
+/// <summary>The supporter/ranker grant channel. Separate interface from <see cref="ITierApi"/> so the service
+/// that consumes it cannot reach the tier lookup budget by accident — the server allows 120 lookups an hour per
+/// install and that allowance belongs entirely to party applicants.</summary>
+public interface INameFxApi
+{
+    NameFxManifestResponse GetNameFxManifest();
+
+    StatsBinaryResponse GetNameFxArtifactGzip(string path);
+}
+
 /// <summary>Thrown on a non-OK stats response. Carries the HTTP status + raw body so callers can branch
 /// on a server error code (e.g. <c>public_requires_ownership</c>) without re-parsing. Derives from
 /// <see cref="InvalidOperationException"/> so existing <c>Assert.Throws&lt;InvalidOperationException&gt;</c>
@@ -60,7 +70,7 @@ public sealed class StatsApiException : InvalidOperationException
 /// unit-testable without a network; the default uses a shared <see cref="HttpClient"/>.
 /// Non-2xx and <c>ok=false</c> responses throw, exactly like the Kotlin client.
 /// </summary>
-public sealed class StatsApiClient : ITierApi
+public sealed class StatsApiClient : ITierApi, INameFxApi
 {
     private const string BaseUrl = "https://xn--ok0b896b9wh.kr";
     private const string ReportEndpointUrl = BaseUrl + "/api/v1/reports";
@@ -68,6 +78,7 @@ public sealed class StatsApiClient : ITierApi
     private const string ConsentEventsEndpoint = BaseUrl + "/api/v1/consent/events";
     private const string TierManifestEndpoint = BaseUrl + "/api/v1/tiers/manifest";
     private const string TierLookupEndpoint = BaseUrl + "/api/v1/tiers/lookup";
+    private const string NameFxManifestEndpoint = BaseUrl + "/api/v1/supporters/manifest";
     private const int ConnectTimeoutMs = 8_000;
     private const int ReadTimeoutMs = 15_000;
 
@@ -116,6 +127,11 @@ public sealed class StatsApiClient : ITierApi
     /// <summary>Highest artifact schema this build can read, supplied by the composition root so the client
     /// does not have to know about the artifact parser (the dependency runs the other way).</summary>
     private readonly int _readableSchemaVersion;
+
+    /// <summary>Highest grant-artifact schema this build can read. A constant rather than an injected value:
+    /// unlike the tier artifact, the parser lives in the same solution and its ceiling never varies per install
+    /// (<c>NameFxRoster.MaxSchemaVersion</c>). Bump both together, and publish the server side FIRST.</summary>
+    private const int NameFxReadableSchemaVersion = 1;
     private readonly Func<string> _installIdProvider;
     private readonly IStatsSigner? _signer;
     private readonly Func<long> _clock;
@@ -259,6 +275,29 @@ public sealed class StatsApiClient : ITierApi
 
         return response;
     }
+
+    /// <summary>Current supporter/ranker grant artifact pointer. Unsigned and cheap, exactly like the tier
+    /// manifest. Deliberately a different endpoint on a different cadence: a grant taking effect must not have to
+    /// wait for the tier distribution to rebuild, and a tier rebuild must not re-download the grant list.</summary>
+    public NameFxManifestResponse GetNameFxManifest()
+    {
+        // schema rides as a query parameter for the same reason it does on the tier manifest — the response is
+        // CDN-cached, and a body that varied by header would be served across clients that asked differently.
+        string url = $"{NameFxManifestEndpoint}?schema={NameFxReadableSchemaVersion}";
+        StatsHttpResponse response = Request("GET", url, null, null, null, null, signed: false);
+        NameFxManifestResponse parsed = StatsJson.Deserialize<NameFxManifestResponse>(response.Body);
+        if (!parsed.Ok || string.IsNullOrEmpty(parsed.ArtifactId))
+        {
+            throw new StatsApiException("namefx_manifest_not_ok", response.StatusCode, response.Body);
+        }
+
+        return parsed;
+    }
+
+    /// <summary>The grant artifact as the RAW GZIP BYTES — same integrity contract as
+    /// <see cref="GetTierArtifactGzip"/>: the digest covers the compressed bytes, so nothing may inflate them
+    /// in transit.</summary>
+    public StatsBinaryResponse GetNameFxArtifactGzip(string path) => GetTierArtifactGzip(path);
 
     /// <summary>
     /// Batch tier lookup for party applicants. SIGNED — the server forces signature mode "on" for this route

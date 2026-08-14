@@ -25,9 +25,11 @@ public partial class SettingsWindow : Window
             _viewModel.RefreshCharacterStatus();
             _viewModel.RefreshLogging();
             _viewModel.RefreshTierStatus(); // local read of the cached artifact — no network
+            _viewModel.RefreshNameFxStatus();
         };
         _statusTimer.Start();
         _viewModel.RefreshTierStatus(); // fill the line before the first tick so it never opens blank
+        _viewModel.RefreshNameFxStatus();
         Closed += (_, _) => { _statusTimer.Stop(); _viewModel.DisposeBuffPicker(); _viewModel.StopNameFxPreview(); };
 
         VerifyNavContract();
@@ -359,6 +361,20 @@ public partial class SettingsWindow : Window
         }
 
         _viewModel.RefreshTierStatus();
+    }
+
+    /// <summary>후원자 목록 갱신. Nudges the worker and re-reads the status line — the click never blocks the
+    /// UI thread on an HTTP timeout. Unlike 티어 갱신 above, a swallowed click says so: at a six-hour cadence a
+    /// button that looks dead is the thing someone reports.</summary>
+    private void OnRefreshNameFx(object sender, RoutedEventArgs e)
+    {
+        if (!_viewModel.RequestNameFxRefresh())
+        {
+            _viewModel.SetNameFxNotice("잠시 뒤에 다시 눌러 주세요 (1분에 한 번).");
+            return;
+        }
+
+        _viewModel.SetNameFxNotice("후원자 목록을 받아 오는 중…");
     }
 
     private void OnToggleCharacterPublic(object sender, RoutedEventArgs e)

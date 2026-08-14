@@ -879,6 +879,15 @@
                                     TickFrequency="5" IsSnapToTickEnabled="True"
                                     Thumb.DragCompleted="OnNameFxBrightnessCommitted"/>
                         </Grid>
+
+                        <Grid Margin="0,10,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="후원자 목록 갱신" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="{Binding NameFxStatus}" Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="갱신" VerticalAlignment="Center" Padding="14,6" Click="OnRefreshNameFx"/>
+                        </Grid>
                     </StackPanel>
 
                     <!-- ===== 창 동작 ===== -->

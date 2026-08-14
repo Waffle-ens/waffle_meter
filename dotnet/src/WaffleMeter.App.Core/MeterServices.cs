@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
 using WaffleMeter.Data;
@@ -48,6 +48,10 @@ public sealed class MeterServices
 
     /// <summary>던전 티어 분포 기준표(로컬 캐시 + 주기 갱신). 전투 중에는 절대 네트워크를 타지 않는다.</summary>
     public TierService Tier { get; }
+
+    /// <summary>후원자·랭커 닉네임 연출 명단(로컬 캐시 + 6시간 갱신). 티어와 별도 채널이라 후원이 반영되는
+    /// 시점이 분포 재계산에 묶이지 않는다.</summary>
+    public NameFxService NameFx { get; }
     public string Version { get; }
 
     /// <summary>Pending party-join requests (Kotlin PacketEvent.JoinRequest family). The WPF layer
@@ -216,7 +220,8 @@ public sealed class MeterServices
         StatsApiClient.RequestFunc? statsTransport = null,
         OfficialCharacterLookup? officialLookup = null,
         PacketDebugLogger? debugLogger = null,
-        string? appVersion = null)
+        string? appVersion = null,
+        NameFxCatalogue? nameFxCatalogue = null)
     {
         Props = props;
         // From the build (entry-assembly InformationalVersion = WaffleVersion), not a persisted
@@ -303,6 +308,12 @@ public sealed class MeterServices
         // 던전 티어 기준표. 자체 백그라운드 스레드에서 12시간마다 한 번만 받고, 전투 중에는 어떤 요청도
         // 하지 않는다 — 라이브 '상위 X.X%'는 받아둔 분포로 로컬 계산한다.
         Tier = new TierService(StatsApi, props, clientVersion: Version);
+
+        // 닉네임 연출 명단. 효과 id 카탈로그는 브러시를 들고 있어 WPF 쪽에 산다. Core 가 렌더를 참조하는
+        // 방향으로 뒤집지 않으려고 판정 함수를 주입받고, 없으면 아무 id 도 모르는 것으로 둔다 —
+        // 그리지 못하는 효과를 받아 두는 것보다 안 받는 편이 낫다.
+        NameFxCatalogue catalogue = nameFxCatalogue ?? NameFxCatalogue.None;
+        NameFx = new NameFxService(StatsApi, props, catalogue.IsKnownEffect, catalogue.IsKnownGauge);
 
         // The only Data -> Stats edge: a saved battle log is offered to the upload queue. Also refresh
         // the history-panel snapshot (both run on the consumer thread inside the save).
