@@ -364,8 +364,8 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>후원자 목록 갱신. Nudges the worker and re-reads the status line — the click never blocks the
-    /// UI thread on an HTTP timeout. Unlike 티어 갱신 above, a swallowed click says so: at a six-hour cadence a
-    /// button that looks dead is the thing someone reports.</summary>
+    /// UI thread on an HTTP timeout. Unlike 티어 갱신 above, a swallowed click says so — a button that looks
+    /// dead is the thing someone reports, and this one is pressed right after donating.</summary>
     private void OnRefreshNameFx(object sender, RoutedEventArgs e)
     {
         if (!_viewModel.RequestNameFxRefresh())

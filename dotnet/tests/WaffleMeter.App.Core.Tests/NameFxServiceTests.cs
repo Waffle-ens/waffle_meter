@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using WaffleMeter.App.Core;
@@ -10,8 +10,7 @@ namespace WaffleMeter.App.Core.Tests;
 
 /// <summary>
 /// Spec for the supporter/ranker grant channel. Most of these exist because the tier service — the thing this is
-/// modelled on — gets them wrong, and copying it wholesale would have shipped the same defects on a six-hour
-/// cadence where they hurt more.
+/// modelled on — gets them wrong, and copying it wholesale would have shipped the same defects here.
 /// </summary>
 public sealed class NameFxServiceTests : IDisposable
 {
@@ -97,10 +96,27 @@ public sealed class NameFxServiceTests : IDisposable
     }
 
     [Fact]
+    public void The_poll_matches_the_servers_hourly_rebuild()
+    {
+        // 서버는 티어 갱신(매시) 끝에서 명단을 다시 발행한다. 폴링이 그보다 굵으면 새 랭커가
+        // 붙기까지 이유 없이 기다리게 된다. 매시가 감당되는 건 문서가 콘텐츠 주소라서다 —
+        // 안 바뀐 시각에는 매니페스트 한 번이고 다운로드가 없다.
+        byte[] gzip = GzipRoster("""{"schemaVersion":1,"entries":[]}""");
+        var props = new PropertyHandler(_dir);
+        long now = 1_000_000;
+
+        using var service = new NameFxService(FakeApi(gzip, Sha256Hex(gzip), "cafe0123"), props, KnownEffect, KnownGauge,
+            clock: () => now, startWorker: false);
+        service.TryRefresh();
+
+        long untilNext = service.NextArtifactCheckAtMs - now;
+        Assert.Equal((long)TimeSpan.FromHours(1).TotalMilliseconds, untilNext);
+    }
+
+    [Fact]
     public void A_failure_retries_sooner_than_the_normal_cadence()
     {
-        // The tier service has no backoff: a 503 there costs a full interval. At six hours that is half a day of
-        // "후원했는데 안 떠요" with nothing to look at.
+        // The tier service has no backoff: a 503 there costs a full interval, and the retry is the only way back.
         var api = new ThrowingApi();
         var props = new PropertyHandler(_dir);
         long now = 1_000_000;
@@ -121,7 +137,7 @@ public sealed class NameFxServiceTests : IDisposable
         }
 
         // ...but never past the normal cadence, or a long outage turns into a permanently dead channel.
-        Assert.True(service.NextArtifactCheckAtMs - now <= (long)TimeSpan.FromHours(6).TotalMilliseconds);
+        Assert.True(service.NextArtifactCheckAtMs - now <= (long)TimeSpan.FromHours(1).TotalMilliseconds);
     }
 
     [Fact]

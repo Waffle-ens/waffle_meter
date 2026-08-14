@@ -49,7 +49,7 @@ public sealed class MeterServices
     /// <summary>던전 티어 분포 기준표(로컬 캐시 + 주기 갱신). 전투 중에는 절대 네트워크를 타지 않는다.</summary>
     public TierService Tier { get; }
 
-    /// <summary>후원자·랭커 닉네임 연출 명단(로컬 캐시 + 6시간 갱신). 티어와 별도 채널이라 후원이 반영되는
+    /// <summary>후원자·랭커 닉네임 연출 명단(로컬 캐시 + 매시 갱신). 티어와 별도 채널이라 후원이 반영되는
     /// 시점이 분포 재계산에 묶이지 않는다.</summary>
     public NameFxService NameFx { get; }
     public string Version { get; }

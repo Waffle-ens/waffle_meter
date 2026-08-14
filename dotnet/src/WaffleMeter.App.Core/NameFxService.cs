@@ -32,9 +32,13 @@ public sealed record NameFxServiceStatus(
 /// </summary>
 public sealed class NameFxService : IDisposable
 {
-    /// <summary>How often the manifest is checked. Grants change when a person donates, not on a schedule, so
-    /// this is slow on purpose — the settings button is the path for "I just donated".</summary>
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(6);
+    /// <summary>How often the manifest is checked. Matched to the server's hourly rebuild: the grant list is
+    /// republished at the end of every tier refresh, so a new ranker is picked up within the hour rather than
+    /// waiting out a longer window for no reason.
+    /// <para>Hourly is affordable because the document is content-addressed and small. An unchanged list keeps
+    /// its artifact id, so the poll costs one manifest request and no download — which is what most hours are.
+    /// The tier artifact is different only because publishing it makes every client re-fetch ~230 KB.</para></summary>
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(1);
 
     /// <summary>Let capture, the update check and the tier fetch finish before adding another socket. Later than
     /// <see cref="TierService"/>'s delay for that reason: a decoration is the least urgent thing at startup.</summary>
