@@ -27,7 +27,7 @@ public partial class SettingsWindow : Window
         };
         _statusTimer.Start();
         _viewModel.RefreshTierStatus(); // fill the line before the first tick so it never opens blank
-        Closed += (_, _) => { _statusTimer.Stop(); _viewModel.DisposeBuffPicker(); };
+        Closed += (_, _) => { _statusTimer.Stop(); _viewModel.DisposeBuffPicker(); _viewModel.StopNameFxPreview(); };
 
         VerifyNavContract();
     }

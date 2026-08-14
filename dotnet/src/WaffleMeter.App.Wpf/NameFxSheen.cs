@@ -24,8 +24,13 @@ namespace WaffleMeter.App.Wpf;
 /// </summary>
 public static class NameFxSheen
 {
-    /// <summary>24 steps × 250 ms = a 6 s sweep at 100% speed.</summary>
-    private const int Steps = 24;
+    /// <summary>
+    /// 12 steps × 250 ms = a 3 s sweep at 100% speed. The gradient repeats every half box width, so one
+    /// highlight band crosses a nickname roughly every 1.5 s — slow enough not to nag on a meter you stare at
+    /// for whole fights, fast enough to actually read as motion. (6 s was the first try and it was so slow it
+    /// looked like a static gradient.)
+    /// </summary>
+    private const int Steps = 12;
 
     private static readonly DispatcherTimer Timer = new(DispatcherPriority.Background)
     {
@@ -36,10 +41,18 @@ public static class NameFxSheen
     private static readonly Dictionary<(string Id, bool Light), LinearGradientBrush> Brushes = Build();
 
     private static int _phase;
-    private static int _demand;
+    private static int _rowDemand;
+    private static bool _previewDemand;
     private static int _stepPerTick = 1;
 
-    static NameFxSheen() => Timer.Tick += (_, _) =>
+    static NameFxSheen() => Timer.Tick += (_, _) => AdvanceOneStep();
+
+    /// <summary>
+    /// Move the sweep on by one tick. The live app never calls this — the timer does. It exists for the
+    /// offline preview harness, which renders to a bitmap with no dispatcher pump and still has to be able to
+    /// prove the brushes actually move (a stopped animation and a working one look identical in one frame).
+    /// </summary>
+    public static void AdvanceOneStep()
     {
         _phase = (_phase + _stepPerTick) % Steps;
         double t = _phase / (double)Steps;
@@ -47,10 +60,14 @@ public static class NameFxSheen
         {
             Shift(b, t);
         }
-    };
+    }
 
     /// <summary>The shared live brush for an animated effect. Same instance every call.</summary>
     public static Brush BrushFor(string id, bool isLight) => Brushes[(id, isLight)];
+
+    /// <summary>Is the sweep clock actually running? Observable because "nothing moves" has two very different
+    /// causes — no demand, or a demand source nobody wired up — and only one of them is a bug.</summary>
+    public static bool IsRunning => Timer.IsEnabled;
 
     /// <summary>
     /// Report how many animated-effect names this frame drew. Zero (or the feature off) stops the timer and
@@ -63,8 +80,26 @@ public static class NameFxSheen
     public static void SetDemand(int count, bool enabled, int speedPercent)
     {
         _stepPerTick = Math.Clamp((int)Math.Round(speedPercent / 100.0), 1, 2);
-        _demand = enabled ? Math.Max(0, count) : 0;
-        if (_demand > 0)
+        _rowDemand = enabled ? Math.Max(0, count) : 0;
+        Sync();
+    }
+
+    /// <summary>
+    /// The settings preview strip is a SECOND, independent demand source. Without it the strip sits frozen:
+    /// grants come from the server, so a user deciding whether to keep the animation on has no decorated row on
+    /// screen, row demand is zero, and the timer everything depends on is stopped. Being able to see the motion
+    /// is the entire reason that strip exists.
+    /// </summary>
+    public static void SetPreviewDemand(bool on, int speedPercent)
+    {
+        _stepPerTick = Math.Clamp((int)Math.Round(speedPercent / 100.0), 1, 2);
+        _previewDemand = on;
+        Sync();
+    }
+
+    private static void Sync()
+    {
+        if (_rowDemand > 0 || _previewDemand)
         {
             if (!Timer.IsEnabled)
             {

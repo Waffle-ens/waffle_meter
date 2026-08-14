@@ -165,6 +165,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         RebuildFontCards();
         RebuildNameFxSamples(_skin.IsLight);
+        SyncNameFxPreview();
         Reload();
     }
 
@@ -608,6 +609,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(NameFxDetailEnabled));
             OnPropertyChanged(nameof(NameFxAnimated));
+            SyncNameFxPreview();
         }
     }
 
@@ -621,7 +623,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public bool NameFxShowOthers { get => _settings.NameFxShowOthers; set { _settings.NameFxShowOthers = value; OnPropertyChanged(); } }
 
-    public int NameFxSpeedPercent { get => _settings.NameFxSpeedPercent; set { _settings.NameFxSpeedPercent = value; OnPropertyChanged(); } }
+    public int NameFxSpeedPercent
+    {
+        get => _settings.NameFxSpeedPercent;
+        set { _settings.NameFxSpeedPercent = value; OnPropertyChanged(); SyncNameFxPreview(); }
+    }
 
     /// <summary>
     /// Brightness. The setter only stores; rebuilding the shared brushes is <see cref="CommitNameFxBrightness"/>,
@@ -635,6 +641,21 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     }
 
     public void CommitNameFxBrightness() => NameFxSheen.Rebuild(_settings.NameFxBrightnessPercent);
+
+    /// <summary>
+    /// Keep the preview strip moving while it is on screen. The sweep timer is demand-driven from the meter's
+    /// row rebuild, and a user deciding about this setting has no decorated row anywhere — so without a second
+    /// demand source the strip renders frozen and the animation setting cannot be judged at all.
+    /// <para>Gated on the colour tab being selected AND the mode being "animated", so the preview tells the
+    /// truth: switching to "색상만" visibly stops it, which is exactly what that option does.</para>
+    /// </summary>
+    private void SyncNameFxPreview() =>
+        NameFxSheen.SetPreviewDemand(
+            string.Equals(SelectedNav, "theme", StringComparison.Ordinal) && _settings.NameFxMode == "animated",
+            _settings.NameFxSpeedPercent);
+
+    /// <summary>Drop the preview's claim on the sweep timer when the settings window closes.</summary>
+    public void StopNameFxPreview() => NameFxSheen.SetPreviewDemand(false, _settings.NameFxSpeedPercent);
 
     /// <summary>
     /// Every catalogue effect, drawn on a sample nickname. Grants come from the server, so without this a user
@@ -1214,6 +1235,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             }
 
             Set(ref _selectedNav, value);
+            SyncNameFxPreview(); // the strip only animates while its tab is on screen
         }
     }
 

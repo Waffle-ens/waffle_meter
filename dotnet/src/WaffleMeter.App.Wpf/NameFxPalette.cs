@@ -62,28 +62,32 @@ public static class NameFxPalette
     /// </summary>
     public static readonly Effect[] All =
     {
+        // 애니메이션 계열의 대비는 '읽히는가'로 정했다. 첫 시도는 베이스와 하이라이트가 가까워
+        // (최대 채널 변화 60/255) 띠가 지나가는 게 사실상 안 보였다 — 정지 그라디언트와 구분이 안 됐다.
+        // 베이스를 깊게 내려 잡는 쪽으로 벌렸다: 하이라이트를 더 밝히면 흰색에 붙어 색 정체성이 날아간다.
         new("syrup", "시럽 흐름", NameFxKind.Supporter, true,
-            new[] { "#FFF6B24A", "#FFFFE3A3", "#FFF6B24A" },
-            new[] { "#FFB4700C", "#FFE2A33A", "#FFB4700C" }),
+            new[] { "#FFD9791A", "#FFFFF0C2", "#FFD9791A" },
+            new[] { "#FF8F5205", "#FFE7B45B", "#FF8F5205" }),
         new("butter", "버터 글로우", NameFxKind.Supporter, true,
-            new[] { "#FFFFD98A", "#FFFFF6DC", "#FFFFD98A" },
-            new[] { "#FFA9761A", "#FFD9A94C", "#FFA9761A" }),
+            new[] { "#FFE9A83A", "#FFFFFBEA", "#FFE9A83A" },
+            new[] { "#FF8A5C08", "#FFE0B25E", "#FF8A5C08" }),
         new("berry", "베리 드리즐", NameFxKind.Supporter, true,
-            new[] { "#FFF472B6", "#FFC4B5FD", "#FFF472B6" },
-            new[] { "#FFB1236B", "#FF6D4FCF", "#FFB1236B" }),
+            new[] { "#FFE0489C", "#FFCDBBFF", "#FFE0489C" },
+            new[] { "#FF9B0E58", "#FF5B37C4", "#FF9B0E58" }),
         new("crisp", "바삭한 결", NameFxKind.Supporter, false,
             new[] { "#FFFFC978", "#FFFFEFC8" },
             new[] { "#FFA96A12", "#FFCE9A45" }),
 
         new("goldleaf", "금박", NameFxKind.Ranker, true,
-            new[] { "#FFE8D9A0", "#FFFFFDF0", "#FFE8D9A0" },
-            new[] { "#FF8A7628", "#FFC0A94F", "#FF8A7628" }),
+            new[] { "#FFBFA24E", "#FFFFFDF0", "#FFBFA24E" },
+            new[] { "#FF6B591A", "#FFCDB86A", "#FF6B591A" }),
         new("platinum", "백금", NameFxKind.Ranker, true,
-            new[] { "#FFBFD4E6", "#FFF4FAFF", "#FFBFD4E6" },
-            new[] { "#FF4E6C86", "#FF8AA6BC", "#FF4E6C86" }),
+            new[] { "#FF7FA3C0", "#FFF4FAFF", "#FF7FA3C0" },
+            new[] { "#FF33526E", "#FF9DB8CE", "#FF33526E" }),
+        // 기본 닉네임 색이 흰색 계열이라, 여기서 더 옅으면 '연출'이 아니라 그냥 흰 이름으로 읽힌다.
         new("edge", "각인", NameFxKind.Ranker, false,
-            new[] { "#FFCBD5E1", "#FFEFF6FF" },
-            new[] { "#FF44586E", "#FF7B90A6" }),
+            new[] { "#FF93A7BE", "#FFE2ECF8" },
+            new[] { "#FF3B5470", "#FF7089A4" }),
     };
 
     private static readonly Dictionary<string, Effect> ById =

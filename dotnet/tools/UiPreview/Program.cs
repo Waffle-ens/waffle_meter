@@ -678,6 +678,23 @@ internal static class Program
         vm.NameFxSpeedPercent = 200; Check("speed round-trips", settings.NameFxSpeedPercent == 200);
         Check("preview strip covers the catalogue", vm.NameFxSamples.Count == NameFxPalette.All.Length);
 
+        // The preview strip needs its OWN claim on the sweep clock. Grants come from the server, so a user
+        // deciding about this setting has no decorated row anywhere — row demand is zero and the timer is
+        // stopped, which is exactly how the strip shipped frozen the first time.
+        vm.NameFxSpeedPercent = 100;
+        vm.SelectedNav = "theme";
+        vm.NameFxMode = "animated";
+        Check("preview on the colour tab runs the sweep clock", NameFxSheen.IsRunning);
+        vm.NameFxMode = "static";
+        Check("'색상만' visibly stops the preview", !NameFxSheen.IsRunning);
+        vm.NameFxMode = "animated";
+        vm.SelectedNav = "display";
+        Check("leaving the tab stops the preview", !NameFxSheen.IsRunning);
+        vm.SelectedNav = "theme";
+        Check("returning to the tab restarts it", NameFxSheen.IsRunning);
+        vm.StopNameFxPreview();
+        Check("closing the settings window releases the clock", !NameFxSheen.IsRunning);
+
         vm.ResetDefaults();
         Check("ResetDefaults", settings.DisplayMode == "dps_percent" && settings.RowHeight == 36 && skin.Current == "dark");
 
@@ -807,7 +824,28 @@ internal static class Program
                         scroll.UpdateLayout();
                         scroll.ScrollToVerticalOffset(scroll.VerticalOffset + scroll.ViewportHeight - fxHeader.ActualHeight - 8);
                         scroll.UpdateLayout();
-                        RenderToPng(window, Path.Combine(outDir, $"settings_namefx_{skinName}.png"), fixedSize: true);
+                        string shot = Path.Combine(outDir, $"settings_namefx_{skinName}.png");
+                        RenderToPng(window, shot, fixedSize: true);
+
+                        // Prove the strip actually moves. One frame cannot tell a running animation from a
+                        // stopped one, and it WAS stopped: the sweep timer is demand-driven from the meter's
+                        // row rebuild, so with no decorated row on screen the preview sat frozen — which is
+                        // the one thing that preview exists to show.
+                        string moved = Path.Combine(outDir, $"settings_namefx_moved_{skinName}.png");
+                        for (int i = 0; i < 4; i++)
+                        {
+                            NameFxSheen.AdvanceOneStep();
+                        }
+
+                        window.UpdateLayout();
+                        RenderToPng(window, moved, fixedSize: true);
+                        if (!contractChecked)
+                        {
+                            Check("nameFx preview strip actually animates",
+                                File.Exists(shot) && File.Exists(moved)
+                                && !File.ReadAllBytes(shot).AsSpan().SequenceEqual(File.ReadAllBytes(moved)));
+                        }
+
                         scroll.ScrollToTop();
                     }
 
