@@ -280,6 +280,8 @@ internal static class Program
             }
         }
 
+        VerifySettingsTabs(skins, outDir);
+
         CaptureReplay(LoadRealOrSynthetic(now), Path.Combine(outDir, "replay.png"), "replay.png");
         CaptureReplay(SampleMapReplay(now), Path.Combine(outDir, "replay-map.png"), "replay-map.png");
         CaptureMechanics(outDir);
@@ -594,6 +596,148 @@ internal static class Program
         Console.WriteLine($"=== settings: {pass} passed, {fail} failed ===");
     }
 
+    /// <summary>
+    /// The settings window's tab contract, and the screenshot baseline the IA re-shuffle gets diffed against.
+    /// <para>The nav rail's <c>ListBoxItem.Tag</c> literals and the content panels' <c>ConverterParameter</c>
+    /// literals are two separate string tables that must agree exactly. When they drift,
+    /// <c>StringEqualsToVisibilityConverter</c> collapses EVERY panel and the right-hand side of the window
+    /// goes blank — a failure neither the compiler nor a unit test catches, because both halves are XAML
+    /// strings and the converter treats "no match" as a legitimate answer.</para>
+    /// <para>So walk them: for each nav Tag, exactly one panel under <c>ContentScroll</c> must be visible.
+    /// This is deliberately written against the CURRENT shape (parameter literals, no panel Tags) so it keeps
+    /// working across the Phase 0 MultiBinding conversion — it only ever asks "what does the window show".</para>
+    /// </summary>
+    private static void VerifySettingsTabs(IReadOnlyDictionary<string, ResourceDictionary> skins, string outDir)
+    {
+        Console.WriteLine("=== settings tab contract ===");
+
+        string tmp = Path.Combine(Path.GetTempPath(), "waffle_settings_tabs");
+        Directory.CreateDirectory(tmp);
+        var props = new PropertyHandler(tmp);
+        var settings = new MeterSettings(props);
+        var presets = new BuffPresetManager(settings, _ => { }, _ => { });
+        var vm = new SettingsViewModel(new MeterServices(props), settings, new MeterColorTheme(props),
+            new SkinManager(props), new OverlayController(new OverlayWindow(), props), new HotkeyHandler(props),
+            presets, new GameOptimizerService());
+
+        int pass = 0, fail = 0;
+        void Check(string name, bool ok)
+        {
+            Console.WriteLine($"  [{(ok ? "ok  " : "FAIL")}] {name}");
+            if (ok) { pass++; } else { fail++; }
+        }
+
+        // Only Dark and Light get shots: those two are the pair that actually disagree about contrast
+        // (Skin.AccentSoft over the near-white Light RowBg is where selection states go invisible).
+        // Midnight/Slate are Dark's palette with different hues and have never regressed independently.
+        bool contractChecked = false;
+        foreach (string skinName in new[] { "Dark", "Light" })
+        {
+            SettingsWindow? window = null;
+            try
+            {
+                window = new SettingsWindow(vm);
+                window.Resources.MergedDictionaries.Insert(0, skins[skinName]);
+                window.Left = -10000;
+                window.Top = -10000;
+                window.Show();
+                Drain(window.Dispatcher);
+
+                var nav = FindVisualChild<System.Windows.Controls.ListBox>(window);
+                var scroll = window.FindName("ContentScroll") as System.Windows.Controls.ScrollViewer;
+                var panelHost = scroll?.Content as System.Windows.Controls.Grid;
+
+                if (nav is null || panelHost is null)
+                {
+                    Check($"{skinName}: nav ListBox + ContentScroll>Grid found", false);
+                    continue;
+                }
+
+                List<string> navKeys = nav.Items
+                    .OfType<System.Windows.Controls.ListBoxItem>()
+                    .Select(i => i.Tag as string)
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .Select(t => t!)
+                    .ToList();
+
+                if (!contractChecked)
+                {
+                    Check($"nav has tags ({navKeys.Count})", navKeys.Count > 0);
+                    Check("nav tags are unique", navKeys.Distinct(StringComparer.Ordinal).Count() == navKeys.Count);
+                    Check($"panel count ({panelHost.Children.Count}) == nav count ({navKeys.Count})",
+                        panelHost.Children.Count == navKeys.Count);
+                    // The VM's hardcoded default must be a real tab, or the window opens on a blank right side.
+                    Check($"default nav '{vm.SelectedNav}' is a real tab", navKeys.Contains(vm.SelectedNav, StringComparer.Ordinal));
+                }
+
+                foreach (string key in navKeys)
+                {
+                    vm.SelectedNav = key;
+                    Drain(window.Dispatcher);
+                    window.UpdateLayout();
+
+                    int visible = panelHost.Children.OfType<UIElement>()
+                        .Count(c => c.Visibility == Visibility.Visible);
+                    if (!contractChecked)
+                    {
+                        Check($"tab '{key}': exactly 1 panel visible (got {visible})", visible == 1);
+                    }
+
+                    RenderToPng(window, Path.Combine(outDir, $"settings_tab_{key}_{skinName}.png"), fixedSize: true);
+                }
+
+                // An unknown key must not blank the window. Today nothing guards this — the check is here so
+                // the Phase 0 whitelist fallback has a test that fails BEFORE it is written, then passes after.
+                if (!contractChecked)
+                {
+                    vm.SelectedNav = "no-such-tab";
+                    Drain(window.Dispatcher);
+                    window.UpdateLayout();
+                    int visible = panelHost.Children.OfType<UIElement>().Count(c => c.Visibility == Visibility.Visible);
+                    Check($"unknown nav key does not blank the window (visible={visible})", visible == 1);
+                    vm.SelectedNav = navKeys[0];
+                }
+
+                contractChecked = true;
+            }
+            catch (Exception ex)
+            {
+                Check($"{skinName}: tab sweep", false);
+                Console.WriteLine($"         {ex.Message}");
+            }
+            finally
+            {
+                window?.Close();
+            }
+        }
+
+        Console.WriteLine($"=== settings tabs: {pass} passed, {fail} failed ===");
+    }
+
+    /// <summary>First descendant of the given type in the visual tree (breadth-first).</summary>
+    private static T? FindVisualChild<T>(DependencyObject root) where T : DependencyObject
+    {
+        var queue = new Queue<DependencyObject>();
+        queue.Enqueue(root);
+        while (queue.Count > 0)
+        {
+            DependencyObject node = queue.Dequeue();
+            int count = VisualTreeHelper.GetChildrenCount(node);
+            for (int i = 0; i < count; i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(node, i);
+                if (child is T match)
+                {
+                    return match;
+                }
+
+                queue.Enqueue(child);
+            }
+        }
+
+        return null;
+    }
+
     private static void Capture(Func<Window> factory, ResourceDictionary palette, string path, bool fixedSize = false)
     {
         Window? window = null;
@@ -611,34 +755,7 @@ internal static class Program
             // (SizeToContent's async sizing returns 0 for later windows).
             Drain(window.Dispatcher);
 
-            var content = (FrameworkElement)window.Content;
-            double availableW = double.IsNaN(window.Width) ? content.ActualWidth : window.Width;
-            content.Measure(new Size(availableW, double.PositiveInfinity));
-            double measuredH = content.DesiredSize.Height > 0 ? content.DesiredSize.Height : content.ActualHeight;
-            // fixedSize: arrange at the window's real height so overflow scrolls (shows the scrollbar).
-            if (fixedSize && !double.IsNaN(window.Height) && window.Height > 0)
-            {
-                measuredH = window.Height;
-            }
-
-            content.Arrange(new Rect(0, 0, availableW, measuredH));
-            content.UpdateLayout();
-
-            int width = (int)Math.Ceiling(availableW);
-            int height = (int)Math.Ceiling(measuredH);
-            if (width <= 0 || height <= 0)
-            {
-                Console.WriteLine($"  [skip] {Path.GetFileName(path)} measured {width}x{height}");
-                return;
-            }
-
-            var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
-            rtb.Render(content);
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(rtb));
-            using FileStream fs = File.Create(path);
-            encoder.Save(fs);
-            Console.WriteLine($"  [ok]   {Path.GetFileName(path)} {width}x{height}");
+            RenderToPng(window, path, fixedSize);
         }
         catch (Exception ex)
         {
@@ -648,6 +765,43 @@ internal static class Program
         {
             window?.Close();
         }
+    }
+
+    /// <summary>
+    /// Measure/arrange/encode an already-shown window. Split out of <see cref="Capture"/> so a caller that
+    /// keeps ONE window alive across several states (the settings tab sweep) can render each state without
+    /// paying window construction 12 times over.
+    /// </summary>
+    private static void RenderToPng(Window window, string path, bool fixedSize)
+    {
+        var content = (FrameworkElement)window.Content;
+        double availableW = double.IsNaN(window.Width) ? content.ActualWidth : window.Width;
+        content.Measure(new Size(availableW, double.PositiveInfinity));
+        double measuredH = content.DesiredSize.Height > 0 ? content.DesiredSize.Height : content.ActualHeight;
+        // fixedSize: arrange at the window's real height so overflow scrolls (shows the scrollbar).
+        if (fixedSize && !double.IsNaN(window.Height) && window.Height > 0)
+        {
+            measuredH = window.Height;
+        }
+
+        content.Arrange(new Rect(0, 0, availableW, measuredH));
+        content.UpdateLayout();
+
+        int width = (int)Math.Ceiling(availableW);
+        int height = (int)Math.Ceiling(measuredH);
+        if (width <= 0 || height <= 0)
+        {
+            Console.WriteLine($"  [skip] {Path.GetFileName(path)} measured {width}x{height}");
+            return;
+        }
+
+        var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(content);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(rtb));
+        using FileStream fs = File.Create(path);
+        encoder.Save(fs);
+        Console.WriteLine($"  [ok]   {Path.GetFileName(path)} {width}x{height}");
     }
 
     /// <summary>Process all pending dispatcher work down to Background priority (waits for layout/binding).</summary>
