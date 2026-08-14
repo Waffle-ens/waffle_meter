@@ -243,40 +243,34 @@
                     </Style>
                 </ListBox.Resources>
                 <ListBoxItem Tag="display">
-                    <StackPanel><TextBlock Text="화면" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 형식 · 최적화 · 오드" Style="{StaticResource NavSub}"/></StackPanel>
-                </ListBoxItem>
-                <ListBoxItem Tag="combat">
-                    <StackPanel><TextBlock Text="전투 보조" Style="{StaticResource NavTitle}"/><TextBlock Text="버프 오버레이" Style="{StaticResource NavSub}"/></StackPanel>
-                </ListBoxItem>
-                <ListBoxItem Tag="buffalerts">
-                    <StackPanel><TextBlock Text="버프 알림" Style="{StaticResource NavTitle}"/><TextBlock Text="직업별 버프 표시·음성" Style="{StaticResource NavSub}"/></StackPanel>
-                </ListBoxItem>
-                <ListBoxItem Tag="alarms">
-                    <StackPanel><TextBlock Text="알림" Style="{StaticResource NavTitle}"/><TextBlock Text="슈고 페스타 · 사용자 알람" Style="{StaticResource NavSub}"/></StackPanel>
+                    <StackPanel><TextBlock Text="미터 화면" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 형식 · 크기 · 글꼴" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="theme">
-                    <StackPanel><TextBlock Text="테마 색상" Style="{StaticResource NavTitle}"/><TextBlock Text="스킨 · 색상 프리셋" Style="{StaticResource NavSub}"/></StackPanel>
+                    <StackPanel><TextBlock Text="색상 · 스킨" Style="{StaticResource NavTitle}"/><TextBlock Text="스킨 · 유저 이름 색상" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="window">
+                    <StackPanel><TextBlock Text="창 동작" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 조건 · 위치 · 패널" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="buffs">
+                    <StackPanel><TextBlock Text="버프 오버레이" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 · 음성 · 직업별" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="alarms">
+                    <StackPanel><TextBlock Text="알림" Style="{StaticResource NavTitle}"/><TextBlock Text="소리 · 슈고 · 필드보스" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="battle">
+                    <StackPanel><TextBlock Text="전투 집계" Style="{StaticResource NavTitle}"/><TextBlock Text="집계 · 허수아비 · 리플레이" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="hotkeys">
                     <StackPanel><TextBlock Text="단축키" Style="{StaticResource NavTitle}"/><TextBlock Text="초기화 · 표시 · 클릭 통과" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
-                <ListBoxItem Tag="advanced">
-                    <StackPanel><TextBlock Text="고급" Style="{StaticResource NavTitle}"/><TextBlock Text="캡처 방식 · 렌더링 호환" Style="{StaticResource NavSub}"/></StackPanel>
+                <ListBoxItem Tag="stats">
+                    <StackPanel><TextBlock Text="내 캐릭터 · 통계" Style="{StaticResource NavTitle}"/><TextBlock Text="동의 · 공개 · 전투 기록" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="gameopt">
                     <StackPanel><TextBlock Text="게임 최적화" Style="{StaticResource NavTitle}"/><TextBlock Text="Engine.ini · 렉 감소" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
-                <ListBoxItem Tag="replay">
-                    <StackPanel><TextBlock Text="리플레이 (베타)" Style="{StaticResource NavTitle}"/><TextBlock Text="전투 이동 기록 · 저장 경로" Style="{StaticResource NavSub}"/></StackPanel>
-                </ListBoxItem>
-                <ListBoxItem Tag="dummy">
-                    <StackPanel><TextBlock Text="허수아비" Style="{StaticResource NavTitle}"/><TextBlock Text="허수 테스트 · 시간 제한" Style="{StaticResource NavSub}"/></StackPanel>
-                </ListBoxItem>
-                <ListBoxItem Tag="stats">
-                    <StackPanel><TextBlock Text="캐릭터 관리" Style="{StaticResource NavTitle}"/><TextBlock Text="오드 · 공개 · 익명 통계" Style="{StaticResource NavSub}"/></StackPanel>
-                </ListBoxItem>
-                <ListBoxItem Tag="diag">
-                    <StackPanel><TextBlock Text="진단" Style="{StaticResource NavTitle}"/><TextBlock Text="로그 · 문제 해결" Style="{StaticResource NavSub}"/></StackPanel>
+                <ListBoxItem Tag="advanced">
+                    <StackPanel><TextBlock Text="고급 · 진단" Style="{StaticResource NavTitle}"/><TextBlock Text="캡처 · 렌더링 · 로그" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
             </ListBox>
 
@@ -299,9 +293,624 @@
 
             <ScrollViewer x:Name="ContentScroll" Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="16,0,12,0">
                 <Grid>
+                    <!-- ===== 미터 화면 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=display}">
+                        <TextBlock Text="표시 설정" Style="{StaticResource SectionHeader}"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="표시 형식" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="DPS 카드의 정보 조합을 전환합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding DisplayModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DisplayMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="딜량 기준" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="딜량을 DPS로 볼지 누적 피해량으로 볼지 선택합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding DamageValueModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DamageValueMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="기여도 표시 방식" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="파티 기여도 또는 보스 체력 기여도로 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding ContributionModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding ContributionMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="아이디 표기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="다른 플레이어 이름의 표시 범위를 선택합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding NameDisplays}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding NameDisplay}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="서버 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="닉네임 옆에 서버 약칭을 [ ] 안에 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowServerTag}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="보스 표시 형식" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="타겟 바의 보스 체력 표기 방식을 선택합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding TargetInfoDisplayModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding TargetInfoDisplayMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="게이지 형태" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="피해량·보스 체력 막대의 표시 형태를 선택합니다 (칸 채우기 / 얇은 바 / 없음)." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding BarStyles}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding BarStyle}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding MaxVisibleRows, StringFormat='표시 인원 — {0}명'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="딜 순위 상위 인원만 표시합니다 (본인은 순위와 무관하게 항상 표시). 전체 집계는 그대로 유지됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="1" Maximum="10" Value="{Binding MaxVisibleRows}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="크기와 글꼴" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="글꼴" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="번들 글꼴이 없으면 맑은 고딕으로 표시됩니다. 커스텀 폰트(.ttf/.otf)를 추가해 쓸 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <ComboBox Width="190" ItemsSource="{Binding FontFamilies}"
+                                          ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
+                                <Button Content="커스텀 폰트 추가…" Margin="0,6,0,0" HorizontalAlignment="Right" Click="OnAddCustomFont"
+                                        ToolTip="ttf/otf 파일을 선택해 목록에 추가하고 바로 적용합니다"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="미터 크기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="미터 전체(글자·행·여백)를 균일하게 확대/축소합니다. 폭은 창 가장자리를 끌어 조절합니다." Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding MeterScaleHint}" Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding MeterScales}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding MeterScalePercent}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding RowHeight, StringFormat='행 높이 — {0}px'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="미터 한 줄의 높이입니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="24" Maximum="80" Value="{Binding RowHeight}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="상태 표시" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="오드 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="인식된 캐릭터 옆에 오드 잔량을 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowAetherStatus}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="서버 응답속도 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="인식된 캐릭터 옆에 게임 서버까지의 응답속도(ms)를 표시합니다. VPN/부스터 사용 시 로컬 홉으로 표시될 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowLatencyIndicator}"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock x:Name="TierSectionHeader" Text="던전 티어" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="티어 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="던전별 등급을 순위·직업 뱃지와 행 테두리에 표시합니다. 저사양 모드에서는 효과 없이 테두리만 그려요." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding TierEffectModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding TierEffects}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14" IsEnabled="{Binding TierDetailEnabled}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="파티원 티어 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="파티원 행에도 등급 테두리와 '상위 X.X%'를 표시합니다. 끄면 본인 행에만 표시돼요." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TierShowOthers}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14" IsEnabled="{Binding TierDetailEnabled}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="전투 시간 옆 요약 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="미터 아래 전투 시간 옆에 '챌린저 · 상위 0.7%' 형태로 내 등급을 함께 보여줍니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TierShowSelfChip}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="티어 갱신" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="{Binding TierStatus}" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="갱신" VerticalAlignment="Center" Padding="14,6" Click="OnRefreshTier"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="컴팩트 모드" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="컴팩트 모드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="타겟 바와 전투 시간 바를 숨겨 미터기를 작게 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsMinimal}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="컴팩트 모드 중 전투 시간 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="컴팩트 모드에서도 전투 시간 바를 유지합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowCombatTimerInMinimal}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="컴팩트 모드 중 보스 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="컴팩트 모드에서도 타겟(보스) 바를 유지합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowTargetInfoInMinimal}"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="성능" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding RefreshIntervalMs, StringFormat='갱신 주기 — {0}ms'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="값이 클수록 숫자 반영은 느려지지만 전투 중 CPU·화면 부담이 줄어듭니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="100" Maximum="1000" Value="{Binding RefreshIntervalMs}"
+                                    TickFrequency="100" IsSnapToTickEnabled="True" IsEnabled="{Binding RefreshSliderEnabled}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="저사양 모드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="켜면 갱신 주기를 500ms로 고정해 게임 프레임을 우선합니다. 딜 집계 방식은 그대로 유지됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LowSpecMode}"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="업데이트" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding Version, StringFormat='현재 버전 — v{0}'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="최신 버전을 확인하고 백그라운드에서 내려받습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="업데이트 확인" Click="OnCheckUpdate" VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ===== 색상 · 스킨 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=theme}">
+                        <TextBlock Text="스킨" Style="{StaticResource SectionHeader}"/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="스타일 (스킨)" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="앱 전체의 색 테마 프리셋입니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding Skins}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Name" SelectedValue="{Binding Skin}"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="테마 색상" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <TextBlock Text="유저 이름 색상" Style="{StaticResource Label}" Margin="0,0,0,4"/>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="천족" VerticalAlignment="Center"/>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.ServerAColor, Mode=TwoWay}"/></Grid>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="마족" VerticalAlignment="Center"/>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.ServerBColor, Mode=TwoWay}"/></Grid>
+
+                        <TextBlock Text="미터 바 색상" Style="{StaticResource Label}" Margin="0,12,0,4"/>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="색상 방식" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding BarColorModes}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding Theme.BarColorMode, Mode=TwoWay}"/></Grid>
+                        <!-- 내 캐릭터(본인) 색은 두 모드 모두에서 사용 -->
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="내 캐릭터" VerticalAlignment="Center"/>
+                            <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.UserBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.UserBarTo, Mode=TwoWay}"/></Grid>
+
+                        <!-- 본인 강조: 기여도 티어 색 -->
+                        <StackPanel Visibility="{Binding Theme.BarColorMode, Converter={StaticResource NavVis}, ConverterParameter=self}">
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="일반" VerticalAlignment="Center"/>
+                                <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.NormalBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.NormalBarTo, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="경고 (기여도 5% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.WarningBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.WarningBarTo, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="에러 (기여도 3% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.ErrorBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.ErrorBarTo, Mode=TwoWay}"/></Grid>
+                        </StackPanel>
+
+                        <!-- 직업 강조: 직업별 색 (기본값 = 조인 패널과 동일 팔레트) -->
+                        <StackPanel Visibility="{Binding Theme.BarColorMode, Converter={StaticResource NavVis}, ConverterParameter=job}">
+                            <TextBlock Text="직업별 색상" Style="{StaticResource Label}" Margin="0,8,0,4"/>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="검성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarGladiator, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="수호성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarTemplar, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="궁성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarRanger, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="살성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarAssassin, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="마도성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarSorcerer, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="치유성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarCleric, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="정령성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarElementalist, Mode=TwoWay}"/></Grid>
+                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="호법성" VerticalAlignment="Center"/>
+                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarChanter, Mode=TwoWay}"/></Grid>
+                        </StackPanel>
+
+                        <TextBlock Text="미터 텍스트 색상" Style="{StaticResource Label}" Margin="0,12,0,4"/>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="누적 / 전투력" VerticalAlignment="Center"/>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.MeterStatAmount, Mode=TwoWay}"/></Grid>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="DPS / 피해량" VerticalAlignment="Center"/>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.MeterStatDps, Mode=TwoWay}"/></Grid>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="퍼센트" VerticalAlignment="Center"/>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.MeterStatPercent, Mode=TwoWay}"/></Grid>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="전투 시간" VerticalAlignment="Center"/>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.CombatTimeColor, Mode=TwoWay}"/></Grid>
+
+                        <TextBlock Text="보스 / 전투 기록" Style="{StaticResource Label}" Margin="0,12,0,4"/>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="타겟 / 전투 기록" VerticalAlignment="Center"/>
+                            <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.BossBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.BossBarTo, Mode=TwoWay}"/></Grid>
+                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="남은 체력 / 경과 시간" VerticalAlignment="Center"/>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.BossRightValue, Mode=TwoWay}"/></Grid>
+
+                        <Button Content="테마 색상 초기화" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OnResetTheme"/>
+                    </StackPanel>
+
+                    <!-- ===== 창 동작 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=window}">
+                        <TextBlock Text="표시 조건" Style="{StaticResource SectionHeader}"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="아이온 활성화 시 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="AION2 창이 활성화된 동안에만 미터기를 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsAutoHide}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="작업표시줄 / Alt+Tab 모드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="오버레이를 일반 창으로 바꿔 작업표시줄·Alt+Tab에 표시합니다. (자동 숨김 해제)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TaskbarMode}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="미터를 숨겨도 오버레이 유지" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="미터기 본체를 숨겨도(Ctrl+H·트레이) 버프 오버레이는 계속 표시합니다. 게임이 활성일 때만 뜹니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding KeepOverlayWhenMeterHidden}"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="위치와 모니터" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="다중 모니터 이동" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="모니터 경계를 넘어 창 위치를 보정합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding MultiMonitorMode}"/>
+                        </Grid>
+                        <TextBlock Text="드래그로 옮긴 창들을 기본 위치로 되돌립니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="미터기 위치" Click="OnResetMeterPosition" Margin="0,0,8,0"/>
+                            <Button Content="파티 신청 위치" Click="OnResetJoinPosition" Margin="0,0,8,0"/>
+                            <Button Content="전투 기록 위치" Click="OnResetHistoryPosition" Margin="0,0,8,0"/>
+                            <Button Content="컨텐츠 관리 위치·크기" Click="OnResetAetherPosition"/>
+                        </StackPanel>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="보조 패널" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="파티 신청 패널 자동 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="파티 신청이 오면 패널을 자동으로 띄웁니다. 끄면 헤더의 파티 신청 버튼으로 직접 열 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowJoinPanel}"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="창 닫기" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="닫기 버튼 동작" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="X 버튼을 눌렀을 때 트레이로 보낼지 종료할지 선택합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding CloseActions}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding CloseAction}"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ===== 버프 오버레이 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=buffs}">
+                        <TextBlock Text="버프 오버레이" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="내 캐릭터에게 적용된 버프와 남은 시간을 별도 창에 표시합니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
+                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource BuffPresetBar}"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="버프 오버레이 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="전투 보조 창을 켭니다. 창은 드래그로 옮길 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowBuffUi}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="투명 배경" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="켜면 아이콘만 떠서 배경이 투명합니다. 끄면 배경/테두리가 보여 버프가 없을 때도 창 위치를 찾아 옮길 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiTransparent}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="아이콘 크기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="버프 오버레이 아이콘 크기를 고릅니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="132" VerticalAlignment="Center" SelectedIndex="{Binding BuffIconSizeIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="작게 (34px)"/>
+                                <ComboBoxItem Content="크게 (40px)"/>
+                            </ComboBox>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="지속시간 글씨 색상" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="남은 시간 글씨 색상을 바꿉니다. (투명 배경에서 흰색이 잘 안 보일 때 유용)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding BuffTextColor, Mode=TwoWay}" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="표시 순서" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="오버레이에 버프를 늘어놓는 기준입니다. '적용 순서'는 버프가 유지되는 동안 자리가 바뀌지 않아 가장 안정적이고, '남은 시간 순'은 타이머가 흐를 때마다 아이콘이 움직입니다. 아래 목록에서 '위치 고정'을 켠 버프는 이 기준과 무관하게 항상 버프 오버레이의 가장 앞쪽에 표시됩니다."
+                                           Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="140" VerticalAlignment="Center" SelectedIndex="{Binding BuffUiSortModeIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="적용 순서"/>
+                                <ComboBoxItem Content="남은 시간 순"/>
+                                <ComboBoxItem Content="이름 순"/>
+                            </ComboBox>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="쿨타임 중 아이콘 회색" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="버프를 거는 스킬이 쿨타임이면 오버레이 아이콘을 회색으로 흐리게 표시합니다. (재사용 가능 시점 확인용)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiGrayOnCooldown}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="다른 캐릭터가 준 버프 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="끄면 본인이 직접 받은 버프만 표시합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowOtherPlayerBuffs}"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="음성" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="버프 시작 음성" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="'오버레이+음성' 버프가 켜지면 '스킬명 온'을 읽어줍니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffTtsOnStart}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="버프 종료 음성" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="'오버레이+음성' 버프가 끝나기 직전 '스킬명 오프'를 읽어줍니다. (음성 지연 고려해 살짝 먼저)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffTtsOnEnd}"/>
+                        </Grid>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="직업별 버프" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <TextBlock Text="직업별로 각 버프를 오버레이/음성 중 어떻게 알릴지 고릅니다. (소비 아이템·물약은 제외)" Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
+                        <TextBlock Text="아직 표시된 버프가 없습니다. 전투를 진행하면 여기에 버프가 나타납니다."
+                                   Foreground="{DynamicResource Skin.MutedFg}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   Visibility="{Binding BuffPicker.IsEmpty, Converter={StaticResource BoolToVis}}"/>
+                        <ItemsControl ItemsSource="{Binding BuffPicker.Groups}" Margin="0,4,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Skin.SoftBorder}" Padding="0,8,0,10" Margin="0,0,0,4">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Job}" FontWeight="Bold" FontSize="13"
+                                                           Foreground="{DynamicResource Skin.Accent}" VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                    <Button Content="전체 끔" Padding="8,2" FontSize="11" Margin="0,0,4,0"
+                                                            DataContext="{Binding}" Tag="g|0" Click="OnBuffGroupMode"/>
+                                                    <Button Content="전체 오버레이" Padding="8,2" FontSize="11" Margin="0,0,4,0"
+                                                            DataContext="{Binding}" Tag="g|1" Click="OnBuffGroupMode"/>
+                                                    <Button Content="전체 음성" Padding="8,2" FontSize="11" Margin="0,0,4,0"
+                                                            DataContext="{Binding}" Tag="g|2" Click="OnBuffGroupMode"/>
+                                                    <Button Content="전체 음성만" Padding="8,2" FontSize="11"
+                                                            DataContext="{Binding}" Tag="g|3" Click="OnBuffGroupMode"/>
+                                                </StackPanel>
+                                            </Grid>
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="2,3">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.Column="0" Width="26" Height="26" CornerRadius="5" Margin="0,0,9,0"
+                                                                    Background="{DynamicResource Skin.RowBg}">
+                                                                <Image Source="{Binding IconSource}" Width="24" Height="24"/>
+                                                            </Border>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource Skin.Fg}" FontSize="12"/>
+                                                            <!-- 맨 앞 고정 토글. 글리프만으로는 켜짐/꺼짐이 구분되지 않아(사용자 제보)
+                                                                 라벨 + 켜짐 상태 강조(액센트 배경/테두리)를 함께 준다. 고정된 것끼리의
+                                                                 순서 조정(▲▼)은 제거했다 — 이 목록이 고정 순서로 재정렬되지 않아 눌러도
+                                                                 아무 변화가 보이지 않았고(순서는 오버레이에만 반영), '반응 없는 버튼'으로
+                                                                 읽혔다. 고정된 버프가 맨 앞에 오는 동작 자체는 그대로다. -->
+                                                            <CheckBox Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center"
+                                                                      IsChecked="{Binding IsPinned, Mode=OneWay}"
+                                                                      ToolTip="켜면 표시 순서와 무관하게 버프 오버레이의 가장 앞쪽에 표시됩니다."
+                                                                      DataContext="{Binding}" Click="OnBuffPinToggle">
+                                                                <TextBlock Text="위치 고정" FontSize="11" VerticalAlignment="Center">
+                                                                    <TextBlock.Style>
+                                                                        <!-- 기본 Foreground는 로컬 속성이 아니라 Setter로 준다 — 로컬 값은
+                                                                             트리거보다 우선순위가 높아 강조가 먹지 않는다. -->
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsPinned}" Value="True">
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
+                                                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </CheckBox>
+                                                            <ComboBox Grid.Column="3" Width="128" SelectedIndex="{Binding Mode, Mode=TwoWay}" VerticalAlignment="Center">
+                                                                <ComboBoxItem Content="알림끔"/>
+                                                                <ComboBoxItem Content="오버레이만"/>
+                                                                <ComboBoxItem Content="오버레이+음성"/>
+                                                                <ComboBoxItem Content="음성만"/>
+                                                            </ComboBox>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
                     <!-- ===== 알림 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=alarms}">
-                        <TextBlock Text="슈고 페스타 알림" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="소리" Style="{StaticResource SectionHeader}"/>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="알림 소리" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="알림이 뜰 때 짧은 효과음을 재생합니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AlarmSoundEnabled}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="알림 음량" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="알림 효과음의 크기입니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding AlarmVolume}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="음성 알림 (한국어)" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="알림 내용을 한국어 음성으로 읽어줍니다. 인터넷이 필요하며, 실패하면 효과음으로 대체됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TtsEnabled}"/>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,4">
+                            <Button Content="소리 테스트" Click="OnTestAlarmSound" HorizontalAlignment="Left"
+                                    Height="30" Padding="14,0" Cursor="Hand" Margin="0,0,8,0"/>
+                            <Button Content="음성 테스트" Click="OnTestTts" HorizontalAlignment="Left"
+                                    Height="30" Padding="14,0" Cursor="Hand"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="슈고 페스타 알림" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
 
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -344,43 +953,6 @@
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShugoLeadStart}"/>
                         </Grid>
-
-                        <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock Text="소리" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="알림 소리" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="알림이 뜰 때 짧은 효과음을 재생합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AlarmSoundEnabled}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="알림 음량" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="알림 효과음의 크기입니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding AlarmVolume}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="음성 알림 (한국어)" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="알림 내용을 한국어 음성으로 읽어줍니다. 인터넷이 필요하며, 실패하면 효과음으로 대체됩니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TtsEnabled}"/>
-                        </Grid>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,2,0,4">
-                            <Button Content="소리 테스트" Click="OnTestAlarmSound" HorizontalAlignment="Left"
-                                    Height="30" Padding="14,0" Cursor="Hand" Margin="0,0,8,0"/>
-                            <Button Content="음성 테스트" Click="OnTestTts" HorizontalAlignment="Left"
-                                    Height="30" Padding="14,0" Cursor="Hand"/>
-                        </StackPanel>
 
                         <Border Style="{StaticResource SectionDivider}"/>
                         <TextBlock Text="필드보스 리젠 알림" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
@@ -497,296 +1069,10 @@
                         </ItemsControl>
                     </StackPanel>
 
-                    <!-- ===== 게임 최적화 ===== -->
-                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=gameopt}">
-                        <TextBlock Text="게임 최적화" Style="{StaticResource SectionHeader}"/>
-
-                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,14" TextWrapping="Wrap"
-                                   Text="아이온2 Engine.ini에 렉 감소 최적화(텍스처 스트리밍 풀 · 스레드 lag · 오클루전 · GC 튜닝)를 자동으로 추가합니다. 그래픽카드 VRAM을 자동 감지해 프로필을 정하며, 인게임 그래픽 옵션과 화질에는 영향이 없습니다."/>
-
-                        <Border Background="#33FF9800" BorderBrush="#66FF9800" BorderThickness="1" CornerRadius="4"
-                                Padding="10,8" Margin="0,0,0,14"
-                                Visibility="{Binding GameRunning, Converter={StaticResource BoolToVis}}">
-                            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Skin.Fg}"
-                                       Text="주의: 아이온2가 실행 중입니다. Engine.ini는 게임을 완전히 종료한 상태에서 적용/되돌리기 하세요. 실행 중 변경은 게임 종료 시 덮어써질 수 있습니다."/>
-                        </Border>
-
+                    <!-- ===== 전투 집계 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=battle}">
+                        <TextBlock Text="집계 범위" Style="{StaticResource SectionHeader}"/>
                         <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="그래픽카드 (자동 감지)" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="{Binding GpuText}" Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="적용 프로필" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="{Binding GameOptTierText}" Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Border Style="{StaticResource SectionDivider}"/>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,6">
-                            <Button Content="적용" MinWidth="96" Click="OnApplyGameOpt" Margin="0,0,8,0"
-                                    ToolTip="감지된 프로필로 Engine.ini에 최적화 블록을 추가/갱신합니다"/>
-                            <Button Content="되돌리기" MinWidth="96" Click="OnRevertGameOpt"
-                                    ToolTip="우리가 추가한 최적화 블록만 제거합니다 (다른 설정은 그대로)"/>
-                            <TextBlock Text="{Binding GameOptStatus}" Style="{StaticResource SettingDesc}"
-                                       VerticalAlignment="Center" Margin="14,0,0,0"/>
-                        </StackPanel>
-
-                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,8,0,0" TextWrapping="Wrap"
-                                   Text="안내: 변경 사항은 게임을 재실행한 뒤부터 적용됩니다. 되돌리기는 우리가 추가한 구간만 지우므로 사용자가 직접 넣은 다른 Engine.ini 설정은 그대로 유지됩니다."/>
-                    </StackPanel>
-
-                    <!-- ===== 화면 ===== -->
-                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=display}">
-                        <TextBlock Text="표시 설정" Style="{StaticResource SectionHeader}"/>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="표시 형식" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="DPS 카드의 정보 조합을 전환합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding DisplayModes}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DisplayMode}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="딜량 기준" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="딜량을 DPS로 볼지 누적 피해량으로 볼지 선택합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding DamageValueModes}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DamageValueMode}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="기여도 표시 방식" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="파티 기여도 또는 보스 체력 기여도로 표시합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding ContributionModes}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding ContributionMode}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="아이디 표기" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="다른 플레이어 이름의 표시 범위를 선택합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding NameDisplays}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding NameDisplay}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="보스 표시 형식" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="타겟 바의 보스 체력 표기 방식을 선택합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding TargetInfoDisplayModes}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding TargetInfoDisplayMode}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="게이지 형태" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="피해량·보스 체력 막대의 표시 형태를 선택합니다 (칸 채우기 / 얇은 바 / 없음)." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding BarStyles}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding BarStyle}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="스타일 (스킨)" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="앱 전체의 색 테마 프리셋입니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding Skins}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Name" SelectedValue="{Binding Skin}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="글꼴" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="번들 글꼴이 없으면 맑은 고딕으로 표시됩니다. 커스텀 폰트(.ttf/.otf)를 추가해 쓸 수 있습니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <ComboBox Width="190" ItemsSource="{Binding FontFamilies}"
-                                          ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding FontFamily}"/>
-                                <Button Content="커스텀 폰트 추가…" Margin="0,6,0,0" HorizontalAlignment="Right" Click="OnAddCustomFont"
-                                        ToolTip="ttf/otf 파일을 선택해 목록에 추가하고 바로 적용합니다"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="미터 크기" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="미터 전체(글자·행·여백)를 균일하게 확대/축소합니다. 폭은 창 가장자리를 끌어 조절합니다." Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
-                                <TextBlock Text="{Binding MeterScaleHint}" Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding MeterScales}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding MeterScalePercent}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{Binding RowHeight, StringFormat='행 높이 — {0}px'}" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="미터 한 줄의 높이입니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="24" Maximum="80" Value="{Binding RowHeight}" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                        </Grid>
-
-                        <!-- 던전 티어 -->
-                        <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock x:Name="TierSectionHeader" Text="던전 티어" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="티어 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="던전별 등급을 순위·직업 뱃지와 행 테두리에 표시합니다. 저사양 모드에서는 효과 없이 테두리만 그려요." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding TierEffectModes}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding TierEffects}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14" IsEnabled="{Binding TierDetailEnabled}">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="파티원 티어 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="파티원 행에도 등급 테두리와 '상위 X.X%'를 표시합니다. 끄면 본인 행에만 표시돼요." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TierShowOthers}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14" IsEnabled="{Binding TierDetailEnabled}">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="전투 시간 옆 요약 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="미터 아래 전투 시간 옆에 '챌린저 · 상위 0.7%' 형태로 내 등급을 함께 보여줍니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TierShowSelfChip}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="티어 갱신" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="{Binding TierStatus}" Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <Button Grid.Column="1" Content="갱신" VerticalAlignment="Center" Padding="14,6" Click="OnRefreshTier"/>
-                        </Grid>
-
-                        <!-- 표시 최적화: 저사양/프레임 드랍 완화 -->
-                        <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock Text="표시 최적화" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{Binding MaxVisibleRows, StringFormat='표시 인원 — {0}명'}" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="딜 순위 상위 인원만 표시합니다 (본인은 순위와 무관하게 항상 표시). 전체 집계는 그대로 유지됩니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="1" Maximum="10" Value="{Binding MaxVisibleRows}" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{Binding RefreshIntervalMs, StringFormat='갱신 주기 — {0}ms'}" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="값이 클수록 숫자 반영은 느려지지만 전투 중 CPU·화면 부담이 줄어듭니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="100" Maximum="1000" Value="{Binding RefreshIntervalMs}"
-                                    TickFrequency="100" IsSnapToTickEnabled="True" IsEnabled="{Binding RefreshSliderEnabled}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="저사양 모드" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="켜면 갱신 주기를 500ms로 고정해 게임 프레임을 우선합니다. 딜 집계 방식은 그대로 유지됩니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding LowSpecMode}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="오드 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="인식된 캐릭터 옆에 오드 잔량을 표시합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowAetherStatus}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="서버 응답속도 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="인식된 캐릭터 옆에 게임 서버까지의 응답속도(ms)를 표시합니다. VPN/부스터 사용 시 로컬 홉으로 표시될 수 있습니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowLatencyIndicator}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="아이온 활성화 시 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="AION2 창이 활성화된 동안에만 미터기를 표시합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsAutoHide}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="다중 모니터 이동" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="모니터 경계를 넘어 창 위치를 보정합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding MultiMonitorMode}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="작업표시줄 / Alt+Tab 모드" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="오버레이를 일반 창으로 바꿔 작업표시줄·Alt+Tab에 표시합니다. (자동 숨김 해제)" Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TaskbarMode}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="서버 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="닉네임 옆에 서버 약칭을 [ ] 안에 표시합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowServerTag}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="파티 신청 패널 자동 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="파티 신청이 오면 패널을 자동으로 띄웁니다. 끄면 헤더의 파티 신청 버튼으로 직접 열 수 있습니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowJoinPanel}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="전투 전 파티원 표시" Style="{StaticResource SettingTitle}"/>
@@ -803,315 +1089,77 @@
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ForceInstanceTracking}"/>
                         </Grid>
-
                         <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock Text="컴팩트 모드" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <TextBlock Text="허수아비 테스트" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,12"
+                                   Text="훈련용 허수아비를 때려 DPS를 측정하는 별도 모드입니다. 헤더의 허수아비 버튼(스톱워치)으로도 켜고 끌 수 있습니다."/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="컴팩트 모드" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="타겟 바와 전투 시간 바를 숨겨 미터기를 작게 표시합니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="허수 테스트" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Style="{StaticResource SettingDesc}"
+                                           Text="끄면 허수아비 타격이 전투로 잡히지 않습니다. 켜면 허수아비 타격을 전투로 집계합니다 (즉시 적용). 허수아비 전투는 전투 기록에 저장되지 않습니다."/>
                             </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsMinimal}"/>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding DummyTestMode}"/>
                         </Grid>
+
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="컴팩트 모드 중 전투 시간 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="컴팩트 모드에서도 전투 시간 바를 유지합니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="측정 시간" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Style="{StaticResource SettingDesc}"
+                                           Text="설정한 시간이 지나면 계속 때려도 집계가 즉시 멈추고 결과가 고정됩니다. 다시 측정하려면 아래 초기화를 누르세요."/>
                             </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowCombatTimerInMinimal}"/>
+                            <ComboBox Grid.Column="1" Width="130" VerticalAlignment="Center" ItemsSource="{Binding DummyDurations}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DummyDurationValue}"/>
                         </Grid>
+
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="컴팩트 모드 중 보스 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="컴팩트 모드에서도 타겟(보스) 바를 유지합니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="허수아비 DPS 초기화" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Style="{StaticResource SettingDesc}"
+                                           Text="빠른 재측정을 위해 허수아비 DPS만 즉시 비웁니다. 저장된 전투 기록·인식 캐릭터는 그대로 보존됩니다."/>
                             </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowTargetInfoInMinimal}"/>
+                            <Button Grid.Column="1" Content="초기화" MinWidth="90" VerticalAlignment="Center" Click="OnResetDummyDps"
+                                    ToolTip="허수아비 DPS만 즉시 초기화 (전투 기록은 보존)"/>
                         </Grid>
-
                         <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock Text="업데이트" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="{Binding Version, StringFormat='현재 버전 — v{0}'}" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="최신 버전을 확인하고 백그라운드에서 내려받습니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <Button Grid.Column="1" Content="업데이트 확인" Click="OnCheckUpdate" VerticalAlignment="Center"/>
-                        </Grid>
-                    </StackPanel>
+                        <TextBlock Text="전투 리플레이 (베타)" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,10"
+                                   Text="전투 중 파티원과 보스의 이동을 기록해, 던전 지도 위에서 되감아 볼 수 있습니다. 보스 기믹의 장판도 함께 표시됩니다."/>
+                        <Border Background="{DynamicResource Skin.AccentSoft}" BorderBrush="{DynamicResource Skin.Accent}"
+                                BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,14">
+                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource Skin.Fg}"
+                                       Text="⚠ 베타 기능입니다. 일부 던전이나 상황에서 위치가 비거나, 지도·장판이 어긋나게 표시될 수 있습니다. 특히 본인 위치는 패킷 제약상 스킬 시전 시점에만 정확하며, 그 사이 구간은 속 빈 링(마지막 위치)으로 표시됩니다. DPS 집계에는 영향을 주지 않습니다."/>
+                        </Border>
 
-                    <!-- ===== 전투 보조 ===== -->
-                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=combat}">
-                        <TextBlock Text="전투 보조 UI" Style="{StaticResource SectionHeader}"/>
-                        <TextBlock Text="내 캐릭터에게 적용된 버프와 남은 시간을 별도 창에 표시합니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
-                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource BuffPresetBar}"/>
-                        <Grid Margin="0,0,0,14">
+                        <TextBlock Visibility="{Binding ReplayUnavailableVisibility}" Style="{StaticResource SettingDesc}"
+                                   Margin="0,0,0,12" Foreground="{DynamicResource Skin.MutedFg}"
+                                   Text="이 빌드에는 리플레이 모듈이 포함되어 있지 않아 사용할 수 없습니다."/>
+                        <Grid Margin="0,0,0,14" IsEnabled="{Binding ReplayAvailable}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="버프 오버레이 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="전투 보조 창을 켭니다. 창은 드래그로 옮길 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="리플레이 자동 저장" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Style="{StaticResource SettingDesc}"
+                                           Text="전투가 끝날 때마다 이동 기록을 저장합니다. 끄면 아무것도 기록하지 않습니다 (즉시 적용)."/>
                             </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowBuffUi}"/>
-                        </Grid>
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="미터를 숨겨도 오버레이 유지" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="미터기 본체를 숨겨도(Ctrl+H·트레이) 버프 오버레이는 계속 표시합니다. 게임이 활성일 때만 뜹니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding KeepOverlayWhenMeterHidden}"/>
-                        </Grid>
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="투명 배경" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="켜면 아이콘만 떠서 배경이 투명합니다. 끄면 배경/테두리가 보여 버프가 없을 때도 창 위치를 찾아 옮길 수 있습니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiTransparent}"/>
-                        </Grid>
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="아이콘 크기" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="버프 오버레이 아이콘 크기를 고릅니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="132" VerticalAlignment="Center" SelectedIndex="{Binding BuffIconSizeIndex, Mode=TwoWay}">
-                                <ComboBoxItem Content="작게 (34px)"/>
-                                <ComboBoxItem Content="크게 (40px)"/>
-                            </ComboBox>
-                        </Grid>
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="지속시간 글씨 색상" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="남은 시간 글씨 색상을 바꿉니다. (투명 배경에서 흰색이 잘 안 보일 때 유용)" Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding BuffTextColor, Mode=TwoWay}" VerticalAlignment="Center"/>
-                        </Grid>
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="다른 캐릭터가 준 버프 표시" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="끄면 본인이 직접 받은 버프만 표시합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowOtherPlayerBuffs}"/>
-                        </Grid>
-                        <TextBlock Text="직업별 버프 표시·음성 설정은 왼쪽 '버프 알림' 탭에 있습니다." Style="{StaticResource SettingDesc}" Margin="0,4,0,0"/>
-                    </StackPanel>
-
-                    <!-- ===== 버프 알림 (직업별 표시/음성) ===== -->
-                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=buffalerts}">
-                        <TextBlock Text="버프 알림" Style="{StaticResource SectionHeader}"/>
-                        <TextBlock Text="직업별로 각 버프를 오버레이/음성 중 어떻게 알릴지 고릅니다. (소비 아이템·물약은 제외)" Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
-                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource BuffPresetBar}"/>
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="버프 시작 음성" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="'오버레이+음성' 버프가 켜지면 '스킬명 온'을 읽어줍니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffTtsOnStart}"/>
-                        </Grid>
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="버프 종료 음성" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="'오버레이+음성' 버프가 끝나기 직전 '스킬명 오프'를 읽어줍니다. (음성 지연 고려해 살짝 먼저)" Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffTtsOnEnd}"/>
-                        </Grid>
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="쿨타임 중 아이콘 회색" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="버프를 거는 스킬이 쿨타임이면 오버레이 아이콘을 회색으로 흐리게 표시합니다. (재사용 가능 시점 확인용)" Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiGrayOnCooldown}"/>
-                        </Grid>
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="표시 순서" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="오버레이에 버프를 늘어놓는 기준입니다. '적용 순서'는 버프가 유지되는 동안 자리가 바뀌지 않아 가장 안정적이고, '남은 시간 순'은 타이머가 흐를 때마다 아이콘이 움직입니다. 아래 목록에서 '위치 고정'을 켠 버프는 이 기준과 무관하게 항상 버프 오버레이의 가장 앞쪽에 표시됩니다."
-                                           Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="140" VerticalAlignment="Center" SelectedIndex="{Binding BuffUiSortModeIndex, Mode=TwoWay}">
-                                <ComboBoxItem Content="적용 순서"/>
-                                <ComboBoxItem Content="남은 시간 순"/>
-                                <ComboBoxItem Content="이름 순"/>
-                            </ComboBox>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding RecordReplay}"/>
                         </Grid>
 
-                        <TextBlock Text="아직 표시된 버프가 없습니다. 전투를 진행하면 여기에 버프가 나타납니다."
-                                   Foreground="{DynamicResource Skin.MutedFg}" TextWrapping="Wrap" Margin="0,8,0,0"
-                                   Visibility="{Binding BuffPicker.IsEmpty, Converter={StaticResource BoolToVis}}"/>
-                        <ItemsControl ItemsSource="{Binding BuffPicker.Groups}" Margin="0,4,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Skin.SoftBorder}" Padding="0,8,0,10" Margin="0,0,0,4">
-                                        <StackPanel>
-                                            <Grid Margin="0,0,0,6">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding Job}" FontWeight="Bold" FontSize="13"
-                                                           Foreground="{DynamicResource Skin.Accent}" VerticalAlignment="Center"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                                    <Button Content="전체 끔" Padding="8,2" FontSize="11" Margin="0,0,4,0"
-                                                            DataContext="{Binding}" Tag="g|0" Click="OnBuffGroupMode"/>
-                                                    <Button Content="전체 오버레이" Padding="8,2" FontSize="11" Margin="0,0,4,0"
-                                                            DataContext="{Binding}" Tag="g|1" Click="OnBuffGroupMode"/>
-                                                    <Button Content="전체 음성" Padding="8,2" FontSize="11" Margin="0,0,4,0"
-                                                            DataContext="{Binding}" Tag="g|2" Click="OnBuffGroupMode"/>
-                                                    <Button Content="전체 음성만" Padding="8,2" FontSize="11"
-                                                            DataContext="{Binding}" Tag="g|3" Click="OnBuffGroupMode"/>
-                                                </StackPanel>
-                                            </Grid>
-                                            <ItemsControl ItemsSource="{Binding Items}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid Margin="2,3">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <Border Grid.Column="0" Width="26" Height="26" CornerRadius="5" Margin="0,0,9,0"
-                                                                    Background="{DynamicResource Skin.RowBg}">
-                                                                <Image Source="{Binding IconSource}" Width="24" Height="24"/>
-                                                            </Border>
-                                                            <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
-                                                                       Foreground="{DynamicResource Skin.Fg}" FontSize="12"/>
-                                                            <!-- 맨 앞 고정 토글. 글리프만으로는 켜짐/꺼짐이 구분되지 않아(사용자 제보)
-                                                                 라벨 + 켜짐 상태 강조(액센트 배경/테두리)를 함께 준다. 고정된 것끼리의
-                                                                 순서 조정(▲▼)은 제거했다 — 이 목록이 고정 순서로 재정렬되지 않아 눌러도
-                                                                 아무 변화가 보이지 않았고(순서는 오버레이에만 반영), '반응 없는 버튼'으로
-                                                                 읽혔다. 고정된 버프가 맨 앞에 오는 동작 자체는 그대로다. -->
-                                                            <CheckBox Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center"
-                                                                      IsChecked="{Binding IsPinned, Mode=OneWay}"
-                                                                      ToolTip="켜면 표시 순서와 무관하게 버프 오버레이의 가장 앞쪽에 표시됩니다."
-                                                                      DataContext="{Binding}" Click="OnBuffPinToggle">
-                                                                <TextBlock Text="위치 고정" FontSize="11" VerticalAlignment="Center">
-                                                                    <TextBlock.Style>
-                                                                        <!-- 기본 Foreground는 로컬 속성이 아니라 Setter로 준다 — 로컬 값은
-                                                                             트리거보다 우선순위가 높아 강조가 먹지 않는다. -->
-                                                                        <Style TargetType="TextBlock">
-                                                                            <Setter Property="Foreground" Value="{DynamicResource Skin.MutedFg}"/>
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding IsPinned}" Value="True">
-                                                                                    <Setter Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
-                                                                                    <Setter Property="FontWeight" Value="SemiBold"/>
-                                                                                </DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </TextBlock.Style>
-                                                                </TextBlock>
-                                                            </CheckBox>
-                                                            <ComboBox Grid.Column="3" Width="128" SelectedIndex="{Binding Mode, Mode=TwoWay}" VerticalAlignment="Center">
-                                                                <ComboBoxItem Content="알림끔"/>
-                                                                <ComboBoxItem Content="오버레이만"/>
-                                                                <ComboBoxItem Content="오버레이+음성"/>
-                                                                <ComboBoxItem Content="음성만"/>
-                                                            </ComboBox>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-
-                    <!-- ===== 테마 색상 ===== -->
-                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=theme}">
-                        <TextBlock Text="테마 색상" Style="{StaticResource SectionHeader}"/>
-                        <TextBlock Text="유저 이름 색상" Style="{StaticResource Label}" Margin="0,0,0,4"/>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="천족" VerticalAlignment="Center"/>
-                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.ServerAColor, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="마족" VerticalAlignment="Center"/>
-                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.ServerBColor, Mode=TwoWay}"/></Grid>
-
-                        <TextBlock Text="미터 바 색상" Style="{StaticResource Label}" Margin="0,12,0,4"/>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="색상 방식" VerticalAlignment="Center"/>
-                            <ComboBox Grid.Column="1" HorizontalAlignment="Left" Width="200" ItemsSource="{Binding BarColorModes}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding Theme.BarColorMode, Mode=TwoWay}"/></Grid>
-                        <!-- 내 캐릭터(본인) 색은 두 모드 모두에서 사용 -->
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="내 캐릭터" VerticalAlignment="Center"/>
-                            <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.UserBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.UserBarTo, Mode=TwoWay}"/></Grid>
-
-                        <!-- 본인 강조: 기여도 티어 색 -->
-                        <StackPanel Visibility="{Binding Theme.BarColorMode, Converter={StaticResource NavVis}, ConverterParameter=self}">
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="일반" VerticalAlignment="Center"/>
-                                <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.NormalBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.NormalBarTo, Mode=TwoWay}"/></Grid>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="경고 (기여도 5% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.WarningBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.WarningBarTo, Mode=TwoWay}"/></Grid>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="에러 (기여도 3% 미만)" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.ErrorBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.ErrorBarTo, Mode=TwoWay}"/></Grid>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,8"
+                                   Text="기록은 전투당 파일 하나(json)로 저장되며, 최근 것부터 일정 개수만 유지됩니다."/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <Button Click="OnPlayReplay" Margin="0,0,8,0" IsEnabled="{Binding ReplayAvailable}"
+                                    ToolTip="리플레이 파일(.json)을 선택해 재생합니다">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="M 0,0 L 8,5 L 0,10 Z" Fill="{DynamicResource Skin.Accent}" Width="8" Height="10"
+                                          Stretch="Uniform" VerticalAlignment="Center" Margin="0,1,7,0"/>
+                                    <TextBlock Text="리플레이 재생" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Content="리플레이 폴더 열기" Click="OnOpenReplayFolder"/>
                         </StackPanel>
-
-                        <!-- 직업 강조: 직업별 색 (기본값 = 조인 패널과 동일 팔레트) -->
-                        <StackPanel Visibility="{Binding Theme.BarColorMode, Converter={StaticResource NavVis}, ConverterParameter=job}">
-                            <TextBlock Text="직업별 색상" Style="{StaticResource Label}" Margin="0,8,0,4"/>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="검성" VerticalAlignment="Center"/>
-                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarGladiator, Mode=TwoWay}"/></Grid>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="수호성" VerticalAlignment="Center"/>
-                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarTemplar, Mode=TwoWay}"/></Grid>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="궁성" VerticalAlignment="Center"/>
-                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarRanger, Mode=TwoWay}"/></Grid>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="살성" VerticalAlignment="Center"/>
-                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarAssassin, Mode=TwoWay}"/></Grid>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="마도성" VerticalAlignment="Center"/>
-                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarSorcerer, Mode=TwoWay}"/></Grid>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="치유성" VerticalAlignment="Center"/>
-                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarCleric, Mode=TwoWay}"/></Grid>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="정령성" VerticalAlignment="Center"/>
-                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarElementalist, Mode=TwoWay}"/></Grid>
-                            <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="호법성" VerticalAlignment="Center"/>
-                                <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.JobBarChanter, Mode=TwoWay}"/></Grid>
-                        </StackPanel>
-
-                        <TextBlock Text="미터 텍스트 색상" Style="{StaticResource Label}" Margin="0,12,0,4"/>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="누적 / 전투력" VerticalAlignment="Center"/>
-                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.MeterStatAmount, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="DPS / 피해량" VerticalAlignment="Center"/>
-                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.MeterStatDps, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="퍼센트" VerticalAlignment="Center"/>
-                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.MeterStatPercent, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="전투 시간" VerticalAlignment="Center"/>
-                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.CombatTimeColor, Mode=TwoWay}"/></Grid>
-
-                        <TextBlock Text="보스 / 전투 기록" Style="{StaticResource Label}" Margin="0,12,0,4"/>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="타겟 / 전투 기록" VerticalAlignment="Center"/>
-                            <controls:GradientRowControl Grid.Column="1" FromColor="{Binding Theme.BossBarFrom, Mode=TwoWay}" ToColor="{Binding Theme.BossBarTo, Mode=TwoWay}"/></Grid>
-                        <Grid Margin="0,3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="남은 체력 / 경과 시간" VerticalAlignment="Center"/>
-                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding Theme.BossRightValue, Mode=TwoWay}"/></Grid>
-
-                        <Button Content="테마 색상 초기화" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OnResetTheme"/>
                     </StackPanel>
 
                     <!-- ===== 단축키 ===== -->
@@ -1193,46 +1241,7 @@
                         </Grid>
                     </StackPanel>
 
-                    <!-- ===== 고급 ===== -->
-                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=advanced}">
-                        <TextBlock Text="창 동작" Style="{StaticResource SectionHeader}"/>
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="닫기 버튼 동작" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="X 버튼을 눌렀을 때 트레이로 보낼지 종료할지 선택합니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding CloseActions}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding CloseAction}"/>
-                        </Grid>
-
-                        <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock Text="캡처 방식" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="패킷 캡처 백엔드" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="WinDivert가 막히면 Npcap으로 전환할 수 있습니다. (재시작 후 적용)" Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding CaptureBackends}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding CaptureBackend}"/>
-                        </Grid>
-                        <!-- 서버 IP/포트는 자동 감지되며 사용자가 직접 설정할 일이 없어 UI에서 숨김
-                             (값/저장 경로는 SettingsViewModel.ServerIp/Port/SaveServer에 그대로 보존). -->
-
-                        <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock Text="렌더링 / 호환성" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="FreeSync / G-Sync 호환 모드" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="가변 주사율 디스플레이에서 오버레이가 화면 끊김을 일으키지 않도록 소프트웨어 렌더링을 사용합니다 (권장). 끄면 GPU 렌더링을 시도합니다. (재시작 후 적용)" Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding VrrCompatMode}"/>
-                        </Grid>
-                    </StackPanel>
-
-                    <!-- ===== 공개 설정 ===== -->
+                    <!-- ===== 내 캐릭터 · 통계 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=stats}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="공개 설정 (익명 통계)" Style="{StaticResource SectionHeader}"/>
@@ -1341,91 +1350,77 @@
                                    Visibility="{Binding CharacterDetected, Converter={StaticResource BoolToVisInverse}, FallbackValue=Collapsed}"/>
                     </StackPanel>
 
-                    <!-- ===== 리플레이 (베타) ===== -->
-                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=replay}">
-                        <TextBlock Text="전투 리플레이 (베타)" Style="{StaticResource SectionHeader}"/>
-                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,10"
-                                   Text="전투 중 파티원과 보스의 이동을 기록해, 던전 지도 위에서 되감아 볼 수 있습니다. 보스 기믹의 장판도 함께 표시됩니다."/>
+                    <!-- ===== 게임 최적화 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=gameopt}">
+                        <TextBlock Text="게임 최적화" Style="{StaticResource SectionHeader}"/>
 
-                        <Border Background="{DynamicResource Skin.AccentSoft}" BorderBrush="{DynamicResource Skin.Accent}"
-                                BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,14">
-                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource Skin.Fg}"
-                                       Text="⚠ 베타 기능입니다. 일부 던전이나 상황에서 위치가 비거나, 지도·장판이 어긋나게 표시될 수 있습니다. 특히 본인 위치는 패킷 제약상 스킬 시전 시점에만 정확하며, 그 사이 구간은 속 빈 링(마지막 위치)으로 표시됩니다. DPS 집계에는 영향을 주지 않습니다."/>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,14" TextWrapping="Wrap"
+                                   Text="아이온2 Engine.ini에 렉 감소 최적화(텍스처 스트리밍 풀 · 스레드 lag · 오클루전 · GC 튜닝)를 자동으로 추가합니다. 그래픽카드 VRAM을 자동 감지해 프로필을 정하며, 인게임 그래픽 옵션과 화질에는 영향이 없습니다."/>
+
+                        <Border Background="#33FF9800" BorderBrush="#66FF9800" BorderThickness="1" CornerRadius="4"
+                                Padding="10,8" Margin="0,0,0,14"
+                                Visibility="{Binding GameRunning, Converter={StaticResource BoolToVis}}">
+                            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Skin.Fg}"
+                                       Text="주의: 아이온2가 실행 중입니다. Engine.ini는 게임을 완전히 종료한 상태에서 적용/되돌리기 하세요. 실행 중 변경은 게임 종료 시 덮어써질 수 있습니다."/>
                         </Border>
 
-                        <TextBlock Visibility="{Binding ReplayUnavailableVisibility}" Style="{StaticResource SettingDesc}"
-                                   Margin="0,0,0,12" Foreground="{DynamicResource Skin.MutedFg}"
-                                   Text="이 빌드에는 리플레이 모듈이 포함되어 있지 않아 사용할 수 없습니다."/>
-
-                        <Grid Margin="0,0,0,14" IsEnabled="{Binding ReplayAvailable}">
+                        <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="리플레이 자동 저장" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Style="{StaticResource SettingDesc}"
-                                           Text="전투가 끝날 때마다 이동 기록을 저장합니다. 끄면 아무것도 기록하지 않습니다 (즉시 적용)."/>
+                                <TextBlock Text="그래픽카드 (자동 감지)" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="{Binding GpuText}" Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
                             </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding RecordReplay}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="적용 프로필" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="{Binding GameOptTierText}" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
                         </Grid>
 
                         <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock Text="저장 경로" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
-                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,8"
-                                   Text="기록은 전투당 파일 하나(json)로 저장되며, 최근 것부터 일정 개수만 유지됩니다."/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                            <Button Click="OnPlayReplay" Margin="0,0,8,0" IsEnabled="{Binding ReplayAvailable}"
-                                    ToolTip="리플레이 파일(.json)을 선택해 재생합니다">
-                                <StackPanel Orientation="Horizontal">
-                                    <Path Data="M 0,0 L 8,5 L 0,10 Z" Fill="{DynamicResource Skin.Accent}" Width="8" Height="10"
-                                          Stretch="Uniform" VerticalAlignment="Center" Margin="0,1,7,0"/>
-                                    <TextBlock Text="리플레이 재생" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Content="리플레이 폴더 열기" Click="OnOpenReplayFolder"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,6">
+                            <Button Content="적용" MinWidth="96" Click="OnApplyGameOpt" Margin="0,0,8,0"
+                                    ToolTip="감지된 프로필로 Engine.ini에 최적화 블록을 추가/갱신합니다"/>
+                            <Button Content="되돌리기" MinWidth="96" Click="OnRevertGameOpt"
+                                    ToolTip="우리가 추가한 최적화 블록만 제거합니다 (다른 설정은 그대로)"/>
+                            <TextBlock Text="{Binding GameOptStatus}" Style="{StaticResource SettingDesc}"
+                                       VerticalAlignment="Center" Margin="14,0,0,0"/>
                         </StackPanel>
+
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Text="안내: 변경 사항은 게임을 재실행한 뒤부터 적용됩니다. 되돌리기는 우리가 추가한 구간만 지우므로 사용자가 직접 넣은 다른 Engine.ini 설정은 그대로 유지됩니다."/>
                     </StackPanel>
 
-                    <!-- ===== 허수아비 테스트 ===== -->
-                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=dummy}">
-                        <TextBlock Text="허수아비 테스트" Style="{StaticResource SectionHeader}"/>
-                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,12"
-                                   Text="훈련용 허수아비를 때려 DPS를 측정하는 별도 모드입니다. 헤더의 허수아비 버튼(스톱워치)으로도 켜고 끌 수 있습니다."/>
-
+                    <!-- ===== 고급 · 진단 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=advanced}">
+                        <TextBlock Text="캡처 방식" Style="{StaticResource SectionHeader}"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="허수 테스트" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Style="{StaticResource SettingDesc}"
-                                           Text="끄면 허수아비 타격이 전투로 잡히지 않습니다. 켜면 허수아비 타격을 전투로 집계합니다 (즉시 적용). 허수아비 전투는 전투 기록에 저장되지 않습니다."/>
+                                <TextBlock Text="패킷 캡처 백엔드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="WinDivert가 막히면 Npcap으로 전환할 수 있습니다. (재시작 후 적용)" Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding DummyTestMode}"/>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding CaptureBackends}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding CaptureBackend}"/>
                         </Grid>
-
+                        <!-- 서버 IP/포트는 자동 감지되며 사용자가 직접 설정할 일이 없어 UI에서 숨김
+                             (값/저장 경로는 SettingsViewModel.ServerIp/Port/SaveServer에 그대로 보존). -->
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="렌더링 / 호환성" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="측정 시간" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Style="{StaticResource SettingDesc}"
-                                           Text="설정한 시간이 지나면 계속 때려도 집계가 즉시 멈추고 결과가 고정됩니다. 다시 측정하려면 아래 초기화를 누르세요."/>
+                                <TextBlock Text="FreeSync / G-Sync 호환 모드" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="가변 주사율 디스플레이에서 오버레이가 화면 끊김을 일으키지 않도록 소프트웨어 렌더링을 사용합니다 (권장). 끄면 GPU 렌더링을 시도합니다. (재시작 후 적용)" Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
-                            <ComboBox Grid.Column="1" Width="130" VerticalAlignment="Center" ItemsSource="{Binding DummyDurations}"
-                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding DummyDurationValue}"/>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding VrrCompatMode}"/>
                         </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="허수아비 DPS 초기화" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Style="{StaticResource SettingDesc}"
-                                           Text="빠른 재측정을 위해 허수아비 DPS만 즉시 비웁니다. 저장된 전투 기록·인식 캐릭터는 그대로 보존됩니다."/>
-                            </StackPanel>
-                            <Button Grid.Column="1" Content="초기화" MinWidth="90" VerticalAlignment="Center" Click="OnResetDummyDps"
-                                    ToolTip="허수아비 DPS만 즉시 초기화 (전투 기록은 보존)"/>
-                        </Grid>
-                    </StackPanel>
-
-                    <!-- ===== 진단 ===== -->
-                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=diag}">
-                        <TextBlock Text="진단 — 패킷 로깅" Style="{StaticResource SectionHeader}"/>
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="진단 — 패킷 로깅" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
                         <TextBlock Text="전투를 기록해 재생 가능한 코퍼스(packet-debug-logs)를 남깁니다. 진단/검증용이며, 켜두면 디스크에 계속 기록됩니다."
                                    Style="{StaticResource SettingDesc}" Margin="0,0,0,12"/>
                         <StackPanel Orientation="Horizontal" Margin="0,4">
@@ -1433,16 +1428,6 @@
                             <Button Content="로그 폴더 열기" Click="OnOpenLogFolder"/>
                         </StackPanel>
                         <TextBlock Text="{Binding LoggingStatus}" Style="{StaticResource SettingDesc}" Margin="0,6,0,0"/>
-
-                        <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock Text="위치 초기화" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
-                        <TextBlock Text="드래그로 옮긴 창들을 기본 위치로 되돌립니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,8"/>
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="미터기 위치" Click="OnResetMeterPosition" Margin="0,0,8,0"/>
-                            <Button Content="파티 신청 위치" Click="OnResetJoinPosition" Margin="0,0,8,0"/>
-                            <Button Content="전투 기록 위치" Click="OnResetHistoryPosition" Margin="0,0,8,0"/>
-                            <Button Content="컨텐츠 관리 위치·크기" Click="OnResetAetherPosition"/>
-                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </ScrollViewer>

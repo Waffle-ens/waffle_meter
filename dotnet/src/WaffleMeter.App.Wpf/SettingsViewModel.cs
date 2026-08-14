@@ -989,8 +989,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// </summary>
     public static readonly string[] NavKeys =
     {
-        "display", "combat", "buffalerts", "alarms", "theme", "hotkeys",
-        "advanced", "gameopt", "replay", "dummy", "stats", "diag",
+        "display", "theme", "window", "buffs", "alarms",
+        "battle", "hotkeys", "stats", "gameopt", "advanced",
     };
 
     private string _selectedNav = NavKeys[0];

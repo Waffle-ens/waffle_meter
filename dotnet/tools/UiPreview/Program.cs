@@ -223,10 +223,10 @@ internal static class Program
                 var ssettings = new MeterSettings(sp);
                 var spresets = new BuffPresetManager(ssettings, _ => { }, _ => { }); // temp props; no store to update
                 var svm = new SettingsViewModel(ssvc, ssettings, new MeterColorTheme(sp), new SkinManager(sp),
-                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp), spresets, new GameOptimizerService()) { SelectedNav = "replay" };
+                    new OverlayController(new OverlayWindow(), sp), new HotkeyHandler(sp), spresets, new GameOptimizerService()) { SelectedNav = "battle" };
                 Capture(() => new SettingsWindow(svm), palette, Path.Combine(outDir, "settings_replay_Dark.png"), fixedSize: true);
 
-                // 화면 탭: the new 던전 티어 block (mode combo + two toggles + the 기준표 status line).
+                // 미터 화면 탭: the 던전 티어 block (mode combo + two toggles + the 기준표 status line).
                 // It sits well below the fold, so scroll the shared ScrollViewer to it before rendering —
                 // otherwise the shot is just the top of the tab.
                 svm.SelectedNav = "display";
