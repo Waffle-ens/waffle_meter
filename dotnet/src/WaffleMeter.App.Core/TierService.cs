@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
@@ -122,6 +122,10 @@ public sealed class TierService : IDisposable
         _lastError,
         _artifact?.DungeonCount ?? 0);
 
+    /// <summary>When the worker will next consider fetching. Exposed so the manual path above is observable —
+    /// waking the thread is not the same thing as making the fetch due, and only one of those is testable.</summary>
+    public long NextArtifactCheckAtMs => Interlocked.Read(ref _nextArtifactMs);
+
     /// <summary>Settings' 티어 갱신 button. Rate-limited; returns false when the cooldown blocks it.</summary>
     public bool RequestManualRefresh()
     {
@@ -132,6 +136,11 @@ public sealed class TierService : IDisposable
         }
 
         _lastManualMs = now;
+
+        // Waking the worker is not enough on its own: the loop re-checks `now >= _nextArtifactMs` and goes
+        // straight back to sleep, so within the refresh interval the button reported success and fetched
+        // nothing. Make the fetch due, then wake.
+        Interlocked.Exchange(ref _nextArtifactMs, 0);
         _wake.Set();
         return true;
     }
@@ -155,10 +164,9 @@ public sealed class TierService : IDisposable
             _wake.Reset();
             long now = _clock();
 
-            if (now >= _nextArtifactMs)
+            if (now >= Interlocked.Read(ref _nextArtifactMs))
             {
-                TryRefresh();
-                _nextArtifactMs = _clock() + (long)RefreshInterval.TotalMilliseconds;
+                TryRefresh(); // re-arms the schedule itself
             }
 
             if (!_pending.IsEmpty && now >= _nextLookupMs)
@@ -168,7 +176,8 @@ public sealed class TierService : IDisposable
             }
 
             // Sleep exactly until the next thing is due — no idle polling.
-            long wakeAt = _pending.IsEmpty ? _nextArtifactMs : Math.Min(_nextArtifactMs, _nextLookupMs);
+            long nextArtifact = Interlocked.Read(ref _nextArtifactMs);
+            long wakeAt = _pending.IsEmpty ? nextArtifact : Math.Min(nextArtifact, _nextLookupMs);
             int waitMs = (int)Math.Clamp(wakeAt - _clock(), 0, (long)RefreshInterval.TotalMilliseconds);
             if (_wake.Wait(waitMs) && _stopped)
             {
@@ -181,6 +190,10 @@ public sealed class TierService : IDisposable
     /// error in a combat overlay; the counter is exposed through <see cref="Status"/> for the settings screen.</summary>
     internal void TryRefresh()
     {
+        // Scheduling lives here rather than in the loop so that "a fetch happened" and "the next one is due in an
+        // interval" cannot drift apart — the manual-refresh path clears this and needs it re-armed either way.
+        Interlocked.Exchange(ref _nextArtifactMs, _clock() + (long)RefreshInterval.TotalMilliseconds);
+
         try
         {
             TierManifestResponse manifest = _api.GetTierManifest();
@@ -366,9 +379,10 @@ public sealed class TierService : IDisposable
         }
     }
 
-    /// <summary>🔑 The digest is over the COMPRESSED bytes exactly as received. The server sends
-    /// <c>Content-Encoding: gzip</c> regardless of <c>Accept-Encoding</c> and hashes what it stored, so a transport
-    /// that transparently inflates makes this check impossible to pass.</summary>
+    /// <summary>🔑 The digest is over the COMPRESSED bytes exactly as received. The server serves the gzip as an
+    /// opaque <c>application/gzip</c> body and deliberately does NOT declare <c>Content-Encoding</c>, precisely so
+    /// no intermediary renegotiates the encoding — a tunnel that inflated the body once broke this check for every
+    /// install at the same moment. A transport that transparently inflates makes it impossible to pass.</summary>
     private static bool VerifyDigest(byte[] gzip, string? expectedHex)
     {
         if (string.IsNullOrEmpty(expectedHex) || gzip.Length == 0)

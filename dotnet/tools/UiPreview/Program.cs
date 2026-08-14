@@ -867,6 +867,21 @@ internal static class Program
 
         vm.ImportText = string.Empty;
 
+        // Cancel 취소 계약. 여기 있는 setter 는 전부 즉시 파일에 쓰므로, Snapshot 에서 빠진 토글은
+        // "저장 안 됨"이 아니라 "저장됐고 되돌릴 수 없음"이 된다.
+        settings.TierShow = true; settings.TierEffects = "static"; settings.TierShowOthers = true;
+        settings.TierShowSelfChip = true; settings.NameFxMode = "animated"; settings.ShowAetherStatus = true;
+
+        // 창이 열릴 때 스냅샷을 뜬다 — 그 순간을 그대로 재현하려면 뷰모델을 새로 만드는 수밖에 없다.
+        var cancelVm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, presets, new GameOptimizerService());
+
+        settings.TierShow = false; settings.TierEffects = "off"; settings.TierShowOthers = false;
+        settings.TierShowSelfChip = false; settings.NameFxMode = "off"; settings.ShowAetherStatus = false;
+        cancelVm.Revert();
+        Check("취소가 티어 장식 4키를 되돌린다",
+            settings.TierShow && settings.TierEffects == "static" && settings.TierShowOthers && settings.TierShowSelfChip);
+        Check("취소가 닉네임 효과·오드 표시도 되돌린다", settings.NameFxMode == "animated" && settings.ShowAetherStatus);
+
         vm.ResetDefaults();
         Check("ResetDefaults", settings.DisplayMode == "dps_percent" && settings.RowHeight == 36 && skin.Current == "dark");
 

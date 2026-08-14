@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
@@ -29,6 +29,49 @@ public sealed class TierServiceTests : IDisposable
         {
             // best effort
         }
+    }
+
+    [Fact]
+    public void Manual_refresh_makes_the_fetch_due_rather_than_only_waking_the_thread()
+    {
+        // 설정의 '티어 갱신' 버튼. 워커를 깨우기만 하면 루프가 `now >= _nextArtifactMs`에서 그대로 다시 자므로,
+        // 갱신 주기 안에 누른 클릭은 성공을 보고하고 아무것도 안 받아 왔다. 후원자 명단(폴링 주기가 더 길다)에
+        // 같은 코드를 복제할 참이라 여기서 못박아 둔다.
+        byte[] gzip = GzipArtifact("abc0123456789def");
+        var api = FakeApi(gzip, Sha256Hex(gzip), "abc0123456789def");
+        var props = new PropertyHandler(_dir);
+        long now = 1_000_000;
+
+        using var service = new TierService(api, props, clock: () => now, startWorker: false);
+        service.TryRefresh();
+        Assert.True(service.NextArtifactCheckAtMs > now);
+
+        now += 5_000;
+        Assert.True(service.RequestManualRefresh());
+        Assert.True(service.NextArtifactCheckAtMs <= now);
+    }
+
+    [Fact]
+    public void Manual_refresh_inside_the_cooldown_is_refused_and_changes_nothing()
+    {
+        byte[] gzip = GzipArtifact("abc0123456789def");
+        var api = FakeApi(gzip, Sha256Hex(gzip), "abc0123456789def");
+        var props = new PropertyHandler(_dir);
+        long now = 1_000_000;
+
+        using var service = new TierService(api, props, clock: () => now, startWorker: false);
+        Assert.True(service.RequestManualRefresh());
+
+        service.TryRefresh();
+        long due = service.NextArtifactCheckAtMs;
+
+        now += 30_000; // 쿨다운 60초 안
+        Assert.False(service.RequestManualRefresh());
+        Assert.Equal(due, service.NextArtifactCheckAtMs);
+
+        now += 40_000; // 쿨다운 밖
+        Assert.True(service.RequestManualRefresh());
+        Assert.True(service.NextArtifactCheckAtMs <= now);
     }
 
     [Fact]

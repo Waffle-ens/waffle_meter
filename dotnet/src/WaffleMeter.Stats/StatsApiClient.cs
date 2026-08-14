@@ -237,8 +237,10 @@ public sealed class StatsApiClient : ITierApi
 
     /// <summary>
     /// Download the artifact as the RAW GZIP BYTES.
-    /// <para>🔑 The transport must not decompress. The server answers with <c>Content-Encoding: gzip</c> regardless
-    /// of <c>Accept-Encoding</c>, and <c>manifest.sha256</c> is the hash of the COMPRESSED bytes. If the HTTP stack
+    /// <para>🔑 The transport must not decompress. The server serves the gzip as an opaque
+    /// <c>application/gzip</c> body and deliberately does NOT declare <c>Content-Encoding</c> — declaring it let a
+    /// tunnel renegotiate the encoding and hand back an inflated body, which broke the integrity check for every
+    /// install at once. <c>manifest.sha256</c> is the hash of the COMPRESSED bytes. If the HTTP stack
     /// transparently inflates (HttpClientHandler.AutomaticDecompression), the bytes we could hash are the plaintext
     /// and the integrity check can never pass. The default handler below leaves AutomaticDecompression at None for
     /// exactly this reason — do not "fix" it.</para>

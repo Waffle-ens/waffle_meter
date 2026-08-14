@@ -1777,7 +1777,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
         bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster, bool ShowAetherStatus,
         string NameFxMode, bool NameFxShowSelf, bool NameFxShowOthers, int NameFxSpeedPercent, int NameFxBrightnessPercent,
-        bool NameFxGauge)
+        bool NameFxGauge,
+        bool TierShow, string TierEffects, bool TierShowOthers, bool TierShowSelfChip)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
@@ -1785,7 +1786,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
             s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster, s.ShowAetherStatus,
             s.NameFxMode, s.NameFxShowSelf, s.NameFxShowOthers, s.NameFxSpeedPercent, s.NameFxBrightnessPercent,
-            s.NameFxGauge);
+            s.NameFxGauge,
+            s.TierShow, s.TierEffects, s.TierShowOthers, s.TierShowSelfChip);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -1818,6 +1820,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.NameFxSpeedPercent = NameFxSpeedPercent;
             s.NameFxBrightnessPercent = NameFxBrightnessPercent;
             s.NameFxGauge = NameFxGauge;
+            // 같은 이유로 티어 장식 4키도 여기 있어야 한다 — 빠져 있던 동안 색상·스킨 탭에서 티어 표시를
+            // 껐다가 취소해도 꺼진 채로 남았다.
+            s.TierShow = TierShow;
+            s.TierEffects = TierEffects;
+            s.TierShowOthers = TierShowOthers;
+            s.TierShowSelfChip = TierShowSelfChip;
+            // 같은 이유로 티어 장식 4키도 여기 있어야 한다 — 빠져 있던 동안 색상·스킨 탭에서 티어 표시를
+            // 껐다가 취소해도 꺼진 채로 남았다.
             NameFxSheen.Rebuild(NameFxBrightnessPercent);
         }
     }
