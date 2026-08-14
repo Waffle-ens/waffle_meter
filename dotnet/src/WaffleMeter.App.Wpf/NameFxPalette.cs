@@ -1,4 +1,4 @@
-using System.Windows.Media;
+﻿using System.Windows.Media;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -62,6 +62,9 @@ public static class NameFxPalette
     }
 
     /// <summary>
+    /// <para><b>Light 변형은 어둡고 진하게.</b> 라이트 스킨의 행 배경은 거의 흰색이라, 다크용 색을 그대로
+    /// 옮기거나 중간톤으로 두면 글자가 배경에 묻힌다 — 실제로 금박·백금·다이아몬드·바삭한 결이 그렇게
+    /// 안 보였다. 라이트 쪽 스톱은 '밝은 하이라이트'가 아니라 '중간톤 하이라이트'로 잡는다.</para>
     /// Ordered for display. Ids are a wire contract — the roster artifact names them, so renaming one silently
     /// drops every grant that used it. Add, never rename.
     /// </summary>
@@ -72,27 +75,41 @@ public static class NameFxPalette
         // 베이스를 깊게 내려 잡는 쪽으로 벌렸다: 하이라이트를 더 밝히면 흰색에 붙어 색 정체성이 날아간다.
         new("syrup", "시럽 흐름", NameFxKind.Supporter, true,
             new[] { "#FFD9791A", "#FFFFF0C2", "#FFD9791A" },
-            new[] { "#FF8F5205", "#FFE7B45B", "#FF8F5205" }),
+            new[] { "#FF7A3F00", "#FFC97A12", "#FF7A3F00" }),
         new("butter", "버터 글로우", NameFxKind.Supporter, true,
             new[] { "#FFE9A83A", "#FFFFFBEA", "#FFE9A83A" },
-            new[] { "#FF8A5C08", "#FFE0B25E", "#FF8A5C08" }),
+            new[] { "#FF6E4A05", "#FFB8862A", "#FF6E4A05" }),
         new("berry", "베리 드리즐", NameFxKind.Supporter, true,
             new[] { "#FFE0489C", "#FFCDBBFF", "#FFE0489C" },
-            new[] { "#FF9B0E58", "#FF5B37C4", "#FF9B0E58" }),
+            new[] { "#FF8E0A4E", "#FF4A2AA8", "#FF8E0A4E" }),
         new("crisp", "바삭한 결", NameFxKind.Supporter, false,
             new[] { "#FFFFC978", "#FFFFEFC8" },
-            new[] { "#FFA96A12", "#FFCE9A45" }),
+            new[] { "#FF8A5000", "#FFB77A1E" }),
 
+        // ── 랭커 계열 ─────────────────────────────────────────────────────────────
+        // 다섯이 서로 '한눈에' 갈려야 한다. 금속 둘(금박·백금)만으로는 나머지가 전부 은빛으로 수렴하므로
+        // (실제로 첫 판의 '각인'은 백금과 구분이 안 됐다) 축을 색상환으로 벌렸다 —
+        // 따뜻한 금속 / 중성 금속 / 무지개 / 불 / 얼음. 백금은 파란 기를 빼 중성 회백으로 내려
+        // 빙결과 겹치지 않게 했다.
         new("goldleaf", "금박", NameFxKind.Ranker, true,
             new[] { "#FFBFA24E", "#FFFFFDF0", "#FFBFA24E" },
-            new[] { "#FF6B591A", "#FFCDB86A", "#FF6B591A" }),
+            new[] { "#FF5A4A10", "#FFA38F42", "#FF5A4A10" }),
         new("platinum", "백금", NameFxKind.Ranker, true,
-            new[] { "#FF7FA3C0", "#FFF4FAFF", "#FF7FA3C0" },
-            new[] { "#FF33526E", "#FF9DB8CE", "#FF33526E" }),
-        // 기본 닉네임 색이 흰색 계열이라, 여기서 더 옅으면 '연출'이 아니라 그냥 흰 이름으로 읽힌다.
-        new("edge", "각인", NameFxKind.Ranker, false,
-            new[] { "#FF93A7BE", "#FFE2ECF8" },
-            new[] { "#FF3B5470", "#FF7089A4" }),
+            new[] { "#FF8A9099", "#FFF2F5F8", "#FF8A9099" },
+            new[] { "#FF3A3F47", "#FF6E747C", "#FF3A3F47" }),
+        // 무지개 파편이 지나간다. 흰빛만으로는 백금과 또 겹치므로 시안·보라 프린지를 좁게 끼운다.
+        new("diamond", "다이아몬드", NameFxKind.Ranker, true,
+            new[] { "#FF7FD8F5", "#FFFFFFFF", "#FFD8BFFF", "#FFFFFFFF", "#FF7FD8F5" },
+            new[] { "#FF1D6E8A", "#FF4A7E95", "#FF4A2E9E", "#FF4A7E95", "#FF1D6E8A" },
+            Offsets: new[] { 0.0, 0.42, 0.5, 0.58, 1.0 }),
+        new("flame", "화염", NameFxKind.Ranker, true,
+            new[] { "#FFB3220E", "#FFFF7A1A", "#FFFFE08A", "#FFFF7A1A", "#FFB3220E" },
+            new[] { "#FF8C1A08", "#FFDD5A05", "#FFF5AE3C", "#FFDD5A05", "#FF8C1A08" },
+            Offsets: new[] { 0.0, 0.40, 0.5, 0.60, 1.0 }),
+        new("glacier", "빙결", NameFxKind.Ranker, true,
+            new[] { "#FF1B6FA8", "#FF5FD8F5", "#FFEAFBFF", "#FF5FD8F5", "#FF1B6FA8" },
+            new[] { "#FF115882", "#FF2A9CC4", "#FF8FD6EC", "#FF2A9CC4", "#FF115882" },
+            Offsets: new[] { 0.0, 0.40, 0.5, 0.60, 1.0 }),
 
         // ── 랭커 전용 DPS 게이지 스킨 ──────────────────────────────────────────────
         // 첫 판은 채도를 낮추고 스톱을 균등 배치했다가 완전히 실패했다. 게이지는 채움 불투명도 0.3 뒤에
@@ -159,9 +176,12 @@ public static class NameFxPalette
     }
 
     /// <summary>
-    /// The still member of the same family, for users who keep effects on but motion off. Downgrading rather
-    /// than switching off matters: the mark is the whole point of the grant, and someone who dislikes moving
-    /// pixels should not have to make supporters invisible to see a calm meter.
+    /// The same effect with the motion taken out, for users who keep effects on but movement off.
+    /// <para>Built from the effect's OWN colours rather than swapping the character onto a shared "still"
+    /// entry. The first version mapped every supporter to <c>crisp</c> and every ranker to <c>edge</c>, which
+    /// threw away the thing the grant is for — two rankers with visibly different marks both collapsed to the
+    /// same silver, and that shared still entry then read as a near-duplicate of <c>platinum</c> in the picker.
+    /// Keeping the colours means "색상만" is literally what it says.</para>
     /// </summary>
     public static NameFxBadge StillVariant(string? id, bool isLight)
     {
@@ -171,8 +191,33 @@ public static class NameFxPalette
             return NameFxBadge.None;
         }
 
-        string stillId = e.Kind == NameFxKind.Ranker ? "edge" : "crisp";
-        return For(stillId, isLight);
+        if (!e.Animated)
+        {
+            return For(e.Id, isLight); // already still
+        }
+
+        return (isLight ? LightStills : DarkStills).Value[e.Id];
+    }
+
+    private static readonly Lazy<Dictionary<string, NameFxBadge>> DarkStills = new(() => BuildStills(light: false));
+    private static readonly Lazy<Dictionary<string, NameFxBadge>> LightStills = new(() => BuildStills(light: true));
+
+    private static Dictionary<string, NameFxBadge> BuildStills(bool light)
+    {
+        var map = new Dictionary<string, NameFxBadge>(StringComparer.Ordinal);
+        foreach (Effect e in All.Where(x => x.Animated))
+        {
+            // Base colour to peak colour, once across the text. No repeat, no transform — a still gradient that
+            // still says which effect this is.
+            string[] hex = light ? e.Light : e.Dark;
+            var b = new LinearGradientBrush { StartPoint = new(0, 0), EndPoint = new(1, 1) };
+            b.GradientStops.Add(new GradientStop(Parse(hex[0]), 0.0));
+            b.GradientStops.Add(new GradientStop(Parse(hex[hex.Length / 2]), 1.0));
+            b.Freeze();
+            map[e.Id] = new NameFxBadge { Id = e.Id, Animated = false, NameFill = b };
+        }
+
+        return map;
     }
 
     private static readonly Lazy<Dictionary<string, NameFxBadge>> DarkBadges = new(() => Build(light: false));

@@ -693,10 +693,31 @@ internal static class Program
         settings.NameFxGauge = true;
 
         Check("effect ids are unique", NameFxPalette.All.Select(e => e.Id).Distinct(StringComparer.Ordinal).Count() == NameFxPalette.All.Length);
-        Check("both families have a still variant",
-            !NameFxPalette.StillVariant("syrup", false).IsNone && !NameFxPalette.StillVariant("goldleaf", false).IsNone);
-        Check("still variants stay inside their own family",
-            NameFxPalette.StillVariant("syrup", false).Id == "crisp" && NameFxPalette.StillVariant("goldleaf", false).Id == "edge");
+        // '색상만' must keep the character's OWN effect, just without motion. Collapsing every ranker onto one
+        // shared still entry is what made two of them indistinguishable in the picker.
+        Check("every animated effect has a still form",
+            NameFxPalette.All.Where(e => e.Animated).All(e => !NameFxPalette.StillVariant(e.Id, false).IsNone));
+        Check("still form keeps the effect's identity",
+            NameFxPalette.All.Where(e => e.Animated).All(e => NameFxPalette.StillVariant(e.Id, false).Id == e.Id));
+        Check("still form does not animate",
+            NameFxPalette.All.Where(e => e.Animated).All(e => !NameFxPalette.StillVariant(e.Id, false).Animated));
+        Check("an already-still effect is its own still form",
+            NameFxPalette.StillVariant("crisp", false).Id == "crisp");
+
+        // The complaint that started this: two ranker marks that look the same are one mark. Compare every
+        // ranker nickname pair as rendered pixels rather than trusting the hex values to look different.
+        NameFxPalette.Effect[] rankerNames = NameFxPalette.NameEffects
+            .Where(e => e.Kind == NameFxPalette.NameFxKind.Ranker).ToArray();
+        for (int i = 0; i < rankerNames.Length; i++)
+        {
+            for (int j = i + 1; j < rankerNames.Length; j++)
+            {
+                double d = MeanChannelDistance(
+                    PaintStrip(NameFxPalette.For(rankerNames[i].Id, false).NameFill, 0.0),
+                    PaintStrip(NameFxPalette.For(rankerNames[j].Id, false).NameFill, 0.0));
+                Check($"'{rankerNames[i].Id}' vs '{rankerNames[j].Id}' are visibly different ({d:F0}/255)", d >= 18);
+            }
+        }
         Check("unknown effect id draws nothing", NameFxPalette.For("nope", false).IsNone);
 
         vm.NameFxBrightnessPercent = 130; vm.CommitNameFxBrightness();
@@ -727,8 +748,12 @@ internal static class Program
                 byte[] loop = PaintStrip(b, 1.0);
                 Check($"'{e.Id}'{(light ? " (light)" : string.Empty)} actually travels",
                     !a.AsSpan().SequenceEqual(c));
-                Check($"'{e.Id}'{(light ? " (light)" : string.Empty)} loops seamlessly",
-                    a.AsSpan().SequenceEqual(loop));
+                // 한 주기 뒤 원점으로 정확히 닫혀야 이음매가 안 보인다. 다만 비교는 렌더된 픽셀이라
+                // 채널 1 정도의 반올림 차는 늘 난다 — 그건 이음매가 아니다. 값을 찍어 두어, 임계에
+                // 걸렸을 때 '얼마나' 어긋났는지가 바로 보이게 한다.
+                double seam = MeanChannelDistance(a, loop);
+                Check($"'{e.Id}'{(light ? " (light)" : string.Empty)} loops seamlessly (이음매 {seam:F2}/255)",
+                    seam < 1.0);
             }
         }
 
@@ -807,6 +832,9 @@ internal static class Program
             SettingsWindow? window = null;
             try
             {
+                // 팔레트만 주입하면 VM 은 스킨이 바뀐 걸 모른다 — 닉네임 효과 미리보기가 라이트 화면에서도
+                // 다크 변형을 그려, 라이트 색이 배경에 묻히는지 판단할 수 없었다(실제로 그렇게 오판했다).
+                vm.Skin = skinName == "Light" ? "light" : "dark";
                 window = new SettingsWindow(vm);
                 window.Resources.MergedDictionaries.Insert(0, skins[skinName]);
                 window.Left = -10000;
@@ -1094,6 +1122,20 @@ internal static class Program
         var px = new byte[W * H * 4];
         rtb.CopyPixels(px, W * 4, 0);
         return px;
+    }
+
+    /// <summary>Mean per-channel distance between two rendered strips. "These two hex values look different to
+    /// me" is not a measurement; two marks a user cannot tell apart are one mark.</summary>
+    private static double MeanChannelDistance(byte[] a, byte[] b)
+    {
+        long sum = 0;
+        int n = Math.Min(a.Length, b.Length);
+        for (int i = 0; i < n; i++)
+        {
+            sum += Math.Abs(a[i] - b[i]);
+        }
+
+        return n == 0 ? 0 : sum / (double)n;
     }
 
     /// <summary>First descendant of the given type in the visual tree (breadth-first).</summary>
