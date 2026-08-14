@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -90,48 +90,60 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     public Func<DpsReport, IReadOnlyDictionary<int, RowTier>>? TierResolver { get; set; }
 
     private NameFxRoster _nameFx = NameFxRoster.Empty;
-    private readonly Dictionary<(int Server, string Nickname, bool Light, string Mode), NameFxBadge> _nameFxMemo = new();
+    /// <summary>Grant lookups memoised on (server, nickname) — the hot loop must not hash per row per tick.
+    /// Keyed on identity only, NOT on skin or mode, so switching either does not have to invalidate it.</summary>
+    private readonly Dictionary<(int Server, string Nickname), NameFxEntry?> _nameFxGrantMemo = new();
 
     /// <summary>
     /// Install the supporter/ranker grant list. Replacing it clears the per-row memo — the memo keys on
-    /// (server, nickname, skin) rather than the identity hash so the hot loop never hashes, which means a new
-    /// roster cannot be picked up any other way.
+    /// (server, nickname) rather than the identity hash so the hot loop never hashes, which means a new roster
+    /// cannot be picked up any other way.
     /// </summary>
     public void SetNameFxRoster(NameFxRoster? roster)
     {
         _nameFx = roster ?? NameFxRoster.Empty;
-        _nameFxMemo.Clear();
+        _nameFxGrantMemo.Clear();
     }
 
-    private NameFxBadge ResolveNameFx(int server, string? nickname, bool isLight)
+    /// <summary>The grant for a character, memoised on (server, nickname) so the hot loop never hashes.</summary>
+    private NameFxEntry? ResolveNameFxGrant(int server, string? nickname)
     {
         if (server <= 0 || string.IsNullOrWhiteSpace(nickname))
         {
-            return NameFxBadge.None; // placeholder rows (던전 강제 집계) have no identity to grant against
+            return null; // placeholder rows (던전 강제 집계) have no identity to grant against
         }
 
-        // Mode is part of the key: 'static' downgrades the badge, so a memo without it would keep serving the
-        // animated one after the user switches.
-        var key = (server, nickname, isLight, _settings.NameFxMode);
-        if (_nameFxMemo.TryGetValue(key, out NameFxBadge? cached))
+        var key = (server, nickname);
+        if (!_nameFxGrantMemo.TryGetValue(key, out NameFxEntry? cached))
         {
-            return cached;
+            cached = _nameFx.Find(StatsIdentity.CharacterIdentityHash(server, nickname));
+            _nameFxGrantMemo[key] = cached;
         }
 
-        NameFxEntry? grant = _nameFx.Find(StatsIdentity.CharacterIdentityHash(server, nickname));
-        NameFxBadge badge = grant is null
-            ? NameFxBadge.None
-            : NameFxPalette.For(grant.EffectId, isLight);
+        // The memo caches the LOOKUP (which costs a SHA-256), not the verdict. Expiry is re-checked on every
+        // read: a ranker lease is short, and a meter left open across it would otherwise keep the mark forever.
+        if (cached is { ExpiresAtMs: > 0 } && cached.ExpiresAtMs <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+        {
+            return null;
+        }
+
+        return cached;
+    }
+
+    private NameFxBadge ResolveNameFx(NameFxEntry? grant, bool isLight)
+    {
+        if (grant is null)
+        {
+            return NameFxBadge.None;
+        }
+
+        NameFxBadge badge = NameFxPalette.For(grant.EffectId, isLight);
 
         // "static" downgrades every effect to its family's still variant instead of switching them off, so the
         // mark survives for people who do not want moving pixels.
-        if (!badge.IsNone && _settings.NameFxMode == "static" && badge.Animated)
-        {
-            badge = NameFxPalette.StillVariant(badge.Id, isLight);
-        }
-
-        _nameFxMemo[key] = badge;
-        return badge;
+        return !badge.IsNone && _settings.NameFxMode == "static" && badge.Animated
+            ? NameFxPalette.StillVariant(badge.Id, isLight)
+            : badge;
     }
 
     /// <summary>Inject tier state directly. Only for the UI preview and unit tests — the app sets
@@ -593,12 +605,25 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 _ => _nameDefault,
             };
             NameFxBadge fx = NameFxBadge.None;
+            Brush? gaugeSkin = null;
             if (nameFxOn && (isUser ? _settings.NameFxShowSelf : _settings.NameFxShowOthers))
             {
-                fx = ResolveNameFx(server, e.User?.Nickname, isLightSkin);
+                NameFxEntry? grant = ResolveNameFxGrant(server, e.User?.Nickname);
+                fx = ResolveNameFx(grant, isLightSkin);
                 if (fx.Animated)
                 {
                     animatedNameRows++;
+                }
+
+                // 랭커 전용 게이지 스킨. 부여 자체가 랭커에게만 나가므로 여기서 계열을 다시 검사하지 않는다 —
+                // 명단이 권위다. 애니메이션 여부는 전역 게이트를 그대로 따른다('색상만'이면 정지한 채 칠해진다).
+                if (_settings.NameFxGauge && grant?.GaugeId is { Length: > 0 } gid)
+                {
+                    gaugeSkin = NameFxPalette.GaugeBrush(gid, isLightSkin);
+                    if (gaugeSkin is not null)
+                    {
+                        animatedNameRows++;
+                    }
                 }
             }
 
@@ -630,7 +655,10 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 BottomBarVisibility: barVis,
                 Tier: badge,
                 TierInfo: tierInfo,
-                NameFillBrush: fx.IsNone ? nameBrush : fx.NameFill);
+                NameFillBrush: fx.IsNone ? nameBrush : fx.NameFill,
+                GaugeBrush: gaugeSkin ?? (_theme.BarColorMode == "job"
+                    ? (isUser ? _userBar : jobBar)
+                    : (isUser ? _userBar : contribution < 3 ? _errorBar : contribution < 5 ? _warningBar : _normalBar)));
 
             if (i < Rows.Count)
             {
@@ -652,6 +680,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         // display-only embellishments" while only pinning the refresh interval; this is the first thing it
         // actually switches off.
         TierSheen.SetDemand(animatedTierRows, _settings.TierEffects == "animated" && !_settings.LowSpecMode);
+        NameFxSheen.SetLowSpec(_settings.LowSpecMode);
         NameFxSheen.SetDemand(
             animatedNameRows,
             _settings.NameFxMode == "animated" && !_settings.LowSpecMode,
@@ -811,7 +840,12 @@ public sealed record RowViewModel(
     /// <summary>What the nickname is actually painted with — <c>NameBrush</c> unless this character carries a
     /// supporter/ranker effect. Appended at the END on purpose: this record has same-typed neighbours, so a
     /// parameter inserted in the middle transposes silently without failing to compile.</summary>
-    Brush NameFillBrush);
+    Brush NameFillBrush,
+    /// <summary>What the DPS BAR is painted with. Equal to <see cref="FillBrush"/> unless this character has a
+    /// ranker gauge skin. Kept separate on purpose: <c>FillBrush</c> also paints the 3 px accent rail, which has
+    /// no visibility gate and is the only thing distinguishing your own row and each job — a gauge skin there
+    /// would compress a four-stop gradient into three pixels and erase that signal.</summary>
+    Brush GaugeBrush);
 
 
 /// <summary>Per-row tier text. Separate from <see cref="TierBadge"/> (a shared singleton) because these values

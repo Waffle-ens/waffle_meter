@@ -664,6 +664,27 @@ internal static class Program
         Check("nameFx static: effects survive but nothing is animated",
             offVm.Rows.Any(r => !ReferenceEquals(r.NameFillBrush, r.NameBrush)));
 
+        // 랭커 게이지 스킨. The sample roster grants one only to ranker-family characters, so "a row's fill
+        // changed" is also a check that the grant plumbing carries the optional field at all.
+        settings.NameFxMode = "animated";
+        settings.NameFxGauge = true;
+        offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        bool IsGaugeSkin(System.Windows.Media.Brush b) =>
+            NameFxPalette.GaugeSkins.Any(g => ReferenceEquals(NameFxPalette.GaugeBrush(g.Id, false), b));
+
+        Check("gauge skin: a granted row's DPS bar uses the skin", offVm.Rows.Any(r => IsGaugeSkin(r.GaugeBrush)));
+
+        // ...and the 3px accent rail must NOT. It has no visibility gate and is the only thing that tells your
+        // own row and each job apart, so a gauge skin there would compress four stops into three pixels and
+        // erase that signal — which is why the bar brush is a separate field from FillBrush at all.
+        Check("gauge skin never reaches the accent rail", offVm.Rows.All(r => !IsGaugeSkin(r.FillBrush)));
+
+        settings.NameFxGauge = false;
+        offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("gauge skin off: bars go back to the contribution/job colours",
+            offVm.Rows.All(r => !IsGaugeSkin(r.GaugeBrush) && ReferenceEquals(r.GaugeBrush, r.FillBrush)));
+        settings.NameFxGauge = true;
+
         Check("effect ids are unique", NameFxPalette.All.Select(e => e.Id).Distinct(StringComparer.Ordinal).Count() == NameFxPalette.All.Length);
         Check("both families have a still variant",
             !NameFxPalette.StillVariant("syrup", false).IsNone && !NameFxPalette.StillVariant("goldleaf", false).IsNone);
@@ -676,11 +697,42 @@ internal static class Program
         vm.NameFxBrightnessPercent = 100; vm.CommitNameFxBrightness();
         Check("brightness round-trips", settings.NameFxBrightnessPercent == 100);
         vm.NameFxSpeedPercent = 200; Check("speed round-trips", settings.NameFxSpeedPercent == 200);
-        Check("preview strip covers the catalogue", vm.NameFxSamples.Count == NameFxPalette.All.Length);
+        Check("preview strip covers the nickname catalogue", vm.NameFxSamples.Count == NameFxPalette.NameEffects.Length);
+        Check("gauge strip covers the gauge catalogue", vm.GaugeSkinSamples.Count == NameFxPalette.GaugeSkins.Length);
+        Check("gauge skins are ranker-only", NameFxPalette.GaugeSkins.All(e => e.Kind == NameFxPalette.NameFxKind.Ranker));
+        Check("gauge and nickname catalogues do not overlap",
+            !NameFxPalette.NameEffects.Any(n => NameFxPalette.GaugeSkins.Any(g => g.Id == n.Id)));
+        Check("a nickname effect id is not a gauge brush", NameFxPalette.GaugeBrush("syrup", false) is null);
+        Check("a gauge id resolves to a brush", NameFxPalette.GaugeBrush("prism", false) is not null);
+
+        // ⚠ The check that would have caught the shipped-frozen gauge. `Brush.Transform` applies in ABSOLUTE
+        // (DIP) space no matter what MappingMode says; only `RelativeTransform` works in the 0~1 box space. A
+        // relative-mapped brush translated by 1.0 through the wrong slot moves ONE PIXEL and renders as a still
+        // gradient. Nothing about that fails, throws, or looks wrong in a single frame — so paint the brush at
+        // two phases and demand the pixels differ.
+        foreach (bool light in new[] { false, true })
+        {
+            foreach (NameFxPalette.Effect e in NameFxPalette.All.Where(x => x.Animated))
+            {
+                Brush b = NameFxSheen.BrushFor(e.Id, light);
+                byte[] a = PaintStrip(b, 0.0);
+                byte[] c = PaintStrip(b, 0.25);
+                byte[] loop = PaintStrip(b, 1.0);
+                Check($"'{e.Id}'{(light ? " (light)" : string.Empty)} actually travels",
+                    !a.AsSpan().SequenceEqual(c));
+                Check($"'{e.Id}'{(light ? " (light)" : string.Empty)} loops seamlessly",
+                    a.AsSpan().SequenceEqual(loop));
+            }
+        }
+
+        NameFxSheen.SetPreviewPhase(0);
 
         // The preview strip needs its OWN claim on the sweep clock. Grants come from the server, so a user
         // deciding about this setting has no decorated row anywhere — row demand is zero and the timer is
         // stopped, which is exactly how the strip shipped frozen the first time.
+        // 앞의 offVm.Update 들이 행 수요를 남겨 놓는다. 행 수요가 남아 있으면 클럭은 당연히 계속 도므로,
+        // 미리보기 수요만 따로 보려면 먼저 비워야 한다.
+        NameFxSheen.SetDemand(0, false, 100);
         vm.NameFxSpeedPercent = 100;
         vm.SelectedNav = "theme";
         vm.NameFxMode = "animated";
@@ -705,6 +757,7 @@ internal static class Program
         Console.WriteLine($"=== settings: {pass} passed, {fail} failed ===");
 
         MeasureFontResolve(vm);
+        MeasureOverlayFrame(settings, theme, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     }
 
     /// <summary>
@@ -832,11 +885,7 @@ internal static class Program
                         // row rebuild, so with no decorated row on screen the preview sat frozen — which is
                         // the one thing that preview exists to show.
                         string moved = Path.Combine(outDir, $"settings_namefx_moved_{skinName}.png");
-                        for (int i = 0; i < 4; i++)
-                        {
-                            NameFxSheen.AdvanceOneStep();
-                        }
-
+                        NameFxSheen.SetPreviewPhase(0.35);
                         window.UpdateLayout();
                         RenderToPng(window, moved, fixedSize: true);
                         if (!contractChecked)
@@ -906,6 +955,78 @@ internal static class Program
     /// 70 MB" — but <c>GlyphFallback.ForName</c> calls <c>FontResolver.Resolve</c> BEFORE its cache lookup, and
     /// that runs per row per tick. So the claim needs a number, not an argument.</para>
     /// </summary>
+    /// <summary>
+    /// What one overlay frame costs to rasterise, with and without the nickname/gauge effects.
+    /// <para>This matters more than it looks. The meter repaints on its own report tick — 500 ms by default —
+    /// but an effect animation drives the window at 30 fps, i.e. 15× the frame rate, on an
+    /// <c>AllowsTransparency</c> layered window that has no GPU compositing path. This project already has an
+    /// in-game frame-drop regression in its history (topmost re-assert storm), so "it feels fine" is not a
+    /// number and the feature does not ship on one.</para>
+    /// <para>Rasterisation is the half measurable offline; the layered-window surface upload is not, so the
+    /// figure here is a floor, not the whole cost.</para>
+    /// </summary>
+    private static void MeasureOverlayFrame(MeterSettings settings, MeterColorTheme theme, long now)
+    {
+        Console.WriteLine("=== overlay frame cost ===");
+
+        double Measure(string label, bool effectsOn)
+        {
+            settings.NameFxMode = effectsOn ? "animated" : "off";
+            settings.NameFxGauge = effectsOn;
+            var vm = new OverlayViewModel("bench", settings, theme, () => false);
+            vm.SetNameFxRoster(SampleNameFxRoster(SampleMeterReport(now)));
+            vm.Update(SampleMeterReport(now));
+
+            var win = new OverlayWindow { DataContext = vm };
+            win.Left = -10000;
+            win.Top = -10000;
+            win.Show();
+            Drain(win.Dispatcher);
+            var content = (FrameworkElement)win.Content;
+            content.Measure(new Size(content.ActualWidth > 0 ? content.ActualWidth : 490, double.PositiveInfinity));
+            content.Arrange(new Rect(0, 0, content.DesiredSize.Width, content.DesiredSize.Height));
+            content.UpdateLayout();
+
+            int w = Math.Max(1, (int)Math.Ceiling(content.DesiredSize.Width));
+            int h = Math.Max(1, (int)Math.Ceiling(content.DesiredSize.Height));
+
+            // One surface, reused. Allocating a 490x300 Pbgra32 per frame is ~588 KB straight to the LOH, and
+            // the GC jitter that causes is larger than the 0.04 ms difference being measured.
+            var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+            for (int i = 0; i < 5; i++) // warm the glyph/geometry caches
+            {
+                rtb.Clear();
+                rtb.Render(content);
+            }
+
+            const int Frames = 60;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            for (int i = 0; i < Frames; i++)
+            {
+                // Move the brushes like the animation would, so each frame really is different work.
+                NameFxSheen.SetPreviewPhase(i / (double)Frames);
+                content.UpdateLayout();
+                rtb.Clear();
+                rtb.Render(content);
+            }
+
+            sw.Stop();
+            win.Close();
+            double per = sw.Elapsed.TotalMilliseconds / Frames;
+            Console.WriteLine($"  {label,-24} {per:F2} ms/frame  ({w}x{h})");
+            return per;
+        }
+
+        double off = Measure("효과 없음", effectsOn: false);
+        double on = Measure("닉네임+게이지 효과", effectsOn: true);
+        // 진짜 변화는 프레임당 비용이 아니라 '몇 번 그리느냐'다. 미터는 원래 리포트 주기(기본 500ms)에만
+        // 그리므로 초당 2프레임이고, 연출이 켜지면 30프레임이 된다.
+        Console.WriteLine($"  꺼짐: 2 fps × {off:F2} ms = 코어 {off * 2 / 10:F2}%");
+        Console.WriteLine($"  켜짐: 30 fps × {on:F2} ms = 코어 {on * 30 / 10:F1}%   ({on * 30 / (off * 2):F0}배)");
+        settings.NameFxMode = "animated";
+        settings.NameFxGauge = true;
+    }
+
     private static void MeasureFontResolve(SettingsViewModel vm)
     {
         Console.WriteLine("=== font resolve cost ===");
@@ -944,6 +1065,28 @@ internal static class Program
         Console.WriteLine($"  {names.Length} fonts — cold {cold.Elapsed.TotalMilliseconds:F1} ms, warm {warm.Elapsed.TotalMilliseconds:F1} ms");
         Console.WriteLine($"  overlay hot path — 100 ticks x 10 rows = {hot.Elapsed.TotalMilliseconds:F1} ms " +
                           $"({hot.Elapsed.TotalMilliseconds / 100:F2} ms per tick)");
+    }
+
+    /// <summary>
+    /// Rasterise a brush across a bar-sized rectangle at a given sweep phase and return the pixels. Small and
+    /// exact on purpose: this is the only way to tell "the animation moves the paint" from "the animation runs
+    /// but the paint never changes", and those two look identical everywhere else.
+    /// </summary>
+    private static byte[] PaintStrip(Brush brush, double phase)
+    {
+        NameFxSheen.SetPreviewPhase(phase);
+        const int W = 300, H = 8;
+        var visual = new DrawingVisual();
+        using (DrawingContext dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle(brush, null, new Rect(0, 0, W, H));
+        }
+
+        var rtb = new RenderTargetBitmap(W, H, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(visual);
+        var px = new byte[W * H * 4];
+        rtb.CopyPixels(px, W * 4, 0);
+        return px;
     }
 
     /// <summary>First descendant of the given type in the visual tree (breadth-first).</summary>
@@ -1149,7 +1292,6 @@ internal static class Program
     /// </summary>
     private static NameFxRoster SampleNameFxRoster(DpsReport report)
     {
-        string[] ids = NameFxPalette.All.Select(e => e.Id).ToArray();
         var entries = new List<string>();
         int i = 0;
         foreach (User u in report.Contributors)
@@ -1160,15 +1302,23 @@ internal static class Program
                 continue;
             }
 
-            NameFxPalette.Effect e = NameFxPalette.All[i++ % ids.Length];
+            // stride 2: 연속 인덱스는 후원자 4종만 집어 랭커 게이지가 한 번도 안 걸린다.
+            NameFxPalette.Effect e = NameFxPalette.NameEffects[(i * 2) % NameFxPalette.NameEffects.Length];
             string kind = e.Kind == NameFxPalette.NameFxKind.Ranker ? "ranker" : "supporter";
-            entries.Add($$"""{"h":"{{hash}}","e":"{{e.Id}}","k":"{{kind}}"}""");
+            // 랭커에게만 게이지 스킨을 얹는다 — 부여 규칙 그대로.
+            string quote = "\"";
+            string gauge = e.Kind == NameFxPalette.NameFxKind.Ranker
+                ? $",{quote}g{quote}:{quote}{NameFxPalette.GaugeSkins[i % NameFxPalette.GaugeSkins.Length].Id}{quote}"
+                : string.Empty;
+            i++;
+            entries.Add($$"""{"h":"{{hash}}","e":"{{e.Id}}","k":"{{kind}}"{{gauge}}}""");
         }
 
         return NameFxRoster.Parse(
             $$"""{"schemaVersion":1,"entries":[{{string.Join(",", entries)}}]}""",
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            NameFxPalette.IsKnown);
+            NameFxPalette.IsKnownNameEffect,
+            NameFxPalette.IsKnownGauge);
     }
 
     private static DpsReport SampleMeterReport(long now)

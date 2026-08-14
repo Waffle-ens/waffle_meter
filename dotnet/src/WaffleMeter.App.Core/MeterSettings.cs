@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using WaffleMeter.Services;
@@ -56,6 +56,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _nameFxShowOthers = ReadBool("nameFx.showOthers", true);
         _nameFxSpeedPercent = ReadInt("nameFx.speedPercent", 100);
         _nameFxBrightnessPercent = ReadInt("nameFx.brightnessPercent", 100);
+        _nameFxGauge = ReadBool("nameFx.gauge", true);
         _showJoinPanel = ReadBool("showJoinPanel", true);
         _showPreCombatRoster = ReadBool("showPreCombatRoster", true);
         _forceInstanceTracking = ReadBool("forceInstanceTracking", false);
@@ -205,6 +206,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
         get => Math.Clamp(_nameFxBrightnessPercent, 70, 130);
         set => SetInt(ref _nameFxBrightnessPercent, "nameFx.brightnessPercent", Math.Clamp(value, 70, 130));
     }
+
+    private bool _nameFxGauge;
+    /// <summary>랭커 전용 DPS 게이지 스킨을 그린다. 부여 자체가 랭커에게만 나가므로 이 스위치는 "받았을 때
+    /// 쓸 것인가"만 정한다. 끄면 게이지는 기존 기여도·직업 색으로 돌아간다.</summary>
+    public bool NameFxGauge { get => _nameFxGauge; set => SetBool(ref _nameFxGauge, "nameFx.gauge", value); }
 
     private bool _tierShowSelfChip;
     /// <summary>Show the footer summary chip ("챌린저 · 상위 0.7%") next to the combat timer. The per-row

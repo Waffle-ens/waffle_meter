@@ -1,4 +1,4 @@
-using WaffleMeter.App.Core;
+﻿using WaffleMeter.App.Core;
 using Xunit;
 
 namespace WaffleMeter.App.Core.Tests;
@@ -12,13 +12,69 @@ public sealed class NameFxRosterTests
 {
     private const long Now = 1_800_000_000_000; // fixed clock; the roster must never read the wall clock itself
 
-    private static bool Known(string id) => id is "syrup" or "goldleaf";
+    private static bool KnownName(string id) => id is "syrup" or "goldleaf";
+
+    private static bool KnownGauge(string id) => id is "prism";
+
+    [Fact]
+    public void Reads_the_optional_gauge_skin()
+    {
+        NameFxRoster r = NameFxRoster.Parse(
+            """{"schemaVersion":1,"entries":[{"h":"AA","e":"goldleaf","k":"ranker","g":"prism"}]}""", Now, KnownName, KnownGauge);
+
+        Assert.Equal("prism", r.Find("AA")?.GaugeId);
+    }
+
+    [Fact]
+    public void An_unknown_gauge_does_not_take_the_nickname_effect_down_with_it()
+    {
+        // The gauge field was added after the first release. A grant naming a gauge this build cannot draw must
+        // still deliver the nickname effect — dropping the whole entry would punish the user for our staleness.
+        NameFxRoster r = NameFxRoster.Parse(
+            """{"schemaVersion":1,"entries":[{"h":"AA","e":"goldleaf","g":"gauge-from-the-future"}]}""", Now, KnownName, KnownGauge);
+
+        NameFxEntry? e = r.Find("AA");
+        Assert.NotNull(e);
+        Assert.Equal("goldleaf", e!.EffectId);
+        Assert.Null(e.GaugeId);
+    }
+
+    [Fact]
+    public void A_gauge_id_in_the_nickname_slot_is_rejected()
+    {
+        // The two slots take ids from two different tables, and one shared "is it in the catalogue" predicate
+        // let a gauge id through here — where it resolves to a real brush and paints a bar-sized gradient
+        // across a nickname. The asymmetry only shows up in this direction, so it needs its own test.
+        NameFxRoster r = NameFxRoster.Parse(
+            """{"schemaVersion":1,"entries":[{"h":"AA","e":"prism"}]}""", Now, KnownName, KnownGauge);
+
+        Assert.Equal(0, r.Count);
+    }
+
+    [Fact]
+    public void A_nickname_effect_id_in_the_gauge_slot_is_rejected()
+    {
+        NameFxRoster r = NameFxRoster.Parse(
+            """{"schemaVersion":1,"entries":[{"h":"AA","e":"syrup","g":"goldleaf"}]}""", Now, KnownName, KnownGauge);
+
+        Assert.Equal("syrup", r.Find("AA")?.EffectId);
+        Assert.Null(r.Find("AA")?.GaugeId);
+    }
+
+    [Fact]
+    public void A_grant_without_a_gauge_is_normal()
+    {
+        NameFxRoster r = NameFxRoster.Parse(
+            """{"schemaVersion":1,"entries":[{"h":"AA","e":"syrup"}]}""", Now, KnownName, KnownGauge);
+
+        Assert.Null(r.Find("AA")?.GaugeId);
+    }
 
     [Fact]
     public void Parses_entries_and_finds_by_hash()
     {
         NameFxRoster r = NameFxRoster.Parse(
-            """{"schemaVersion":1,"entries":[{"h":"AABB","e":"syrup","k":"supporter","x":0}]}""", Now, Known);
+            """{"schemaVersion":1,"entries":[{"h":"AABB","e":"syrup","k":"supporter","x":0}]}""", Now, KnownName, KnownGauge);
 
         Assert.Equal(1, r.Count);
         NameFxEntry? e = r.Find("AABB");
@@ -32,7 +88,7 @@ public sealed class NameFxRosterTests
     {
         // The hash is lowercase hex from StatsIdentity, but a hand-edited document is a real input.
         NameFxRoster r = NameFxRoster.Parse(
-            """{"schemaVersion":1,"entries":[{"h":"aabb","e":"syrup"}]}""", Now, Known);
+            """{"schemaVersion":1,"entries":[{"h":"aabb","e":"syrup"}]}""", Now, KnownName, KnownGauge);
 
         Assert.NotNull(r.Find("AABB"));
     }
@@ -44,7 +100,7 @@ public sealed class NameFxRosterTests
         // rendering a fallback colour would misrepresent which grant the character actually holds.
         NameFxRoster r = NameFxRoster.Parse(
             """{"schemaVersion":1,"entries":[{"h":"AA","e":"syrup"},{"h":"BB","e":"effect-from-the-future"}]}""",
-            Now, Known);
+            Now, KnownName, KnownGauge);
 
         Assert.Equal(1, r.Count);
         Assert.Null(r.Find("BB"));
@@ -55,7 +111,7 @@ public sealed class NameFxRosterTests
     {
         NameFxRoster r = NameFxRoster.Parse(
             $$"""{"schemaVersion":1,"entries":[{"h":"AA","e":"syrup","x":{{Now - 1}}},{"h":"BB","e":"syrup","x":{{Now + 1}}}]}""",
-            Now, Known);
+            Now, KnownName, KnownGauge);
 
         Assert.Null(r.Find("AA"));
         Assert.NotNull(r.Find("BB"));
@@ -66,7 +122,7 @@ public sealed class NameFxRosterTests
     {
         // Loaded while valid, then the lease runs out without the app restarting.
         NameFxRoster r = NameFxRoster.Parse(
-            $$"""{"schemaVersion":1,"entries":[{"h":"AA","e":"syrup","x":{{Now + 1000}}}]}""", Now, Known);
+            $$"""{"schemaVersion":1,"entries":[{"h":"AA","e":"syrup","x":{{Now + 1000}}}]}""", Now, KnownName, KnownGauge);
 
         Assert.NotNull(r.Find("AA", Now));
         Assert.Null(r.Find("AA", Now + 2000));
@@ -76,7 +132,7 @@ public sealed class NameFxRosterTests
     public void Zero_expiry_means_no_expiry()
     {
         NameFxRoster r = NameFxRoster.Parse(
-            """{"schemaVersion":1,"entries":[{"h":"AA","e":"syrup","x":0}]}""", Now, Known);
+            """{"schemaVersion":1,"entries":[{"h":"AA","e":"syrup","x":0}]}""", Now, KnownName, KnownGauge);
 
         Assert.NotNull(r.Find("AA", Now + 999_999_999));
     }
@@ -87,7 +143,7 @@ public sealed class NameFxRosterTests
         // The one change that must reach clients BEFORE the server publishes it. Refusing whole beats
         // rendering half a document whose meaning we are guessing at.
         NameFxRoster r = NameFxRoster.Parse(
-            """{"schemaVersion":99,"entries":[{"h":"AA","e":"syrup"}]}""", Now, Known);
+            """{"schemaVersion":99,"entries":[{"h":"AA","e":"syrup"}]}""", Now, KnownName, KnownGauge);
 
         Assert.Same(NameFxRoster.Empty, r);
     }
@@ -97,7 +153,7 @@ public sealed class NameFxRosterTests
     {
         NameFxRoster r = NameFxRoster.Parse(
             """{"schemaVersion":1,"note":"hi","entries":[{"h":"AA","e":"syrup","tier":"gold","note":2}]}""",
-            Now, Known);
+            Now, KnownName, KnownGauge);
 
         Assert.Equal(1, r.Count);
     }
@@ -111,14 +167,14 @@ public sealed class NameFxRosterTests
     [InlineData("""{"schemaVersion":1,"entries":[{"e":"syrup"}]}""")]
     public void Bad_documents_yield_an_empty_roster_without_throwing(string json)
     {
-        Assert.Equal(0, NameFxRoster.Parse(json, Now, Known).Count);
+        Assert.Equal(0, NameFxRoster.Parse(json, Now, KnownName, KnownGauge).Count);
     }
 
     [Fact]
     public void Missing_file_yields_an_empty_roster()
     {
         string dir = Path.Combine(Path.GetTempPath(), "wm_namefx_" + Guid.NewGuid().ToString("N"));
-        Assert.Equal(0, NameFxRoster.Load(dir, Now, Known).Count);
+        Assert.Equal(0, NameFxRoster.Load(dir, Now, KnownName, KnownGauge).Count);
     }
 
     [Fact]
@@ -131,7 +187,7 @@ public sealed class NameFxRosterTests
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, """{"schemaVersion":1,"entries":[{"h":"AA","e":"goldleaf","k":"ranker"}]}""");
 
-            NameFxRoster r = NameFxRoster.Load(dir, Now, Known);
+            NameFxRoster r = NameFxRoster.Load(dir, Now, KnownName, KnownGauge);
             Assert.Equal("goldleaf", r.Find("AA")?.EffectId);
         }
         finally

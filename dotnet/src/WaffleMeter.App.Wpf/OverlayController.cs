@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -230,20 +230,27 @@ public sealed class OverlayController
     {
         IsVisible = false;
         _window.Fade();
-        ParkAnimations();
+        ParkAnimations(true);
     }
 
     /// <summary>
-    /// Stop the shared decoration timers while nothing is on screen. They are demand-driven from the row
-    /// rebuild, but <c>OverlayViewModel.Update</c> keeps running while the meter is hidden, so without this the
-    /// timers stay alive re-painting a window nobody can see. (<see cref="TierSheen"/> shipped with exactly that
-    /// hole — its own doc asked for this call and never got it.) Re-arming is automatic: the next row rebuild
-    /// reports demand again.
+    /// Latch the shared decorations down while nothing is on screen, and release them when it comes back.
+    /// <para>A one-shot <c>SetDemand(0)</c> here is not enough: <c>OverlayViewModel.Update</c> keeps running
+    /// while the meter is hidden or faded — the engine pushes a report every ~500 ms regardless — so the very
+    /// next tick reports demand again and the clock restarts behind a window nobody can see. The latch has to
+    /// outlive the tick. (<see cref="TierSheen"/> shipped with the weaker version of this hole: its own doc
+    /// asked for the call and never got it.)</para>
     /// </summary>
-    private static void ParkAnimations()
+    private static void ParkAnimations(bool parked)
     {
-        TierSheen.SetDemand(0, false);
-        NameFxSheen.SetDemand(0, false, 100);
+        NameFxSheen.SetParked(parked);
+        if (parked)
+        {
+            TierSheen.SetDemand(0, false);
+        }
+
+        // TierSheen re-arms by itself on the next row rebuild; it has no latch of its own, and adding one is a
+        // separate change to a shipped feature.
     }
 
     public void ShowFromTray()
@@ -259,10 +266,15 @@ public sealed class OverlayController
         }
 
         _window.Present();
+        ParkAnimations(false);
     }
 
     /// <summary>Tray "input recover": force the overlay back on top, interactive.</summary>
-    public void Present() => _window.Present();
+    public void Present()
+    {
+        _window.Present();
+        ParkAnimations(false);
+    }
 
     public void SetAutoHide(bool enabled)
     {
@@ -302,6 +314,7 @@ public sealed class OverlayController
         if (!IsAutoHide)
         {
             MeterShown = true;
+            ParkAnimations(false);
             // "항상 표시": hold HWND_TOPMOST regardless of foreground. (The old Present(fg == Aion) demoted to
             // non-topmost on every Self/Other/Unknown excursion, thrashing z-order = the intermittent flicker.)
             _window.Present();
@@ -332,6 +345,7 @@ public sealed class OverlayController
             case Foreground.Aion:
                 _parkPending = 0;
                 MeterShown = true;
+                ParkAnimations(false);
                 _window.Present();
                 _window.ReassertTopmostIfBuried(); // re-claim if the game re-topped above us
                 ReassertOverlaysIfBuried();        // ...and any open panel/detail window (e.g. left open across an alt-tab)
@@ -343,6 +357,7 @@ public sealed class OverlayController
                 // owned dialogs (Owner = meter) already render above the topmost meter, so nothing is covered.
                 _parkPending = 0;
                 MeterShown = true;
+                ParkAnimations(false);
                 _window.Present();
                 _window.ReassertTopmostIfBuried();
                 ReassertOverlaysIfBuried();
@@ -360,7 +375,7 @@ public sealed class OverlayController
                 {
                     MeterShown = false;
                     _window.Fade();
-                    ParkAnimations();
+                    ParkAnimations(true);
                     SyncCompanion(false); // the buff overlay fades off screen together with the meter
                 }
 

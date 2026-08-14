@@ -42,13 +42,17 @@ public sealed class NameFxBadge
 public static class NameFxPalette
 {
     /// <summary>A catalogue entry: what the effect is called, which family it belongs to, and its stops.</summary>
+    /// <param name="IsGauge">True for the ranker-only DPS gauge skins. They live in the same table because they
+    /// share every mechanism (shared animated brush, brightness, speed, the demand clock) and differ only in
+    /// where they are painted — but they are never offered as a nickname effect, and vice versa.</param>
     public sealed record Effect(
         string Id,
         string Name,
         NameFxKind Kind,
         bool Animated,
         string[] Dark,
-        string[] Light);
+        string[] Light,
+        bool IsGauge = false);
 
     public enum NameFxKind
     {
@@ -88,12 +92,50 @@ public static class NameFxPalette
         new("edge", "각인", NameFxKind.Ranker, false,
             new[] { "#FF93A7BE", "#FFE2ECF8" },
             new[] { "#FF3B5470", "#FF7089A4" }),
+
+        // ── 랭커 전용 DPS 게이지 스킨 ──────────────────────────────────────────────
+        // 닉네임 연출과 달리 게이지는 행 전체를 가로지르는 넓은 면이라, 여기서는 '특수효과'가 성립한다.
+        // 대신 같은 이유로 대비를 낮게 잡았다 — 게이지는 그 위에 딜 숫자를 읽어야 하는 바탕이다.
+        // 4 스톱을 쓰는 것도 그래서다: 밝은 띠를 좁게 유지해 숫자 뒤가 오래 밝지 않게 한다.
+        new("prism", "프리즘", NameFxKind.Ranker, true,
+            new[] { "#FF1E6F86", "#FF3AA6C9", "#FF7B5BC4", "#FF1E6F86" },
+            new[] { "#FF2E93AE", "#FF6FD0E8", "#FFA48BE6", "#FF2E93AE" },
+            IsGauge: true),
+        new("ember", "잔불", NameFxKind.Ranker, true,
+            new[] { "#FF7A2B12", "#FFC85A1E", "#FFF0A542", "#FF7A2B12" },
+            new[] { "#FFA8481F", "#FFE07A34", "#FFF7C271", "#FFA8481F" },
+            IsGauge: true),
+        new("frost", "서리", NameFxKind.Ranker, true,
+            new[] { "#FF1F4E7A", "#FF3E86BE", "#FF9FD8F0", "#FF1F4E7A" },
+            new[] { "#FF2E6FA6", "#FF66A9D6", "#FFC2E7F8", "#FF2E6FA6" },
+            IsGauge: true),
     };
+
+    /// <summary>Nickname effects only — what the picker and the settings preview strip offer.</summary>
+    public static readonly Effect[] NameEffects = All.Where(e => !e.IsGauge).ToArray();
+
+    /// <summary>Ranker-only DPS gauge skins.</summary>
+    public static readonly Effect[] GaugeSkins = All.Where(e => e.IsGauge).ToArray();
 
     private static readonly Dictionary<string, Effect> ById =
         All.ToDictionary(e => e.Id, StringComparer.Ordinal);
 
     public static bool IsKnown(string? id) => id is not null && ById.ContainsKey(id);
+
+    /// <summary>Accepts NICKNAME effect ids only — a gauge id here would paint a bar-sized gradient across a
+    /// nickname, and the single "is it in the catalogue" check used to let exactly that through.</summary>
+    public static bool IsKnownNameEffect(string? id) => Find(id) is { IsGauge: false };
+
+    /// <summary>Accepts GAUGE skin ids only.</summary>
+    public static bool IsKnownGauge(string? id) => Find(id) is { IsGauge: true };
+
+    /// <summary>A gauge skin's fill, or null when the id is not a gauge skin this build knows. Ranker-only —
+    /// the caller has already checked the grant; this only maps id to paint.</summary>
+    public static Brush? GaugeBrush(string? id, bool isLight)
+    {
+        Effect? e = Find(id);
+        return e is { IsGauge: true } ? For(e.Id, isLight).NameFill : null;
+    }
 
     public static Effect? Find(string? id) => id is not null && ById.TryGetValue(id, out Effect? e) ? e : null;
 

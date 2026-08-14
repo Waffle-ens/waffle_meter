@@ -188,10 +188,15 @@ public partial class App : Application
         // 후원자·랭커 닉네임 연출 명단. 파일이 없으면 아무도 연출을 갖지 않는다 — 서버 배포 채널이 붙기
         // 전까지가 그 상태다. 공개 repo 에 동봉하지 않는 이유는 부여를 철회해도 git 히스토리에서는 회수할
         // 수 없기 때문이다.
+        //
+        // 저장 전투 재생에서도 그대로 뜬다 — 바로 위 커리어 티어와는 반대 결정이고, 의도한 것이다. 티어는
+        // '오늘의 성적'이라 지난 전투 화면에 섞으면 서로 다른 시점을 한 줄에 붙여 말하게 되지만, 연출은
+        // 시점이 아니라 '이 사람이 후원자/랭커다'라는 신원 표식이라 어제 전투에서도 같은 사실이다.
         viewModel.SetNameFxRoster(NameFxRoster.Load(
             services.Props.AppDirectory(),
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            NameFxPalette.IsKnown));
+            NameFxPalette.IsKnownNameEffect,
+            NameFxPalette.IsKnownGauge));
         NameFxSheen.Rebuild(_settings.NameFxBrightnessPercent);
 
         MigrateMeterWidthForTierChip(services.Props);

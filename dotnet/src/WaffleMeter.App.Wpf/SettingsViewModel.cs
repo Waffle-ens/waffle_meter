@@ -567,7 +567,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         RefreshGameOpt();
     }
-    public string BarStyle { get => _settings.BarStyle; set { _settings.BarStyle = value; OnPropertyChanged(); } }
+    public string BarStyle { get => _settings.BarStyle; set { _settings.BarStyle = value; OnPropertyChanged(); OnPropertyChanged(nameof(GaugeSkinApplicable)); } }
     public bool IsMinimal { get => _settings.IsMinimal; set { _settings.IsMinimal = value; OnPropertyChanged(); } }
     public bool ShowCombatTimerInMinimal { get => _settings.ShowCombatTimerInMinimal; set { _settings.ShowCombatTimerInMinimal = value; OnPropertyChanged(); } }
     public bool ShowTargetInfoInMinimal { get => _settings.ShowTargetInfoInMinimal; set { _settings.ShowTargetInfoInMinimal = value; OnPropertyChanged(); } }
@@ -649,10 +649,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <para>Gated on the colour tab being selected AND the mode being "animated", so the preview tells the
     /// truth: switching to "색상만" visibly stops it, which is exactly what that option does.</para>
     /// </summary>
-    private void SyncNameFxPreview() =>
+    private void SyncNameFxPreview()
+    {
+        // Low-spec is checked HERE too, not only on the row path. The brushes are process-wide singletons, so a
+        // preview that grabbed the clock would animate the meter's own rows as well — which is precisely what
+        // low-spec mode exists to prevent.
+        NameFxSheen.SetLowSpec(_settings.LowSpecMode);
         NameFxSheen.SetPreviewDemand(
             string.Equals(SelectedNav, "theme", StringComparison.Ordinal) && _settings.NameFxMode == "animated",
             _settings.NameFxSpeedPercent);
+    }
 
     /// <summary>Drop the preview's claim on the sweep timer when the settings window closes.</summary>
     public void StopNameFxPreview() => NameFxSheen.SetPreviewDemand(false, _settings.NameFxSpeedPercent);
@@ -664,15 +670,29 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// </summary>
     public IReadOnlyList<NameFxSampleViewModel> NameFxSamples { get; private set; } = Array.Empty<NameFxSampleViewModel>();
 
+    /// <summary>랭커 전용 DPS 게이지 스킨 미리보기. 닉네임 연출과 목록을 나눈 이유는 칠하는 자리가 달라서다 —
+    /// 하나는 글자, 하나는 행을 가로지르는 막대다.</summary>
+    public IReadOnlyList<NameFxSampleViewModel> GaugeSkinSamples { get; private set; } = Array.Empty<NameFxSampleViewModel>();
+
+    public bool NameFxGauge { get => _settings.NameFxGauge; set { _settings.NameFxGauge = value; OnPropertyChanged(); } }
+
+    /// <summary>게이지 형태가 '없음'이면 칠할 막대가 존재하지 않는다 — 토글을 켜 봐야 아무 일도 일어나지
+    /// 않으므로 비활성화하고 이유를 밝힌다.</summary>
+    public bool GaugeSkinApplicable => _settings.BarStyle != "none";
+
     private void RebuildNameFxSamples(bool isLight)
     {
-        NameFxSamples = NameFxPalette.All
+        NameFxSamples = NameFxPalette.NameEffects
             .Select(e => new NameFxSampleViewModel(
                 e.Name,
                 e.Kind == NameFxPalette.NameFxKind.Ranker ? "랭커" : "후원자",
                 NameFxPalette.For(e.Id, isLight).NameFill))
             .ToArray();
+        GaugeSkinSamples = NameFxPalette.GaugeSkins
+            .Select(e => new NameFxSampleViewModel(e.Name, "랭커", NameFxPalette.For(e.Id, isLight).NameFill))
+            .ToArray();
         OnPropertyChanged(nameof(NameFxSamples));
+        OnPropertyChanged(nameof(GaugeSkinSamples));
     }
 
     private string _tierStatus = string.Empty;
@@ -1450,6 +1470,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         // Apply() writes the settings object directly, so nothing told the font grid its selection moved.
         OnPropertyChanged(nameof(FontFamily));
         SyncFontSelection();
+        SyncNameFxPreview(); // Apply() wrote the settings object directly; the clock has to be told
+        NameFxSheen.Rebuild(_settings.NameFxBrightnessPercent);
         PendingReset = _hotkeys.Reset;
         PendingVisibility = _hotkeys.Visibility;
         PendingClickThrough = _hotkeys.ClickThrough;
@@ -1463,14 +1485,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
         string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
         bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster, bool ShowAetherStatus,
-        string NameFxMode, bool NameFxShowSelf, bool NameFxShowOthers, int NameFxSpeedPercent, int NameFxBrightnessPercent)
+        string NameFxMode, bool NameFxShowSelf, bool NameFxShowOthers, int NameFxSpeedPercent, int NameFxBrightnessPercent,
+        bool NameFxGauge)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
             s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
             s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
             s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster, s.ShowAetherStatus,
-            s.NameFxMode, s.NameFxShowSelf, s.NameFxShowOthers, s.NameFxSpeedPercent, s.NameFxBrightnessPercent);
+            s.NameFxMode, s.NameFxShowSelf, s.NameFxShowOthers, s.NameFxSpeedPercent, s.NameFxBrightnessPercent,
+            s.NameFxGauge);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -1502,6 +1526,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.NameFxShowOthers = NameFxShowOthers;
             s.NameFxSpeedPercent = NameFxSpeedPercent;
             s.NameFxBrightnessPercent = NameFxBrightnessPercent;
+            s.NameFxGauge = NameFxGauge;
             NameFxSheen.Rebuild(NameFxBrightnessPercent);
         }
     }

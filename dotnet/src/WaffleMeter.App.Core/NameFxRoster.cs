@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace WaffleMeter.App.Core;
@@ -22,6 +22,14 @@ public sealed class NameFxEntry
     /// <summary>Expiry, epoch ms. 0 = no expiry.</summary>
     [JsonPropertyName("x")]
     public long ExpiresAtMs { get; set; }
+
+    /// <summary>
+    /// Optional DPS gauge skin id — a ranker-only extra on top of the nickname effect. Added after the first
+    /// release, which is exactly the additive case the parser is built for: a client that predates this field
+    /// ignores it and still renders the nickname effect correctly.
+    /// </summary>
+    [JsonPropertyName("g")]
+    public string? GaugeId { get; set; }
 }
 
 /// <summary>
@@ -67,12 +75,12 @@ public sealed class NameFxRoster
 
     /// <summary>Load the roster, or <see cref="Empty"/> for any reason at all — missing file, bad JSON, a future
     /// schema. A decoration must never be able to stop the meter from starting.</summary>
-    public static NameFxRoster Load(string appDirectory, long nowMs, Func<string, bool> isKnownEffect)
+    public static NameFxRoster Load(string appDirectory, long nowMs, Func<string, bool> isKnownEffect, Func<string, bool> isKnownGauge)
     {
         try
         {
             string path = FilePath(appDirectory);
-            return File.Exists(path) ? Parse(File.ReadAllText(path), nowMs, isKnownEffect) : Empty;
+            return File.Exists(path) ? Parse(File.ReadAllText(path), nowMs, isKnownEffect, isKnownGauge) : Empty;
         }
         catch
         {
@@ -80,7 +88,11 @@ public sealed class NameFxRoster
         }
     }
 
-    public static NameFxRoster Parse(string json, long nowMs, Func<string, bool> isKnownEffect)
+    /// <param name="isKnownEffect">Accepts NICKNAME effect ids only.</param>
+    /// <param name="isKnownGauge">Accepts GAUGE skin ids only. Two predicates rather than one because a single
+    /// "is this id in the catalogue" check is not symmetric: it lets a gauge id sit in the nickname slot, where
+    /// it resolves to a real brush and paints a bar-sized gradient across a nickname.</param>
+    public static NameFxRoster Parse(string json, long nowMs, Func<string, bool> isKnownEffect, Func<string, bool> isKnownGauge)
     {
         try
         {
@@ -101,6 +113,11 @@ public sealed class NameFxRoster
                 if (e.ExpiresAtMs > 0 && nowMs > 0 && e.ExpiresAtMs <= nowMs)
                 {
                     continue;
+                }
+
+                if (e.GaugeId is not null && !isKnownGauge(e.GaugeId))
+                {
+                    e.GaugeId = null; // an unknown gauge must not take the nickname effect down with it
                 }
 
                 map[e.Hash] = e; // last one wins; the publisher guarantees uniqueness
