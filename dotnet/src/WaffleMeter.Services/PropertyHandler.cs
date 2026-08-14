@@ -115,14 +115,98 @@ public sealed class PropertyHandler
         lock (_gate)
         {
             _props.SetProperty(key, value);
-            Save();
+            if (_batchDepth == 0)
+            {
+                Save();
+            }
+            else
+            {
+                _batchDirty = true;
+            }
         }
     }
 
+    private int _batchDepth;
+    private bool _batchDirty;
+
+    /// <summary>
+    /// Run several writes as one save. Every <see cref="SetProperty"/> normally rewrites the WHOLE file, so a
+    /// settings import touching ~70 keys would rewrite it ~70 times.
+    /// <para>Deliberately a callback and not an <c>IDisposable</c> scope: a missed <c>Dispose</c> would leave the
+    /// process in a state where every later setting write lands in memory only, with no symptom at all until the
+    /// next restart. There is no way to forget to close this one.</para>
+    /// </summary>
+    public void RunBatched(Action body)
+    {
+        lock (_gate)
+        {
+            _batchDepth++;
+            try
+            {
+                body();
+            }
+            finally
+            {
+                _batchDepth--;
+                if (_batchDepth == 0 && _batchDirty)
+                {
+                    _batchDirty = false;
+                    Save();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The stored values EXACTLY as they sit in the file, bypassing <see cref="GetProperty"/>'s EUC-KR
+    /// re-decode. Needed for keys no live model owns (theme JSON, hotkeys, skill visibility) — reading those
+    /// through the normal path and writing them back would round-trip non-ASCII through Latin-1 and lose it.
+    /// <para>⚠ Do NOT use this for keys a model does own. Those are held in memory in the decoded
+    /// representation, so mixing the two sources in one bundle produces values that render correctly this
+    /// session and break on restart.</para>
+    /// </summary>
+    public IReadOnlyDictionary<string, string> RawEntries()
+    {
+        lock (_gate)
+        {
+            return new Dictionary<string, string>(_props.Entries, StringComparer.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// Atomic replace: write a temp file, then swap. <c>File.Create</c> truncates in place, so a crash (or a
+    /// full disk) part-way through left a truncated settings file — every setting gone. The batch window above
+    /// widens that gap, so it is closed here in the same change.
+    /// </summary>
     private void Save()
     {
-        using FileStream fs = File.Create(_settingFilePath);
-        _props.Store(fs, "settings");
+        string dir = Path.GetDirectoryName(_settingFilePath)!;
+        string temp = Path.Combine(dir, Path.GetFileName(_settingFilePath) + ".tmp");
+        try
+        {
+            using (FileStream fs = File.Create(temp))
+            {
+                _props.Store(fs, "settings");
+            }
+
+            File.Move(temp, _settingFilePath, overwrite: true);
+        }
+        catch
+        {
+            // Fall back to the in-place write rather than losing the change entirely (e.g. a temp file blocked
+            // by an AV scanner). Worst case is the old behaviour, not a worse one.
+            try
+            {
+                File.Delete(temp);
+            }
+            catch
+            {
+                // best effort
+            }
+
+            using FileStream fs = File.Create(_settingFilePath);
+            _props.Store(fs, "settings");
+        }
     }
 
     private static string? EncodeToEucKr(string? value)
