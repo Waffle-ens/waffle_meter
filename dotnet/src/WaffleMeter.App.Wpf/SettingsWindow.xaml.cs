@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Threading;
 
 namespace WaffleMeter.App.Wpf;
@@ -27,6 +28,55 @@ public partial class SettingsWindow : Window
         _statusTimer.Start();
         _viewModel.RefreshTierStatus(); // fill the line before the first tick so it never opens blank
         Closed += (_, _) => { _statusTimer.Stop(); _viewModel.DisposeBuffPicker(); };
+
+        VerifyNavContract();
+    }
+
+    /// <summary>
+    /// The tab key table lives in three places — <see cref="SettingsViewModel.NavKeys"/>, the nav rail's
+    /// <c>ListBoxItem.Tag</c>s, and each content panel's <c>ConverterParameter</c> — and nothing makes them
+    /// agree. A typo in any one of them produces no error: <see cref="StringEqualsToVisibilityConverter"/>
+    /// reads "no match" as a legitimate answer and collapses the panel, so the symptom is a blank right-hand
+    /// side, or a tab that is simply unreachable. Neither the compiler nor a unit test sees it.
+    /// <para>DEBUG-only: the dangerous half (a stored key that matches nothing) is already structurally
+    /// impossible because <c>SelectedNav</c>'s setter absorbs unknown values. What is left is a panel or a
+    /// nav item that no longer lines up, and that is a development-time mistake — assert loudly there and
+    /// keep release builds free of the walk.</para>
+    /// </summary>
+    [Conditional("DEBUG")]
+    private void VerifyNavContract()
+    {
+        string?[] navTags = NavRail.Items
+            .OfType<System.Windows.Controls.ListBoxItem>()
+            .Select(i => i.Tag as string)
+            .ToArray();
+
+        Debug.Assert(
+            navTags.SequenceEqual(SettingsViewModel.NavKeys, StringComparer.Ordinal),
+            $"설정창 nav Tag 가 SettingsViewModel.NavKeys 와 어긋납니다.\n" +
+            $"  nav : {string.Join(", ", navTags)}\n" +
+            $"  keys: {string.Join(", ", SettingsViewModel.NavKeys)}");
+
+        if (ContentScroll?.Content is not System.Windows.Controls.Grid host)
+        {
+            Debug.Fail("ContentScroll 의 내용이 Grid 가 아닙니다 — 패널 계약을 검사할 수 없습니다.");
+            return;
+        }
+
+        // Each panel declares its own key as the Visibility binding's ConverterParameter. Read it back out
+        // rather than duplicating it into a Tag: the parameter IS the panel's identity, so checking the real
+        // thing keeps this honest even if someone adds a panel and forgets everything else.
+        string[] panelKeys = host.Children
+            .OfType<FrameworkElement>()
+            .Select(p => (BindingOperations.GetBinding(p, VisibilityProperty)?.ConverterParameter as string) ?? "<none>")
+            .ToArray();
+
+        Debug.Assert(
+            panelKeys.Order(StringComparer.Ordinal).SequenceEqual(
+                SettingsViewModel.NavKeys.Order(StringComparer.Ordinal), StringComparer.Ordinal),
+            $"설정창 패널 키가 SettingsViewModel.NavKeys 와 어긋납니다.\n" +
+            $"  panels: {string.Join(", ", panelKeys)}\n" +
+            $"  keys  : {string.Join(", ", SettingsViewModel.NavKeys)}");
     }
 
     // Reset the scroll to the top when switching category — the content is one shared ScrollViewer, so a

@@ -981,8 +981,41 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     }
 
     // ---- nav rail + footer ----
-    private string _selectedNav = "display";
-    public string SelectedNav { get => _selectedNav; set => Set(ref _selectedNav, value); }
+
+    /// <summary>
+    /// The canonical tab keys, in nav-rail order. This is the SOURCE OF TRUTH — the XAML's
+    /// <c>ListBoxItem.Tag</c> and each panel's <c>ConverterParameter</c> must agree with it, and
+    /// <see cref="SettingsWindow"/> checks that at construction (see <c>VerifyNavContract</c>).
+    /// </summary>
+    public static readonly string[] NavKeys =
+    {
+        "display", "combat", "buffalerts", "alarms", "theme", "hotkeys",
+        "advanced", "gameopt", "replay", "dummy", "stats", "diag",
+    };
+
+    private string _selectedNav = NavKeys[0];
+
+    /// <summary>
+    /// Selected tab key. The setter ABSORBS null and unknown values instead of storing them, and that is
+    /// load-bearing: the nav rail binds <c>Selector.SelectedValue</c>, which is TwoWay by default, so WPF
+    /// writes <c>null</c> back the moment the bound value has no matching item — during init, and again
+    /// whenever a tab is renamed or retired. A stored null makes
+    /// <see cref="StringEqualsToVisibilityConverter"/> collapse EVERY panel and the right-hand side of the
+    /// window goes blank with no error anywhere. Keeping the previous key is always better than that.
+    /// </summary>
+    public string SelectedNav
+    {
+        get => _selectedNav;
+        set
+        {
+            if (value is null || Array.IndexOf(NavKeys, value) < 0)
+            {
+                return;
+            }
+
+            Set(ref _selectedNav, value);
+        }
+    }
 
     public string Version => _services.Version;
 

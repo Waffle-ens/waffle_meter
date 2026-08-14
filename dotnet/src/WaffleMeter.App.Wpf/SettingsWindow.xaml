@@ -221,7 +221,11 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <ListBox Grid.Row="0" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource NavItem}"
+            <!-- x:Name is for the constructor's nav-contract check (SettingsWindow.xaml.cs), not for styling.
+                 Tag values here, each panel's ConverterParameter below, and SettingsViewModel.NavKeys are three
+                 copies of one table; the check exists because a drift between them shows no error at all — the
+                 converter just collapses everything and the right-hand side goes blank. -->
+            <ListBox x:Name="NavRail" Grid.Row="0" Style="{StaticResource NavList}" ItemContainerStyle="{StaticResource NavItem}"
                      SelectedValuePath="Tag" SelectedValue="{Binding SelectedNav}" Margin="6,0,6,0"
                      SelectionChanged="OnNavChanged">
                 <ListBox.Resources>
