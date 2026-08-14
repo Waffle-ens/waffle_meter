@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -17,6 +17,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\WaffleMeter.App.Core\WaffleMeter.App.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 통계웹이 실제로 발행한 아티팩트 바이트. 두 언어가 서로 읽는지 확인하는 유일한 지점이라
+         내용을 건드리면 안 된다 — 다시 만들려면 서버 packer 로 같은 세 행을 다시 찍어야 한다. -->
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
