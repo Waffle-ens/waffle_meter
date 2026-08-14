@@ -916,6 +916,24 @@ internal static class Program
     /// This is deliberately written against the CURRENT shape (parameter literals, no panel Tags) so it keeps
     /// working across the Phase 0 MultiBinding conversion — it only ever asks "what does the window show".</para>
     /// </summary>
+    /// <summary>Every element under a root, so a check can ask "does this screen say X" without knowing where
+    /// the text lives. Walking the tree beats naming each TextBlock — a check that needs an x:Name is a check
+    /// nobody adds.</summary>
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
+    {
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            yield return child;
+
+            foreach (DependencyObject nested in Descendants(child))
+            {
+                yield return nested;
+            }
+        }
+    }
+
     private static void VerifySettingsTabs(IReadOnlyDictionary<string, ResourceDictionary> skins, string outDir)
     {
         Console.WriteLine("=== settings tab contract ===");
@@ -1038,6 +1056,18 @@ internal static class Program
                         RenderToPng(window, moved, fixedSize: true);
                         if (!contractChecked)
                         {
+                            // 신청 경로와 동의 고지. 부여는 서버가 하고 미터에는 신청 수단이 없으므로, 이
+                            // 문구가 없으면 연출을 본 사람은 "나는 왜 없지"에서 멈춘다. 그리고 '공개 명단에
+                            // 실린다'는 문장은 지금 이 화면에만 있다 — 후원 페이지 한 줄 안내에는 없다.
+                            // 배포된 명단은 회수할 수 없으므로 고지가 사라지는 회귀는 되돌릴 수 없다.
+                            string[] texts = Descendants(window).OfType<System.Windows.Controls.TextBlock>().Select(t => t.Text ?? string.Empty).ToArray();
+                            Check("닉네임 효과 안내가 신청 경로(디스코드 DM)를 말한다",
+                                texts.Any(t => t.Contains("디스코드", StringComparison.Ordinal) && t.Contains("DM", StringComparison.Ordinal)));
+                            Check("닉네임 효과 안내가 공개 명단 등재를 고지한다",
+                                texts.Any(t => t.Contains("공개 후원자 명단", StringComparison.Ordinal)));
+                            Check("닉네임 효과 안내가 랭커 자동 부여 기준을 말한다",
+                                texts.Any(t => t.Contains("마스터 이상", StringComparison.Ordinal)));
+
                             Check("nameFx preview strip actually animates",
                                 File.Exists(shot) && File.Exists(moved)
                                 && !File.ReadAllBytes(shot).AsSpan().SequenceEqual(File.ReadAllBytes(moved)));

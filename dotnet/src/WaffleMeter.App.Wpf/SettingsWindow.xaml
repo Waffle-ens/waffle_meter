@@ -721,7 +721,16 @@
                         <Border Style="{StaticResource SectionDivider}"/>
                         <TextBlock x:Name="NameFxSectionHeader" Text="닉네임 효과" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
                         <TextBlock Text="후원해 주신 분과 상위 랭커의 닉네임에 붙는 연출입니다. 미터의 기능·정확도·통계에는 어떤 차이도 없습니다."
-                                   Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                   Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+
+                        <!-- 받는 방법을 여기에 적는 이유: 부여는 서버가 하고 미터에는 신청 경로가 없다.
+                             이 안내가 없으면 연출을 본 사람이 "나는 왜 없지"에서 멈춘다.
+                             ⚠ '공개 명단에 실린다'는 문장을 빼지 말 것. 명단은 무인증으로 배포되고 해시에
+                             솔트가 없어서, 받아 간 쪽에서 후원자 집합을 통째로 복원할 수 있다. 후원 페이지
+                             한 줄 안내에는 이 문구가 없으므로 지금은 여기가 유일한 고지다. -->
+                        <TextBlock Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Text="후원자 연출은 후원하신 뒤 디스코드 Waffle 에게 캐릭터명과 서버를 DM 으로 보내 주시면 달아 드립니다. 연출이 달린 캐릭터는 공개 후원자 명단에 실립니다. 랭커 연출은 던전 하나라도 티어가 마스터 이상이면 자동으로 붙습니다."/>
+                        <Button Content="디스코드 열기" HorizontalAlignment="Left" Margin="0,0,0,12" Click="OnOpenDiscord"/>
 
                         <!-- 미리보기: 부여는 서버가 하므로, 이게 없으면 사용자는 이 설정이 무엇을 바꾸는지 볼
                              방법이 없다. 애니메이션 샘플은 미터 행과 '같은 브러시 인스턴스'를 쓰므로 별도
