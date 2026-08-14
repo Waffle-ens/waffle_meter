@@ -659,6 +659,30 @@ internal static class Program
         settings.NameFxShowSelf = true;
         settings.NameFxShowOthers = true;
 
+        // 기능의 요점: 부여는 캐릭터에 붙고 명단은 모두가 같은 것을 받으므로, 같은 전투에 있는 다른
+        // 미터 사용자에게도 그 사람이 고른 연출이 그대로 보인다. 위 검사는 "누군가 칠해진다"까지만
+        // 보므로 내 행 하나만 칠해져도 통과한다 — 그건 이 요구를 전혀 증명하지 못한다.
+        offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        RowViewModel[] others = offVm.Rows.Where(r => !r.IsUser).ToArray();
+        Check($"남의 캐릭터도 그 사람 명단대로 칠해진다 ({others.Count(r => !ReferenceEquals(r.NameFillBrush, r.NameBrush))}/{others.Length}행)",
+            others.Length > 0 && others.Any(r => !ReferenceEquals(r.NameFillBrush, r.NameBrush)));
+        Check("남의 게이지 스킨도 그대로 보인다", offVm.Rows.Any(r => !r.IsUser && IsGaugeSkin(r.GaugeBrush)));
+
+        // '적용 대상' 콤보. 보는 쪽 취향일 뿐이고 남에게 무엇이 보이는지는 바꾸지 않는다.
+        vm.NameFxScope = "self";
+        offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("'내 캐릭터만': 남의 행은 원래 색으로 돌아간다",
+            offVm.Rows.Where(r => !r.IsUser).All(r => ReferenceEquals(r.NameFillBrush, r.NameBrush)));
+        Check("'내 캐릭터만'이어도 내 행은 남는다",
+            offVm.Rows.Where(r => r.IsUser).All(r => r.NameFillBrush is not null));
+
+        vm.NameFxScope = "all";
+        Check("적용 대상은 기존 두 키 위에 얹혀 있다",
+            settings.NameFxShowSelf && settings.NameFxShowOthers && vm.NameFxScope == "all");
+        offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("'모든 캐릭터'로 되돌리면 남의 행이 다시 칠해진다",
+            offVm.Rows.Any(r => !r.IsUser && !ReferenceEquals(r.NameFillBrush, r.NameBrush)));
+
         settings.NameFxMode = "static";
         offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
         Check("nameFx static: effects survive but nothing is animated",

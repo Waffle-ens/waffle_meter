@@ -642,6 +642,34 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
     }
 
+    public IReadOnlyList<SettingOption> NameFxScopes { get; } = new[]
+    {
+        new SettingOption("명단에 있는 모든 캐릭터", "all"),
+        new SettingOption("내 캐릭터만", "self"),
+    };
+
+    /// <summary>
+    /// 연출을 누구에게 그릴지.
+    /// <para>부여는 캐릭터에 붙고 명단은 모두가 같은 것을 받으므로, 같은 전투에 있는 다른 미터
+    /// 사용자에게도 그 사람이 고른 연출이 그대로 보인다. 이 설정은 <b>보는 쪽</b>의 취향일 뿐이고,
+    /// 남에게 무엇이 보이는지는 바꾸지 않는다.</para>
+    /// <para>기존 두 토글(<c>nameFx.showSelf</c>·<c>nameFx.showOthers</c>) 위에 얹는다. 새 키를
+    /// 만들지 않는 이유는 설정 백업·취소 스냅샷·키 카탈로그가 전부 그 두 키를 이미 알고 있어서다 —
+    /// 키를 하나 더 만들면 세 곳이 같이 늘어나고, 그 중 하나를 빠뜨리는 게 이 파일의 단골 결함이다.</para>
+    /// </summary>
+    public string NameFxScope
+    {
+        get => _settings.NameFxShowOthers ? "all" : "self";
+        set
+        {
+            bool all = value != "self";
+            // 내 행은 항상 켠다. "내 캐릭터만"에서 내 것마저 꺼지면 고를 이유가 없는 상태가 된다.
+            _settings.NameFxShowSelf = true;
+            _settings.NameFxShowOthers = all;
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>The per-row toggles and the brightness slider only mean something while effects are on at all.</summary>
     public bool NameFxDetailEnabled => _settings.NameFxMode != "off";
 
