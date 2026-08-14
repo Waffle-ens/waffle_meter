@@ -770,6 +770,8 @@
                         </Grid>
                         <Border Style="{StaticResource SectionDivider}"/>
                         <TextBlock Text="음성" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <TextBlock Text="아래 음성은 '알림' 탭의 '음성 알림 (한국어)'가 켜져 있을 때만 나옵니다."
+                                   Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
@@ -1072,6 +1074,8 @@
                     <!-- ===== 전투 집계 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=battle}">
                         <TextBlock Text="집계 범위" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="⚠ '던전 강제 집계'를 켜면 추정 신원으로 집계하므로, 켜져 있는 동안 와터기로 전투 기록을 보내지 않습니다."
+                                   Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
@@ -1092,7 +1096,7 @@
                         <Border Style="{StaticResource SectionDivider}"/>
                         <TextBlock Text="허수아비 테스트" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
                         <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,12"
-                                   Text="훈련용 허수아비를 때려 DPS를 측정하는 별도 모드입니다. 헤더의 허수아비 버튼(스톱워치)으로도 켜고 끌 수 있습니다."/>
+                                   Text="훈련용 허수아비를 때려 DPS를 측정하는 별도 모드입니다. 헤더의 허수아비 버튼(스톱워치)으로도 켜고 끌 수 있고, 단축키는 '단축키' 탭에서 지정합니다."/>
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
@@ -1244,7 +1248,7 @@
                     <!-- ===== 내 캐릭터 · 통계 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=stats}">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="공개 설정 (익명 통계)" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="익명 통계 공개 설정" Style="{StaticResource SectionHeader}"/>
                             <Border Style="{StaticResource HelpDot}" Margin="8,0,0,10">
                                 <TextBlock Style="{StaticResource HelpQ}"/>
                                 <Border.ToolTip>
@@ -1454,7 +1458,8 @@
                 </Button>
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="기본값 복원" Click="OnResetDefaults" Margin="0,0,8,0"/>
+                <Button Content="기본값 복원" Click="OnResetDefaults" Margin="0,0,8,0"
+                        ToolTip="'미터 화면'의 표시 설정과 '색상 · 스킨'을 기본값으로 되돌립니다. 알림·버프·단축키는 그대로 둡니다."/>
                 <Button Content="취소" Width="80" Click="OnCancel" Margin="0,0,8,0"/>
                 <Button Content="저장" Width="80" Click="OnSave"/>
             </StackPanel>
