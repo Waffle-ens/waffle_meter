@@ -240,7 +240,7 @@
                                             <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
                                             <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
                                         </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" Background="{Binding GaugeBrush}" Opacity="0.3" CornerRadius="4"/>
+                                        <Border Grid.Column="0" Background="{Binding GaugeBrush}" Opacity="{Binding GaugeOpacity}" CornerRadius="4"/>
                                     </Grid>
                                   <Grid>
                                     <Grid.ColumnDefinitions>

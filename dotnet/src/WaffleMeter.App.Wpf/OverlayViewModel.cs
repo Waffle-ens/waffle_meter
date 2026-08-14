@@ -656,6 +656,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 Tier: badge,
                 TierInfo: tierInfo,
                 NameFillBrush: fx.IsNone ? nameBrush : fx.NameFill,
+                GaugeOpacity: gaugeSkin is null ? 0.3 : 0.58,
                 GaugeBrush: gaugeSkin ?? (_theme.BarColorMode == "job"
                     ? (isUser ? _userBar : jobBar)
                     : (isUser ? _userBar : contribution < 3 ? _errorBar : contribution < 5 ? _warningBar : _normalBar)));
@@ -846,6 +847,10 @@ public sealed record RowViewModel(
     /// supporter/ranker effect. Appended at the END on purpose: this record has same-typed neighbours, so a
     /// parameter inserted in the middle transposes silently without failing to compile.</summary>
     Brush NameFillBrush,
+    /// <summary>The fill panel's opacity. 0.3 as it has always been, raised only for a row carrying a ranker
+    /// gauge skin — at 0.3 a skin reads as "the bar is a bit murky" rather than as a mark. The numbers on top
+    /// are near-white, and the skins keep their bright band narrow, so legibility survives the bump.</summary>
+    double GaugeOpacity,
     /// <summary>What the DPS BAR is painted with. Equal to <see cref="FillBrush"/> unless this character has a
     /// ranker gauge skin. Kept separate on purpose: <c>FillBrush</c> also paints the 3 px accent rail, which has
     /// no visibility gate and is the only thing distinguishing your own row and each job — a gauge skin there

@@ -52,7 +52,8 @@ public static class NameFxPalette
         bool Animated,
         string[] Dark,
         string[] Light,
-        bool IsGauge = false);
+        bool IsGauge = false,
+        double[]? Offsets = null);
 
     public enum NameFxKind
     {
@@ -94,21 +95,26 @@ public static class NameFxPalette
             new[] { "#FF3B5470", "#FF7089A4" }),
 
         // ── 랭커 전용 DPS 게이지 스킨 ──────────────────────────────────────────────
-        // 닉네임 연출과 달리 게이지는 행 전체를 가로지르는 넓은 면이라, 여기서는 '특수효과'가 성립한다.
-        // 대신 같은 이유로 대비를 낮게 잡았다 — 게이지는 그 위에 딜 숫자를 읽어야 하는 바탕이다.
-        // 4 스톱을 쓰는 것도 그래서다: 밝은 띠를 좁게 유지해 숫자 뒤가 오래 밝지 않게 한다.
+        // 첫 판은 채도를 낮추고 스톱을 균등 배치했다가 완전히 실패했다. 게이지는 채움 불투명도 0.3 뒤에
+        // 깔리는데, 그 아래에서 옅은 색을 균등하게 펴 놓으면 '스킨을 받았다'가 아니라 '막대가 좀 탁하다'로
+        // 보인다. 세 축을 같이 올렸다:
+        //   ① 채도 — 기본 게이지(테마 그라디언트)도 0.3 뒤에서 읽히는 건 색이 진하기 때문이다.
+        //   ② 하이라이트 폭 — 오프셋을 명시해 밝은 띠를 타일의 1/3 에서 ~1/6 로 좁혔다. 좁고 밝은 띠는
+        //      '지나간다'로 읽히고, 넓고 밝은 띠는 그냥 배경이 밝아진 것으로 읽힌다.
+        //   ③ 불투명도 — 스킨을 받은 행만 0.45 로 올린다(RowViewModel.GaugeOpacity). 기본 0.3 은 그대로다.
+        // 딜 숫자는 이 위에 Skin.Fg(거의 흰색)로 그려지므로 좁은 띠가 지나가도 가독성은 유지된다.
         new("prism", "프리즘", NameFxKind.Ranker, true,
-            new[] { "#FF1E6F86", "#FF3AA6C9", "#FF7B5BC4", "#FF1E6F86" },
-            new[] { "#FF2E93AE", "#FF6FD0E8", "#FFA48BE6", "#FF2E93AE" },
-            IsGauge: true),
+            new[] { "#FF0E7490", "#FF22D3EE", "#FFEAFBFF", "#FFA855F7", "#FF0E7490" },
+            new[] { "#FF0B5F78", "#FF0EA5E9", "#FFD8F4FF", "#FF7C3AED", "#FF0B5F78" },
+            IsGauge: true, Offsets: new[] { 0.0, 0.38, 0.5, 0.62, 1.0 }),
         new("ember", "잔불", NameFxKind.Ranker, true,
-            new[] { "#FF7A2B12", "#FFC85A1E", "#FFF0A542", "#FF7A2B12" },
-            new[] { "#FFA8481F", "#FFE07A34", "#FFF7C271", "#FFA8481F" },
-            IsGauge: true),
+            new[] { "#FF7F1D1D", "#FFEA580C", "#FFFFEFC0", "#FFEA580C", "#FF7F1D1D" },
+            new[] { "#FF8C2A12", "#FFDD4F09", "#FFFFE3A8", "#FFDD4F09", "#FF8C2A12" },
+            IsGauge: true, Offsets: new[] { 0.0, 0.40, 0.5, 0.60, 1.0 }),
         new("frost", "서리", NameFxKind.Ranker, true,
-            new[] { "#FF1F4E7A", "#FF3E86BE", "#FF9FD8F0", "#FF1F4E7A" },
-            new[] { "#FF2E6FA6", "#FF66A9D6", "#FFC2E7F8", "#FF2E6FA6" },
-            IsGauge: true),
+            new[] { "#FF1E3A8A", "#FF38BDF8", "#FFF2FCFF", "#FF38BDF8", "#FF1E3A8A" },
+            new[] { "#FF1B347C", "#FF1D9BE0", "#FFDDF4FF", "#FF1D9BE0", "#FF1B347C" },
+            IsGauge: true, Offsets: new[] { 0.0, 0.40, 0.5, 0.60, 1.0 }),
     };
 
     /// <summary>Nickname effects only — what the picker and the settings preview strip offer.</summary>
@@ -201,7 +207,12 @@ public static class NameFxPalette
         string[] hex = light ? e.Light : e.Dark;
         for (int i = 0; i < hex.Length; i++)
         {
-            double offset = hex.Length == 1 ? 0 : i / (double)(hex.Length - 1);
+            // Even spacing unless the effect asks otherwise. Spacing matters more than it sounds: evenly spread
+            // stops make the bright band a third of the tile wide, which reads as "the whole thing is pale"
+            // rather than "a highlight went past". The gauge skins therefore pin their own offsets.
+            double offset = e.Offsets is { } o && o.Length == hex.Length
+                ? o[i]
+                : hex.Length == 1 ? 0 : i / (double)(hex.Length - 1);
             brush.GradientStops.Add(new GradientStop(Parse(hex[i]), offset));
         }
     }

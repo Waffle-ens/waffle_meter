@@ -39,7 +39,10 @@ public sealed record GaugeSkinSampleViewModel(
     string DpsText,
     string PercentText,
     double BarRatio,
-    double BarRest);
+    double BarRest,
+    /// <summary>실제 행이 스킨을 받았을 때 쓰는 값과 같아야 한다 — 견본만 진하게(또는 옅게) 그리면
+    /// 판단해야 할 축이 통째로 어긋난다.</summary>
+    double GaugeOpacity);
 
 /// <summary>A label/value choice for a settings ComboBox.</summary>
 public sealed record SettingOption(string Label, string Value);
@@ -726,7 +729,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 DpsText: "408,239/s",
                 PercentText: "35.1%",
                 BarRatio: 0.55,
-                BarRest: 0.45))
+                BarRest: 0.45,
+                GaugeOpacity: 0.58))
             .ToArray();
         OnPropertyChanged(nameof(NameFxSamples));
         OnPropertyChanged(nameof(GaugeSkinSamples));

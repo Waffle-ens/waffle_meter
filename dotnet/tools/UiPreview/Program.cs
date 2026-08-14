@@ -679,6 +679,13 @@ internal static class Program
         // erase that signal — which is why the bar brush is a separate field from FillBrush at all.
         Check("gauge skin never reaches the accent rail", offVm.Rows.All(r => !IsGaugeSkin(r.FillBrush)));
 
+        // A skin at the stock 0.3 fill opacity reads as "the bar is a bit murky", not as a mark — that is the
+        // state the first cut shipped in. Only skinned rows get the bump; everyone else stays at 0.3 exactly.
+        Check("skinned rows raise the fill opacity",
+            offVm.Rows.Where(r => IsGaugeSkin(r.GaugeBrush)).All(r => r.GaugeOpacity > 0.4));
+        Check("un-skinned rows keep the stock fill opacity",
+            offVm.Rows.Where(r => !IsGaugeSkin(r.GaugeBrush)).All(r => Math.Abs(r.GaugeOpacity - 0.3) < 0.001));
+
         settings.NameFxGauge = false;
         offVm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
         Check("gauge skin off: bars go back to the contribution/job colours",
