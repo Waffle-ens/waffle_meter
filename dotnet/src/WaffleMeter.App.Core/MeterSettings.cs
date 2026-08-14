@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using WaffleMeter.Services;
@@ -48,6 +49,16 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <para>Raises <c>PropertyChanged(null)</c> — WPF reads that as "every property", which is exactly right
     /// here and far safer than listing 70-odd names that a future key would silently miss.</para>
     /// </summary>
+    // The constructor delegates to this, which the compiler will not follow — without the list every
+    // field below reads as "maybe null after construction" and buries real warnings under 25 fake ones.
+    [MemberNotNull(
+        nameof(_aetherCharacterNames), nameof(_aetherLastValue), nameof(_aetherPerCharacter), nameof(_barStyle),
+        nameof(_buffUiHidden), nameof(_buffUiObserved), nameof(_buffUiPinned), nameof(_buffUiPresets),
+        nameof(_buffUiSortMode), nameof(_buffUiTextColor), nameof(_buffUiVoice), nameof(_captureBackend),
+        nameof(_closeAction), nameof(_contributionMode), nameof(_customAlarms), nameof(_damageValueMode),
+        nameof(_displayMode), nameof(_fieldBossDisabled), nameof(_fontFamily), nameof(_nameDisplay),
+        nameof(_nameFxMode), nameof(_overlayTheme), nameof(_targetInfoDisplayMode), nameof(_tierEffects),
+        nameof(_weeklyContentClears))]
     public void Reload()
     {
         _displayMode = ReadEnum("displayMode", "dps_percent", DisplayModes);
@@ -543,7 +554,8 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// hard-cut so continued hits stop counting until the DPS is reset.</summary>
     public int DummyDurationSec { get => _dummyDurationSec; set => SetInt(ref _dummyDurationSec, "dummy.durationSeconds", value); }
 
-    private string _patchNotesLastShownVersion;
+    // Assigned in Reload(), which the constructor calls — the compiler cannot see through that, hence the seed.
+    private string _patchNotesLastShownVersion = string.Empty;
     /// <summary>The base version (<c>X.Y.Z</c>) whose one-time post-update patch-note popup has already been
     /// shown. Empty = never (a fresh install / first run with this feature suppresses the very first popup, so it
     /// only ever fires on a real UPDATE). Set to the running base version once its popup fires, so it never
