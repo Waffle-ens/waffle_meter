@@ -673,7 +673,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public string MyFxStatus { get => _myFxStatus; private set => Set(ref _myFxStatus, value); }
 
-    public Visibility MyFxVisibility => MyEffectChoices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    /// <summary>자격이 없으면 못 고르게만 한다 — 섹션을 숨기면 "받으면 뭐가 생기는지" 를 알 수 없다.</summary>
+    public bool MyFxEnabled => MyEffectChoices.Count > 0;
+
+    /// <summary>못 고르는 상태라는 걸 눈으로도 알 수 있게. IsEnabled 만으로는 버튼 색이 크게 안 죽는다.</summary>
+    public double MyFxOpacity => MyFxEnabled ? 1.0 : 0.45;
 
     public Visibility MyGaugeVisibility => MyGaugeChoices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
@@ -691,11 +695,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         if (grant is null)
         {
+            // 고를 수 있는 게 없어도 목록은 비운 채로 두고 섹션은 남긴다. 왜 못 고르는지는 상태줄이
+            // 말한다 — 인식 전인지, 자격이 없는지는 사용자가 할 일이 다르다.
             MyEffectChoices = Array.Empty<NameFxChoiceViewModel>();
             MyGaugeChoices = Array.Empty<NameFxChoiceViewModel>();
             MyFxStatus = own.Detected
-                ? string.Empty
-                : "캐릭터를 인식하면 내 연출을 고를 수 있습니다.";
+                ? "지금 캐릭터에는 스킨 자격이 없습니다. 위 안내를 참고해 주세요."
+                : "캐릭터를 인식하면 내 스킨을 고를 수 있습니다.";
             RaiseMyNameFxState();
             return;
         }
@@ -711,9 +717,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             .ToArray();
         MyFxStatus = grant.Kind switch
         {
-            "both" => $"{own.Nickname} — 후원자 · 랭커. 아래에서 고르면 다른 사람에게도 그대로 보입니다.",
-            "ranker" => $"{own.Nickname} — 랭커. 아래에서 고르면 다른 사람에게도 그대로 보입니다.",
-            _ => $"{own.Nickname} — 후원자. 아래에서 고르면 다른 사람에게도 그대로 보입니다.",
+            "both" => $"{own.Nickname} — 후원자 · 랭커. 고르면 다른 사람에게도 그대로 보입니다.",
+            "ranker" => $"{own.Nickname} — 랭커. 고르면 다른 사람에게도 그대로 보입니다.",
+            _ => $"{own.Nickname} — 후원자. 고르면 다른 사람에게도 그대로 보입니다.",
         };
         RaiseMyNameFxState();
     }
@@ -723,7 +729,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     private void RaiseMyNameFxState()
     {
-        OnPropertyChanged(nameof(MyFxVisibility));
+        OnPropertyChanged(nameof(MyFxEnabled));
+        OnPropertyChanged(nameof(MyFxOpacity));
         OnPropertyChanged(nameof(MyGaugeVisibility));
     }
 
@@ -735,6 +742,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         if (hash is null)
         {
             return "캐릭터가 인식되지 않았습니다.";
+        }
+
+        if (!MyFxEnabled)
+        {
+            // 버튼이 비활성이라 정상 경로로는 닿지 않지만, 자격 없는 요청을 서버까지 보내 401/403 을
+            // 받아 오는 건 사용자에게 아무 도움이 안 된다.
+            return "지금 캐릭터에는 스킨 자격이 없습니다.";
         }
 
         try

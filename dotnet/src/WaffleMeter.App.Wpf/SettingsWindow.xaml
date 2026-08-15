@@ -719,36 +719,39 @@
                         <Button Content="테마 색상 초기화" HorizontalAlignment="Left" Margin="0,14,0,0" Click="OnResetTheme"/>
 
                         <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock x:Name="NameFxSectionHeader" Text="닉네임 효과" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
-                        <TextBlock Text="후원해 주신 분과 상위 랭커의 닉네임에 붙는 연출입니다. 미터의 기능·정확도·통계에는 어떤 차이도 없습니다."
+                        <TextBlock x:Name="NameFxSectionHeader" Text="닉네임 스킨" Style="{StaticResource SectionHeader}" Margin="0,0,0,10"/>
+                        <TextBlock Text="후원해 주신 분과 상위 랭커의 닉네임에 붙는 스킨입니다. 미터의 기능·정확도·통계에는 어떤 차이도 없습니다."
                                    Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,6"/>
 
                         <!-- 받는 방법을 여기에 적는 이유: 부여는 서버가 하고 미터에는 신청 경로가 없다.
-                             이 안내가 없으면 연출을 본 사람이 "나는 왜 없지"에서 멈춘다. -->
+                             이 안내가 없으면 스킨을 본 사람이 "나는 왜 없지"에서 멈춘다. -->
                         <TextBlock Style="{StaticResource SettingDesc}" TextWrapping="Wrap" Margin="0,0,0,8"
-                                   Text="후원자 연출은 후원하신 뒤 디스코드 Waffle 에게 캐릭터명과 서버를 DM 으로 보내 주시면 달아 드립니다. 랭커 연출은 던전 하나라도 티어가 마스터 이상이면 자동으로 붙습니다."/>
+                                   Text="후원자 스킨은 후원하신 뒤 디스코드 Waffle 에게 캐릭터명과 서버를 DM 으로 보내 주시면 달아 드립니다. 랭커 스킨은 던전 하나라도 티어가 마스터 이상이면 자동으로 붙습니다."/>
                         <Button Content="디스코드 열기" HorizontalAlignment="Left" Margin="0,0,0,12" Click="OnOpenDiscord"/>
 
-                        <!-- 내 연출 고르기. 자격이 없으면 통째로 숨는다 — 고를 수 없는 목록을 보여 주면
-                             "왜 안 되지"가 되고, 자격 판정은 서버가 이미 명단의 k 로 내려보냈다. -->
-                        <Border Visibility="{Binding MyFxVisibility}" Margin="0,4,0,12"
+                        <!-- 내 스킨 고르기. 자격이 없어도 숨기지 않고 못 고르게만 한다 — 무엇이 있는지
+                             보이지 않으면 "받으면 뭐가 생기는지" 를 알 수 없다. 자격 판정은 서버가 이미
+                             명단의 k 로 내려보냈고 여기서는 그 결과만 읽는다. -->
+                        <Border Margin="0,4,0,12" IsEnabled="{Binding MyFxEnabled}"
                                 Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
                                 BorderThickness="1" CornerRadius="6" Padding="10,8">
                             <StackPanel>
-                                <TextBlock Text="내 연출 고르기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="내 스킨 고르기" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="{Binding MyFxStatus}" Style="{StaticResource SettingDesc}"
                                            TextWrapping="Wrap" Margin="0,0,0,8"/>
 
-                                <ItemsControl ItemsSource="{Binding MyEffectChoices}">
+                                <ItemsControl ItemsSource="{Binding MyEffectChoices}" Opacity="{Binding MyFxOpacity}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
+                                            <!-- 이름 대신 스킨이 입혀진 샘플 그대로. 고르는 근거가 색이므로
+                                                 라벨은 같은 말을 한 번 더 하는 것에 가깝다. -->
                                             <Button Tag="{Binding Id}" Click="OnPickMyNameFx" Margin="0,0,6,6"
-                                                    Padding="10,5" Cursor="Hand">
+                                                    Padding="10,5" Cursor="Hand" ToolTip="{Binding Name}">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                    <TextBlock Text="와플장인" FontSize="13" FontWeight="SemiBold"
                                                                Foreground="{Binding Fill}"/>
                                                     <TextBlock Text=" ✓" Foreground="{DynamicResource Skin.Accent}"
                                                                Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVis}}"/>
@@ -758,7 +761,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <TextBlock Text="DPS 게이지 스킨 (랭커)" Style="{StaticResource SettingDesc}"
+                                <TextBlock Text="DPS 게이지 스킨 (랭커 전용)" Style="{StaticResource SettingDesc}"
                                            Margin="0,6,0,4" Visibility="{Binding MyGaugeVisibility}"/>
                                 <ItemsControl ItemsSource="{Binding MyGaugeChoices}" Visibility="{Binding MyGaugeVisibility}">
                                     <ItemsControl.ItemsPanel>
@@ -767,10 +770,10 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Button Tag="{Binding Id}" Click="OnPickMyGauge" Margin="0,0,6,6"
-                                                    Padding="10,5" Cursor="Hand">
+                                                    Padding="10,5" Cursor="Hand" ToolTip="{Binding Name}">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                                               Foreground="{Binding Fill}"/>
+                                                    <Border Width="34" Height="13" CornerRadius="3" VerticalAlignment="Center"
+                                                            Background="{Binding Fill}"/>
                                                     <TextBlock Text=" ✓" Foreground="{DynamicResource Skin.Accent}"
                                                                Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVis}}"/>
                                                 </StackPanel>
@@ -795,12 +798,11 @@
                                             BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,8,8" Width="164">
                                         <StackPanel>
                                             <TextBlock Text="와플장인" FontSize="14" FontWeight="SemiBold" Foreground="{Binding Fill}"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="10.5"
-                                                           Foreground="{DynamicResource Skin.MutedFg}"/>
-                                                <TextBlock Text="{Binding Kind}" FontFamily="Segoe UI" FontSize="10.5" Margin="6,0,0,0"
-                                                           Foreground="{DynamicResource Skin.Accent}"/>
-                                            </StackPanel>
+                                            <!-- 효과 이름은 뺐다. 스킨은 보고 고르는 것이고, 이름표는 같은 정보를
+                                                 두 번 말하면서 카드를 좁게 만든다. 계열(후원자/랭커)만 남긴다 —
+                                                 그건 색만 봐서는 알 수 없는 정보다. -->
+                                            <TextBlock Text="{Binding Kind}" FontFamily="Segoe UI" FontSize="10.5" Margin="0,2,0,0"
+                                                       Foreground="{DynamicResource Skin.Accent}"/>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -878,7 +880,7 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="닉네임 효과 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="닉네임 스킨 표시" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="'색상만'은 움직임 없이 색만 남깁니다. 저사양 모드에서는 설정과 무관하게 꺼집니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding NameFxModes}"
@@ -889,7 +891,7 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="적용 대상" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="같은 전투에 있는 다른 사람의 연출도 그 사람이 고른 대로 보입니다. 내 행만 보고 싶으면 '내 캐릭터만'을 고르세요." Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
+                                <TextBlock Text="같은 전투에 있는 다른 사람의 스킨도 그 사람이 고른 대로 보입니다. 내 행만 보고 싶으면 '내 캐릭터만'을 고르세요." Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
                             </StackPanel>
                             <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding NameFxScopes}"
                                       ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding NameFxScope}"/>
@@ -922,7 +924,7 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="{Binding NameFxBrightnessPercent, StringFormat='색상 밝기 — {0}%'}" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="어두운 스킨에서 연출이 튀면 낮춰 주세요. 게이지 스킨의 밝기도 함께 바뀝니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="어두운 테마에서 스킨이 튀면 낮춰 주세요. 게이지 스킨의 밝기도 함께 바뀝니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <!-- 커밋은 드래그가 끝날 때 한 번. 틱마다 하면 브러시 스톱을 전부 다시 계산하면서
                                  settings.properties 를 통째로 재기록한다. -->

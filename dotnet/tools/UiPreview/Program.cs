@@ -904,8 +904,18 @@ internal static class Program
         // 내 연출 고르기. 선택지는 **서버가 명단의 k 로 내려보낸 자격**에서만 나온다 — 미터에
         // "누가 무슨 자격인가" 규칙을 두면 서버와 두 벌이 되고, 갈리는 순간 사용자는 고를 수 있는데
         // 저장이 거부되는 상태를 만난다.
-        Check("자격이 없으면 선택 UI 가 아예 숨는다",
-            vm.MyEffectChoices.Count == 0 && vm.MyFxVisibility == Visibility.Collapsed);
+        // 자격이 없어도 섹션은 남긴다 — 무엇이 있는지 보이지 않으면 "받으면 뭐가 생기는지" 를 알 수
+        // 없다. 대신 고를 수 없게 하고, 왜 못 고르는지를 상태줄이 말한다.
+        vm.RefreshMyNameFx();
+        Check("자격이 없으면 고를 수 없다(숨지는 않는다)",
+            vm.MyEffectChoices.Count == 0 && !vm.MyFxEnabled && vm.MyFxOpacity < 1.0);
+        Check($"왜 못 고르는지 말해 준다 ({vm.MyFxStatus})", vm.MyFxStatus.Length > 0);
+
+        // 고를 수 없는 상태에서 보내면 로컬에서 막는다. 서버까지 보내 401/403 을 받아 오는 건
+        // 사용자에게 아무 도움이 안 되고, 이 하네스에는 네트워크가 없어 그대로 두면 예외가 난다.
+        string refusal = vm.SubmitMyNameFx("syrup", null);
+        Check($"자격 없이 보내면 로컬에서 막는다 ({refusal})",
+            refusal.Contains("자격", StringComparison.Ordinal) || refusal.Contains("인식", StringComparison.Ordinal));
 
         Check("후원자는 후원자 계열 4종만 고른다",
             NameFxPalette.ChoicesFor("supporter").Count == 4
