@@ -17,6 +17,13 @@ namespace WaffleMeter.App.Wpf;
 /// sample moves in step with the real thing instead of being a separate approximation.</summary>
 public sealed record NameFxSampleViewModel(string Name, string Kind, System.Windows.Media.Brush Fill);
 
+/// <summary>내가 고를 수 있는 연출 하나. <paramref name="IsCurrent"/> 는 지금 적용된 것.</summary>
+public sealed record NameFxChoiceViewModel(
+    string Id,
+    string Name,
+    System.Windows.Media.Brush Fill,
+    bool IsCurrent);
+
 /// <summary>
 /// One gauge skin, drawn as a MOCK METER ROW rather than a colour swatch.
 /// <para>A bare bar cannot answer the question this preview exists for. A gauge is the background that damage
@@ -639,6 +646,116 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(NameFxDetailEnabled));
             OnPropertyChanged(nameof(NameFxAnimated));
             SyncNameFxPreview();
+        }
+    }
+
+    // ---- 내 연출 고르기 ----
+
+    private IReadOnlyList<NameFxChoiceViewModel> _myEffectChoices = Array.Empty<NameFxChoiceViewModel>();
+
+    /// <summary>내 캐릭터가 고를 수 있는 닉네임 효과. 자격이 없으면 빈 목록이다.</summary>
+    public IReadOnlyList<NameFxChoiceViewModel> MyEffectChoices
+    {
+        get => _myEffectChoices;
+        private set => Set(ref _myEffectChoices, value);
+    }
+
+    private IReadOnlyList<NameFxChoiceViewModel> _myGaugeChoices = Array.Empty<NameFxChoiceViewModel>();
+
+    /// <summary>랭커 자격이 있을 때만 채워진다.</summary>
+    public IReadOnlyList<NameFxChoiceViewModel> MyGaugeChoices
+    {
+        get => _myGaugeChoices;
+        private set => Set(ref _myGaugeChoices, value);
+    }
+
+    private string _myFxStatus = string.Empty;
+
+    public string MyFxStatus { get => _myFxStatus; private set => Set(ref _myFxStatus, value); }
+
+    public Visibility MyFxVisibility => MyEffectChoices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility MyGaugeVisibility => MyGaugeChoices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// 내 캐릭터의 자격을 읽어 선택지를 만든다.
+    /// <para>자격 판정은 서버가 이미 내려 명단의 <c>k</c> 에 실어 보낸다 — 미터는 그 값만 읽는다.
+    /// 여기에 "누가 무슨 자격인가" 규칙을 두면 서버와 두 벌이 되고, 갈리는 순간 사용자는 고를 수 있는데
+    /// 저장이 거부되는 상태를 만난다.</para>
+    /// </summary>
+    public void RefreshMyNameFx()
+    {
+        StatsOwnCharacter own = _services.StatsBuilder.OwnCharacter();
+        string? hash = own.Detected ? StatsIdentity.CharacterIdentityHash(own.Server, own.Nickname) : null;
+        NameFxEntry? grant = hash is null ? null : _services.NameFx.Roster.Find(hash);
+
+        if (grant is null)
+        {
+            MyEffectChoices = Array.Empty<NameFxChoiceViewModel>();
+            MyGaugeChoices = Array.Empty<NameFxChoiceViewModel>();
+            MyFxStatus = own.Detected
+                ? string.Empty
+                : "캐릭터를 인식하면 내 연출을 고를 수 있습니다.";
+            RaiseMyNameFxState();
+            return;
+        }
+
+        bool light = _skin.IsLight;
+        MyEffectChoices = NameFxPalette.ChoicesFor(grant.Kind)
+            .Select(e => new NameFxChoiceViewModel(e.Id, e.Name, NameFxPalette.For(e.Id, light).NameFill,
+                string.Equals(e.Id, grant.EffectId, StringComparison.Ordinal)))
+            .ToArray();
+        MyGaugeChoices = NameFxPalette.GaugeChoicesFor(grant.Kind)
+            .Select(e => new NameFxChoiceViewModel(e.Id, e.Name, NameFxPalette.For(e.Id, light).NameFill,
+                string.Equals(e.Id, grant.GaugeId, StringComparison.Ordinal)))
+            .ToArray();
+        MyFxStatus = grant.Kind switch
+        {
+            "both" => $"{own.Nickname} — 후원자 · 랭커. 아래에서 고르면 다른 사람에게도 그대로 보입니다.",
+            "ranker" => $"{own.Nickname} — 랭커. 아래에서 고르면 다른 사람에게도 그대로 보입니다.",
+            _ => $"{own.Nickname} — 후원자. 아래에서 고르면 다른 사람에게도 그대로 보입니다.",
+        };
+        RaiseMyNameFxState();
+    }
+
+    /// <summary>지금 적용된 닉네임 효과 id. 게이지만 바꿀 때 효과를 같이 보내야 해서 필요하다.</summary>
+    public string? CurrentEffectId => MyEffectChoices.FirstOrDefault(c => c.IsCurrent)?.Id;
+
+    private void RaiseMyNameFxState()
+    {
+        OnPropertyChanged(nameof(MyFxVisibility));
+        OnPropertyChanged(nameof(MyGaugeVisibility));
+    }
+
+    /// <summary>네트워크를 탄다. 호출부가 UI 스레드를 벗어나서 부른다.</summary>
+    public string SubmitMyNameFx(string effectId, string? gaugeId)
+    {
+        StatsOwnCharacter own = _services.StatsBuilder.OwnCharacter();
+        string? hash = own.Detected ? StatsIdentity.CharacterIdentityHash(own.Server, own.Nickname) : null;
+        if (hash is null)
+        {
+            return "캐릭터가 인식되지 않았습니다.";
+        }
+
+        try
+        {
+            NameFxChoiceResponse response = _services.NameFx.SubmitChoice(hash, effectId, gaugeId, _services.Version);
+            return response.Ok ? "적용했습니다." : "서버가 이 선택을 거절했습니다.";
+        }
+        catch (StatsApiException ex)
+        {
+            // 401/403 은 사용자가 고칠 수 있는 게 아니다 — 무슨 상황인지 말해 준다.
+            return ex.StatusCode switch
+            {
+                401 => "설치 서명이 확인되지 않았습니다. 전투를 한 번 업로드한 뒤 다시 시도해 주세요.",
+                403 => "이 PC 에서 그 캐릭터로 전투를 올린 기록이 없어 변경할 수 없습니다.",
+                400 => "지금 자격으로 고를 수 없는 연출입니다. 목록을 새로고침해 주세요.",
+                _ => "지금은 변경할 수 없습니다. 잠시 뒤 다시 시도해 주세요.",
+            };
+        }
+        catch
+        {
+            return "지금은 변경할 수 없습니다. 잠시 뒤 다시 시도해 주세요.";
         }
     }
 

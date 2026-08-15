@@ -152,5 +152,8 @@ public sealed class NameFxArtifactInteropTests : IDisposable
             new(true, artifactId, 1, $"/api/v1/supporters/artifact/{artifactId}.json", gzip.Length, sha);
 
         public StatsBinaryResponse GetNameFxArtifactGzip(string path) => new(200, gzip);
+
+        public NameFxChoiceResponse PostNameFxChoice(NameFxChoiceRequest request, string clientVersion, string? installId = null) =>
+            new(true, "both", request.EffectId, request.GaugeId);
     }
 }

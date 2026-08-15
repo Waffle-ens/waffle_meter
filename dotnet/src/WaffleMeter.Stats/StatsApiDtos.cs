@@ -89,6 +89,24 @@ public sealed record NameFxManifestResponse(
     string Sha256,
     string? GeneratedAt = null);
 
+/// <summary>"이 캐릭터의 연출을 이걸로 바꿔 줘". 서명 필수 — 서버가 <c>character_grants</c> 로 이 설치본이
+/// 그 캐릭터로 전투를 올린 적이 있는지 확인한다.
+/// <para>⚠ <paramref name="IdentityHash"/> 는 반드시 <b>본문</b>에 있다. 정규 서명 문자열의 PATH 는
+/// 쿼리스트링을 포함하지 않으므로, 쿼리로 보내면 서명이 덮지 않는 값이 되어 서명을 재사용해 대상
+/// 캐릭터만 바꿔치기할 수 있다.</para>
+/// <para><paramref name="GaugeId"/> 를 보내지 않으면 서버가 기존 값을 그대로 둔다.</para></summary>
+public sealed record NameFxChoiceRequest(
+    string IdentityHash,
+    string EffectId,
+    string? GaugeId = null);
+
+public sealed record NameFxChoiceResponse(
+    bool Ok,
+    string? Kind = null,
+    string? EffectId = null,
+    string? GaugeId = null,
+    bool Published = false);
+
 /// <summary>Batch tier lookup for party applicants. Hard server caps: 12 hashes, 4,096-byte body, 120/hour.</summary>
 public sealed record TierLookupRequest(
     IReadOnlyList<string> IdentityHashes,

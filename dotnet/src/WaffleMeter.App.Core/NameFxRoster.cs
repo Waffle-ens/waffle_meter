@@ -15,7 +15,13 @@ public sealed class NameFxEntry
     [JsonPropertyName("e")]
     public string EffectId { get; set; } = string.Empty;
 
-    /// <summary>supporter | ranker. Kept so a grant can be audited; the effect id already implies the family.</summary>
+    /// <summary>
+    /// What this character is ENTITLED to choose from: <c>supporter</c> | <c>ranker</c> | <c>both</c>.
+    /// <para>Not a classification of the current effect — that is <see cref="EffectId"/>. This drives the
+    /// picker, so the meter never has to decide who is entitled to what; the server already did.</para>
+    /// <para><c>both</c> exists because a supporter can also be a ranker, and then the choices are the union
+    /// of the two families.</para>
+    /// </summary>
     [JsonPropertyName("k")]
     public string Kind { get; set; } = string.Empty;
 
@@ -67,6 +73,34 @@ public sealed class NameFxRoster
         }
 
         return e.ExpiresAtMs > 0 && nowMs > 0 && e.ExpiresAtMs <= nowMs ? null : e;
+    }
+
+    /// <summary>
+    /// A copy with one character's chosen effect replaced.
+    /// <para>Used only to reflect the user's OWN pick immediately — the server publishes on its own schedule
+    /// and the next fetch replaces this wholesale. Returns the same roster when the hash is not granted, so a
+    /// stale local patch cannot invent a grant that the server never made.</para>
+    /// </summary>
+    public NameFxRoster With(string identityHash, string effectId, string? gaugeId)
+    {
+        if (!_byHash.TryGetValue(identityHash, out NameFxEntry? existing))
+        {
+            return this;
+        }
+
+        var copy = new Dictionary<string, NameFxEntry>(_byHash, StringComparer.OrdinalIgnoreCase)
+        {
+            [identityHash] = new()
+            {
+                Hash = existing.Hash,
+                EffectId = effectId,
+                Kind = existing.Kind,
+                ExpiresAtMs = existing.ExpiresAtMs,
+                GaugeId = gaugeId,
+            },
+        };
+
+        return new NameFxRoster(copy);
     }
 
     /// <summary>Path of the roster document. Public so the settings window can open the folder.</summary>

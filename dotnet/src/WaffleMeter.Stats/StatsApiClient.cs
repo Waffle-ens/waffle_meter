@@ -33,6 +33,8 @@ public interface INameFxApi
     NameFxManifestResponse GetNameFxManifest();
 
     StatsBinaryResponse GetNameFxArtifactGzip(string path);
+
+    NameFxChoiceResponse PostNameFxChoice(NameFxChoiceRequest request, string clientVersion, string? installId = null);
 }
 
 /// <summary>Thrown on a non-OK stats response. Carries the HTTP status + raw body so callers can branch
@@ -79,6 +81,7 @@ public sealed class StatsApiClient : ITierApi, INameFxApi
     private const string TierManifestEndpoint = BaseUrl + "/api/v1/tiers/manifest";
     private const string TierLookupEndpoint = BaseUrl + "/api/v1/tiers/lookup";
     private const string NameFxManifestEndpoint = BaseUrl + "/api/v1/supporters/manifest";
+    private const string NameFxChoiceEndpoint = BaseUrl + "/api/v1/supporters/effect";
     private const int ConnectTimeoutMs = 8_000;
     private const int ReadTimeoutMs = 15_000;
 
@@ -298,6 +301,21 @@ public sealed class StatsApiClient : ITierApi, INameFxApi
     /// <see cref="GetTierArtifactGzip"/>: the digest covers the compressed bytes, so nothing may inflate them
     /// in transit.</summary>
     public StatsBinaryResponse GetNameFxArtifactGzip(string path) => GetTierArtifactGzip(path);
+
+    /// <summary>
+    /// Set the effect this character wears. SIGNED — the server forces signature mode "on" here, so an unsigned
+    /// request is 401 rather than silently degraded, and it then checks <c>character_grants</c> to confirm this
+    /// install has actually uploaded a battle as that character (403 otherwise).
+    /// <para>The identity hash rides in the BODY, not the query: the canonical signature string covers the path
+    /// without its query string, so a query parameter is not signed and the target could be swapped.</para>
+    /// </summary>
+    public NameFxChoiceResponse PostNameFxChoice(NameFxChoiceRequest request, string clientVersion, string? installId = null)
+    {
+        string body = StatsJson.Serialize(request);
+        StatsHttpResponse response = Request(
+            "POST", NameFxChoiceEndpoint, body, clientVersion, installId ?? _installIdProvider(), null, signed: true);
+        return StatsJson.Deserialize<NameFxChoiceResponse>(response.Body);
+    }
 
     /// <summary>
     /// Batch tier lookup for party applicants. SIGNED — the server forces signature mode "on" for this route

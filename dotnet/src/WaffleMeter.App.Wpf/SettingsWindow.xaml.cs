@@ -30,6 +30,9 @@ public partial class SettingsWindow : Window
         _statusTimer.Start();
         _viewModel.RefreshTierStatus(); // fill the line before the first tick so it never opens blank
         _viewModel.RefreshNameFxStatus();
+        // 자격은 명단이 바뀌거나 캐릭터가 바뀌면 달라진다. 창을 열 때 한 번 읽고, 그 뒤엔 선택
+        // 직후에만 다시 읽는다 — 2.5초 폴링에 얹으면 고르는 도중에 목록이 갈릴 수 있다.
+        _viewModel.RefreshMyNameFx();
         Closed += (_, _) => { _statusTimer.Stop(); _viewModel.DisposeBuffPicker(); _viewModel.StopNameFxPreview(); };
 
         VerifyNavContract();
@@ -366,6 +369,37 @@ public partial class SettingsWindow : Window
     /// <summary>후원자 목록 갱신. Nudges the worker and re-reads the status line — the click never blocks the
     /// UI thread on an HTTP timeout. Unlike 티어 갱신 above, a swallowed click says so — a button that looks
     /// dead is the thing someone reports, and this one is pressed right after donating.</summary>
+    private void OnPickMyNameFx(object sender, RoutedEventArgs e) => PickMyNameFx(sender, gauge: false);
+
+    private void OnPickMyGauge(object sender, RoutedEventArgs e) => PickMyNameFx(sender, gauge: true);
+
+    /// <summary>
+    /// 내 연출을 서버에 반영한다.
+    /// <para>네트워크 호출이라 UI 스레드에서 부르지 않는다 — 8초 연결 + 15초 읽기 타임아웃이라
+    /// 그대로 부르면 설정창이 최대 23초 얼어붙는다.</para>
+    /// </summary>
+    private void PickMyNameFx(object sender, bool gauge)
+    {
+        if (((FrameworkElement)sender).Tag is not string id)
+        {
+            return;
+        }
+
+        _viewModel.SetNameFxNotice("적용하는 중…", holdMs: 30_000);
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            string message = gauge
+                ? _viewModel.SubmitMyNameFx(_viewModel.CurrentEffectId ?? id, id)
+                : _viewModel.SubmitMyNameFx(id, null);
+
+            Dispatcher.BeginInvoke(() =>
+            {
+                _viewModel.SetNameFxNotice(message);
+                _viewModel.RefreshMyNameFx();
+            });
+        });
+    }
+
     private void OnRefreshNameFx(object sender, RoutedEventArgs e)
     {
         if (!_viewModel.RequestNameFxRefresh())

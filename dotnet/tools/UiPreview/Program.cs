@@ -901,6 +901,31 @@ internal static class Program
         Check("공지는 2.5초 폴링에 지워지지 않는다", vm.NameFxStatus == "테스트 공지");
         Check("쿨다운 안의 재요청은 거절된다", !vm.RequestNameFxRefresh());
 
+        // 내 연출 고르기. 선택지는 **서버가 명단의 k 로 내려보낸 자격**에서만 나온다 — 미터에
+        // "누가 무슨 자격인가" 규칙을 두면 서버와 두 벌이 되고, 갈리는 순간 사용자는 고를 수 있는데
+        // 저장이 거부되는 상태를 만난다.
+        Check("자격이 없으면 선택 UI 가 아예 숨는다",
+            vm.MyEffectChoices.Count == 0 && vm.MyFxVisibility == Visibility.Collapsed);
+
+        Check("후원자는 후원자 계열 4종만 고른다",
+            NameFxPalette.ChoicesFor("supporter").Count == 4
+            && NameFxPalette.ChoicesFor("supporter").All(e => e.Kind == NameFxPalette.NameFxKind.Supporter));
+        Check("랭커는 랭커 계열 5종만 고른다",
+            NameFxPalette.ChoicesFor("ranker").Count == 5
+            && NameFxPalette.ChoicesFor("ranker").All(e => e.Kind == NameFxPalette.NameFxKind.Ranker));
+        Check("'둘 다'는 아홉 개 전부 고른다", NameFxPalette.ChoicesFor("both").Count == 9);
+        Check("모르는 자격은 아무것도 못 고른다", NameFxPalette.ChoicesFor("nope").Count == 0);
+
+        // 게이지는 랭커 자격이 있을 때만. 후원자에게 보이면 골라도 서버가 거절한다.
+        Check("게이지는 랭커·둘 다에게만 보인다",
+            NameFxPalette.GaugeChoicesFor("supporter").Count == 0
+            && NameFxPalette.GaugeChoicesFor("ranker").Count == 3
+            && NameFxPalette.GaugeChoicesFor("both").Count == 3);
+
+        // 선택 목록에 게이지 id 가 섞이면 닉네임 자리에서 바 크기 그라디언트가 이름을 가로지른다.
+        Check("닉네임 선택지에 게이지가 섞이지 않는다",
+            NameFxPalette.ChoicesFor("both").All(e => !e.IsGauge));
+
         // Cancel 취소 계약. 여기 있는 setter 는 전부 즉시 파일에 쓰므로, Snapshot 에서 빠진 토글은
         // "저장 안 됨"이 아니라 "저장됐고 되돌릴 수 없음"이 된다.
         settings.TierShow = true; settings.TierEffects = "static"; settings.TierShowOthers = true;

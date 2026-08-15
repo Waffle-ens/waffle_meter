@@ -729,6 +729,59 @@
                                    Text="후원자 연출은 후원하신 뒤 디스코드 Waffle 에게 캐릭터명과 서버를 DM 으로 보내 주시면 달아 드립니다. 랭커 연출은 던전 하나라도 티어가 마스터 이상이면 자동으로 붙습니다."/>
                         <Button Content="디스코드 열기" HorizontalAlignment="Left" Margin="0,0,0,12" Click="OnOpenDiscord"/>
 
+                        <!-- 내 연출 고르기. 자격이 없으면 통째로 숨는다 — 고를 수 없는 목록을 보여 주면
+                             "왜 안 되지"가 되고, 자격 판정은 서버가 이미 명단의 k 로 내려보냈다. -->
+                        <Border Visibility="{Binding MyFxVisibility}" Margin="0,4,0,12"
+                                Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="10,8">
+                            <StackPanel>
+                                <TextBlock Text="내 연출 고르기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="{Binding MyFxStatus}" Style="{StaticResource SettingDesc}"
+                                           TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                                <ItemsControl ItemsSource="{Binding MyEffectChoices}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Tag="{Binding Id}" Click="OnPickMyNameFx" Margin="0,0,6,6"
+                                                    Padding="10,5" Cursor="Hand">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                               Foreground="{Binding Fill}"/>
+                                                    <TextBlock Text=" ✓" Foreground="{DynamicResource Skin.Accent}"
+                                                               Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVis}}"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock Text="DPS 게이지 스킨 (랭커)" Style="{StaticResource SettingDesc}"
+                                           Margin="0,6,0,4" Visibility="{Binding MyGaugeVisibility}"/>
+                                <ItemsControl ItemsSource="{Binding MyGaugeChoices}" Visibility="{Binding MyGaugeVisibility}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Tag="{Binding Id}" Click="OnPickMyGauge" Margin="0,0,6,6"
+                                                    Padding="10,5" Cursor="Hand">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                               Foreground="{Binding Fill}"/>
+                                                    <TextBlock Text=" ✓" Foreground="{DynamicResource Skin.Accent}"
+                                                               Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVis}}"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+
                         <!-- 미리보기: 부여는 서버가 하므로, 이게 없으면 사용자는 이 설정이 무엇을 바꾸는지 볼
                              방법이 없다. 애니메이션 샘플은 미터 행과 '같은 브러시 인스턴스'를 쓰므로 별도
                              근사가 아니라 실물과 정확히 같이 움직인다. -->

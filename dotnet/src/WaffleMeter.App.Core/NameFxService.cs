@@ -114,6 +114,27 @@ public sealed class NameFxService : IDisposable
     public NameFxServiceStatus Status() =>
         new(_artifactId != null, _artifactId, _fetchedAtMs, _roster.Count, _failures, _lastError, _usingLocalFile);
 
+    /// <summary>
+    /// Send this character's chosen effect to the server, and apply it locally at once.
+    /// <para>The local apply is not optimism for its own sake: the artifact only reaches other people on the
+    /// next publish, and without it the person who just picked would watch nothing happen on their own row.
+    /// The server is still the authority — the next fetch overwrites whatever is patched here, which is what
+    /// makes a rejected choice self-correct.</para>
+    /// <para>⚠ Blocking network call. The settings window must not call this on the UI thread.</para>
+    /// </summary>
+    public NameFxChoiceResponse SubmitChoice(string identityHash, string effectId, string? gaugeId, string clientVersion)
+    {
+        NameFxChoiceResponse response = _api.PostNameFxChoice(
+            new NameFxChoiceRequest(identityHash, effectId, gaugeId), clientVersion);
+
+        if (response.Ok)
+        {
+            Publish(_roster.With(identityHash, response.EffectId ?? effectId, response.GaugeId));
+        }
+
+        return response;
+    }
+
     /// <summary>Settings' 후원자 목록 갱신 button. Rate-limited; returns false when the cooldown blocks it.</summary>
     public bool RequestManualRefresh()
     {

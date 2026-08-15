@@ -242,6 +242,68 @@ public sealed class NameFxServiceTests : IDisposable
         Assert.Null(service.Roster.Find("BBBB")!.GaugeId);
     }
 
+    [Fact]
+    public void Choosing_an_effect_shows_up_on_my_own_row_at_once()
+    {
+        // 서버는 다음 발행에서야 명단을 바꾼다. 그때까지 아무 일도 안 일어나면, 고른 사람은 자기
+        // 화면에서 변화를 못 본다. 그래서 응답이 성공이면 로컬 명단을 그 자리에서 갈아 끼운다.
+        byte[] gzip = GzipRoster("""{"schemaVersion":1,"entries":[{"h":"AAAA","e":"syrup","k":"both"}]}""");
+        var api = FakeApi(gzip, Sha256Hex(gzip), "cafe0123");
+        var props = new PropertyHandler(_dir);
+
+        using var service = new NameFxService(api, props, KnownEffect, KnownGauge, startWorker: false);
+        service.TryRefresh();
+        Assert.Equal("syrup", service.Roster.Find("AAAA")!.EffectId);
+
+        NameFxChoiceResponse response = service.SubmitChoice("AAAA", "goldleaf", null, "test");
+
+        Assert.True(response.Ok);
+        Assert.Equal("goldleaf", service.Roster.Find("AAAA")!.EffectId);
+        Assert.Equal("AAAA", api.LastChoice!.IdentityHash);
+    }
+
+    [Fact]
+    public void A_local_patch_cannot_invent_a_grant_the_server_never_made()
+    {
+        // 명단에 없는 해시를 로컬에서 끼워 넣을 수 있으면, 자격 없는 사람이 자기 화면에서만
+        // 연출을 켜고 "되는데 남에게는 안 보인다"고 신고하게 된다. 부여가 없으면 그대로 둔다.
+        byte[] gzip = GzipRoster("""{"schemaVersion":1,"entries":[{"h":"AAAA","e":"syrup","k":"supporter"}]}""");
+        var props = new PropertyHandler(_dir);
+
+        using var service = new NameFxService(FakeApi(gzip, Sha256Hex(gzip), "cafe0123"), props, KnownEffect, KnownGauge, startWorker: false);
+        service.TryRefresh();
+
+        service.SubmitChoice("BBBB", "goldleaf", null, "test");
+
+        Assert.Null(service.Roster.Find("BBBB"));
+        Assert.Equal(1, service.Roster.Count);
+    }
+
+    [Fact]
+    public void A_refused_choice_leaves_the_roster_alone()
+    {
+        byte[] gzip = GzipRoster("""{"schemaVersion":1,"entries":[{"h":"AAAA","e":"syrup","k":"supporter"}]}""");
+        var props = new PropertyHandler(_dir);
+        var api = new RefusingApi(gzip, Sha256Hex(gzip), "cafe0123");
+
+        using var service = new NameFxService(api, props, KnownEffect, KnownGauge, startWorker: false);
+        service.TryRefresh();
+
+        Assert.False(service.SubmitChoice("AAAA", "goldleaf", null, "test").Ok);
+        Assert.Equal("syrup", service.Roster.Find("AAAA")!.EffectId);
+    }
+
+    private sealed class RefusingApi(byte[] gzip, string sha, string artifactId) : INameFxApi
+    {
+        public NameFxManifestResponse GetNameFxManifest() =>
+            new(true, artifactId, 1, $"/api/v1/supporters/artifact/{artifactId}.json", gzip.Length, sha);
+
+        public StatsBinaryResponse GetNameFxArtifactGzip(string path) => new(200, gzip);
+
+        public NameFxChoiceResponse PostNameFxChoice(NameFxChoiceRequest request, string clientVersion, string? installId = null) =>
+            new(false);
+    }
+
     private static byte[] GzipRoster(string json)
     {
         using var output = new MemoryStream();
@@ -269,6 +331,14 @@ public sealed class NameFxServiceTests : IDisposable
             onDownload?.Invoke();
             return new StatsBinaryResponse(200, gzip);
         }
+
+        public NameFxChoiceRequest? LastChoice { get; private set; }
+
+        public NameFxChoiceResponse PostNameFxChoice(NameFxChoiceRequest request, string clientVersion, string? installId = null)
+        {
+            LastChoice = request;
+            return new NameFxChoiceResponse(true, "both", request.EffectId, request.GaugeId);
+        }
     }
 
     private sealed class ThrowingApi : INameFxApi
@@ -285,6 +355,12 @@ public sealed class NameFxServiceTests : IDisposable
         {
             Calls++;
             throw new StatsApiException("namefx_artifact_http_503", 503, null);
+        }
+
+        public NameFxChoiceResponse PostNameFxChoice(NameFxChoiceRequest request, string clientVersion, string? installId = null)
+        {
+            Calls++;
+            throw new StatsApiException("namefx_choice_http_503", 503, null);
         }
     }
 }

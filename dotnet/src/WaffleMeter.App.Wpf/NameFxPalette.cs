@@ -152,6 +152,24 @@ public static class NameFxPalette
     /// <summary>Accepts GAUGE skin ids only.</summary>
     public static bool IsKnownGauge(string? id) => Find(id) is { IsGauge: true };
 
+    /// <summary>
+    /// The nickname effects an entitlement may choose from.
+    /// <para><paramref name="kind"/> is the roster entry's <c>k</c> — the server's word on what this character
+    /// is entitled to, not a guess made here. <c>both</c> is the union: a supporter who is also a ranker picks
+    /// from everything.</para>
+    /// </summary>
+    public static IReadOnlyList<Effect> ChoicesFor(string? kind) => kind switch
+    {
+        "supporter" => NameEffects.Where(e => e.Kind == NameFxKind.Supporter).ToArray(),
+        "ranker" => NameEffects.Where(e => e.Kind == NameFxKind.Ranker).ToArray(),
+        "both" => NameEffects,
+        _ => Array.Empty<Effect>(),
+    };
+
+    /// <summary>Gauge skins need the ranker entitlement.</summary>
+    public static IReadOnlyList<Effect> GaugeChoicesFor(string? kind) =>
+        kind is "ranker" or "both" ? GaugeSkins : Array.Empty<Effect>();
+
     /// <summary>A gauge skin's fill, or null when the id is not a gauge skin this build knows. Ranker-only —
     /// the caller has already checked the grant; this only maps id to paint.</summary>
     public static Brush? GaugeBrush(string? id, bool isLight)
