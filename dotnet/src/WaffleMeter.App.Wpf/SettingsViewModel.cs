@@ -724,6 +724,27 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         RaiseMyNameFxState();
     }
 
+    /// <summary>응답 본문의 <c>error</c> 코드. 못 읽으면 빈 문자열 — 그 경우 상태 코드만으로 판단한다.</summary>
+    public static string ErrorCodeOf(string? responseBody)
+    {
+        if (string.IsNullOrWhiteSpace(responseBody))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            using System.Text.Json.JsonDocument doc = System.Text.Json.JsonDocument.Parse(responseBody);
+            return doc.RootElement.TryGetProperty("error", out System.Text.Json.JsonElement e)
+                ? e.GetString() ?? string.Empty
+                : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
     /// <summary>지금 적용된 닉네임 효과 id. 게이지만 바꿀 때 효과를 같이 보내야 해서 필요하다.</summary>
     public string? CurrentEffectId => MyEffectChoices.FirstOrDefault(c => c.IsCurrent)?.Id;
 
@@ -758,12 +779,20 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
         catch (StatsApiException ex)
         {
-            // 401/403 은 사용자가 고칠 수 있는 게 아니다 — 무슨 상황인지 말해 준다.
-            return ex.StatusCode switch
+            // ⚠ 상태 코드만 보면 안 된다. 403 이 두 가지다 — 소유 증명 실패(not_your_character)와
+            // 자격 없음(not_entitled). 서버가 둘을 같은 코드로 주는 건 의도된 것이고(자격 유무 자체가
+            // 정보라 구분해 주면 열거 오라클이 된다), 대신 본문의 error 로 갈린다.
+            //
+            // 이게 닿는 실제 경로: 명단은 최대 한 시간 낡는다. 그 사이 부여가 회수되면 미터는 아직
+            // 선택 버튼을 보여 주고, 누르면 not_entitled 가 온다. 그때 "전투를 올린 기록이 없다" 고
+            // 말하면 사실이 아닌 데다 사용자를 엉뚱한 곳으로 보낸다.
+            string code = ErrorCodeOf(ex.ResponseBody);
+            return (ex.StatusCode, code) switch
             {
-                401 => "설치 서명이 확인되지 않았습니다. 전투를 한 번 업로드한 뒤 다시 시도해 주세요.",
-                403 => "이 PC 에서 그 캐릭터로 전투를 올린 기록이 없어 변경할 수 없습니다.",
-                400 => "지금 자격으로 고를 수 없는 연출입니다. 목록을 새로고침해 주세요.",
+                (401, _) => "설치 서명이 확인되지 않았습니다. 전투를 한 번 업로드한 뒤 다시 시도해 주세요.",
+                (403, "not_your_character") => "이 PC 에서 그 캐릭터로 전투를 올린 기록이 없어 변경할 수 없습니다.",
+                (403, _) => "이 캐릭터에는 지금 스킨 자격이 없습니다. 목록을 새로고침해 주세요.",
+                (400, _) => "지금 자격으로 고를 수 없는 스킨입니다. 목록을 새로고침해 주세요.",
                 _ => "지금은 변경할 수 없습니다. 잠시 뒤 다시 시도해 주세요.",
             };
         }

@@ -913,6 +913,17 @@ internal static class Program
 
         // 고를 수 없는 상태에서 보내면 로컬에서 막는다. 서버까지 보내 401/403 을 받아 오는 건
         // 사용자에게 아무 도움이 안 되고, 이 하네스에는 네트워크가 없어 그대로 두면 예외가 난다.
+        // 서버는 403 을 두 가지로 쓴다 — 소유 증명 실패와 자격 없음. 자격 유무 자체가 정보라
+        // 서버가 일부러 같은 상태 코드로 주고, 본문 error 로만 갈린다. 상태 코드만 보면 회수된
+        // 부여를 "전투를 올린 기록이 없다" 로 잘못 안내한다(명단이 최대 1시간 낡아 실제로 닿는다).
+        Check("본문 error 코드를 읽는다",
+            SettingsViewModel.ErrorCodeOf("""{"ok":false,"error":"not_entitled"}""") == "not_entitled"
+            && SettingsViewModel.ErrorCodeOf("""{"ok":false,"error":"not_your_character"}""") == "not_your_character");
+        Check("본문이 없거나 깨져도 안 터진다",
+            SettingsViewModel.ErrorCodeOf(null) == string.Empty
+            && SettingsViewModel.ErrorCodeOf("not json") == string.Empty
+            && SettingsViewModel.ErrorCodeOf("{}") == string.Empty);
+
         string refusal = vm.SubmitMyNameFx("syrup", null);
         Check($"자격 없이 보내면 로컬에서 막는다 ({refusal})",
             refusal.Contains("자격", StringComparison.Ordinal) || refusal.Contains("인식", StringComparison.Ordinal));
