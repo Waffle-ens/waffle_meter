@@ -79,6 +79,10 @@ public partial class App : Application
     private AlarmController? _alarms;
     private volatile bool _combatActive; // recent damage activity — gates the "mute field-boss alarm in combat" option
     private BuffOverlayPanel? _buffOverlay;
+    /// <summary>사용자가 정한 버프 오버레이 위치("집"). 이 창만 SizeToContent 라 폭이 스스로 자라는데,
+    /// 클램프로 밀린 좌표를 저장해 버리면 세션 내내 왼쪽으로 밀려나기만 한다. 저장값은 여기 두고 실제
+    /// 위치는 매번 여기서 다시 계산한다 — 넓어지면 화면 안으로 끌려오고, 다시 좁아지면 제자리로 돌아온다.</summary>
+    private Point? _buffOverlayHome;
     private BuffOverlayViewModel? _buffOverlayVm;
     private BuffPresetManager? _buffPresets;
     private System.Windows.Threading.DispatcherTimer? _buffTimer;
@@ -790,7 +794,13 @@ public partial class App : Application
         _buffOverlayVm = new BuffOverlayViewModel();
         _buffOverlay = new BuffOverlayPanel(_buffOverlayVm);
         LoadPanelPosition(services.Props, _buffOverlay, "buffOverlayX", "buffOverlayY");
+        _buffOverlayHome = new Point(_buffOverlay.Left, _buffOverlay.Top);
         ClampWhenLoaded(_buffOverlay);
+        // 다른 창들은 폭이 고정이라 위치만 지키면 됐지만, 이 창은 버프가 붙을 때마다 넓어진다. 오른쪽 끝에
+        // 세워둔 사용자는 시작 시점(슬롯 0개, 폭 ~64px)의 클램프를 통과하고도 첫 전투에서 창이 거의 통째로
+        // 화면 밖으로 나가 버린다 — 그러면 몸통이 화면 밖이라 드래그로 되돌릴 수조차 없다.
+        _buffOverlay.SizeChanged += (_, _) => ReflowBuffOverlay();
+        _buffOverlay.DpiChanged += (_, _) => ReflowBuffOverlay(); // 모니터 배율이 바뀌면 폭 상한도 달라진다
         _buffOverlay.Show();
         _buffOverlay.Park();
         _controller?.RegisterOverlay(_buffOverlay);
@@ -800,8 +810,12 @@ public partial class App : Application
         _buffOverlay.CloseRequested += () => { _settings.ShowBuffUi = false; };
         _buffOverlay.PositionChanged += (left, top) =>
         {
+            // 드래그로 새로 정한 자리가 곧 새 "집". 저장은 클램프 전 좌표 그대로 둔다 — 표시 위치는 언제나
+            // 집에서 다시 계산되므로, 화면 밖에 놓인 집은 "가능한 한 그 방향 끝"이라는 뜻이 되어 무해하다.
+            _buffOverlayHome = new Point(left, top);
             services.Props.SetProperty("buffOverlayX", left.ToString("0", CultureInfo.InvariantCulture));
             services.Props.SetProperty("buffOverlayY", top.ToString("0", CultureInfo.InvariantCulture));
+            ReflowBuffOverlay(); // 화면 밖에 떨어뜨렸으면 바로 끌어온다
         };
         MeterServices svc = services;
         _buffTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
@@ -1759,6 +1773,41 @@ public partial class App : Application
                 ScreenClamp.Apply(w, allow);
             }
         }
+
+        ReflowBuffOverlay(); // 버프 오버레이는 폭 상한까지 다시 잡아야 해서 자기 경로로 간다
+    }
+
+    /// <summary>버프 오버레이의 폭 상한과 실제 위치를 "집"(사용자가 정한 좌표)에서 다시 계산한다. 이 창만
+    /// SizeToContent 라 슬롯 수 × 아이콘 배율만큼 폭이 스스로 자라므로 두 가지가 필요하다.
+    /// ① 폭 상한 — 없으면 WPF 가 작업영역 폭에서 측정을 잘라 넘친 슬롯을 줄바꿈도 스크롤도 없이 버린다
+    /// (ItemsPanel 의 WrapPanel 도 상한이 있어야 줄을 바꾼다).
+    /// ② 화면 안 복귀 — 넓어졌을 땐 끌어오고 다시 좁아졌을 땐 집으로 되돌린다.
+    /// 두 계산 모두 기준 모니터를 <b>집 좌표</b>에서 고른다. 창 사각형으로 고르면 (a) 폭이 자라 두 모니터에
+    /// 걸치는 순간 "많이 겹친 쪽"인 이웃 모니터가 뽑혀 창이 게임 화면 밖으로 밀려나고, (b) 폭 → 모니터 →
+    /// 상한 → 폭 되먹임이 닫혀 작업영역이 다른 듀얼에서 진동한다.
+    /// 클램프된 좌표를 집으로 저장하지 않는 것도 요점 — 저장하면 창이 커질 때마다 집이 왼쪽으로 옮겨가
+    /// 사용자가 정한 자리가 세션 안에서 조금씩 사라진다.</summary>
+    private void ReflowBuffOverlay()
+    {
+        // 드래그 중에는 손대지 않는다 — 오버레이는 0.5초마다 갱신되니 옮기는 도중 버프 하나가 끝나 창이
+        // 줄어들 수 있고, 그때 집으로 되돌리면 잡고 있던 창이 커서 밑에서 빠져나간다. 드래그가 끝나면
+        // PositionChanged 가 새 집을 알려주며 곧바로 다시 맞춘다.
+        if (_buffOverlay is null || _buffOverlayHome is null || _buffOverlay.IsDragging)
+        {
+            return;
+        }
+
+        Point home = _buffOverlayHome.Value;
+        // 작업영역보다 살짝 좁게 — WPF 자체 측정 캡이 작업영역 폭 + 20px 근처라 그 아래에 머물러야 한다.
+        double max = Math.Max(120, ScreenClamp.WorkAreaWidth(_buffOverlay, home) - 16);
+        if (Math.Abs(_buffOverlay.MaxWidth - max) > 0.5)
+        {
+            _buffOverlay.MaxWidth = max;
+        }
+
+        _buffOverlay.Left = home.X;
+        _buffOverlay.Top = home.Y;
+        ScreenClamp.Apply(_buffOverlay, _settings?.MultiMonitorMode ?? false, home);
     }
 
     /// <summary>

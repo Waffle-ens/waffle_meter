@@ -21,20 +21,29 @@
         </TextBlock>
         <ItemsControl ItemsSource="{Binding Slots}">
             <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                <!-- WrapPanel 은 창의 MaxWidth 가 있어야만 줄을 바꾼다(BuffOverlayPanel.FitMaxWidthToScreen 이
+                     매긴다). 상한이 없으면 SizeToContent 가 무한 폭으로 측정해 절대 줄바꿈하지 않고, 그러면
+                     WPF 가 작업영역 폭에서 측정을 잘라 넘친 슬롯을 줄바꿈도 스크롤도 없이 버린다 — 로그에
+                     흔적이 안 남는 무음 소실이다. MaxWidth 와 WrapPanel 은 반드시 짝으로 간다. -->
+                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <StackPanel Margin="3,0" ToolTip="{Binding Name}">
+                    <StackPanel ToolTip="{Binding Name}">
                         <StackPanel.LayoutTransform>
                             <!-- Uniform icon-size scale (from the 버프 알림 size setting), applied to the whole slot. -->
                             <ScaleTransform ScaleX="{Binding DataContext.IconScale, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             ScaleY="{Binding DataContext.IconScale, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
                         </StackPanel.LayoutTransform>
-                        <Grid Width="46" Height="46" HorizontalAlignment="Center">
+                        <!-- 슬롯 간격은 여기(LayoutTransform 안쪽)에 둔다. StackPanel 의 Margin 은 변환 바깥이라
+                             배율을 따라가지 않아, 200%에서 아이콘만 커지고 간격은 그대로라 붙어 보였다. -->
+                        <Grid Width="46" Height="46" Margin="3,0" HorizontalAlignment="Center">
                             <!-- Circular skill icon, clipped so the cooldown ring frames it cleanly (no overlap).
-                                 Dimmed (IconOpacity) while the granting skill is on cooldown. -->
+                                 Dimmed (IconOpacity) while the granting skill is on cooldown.
+                                 원본 에셋이 48x48 이라 200%(80 DIP, 150% DPI면 120px)에서는 확대가 된다 —
+                                 보간을 HighQuality(Fant)로 지정한다. 다른 오버레이 아이콘들도 모두 이 설정이다. -->
                             <Image Source="{Binding IconSource}" Width="40" Height="40" Opacity="{Binding IconOpacity}"
+                                   RenderOptions.BitmapScalingMode="HighQuality"
                                    HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Image.Clip><EllipseGeometry Center="20,20" RadiusX="20" RadiusY="20"/></Image.Clip>
                             </Image>
@@ -54,10 +63,13 @@
                             <Ellipse Width="9" Height="9" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
                                      Fill="{DynamicResource Skin.Accent}" Visibility="{Binding ByOther, Converter={StaticResource BoolToVis}}"/>
                         </Grid>
+                        <!-- 아래쪽 2px = WrapPanel 이 줄을 바꿨을 때 윗줄 글씨와 아랫줄 아이콘 사이의 간격.
+                             슬롯의 마지막 자식이라 배율을 따라간다 — 바깥 StackPanel 에 주면 LayoutTransform
+                             밖이라 200%에서도 2px 그대로다. -->
                         <TextBlock Text="{Binding RemainingText}"
                                    Foreground="{Binding DataContext.TextBrush, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                    FontSize="12" FontWeight="Bold"
-                                   HorizontalAlignment="Center" Margin="0,1,0,0">
+                                   HorizontalAlignment="Center" Margin="0,1,0,2">
                             <TextBlock.Effect><DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="0" Opacity="0.95"/></TextBlock.Effect>
                         </TextBlock>
                     </StackPanel>

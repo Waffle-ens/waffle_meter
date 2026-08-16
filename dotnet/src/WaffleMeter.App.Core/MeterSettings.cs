@@ -432,8 +432,16 @@ public sealed class MeterSettings : INotifyPropertyChanged
     public bool ShowBuffUi { get => _showBuffUi; set => SetBool(ref _showBuffUi, "buffUi.show", value); }
 
     private int _buffUiIconSize;
-    /// <summary>Buff overlay icon size in px (34 = small, 40 = large). Drives a uniform scale of the whole slot.</summary>
-    public int BuffUiIconSize { get => _buffUiIconSize; set => SetInt(ref _buffUiIconSize, "buffUi.iconSize", value); }
+    /// <summary>Buff overlay icon size in px; drives a uniform scale of the whole slot. 40px = 100%(설계 기준),
+    /// 설정의 배율 슬라이더 80~200% = 32~80px. 저장 단위는 px 로 고정한다 — 이 키는 디자인 공유코드
+    /// (SettingsKeyCatalog)와 프리셋 blob(BuffPreset.IconSize)에 실려 구/신 빌드를 오가므로, 퍼센트로 바꾸면
+    /// 구버전이 200을 200px 로, 신버전이 34를 34% 로 읽는 양방향 무음 오독이 된다. 퍼센트는 설정 뷰모델에만 있다.
+    /// getter 도 클램프하는 이유: 남의 공유코드는 SettingsBundleApplier 가 값 검증 없이 그대로 심는다.</summary>
+    public int BuffUiIconSize
+    {
+        get => Math.Clamp(_buffUiIconSize, 32, 80);
+        set => SetInt(ref _buffUiIconSize, "buffUi.iconSize", Math.Clamp(value, 32, 80));
+    }
 
     private string _buffUiTextColor;
     /// <summary>Buff overlay countdown-text color (hex). White by default; changeable since white can be hard

@@ -11,7 +11,7 @@ public sealed class BuffPresetCodecTests
         Slots =
         [
             new BuffPreset { Name = "레이드", Hidden = "17400058,17300001", Voice = "17400000", IconSize = 34, Transparent = false },
-            new BuffPreset { Name = "딜링", TtsOnStart = true, TtsOnEnd = true, GrayOnCooldown = true, ShowOther = false },
+            new BuffPreset { Name = "딜링", IconSize = 80, TtsOnStart = true, TtsOnEnd = true, GrayOnCooldown = true, ShowOther = false },
             new BuffPreset { Name = "프리셋 3", TextColor = "#00FF88" },
         ],
     };
@@ -30,6 +30,7 @@ public sealed class BuffPresetCodecTests
         Assert.Equal(34, decoded.Slots[0].IconSize);
         Assert.False(decoded.Slots[0].Transparent);
         Assert.Equal("딜링", decoded.Slots[1].Name);
+        Assert.Equal(80, decoded.Slots[1].IconSize); // 배율 상한(200%)이 공유코드를 왕복해도 살아남는지
         Assert.True(decoded.Slots[1].TtsOnStart);
         Assert.True(decoded.Slots[1].GrayOnCooldown);
         Assert.False(decoded.Slots[1].ShowOther);

@@ -190,9 +190,9 @@ internal static class Program
                 }, grayOnCooldown: true);
                 Capture(() => new BuffOverlayPanel(buffVm), palette, Path.Combine(outDir, "buffoverlay_Dark.png"));
 
-                // small icon size (34px = scale 0.85)
+                // 배율 하한 (32px = 80%)
                 var buffSmallVm = new BuffOverlayViewModel();
-                buffSmallVm.SetIconSize(34);
+                buffSmallVm.SetIconSize(32);
                 buffSmallVm.Update(new List<WaffleMeter.Data.OwnerBuffView>
                 {
                     new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false, false),
@@ -200,6 +200,17 @@ internal static class Program
                     new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, false, false),
                 }, grayOnCooldown: false);
                 Capture(() => new BuffOverlayPanel(buffSmallVm), palette, Path.Combine(outDir, "buffoverlay_small_Dark.png"));
+
+                // 배율 상한 (80px = 200%) — 창 폭·간격·아이콘 확대 품질을 눈으로 확인하는 용도
+                var buffLargeVm = new BuffOverlayViewModel();
+                buffLargeVm.SetIconSize(80);
+                buffLargeVm.Update(new List<WaffleMeter.Data.OwnerBuffView>
+                {
+                    new(18290000, "회전격", 12_000, 30_000, 12_000, false, true, false, false),
+                    new(11400000, "축복", 45_000, 60_000, 45_000, true, true, false, false),
+                    new(13050000, "섬광베기", 6_000, 20_000, 6_000, false, true, false, false),
+                }, grayOnCooldown: false);
+                Capture(() => new BuffOverlayPanel(buffLargeVm), palette, Path.Combine(outDir, "buffoverlay_large_Dark.png"));
 
                 // opaque/findable mode (투명 배경 off) — background + border so an empty window is locatable
                 var buffBgVm = new BuffOverlayViewModel { ShowBackground = true };

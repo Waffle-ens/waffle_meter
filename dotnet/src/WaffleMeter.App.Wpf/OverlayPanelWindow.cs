@@ -166,6 +166,11 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
         SyncInputStyle();
     }
 
+    /// <summary>True while a drag started from the panel's drag handle is in flight. Anything that repositions
+    /// the panel on its own schedule has to sit out the drag — moving it mid-drag yanks it out from under the
+    /// cursor (the same reason the topmost re-assert and the input-style sync below skip it).</summary>
+    public bool IsDragging => _dragging;
+
     /// <summary>
     /// Re-claim HWND_TOPMOST when a FOREIGN topmost window (a borderless-fullscreen game re-asserting its own
     /// topmost on alt-tab return / alt-enter / a game-owned popup) has climbed above this panel. Mirrors
@@ -206,6 +211,7 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     {
         if (e.ButtonState == MouseButtonState.Pressed)
         {
+            double startLeft = Left, startTop = Top;
             _dragging = true;
             try
             {
@@ -217,7 +223,13 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
             }
 
             SyncInputStyle(); // re-assert once now the drag has settled
-            PositionChanged?.Invoke(Left, Top);
+            // 실제로 움직였을 때만 알린다. 이동 0인 클릭은 위치를 "새로 정한 것"이 아닌데, 버프 오버레이는
+            // 창 전체가 드래그 핸들이고 폭이 자라 일시적으로 클램프돼 있을 수 있어서 — 그 좌표를 저장해
+            // 버리면 사용자가 정한 자리가 클릭 한 번에 사라진다.
+            if (Math.Abs(Left - startLeft) > 0.5 || Math.Abs(Top - startTop) > 0.5)
+            {
+                PositionChanged?.Invoke(Left, Top);
+            }
         }
     }
 

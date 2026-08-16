@@ -12,7 +12,13 @@ namespace WaffleMeter.App.Wpf;
 /// </summary>
 public static class ScreenClamp
 {
-    public static void Apply(Window window, bool allowMultiMonitor)
+    /// <param name="anchor">Optional point (DIP) that decides WHICH monitor confines the window, instead of
+    /// the window's own rectangle. Needed for a window that grows on its own: once it is wide enough to
+    /// straddle two monitors, <c>Screen.FromHandle</c> picks whichever holds the LARGER slice — the
+    /// neighbour — and the clamp then shoves the window onto that monitor instead of pulling it back onto
+    /// the one the user parked it on. Ignored while multi-monitor movement is on (the union has no such
+    /// ambiguity).</param>
+    public static void Apply(Window window, bool allowMultiMonitor, Point? anchor = null)
     {
         if (window.ActualWidth <= 0 || window.ActualHeight <= 0)
         {
@@ -32,10 +38,10 @@ public static class ScreenClamp
         //  - multi-monitor ON : confine only to the UNION of all monitors (the virtual desktop), so it
         //    may live on any monitor but can never be dragged/restored into dead space outside them all
         //    (mirrors the Kotlin virtualScreenBounds clamp — a stored position stays reachable).
+        DpiScale dpi = VisualTreeHelper.GetDpi(window);
         System.Drawing.Rectangle wa = allowMultiMonitor
             ? System.Windows.Forms.SystemInformation.VirtualScreen
-            : System.Windows.Forms.Screen.FromHandle(hwnd).Bounds; // physical px
-        DpiScale dpi = VisualTreeHelper.GetDpi(window);
+            : MonitorBounds(hwnd, anchor, dpi); // physical px
         double left = wa.Left / dpi.DpiScaleX;
         double top = wa.Top / dpi.DpiScaleY;
         double right = wa.Right / dpi.DpiScaleX;
@@ -55,5 +61,24 @@ public static class ScreenClamp
         {
             window.Top = newTop;
         }
+    }
+
+    /// <summary>The confining monitor: the one holding <paramref name="anchor"/> when given, else the one the
+    /// window mostly overlaps. Full bounds, not WorkingArea — see <see cref="Apply"/>.</summary>
+    private static System.Drawing.Rectangle MonitorBounds(IntPtr hwnd, Point? anchor, DpiScale dpi) =>
+        anchor is { } a
+            ? System.Windows.Forms.Screen.FromPoint(
+                new System.Drawing.Point((int)(a.X * dpi.DpiScaleX), (int)(a.Y * dpi.DpiScaleY))).Bounds
+            : System.Windows.Forms.Screen.FromHandle(hwnd).Bounds;
+
+    /// <summary>Work area (taskbar excluded) of the monitor holding <paramref name="anchor"/>, in DIP. Used to
+    /// cap the width of a SizeToContent window — WPF truncates such a window's measurement at the work-area
+    /// width and drops whatever overflowed, with no wrap and no scroll.</summary>
+    public static double WorkAreaWidth(Window window, Point anchor)
+    {
+        DpiScale dpi = VisualTreeHelper.GetDpi(window);
+        System.Drawing.Rectangle wa = System.Windows.Forms.Screen.FromPoint(
+            new System.Drawing.Point((int)(anchor.X * dpi.DpiScaleX), (int)(anchor.Y * dpi.DpiScaleY))).WorkingArea;
+        return wa.Width / dpi.DpiScaleX;
     }
 }

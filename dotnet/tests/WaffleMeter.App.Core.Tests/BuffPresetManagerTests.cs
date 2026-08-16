@@ -152,6 +152,29 @@ public sealed class BuffPresetManagerTests : IDisposable
         Assert.Equal(new HashSet<int> { 30 }, Assert.Single(_voiceApplied));
     }
 
+    // 설정창의 취소가 되돌리는 키 중 프리셋이 소유한 것은 아이콘 크기 하나다. 취소가 창을 연 시점의 px 를
+    // 무조건 되쓰면, 그 사이 사용자가 다른 슬롯을 골랐을 때 그 값이 새 슬롯에 캡처돼 저장된다 — 이 테스트는
+    // 매니저 쪽 사실(활성 슬롯에 즉시 캡처된다)을 못 박아, SettingsViewModel.SelectPreset 이 취소 스냅샷의
+    // 기준값을 새 슬롯 값으로 옮겨 두어야 하는 이유가 사라지지 않게 한다.
+    [Fact]
+    public void A_write_after_switching_slots_lands_in_the_new_slot()
+    {
+        MeterSettings s = OpenSettings();
+        using BuffPresetManager m = Manage(s);
+        s.BuffUiIconSize = 40; // 슬롯 0
+        m.SelectSlot(1);
+        s.BuffUiIconSize = 34; // 슬롯 1
+        m.SelectSlot(0);
+
+        // 설정창을 슬롯 0에서 열고(스냅샷 40), 슬롯 1로 바꾼 뒤 취소 → 스냅샷 40이 되쓰인다면?
+        m.SelectSlot(1);
+        s.BuffUiIconSize = 40;
+
+        BuffPresetSet blob = BuffPresetCodec.Decode(s.BuffUiPresets)!;
+        Assert.Equal(40, blob.Slots[1].IconSize); // 슬롯 1의 34가 지워진다 — 그래서 되쓰면 안 된다
+        Assert.Equal(40, blob.Slots[0].IconSize);
+    }
+
     // Applying a slot writes the live settings, which fires the very PropertyChanged the auto-save listens to.
     // Without the suppression guard the switch would capture the incoming config back over the slot it left.
     [Fact]
