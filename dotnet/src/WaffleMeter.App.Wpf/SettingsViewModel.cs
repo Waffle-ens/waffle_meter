@@ -1014,12 +1014,18 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool VrrCompatMode { get => _settings.VrrCompatMode; set { _settings.VrrCompatMode = value; OnPropertyChanged(); } }
     public bool ShowBuffUi { get => _settings.ShowBuffUi; set { _settings.ShowBuffUi = value; OnPropertyChanged(); } }
     public bool BuffUiTransparent { get => _settings.BuffUiTransparent; set { _settings.BuffUiTransparent = value; OnPropertyChanged(); } }
-    /// <summary>Buff icon size as a 0/1 ComboBox index: 0 = 작게 (34px), 1 = 크게 (40px).</summary>
-    public int BuffIconSizeIndex
+    /// <summary>버프 아이콘 배율(%). 설계 기준인 40px 을 100% 로 잡고 80~200% 로 조절한다. 저장은 px 그대로다 —
+    /// buffUi.iconSize 는 디자인 공유코드·프리셋 blob 에 실려 구버전과 오가므로 단위를 바꿀 수 없다
+    /// (<see cref="MeterSettings.BuffUiIconSize"/> 주석 참고). 슬라이더 눈금 5% = 2px 라 왕복이 무손실이고,
+    /// 종전 "작게" 값 34px 은 정확히 85% 라 눈금 위에 그대로 착지한다(설정창을 여는 것만으로 재기록되지 않음).</summary>
+    public int BuffIconScalePercent
     {
-        get => _settings.BuffUiIconSize <= 34 ? 0 : 1;
-        set { _settings.BuffUiIconSize = value == 0 ? 34 : 40; OnPropertyChanged(); }
+        get => Math.Clamp(_settings.BuffUiIconSize * 100 / BuffIconBasePx, 80, 200);
+        set { _settings.BuffUiIconSize = Math.Clamp(value, 80, 200) * BuffIconBasePx / 100; OnPropertyChanged(); }
     }
+
+    /// <summary>100% 로 정의된 아이콘 px — <see cref="BuffOverlayViewModel.SetIconSize"/> 가 나누는 값과 같다.</summary>
+    private const int BuffIconBasePx = 40;
 
     /// <summary>Buff overlay countdown-text color (hex), bound to the color-swatch picker.</summary>
     public string BuffTextColor { get => _settings.BuffUiTextColor; set { _settings.BuffUiTextColor = value; OnPropertyChanged(); } }
@@ -1080,9 +1086,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _presets.SelectSlot(index);
         _buffPicker?.Reload(); // else its stale cached sets would overwrite the preset on the next edit
         SyncPresetSlots();
+        // 프리셋 전환은 취소 대상이 아니다(고르는 즉시 저장된다). 그러니 취소 스냅샷의 아이콘 크기 기준도
+        // 새 슬롯 값으로 옮겨 둔다 — 안 그러면 전환 뒤 취소가 옛 슬롯의 px 를 되쓰고, BuffPresetManager 가
+        // 그 값을 지금 활성인 슬롯에 캡처해 저장해 버려 방금 고른 프리셋의 크기가 영구히 사라진다.
+        // (아이콘 크기는 스냅샷에 든 키 중 유일하게 프리셋이 소유하는 키다.)
+        _snapshot = _snapshot with { BuffUiIconSize = _settings.BuffUiIconSize };
 
         OnPropertyChanged(nameof(BuffUiTransparent));
-        OnPropertyChanged(nameof(BuffIconSizeIndex));
+        OnPropertyChanged(nameof(BuffIconScalePercent));
         OnPropertyChanged(nameof(BuffTextColor));
         OnPropertyChanged(nameof(BuffTtsOnStart));
         OnPropertyChanged(nameof(BuffTtsOnEnd));
@@ -2018,7 +2029,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster, bool ShowAetherStatus,
         string NameFxMode, bool NameFxShowSelf, bool NameFxShowOthers, int NameFxSpeedPercent, int NameFxBrightnessPercent,
         bool NameFxGauge,
-        bool TierShow, string TierEffects, bool TierShowOthers, bool TierShowSelfChip)
+        bool TierShow, string TierEffects, bool TierShowOthers, bool TierShowSelfChip,
+        int BuffUiIconSize)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
@@ -2027,7 +2039,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster, s.ShowAetherStatus,
             s.NameFxMode, s.NameFxShowSelf, s.NameFxShowOthers, s.NameFxSpeedPercent, s.NameFxBrightnessPercent,
             s.NameFxGauge,
-            s.TierShow, s.TierEffects, s.TierShowOthers, s.TierShowSelfChip);
+            s.TierShow, s.TierEffects, s.TierShowOthers, s.TierShowSelfChip,
+            s.BuffUiIconSize);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -2066,8 +2079,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.TierEffects = TierEffects;
             s.TierShowOthers = TierShowOthers;
             s.TierShowSelfChip = TierShowSelfChip;
-            // 같은 이유로 티어 장식 4키도 여기 있어야 한다 — 빠져 있던 동안 색상·스킨 탭에서 티어 표시를
-            // 껐다가 취소해도 꺼진 채로 남았다.
+            // 버프 아이콘 크기도 같은 이유로 필요하다. 2지선다 콤보였을 땐 "다시 고르면 끝"이라 빠져 있어도
+            // 티가 안 났지만, 연속 배율은 원래 값을 사람이 기억하지 못한다 — 취소해도 안 돌아오면
+            // 슬라이더를 만져본 것만으로 되돌릴 수 없는 변경이 된다.
+            s.BuffUiIconSize = BuffUiIconSize;
             NameFxSheen.Rebuild(NameFxBrightnessPercent);
         }
     }

@@ -41,6 +41,38 @@ public sealed class MeterSettingsTests : IDisposable
         Assert.Equal("dark", s.OverlayTheme);
     }
 
+    // 버프 아이콘 크기는 px 로 저장되고 설정에서만 퍼센트로 보인다(40px = 100%, 슬라이더 80~200% = 32~80px).
+    // 저장 단위가 px 인 이유는 이 키가 디자인 공유코드와 프리셋 blob 을 타고 구버전과 오가기 때문 —
+    // 그래서 남이 보낸 값이 범위 밖일 수 있고, 읽기/쓰기 양쪽에서 막아야 한다.
+    [Fact]
+    public void Buff_icon_size_clamps_on_write_and_on_read()
+    {
+        var props = new PropertyHandler(_temp);
+        var s = new MeterSettings(props) { BuffUiIconSize = 999 };
+
+        Assert.Equal(80, s.BuffUiIconSize);
+        Assert.Equal("80", props.GetProperty("buffUi.iconSize"));
+
+        s.BuffUiIconSize = 1;
+        Assert.Equal(32, s.BuffUiIconSize);
+
+        // 값 검증 없이 심기는 경로(공유코드 적용·수기 편집)를 흉내 낸다.
+        props.SetProperty("buffUi.iconSize", "999999");
+        Assert.Equal(80, new MeterSettings(props).BuffUiIconSize);
+    }
+
+    // 종전 "작게" 값 34px 은 정확히 85% — 새 슬라이더의 5% 눈금 위에 그대로 있어야 한다. 아래 범위로
+    // 밀려나면 설정창을 여는 것만으로 사용자 값이 조용히 재기록된다.
+    [Fact]
+    public void Legacy_buff_icon_sizes_survive_the_percent_switch()
+    {
+        var props = new PropertyHandler(_temp);
+        props.SetProperty("buffUi.iconSize", "34");
+
+        Assert.Equal(34, new MeterSettings(props).BuffUiIconSize);
+        Assert.Equal(0, 34 * 100 / 40 % 5); // 85% — 눈금 위
+    }
+
     [Fact]
     public void Persists_with_byte_compatible_encoding()
     {

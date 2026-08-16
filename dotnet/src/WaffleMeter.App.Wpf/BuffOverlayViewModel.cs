@@ -21,11 +21,13 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
 
     private double _iconScale = 1.0;
     /// <summary>Uniform scale applied to each slot (icon + ring + text). The native design is the 40px icon,
-    /// so scale = size/40 (40 → 1.0, 34 → 0.85). Set from the icon-size setting.</summary>
+    /// so scale = size/40 (32 → 0.8 = 80%, 40 → 1.0 = 100%, 80 → 2.0 = 200%). Set from the icon-size setting.</summary>
     public double IconScale { get => _iconScale; private set => Set(ref _iconScale, value); }
 
-    /// <summary>Set the buff icon size in px; drives <see cref="IconScale"/> off the 40px native design.</summary>
-    public void SetIconSize(int px) => IconScale = Math.Clamp(px, 20, 72) / 40.0;
+    /// <summary>Set the buff icon size in px; drives <see cref="IconScale"/> off the 40px native design.
+    /// 이 범위는 <c>MeterSettings.BuffUiIconSize</c> 의 클램프와 반드시 같아야 한다 — 다르면 저장된 값과 화면이
+    /// 조용히 어긋난다(종전 상한 72px 는 200%(80px)를 1.8배로 깎았을 것이다).</summary>
+    public void SetIconSize(int px) => IconScale = Math.Clamp(px, 32, 80) / 40.0;
 
     private Brush _textBrush = Brushes.White;
     /// <summary>Countdown-text color (from the setting). White by default.</summary>

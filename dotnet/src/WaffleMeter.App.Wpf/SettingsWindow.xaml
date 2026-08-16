@@ -1036,15 +1036,18 @@
                         </Grid>
 
                         <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="아이콘 크기" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="버프 오버레이 아이콘 크기를 고릅니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="{Binding BuffIconScalePercent, StringFormat='아이콘 크기 — {0}%'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="100%가 기본 크기입니다. 아이콘·테두리·남은시간 글씨가 함께 커집니다. 크게 키우면 창도 그만큼 넓어져 화면을 더 가립니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
-                            <ComboBox Grid.Column="1" Width="132" VerticalAlignment="Center" SelectedIndex="{Binding BuffIconSizeIndex, Mode=TwoWay}">
-                                <ComboBoxItem Content="작게 (34px)"/>
-                                <ComboBoxItem Content="크게 (40px)"/>
-                            </ComboBox>
+                            <!-- 눈금 5% = 정확히 2px 라 퍼센트↔px 왕복이 무손실이다. 최솟값을 80% 위로 올리지 말 것 —
+                                 Slider 는 Value 를 [Minimum,Maximum] 으로 coerce 한 뒤 소스에 되쓰므로, 최솟값이 기존
+                                 저장값을 넘으면 설정창을 여는 것만으로 사용자 값이 재기록된다. 드래그 종료 커밋
+                                 (NameFxBrightnessPercent 처럼)은 쓰지 않는다 — 오버레이가 500ms 마다 이 값을 다시
+                                 읽으므로 틱마다 커밋해야 드래그 중 실시간으로 크기가 보인다. -->
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="80" Maximum="200"
+                                    Value="{Binding BuffIconScalePercent}" TickFrequency="5" IsSnapToTickEnabled="True"/>
                         </Grid>
 
                         <Grid Margin="0,0,0,14">
