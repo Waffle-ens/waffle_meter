@@ -676,26 +676,75 @@ public sealed class StreamProcessor
         _sink.Damage("dot", pdp, true, null, null);
     }
 
-    /// <summary>Own combat-power packet 0x3655. Kotlin parseOwnCombatPower (177-190).</summary>
+    /// <summary>Own combat-power packet 0x3656 (was 0x3655). Kotlin parseOwnCombatPower (177-190).
+    /// <para>본문은 실측 고정 레이아웃이다: <c>[u32 LE 현재 전투력][00 00 00 00][u32 LE 두 번째 전투력]
+    /// [00 00 00 00]</c> — 프레임 전체로는 19바이트. 2026-08-17 코퍼스에서 dispatch된 0x3656 138프레임 중
+    /// 134가 이 모양이었고, 나머지 4(길이 11 셋 · 5 하나)는 다른 모양이었다.</para>
+    /// <para>🔑 이 파서는 <b>본인 전투력을 직접 갈아치우는 유일한 패킷 경로</b>인데, 종전에는
+    /// "u32 하나를 읽을 만큼 길기만 하면" 통과였다 — 프레임 뒤 2바이트가 우연히 <c>56 36</c>인 아무
+    /// 페이로드나(아웃바운드 암호문·루프백·압축 번들 내부 리싱크 오차) 본인 전투력이 될 수 있었다.
+    /// 0x3633 본인 로드가 같은 형태의 구멍으로 신원을 탈취당한 전례가 있다
+    /// (<c>OwnNicknameValidationTests</c>). 실측 2026-08-17 02:2x, 본인 전투력이 356,559 대신
+    /// <b>2,285,1xx</b>로 뜬 사고가 이 경로의 유일한 후보였다: 같은 시각 0x3656·0x9702·공식 조회가 전부
+    /// 356,559/340,370을 말하고 있었는데도 그 값이 <c>User.Power</c>에 앉아 저장 전투에 얼어붙었고,
+    /// 400k 미만이라 뜨면 안 될 티어 배지까지 띄웠다.</para>
+    /// <para>그래서 값이 아니라 <b>모양</b>을 검사한다: 두 u32와 그 사이·뒤의 0 패딩 8바이트를 전부 요구하고,
+    /// 두 값 모두 <see cref="CombatPower.IsPlausible"/>을 통과해야 한다. 우연히 이걸 다 만족하는 난수
+    /// 프레임은 사실상 없다. 길이는 "16바이트 본문이 있는가"로만 보고 <b>정확히 19</b>는 요구하지 않는다 —
+    /// 서버가 뒤에 필드를 덧붙여도 조용히 죽지 않게. 모양이 안 맞으면 흔적을 남긴다(레이아웃이 바뀌면
+    /// 전투력이 조용히 0이 되는 대신 로그로 보인다).</para></summary>
     private void ParseOwnCombatPower(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, long arrivedAt)
     {
         try
         {
             int opcodeOffset = lengthInfo.Length + (extraFlag ? 1 : 0);
             int valueOffset = opcodeOffset + 2;
-            if (valueOffset + 4 > packet.Length) return;
-            int power = PacketPrimitives.ParseUInt32Le(packet, valueOffset);
-            if (power <= 0 || power > 10_000_000) return;
+            if (valueOffset + OwnCombatPowerBodyLength > packet.Length)
+            {
+                _sink.ParserError("own_combat_power", "body too short");
+                return;
+            }
+
+            long power = PacketPrimitives.ReadUInt32LeAsLong(packet, valueOffset);
+            long second = PacketPrimitives.ReadUInt32LeAsLong(packet, valueOffset + 8);
+            if (!IsZeroRun(packet, valueOffset + 4, 4) || !IsZeroRun(packet, valueOffset + 12, 4))
+            {
+                _sink.ParserError("own_combat_power", "padding mismatch");
+                return;
+            }
+
+            if (!CombatPower.IsPlausible(power) || !CombatPower.IsPlausible(second))
+            {
+                _sink.ParserError("own_combat_power", "implausible value");
+                return;
+            }
+
             int executor = _executorId;
             if (executor <= 0) return;
-            _lastOwnPower = power; // remember for carry-forward onto re-entry uids (req 3)
-            _data.SaveUserPower(executor, power);
-            _sink.Meta("own_combat_power", ("uid", executor), ("power", power));
+            _lastOwnPower = (int)power; // remember for carry-forward onto re-entry uids (req 3)
+            _data.SaveUserPower(executor, (int)power);
+            _sink.Meta("own_combat_power", ("uid", executor), ("power", (int)power));
         }
         catch
         {
             // swallowed (matches Kotlin)
         }
+    }
+
+    /// <summary>0x3656 본문 크기: <c>[u32][0 4바이트][u32][0 4바이트]</c>.</summary>
+    private const int OwnCombatPowerBodyLength = 16;
+
+    private static bool IsZeroRun(byte[] packet, int offset, int count)
+    {
+        for (int i = offset; i < offset + count; i++)
+        {
+            if (packet[i] != 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // ---- party join-request handlers (Kotlin parseJoinRequest/CancelJoin/AdmitJoin/RefuseJoin/
@@ -880,7 +929,7 @@ public sealed class StreamProcessor
                     if (packet[k] == 0x04)
                     {
                         long pw = PacketPrimitives.ReadUInt32LeAsLong(packet, k + 1);
-                        if (pw >= 1 && pw <= 10_000_000)
+                        if (CombatPower.IsPlausible(pw))
                         {
                             power = (int)pw;
                             break;
@@ -1312,10 +1361,10 @@ public sealed class StreamProcessor
         int offset = markerIdx + 11;
         while (offset + 8 <= packet.Length)
         {
-            int power = PacketPrimitives.ParseUInt32Le(packet, offset);
-            if (power is >= 1 and <= 10_000_000 && PacketPrimitives.ParseUInt32Le(packet, offset + 4) == 0)
+            long power = PacketPrimitives.ReadUInt32LeAsLong(packet, offset);
+            if (CombatPower.IsPlausible(power) && PacketPrimitives.ParseUInt32Le(packet, offset + 4) == 0)
             {
-                return power;
+                return (int)power;
             }
 
             offset += 1;

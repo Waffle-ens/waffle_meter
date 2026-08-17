@@ -609,8 +609,11 @@ public sealed class StatsPayloadBuilder
         // players the lookup returns nothing forever, so every one of their battles was being dropped.
         if (resolved.Power <= 0 && nickname != null && server > 0)
         {
+            // 로스터 전투력은 0x9702 본문을 "0x04 마커 뒤 u32"로 훑어 얻은 값이라 세 소스 중 가장 무르다.
+            // 여기서 나온 값은 업로드뿐 아니라 본인 행 배지(OwnCharacter -> SetRecognized -> selfPower)까지
+            // 가므로, 파서 게이트와 같은 기준을 한 번 더 건다.
             int rosterPower = _data.PartyRosterPower(nickname, server, RosterPowerTtlMs);
-            if (rosterPower > 0)
+            if (CombatPower.IsPlausible(rosterPower))
             {
                 resolved.Power = rosterPower;
             }
@@ -636,6 +639,8 @@ public sealed class StatsPayloadBuilder
                     resolved.Job = info.Job;
                 }
 
+                // 공식 조회 값은 스캔이 아니라 구조화된 JSON이라 CombatPower 상한을 걸지 않는다
+                // (DataManager.ApplyOfficialCharacterInfo의 같은 판단 참조).
                 if (info.Power > 0)
                 {
                     resolved.Power = info.Power;

@@ -1111,9 +1111,16 @@ public sealed class DataManager : ICaptureGameData
         }
     }
 
+    /// <summary>전투력 기입의 <b>유일한</b> 관문(파서 3경로가 전부 여기로 들어온다). 값 검증을 파서마다
+    /// 흩어 두지 않고 여기서 한 번 더 막는다 — 전투력은 배지뿐 아니라 티어 구간·통계 업로드
+    /// (사이트의 <c>characters.latest_power</c>)까지 타고 흐르는데, 한 번 잘못 앉으면 되돌릴 경로가
+    /// 없기 때문이다: 공식 조회 보정은 <c>Power &lt;= 0</c>일 때만 채우고(<see cref="ApplyOfficialCharacterInfo"/>),
+    /// 파서의 carry-forward는 그 값을 재입장마다 새 uid로 다시 찍는다(StreamProcessor의 <c>_lastOwnPower</c>).
+    /// 실측 사고(2026-08-17)에서 본인 전투력이 356,559 대신 2,285,1xx로 앉았고, 그 세션의 저장 전투에
+    /// 그대로 얼어붙었다.</summary>
     public void SaveUserPower(int uid, int power)
     {
-        if (power <= 0) return;
+        if (!CombatPower.IsPlausible(power)) return;
         User? user = _userRepository.Get(uid);
         if (user == null) return;
         if (user.Power != power)
@@ -1536,6 +1543,11 @@ public sealed class DataManager : ICaptureGameData
             // combat evidence is the final arbiter.
             existing.TrySetJob(info.Job, JobProvenance.Authoritative);
 
+            // 공식 조회 값에는 상한을 걸지 않는다. <see cref="CombatPower"/> 상한은 "바이트 스캔이 엉뚱한
+            // u32를 집었다"를 막는 장치인데, 이쪽은 스캔이 아니라 캐릭터를 정확히 지목해 받은 구조화된
+            // JSON이라 그런 오염이 없다. 오히려 상한을 여기까지 걸면 전투력 인플레가 상한을 넘겼을 때
+            // 패킷·웹 양쪽이 동시에 막혀 전투력이 통째로 사라진다 — 지금은 패킷이 막혀도 이 경로가
+            // 정상값을 채워 주는 안전망이다.
             if (existing.Power <= 0 && info.Power > 0)
             {
                 existing.Power = info.Power;
