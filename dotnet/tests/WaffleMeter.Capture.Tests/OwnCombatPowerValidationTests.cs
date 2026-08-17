@@ -12,9 +12,12 @@ namespace WaffleMeter.Capture.Tests;
 /// 리싱크 오차까지 같은 파이프라인에 들어오고, 프레임 뒤 2바이트가 우연히 <c>56 36</c>이면 그대로 이
 /// 파서로 온다 — 0x3633 본인 로드가 같은 형태의 구멍으로 신원을 탈취당한 전례가 있다
 /// (<see cref="OwnNicknameValidationTests"/>).</para>
-/// <para>실측 사고(2026-08-17 02:2x): 본인 전투력이 356,559 대신 <b>2,285,1xx</b>로 앉아 그 세션의 저장
-/// 전투에 얼어붙었고, 400k 미만이라 뜨면 안 될 티어 배지까지 띄웠다. 같은 시각 0x3656(134프레임)·
-/// 0x9702 로스터(42스냅샷)·공식 사이트 조회가 전부 356,559 / 340,370을 말하고 있었다.</para>
+/// <para>실측 사고(2026-08-17 02:24:49 롭스티노): 본인 전투력이 356,559 대신 <b>2,285,1xx</b>로 앉아 그
+/// 전투의 저장본에 얼어붙었고, 400k 미만이라 뜨면 안 될 티어 배지까지 띄웠다.
+/// ⚠️ <b>그 프레임 자체는 코퍼스에 없다</b> — 패킷 로깅이 그 전투가 끝나고 28초 뒤(02:25:54)에 시작됐다.
+/// 근거는 소거법이다: 재진입 직후부터 0x3656(134프레임)·0x9702 로스터(42스냅샷)·공식 사이트가 전부
+/// 356,559 / 340,370을 말했고 11.5시간 동안 100만 초과 표본이 0건인데, executor의 <c>User.Power</c>에
+/// 쓸 수 있는 경로는 이 파서뿐이다. 다음 사람이 "코퍼스에서 직접 봤다"로 오해하지 않도록 적어 둔다.</para>
 /// <para>정상 케이스는 코퍼스에서 그대로 떠 온 실프레임이다 — 과잉 차단은 즉시 "내 전투력이 안 뜬다"로
 /// 돌아오므로 여기서 고정한다.</para>
 /// </summary>
@@ -141,10 +144,11 @@ public sealed class OwnCombatPowerValidationTests
         Assert.Empty(sink.Errors);
     }
 
-    /// <summary>같은 캐릭터의 로드 진행 중 프레임(02:28:06.381) — 현재값이 둘째 필드보다 한참 작다.
-    /// 로드 시퀀스는 195,607 → 290,293 → 356,559처럼 올라오므로 "현재 ≤ 둘째" 같은 대소 규칙을 게이트로
-    /// 삼으면 안 된다(실측 02:41:53에는 현재값이 앞서 본 둘째 필드보다 커진 적도 있다). 그래서 게이트는
-    /// 값의 대소가 아니라 <b>모양</b>만 본다.</summary>
+    /// <summary>같은 캐릭터의 로드 진행 중 프레임(02:28:06.381) — 현재값이 둘째 필드(최고 전투력)보다
+    /// 한참 작다. 로드 시퀀스는 195,607 → 290,293 → 356,559처럼 올라온다.
+    /// <para>둘째 필드는 실측 108프레임 전부에서 <c>최고 ≥ 현재</c>였지만(현재값이 최고를 넘는 순간
+    /// 같이 올라간다), 그 대소를 게이트로 쓰지는 않는다 — 서버가 두 필드를 한 프레임 어긋나게 보내는
+    /// 날 정상 전투력이 통째로 막히기 때문이다. 게이트는 값의 대소가 아니라 <b>모양</b>만 본다.</para></summary>
     [Fact]
     public void PartialLoadFrame_IsAccepted()
     {
@@ -226,5 +230,70 @@ public sealed class OwnCombatPowerValidationTests
             .OnPacketReceived(Convert.FromHexString("165636CF70050000000000D773050000000000"), 0);
 
         Assert.Empty(data.Powers);
+    }
+
+    // ---- 0x3645 스냅샷 스캔은 본인 행을 건드리지 않는다 ----
+
+    /// <summary>0x3645 '주변 남' 스냅샷 프레임:
+    /// <c>[len][0x45][0x36][uid][varint][varint][filler][nickLen][name][job][server u16][legionLen][legion]</c>
+    /// + 꼬리에 <c>F4 CB 1F</c> 마커 + 8바이트 + <c>[u32 전투력][u32 0]</c>. 전투력은 고정 오프셋이 아니라
+    /// 마커+11부터의 슬라이딩 스캔으로 읽힌다(<c>ParseSnapshotPower</c>).</summary>
+    private static byte[] SnapshotFrame(int uid, string nickname, int server, long scannedPower)
+    {
+        var body = new List<byte> { 0x45, 0x36 };
+        WriteVarInt(body, uid);
+        WriteVarInt(body, 0);          // unknownInfo1
+        WriteVarInt(body, 0);          // unknownInfo2
+        body.Add(0x00);                // 파서가 무조건 건너뛰는 1바이트
+
+        byte[] name = Encoding.UTF8.GetBytes(nickname);
+        WriteVarInt(body, name.Length);
+        body.AddRange(name);
+        body.Add(16);                                       // job
+        body.Add((byte)(server & 0xFF));
+        body.Add((byte)((server >> 8) & 0xFF));
+        WriteVarInt(body, 4);
+        body.AddRange(Encoding.UTF8.GetBytes("AAAA"));       // 군단명(숫자가 아니어야 server가 채택된다)
+
+        body.AddRange([0xF4, 0xCB, 0x1F]);                   // PowerMarker
+        body.AddRange(new byte[8]);                          // 마커+11 = 전투력 u32 시작
+        body.AddRange(BitConverter.GetBytes((uint)scannedPower));
+        body.AddRange(new byte[4]);                          // 스캔이 요구하는 "뒤 u32 == 0"
+
+        var frame = new List<byte>();
+        WriteVarInt(frame, body.Count + 4);
+        frame.AddRange(body);
+        return frame.ToArray();
+    }
+
+    /// <summary>대조군: 남의 스냅샷 전투력은 그대로 저장된다(가드가 과하게 조여지지 않았음을 고정).</summary>
+    [Fact]
+    public void SnapshotPower_ForAnotherPlayer_IsStored()
+    {
+        var data = new RecordingData();
+        var processor = new StreamProcessor(new RecordingSink(), data);
+        processor.OnPacketReceived(OwnLoadFrame(ExecutorUid, "하아앙", 2003, 8), 0);
+
+        processor.OnPacketReceived(SnapshotFrame(1833, "라떼몬", 2003, 354_483), 0);
+
+        Assert.Equal((1833, 354_483), Assert.Single(data.Powers));
+    }
+
+    /// <summary>0x3645는 '주변 남' 브로드캐스트라 실측 11.5시간 / 540스냅샷에서 executor uid를 지목한 적이
+    /// 없다. 그래도 파서엔 self 제외가 없었고, 이 경로의 전투력은 세 소스 중 가장 무른 슬라이딩 스캔이다 —
+    /// <see cref="CombatPower"/> 상한만으로는 [40만, 상한] 구간의 오독이 그대로 통과해 0x3656이 앉힌
+    /// 진값을 덮는다. 본인은 전용·고정 오프셋 소스(0x3656)를 이미 갖고 있으므로 이 스캔값을 쓰지 않는다.</summary>
+    [Fact]
+    public void SnapshotPower_DoesNotOverwriteTheExecutor()
+    {
+        var data = new RecordingData();
+        var processor = new StreamProcessor(new RecordingSink(), data);
+        processor.OnPacketReceived(OwnLoadFrame(ExecutorUid, "하아앙", 2003, 8), 0);
+        processor.OnPacketReceived(PowerFrame(356_559, 357_335), 0);       // 0x3656 진값
+
+        processor.OnPacketReceived(SnapshotFrame(ExecutorUid, "하아앙", 2003, 1_900_000), 0);
+
+        Assert.Equal((ExecutorUid, 356_559), Assert.Single(data.Powers));  // 스캔값 미반영
+        Assert.Contains(data.Names, n => n.Uid == ExecutorUid && !n.IsExecutor); // 닉/서버 갱신은 그대로
     }
 }
