@@ -1,10 +1,16 @@
+using WaffleMeter.Capture;
+
 namespace WaffleMeter.Data;
 
 /// <summary>
 /// Verbatim port of Kotlin UserRepository. Identity (nickname/server/job) and combat power can
 /// arrive in separate packets, so power that arrives before identity is held in "pending" maps and
 /// merged in when the user is created. mergeInto fills only missing fields (never overwrites a known
-/// nickname/server; an authoritative job overrides an inferred one; power always takes the latest &gt; 0).
+/// nickname/server; an authoritative job overrides an inferred one).
+/// <para>2026-08-17 정정: 전투력만 Kotlin 원본대로 "최신 &gt; 0이 무조건 이김"이었는데, 그게 저장소
+/// 전체에서 유일한 무조건 덮어쓰기였고 <see cref="DataManager"/>의 공식 조회 본 분기가 일부러 지키는
+/// fill-only 규칙과 어긋났다. 지금은 전투력도 다른 필드와 같은 '빈 칸 채우기'다 — 자세한 근거는
+/// <c>MergeInto</c> 주석 참조.</para>
 /// </summary>
 public sealed class UserRepository
 {
@@ -130,9 +136,13 @@ public sealed class UserRepository
         return _storage.Values.LastOrDefault(u => u.Nickname == nickname && u.Server == server);
     }
 
+    /// <summary>Kotlin 병행 유지용. <b>현재 호출자 없음</b>(dotnet/src 전역 0건) — 신원보다 전투력이 먼저
+    /// 도착하는 소스(예: 0x921C 주기 전투력 브로드캐스트)를 배선할 때 쓰라고 남아 있는 주입구다.
+    /// 그 성격상 검증 없는 값이 pending을 통해 <see cref="MergeInto"/>로 흘러 들어가므로, 되살아나는
+    /// 순간 2026-08-17 전투력 오염과 같은 종류의 구멍이 된다. 그래서 지금 상한을 걸어 둔다.</summary>
     public void RememberPower(int id, string? nickname, int server, JobClass? job, int power)
     {
-        if (power <= 0)
+        if (!CombatPower.IsPlausible(power))
         {
             return;
         }
@@ -180,7 +190,13 @@ public sealed class UserRepository
             target.IsExecutor = true;
         }
 
-        if (source.Power > 0)
+        // 전투력만 저장소 전체에서 유일하게 '무조건 덮어쓰기'였다 — 같은 공식 조회 값인데 경로에 따라
+        // 규칙이 달라지는 비대칭이었다: uid가 이미 등록돼 있으면 DataManager.ApplyOfficialCharacterInfo가
+        // 일부러 `existing.Power <= 0`일 때만 채우는데, uid가 아직 없으면 SavePending -> Save -> 여기로
+        // 흘러 이미 맞던 값을 갈아치웠다. 게다가 RemovePendingByName은 정확 (닉,서버) 키가 빗나가면
+        // 서버를 무시한 닉네임 단독 폴백으로 내려가므로(아래 :218) 동명이인의 전투력이 넘어올 수도 있다.
+        // 그래서 pending 전투력도 '빈 칸 채우기'로만 쓴다 — 본 분기와 같은 규칙.
+        if (target.Power <= 0 && source.Power > 0)
         {
             target.Power = source.Power;
         }

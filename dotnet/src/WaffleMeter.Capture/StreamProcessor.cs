@@ -676,26 +676,85 @@ public sealed class StreamProcessor
         _sink.Damage("dot", pdp, true, null, null);
     }
 
-    /// <summary>Own combat-power packet 0x3655. Kotlin parseOwnCombatPower (177-190).</summary>
+    /// <summary>Own combat-power packet 0x3656 (was 0x3655). Kotlin parseOwnCombatPower (177-190).
+    /// <para>본문은 실측 고정 레이아웃이다: <c>[u32 LE 현재 전투력][00 00 00 00][u32 LE 최고 전투력]
+    /// [00 00 00 00]</c> — 프레임 전체로는 19바이트. 2026-08-17 코퍼스에서 dispatch된 0x3656 138프레임 중
+    /// 134가 이 모양이었고, 나머지 4(길이 11 셋 · 5 하나)는 다른 모양이었다. 둘째 필드는 그 캐릭터의
+    /// <b>최고 전투력</b>이다: 세션 내내 상수로 있다가 현재값이 그걸 넘는 순간 같이 올라간다(실측 108프레임
+    /// 전부 <c>최고 ≥ 현재</c>, 동일 3건). 다만 그 대소를 게이트로 쓰지는 않는다 — 서버가 두 필드를 한
+    /// 프레임 어긋나게 보내는 날 정상 전투력이 통째로 막힌다.</para>
+    /// <para>🔑 이 파서는 <b>본인 전투력을 직접 갈아치우는 유일한 패킷 경로</b>인데, 종전에는
+    /// "u32 하나를 읽을 만큼 길기만 하면" 통과였다 — 프레임 뒤 2바이트가 우연히 <c>56 36</c>인 아무
+    /// 페이로드나(아웃바운드 암호문·루프백·압축 번들 내부 리싱크 오차) 본인 전투력이 될 수 있었다.
+    /// 0x3633 본인 로드가 같은 형태의 구멍으로 신원을 탈취당한 전례가 있다
+    /// (<c>OwnNicknameValidationTests</c>). 하필 0x3656 버스트는 새 게임 스트림 핸드셰이크와 <b>같은
+    /// 밀리초</b>에 온다(실측 02:28:06.391·02:28:34.105에서 game_signal_first·dup_drop·own_combat_power가
+    /// 동시각) — 얼라이너가 프레임 경계를 다시 잡는, 검증이 가장 필요한 순간이다.</para>
+    /// <para>실측 사고: 2026-08-17 02:24:49 롭스티노 전투에서 본인 전투력이 356,559 대신
+    /// <b>2,285,1xx</b>로 떴다. ⚠️ 그 프레임 자체는 어디에도 안 남았다 — 패킷 로깅이 그 전투가 끝나고
+    /// 28초 뒤(02:25:54)에 시작됐다. 근거는 소거법이다: 재진입 직후(02:26:09·02:26:11)부터 0x3656 134프레임·
+    /// 0x9702 로스터 42스냅샷·공식 사이트가 전부 356,559 / 340,370을 말했고 11.5시간 동안 100만을 넘긴
+    /// 표본이 0건인데, executor의 <c>User.Power</c>에 값을 쓸 수 있는 경로는 이 파서뿐이다(0x3645는
+    /// '주변 남' 스냅샷이라 실측 540건 중 executor 0건, 0x9702 스캔은 <c>User.Power</c>에 닿지 않는다).
+    /// 값이 표시층이 아니라 데이터 계층에 있었다는 건 티어 배지가 증언한다 — <c>TierLadder.MinPower</c>가
+    /// 40만이라 356,559로는 배지가 뜰 수 없다. 그 값은 저장 전투에 얼어붙고 통계 업로드까지 나갔다.</para>
+    /// <para>그래서 값이 아니라 <b>모양</b>을 검사한다: 두 u32와 그 사이·뒤의 0 패딩 8바이트를 전부 요구하고,
+    /// 두 값 모두 <see cref="CombatPower.IsPlausible"/>을 통과해야 한다. 우연히 이걸 다 만족하는 난수
+    /// 프레임은 사실상 없다. 길이는 "16바이트 본문이 있는가"로만 보고 <b>정확히 19</b>는 요구하지 않는다 —
+    /// 서버가 뒤에 필드를 덧붙여도 조용히 죽지 않게. 모양이 안 맞으면 흔적을 남긴다(레이아웃이 바뀌면
+    /// 전투력이 조용히 0이 되는 대신 로그로 보인다).</para></summary>
     private void ParseOwnCombatPower(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, long arrivedAt)
     {
         try
         {
             int opcodeOffset = lengthInfo.Length + (extraFlag ? 1 : 0);
             int valueOffset = opcodeOffset + 2;
-            if (valueOffset + 4 > packet.Length) return;
-            int power = PacketPrimitives.ParseUInt32Le(packet, valueOffset);
-            if (power <= 0 || power > 10_000_000) return;
+            if (valueOffset + OwnCombatPowerBodyLength > packet.Length)
+            {
+                _sink.ParserError("own_combat_power", "body too short");
+                return;
+            }
+
+            long power = PacketPrimitives.ReadUInt32LeAsLong(packet, valueOffset);
+            long second = PacketPrimitives.ReadUInt32LeAsLong(packet, valueOffset + 8);
+            if (!IsZeroRun(packet, valueOffset + 4, 4) || !IsZeroRun(packet, valueOffset + 12, 4))
+            {
+                _sink.ParserError("own_combat_power", "padding mismatch");
+                return;
+            }
+
+            if (!CombatPower.IsPlausible(power) || !CombatPower.IsPlausible(second))
+            {
+                _sink.ParserError("own_combat_power", "implausible value");
+                return;
+            }
+
             int executor = _executorId;
             if (executor <= 0) return;
-            _lastOwnPower = power; // remember for carry-forward onto re-entry uids (req 3)
-            _data.SaveUserPower(executor, power);
-            _sink.Meta("own_combat_power", ("uid", executor), ("power", power));
+            _lastOwnPower = (int)power; // remember for carry-forward onto re-entry uids (req 3)
+            _data.SaveUserPower(executor, (int)power);
+            _sink.Meta("own_combat_power", ("uid", executor), ("power", (int)power));
         }
         catch
         {
             // swallowed (matches Kotlin)
         }
+    }
+
+    /// <summary>0x3656 본문 크기: <c>[u32][0 4바이트][u32][0 4바이트]</c>.</summary>
+    private const int OwnCombatPowerBodyLength = 16;
+
+    private static bool IsZeroRun(byte[] packet, int offset, int count)
+    {
+        for (int i = offset; i < offset + count; i++)
+        {
+            if (packet[i] != 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // ---- party join-request handlers (Kotlin parseJoinRequest/CancelJoin/AdmitJoin/RefuseJoin/
@@ -880,7 +939,7 @@ public sealed class StreamProcessor
                     if (packet[k] == 0x04)
                     {
                         long pw = PacketPrimitives.ReadUInt32LeAsLong(packet, k + 1);
-                        if (pw >= 1 && pw <= 10_000_000)
+                        if (CombatPower.IsPlausible(pw))
                         {
                             power = (int)pw;
                             break;
@@ -1295,8 +1354,15 @@ public sealed class StreamProcessor
         }
 
         _data.SaveNickname(userInfo.Value, nickname, false, server, job);
+
+        // 0x3645는 '주변 남'의 스냅샷이다 — 실측 11.5시간 / 540스냅샷에서 executor uid도 본인 닉네임도
+        // 단 한 번도 실려 오지 않았다. 반면 여기서 쓰는 전투력은 마커+11부터 "뒤 u32가 0인 첫 그럴듯한
+        // u32"를 1바이트씩 밀며 찾는 슬라이딩 스캔이라(ParseSnapshotPower) 세 소스 중 오프셋 오독에 가장
+        // 약하다. 본인은 0x3656이라는 전용·고정 오프셋 소스를 이미 갖고 있으므로, 만에 하나 본인 uid가
+        // 실려 와도 이 스캔값이 본인 전투력을 덮게 두지 않는다 — CombatPower 상한만으로는 [40만, 상한]
+        // 구간의 오독이 그대로 통과한다. 닉/서버/직업 갱신은 그대로 받는다(위 SaveNickname).
         int? power = ParseSnapshotPower(packet);
-        if (power != null)
+        if (power != null && userInfo.Value != _executorId)
         {
             _data.SaveUserPower(userInfo.Value, power.Value);
         }
@@ -1312,10 +1378,10 @@ public sealed class StreamProcessor
         int offset = markerIdx + 11;
         while (offset + 8 <= packet.Length)
         {
-            int power = PacketPrimitives.ParseUInt32Le(packet, offset);
-            if (power is >= 1 and <= 10_000_000 && PacketPrimitives.ParseUInt32Le(packet, offset + 4) == 0)
+            long power = PacketPrimitives.ReadUInt32LeAsLong(packet, offset);
+            if (CombatPower.IsPlausible(power) && PacketPrimitives.ParseUInt32Le(packet, offset + 4) == 0)
             {
-                return power;
+                return (int)power;
             }
 
             offset += 1;
