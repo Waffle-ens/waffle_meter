@@ -27,6 +27,7 @@ internal static class GaugeFxArt
     internal static Art? Find(string? id) => id switch
     {
         "berryglaze" => Berry,
+        "voltage" => Voltage,
         "matcha" => Matcha,
         "prism" => Prism,
         "ember" => Ember,
@@ -49,6 +50,11 @@ internal static class GaugeFxArt
     private static readonly Pen BerryRibbon = FrozenPen("#FFDFF1", 2.2);
     private static readonly Pen BerryRibbonLow = FrozenPen("#FF74BB", 3.2);
     private static readonly Pen BerryDropEdge = FrozenPen("#FFD2EB", 0.7);
+
+    private static readonly Pen VoltArc = FrozenPen("#FFF4B0", 1.5);
+    private static readonly Pen VoltArcCore = FrozenPen("#FFFFFF", 0.7);
+    private static readonly Pen VoltFilament = FrozenPen("#A5B4FC", 0.8);
+    private static readonly Brush VoltHalo = Halo("#F5C542", "#FFFBE6");
 
     private static readonly Brush MatchaFoam = Frozen("#EAF4D1");
     private static readonly Brush MatchaCream = Frozen("#FFF3D2");
@@ -73,6 +79,7 @@ internal static class GaugeFxArt
     private static readonly Brush PrismHaloViolet = Halo("#D989FF", "#F6EBFF");
 
     private static readonly Art Berry = new(DrawBerry);
+    private static readonly Art Voltage = new(DrawVoltage);
     private static readonly Art Matcha = new(DrawMatcha);
     private static readonly Art Prism = new(DrawPrism);
     private static readonly Art Ember = new(DrawEmber);
@@ -141,6 +148,93 @@ internal static class GaugeFxArt
             double bx = a.X + (a.Width * (0.18 + (Hash(seed + 61) * 0.6)));
             dc.PushOpacity(bigAlpha);
             dc.DrawEllipse(BerryRim, null, new Point(bx, a.Y + (a.Height * 0.72) + (bigPhase * 4)), 2.6, 3.4);
+            dc.Pop();
+        }
+    }
+
+    /// <summary>
+    /// 전류 — arcs snapping across the bar.
+    ///
+    /// <para><b>It flashes; it does not flow.</b> Every other skin here has particles with a smooth
+    /// <c>sin(pi * phase)</c> envelope, which is what makes them read as drifting. Electricity is the opposite:
+    /// nearly always nothing, then a bolt for a fraction of a second. The envelope is therefore raised to a
+    /// high power, so a bolt is at full brightness for a moment and absent the rest of its life.</para>
+    ///
+    /// <para><b>A bolt is a jagged polyline, not a lightning-shaped icon.</b> The kink positions come from
+    /// <see cref="Hash"/> keyed on the bolt AND on which strike it is, so no two strikes trace the same path —
+    /// a fixed shape that merely blinks reads as a decal being toggled.</para>
+    ///
+    /// <para>The whole bar never pulses: that would fight the DPS number rather than sit behind it, which is
+    /// the failure the layer as a whole exists to avoid.</para>
+    /// </summary>
+    private static void DrawVoltage(DrawingContext dc, Rect a, double t, int seed)
+    {
+        // 바탕을 가로지르는 가는 실. 아크가 없는 동안에도 '전기가 흐르는 중'이라는 것만 알려 준다.
+        double filamentY = a.Y + (a.Height * 0.5);
+        double drift = (t * 26.0) % 30.0;
+        dc.PushOpacity(0.16);
+        for (double x = a.X - 30 + drift; x < a.Right; x += 15)
+        {
+            double x0 = Math.Max(a.X, x);
+            double x1 = Math.Min(a.Right, x + 15);
+            if (x1 <= x0)
+            {
+                continue;
+            }
+
+            double up = ((int)Math.Floor((x - a.X) / 15) & 1) == 0 ? -1.4 : 1.4;
+            dc.DrawLine(VoltFilament, new Point(x0, filamentY - up), new Point(x1, filamentY + up));
+        }
+
+        dc.Pop();
+
+        // 아크 셋. 서로 다른 주기라 동시에 터지는 일이 드물다.
+        for (int i = 0; i < 3; i++)
+        {
+            double life = 1.5 + (Hash(i + seed + 71) * 1.3);
+            double phase = Phase(t, i + seed + 83, life);
+
+            // ⚠ 여기가 이 스킨의 전부다: 8제곱 봉우리라 수명의 대부분은 완전히 꺼져 있고 짧게만 터진다.
+            double envelope = Math.Pow(Math.Sin(Math.PI * phase), 8);
+            if (envelope < 0.03)
+            {
+                continue;
+            }
+
+            // 몇 번째 타격인지를 해시에 섞어, 칠 때마다 경로가 달라지게 한다.
+            int strike = (int)Math.Floor((t + (Hash(i + seed + 83) * life)) / life);
+            int key = seed + (i * 31) + (strike * 977);
+
+            double x0b = a.X + (Hash(key + 3) * Math.Max(1, a.Width - 24));
+            double span = 16 + (Hash(key + 5) * 34);
+            double y0b = a.Y + 3 + (Hash(key + 7) * Math.Max(1, a.Height - 6));
+
+            dc.PushOpacity(Math.Min(1.0, envelope * 0.95));
+
+            // 아크가 남기는 잔광 — 밝은 선만으로는 '흰 줄'이고, 이 halo 가 있어야 빛으로 읽힌다.
+            dc.PushOpacity(0.5);
+            dc.DrawEllipse(VoltHalo, null, new Point(x0b + (span * 0.5), y0b), span * 0.55, a.Height * 0.55);
+            dc.Pop();
+
+            const int Kinks = 4;
+            double px = x0b;
+            double py = y0b;
+            for (int k = 1; k <= Kinks; k++)
+            {
+                double nx = x0b + (span * k / Kinks);
+                double ny = y0b + ((Hash(key + (k * 13)) - 0.5) * a.Height * 0.7);
+                ny = Math.Clamp(ny, a.Y + 2, a.Bottom - 2);
+                if (nx > a.Right)
+                {
+                    break;
+                }
+
+                dc.DrawLine(VoltArc, new Point(px, py), new Point(nx, ny));
+                dc.DrawLine(VoltArcCore, new Point(px, py), new Point(nx, ny));
+                px = nx;
+                py = ny;
+            }
+
             dc.Pop();
         }
     }

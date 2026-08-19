@@ -814,15 +814,11 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,0,0,10">
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
-                                            <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="11"
-                                                       Foreground="{DynamicResource Skin.MutedFg}"/>
-                                            <!-- 계열은 색만 봐서는 알 수 없다. 닉네임 연출은 모션까지 달라서
-                                                 눈으로 갈리지만 게이지는 전부 같은 주기로 흐르므로, 어느 자격으로
-                                                 받는 스킨인지는 여기서만 드러난다. -->
-                                            <TextBlock Text="{Binding Kind}" FontFamily="Segoe UI" FontSize="10.5"
-                                                       Margin="6,0,0,0" Foreground="{DynamicResource Skin.Accent}"/>
-                                        </StackPanel>
+                                        <!-- 이름표는 뺐다 — 닉네임 연출 카드와 같은 규칙이다. 스킨은 보고
+                                             고르는 것이고, 아래 행 모형이 이미 그 스킨 자체를 보여 준다.
+                                             계열만 남긴다: 그건 색과 모양만 봐서는 알 수 없는 정보다. -->
+                                        <TextBlock Text="{Binding Kind}" FontFamily="Segoe UI" FontSize="10.5"
+                                                   Margin="0,0,0,3" Foreground="{DynamicResource Skin.Accent}"/>
                                         <!-- 미터 행의 모형. 색 견본이 아니라 행인 이유는, 게이지가 딜 숫자를 읽는
                                              바탕이라 숫자가 실제로 올라가 있어야 과한지 아닌지가 드러나기 때문이다.
                                              미터의 진짜 행 템플릿은 OverlayWindow.xaml 안에 있어 그대로 쓰려면 미터

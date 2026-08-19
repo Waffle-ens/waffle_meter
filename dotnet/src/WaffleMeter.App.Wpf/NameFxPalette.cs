@@ -134,6 +134,12 @@ public static class NameFxPalette
             new[] { "#FF14532D", "#FF4ADE80", "#FFF0FFF4", "#FF4ADE80", "#FF14532D" },
             new[] { "#FF10461F", "#FF2FA85B", "#FFDFF6E4", "#FF2FA85B", "#FF10461F" },
             IsGauge: true, Offsets: new[] { 0.0, 0.34, 0.5, 0.66, 1.0 }),
+        // 전류. 색은 비어 있던 자리를 집었다 — 게이지 여섯 중 남보라 바탕은 여기뿐이고(잔불 적주황,
+        // 프리즘 청록+보라, 서리 파랑, 베리 자홍, 말차 녹색), 그 바탕이 장식의 노란 아크를 가장 세게 받는다.
+        new("voltage", "전류", NameFxKind.Supporter, true,
+            new[] { "#FF1E1B4B", "#FF4F46E5", "#FFE0E7FF", "#FF4F46E5", "#FF1E1B4B" },
+            new[] { "#FF23206B", "#FF4B44D6", "#FFD8DEFF", "#FF4B44D6", "#FF23206B" },
+            IsGauge: true, Offsets: new[] { 0.0, 0.34, 0.5, 0.66, 1.0 }),
 
         // ── 랭커 DPS 게이지 스킨 ───────────────────────────────────────────────────
         // 첫 판은 채도를 낮추고 스톱을 균등 배치했다가 완전히 실패했다. 게이지는 채움 불투명도 0.3 뒤에
