@@ -35,6 +35,9 @@ public sealed record NameFxChoiceViewModel(
 /// the fill brush instance, its 0.3 opacity, and the 3 px accent rail keeping its own colour.</para>
 /// </summary>
 public sealed record GaugeSkinSampleViewModel(
+    /// <summary>The catalogue id, passed through so the sample uses the SAME renderer as a real row. Inferring
+    /// it from the display name would let the two drift the moment a name changed.</summary>
+    string Id,
     string Name,
     /// <summary>후원자 / 랭커. 게이지는 닉네임 연출과 달리 계열이 모션으로 갈리지 않으므로(모든 게이지가
     /// 같은 주기를 쓴다) 어느 쪽 자격으로 받는 스킨인지는 이 라벨로만 알 수 있다.</summary>
@@ -911,6 +914,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         // 같은 행 내용에 스킨만 갈아 끼운다 — 비교해야 할 변수가 스킨 하나뿐이어야 한다.
         GaugeSkinSamples = NameFxPalette.GaugeSkins
             .Select(e => new GaugeSkinSampleViewModel(
+                Id: e.Id,
                 Name: e.Name,
                 Kind: e.Kind == NameFxPalette.NameFxKind.Ranker ? "랭커" : "후원자",
                 Fill: NameFxPalette.For(e.Id, isLight).NameFill,

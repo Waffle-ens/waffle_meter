@@ -837,7 +837,13 @@
                                                         <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
                                                         <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <Border Grid.Column="0" Background="{Binding Fill}" Opacity="{Binding GaugeOpacity}" CornerRadius="4"/>
+                                                    <!-- 실제 미터와 **같은 렌더러**를 쓴다. 시안과 실물이 서로 다른
+                                                         구현이면 다시 어긋난다. -->
+                                                    <Grid Grid.Column="0" ClipToBounds="True">
+                                                        <Border Background="{Binding Fill}" Opacity="{Binding GaugeOpacity}" CornerRadius="4"/>
+                                                        <local:GaugeFxLayer SkinId="{Binding Id}" IsFxEnabled="True"
+                                                                            ContentExclusionLeft="72" CornerRadius="4"/>
+                                                    </Grid>
                                                 </Grid>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>

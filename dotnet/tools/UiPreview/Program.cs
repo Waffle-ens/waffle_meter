@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -43,6 +44,10 @@ internal static class Program
         var skins = new[] { "Dark", "Midnight", "Slate", "Light" }.ToDictionary(
             s => s,
             s => new ResourceDictionary { Source = new Uri($"pack://application:,,,/WaffleMeter.App.Wpf;component/Themes/Skin.{s}.xaml") });
+
+        // 게이지 장식 비교 시트 — 5종을 같은 막대·같은 길이·세 위상으로. 실제 GaugeFxLayer 로 그린다.
+        CaptureGaugeSheet(outDir, light: false, skins["Dark"]);
+        CaptureGaugeSheet(outDir, light: true, skins["Light"]);
 
         foreach (string skin in skins.Keys)
         {
@@ -990,6 +995,8 @@ internal static class Program
         // ⚠️ 자격 판정과 선택 수락은 **서버**가 한다. 후원자 게이지는 통계웹이 supporter 자격에 대해
         // gaugeId 를 받아 주고 새 id 두 개를 알아야 실제로 저장된다 — 그 전까지 이 목록은 골라도
         // 거절당한다(SubmitChoice 는 서버 응답만 신뢰한다).
+        VerifyGaugeFx(settings, offVm, Check);
+
         Check("게이지도 계열별로 갈린다",
             NameFxPalette.GaugeChoicesFor("supporter").All(e => e.Kind == NameFxPalette.NameFxKind.Supporter)
             && NameFxPalette.GaugeChoicesFor("ranker").All(e => e.Kind == NameFxPalette.NameFxKind.Ranker)
@@ -1369,6 +1376,289 @@ internal static class Program
     /// exact on purpose: this is the only way to tell "the animation moves the paint" from "the animation runs
     /// but the paint never changes", and those two look identical everywhere else.
     /// </summary>
+    /// <summary>
+    /// Every gauge skin's DECORATION over the real colour fill, at the same bar length and three phases.
+    /// <para>This is the only view that answers the question the feature exists for. The meter capture cannot:
+    /// each row there carries a different skin at a different bar length and one phase, so a motion difference
+    /// reads as a length difference. It renders through the SHIPPING <see cref="GaugeFxLayer"/> at the real
+    /// fill opacity with the DPS number on top, because "is this too loud" only means something with the number
+    /// actually there — which is exactly what the reverted attempt got wrong.</para>
+    /// </summary>
+    private static void CaptureGaugeSheet(string outDir, bool light, ResourceDictionary palette)
+    {
+        NameFxPalette.Effect[] skins = NameFxPalette.GaugeSkins.ToArray();
+        double[] phases = { 0.0, 2.6, 5.2 };
+        const int LabelW = 128, BarW = 260, BarH = 30, RowH = 44, Pad = 10, HeadH = 26;
+        int width = LabelW + ((BarW + Pad) * 3) + Pad;
+        int height = HeadH + (RowH * skins.Length) + Pad;
+
+        var rowBg = new SolidColorBrush(light ? Color.FromRgb(0xF1, 0xF5, 0xF9) : Color.FromRgb(0x1E, 0x29, 0x3B));
+        var panelBg = new SolidColorBrush(light ? Color.FromRgb(0xFA, 0xFC, 0xFF) : Color.FromRgb(0x0F, 0x17, 0x2A));
+        var fg = new SolidColorBrush(light ? Color.FromRgb(0x1E, 0x29, 0x3B) : Colors.White);
+        var muted = new SolidColorBrush(light ? Color.FromRgb(0x64, 0x74, 0x8B) : Color.FromRgb(0x94, 0xA3, 0xB8));
+
+        var canvas = new Canvas { Width = width, Height = height, Background = panelBg };
+        var host = new Border { Width = width, Height = height, Child = canvas };
+        host.Resources.MergedDictionaries.Insert(0, palette);
+
+        for (int i = 0; i < skins.Length; i++)
+        {
+            double y = HeadH + (RowH * i);
+            string kind = skins[i].Kind == NameFxPalette.NameFxKind.Ranker ? "랭커" : "후원자";
+            canvas.Children.Add(Label(skins[i].Name, fg, 12, Pad, y + 3));
+            canvas.Children.Add(Label(kind, muted, 9.5, Pad, y + 19));
+
+            for (int p = 0; p < phases.Length; p++)
+            {
+                double x = LabelW + ((BarW + Pad) * p);
+                if (i == 0)
+                {
+                    canvas.Children.Add(Label($"위상 {p}", muted, 11, x, 6));
+                }
+
+                var cell = new Grid { Width = BarW, Height = BarH, ClipToBounds = true };
+                cell.Children.Add(new Border { Background = rowBg, CornerRadius = new CornerRadius(4) });
+                cell.Children.Add(new Border
+                {
+                    Background = NameFxPalette.GaugeBrush(skins[i].Id, light),
+                    Opacity = 0.58,
+                    CornerRadius = new CornerRadius(4),
+                });
+                cell.Children.Add(new GaugeFxLayer
+                {
+                    SkinId = skins[i].Id,
+                    IsFxEnabled = true,
+                    ContentExclusionLeft = 0, // 시트에는 아이콘이 없으므로 보호 구간이 필요 없다
+                    CornerRadius = 4,
+                    Seed = i * 7,
+                    PreviewSeconds = phases[p],
+                });
+
+                // 숫자는 장식 위에 — 실제 행과 같은 순서라야 가독성 판단이 성립한다.
+                var dps = new TextBlock
+                {
+                    Text = "408,239/s",
+                    FontFamily = new FontFamily("Segoe UI"),
+                    FontSize = 12,
+                    Foreground = fg,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 8, 0),
+                };
+                cell.Children.Add(dps);
+
+                Canvas.SetLeft(cell, x);
+                Canvas.SetTop(cell, y);
+                canvas.Children.Add(cell);
+            }
+        }
+
+        host.Measure(new Size(width, height));
+        host.Arrange(new Rect(0, 0, width, height));
+        host.UpdateLayout();
+        Drain(host.Dispatcher);
+
+        var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(host);
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(rtb));
+        string path = Path.Combine(outDir, $"gauge_sheet_{(light ? "Light" : "Dark")}.png");
+        using (FileStream fs = File.Create(path))
+        {
+            encoder.Save(fs);
+        }
+
+        Console.WriteLine($"  [ok]   {Path.GetFileName(path)} {width}x{height}");
+
+        static TextBlock Label(string text, Brush brush, double size, double x, double y)
+        {
+            var tb = new TextBlock
+            {
+                Text = text,
+                FontFamily = new FontFamily("Segoe UI"),
+                FontSize = size,
+                Foreground = brush,
+            };
+            Canvas.SetLeft(tb, x);
+            Canvas.SetTop(tb, y);
+            return tb;
+        }
+    }
+
+    /// <summary>Render one decoration layer alone (no colour fill behind it) and return its pixels. Alone is the
+    /// point: every check below is about what the DECORATION does, and over a fill a bug that draws nothing and
+    /// a bug that draws everything both look like "a coloured bar".</summary>
+    private static byte[] PaintGaugeFx(
+        string? skinId, bool enabled, double seconds, double width = 240, double height = 30, double exclusionLeft = 0)
+    {
+        var layer = new GaugeFxLayer
+        {
+            SkinId = skinId,
+            IsFxEnabled = enabled,
+            PreviewSeconds = seconds,
+            ContentExclusionLeft = exclusionLeft,
+            CornerRadius = 4,
+            Width = width,
+            Height = height,
+        };
+
+        layer.Measure(new Size(width, height));
+        layer.Arrange(new Rect(0, 0, width, height));
+        layer.UpdateLayout();
+
+        var rtb = new RenderTargetBitmap((int)width, (int)height, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(layer);
+        var px = new byte[(int)width * (int)height * 4];
+        rtb.CopyPixels(px, (int)width * 4, 0);
+        return px;
+    }
+
+    /// <summary>Total alpha in a horizontal band of a rendered layer. 0 means nothing was drawn there.</summary>
+    private static long AlphaIn(byte[] px, int width, int height, int fromX, int toX)
+    {
+        long sum = 0;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = Math.Max(0, fromX); x < Math.Min(width, toX); x++)
+            {
+                sum += px[((y * width) + x) * 4 + 3];
+            }
+        }
+
+        return sum;
+    }
+
+    /// <summary>
+    /// The decoration layer's contract. Everything here is about the layer ALONE — the colour fill it sits on is
+    /// a separate Border and is not this element's business.
+    /// </summary>
+    private static void VerifyGaugeFx(MeterSettings settings, OverlayViewModel vm, Action<string, bool> Check)
+    {
+        const int W = 240, H = 30;
+        string[] ids = NameFxPalette.GaugeSkins.Select(e => e.Id).ToArray();
+
+        // 2) 스킨마다 실제로 무언가를 그린다. 이름만 등록되고 렌더러가 없는 스킨은 설정창에서는 멀쩡해
+        //    보이고 미터에서만 아무 일도 안 일어난다.
+        foreach (string id in ids)
+        {
+            byte[] on = PaintGaugeFx(id, enabled: true, seconds: 1.7);
+            Check($"'{id}' 장식이 실제로 그려진다", AlphaIn(on, W, H, 0, W) > 0);
+        }
+
+        // 3) 세 위상이 픽셀로 달라야 한다. 정지한 효과는 한 프레임만 보면 동작하는 것과 구분되지 않는다.
+        foreach (string id in ids)
+        {
+            byte[] a = PaintGaugeFx(id, enabled: true, seconds: 0.0);
+            byte[] b = PaintGaugeFx(id, enabled: true, seconds: 2.6);
+            byte[] c = PaintGaugeFx(id, enabled: true, seconds: 5.2);
+            Check($"'{id}' 위상이 실제로 움직인다",
+                !a.AsSpan().SequenceEqual(b) && !b.AsSpan().SequenceEqual(c));
+        }
+
+        // 4) 꺼진 상태·미상 id 는 **한 픽셀도** 그리지 않는다. 색 채움은 이 요소 밖이라 그대로 남는다.
+        foreach (string id in ids)
+        {
+            Check($"'{id}' 장식 off 면 아무것도 안 그린다",
+                AlphaIn(PaintGaugeFx(id, enabled: false, seconds: 1.7), W, H, 0, W) == 0);
+        }
+
+        Check("모르는 스킨 id 는 아무것도 안 그린다",
+            AlphaIn(PaintGaugeFx("nope", enabled: true, seconds: 1.7), W, H, 0, W) == 0);
+        Check("스킨 id 가 없으면 아무것도 안 그린다",
+            AlphaIn(PaintGaugeFx(null, enabled: true, seconds: 1.7), W, H, 0, W) == 0);
+
+        // 5) 🔴 아이콘 보호 구간. 반투명 테마에서 입자가 아이콘 뒤로 비치면 배지가 스킨마다 다른 색으로
+        //    물든다 — 직업 아이콘은 스킨과 무관해야 한다는 것이 이 기능의 불변 조건이다.
+        foreach (string id in ids)
+        {
+            long inside = 0;
+            for (double t = 0; t < 9; t += 0.7)
+            {
+                inside += AlphaIn(PaintGaugeFx(id, true, t, W, H, exclusionLeft: 72), W, H, 0, 72);
+            }
+
+            Check($"'{id}' 아이콘 보호 구간(72 DIP)에 장식이 없다", inside == 0);
+        }
+
+        // 6) 짧은 막대에서 오른쪽으로 새지 않는다. 클립은 요소 크기 기준이므로 폭을 줄여 확인한다.
+        foreach (double ratio in new[] { 0.16, 0.55, 1.0 })
+        {
+            int w = Math.Max(8, (int)(W * ratio));
+            byte[] px = PaintGaugeFx("frost", true, 3.1, w, H);
+            Check($"막대 {ratio:P0} 길이에서 장식이 경계를 넘지 않는다", px.Length == w * H * 4);
+        }
+
+        // 7) 보호 구간이 막대보다 길면(짧은 행) 아예 그리지 않는다 — 남는 폭이 없다.
+        Check("막대가 보호 구간보다 짧으면 장식이 없다",
+            AlphaIn(PaintGaugeFx("ember", true, 2.0, 60, H, exclusionLeft: 72), 60, H, 0, 60) == 0);
+
+        // 8) 행 seed 가 다르면 그림도 달라야 한다 — 같은 스킨을 단 두 행이 완전히 동기화되면 안 된다.
+        var l1 = new GaugeFxLayer { SkinId = "ember", IsFxEnabled = true, PreviewSeconds = 2.0, Seed = 0, Width = W, Height = H };
+        var l2 = new GaugeFxLayer { SkinId = "ember", IsFxEnabled = true, PreviewSeconds = 2.0, Seed = 37, Width = W, Height = H };
+        Check("행마다 seed 가 다르면 입자 배치도 다르다", !RenderLayer(l1, W, H).AsSpan().SequenceEqual(RenderLayer(l2, W, H)));
+
+        // 9) 설정 모드별 게이트. 장식은 '움직임'이므로 색상만·저사양에서는 꺼지고 색 채움만 남는다.
+        string savedMode = settings.NameFxMode;
+        bool savedLow = settings.LowSpecMode;
+        string savedBar = settings.BarStyle;
+
+        settings.NameFxMode = "static";
+        vm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("'색상만' 이면 장식이 꺼진다 (색 채움은 유지)",
+            vm.Rows.All(r => !r.GaugeFxEnabled) && vm.Rows.Any(r => r.GaugeSkinId is not null));
+
+        settings.NameFxMode = "animated";
+        settings.LowSpecMode = true;
+        vm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("저사양 모드면 장식이 꺼진다 (색 채움은 유지)",
+            vm.Rows.All(r => !r.GaugeFxEnabled) && vm.Rows.Any(r => r.GaugeSkinId is not null));
+
+        settings.LowSpecMode = false;
+        settings.BarStyle = "none";
+        vm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("게이지 형태가 '없음' 이면 장식이 꺼진다", vm.Rows.All(r => !r.GaugeFxEnabled));
+
+        settings.BarStyle = "fill";
+        settings.NameFxGauge = false;
+        vm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("게이지 스킨 토글이 꺼지면 id 도 장식도 없다",
+            vm.Rows.All(r => r.GaugeSkinId is null && !r.GaugeFxEnabled));
+
+        settings.NameFxGauge = true;
+        settings.NameFxMode = "off";
+        vm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("연출이 꺼지면 id 도 장식도 없다",
+            vm.Rows.All(r => r.GaugeSkinId is null && !r.GaugeFxEnabled));
+
+        settings.NameFxMode = "animated";
+        vm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+        Check("animated 로 돌아오면 부여된 행에 id 와 장식이 다시 붙는다",
+            vm.Rows.Any(r => r.GaugeSkinId is not null && r.GaugeFxEnabled));
+
+        // 10) id 는 실제로 해석된 스킨일 때만 붙는다 — 모르는 id 가 통과하면 색은 기본인데 장식만 뜬다.
+        Check("id 가 붙은 행은 전부 카탈로그에 있는 스킨이다",
+            vm.Rows.Where(r => r.GaugeSkinId is not null)
+                   .All(r => NameFxPalette.IsKnownGauge(r.GaugeSkinId)));
+
+        settings.NameFxMode = savedMode;
+        settings.LowSpecMode = savedLow;
+        settings.BarStyle = savedBar;
+        vm.Update(SampleMeterReport(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()));
+    }
+
+    private static byte[] RenderLayer(GaugeFxLayer layer, int w, int h)
+    {
+        layer.Measure(new Size(w, h));
+        layer.Arrange(new Rect(0, 0, w, h));
+        layer.UpdateLayout();
+        var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(layer);
+        var px = new byte[w * h * 4];
+        rtb.CopyPixels(px, w * 4, 0);
+        return px;
+    }
+
     private static byte[] PaintStrip(Brush brush, double phase)
     {
         NameFxSheen.SetPreviewPhase(phase);

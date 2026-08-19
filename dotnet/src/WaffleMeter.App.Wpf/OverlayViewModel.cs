@@ -606,6 +606,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             };
             NameFxBadge fx = NameFxBadge.None;
             Brush? gaugeSkin = null;
+            string? gaugeSkinId = null;
             if (nameFxOn && (isUser ? _settings.NameFxShowSelf : _settings.NameFxShowOthers))
             {
                 NameFxEntry? grant = ResolveNameFxGrant(server, e.User?.Nickname);
@@ -615,14 +616,17 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                     animatedNameRows++;
                 }
 
-                // 랭커 전용 게이지 스킨. 부여 자체가 랭커에게만 나가므로 여기서 계열을 다시 검사하지 않는다 —
-                // 명단이 권위다. 애니메이션 여부는 전역 게이트를 그대로 따른다('색상만'이면 정지한 채 칠해진다).
+                // 게이지 스킨. 계열(후원자/랭커) 판정은 명단이 권위라 여기서 다시 검사하지 않는다.
+                // 애니메이션 여부는 전역 게이트를 그대로 따른다('색상만'이면 정지한 채 칠해진다).
                 if (_settings.NameFxGauge && grant?.GaugeId is { Length: > 0 } gid)
                 {
                     gaugeSkin = NameFxPalette.GaugeBrush(gid, isLightSkin);
                     if (gaugeSkin is not null)
                     {
                         animatedNameRows++;
+                        // 브러시가 실제로 해석됐을 때만 id 를 행까지 보낸다 — 장식 레이어는 이 값만 보고
+                        // 그리므로, 모르는 id 가 여기를 통과하면 색은 기본인데 장식만 뜨는 상태가 된다.
+                        gaugeSkinId = gid;
                     }
                 }
             }
@@ -659,7 +663,14 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 GaugeOpacity: gaugeSkin is null ? 0.3 : 0.58,
                 GaugeBrush: gaugeSkin ?? (_theme.BarColorMode == "job"
                     ? (isUser ? _userBar : jobBar)
-                    : (isUser ? _userBar : contribution < 3 ? _errorBar : contribution < 5 ? _warningBar : _normalBar)));
+                    : (isUser ? _userBar : contribution < 3 ? _errorBar : contribution < 5 ? _warningBar : _normalBar)),
+                GaugeSkinId: gaugeSkinId,
+                // 장식은 '움직임'이다. 색상만·저사양·게이지 형태 없음에서는 색 채움만 남고 장식은 그리지
+                // 않는다 — 그 셋 모두 색을 지우는 설정이 아니기 때문이다.
+                GaugeFxEnabled: gaugeSkinId is not null
+                    && _settings.NameFxMode == "animated"
+                    && !_settings.LowSpecMode
+                    && _settings.BarStyle == "fill");
 
             if (i < Rows.Count)
             {
@@ -855,7 +866,15 @@ public sealed record RowViewModel(
     /// ranker gauge skin. Kept separate on purpose: <c>FillBrush</c> also paints the 3 px accent rail, which has
     /// no visibility gate and is the only thing distinguishing your own row and each job — a gauge skin there
     /// would compress a four-stop gradient into three pixels and erase that signal.</summary>
-    Brush GaugeBrush);
+    Brush GaugeBrush,
+    /// <summary>The gauge skin this row actually resolved to, or null. Passed explicitly rather than inferred
+    /// from <see cref="GaugeBrush"/> or a display name: the decoration layer keys off it, and every gate the
+    /// grant had to pass (feature on, scope, 게이지 토글, known id) has already been applied by the time it is
+    /// set.</summary>
+    string? GaugeSkinId = null,
+    /// <summary>Whether the decoration may animate on this row. Separate from having a skin, because 색상만
+    /// (static), low-spec and <c>BarStyle != fill</c> all keep the colour fill and drop only the decoration.</summary>
+    bool GaugeFxEnabled = false);
 
 
 /// <summary>Per-row tier text. Separate from <see cref="TierBadge"/> (a shared singleton) because these values

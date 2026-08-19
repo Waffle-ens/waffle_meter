@@ -240,7 +240,18 @@
                                             <ColumnDefinition Width="{Binding BarRatio, Converter={StaticResource RatioToStar}}"/>
                                             <ColumnDefinition Width="{Binding BarRest, Converter={StaticResource RatioToStar}}"/>
                                         </Grid.ColumnDefinitions>
-                                        <Border Grid.Column="0" Background="{Binding GaugeBrush}" Opacity="{Binding GaugeOpacity}" CornerRadius="4"/>
+                                        <!-- 색 채움은 그대로. 그 위에 장식 레이어만 얹는다 — 채움을 도형으로
+                                             갈아치웠던 판(23ca728)은 딜 숫자의 바탕을 그림으로 만들어 되돌렸다.
+                                             ContentExclusionLeft 는 rail+순위칩+직업아이콘 구간으로, 반투명
+                                             테마에서 입자가 아이콘 뒤로 비쳐 배지를 물들이지 않게 한다.
+                                             GaugeFxLayer 는 MeasureOverride 가 0 이라 행 기하에 관여하지 않는다. -->
+                                        <Grid Grid.Column="0" ClipToBounds="True">
+                                            <Border Background="{Binding GaugeBrush}" Opacity="{Binding GaugeOpacity}" CornerRadius="4"/>
+                                            <local:GaugeFxLayer SkinId="{Binding GaugeSkinId}"
+                                                                IsFxEnabled="{Binding GaugeFxEnabled}"
+                                                                Seed="{Binding Id}"
+                                                                ContentExclusionLeft="72" CornerRadius="4"/>
+                                        </Grid>
                                     </Grid>
                                   <Grid>
                                     <Grid.ColumnDefinitions>

@@ -68,6 +68,10 @@ public static class NameFxSheen
     /// causes — no demand, parked, low-spec, or a demand source nobody wired up — and only the last is a bug.</summary>
     public static bool IsRunning => _running;
 
+    /// <summary>The user's motion speed, 50~200. Read by <see cref="GaugeFxClock"/> so the decoration layer and
+    /// the nickname sheen move at one setting rather than two.</summary>
+    public static int SpeedPercent => _speedPercent;
+
     /// <summary>
     /// Report how many animated rows this frame drew. Zero (or the feature off) releases the animation, so a
     /// meter sitting in town costs nothing.
@@ -137,6 +141,7 @@ public static class NameFxSheen
             }
 
             _running = true;
+            GaugeFxClock.OnGateChanged();
             return;
         }
 
@@ -152,6 +157,7 @@ public static class NameFxSheen
         }
 
         _running = false;
+        GaugeFxClock.OnGateChanged();
     }
 
     /// <summary>
