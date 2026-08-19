@@ -33,6 +33,10 @@ internal static class Program
         });
 
         VerifySettings();
+        // 게이지 스킨 비교 시트 — 5종을 같은 막대·같은 위상으로 나란히. 미터 캡처는 행마다 스킨도
+        // 길이도 달라 텍스처 차이가 길이 차이로 읽히고, 설정 스트립은 캡처 화면 밖으로 밀린다.
+        CaptureGaugeSheet(outDir, light: false);
+        CaptureGaugeSheet(outDir, light: true);
 
         var props = new PropertyHandler();
         var settings = new MeterSettings(props);
@@ -1369,6 +1373,81 @@ internal static class Program
     /// exact on purpose: this is the only way to tell "the animation moves the paint" from "the animation runs
     /// but the paint never changes", and those two look identical everywhere else.
     /// </summary>
+    /// <summary>
+    /// Every gauge skin, same bar, same length, at three phases of its own animation — the one view that
+    /// answers "do these actually look different?".
+    /// <para>The meter capture cannot: each row there carries a different skin at a different bar length and
+    /// a single phase, so a texture difference reads as a length difference. The settings strip cannot either
+    /// — it sits below the fold of the settings capture. This is drawn with the REAL brush instances at the
+    /// REAL fill opacity, which is the only place a gauge is ever judged.</para>
+    /// </summary>
+    private static void CaptureGaugeSheet(string outDir, bool light)
+    {
+        NameFxPalette.Effect[] skins = NameFxPalette.GaugeSkins.ToArray();
+        double[] phases = { 0.0, 0.33, 0.66 };
+        const int LabelW = 132, BarW = 236, BarH = 26, RowH = 40, Pad = 10, HeadH = 26;
+        int width = LabelW + (BarW + Pad) * phases.Length + Pad;
+        int height = HeadH + (RowH * skins.Length) + Pad;
+
+        var rowBg = new SolidColorBrush(light ? Color.FromRgb(0xF1, 0xF5, 0xF9) : Color.FromRgb(0x1E, 0x29, 0x3B));
+        var panelBg = new SolidColorBrush(light ? Color.FromRgb(0xFA, 0xFC, 0xFF) : Color.FromRgb(0x0F, 0x17, 0x2A));
+        var fg = new SolidColorBrush(light ? Color.FromRgb(0x1E, 0x29, 0x3B) : Colors.White);
+        var muted = new SolidColorBrush(light ? Color.FromRgb(0x64, 0x74, 0x8B) : Color.FromRgb(0x94, 0xA3, 0xB8));
+        var typeface = new Typeface("Segoe UI");
+
+        FormattedText Text(string s, Brush b, double size) => new(
+            s, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+            typeface, size, b, 96);
+
+        var visual = new DrawingVisual();
+        using (DrawingContext dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle(panelBg, null, new Rect(0, 0, width, height));
+            for (int p = 0; p < phases.Length; p++)
+            {
+                dc.DrawText(
+                    Text($"위상 {phases[p]:0.00}", muted, 11),
+                    new Point(LabelW + ((BarW + Pad) * p), 6));
+            }
+
+            for (int i = 0; i < skins.Length; i++)
+            {
+                double y = HeadH + (RowH * i);
+                string kind = skins[i].Kind == NameFxPalette.NameFxKind.Ranker ? "랭커" : "후원자";
+                dc.DrawText(Text(skins[i].Name, fg, 12), new Point(Pad, y + 2));
+                dc.DrawText(Text($"{kind} · {skins[i].Motion}", muted, 9.5), new Point(Pad, y + 18));
+
+                for (int p = 0; p < phases.Length; p++)
+                {
+                    // The phase is global to the sheen, so set it once per column and draw every skin in it.
+                    NameFxSheen.SetPreviewPhase(phases[p]);
+                    Brush? gauge = NameFxPalette.GaugeBrush(skins[i].Id, light);
+                    var rect = new Rect(LabelW + ((BarW + Pad) * p), y, BarW, BarH);
+                    dc.DrawRoundedRectangle(rowBg, null, rect, 4, 4);
+                    dc.PushOpacity(0.58); // the value a skinned row actually uses (RowViewModel.GaugeOpacity)
+                    dc.DrawRoundedRectangle(gauge, null, rect, 4, 4);
+                    dc.Pop();
+                    dc.DrawText(
+                        Text("408,239/s", fg, 12),
+                        new Point(rect.Right - 78, rect.Y + 5));
+                }
+            }
+        }
+
+        var rtb = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        rtb.Render(visual);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(rtb));
+        string path = Path.Combine(outDir, $"gauge_sheet_{(light ? "Light" : "Dark")}.png");
+        using (FileStream fs = File.Create(path))
+        {
+            encoder.Save(fs);
+        }
+
+        NameFxSheen.SetPreviewPhase(0);
+        Console.WriteLine($"  [ok]   {Path.GetFileName(path)} {width}x{height}");
+    }
+
     private static byte[] PaintStrip(Brush brush, double phase)
     {
         NameFxSheen.SetPreviewPhase(phase);

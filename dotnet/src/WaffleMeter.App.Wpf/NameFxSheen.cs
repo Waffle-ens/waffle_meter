@@ -47,7 +47,12 @@ public static class NameFxSheen
     /// difference that does not survive a moving game behind it.</summary>
     private const int FrameRate = 30;
 
-    private sealed record Track(LinearGradientBrush Brush, TranslateTransform Transform, double Period, double Seconds);
+    private sealed record Track(
+        GradientBrush Brush,
+        TranslateTransform Transform,
+        double Period,
+        double Seconds,
+        bool Reverse);
 
     // ★ The only unfrozen brushes this feature owns. Shared, and animated in place.
     private static readonly Dictionary<(string Id, bool Light), Track> Tracks = Build();
@@ -127,7 +132,9 @@ public static class NameFxSheen
                 var anim = new DoubleAnimation
                 {
                     From = 0,
-                    To = t.Period,
+                    // A tile is seamless, so travelling one tile BACKWARDS is just as continuous as forwards —
+                    // and two skins moving opposite ways read as two effects even at a glance.
+                    To = t.Reverse ? -t.Period : t.Period,
                     Duration = TimeSpan.FromSeconds(t.Seconds * 100.0 / speed),
                     RepeatBehavior = RepeatBehavior.Forever,
                 };
@@ -195,25 +202,44 @@ public static class NameFxSheen
         }
     }
 
+    /// <summary>
+    /// How many tiles a chevron travels per loop — and the number the lean is derived FROM, not the other way
+    /// round.
+    /// <para>A slanted gradient does not close under a one-tile shift. Its parameter advances by
+    /// <c>1 / (1 + lean²)</c> per tile of x-translation, so the pattern only lands on itself again after
+    /// <c>1 + lean²</c> tiles — and only if that is a whole number. Picking the span first and solving for the
+    /// lean is what makes the loop exact; picking a lean that "looked right" (3.4) put the seam at 3.55/255
+    /// against a 1.0 budget, which the preview harness caught.</para>
+    /// </summary>
+    private const int ChevronTileSpan = 12;
+
+    /// <summary>
+    /// The lean itself, as a multiple of the BAR HEIGHT — the y component of a relative-mapped gradient axis is
+    /// normalised to the box height, not the width.
+    /// <para>That normalisation is why a small value looks wrong: a bar is roughly 236 × 26, so a lean of 0.55
+    /// tilts the axis by <c>atan(0.55 × 26 / 236)</c> ≈ 3° and renders as vertical blocks. √11 ≈ 3.32 gives
+    /// about 20°, which reads as a diagonal.</para>
+    /// </summary>
+    private static readonly double ChevronLean = Math.Sqrt(ChevronTileSpan - 1);
+
     private static Dictionary<(string, bool), Track> Build()
     {
         var map = new Dictionary<(string, bool), Track>();
         foreach (NameFxPalette.Effect e in NameFxPalette.All.Where(x => x.Animated))
         {
-            double period = e.IsGauge ? GaugePeriodRelative : NamePeriodPx;
-            double seconds = e.IsGauge ? GaugeSeconds : NameSeconds;
+            bool chevron = e.IsGauge && e.Motion == NameFxPalette.GaugeMotion.Chevron;
+
+            // A chevron loops over ChevronTileSpan tiles rather than one, so its travel distance AND its
+            // duration are both multiplied — otherwise the same wall-clock second would cover twelve tiles and
+            // it would blur past.
+            double span = chevron ? ChevronTileSpan : 1.0;
+            double period = (e.IsGauge ? GaugePeriodRelative : NamePeriodPx) * span;
+            double seconds = (e.IsGauge ? GaugeSeconds : NameSeconds)
+                * Math.Clamp(e.SpeedScale, 0.25, 4.0) * span;
             foreach (bool light in new[] { false, true })
             {
                 var transform = new TranslateTransform();
-                var b = new LinearGradientBrush
-                {
-                    // Repeat is what makes a translation equal a seamless flow: the gradient tiles every
-                    // `period`, so sliding by exactly one period lands on an identical pattern.
-                    MappingMode = e.IsGauge ? BrushMappingMode.RelativeToBoundingBox : BrushMappingMode.Absolute,
-                    SpreadMethod = GradientSpreadMethod.Repeat,
-                    StartPoint = new Point(0, 0),
-                    EndPoint = new Point(period, 0),
-                };
+                GradientBrush b = BuildBrush(e, e.IsGauge ? GaugePeriodRelative : NamePeriodPx);
                 NameFxPalette.AddStops(b, e, light);
 
                 // ⚠ The slot MUST match the mapping — see the type remarks. Relative mapping needs
@@ -228,10 +254,29 @@ public static class NameFxSheen
                     b.Transform = transform;
                 }
 
-                map[(e.Id, light)] = new Track(b, transform, period, seconds); // NOT frozen — animated in place.
+                // NOT frozen — animated in place.
+                map[(e.Id, light)] = new Track(b, transform, period, seconds, e.IsGauge && e.Reverse);
             }
         }
 
         return map;
+    }
+
+    /// <summary>The brush geometry for one effect. Repeat is what makes a translation equal a seamless flow:
+    /// the gradient tiles every <c>period</c>, so sliding by exactly one period lands on an identical pattern —
+    /// which is true of the radial tile as much as the linear ones.</summary>
+    private static GradientBrush BuildBrush(NameFxPalette.Effect e, double period)
+    {
+        BrushMappingMode mapping = e.IsGauge ? BrushMappingMode.RelativeToBoundingBox : BrushMappingMode.Absolute;
+
+        return new LinearGradientBrush
+        {
+            MappingMode = mapping,
+            SpreadMethod = GradientSpreadMethod.Repeat,
+            StartPoint = new Point(0, 0),
+            EndPoint = new Point(
+                period,
+                e.IsGauge && e.Motion == NameFxPalette.GaugeMotion.Chevron ? ChevronLean : 0),
+        };
     }
 }
