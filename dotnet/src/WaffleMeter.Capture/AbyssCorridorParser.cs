@@ -120,10 +120,19 @@ public static class AbyssCorridorParser
             }
 
             offset = next;
-            if (ticketId is >= FirstTicketId and <= LastTicketId && value >= 0 && value <= MaxRemainingMs)
+            if (ticketId is < FirstTicketId or > LastTicketId || value < 0 || value > MaxRemainingMs)
             {
-                into[found++] = new AbyssCorridorTicket(ticketId, value);
+                continue;
             }
+
+            if (found == into.Length)
+            {
+                // More in-range tickets than the client has corridors: the frame walked, but it is not
+                // describing the resource list we think it is. Rejecting beats overrunning the caller's buffer.
+                return -1;
+            }
+
+            into[found++] = new AbyssCorridorTicket(ticketId, value);
         }
 
         // The whole point of the walk: the frame has to end exactly where the records do. Anything left over

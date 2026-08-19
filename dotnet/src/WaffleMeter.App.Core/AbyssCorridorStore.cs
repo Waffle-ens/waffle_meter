@@ -140,13 +140,16 @@ public sealed class AbyssCorridorStore
     /// any value above zero, and for a 0x610C drop to zero (which can only follow a grant). Returns false when
     /// the arguments are unusable or nothing changed, so the caller can skip re-serializing: these broadcasts
     /// repeat.</summary>
+    /// <param name="tickingSinceMs"><c>null</c> = leave the clock exactly as it is, which is what almost every
+    /// caller wants: a login snapshot filed while the character is standing in a corridor must correct the VALUE
+    /// without also silently stopping the countdown. Pass 0 to stop it, or a timestamp to start it.</param>
     public bool Upsert(
         string? identityHash,
         int ticketId,
         long remainingMs,
         long observedAtMs,
         bool markGranted,
-        long tickingSinceMs = 0)
+        long? tickingSinceMs = null)
     {
         if (string.IsNullOrWhiteSpace(identityHash) || ticketId <= 0 || observedAtMs <= 0)
         {
@@ -156,6 +159,14 @@ public sealed class AbyssCorridorStore
         Dictionary<int, AbyssCorridorRecord> forCharacter = ForCharacter(identityHash!);
         forCharacter.TryGetValue(ticketId, out AbyssCorridorRecord existing);
 
+        // A reading older than the one already stored is not news — it is a late-arriving snapshot landing on
+        // top of a delta that already superseded it, which would rewind the panel and (worse) restate a clock
+        // that has since started. The 0x610B dump can wait up to 30 s for its identity, so this is reachable.
+        if (existing.ObservedAtMs > observedAtMs)
+        {
+            return false;
+        }
+
         // A grant stamp only ever moves forward, and only within the cycle it was taken in: carrying last
         // cycle's stamp over would keep claiming a corridor is occupied after the artifact changed hands.
         long grantedAt = markGranted
@@ -163,7 +174,10 @@ public sealed class AbyssCorridorStore
             : AbyssCorridorCycle.IsCurrentCycle(existing.GrantedAtMs, observedAtMs) ? existing.GrantedAtMs : 0;
 
         var updated = new AbyssCorridorRecord(
-            Math.Max(0, remainingMs), observedAtMs, grantedAt, Math.Max(0, tickingSinceMs));
+            Math.Max(0, remainingMs),
+            observedAtMs,
+            grantedAt,
+            Math.Max(0, tickingSinceMs ?? existing.TickingSinceMs));
 
         if (existing == updated)
         {
@@ -267,12 +281,21 @@ public sealed class AbyssCorridorStore
     private static long Newest(Dictionary<int, AbyssCorridorRecord> forCharacter) =>
         forCharacter.Count == 0 ? 0 : forCharacter.Max(r => r.Value.ObservedAtMs);
 
+    /// <summary>Whether a character has anything worth keeping beyond the fact that it logged in. A witness row
+    /// is written for EVERY character that connects, so on an alt-heavy account they would otherwise fill the
+    /// cap with rows that say nothing and push out the main character's actual corridor time.</summary>
+    private static bool HasTickets(Dictionary<int, AbyssCorridorRecord> forCharacter) =>
+        forCharacter.Keys.Any(id => id != WitnessTicketId);
+
     private void Evict()
     {
         while (_byHash.Count > MaxCharacters)
         {
-            string oldest = _byHash.OrderBy(kv => Newest(kv.Value)).First().Key;
-            _byHash.Remove(oldest);
+            string drop = _byHash
+                .OrderBy(kv => HasTickets(kv.Value))
+                .ThenBy(kv => Newest(kv.Value))
+                .First().Key;
+            _byHash.Remove(drop);
         }
     }
 }

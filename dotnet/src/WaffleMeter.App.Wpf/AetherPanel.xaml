@@ -169,8 +169,13 @@
                                                 </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
+                                                        <!-- A border rather than a fill: the row's own hover
+                                                             state paints Skin.RowHover, so a chip filled with
+                                                             that brush dissolves into the row the moment the
+                                                             mouse arrives — exactly when it is being read. -->
                                                         <Border CornerRadius="4" Padding="4,1" Margin="0,2,4,0"
-                                                                Background="{DynamicResource Skin.RowHover}"
+                                                                Background="Transparent" BorderThickness="1"
+                                                                BorderBrush="{DynamicResource Skin.Border}"
                                                                 ToolTip="{Binding ToolTip}">
                                                             <StackPanel Orientation="Horizontal">
                                                                 <TextBlock Text="{Binding TierText}" FontSize="9"

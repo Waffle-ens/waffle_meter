@@ -25,8 +25,9 @@ public sealed class AbyssCorridorRosterTests
         return store;
     }
 
-    private static AetherRosterRow Build(AbyssCorridorStore corridors) =>
-        Assert.Single(AetherRoster.Build(OneCharacter(), nowMs: Now, corridors: corridors));
+    private static AetherRosterRow Build(AbyssCorridorStore corridors, bool current = true) =>
+        Assert.Single(AetherRoster.Build(
+            OneCharacter(), currentHash: current ? Hash : null, nowMs: Now, corridors: corridors));
 
     /// <summary>The three corridors measured on 2026-08-19: two 중층 and one 하층, all spent. Only those three
     /// get a chip — the other three never held time for this character, and inventing a chip for one would be
@@ -72,6 +73,21 @@ public sealed class AbyssCorridorRosterTests
         AbyssCorridorCell cell = Assert.Single(Build(corridors).CorridorCells);
 
         Assert.True(cell.Ticking);
+        Assert.Equal(70_000, cell.RemainingMs);
+    }
+
+    /// <summary>"지금 입장 중" is a claim about the character being played. A clock that outlived its visit —
+    /// the meter was closed inside a corridor, or the user switched characters — must not light up a row the
+    /// user is not even controlling.</summary>
+    [Fact]
+    public void Only_the_character_being_played_can_report_as_being_inside()
+    {
+        var corridors = AbyssCorridorStore.Parse(null);
+        corridors.Upsert(Hash, 10_000_002, 130_000, Now - 60_000, markGranted: true, tickingSinceMs: Now - 60_000);
+
+        AbyssCorridorCell cell = Assert.Single(Build(corridors, current: false).CorridorCells);
+
+        Assert.False(cell.Ticking);
         Assert.Equal(70_000, cell.RemainingMs);
     }
 

@@ -2059,9 +2059,18 @@ public sealed class StreamProcessor
     {
         Span<AbyssCorridorTicket> tickets = stackalloc AbyssCorridorTicket[AbyssCorridorParser.MaxTickets];
         int count = AbyssCorridorParser.TryParse(packet, bodyStart, fromSnapshot, tickets);
-        if (count <= 0)
+        if (count < 0)
         {
-            return; // -1 = the frame did not walk cleanly, so nothing may be inferred from it
+            // The frame did not walk cleanly, so nothing may be inferred from it — not even a zero. Logged
+            // because the failure mode this feature has is SILENT: a layout drift would simply stop reporting
+            // corridors, which looks exactly like a player who captured none.
+            _sink.Meta("abysscorridor", ("rejected", 1), ("len", packet.Length), ("snapshot", fromSnapshot ? 1 : 0));
+            return;
+        }
+
+        if (count == 0)
+        {
+            return; // a neighbouring currency's broadcast — understood, just not ours
         }
 
         for (int i = 0; i < count; i++)
@@ -2116,11 +2125,19 @@ public sealed class StreamProcessor
             _data.SaveInstancePhaseWindow(mapId, phase, startMs, endMs - startMs);
         }
 
-        // Reported even when the window was REJECTED: a 어비스 회랑's phase packet carries endMs = 0, so the
+        // Reported even when the WINDOW was rejected: a 어비스 회랑's phase packet carries endMs = 0, so the
         // gate above always throws it away — and its map id is the only signal that the corridor clock just
-        // started or stopped. A bogus id from a malformed frame is harmless because the consumer reacts only
-        // to ids it recognises as corridors.
-        if (mapId > 0)
+        // started or stopped.
+        //
+        // But it gets its own gate rather than none. The consumer treats an unrecognised id as "left the
+        // corridor", so a garbage frame is NOT harmless: one stray id stops a running clock. Everything the
+        // window check tests except the end time is therefore still required here — a real phase packet always
+        // has a phase and a plausible start, and 0x6101 (which this parser reads with the 0x6100 layout though
+        // its body is offset by a padding byte) fails that on anything but the shortest frames.
+        if (mapId > 0
+            && phase > 0
+            && startMs >= MinPlausibleEpochMs
+            && startMs <= MaxPlausibleEpochMs)
         {
             _data.SaveInstanceMap(mapId);
         }

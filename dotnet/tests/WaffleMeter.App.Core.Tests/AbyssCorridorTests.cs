@@ -279,6 +279,58 @@ public class AbyssCorridorStoreTests
         Assert.Null(store.Standing(null, Ticket, Now));
     }
 
+    /// <summary>A late-arriving login snapshot must not rewind a delta that already superseded it. The 0x610B
+    /// dump can wait up to 30 s for the identity it belongs to, so this ordering really happens.</summary>
+    [Fact]
+    public void An_older_reading_never_overwrites_a_newer_one()
+    {
+        var store = AbyssCorridorStore.Parse(null);
+        store.Upsert(Hash, Ticket, 130_000, Entry, markGranted: true);
+
+        Assert.False(store.Upsert(Hash, Ticket, 60_000, Entry - 20_000, markGranted: true));
+        Assert.Equal(130_000, store.Standing(Hash, Ticket, Now));
+    }
+
+    /// <summary>A reading filed while the character is standing in the corridor must correct the VALUE without
+    /// stopping the countdown — which is what the snapshot path does, and it passes no clock of its own.</summary>
+    [Fact]
+    public void A_reading_with_no_clock_argument_leaves_a_running_clock_alone()
+    {
+        var store = AbyssCorridorStore.Parse(null);
+        store.Upsert(Hash, Ticket, 130_000, Entry, markGranted: true, tickingSinceMs: Entry);
+
+        store.Upsert(Hash, Ticket, 130_000, Entry + 10_000, markGranted: true);
+
+        Assert.Equal(Entry, store.Get(Hash, Ticket)!.Value.TickingSinceMs);
+        Assert.Equal(60_000, store.Standing(Hash, Ticket, Entry + 70_000));
+    }
+
+    /// <summary>A stamp from the future would otherwise satisfy "current cycle" forever, pinning a stale
+    /// corridor on screen through every 점령전 from then on.</summary>
+    [Fact]
+    public void A_reading_stamped_in_the_future_is_not_believed()
+    {
+        var store = AbyssCorridorStore.Parse(null);
+        store.Upsert(Hash, Ticket, 130_000, Now + (7 * 24 * 60 * 60 * 1000L), markGranted: true);
+
+        Assert.Null(store.Standing(Hash, Ticket, Now));
+    }
+
+    /// <summary>Every character that logs in gets a witness row, so on an alt-heavy account those rows would
+    /// otherwise fill the cap and evict the one character that actually has corridor time.</summary>
+    [Fact]
+    public void Characters_with_only_a_witness_are_evicted_before_ones_with_time()
+    {
+        var store = AbyssCorridorStore.Parse(null);
+        store.Upsert("keeper", Ticket, 130_000, Entry, markGranted: true);
+        for (int i = 0; i <= AbyssCorridorStore.MaxCharacters; i++)
+        {
+            store.MarkWitness($"alt{i}", Entry + 1 + i);
+        }
+
+        Assert.Equal(130_000, store.Standing("keeper", Ticket, Now));
+    }
+
     /// <summary>The store is capped like its 오드 sibling; the oldest character goes first.</summary>
     [Fact]
     public void The_oldest_character_is_evicted_past_the_cap()

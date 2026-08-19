@@ -49,7 +49,12 @@ public readonly record struct AbyssCorridorInfo(
 /// left behind — <c>AbyssArtifact.dat</c> shows <c>ar2_artifact_001/002/003</c> pointing at
 /// <c>E_AR3_RR/STI/WSA_L_ArtifactDungeonPortal_01</c>. Two of the three corridors actually visited would have
 /// been mislabelled, and the stale strings are byte-identical across four client dumps, so nothing about them
-/// looks out of date. The names below come from <c>String_STR_Subzone_AR3_*</c> and match what the player sees.</para>
+/// looks out of date.</para>
+/// <para>So the two layers take their names from different places. 하층 001~003 use the ticket blurbs, which
+/// are correct there (002 = 유황나무 섬 is exactly what the player saw). 중층 004~006 use
+/// <c>String_STR_Subzone_AR3_*</c>, reached through the portal each <c>ar2_artifact_*</c> row actually points
+/// at — which is how 004 and 006 come out as the names observed live, and 005 = 오염된 늪지 by the same
+/// ordering (inferred: that corridor has never been captured while the meter watched).</para>
 /// </summary>
 public static class AbyssCorridorCatalog
 {
@@ -146,12 +151,18 @@ public static class AbyssCorridorCycle
 
     private static readonly DayOfWeek[] Days = [DayOfWeek.Wednesday, DayOfWeek.Saturday];
 
+    /// <summary>Bounds a timestamp must fall inside to be treated as real (2020-01-01 .. 2100-01-01, the same
+    /// window the packet parsers use). Not merely defensive: <c>DateTimeOffset</c>'s own range check admits year
+    /// 1, and shifting THAT to +09:00 throws — so the obvious "is this a valid DateTimeOffset" guard would still
+    /// have let a hand-edited settings file take the panel down.</summary>
+    private const long MinPlausibleMs = 1_577_836_800_000L;
+    private const long MaxPlausibleMs = 4_102_444_800_000L;
+
     /// <summary>The most recent cycle start at or before <paramref name="atMs"/>, as Unix ms, or 0 when the
     /// input is not a usable timestamp (a hand-edited settings file must not throw the panel down).</summary>
     public static long LastStartAtOrBefore(long atMs)
     {
-        if (atMs < DateTimeOffset.MinValue.ToUnixTimeMilliseconds()
-            || atMs > DateTimeOffset.MaxValue.ToUnixTimeMilliseconds())
+        if (atMs < MinPlausibleMs || atMs > MaxPlausibleMs)
         {
             return 0;
         }
@@ -183,7 +194,15 @@ public static class AbyssCorridorCycle
         return best;
     }
 
+    /// <summary>How far ahead of now a stored timestamp may sit and still be believed. A record cannot really
+    /// come from the future, but a clock correction or a hand-edited file can produce one — and with no ceiling
+    /// such a record satisfies <see cref="IsCurrentCycle"/> forever, pinning a stale corridor on screen through
+    /// every 점령전 from then on.</summary>
+    private const long FutureSlackMs = 60 * 60 * 1000;
+
     /// <summary>True when a reading taken at <paramref name="savedAtMs"/> still describes the current cycle.</summary>
     public static bool IsCurrentCycle(long savedAtMs, long nowMs) =>
-        savedAtMs > 0 && savedAtMs >= LastStartAtOrBefore(nowMs);
+        savedAtMs > 0
+        && savedAtMs <= nowMs + FutureSlackMs
+        && savedAtMs >= LastStartAtOrBefore(nowMs);
 }

@@ -120,7 +120,11 @@ public static class AetherRoster
                 SavedAtMs: snapshot.SavedAtMs,
                 IsCurrent: currentHash != null && string.Equals(hash, currentHash, StringComparison.Ordinal),
                 Weekly: WeeklyFor(weekly, hash, at),
-                Corridors: CorridorsFor(corridors, hash, at),
+                Corridors: CorridorsFor(
+                    corridors,
+                    hash,
+                    at,
+                    isCurrent: currentHash != null && string.Equals(hash, currentHash, StringComparison.Ordinal)),
                 CorridorsKnown: corridors?.HasCycleWitness(hash, at) ?? false));
         }
 
@@ -155,7 +159,7 @@ public static class AetherRoster
     /// "우리 진영이 못 뺏었다" from "이 캐릭터가 다 썼다", so a chip for a corridor we have never seen stocked
     /// would be an invention either way.</summary>
     private static IReadOnlyList<AbyssCorridorCell> CorridorsFor(
-        AbyssCorridorStore? corridors, string hash, long nowMs)
+        AbyssCorridorStore? corridors, string hash, long nowMs, bool isCurrent)
     {
         if (corridors is null)
         {
@@ -170,7 +174,12 @@ public static class AetherRoster
                 continue;
             }
 
-            bool ticking = corridors.Get(hash, corridor.TicketId) is { TickingSinceMs: > 0 } && remainingMs > 0;
+            // "지금 입장 중" is a claim about the character being played, so a record left ticking on anyone
+            // else never makes it — a clock that outlived its visit (the meter closed inside a corridor) would
+            // otherwise light up a row the user is not even controlling.
+            bool ticking = isCurrent
+                && remainingMs > 0
+                && corridors.Get(hash, corridor.TicketId) is { TickingSinceMs: > 0 };
             cells.Add(new AbyssCorridorCell(corridor, remainingMs, ticking));
         }
 

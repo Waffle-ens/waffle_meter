@@ -55,6 +55,39 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
     private string _summaryText = string.Empty;
     public string SummaryText { get => _summaryText; private set => Set(ref _summaryText, value); }
 
+    /// <summary>Advance only the corridor clocks, leaving the row objects (and therefore the scroll position,
+    /// hover state and any open tooltip) alone. Falls back to a full rebuild the moment the shape of the list
+    /// stops matching — a corridor that ran out, or a character that appeared.</summary>
+    public void UpdateCorridorTimes(IReadOnlyList<AetherRosterRow> rows)
+    {
+        if (rows.Count != Rows.Count)
+        {
+            SetRows(rows);
+            return;
+        }
+
+        for (int i = 0; i < rows.Count; i++)
+        {
+            AetherRowViewModel row = Rows[i];
+            IReadOnlyList<AbyssCorridorCell> cells = rows[i].CorridorCells;
+            if (!string.Equals(row.IdentityHash, rows[i].IdentityHash, StringComparison.Ordinal)
+                || cells.Count != row.Corridors.Count)
+            {
+                SetRows(rows);
+                return;
+            }
+
+            for (int c = 0; c < cells.Count; c++)
+            {
+                if (!row.Corridors[c].TryAdvance(cells[c]))
+                {
+                    SetRows(rows);
+                    return;
+                }
+            }
+        }
+    }
+
     public void SetRows(IReadOnlyList<AetherRosterRow> rows)
     {
         Rows.Clear();
@@ -123,10 +156,11 @@ public sealed class WeeklyContentCellViewModel
 /// <summary>One 어비스 회랑 chip on a character row: the corridor's name and its remaining 이용 시간 as "m:ss".
 /// <para>Read-only, unlike the weekly chips. There is no hand-toggle because there is nothing sensible to toggle
 /// to — the value is a clock the server stocks at 점령전, not a yes/no the user can restate.</para></summary>
-public sealed class AbyssCorridorCellViewModel
+public sealed class AbyssCorridorCellViewModel : INotifyPropertyChanged
 {
     public AbyssCorridorCellViewModel(AbyssCorridorCell cell)
     {
+        TicketId = cell.Corridor.TicketId;
         Name = cell.Corridor.ShortName;
         TierText = cell.Corridor.Tier == AbyssCorridorTier.Lower ? "하층"
             : cell.Corridor.Tier == AbyssCorridorTier.Middle ? "중층"
@@ -152,13 +186,48 @@ public sealed class AbyssCorridorCellViewModel
         }} · {cell.Corridor.Name} 아티팩트\n{state}\n(점령한 회랑만 표시됩니다)";
     }
 
+    public int TicketId { get; }
     public string Name { get; }
     public string TierText { get; }
-    public string TimeText { get; }
+
+    private string _timeText = string.Empty;
+
+    /// <summary>"m:ss". The only value on this panel that moves without a packet behind it, so it is the only
+    /// one that is observable — the alternative, rebuilding the row list once a second for the 130 seconds of a
+    /// visit, resets the scroll position and cancels whatever tooltip the user is reading.</summary>
+    public string TimeText
+    {
+        get => _timeText;
+        private set
+        {
+            if (!string.Equals(_timeText, value, StringComparison.Ordinal))
+            {
+                _timeText = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimeText)));
+            }
+        }
+    }
+
     public bool Spent { get; }
     public bool Ticking { get; }
     public double NameOpacity { get; }
     public string ToolTip { get; }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Advance the readout for a still-running clock. Returns false when the new cell is no longer the
+    /// same thing (a different corridor, or one that has since been spent), which the caller reads as "the row
+    /// list itself is out of date and has to be rebuilt".</summary>
+    internal bool TryAdvance(AbyssCorridorCell cell)
+    {
+        if (cell.Corridor.TicketId != TicketId || cell.Spent != Spent || cell.Ticking != Ticking)
+        {
+            return false;
+        }
+
+        TimeText = FormatTime(cell.RemainingMs);
+        return true;
+    }
 
     /// <summary>"2:10" / "0:54" / "0:00". Rounded UP so a corridor with 200 ms left still reads "0:01" rather
     /// than announcing "0:00" on a clock that has not actually run out.</summary>
