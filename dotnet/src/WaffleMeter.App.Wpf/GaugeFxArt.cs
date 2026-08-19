@@ -61,12 +61,16 @@ internal static class GaugeFxArt
     private static readonly Pen PrismSweep = FrozenPen("#EAFBFF", 2.0);
 
     private static readonly Brush EmberCore = Frozen("#FFEFA4");
-    private static readonly Brush EmberGlow = Frozen("#FF5E12");
+    private static readonly Brush EmberGlow = Halo("#FF5E12", "#FFEFA4");
     private static readonly Pen EmberTrail = FrozenPen("#FF741E", 0.8);
 
     private static readonly Pen FrostArm = FrozenPen("#DAFAFF", 0.85);
     private static readonly Pen FrostArmThin = FrozenPen("#DAFAFF", 0.65);
+    private static readonly Pen FrostBranch = FrozenPen("#DAFAFF", 0.6);
     private static readonly Pen FrostSpark = FrozenPen("#EBFEFF", 0.65);
+    private static readonly Brush FrostHalo = Halo("#53D0FF", "#DAFAFF");
+    private static readonly Brush PrismHaloCyan = Halo("#75EEFF", "#EAFBFF");
+    private static readonly Brush PrismHaloViolet = Halo("#D989FF", "#F6EBFF");
 
     private static readonly Art Berry = new(DrawBerry);
     private static readonly Art Matcha = new(DrawMatcha);
@@ -108,7 +112,7 @@ internal static class GaugeFxArt
         }
 
         // 방울: 부풀었다가 아래로 흘러 사라진다.
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 9; i++)
         {
             double life = 3.4 + (Hash(i + seed + 8) * 2.4);
             double phase = Phase(t, i + seed + 17, life);
@@ -148,7 +152,7 @@ internal static class GaugeFxArt
     private static void DrawMatcha(DrawingContext dc, Rect a, double t, int seed)
     {
         // 크림 마블 두 층. 서로 다른 속도로 흘러 접히는 인상을 만든다.
-        for (int i = 0; i < 7; i++)
+        for (int i = 0; i < 9; i++)
         {
             double life = 9.6 + (Hash(i + seed + 9) * 3.6);
             double phase = Phase(t, i + seed + 19, life);
@@ -169,7 +173,7 @@ internal static class GaugeFxArt
         }
 
         // 폼 링: 외곽선만. 떠오르면서 옆으로 흐른다.
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 6; i++)
         {
             double life = 4.8 + (Hash(i + seed + 41) * 2.8);
             double phase = Phase(t, i + seed + 52, life);
@@ -202,13 +206,13 @@ internal static class GaugeFxArt
         dc.Pop();
 
         // 유리 파편. 짧고 굵은 선 = 이 크기에서는 마름모와 같다.
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 9; i++)
         {
             double life = 5.4 + (Hash(i + seed + 20) * 2.6);
             double phase = Phase(t, i + seed + 5, life);
             double x = a.X - 12 + (phase * (a.Width + 24));
             double y = a.Y + 4 + (Hash(i + seed + 1) * Math.Max(1, a.Height - 8));
-            double size = 1.8 + (Hash(i + seed + 3) * 2.6);
+            double size = 2.4 + (Hash(i + seed + 3) * 3.4);
             double spin = (t * (0.35 + (Hash(i + seed + 7) * 0.4))) + (Hash(i + seed + 9) * 6.28);
             double alpha = 0.18 + (Math.Sin(phase * Math.PI) * 0.30);
             if (alpha <= 0.01)
@@ -219,9 +223,17 @@ internal static class GaugeFxArt
             double dx = Math.Cos(spin) * size;
             double dy = Math.Sin(spin) * size;
             dc.PushOpacity(alpha);
-            dc.DrawLine(i % 2 == 0 ? PrismEdgeCyan : PrismEdgeViolet,
-                new Point(x - dx, y - dy), new Point(x + dx, y + dy));
-            dc.DrawEllipse(i % 2 == 0 ? PrismCyan : PrismViolet, null, new Point(x, y), 0.7, 0.7);
+            dc.PushOpacity(0.45);
+            dc.DrawEllipse(i % 2 == 0 ? PrismHaloCyan : PrismHaloViolet, null, new Point(x, y), size * 2.0, size * 2.0);
+            dc.Pop();
+
+            // 파편은 두 획이 만나 각을 이룬다 — 한 획이면 그냥 빗금이고, 회전해도 삼각형으로 안 읽힌다.
+            Pen edge = i % 2 == 0 ? PrismEdgeCyan : PrismEdgeViolet;
+            double ox = Math.Cos(spin + 2.1) * size * 0.8;
+            double oy = Math.Sin(spin + 2.1) * size * 0.8;
+            dc.DrawLine(edge, new Point(x - dx, y - dy), new Point(x + dx, y + dy));
+            dc.DrawLine(edge, new Point(x + dx, y + dy), new Point(x + ox, y + oy));
+            dc.DrawEllipse(i % 2 == 0 ? PrismCyan : PrismViolet, null, new Point(x, y), 0.8, 0.8);
             dc.Pop();
         }
     }
@@ -232,7 +244,7 @@ internal static class GaugeFxArt
     /// </summary>
     private static void DrawEmber(DrawingContext dc, Rect a, double t, int seed)
     {
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 14; i++)
         {
             double life = 1.4 + (Hash(i + seed + 4) * 1.4);
             double phase = Phase(t, i + seed + 15, life);
@@ -254,11 +266,12 @@ internal static class GaugeFxArt
             dc.PushOpacity(alpha);
             dc.DrawLine(EmberTrail, new Point(x, y + trail), new Point(x - (sway * 0.14), y + radius));
 
-            // 두 겹으로 흉내낸 발광 — 넓고 흐린 것 + 작고 밝은 심. BlurEffect 는 쓸 수 없다.
-            dc.PushOpacity(0.34);
-            dc.DrawEllipse(EmberGlow, null, new Point(x, y), radius * 3.0, radius * 3.0);
+            // 발광은 방사형 그라디언트 브러시 한 장 — 캔버스의 shadowBlur 에 해당한다. BlurEffect 는
+            // 게임 위 레이어드 윈도에서 CPU 컨볼루션이라 쓸 수 없고, 평평한 원 두 겹은 '동그라미'로 보였다.
+            dc.PushOpacity(0.55);
+            dc.DrawEllipse(EmberGlow, null, new Point(x, y), radius * 3.2, radius * 3.2);
             dc.Pop();
-            dc.DrawEllipse(EmberCore, null, new Point(x, y), Math.Max(0.45, radius * 0.62), Math.Max(0.45, radius * 0.62));
+            dc.DrawEllipse(EmberCore, null, new Point(x, y), Math.Max(0.5, radius * 0.62), Math.Max(0.5, radius * 0.62));
             dc.Pop();
         }
     }
@@ -270,7 +283,7 @@ internal static class GaugeFxArt
     /// </summary>
     private static void DrawFrost(DrawingContext dc, Rect a, double t, int seed)
     {
-        for (int i = 0; i < 7; i++)
+        for (int i = 0; i < 11; i++)
         {
             double life = 3.6 + (Hash(i + seed + 12) * 3.2);
             double phase = Phase(t, i + seed + 29, life);
@@ -287,23 +300,50 @@ internal static class GaugeFxArt
             double rotation = (Hash(i + seed + 9) * Math.PI)
                 + (t * (Hash(i + seed + 20) > 0.5 ? 0.36 : -0.30));
 
+            // 🔑 6갈래여야 결정으로 읽힌다. 처음엔 2~3갈래로 줄여 그렸는데 그건 눈송이가 아니라 **짧은
+            // 빗금**이고, 시안과 나란히 놓으면 그 차이가 가장 먼저 눈에 띈다. 큰 것에는 가지도 친다.
+            bool detailed = size > 2.9 && i % 3 == 0; // 온전한 눈송이는 동시에 하나둘만
             dc.PushOpacity(alpha);
-            bool detailed = size > 3.0 && i % 4 == 0; // 큰 6갈래는 동시에 하나둘만
-            int arms = detailed ? 3 : 2;
-            Pen pen = detailed ? FrostArm : FrostArmThin;
-            for (int arm = 0; arm < arms; arm++)
+
+            if (detailed)
             {
-                double angle = rotation + (arm * Math.PI / arms);
+                dc.PushOpacity(0.5);
+                dc.DrawEllipse(FrostHalo, null, new Point(x, y), size * 2.2, size * 2.2);
+                dc.Pop();
+            }
+
+            Pen pen = detailed ? FrostArm : FrostArmThin;
+            for (int arm = 0; arm < 3; arm++)
+            {
+                double angle = rotation + (arm * Math.PI / 3);
                 double dx = Math.Cos(angle) * size;
                 double dy = Math.Sin(angle) * size;
                 dc.DrawLine(pen, new Point(x - dx, y - dy), new Point(x + dx, y + dy));
+
+                if (!detailed)
+                {
+                    continue;
+                }
+
+                // 가지: 팔 끝 조금 앞에서 양쪽으로. 이게 있어야 '별표'가 아니라 눈송이가 된다.
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    for (int end = -1; end <= 1; end += 2)
+                    {
+                        double bx = x + (dx * 0.58 * end);
+                        double by = y + (dy * 0.58 * end);
+                        double ba = angle + (side * 2.38);
+                        dc.DrawLine(FrostBranch, new Point(bx, by),
+                            new Point(bx + (Math.Cos(ba) * size * 0.30), by + (Math.Sin(ba) * size * 0.30)));
+                    }
+                }
             }
 
             dc.Pop();
         }
 
         // 이따금 반짝이는 서릿발. Math.Pow 로 좁은 봉우리를 만들어 '깜빡'이 되게 한다.
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 5; i++)
         {
             double blink = Math.Pow(Math.Max(0, Math.Sin((t * 2.3) + (i * 2.1) + (seed * 0.7))), 8);
             if (blink < 0.03)
@@ -339,6 +379,24 @@ internal static class GaugeFxArt
     private static Brush Frozen(string hex)
     {
         var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
+        b.Freeze();
+        return b;
+    }
+
+    /// <summary>A soft round glow: bright core fading to nothing at the rim. This is the stand-in for the
+    /// study's canvas <c>shadowBlur</c> — a real <c>BlurEffect</c> is CPU convolution on a software-rendered
+    /// layered window over a game, and flat concentric circles read as circles rather than as light.</summary>
+    private static Brush Halo(string outerHex, string coreHex)
+    {
+        var b = new RadialGradientBrush
+        {
+            GradientStops =
+            {
+                new GradientStop((Color)ColorConverter.ConvertFromString(coreHex)!, 0.0),
+                new GradientStop((Color)ColorConverter.ConvertFromString(outerHex)!, 0.34),
+                new GradientStop(Colors.Transparent, 1.0),
+            },
+        };
         b.Freeze();
         return b;
     }
