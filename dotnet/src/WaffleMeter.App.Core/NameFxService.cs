@@ -124,6 +124,15 @@ public sealed class NameFxService : IDisposable
     /// </summary>
     public NameFxChoiceResponse SubmitChoice(string identityHash, string effectId, string? gaugeId, string clientVersion)
     {
+        if (LocalChoiceOnly)
+        {
+            _localPicks[identityHash] = (effectId, gaugeId);
+            Publish(_roster);
+            return new NameFxChoiceResponse(
+                Ok: true, Kind: _roster.Find(identityHash)?.Kind, EffectId: effectId, GaugeId: gaugeId,
+                Published: false);
+        }
+
         NameFxChoiceResponse response = _api.PostNameFxChoice(
             new NameFxChoiceRequest(identityHash, effectId, gaugeId), clientVersion);
 
@@ -134,6 +143,26 @@ public sealed class NameFxService : IDisposable
 
         return response;
     }
+
+    /// <summary>
+    /// Apply a pick to THIS INSTALL only, never sending it. Dev builds set this.
+    ///
+    /// <para><b>Why it exists.</b> The server is the authority on what a character wears, and it must stay that
+    /// way — otherwise a client could give itself any mark. But that also means a skin cannot be looked at
+    /// until the server side of it is deployed, and this repo ships the meter half first often enough that
+    /// "the picker works but nothing happens" is a normal state to be stuck in while developing.</para>
+    ///
+    /// <para><b>What it deliberately does NOT do.</b> It cannot invent a grant:
+    /// <see cref="NameFxRoster.With"/> returns the roster unchanged for a character the server never granted,
+    /// so a local pick can only ever re-arrange marks this install was already entitled to. And nothing is
+    /// published — other players see whatever the server last said.</para>
+    /// </summary>
+    public bool LocalChoiceOnly { get; set; }
+
+    /// <summary>Local picks by identity hash, re-applied after every fetch. Without this the next hourly
+    /// refresh would silently revert the pick, which reads as the setting not sticking.</summary>
+    private readonly Dictionary<string, (string EffectId, string? GaugeId)> _localPicks =
+        new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Settings' 후원자 목록 갱신 button. Rate-limited; returns false when the cooldown blocks it.</summary>
     public bool RequestManualRefresh()
@@ -253,6 +282,13 @@ public sealed class NameFxService : IDisposable
 
     private void Publish(NameFxRoster roster)
     {
+        // Local picks are re-applied on the way out rather than stored in the roster, so a server refresh
+        // cannot drop them and they never leak into anything that gets written back or sent.
+        foreach ((string hash, (string effectId, string? gaugeId)) in _localPicks)
+        {
+            roster = roster.With(hash, effectId, gaugeId);
+        }
+
         _roster = roster;
         Changed?.Invoke(roster);
     }

@@ -320,7 +320,13 @@ public sealed class MeterServices
         // 방향으로 뒤집지 않으려고 판정 함수를 주입받고, 없으면 아무 id 도 모르는 것으로 둔다 —
         // 그리지 못하는 효과를 받아 두는 것보다 안 받는 편이 낫다.
         NameFxCatalogue catalogue = nameFxCatalogue ?? NameFxCatalogue.None;
-        NameFx = new NameFxService(StatsApi, props, catalogue.IsKnownEffect, catalogue.IsKnownGauge);
+        NameFx = new NameFxService(StatsApi, props, catalogue.IsKnownEffect, catalogue.IsKnownGauge)
+        {
+            // dev 빌드는 스킨 선택을 서버로 보내지 않고 이 PC 에만 적용한다. 미터 절반이 먼저 나가는 일이
+            // 잦아서, 웹이 배포되기 전까지 '고를 수는 있는데 아무 일도 안 일어나는' 상태가 계속되기 때문이다.
+            // 릴리스는 `-p:WaffleVersion=x.y.z` 로 순수 semver 를 박으므로 여기 걸리지 않는다.
+            LocalChoiceOnly = Version.Contains("-dev", StringComparison.OrdinalIgnoreCase),
+        };
 
         // The only Data -> Stats edge: a saved battle log is offered to the upload queue. Also refresh
         // the history-panel snapshot (both run on the consumer thread inside the save).

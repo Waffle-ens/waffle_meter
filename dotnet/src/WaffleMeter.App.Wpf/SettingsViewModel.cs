@@ -721,11 +721,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             .Select(e => new NameFxChoiceViewModel(e.Id, e.Name, NameFxPalette.For(e.Id, light).NameFill,
                 string.Equals(e.Id, grant.GaugeId, StringComparison.Ordinal)))
             .ToArray();
+        // dev 빌드에서는 '다른 사람에게도 보인다'가 사실이 아니다. 문구를 그대로 두면 서버에 반영된
+        // 것으로 오해하게 된다.
+        string reach = _services.NameFx.LocalChoiceOnly
+            ? "고른 것은 이 PC 에만 적용됩니다 (dev 빌드 — 서버로 보내지 않음)."
+            : "고르면 다른 사람에게도 그대로 보입니다.";
         MyFxStatus = grant.Kind switch
         {
-            "both" => $"{own.Nickname} — 후원자 · 랭커. 고르면 다른 사람에게도 그대로 보입니다.",
-            "ranker" => $"{own.Nickname} — 랭커. 고르면 다른 사람에게도 그대로 보입니다.",
-            _ => $"{own.Nickname} — 후원자. 고르면 다른 사람에게도 그대로 보입니다.",
+            "both" => $"{own.Nickname} — 후원자 · 랭커. {reach}",
+            "ranker" => $"{own.Nickname} — 랭커. {reach}",
+            _ => $"{own.Nickname} — 후원자. {reach}",
         };
         RaiseMyNameFxState();
     }
@@ -781,7 +786,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         try
         {
             NameFxChoiceResponse response = _services.NameFx.SubmitChoice(hash, effectId, gaugeId, _services.Version);
-            return response.Ok ? "적용했습니다." : "서버가 이 선택을 거절했습니다.";
+            if (!response.Ok)
+            {
+                return "서버가 이 선택을 거절했습니다.";
+            }
+
+            return _services.NameFx.LocalChoiceOnly
+                ? "적용했습니다. (dev 빌드 — 이 PC 에만 보이고 서버로 보내지 않습니다)"
+                : "적용했습니다.";
         }
         catch (StatsApiException ex)
         {

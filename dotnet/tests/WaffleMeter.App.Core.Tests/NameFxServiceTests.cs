@@ -318,6 +318,91 @@ public sealed class NameFxServiceTests : IDisposable
 
     private static string Sha256Hex(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 
+    /// <summary>
+    /// dev 빌드의 로컬 전용 선택. 서버 절반이 배포되기 전에도 스킨을 눈으로 볼 수 있어야 하는데, 그렇다고
+    /// 클라이언트가 스스로에게 표식을 줄 수 있게 되면 안 된다 — 그 경계를 못박는다.
+    /// </summary>
+    [Fact]
+    public void A_dev_build_applies_a_pick_locally_and_never_sends_it()
+    {
+        byte[] gzip = GzipRoster("""{"schemaVersion":1,"entries":[{"h":"AAAA","e":"syrup","k":"both","g":"prism"}]}""");
+        var api = FakeApi(gzip, Sha256Hex(gzip), "cafe0123");
+        var props = new PropertyHandler(_dir);
+
+        using var service = new NameFxService(api, props, KnownEffect, KnownGauge, startWorker: false)
+        {
+            LocalChoiceOnly = true,
+        };
+
+        service.TryRefresh();
+
+        Assert.True(service.SubmitChoice("AAAA", "goldleaf", "ember", "test").Ok);
+        Assert.Null(api.LastChoice); // 서버로 나가지 않았다
+        Assert.Equal("goldleaf", service.Roster.Find("AAAA")!.EffectId);
+        Assert.Equal("ember", service.Roster.Find("AAAA")!.GaugeId);
+    }
+
+    /// <summary>서버 갱신이 로컬 선택을 되돌리면 안 된다 — 매시 새로고침 때 조용히 원복되면 사용자에게는
+    /// 설정이 안 먹는 것으로 보인다.</summary>
+    [Fact]
+    public void A_local_pick_survives_a_server_refresh()
+    {
+        byte[] gzip = GzipRoster("""{"schemaVersion":1,"entries":[{"h":"AAAA","e":"syrup","k":"both","g":"prism"}]}""");
+        var api = FakeApi(gzip, Sha256Hex(gzip), "cafe0123");
+        var props = new PropertyHandler(_dir);
+
+        using var service = new NameFxService(api, props, KnownEffect, KnownGauge, startWorker: false)
+        {
+            LocalChoiceOnly = true,
+        };
+
+        service.TryRefresh();
+        service.SubmitChoice("AAAA", "goldleaf", "ember", "test");
+
+        props.SetProperty("namefx.artifactId", string.Empty); // 다음 fetch 가 실제로 돌게 한다
+        service.TryRefresh();
+
+        Assert.Equal("goldleaf", service.Roster.Find("AAAA")!.EffectId);
+        Assert.Equal("ember", service.Roster.Find("AAAA")!.GaugeId);
+    }
+
+    /// <summary>🔴 로컬 선택으로 **자격을 만들어낼 수는 없다.** 서버가 부여한 적 없는 캐릭터는 로컬에서
+    /// 골라도 명단에 들어가지 않는다 — 안 그러면 클라이언트가 스스로에게 표식을 줄 수 있다.</summary>
+    [Fact]
+    public void A_local_pick_cannot_invent_a_grant()
+    {
+        byte[] gzip = GzipRoster("""{"schemaVersion":1,"entries":[{"h":"AAAA","e":"syrup","k":"supporter"}]}""");
+        var api = FakeApi(gzip, Sha256Hex(gzip), "cafe0123");
+        var props = new PropertyHandler(_dir);
+
+        using var service = new NameFxService(api, props, KnownEffect, KnownGauge, startWorker: false)
+        {
+            LocalChoiceOnly = true,
+        };
+
+        service.TryRefresh();
+        service.SubmitChoice("ZZZZ", "goldleaf", "ember", "test");
+
+        Assert.Null(service.Roster.Find("ZZZZ"));
+        Assert.Equal(1, service.Roster.Count);
+    }
+
+    /// <summary>기본값(릴리스 빌드)에서는 종전 그대로 서버가 권위다.</summary>
+    [Fact]
+    public void A_release_build_still_sends_the_pick()
+    {
+        byte[] gzip = GzipRoster("""{"schemaVersion":1,"entries":[{"h":"AAAA","e":"syrup","k":"both"}]}""");
+        var api = FakeApi(gzip, Sha256Hex(gzip), "cafe0123");
+        var props = new PropertyHandler(_dir);
+
+        using var service = new NameFxService(api, props, KnownEffect, KnownGauge, startWorker: false);
+        service.TryRefresh();
+
+        Assert.False(service.LocalChoiceOnly);
+        Assert.True(service.SubmitChoice("AAAA", "goldleaf", null, "test").Ok);
+        Assert.Equal("goldleaf", api.LastChoice!.EffectId);
+    }
+
     private static FakeNameFxApi FakeApi(byte[] gzip, string sha, string artifactId, int schemaVersion = 1, Action? onDownload = null) =>
         new(gzip, sha, artifactId, schemaVersion, onDownload);
 
