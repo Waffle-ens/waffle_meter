@@ -47,8 +47,11 @@ public static class NameFxSheen
     /// difference that does not survive a moving game behind it.</summary>
     private const int FrameRate = 30;
 
+    /// <param name="Brush">A <see cref="GradientBrush"/> for the ramp skins, a <see cref="DrawingBrush"/> for
+    /// the shape ones. Both are translated the same way; only how they are REBUILT on a brightness change
+    /// differs, which <see cref="Rebuild"/> handles.</param>
     private sealed record Track(
-        GradientBrush Brush,
+        Brush Brush,
         TranslateTransform Transform,
         double Period,
         double Seconds,
@@ -193,54 +196,55 @@ public static class NameFxSheen
                 continue;
             }
 
-            t.Brush.GradientStops.Clear();
-            NameFxPalette.AddStops(t.Brush, e, light);
-            foreach (GradientStop s in t.Brush.GradientStops)
+            if (t.Brush is GradientBrush gradient)
             {
-                s.Color = NameFxPalette.Scale(s.Color, factor);
+                gradient.GradientStops.Clear();
+                NameFxPalette.AddStops(gradient, e, light);
+                foreach (GradientStop s in gradient.GradientStops)
+                {
+                    s.Color = NameFxPalette.Scale(s.Color, factor);
+                }
+
+                continue;
+            }
+
+            // A shape skin's tile is geometry, so brightness cannot be applied stop by stop — the whole
+            // drawing is rebuilt at the new brightness and swapped in behind the same transform.
+            if (t.Brush is DrawingBrush art)
+            {
+                DrawingBrush rebuilt = NameFxGaugeArt.Build(e.Motion, light ? e.Light : e.Dark, factor);
+                art.Drawing = rebuilt.Drawing;
             }
         }
     }
-
-    /// <summary>
-    /// How many tiles a chevron travels per loop — and the number the lean is derived FROM, not the other way
-    /// round.
-    /// <para>A slanted gradient does not close under a one-tile shift. Its parameter advances by
-    /// <c>1 / (1 + lean²)</c> per tile of x-translation, so the pattern only lands on itself again after
-    /// <c>1 + lean²</c> tiles — and only if that is a whole number. Picking the span first and solving for the
-    /// lean is what makes the loop exact; picking a lean that "looked right" (3.4) put the seam at 3.55/255
-    /// against a 1.0 budget, which the preview harness caught.</para>
-    /// </summary>
-    private const int ChevronTileSpan = 12;
-
-    /// <summary>
-    /// The lean itself, as a multiple of the BAR HEIGHT — the y component of a relative-mapped gradient axis is
-    /// normalised to the box height, not the width.
-    /// <para>That normalisation is why a small value looks wrong: a bar is roughly 236 × 26, so a lean of 0.55
-    /// tilts the axis by <c>atan(0.55 × 26 / 236)</c> ≈ 3° and renders as vertical blocks. √11 ≈ 3.32 gives
-    /// about 20°, which reads as a diagonal.</para>
-    /// </summary>
-    private static readonly double ChevronLean = Math.Sqrt(ChevronTileSpan - 1);
 
     private static Dictionary<(string, bool), Track> Build()
     {
         var map = new Dictionary<(string, bool), Track>();
         foreach (NameFxPalette.Effect e in NameFxPalette.All.Where(x => x.Animated))
         {
-            bool chevron = e.IsGauge && e.Motion == NameFxPalette.GaugeMotion.Chevron;
+            bool art = e.IsGauge && NameFxGaugeArt.IsArt(e.Motion);
 
-            // A chevron loops over ChevronTileSpan tiles rather than one, so its travel distance AND its
-            // duration are both multiplied — otherwise the same wall-clock second would cover twelve tiles and
-            // it would blur past.
-            double span = chevron ? ChevronTileSpan : 1.0;
-            double period = (e.IsGauge ? GaugePeriodRelative : NamePeriodPx) * span;
-            double seconds = (e.IsGauge ? GaugeSeconds : NameSeconds)
-                * Math.Clamp(e.SpeedScale, 0.25, 4.0) * span;
+            // A shape skin's tile is a FRACTION of the bar, so one loop is that fraction — translating a whole
+            // bar would run the tile past several times and the speed setting would mean something different
+            // for it than for a nickname effect.
+            double period = art ? NameFxGaugeArt.TileFraction : (e.IsGauge ? GaugePeriodRelative : NamePeriodPx);
+            double seconds = (e.IsGauge ? GaugeSeconds : NameSeconds) * Math.Clamp(e.SpeedScale, 0.25, 4.0);
             foreach (bool light in new[] { false, true })
             {
                 var transform = new TranslateTransform();
-                GradientBrush b = BuildBrush(e, e.IsGauge ? GaugePeriodRelative : NamePeriodPx);
-                NameFxPalette.AddStops(b, e, light);
+                Brush b;
+                if (art)
+                {
+                    // A shape skin's colours are baked into its geometry, so there are no stops to add.
+                    b = NameFxGaugeArt.Build(e.Motion, light ? e.Light : e.Dark, 1.0);
+                }
+                else
+                {
+                    GradientBrush ramp = BuildBrush(e, e.IsGauge ? GaugePeriodRelative : NamePeriodPx);
+                    NameFxPalette.AddStops(ramp, e, light);
+                    b = ramp;
+                }
 
                 // ⚠ The slot MUST match the mapping — see the type remarks. Relative mapping needs
                 // RelativeTransform; absolute mapping needs Transform. Getting this wrong does not fail, it
@@ -253,6 +257,7 @@ public static class NameFxSheen
                 {
                     b.Transform = transform;
                 }
+
 
                 // NOT frozen — animated in place.
                 map[(e.Id, light)] = new Track(b, transform, period, seconds, e.IsGauge && e.Reverse);
@@ -274,9 +279,7 @@ public static class NameFxSheen
             MappingMode = mapping,
             SpreadMethod = GradientSpreadMethod.Repeat,
             StartPoint = new Point(0, 0),
-            EndPoint = new Point(
-                period,
-                e.IsGauge && e.Motion == NameFxPalette.GaugeMotion.Chevron ? ChevronLean : 0),
+            EndPoint = new Point(period, 0),
         };
     }
 }

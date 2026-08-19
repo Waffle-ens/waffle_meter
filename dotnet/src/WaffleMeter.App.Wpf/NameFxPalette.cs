@@ -53,8 +53,6 @@ public static class NameFxPalette
     /// skins with the same texture at visibly different speeds still read as two effects.</param>
     /// <param name="Reverse">Travel right-to-left. Cheapest possible differentiator and surprisingly strong
     /// when two skins are on screen together.</param>
-    /// <param name="Bands"><see cref="GaugeMotion.Shimmer"/> only — how many highlights share one tile.
-    /// Density is what keeps two shimmer skins apart.</param>
     public sealed record Effect(
         string Id,
         string Name,
@@ -64,10 +62,9 @@ public static class NameFxPalette
         string[] Light,
         bool IsGauge = false,
         double[]? Offsets = null,
-        GaugeMotion Motion = GaugeMotion.Sweep,
+        GaugeMotion Motion = GaugeMotion.None,
         double SpeedScale = 1.0,
-        bool Reverse = false,
-        int Bands = 3);
+        bool Reverse = false);
 
     public enum NameFxKind
     {
@@ -76,35 +73,38 @@ public static class NameFxPalette
     }
 
     /// <summary>
-    /// How a gauge skin MOVES. Colour was doing all the work: every skin was one soft band sliding left to
-    /// right at one speed, so five skins read as one effect in five colours.
-    /// <para>Everything here is still a single gradient brush translated by one animation — no blur, no glow,
-    /// no bitmap frames. Those are ruled out by the overlay being a software-rendered layered window over a
-    /// running game (see the type remarks), and nothing below costs more than the sweep it replaces.</para>
+    /// WHAT a gauge skin draws. Colour used to be the only difference between skins: every one was the same
+    /// soft band sliding past, so five skins read as one effect in five colours.
+    /// <para>Each value here is a tile of real geometry built by <see cref="NameFxGaugeArt"/> — flames, cracked
+    /// ice, a split beam — translated by the same single animation as before. Still no blur, no glow and no
+    /// bitmap frames: the overlay is a software-rendered layered window over a running game, and the tile is
+    /// rasterised once and re-blitted rather than redrawn per frame.</para>
+    /// <para>⚠ Every motion has to be a translation of an x-periodic tile. A round travelling hotspot was tried
+    /// and removed for exactly that reason — a <c>RadialGradientBrush</c> repeats CONCENTRICALLY under
+    /// <c>SpreadMethod.Repeat</c>, so translating it by one period does not reproduce the pattern and the loop
+    /// showed a 47.7/255 seam against a 4/255 budget. The preview harness measures this.</para>
     /// </summary>
     public enum GaugeMotion
     {
-        /// <summary>One soft highlight travelling along the bar. The original, kept for the skin whose
-        /// identity is "smooth".</summary>
-        Sweep,
+        /// <summary>Not a gauge skin. Nickname effects live on glyphs, where geometry would shred the
+        /// letterforms, so they keep the gradient sweep and never take a value below.</summary>
+        None,
 
-        /// <summary>Hard-edged diagonal bands marching across — no gradient between colours, so it reads as
-        /// cut glass rather than a glow.</summary>
-        Chevron,
+        /// <summary>잔불 — tongues of fire licking up out of a bed of embers.</summary>
+        Flame,
 
-        /// <summary>Several narrow highlights per tile: the bar glitters instead of pulsing once.
-        /// <para>Band placement is deliberately IRREGULAR. Evenly spaced bands make the tile N-fold symmetric,
-        /// so its real period is 1/N and the pattern cycles N times per animation — which the preview harness
-        /// catches as "does not travel": phase 0.25 of four even bands is pixel-identical to phase 0.</para>
-        /// </summary>
-        Shimmer,
+        /// <summary>서리 — cracked ice plates with light caught on their edges.</summary>
+        Frost,
+
+        /// <summary>프리즘 — a glass facet splitting a beam into a spectrum.</summary>
+        Prism,
+
+        /// <summary>베리 글레이즈 — glaze running down off the top edge, with drops about to fall.</summary>
+        Glaze,
+
+        /// <summary>말차 크림 — foam sitting on top of the tea.</summary>
+        Foam,
     }
-
-    // ⚠ A round travelling hotspot was tried and REMOVED, not forgotten. A RadialGradientBrush repeats
-    // CONCENTRICALLY under SpreadMethod.Repeat — there is no horizontal lattice — so translating it by one
-    // period does not reproduce the pattern, and the loop shows a seam (measured 47.7/255 mean channel
-    // distance against a 4/255 budget). Forcing x-periodicity by making RadiusY huge only turns it back into
-    // stripes. Every motion here has to be a translation of an x-periodic tile, and a radial one is not.
 
     /// <summary>
     /// <para><b>Light 변형은 어둡고 진하게.</b> 라이트 스킨의 행 배경은 거의 흰색이라, 다크용 색을 그대로
@@ -169,18 +169,16 @@ public static class NameFxPalette
         // ⚠️ 게이지는 계열이 **모션으로는 갈리지 않는다**(모든 게이지가 같은 주기·같은 속도를 쓴다).
         // 여기서 계열은 '누가 고를 수 있는가'라는 자격 경계이지, 보는 사람이 후원자와 랭커를 구분하라는
         // 신호가 아니다. 그 구분이 필요한 자리는 닉네임 쪽이고, 거기서는 모션이 실제로 다르다.
-        // 베리 = 굵은 물방울 셋이 흐른다. 잔불과 같은 shimmer 지만 밀도(3 대 6)와 속도가 갈린다.
+        // 베리 = 위에서 흘러내린 글레이즈. 둥근 끝과 광택이 '젖은 것'으로 읽히게 한다.
         new("berryglaze", "베리 글레이즈", NameFxKind.Supporter, true,
             new[] { "#FF831843", "#FFEC4899", "#FFFFE4F2", "#FFEC4899", "#FF831843" },
             new[] { "#FF7A1038", "#FFD32B7E", "#FFFBD6E8", "#FFD32B7E", "#FF7A1038" },
-            IsGauge: true, Offsets: new[] { 0.0, 0.34, 0.5, 0.66, 1.0 },
-            Motion: GaugeMotion.Shimmer, SpeedScale: 1.15, Bands: 3),
-        // 말차 = 이름값대로 '흐른다'. 원래의 부드러운 쓸기를 유지하되 가장 느리게 — 대비군의 기준점.
+            IsGauge: true, Motion: GaugeMotion.Glaze, SpeedScale: 1.35),
+        // 말차 = 라떼 위 거품. 다섯 중 유일하게 직선이 하나도 없는 스킨이다.
         new("matcha", "말차 크림", NameFxKind.Supporter, true,
             new[] { "#FF14532D", "#FF4ADE80", "#FFF0FFF4", "#FF4ADE80", "#FF14532D" },
             new[] { "#FF10461F", "#FF2FA85B", "#FFDFF6E4", "#FF2FA85B", "#FF10461F" },
-            IsGauge: true, Offsets: new[] { 0.0, 0.34, 0.5, 0.66, 1.0 },
-            Motion: GaugeMotion.Sweep, SpeedScale: 1.4),
+            IsGauge: true, Motion: GaugeMotion.Foam, SpeedScale: 1.7),
 
         // ── 랭커 DPS 게이지 스킨 ───────────────────────────────────────────────────
         // 첫 판은 채도를 낮추고 스톱을 균등 배치했다가 완전히 실패했다. 게이지는 채움 불투명도 0.3 뒤에
@@ -191,27 +189,23 @@ public static class NameFxPalette
         //      '지나간다'로 읽히고, 넓고 밝은 띠는 그냥 배경이 밝아진 것으로 읽힌다.
         //   ③ 불투명도 — 스킨을 받은 행만 0.45 로 올린다(RowViewModel.GaugeOpacity). 기본 0.3 은 그대로다.
         // 딜 숫자는 이 위에 Skin.Fg(거의 흰색)로 그려지므로 좁은 띠가 지나가도 가독성은 유지된다.
-        // 프리즘 = 각진 대각 띠가 행진한다. 색 사이 그라디언트가 없어 '유리 조각'으로 읽힌다.
+        // 프리즘 = 유리면이 빛을 분광한다. 갈래마다 색과 각도가 달라야 '쪼개진 빛'으로 읽힌다.
         new("prism", "프리즘", NameFxKind.Ranker, true,
             new[] { "#FF0E7490", "#FF22D3EE", "#FFEAFBFF", "#FFA855F7", "#FF0E7490" },
             new[] { "#FF0B5F78", "#FF0EA5E9", "#FFD8F4FF", "#FF7C3AED", "#FF0B5F78" },
-            IsGauge: true, Offsets: new[] { 0.0, 0.38, 0.5, 0.62, 1.0 },
-            Motion: GaugeMotion.Chevron, SpeedScale: 0.85),
-        // 잔불 = 불티 여럿이 빠르게 지나간다. 좁은 밴드 4개 + 가장 빠른 속도.
+            IsGauge: true, Motion: GaugeMotion.Prism, SpeedScale: 1.0),
+        // 잔불 = 실제 불꽃 도형. 잉걸 위로 혀가 올라온다(NameFxGaugeArt.BuildFlame).
         new("ember", "잔불", NameFxKind.Ranker, true,
-            new[] { "#FF7F1D1D", "#FFEA580C", "#FFFFEFC0", "#FFEA580C", "#FF7F1D1D" },
-            new[] { "#FF8C2A12", "#FFDD4F09", "#FFFFE3A8", "#FFDD4F09", "#FF8C2A12" },
-            IsGauge: true, Offsets: new[] { 0.0, 0.40, 0.5, 0.60, 1.0 },
-            Motion: GaugeMotion.Shimmer, SpeedScale: 0.6, Bands: 6),
+            new[] { "#FF3B0A0A", "#FFEA580C", "#FFFFE9A8", "#FFEA580C", "#FF3B0A0A" },
+            new[] { "#FF5A1408", "#FFE2600F", "#FFFFD98A", "#FFE2600F", "#FF5A1408" },
+            IsGauge: true, Motion: GaugeMotion.Flame, SpeedScale: 0.75),
         // 서리 = 결이 반대로 천천히 흐른다. 텍스처는 말차와 같은 쓸기지만 방향과 속도가 반대라
         // 나란히 놓아도 같은 효과로 안 보인다.
+        // 서리 = 실제 결정 도형. 위아래 가장자리부터 얼어 들어온다(NameFxGaugeArt.BuildFrost).
         new("frost", "서리", NameFxKind.Ranker, true,
-            new[] { "#FF1E3A8A", "#FF38BDF8", "#FFF2FCFF", "#FF38BDF8", "#FF1E3A8A" },
-            new[] { "#FF1B347C", "#FF1D9BE0", "#FFDDF4FF", "#FF1D9BE0", "#FF1B347C" },
-            // 좁은 글린트 + 역방향. 말차와 같은 쓸기지만 띠 폭이 1/3 이고 방향이 반대라 나란히 놓아도
-            // 같은 효과로 안 보인다.
-            IsGauge: true, Offsets: new[] { 0.0, 0.455, 0.5, 0.545, 1.0 },
-            Motion: GaugeMotion.Sweep, SpeedScale: 1.25, Reverse: true),
+            new[] { "#FF0C1E4A", "#FF3FBCF0", "#FFEAF9FF", "#FF3FBCF0", "#FF0C1E4A" },
+            new[] { "#FF14295C", "#FF2A9AD4", "#FFDCF2FF", "#FF2A9AD4", "#FF14295C" },
+            IsGauge: true, Motion: GaugeMotion.Frost, SpeedScale: 1.6, Reverse: true),
     };
 
     /// <summary>Nickname effects only — what the picker and the settings preview strip offer.</summary>
@@ -357,80 +351,15 @@ public static class NameFxPalette
     internal static void AddStops(GradientBrush brush, Effect e, bool light)
     {
         string[] hex = light ? e.Light : e.Dark;
-        Color[] c = new Color[hex.Length];
         for (int i = 0; i < hex.Length; i++)
         {
-            c[i] = Parse(hex[i]);
-        }
-
-        double At(int i) => e.Offsets is { } o && o.Length == hex.Length
-            ? o[i]
-            : hex.Length == 1 ? 0 : i / (double)(hex.Length - 1);
-
-        switch (e.IsGauge ? e.Motion : GaugeMotion.Sweep)
-        {
-            case GaugeMotion.Chevron:
-            {
-                // Two stops per colour, at the band's own edges: identical colour across the band and an
-                // instant jump at the seam. A gradient between them would smear the edge back into a sweep.
-                //
-                // The effect's own Offsets are IGNORED here, and the colour sequence runs twice per tile.
-                // Those offsets are shaped for a sweep — a wide base at each end and a narrow highlight in the
-                // middle — which as hard bands means two thirds of the bar is one flat colour block. Even,
-                // doubled bands are what makes it read as facets rather than as a bar someone painted purple.
-                const int Repeats = 2;
-                int bands = (c.Length - 1) * Repeats;
-                for (int b = 0; b < bands; b++)
-                {
-                    Color band = c[b % (c.Length - 1)];
-                    brush.GradientStops.Add(new GradientStop(band, b / (double)bands));
-                    brush.GradientStops.Add(new GradientStop(band, (b + 1) / (double)bands));
-                }
-
-                break;
-            }
-
-            case GaugeMotion.Shimmer:
-            {
-                // Several narrow highlights instead of one wide one. Built from the effect's own base and peak
-                // so the colour identity survives; the tile is what changes, not the palette.
-                //
-                // The centres are NOT evenly spaced — see the enum docs. The nudges are a fixed table rather
-                // than Random because these brushes are rebuilt on every brightness change and have to come
-                // out identical each time.
-                int bands = Math.Clamp(e.Bands, 2, 8);
-                const double Half = 0.035;
-                double[] nudge = { 0.045, -0.030, 0.020, -0.045, 0.035, -0.015, 0.040, -0.025 };
-                Color baseColor = c[0];
-                Color peak = c[c.Length / 2];
-                Color mid = c[Math.Max(0, (c.Length / 2) - 1)];
-
-                brush.GradientStops.Add(new GradientStop(baseColor, 0.0));
-                for (int b = 0; b < bands; b++)
-                {
-                    double centre = Math.Clamp(
-                        ((b + 0.5) / bands) + nudge[b % nudge.Length], Half + 0.01, 1.0 - Half - 0.01);
-
-                    // Alternating peak / mid brightness so the bands are not clones of one another either.
-                    brush.GradientStops.Add(new GradientStop(baseColor, centre - Half));
-                    brush.GradientStops.Add(new GradientStop(b % 2 == 0 ? peak : mid, centre));
-                    brush.GradientStops.Add(new GradientStop(baseColor, centre + Half));
-                }
-
-                brush.GradientStops.Add(new GradientStop(baseColor, 1.0));
-                break;
-            }
-
-            default:
-                for (int i = 0; i < c.Length; i++)
-                {
-                    // Even spacing unless the effect asks otherwise. Spacing matters more than it sounds: evenly
-                    // spread stops make the bright band a third of the tile wide, which reads as "the whole thing
-                    // is pale" rather than "a highlight went past". The gauge skins therefore pin their offsets.
-                    brush.GradientStops.Add(new GradientStop(c[i], At(i)));
-                }
-
-                break;
+            // Even spacing unless the effect asks otherwise. Spacing matters more than it sounds: evenly spread
+            // stops make the bright band a third of the tile wide, which reads as "the whole thing is pale"
+            // rather than "a highlight went past".
+            double offset = e.Offsets is { } o && o.Length == hex.Length
+                ? o[i]
+                : hex.Length == 1 ? 0 : i / (double)(hex.Length - 1);
+            brush.GradientStops.Add(new GradientStop(Parse(hex[i]), offset));
         }
     }
 
