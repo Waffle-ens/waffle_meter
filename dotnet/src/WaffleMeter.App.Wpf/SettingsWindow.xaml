@@ -761,7 +761,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <TextBlock Text="DPS 게이지 스킨" Style="{StaticResource SettingDesc}"
+                                <TextBlock Text="DPS 게이지 스킨 (랭커 전용)" Style="{StaticResource SettingDesc}"
                                            Margin="0,6,0,4" Visibility="{Binding MyGaugeVisibility}"/>
                                 <ItemsControl ItemsSource="{Binding MyGaugeChoices}" Visibility="{Binding MyGaugeVisibility}">
                                     <ItemsControl.ItemsPanel>
@@ -809,20 +809,13 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock Text="DPS 게이지 스킨" Style="{StaticResource Label}" Margin="0,4,0,6"/>
+                        <TextBlock Text="랭커 전용 DPS 게이지 스킨" Style="{StaticResource Label}" Margin="0,4,0,6"/>
                         <ItemsControl ItemsSource="{Binding GaugeSkinSamples}" Margin="0,0,0,12">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Margin="0,0,0,10">
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
-                                            <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="11"
-                                                       Foreground="{DynamicResource Skin.MutedFg}"/>
-                                            <!-- 계열은 색만 봐서는 알 수 없다. 닉네임 연출은 모션까지 달라서
-                                                 눈으로 갈리지만 게이지는 전부 같은 주기로 흐르므로, 어느 자격으로
-                                                 받는 스킨인지는 여기서만 드러난다. -->
-                                            <TextBlock Text="{Binding Kind}" FontFamily="Segoe UI" FontSize="10.5"
-                                                       Margin="6,0,0,0" Foreground="{DynamicResource Skin.Accent}"/>
-                                        </StackPanel>
+                                        <TextBlock Text="{Binding Name}" FontFamily="Segoe UI" FontSize="11" Margin="0,0,0,3"
+                                                   Foreground="{DynamicResource Skin.MutedFg}"/>
                                         <!-- 미터 행의 모형. 색 견본이 아니라 행인 이유는, 게이지가 딜 숫자를 읽는
                                              바탕이라 숫자가 실제로 올라가 있어야 과한지 아닌지가 드러나기 때문이다.
                                              미터의 진짜 행 템플릿은 OverlayWindow.xaml 안에 있어 그대로 쓰려면 미터
@@ -907,7 +900,7 @@
                         <Grid Margin="0,0,0,14" IsEnabled="{Binding NameFxDetailEnabled}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="게이지 스킨 사용" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="랭커 게이지 스킨 사용" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="받은 게이지 스킨을 DPS 막대에 씁니다. 끄면 기존 기여도·직업 색으로 돌아갑니다. 닉네임 옆 직업·본인 표시선은 그대로 유지돼요." Style="{StaticResource SettingDesc}"/>
                                 <TextBlock Text="'미터 화면'의 게이지 형태가 '없음'이면 칠할 막대가 없어 적용되지 않습니다."
                                            Style="{StaticResource SettingDesc}" TextWrapping="Wrap"

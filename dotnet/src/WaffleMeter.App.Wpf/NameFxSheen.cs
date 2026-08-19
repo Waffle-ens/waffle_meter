@@ -47,15 +47,7 @@ public static class NameFxSheen
     /// difference that does not survive a moving game behind it.</summary>
     private const int FrameRate = 30;
 
-    /// <param name="Brush">A <see cref="GradientBrush"/> for the ramp skins, a <see cref="DrawingBrush"/> for
-    /// the shape ones. Both are translated the same way; only how they are REBUILT on a brightness change
-    /// differs, which <see cref="Rebuild"/> handles.</param>
-    private sealed record Track(
-        Brush Brush,
-        TranslateTransform Transform,
-        double Period,
-        double Seconds,
-        bool Reverse);
+    private sealed record Track(LinearGradientBrush Brush, TranslateTransform Transform, double Period, double Seconds);
 
     // ★ The only unfrozen brushes this feature owns. Shared, and animated in place.
     private static readonly Dictionary<(string Id, bool Light), Track> Tracks = Build();
@@ -135,9 +127,7 @@ public static class NameFxSheen
                 var anim = new DoubleAnimation
                 {
                     From = 0,
-                    // A tile is seamless, so travelling one tile BACKWARDS is just as continuous as forwards —
-                    // and two skins moving opposite ways read as two effects even at a glance.
-                    To = t.Reverse ? -t.Period : t.Period,
+                    To = t.Period,
                     Duration = TimeSpan.FromSeconds(t.Seconds * 100.0 / speed),
                     RepeatBehavior = RepeatBehavior.Forever,
                 };
@@ -196,24 +186,11 @@ public static class NameFxSheen
                 continue;
             }
 
-            if (t.Brush is GradientBrush gradient)
+            t.Brush.GradientStops.Clear();
+            NameFxPalette.AddStops(t.Brush, e, light);
+            foreach (GradientStop s in t.Brush.GradientStops)
             {
-                gradient.GradientStops.Clear();
-                NameFxPalette.AddStops(gradient, e, light);
-                foreach (GradientStop s in gradient.GradientStops)
-                {
-                    s.Color = NameFxPalette.Scale(s.Color, factor);
-                }
-
-                continue;
-            }
-
-            // A shape skin's tile is geometry, so brightness cannot be applied stop by stop — the whole
-            // drawing is rebuilt at the new brightness and swapped in behind the same transform.
-            if (t.Brush is DrawingBrush art)
-            {
-                DrawingBrush rebuilt = NameFxGaugeArt.Build(e.Motion, light ? e.Light : e.Dark, factor);
-                art.Drawing = rebuilt.Drawing;
+                s.Color = NameFxPalette.Scale(s.Color, factor);
             }
         }
     }
@@ -223,28 +200,21 @@ public static class NameFxSheen
         var map = new Dictionary<(string, bool), Track>();
         foreach (NameFxPalette.Effect e in NameFxPalette.All.Where(x => x.Animated))
         {
-            bool art = e.IsGauge && NameFxGaugeArt.IsArt(e.Motion);
-
-            // A shape skin's tile is a FRACTION of the bar, so one loop is that fraction — translating a whole
-            // bar would run the tile past several times and the speed setting would mean something different
-            // for it than for a nickname effect.
-            double period = art ? NameFxGaugeArt.TileFraction : (e.IsGauge ? GaugePeriodRelative : NamePeriodPx);
-            double seconds = (e.IsGauge ? GaugeSeconds : NameSeconds) * Math.Clamp(e.SpeedScale, 0.25, 4.0);
+            double period = e.IsGauge ? GaugePeriodRelative : NamePeriodPx;
+            double seconds = e.IsGauge ? GaugeSeconds : NameSeconds;
             foreach (bool light in new[] { false, true })
             {
                 var transform = new TranslateTransform();
-                Brush b;
-                if (art)
+                var b = new LinearGradientBrush
                 {
-                    // A shape skin's colours are baked into its geometry, so there are no stops to add.
-                    b = NameFxGaugeArt.Build(e.Motion, light ? e.Light : e.Dark, 1.0);
-                }
-                else
-                {
-                    GradientBrush ramp = BuildBrush(e, e.IsGauge ? GaugePeriodRelative : NamePeriodPx);
-                    NameFxPalette.AddStops(ramp, e, light);
-                    b = ramp;
-                }
+                    // Repeat is what makes a translation equal a seamless flow: the gradient tiles every
+                    // `period`, so sliding by exactly one period lands on an identical pattern.
+                    MappingMode = e.IsGauge ? BrushMappingMode.RelativeToBoundingBox : BrushMappingMode.Absolute,
+                    SpreadMethod = GradientSpreadMethod.Repeat,
+                    StartPoint = new Point(0, 0),
+                    EndPoint = new Point(period, 0),
+                };
+                NameFxPalette.AddStops(b, e, light);
 
                 // ⚠ The slot MUST match the mapping — see the type remarks. Relative mapping needs
                 // RelativeTransform; absolute mapping needs Transform. Getting this wrong does not fail, it
@@ -258,28 +228,10 @@ public static class NameFxSheen
                     b.Transform = transform;
                 }
 
-
-                // NOT frozen — animated in place.
-                map[(e.Id, light)] = new Track(b, transform, period, seconds, e.IsGauge && e.Reverse);
+                map[(e.Id, light)] = new Track(b, transform, period, seconds); // NOT frozen — animated in place.
             }
         }
 
         return map;
-    }
-
-    /// <summary>The brush geometry for one effect. Repeat is what makes a translation equal a seamless flow:
-    /// the gradient tiles every <c>period</c>, so sliding by exactly one period lands on an identical pattern —
-    /// which is true of the radial tile as much as the linear ones.</summary>
-    private static GradientBrush BuildBrush(NameFxPalette.Effect e, double period)
-    {
-        BrushMappingMode mapping = e.IsGauge ? BrushMappingMode.RelativeToBoundingBox : BrushMappingMode.Absolute;
-
-        return new LinearGradientBrush
-        {
-            MappingMode = mapping,
-            SpreadMethod = GradientSpreadMethod.Repeat,
-            StartPoint = new Point(0, 0),
-            EndPoint = new Point(period, 0),
-        };
     }
 }

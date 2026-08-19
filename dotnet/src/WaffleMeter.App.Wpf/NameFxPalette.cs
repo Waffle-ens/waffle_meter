@@ -42,17 +42,9 @@ public sealed class NameFxBadge
 public static class NameFxPalette
 {
     /// <summary>A catalogue entry: what the effect is called, which family it belongs to, and its stops.</summary>
-    /// <param name="IsGauge">True for the DPS gauge skins. They live in the same table because they share every
-    /// mechanism (shared animated brush, brightness, speed, the demand clock) and differ only in where they are
-    /// painted — but they are never offered as a nickname effect, and vice versa.
-    /// <para>Both entitlement families have gauge skins; <see cref="Effect.Kind"/> is what decides who may pick
-    /// which, exactly as it does for the nickname effects.</para></param>
-    /// <param name="Motion">Gauge skins only — how the brush moves. Ignored by nickname effects, which are
-    /// drawn on text where anything but a soft sweep turns the glyphs into stripes.</param>
-    /// <param name="SpeedScale">Multiplies this skin's own period. &gt;1 is slower. Part of the identity: two
-    /// skins with the same texture at visibly different speeds still read as two effects.</param>
-    /// <param name="Reverse">Travel right-to-left. Cheapest possible differentiator and surprisingly strong
-    /// when two skins are on screen together.</param>
+    /// <param name="IsGauge">True for the ranker-only DPS gauge skins. They live in the same table because they
+    /// share every mechanism (shared animated brush, brightness, speed, the demand clock) and differ only in
+    /// where they are painted — but they are never offered as a nickname effect, and vice versa.</param>
     public sealed record Effect(
         string Id,
         string Name,
@@ -61,49 +53,12 @@ public static class NameFxPalette
         string[] Dark,
         string[] Light,
         bool IsGauge = false,
-        double[]? Offsets = null,
-        GaugeMotion Motion = GaugeMotion.None,
-        double SpeedScale = 1.0,
-        bool Reverse = false);
+        double[]? Offsets = null);
 
     public enum NameFxKind
     {
         Supporter,
         Ranker,
-    }
-
-    /// <summary>
-    /// WHAT a gauge skin draws. Colour used to be the only difference between skins: every one was the same
-    /// soft band sliding past, so five skins read as one effect in five colours.
-    /// <para>Each value here is a tile of real geometry built by <see cref="NameFxGaugeArt"/> — flames, cracked
-    /// ice, a split beam — translated by the same single animation as before. Still no blur, no glow and no
-    /// bitmap frames: the overlay is a software-rendered layered window over a running game, and the tile is
-    /// rasterised once and re-blitted rather than redrawn per frame.</para>
-    /// <para>⚠ Every motion has to be a translation of an x-periodic tile. A round travelling hotspot was tried
-    /// and removed for exactly that reason — a <c>RadialGradientBrush</c> repeats CONCENTRICALLY under
-    /// <c>SpreadMethod.Repeat</c>, so translating it by one period does not reproduce the pattern and the loop
-    /// showed a 47.7/255 seam against a 4/255 budget. The preview harness measures this.</para>
-    /// </summary>
-    public enum GaugeMotion
-    {
-        /// <summary>Not a gauge skin. Nickname effects live on glyphs, where geometry would shred the
-        /// letterforms, so they keep the gradient sweep and never take a value below.</summary>
-        None,
-
-        /// <summary>잔불 — tongues of fire licking up out of a bed of embers.</summary>
-        Flame,
-
-        /// <summary>서리 — cracked ice plates with light caught on their edges.</summary>
-        Frost,
-
-        /// <summary>프리즘 — a glass facet splitting a beam into a spectrum.</summary>
-        Prism,
-
-        /// <summary>베리 글레이즈 — glaze running down off the top edge, with drops about to fall.</summary>
-        Glaze,
-
-        /// <summary>말차 크림 — foam sitting on top of the tea.</summary>
-        Foam,
     }
 
     /// <summary>
@@ -156,31 +111,7 @@ public static class NameFxPalette
             new[] { "#FF115882", "#FF2A9CC4", "#FF8FD6EC", "#FF2A9CC4", "#FF115882" },
             Offsets: new[] { 0.0, 0.40, 0.5, 0.60, 1.0 }),
 
-        // ── 후원자 DPS 게이지 스킨 ─────────────────────────────────────────────────
-        // 랭커 게이지 셋(프리즘=청록+보라 / 잔불=적주황 / 서리=파랑)이 이미 차 있어서, 새 둘은 **비어 있는
-        // 색상 영역**으로 잡았다. 자홍과 녹색이 그 둘이다 — 특히 녹색은 닉네임 연출까지 통틀어 팔레트에
-        // 한 번도 쓰인 적이 없어 한눈에 갈린다. 따뜻한 주황 쪽으로 잡고 싶은 유혹이 있었지만(후원자 연출이
-        // 시럽·버터라) 0.45 불투명도 뒤에서는 잔불과 구분이 안 된다.
-        //
-        // 하이라이트 띠는 랭커보다 **조금 넓다**(타일의 32% 대 20%). 후원자 연출이 '흐른다', 랭커가
-        // '번쩍인다'인 것과 같은 축이다 — 다만 폭을 균등 배치(50%)까지 벌리지는 않았다. 그건 이미 한 번
-        // 실패한 값이고, 넓은 띠는 '지나간다'가 아니라 '막대가 그냥 밝다'로 읽힌다.
-        //
-        // ⚠️ 게이지는 계열이 **모션으로는 갈리지 않는다**(모든 게이지가 같은 주기·같은 속도를 쓴다).
-        // 여기서 계열은 '누가 고를 수 있는가'라는 자격 경계이지, 보는 사람이 후원자와 랭커를 구분하라는
-        // 신호가 아니다. 그 구분이 필요한 자리는 닉네임 쪽이고, 거기서는 모션이 실제로 다르다.
-        // 베리 = 위에서 흘러내린 글레이즈. 둥근 끝과 광택이 '젖은 것'으로 읽히게 한다.
-        new("berryglaze", "베리 글레이즈", NameFxKind.Supporter, true,
-            new[] { "#FF831843", "#FFEC4899", "#FFFFE4F2", "#FFEC4899", "#FF831843" },
-            new[] { "#FF7A1038", "#FFD32B7E", "#FFFBD6E8", "#FFD32B7E", "#FF7A1038" },
-            IsGauge: true, Motion: GaugeMotion.Glaze, SpeedScale: 1.35),
-        // 말차 = 라떼 위 거품. 다섯 중 유일하게 직선이 하나도 없는 스킨이다.
-        new("matcha", "말차 크림", NameFxKind.Supporter, true,
-            new[] { "#FF14532D", "#FF4ADE80", "#FFF0FFF4", "#FF4ADE80", "#FF14532D" },
-            new[] { "#FF10461F", "#FF2FA85B", "#FFDFF6E4", "#FF2FA85B", "#FF10461F" },
-            IsGauge: true, Motion: GaugeMotion.Foam, SpeedScale: 1.7),
-
-        // ── 랭커 DPS 게이지 스킨 ───────────────────────────────────────────────────
+        // ── 랭커 전용 DPS 게이지 스킨 ──────────────────────────────────────────────
         // 첫 판은 채도를 낮추고 스톱을 균등 배치했다가 완전히 실패했다. 게이지는 채움 불투명도 0.3 뒤에
         // 깔리는데, 그 아래에서 옅은 색을 균등하게 펴 놓으면 '스킨을 받았다'가 아니라 '막대가 좀 탁하다'로
         // 보인다. 세 축을 같이 올렸다:
@@ -189,29 +120,24 @@ public static class NameFxPalette
         //      '지나간다'로 읽히고, 넓고 밝은 띠는 그냥 배경이 밝아진 것으로 읽힌다.
         //   ③ 불투명도 — 스킨을 받은 행만 0.45 로 올린다(RowViewModel.GaugeOpacity). 기본 0.3 은 그대로다.
         // 딜 숫자는 이 위에 Skin.Fg(거의 흰색)로 그려지므로 좁은 띠가 지나가도 가독성은 유지된다.
-        // 프리즘 = 유리면이 빛을 분광한다. 갈래마다 색과 각도가 달라야 '쪼개진 빛'으로 읽힌다.
         new("prism", "프리즘", NameFxKind.Ranker, true,
             new[] { "#FF0E7490", "#FF22D3EE", "#FFEAFBFF", "#FFA855F7", "#FF0E7490" },
             new[] { "#FF0B5F78", "#FF0EA5E9", "#FFD8F4FF", "#FF7C3AED", "#FF0B5F78" },
-            IsGauge: true, Motion: GaugeMotion.Prism, SpeedScale: 1.0),
-        // 잔불 = 실제 불꽃 도형. 잉걸 위로 혀가 올라온다(NameFxGaugeArt.BuildFlame).
+            IsGauge: true, Offsets: new[] { 0.0, 0.38, 0.5, 0.62, 1.0 }),
         new("ember", "잔불", NameFxKind.Ranker, true,
-            new[] { "#FF3B0A0A", "#FFEA580C", "#FFFFE9A8", "#FFEA580C", "#FF3B0A0A" },
-            new[] { "#FF5A1408", "#FFE2600F", "#FFFFD98A", "#FFE2600F", "#FF5A1408" },
-            IsGauge: true, Motion: GaugeMotion.Flame, SpeedScale: 0.75),
-        // 서리 = 결이 반대로 천천히 흐른다. 텍스처는 말차와 같은 쓸기지만 방향과 속도가 반대라
-        // 나란히 놓아도 같은 효과로 안 보인다.
-        // 서리 = 실제 결정 도형. 위아래 가장자리부터 얼어 들어온다(NameFxGaugeArt.BuildFrost).
+            new[] { "#FF7F1D1D", "#FFEA580C", "#FFFFEFC0", "#FFEA580C", "#FF7F1D1D" },
+            new[] { "#FF8C2A12", "#FFDD4F09", "#FFFFE3A8", "#FFDD4F09", "#FF8C2A12" },
+            IsGauge: true, Offsets: new[] { 0.0, 0.40, 0.5, 0.60, 1.0 }),
         new("frost", "서리", NameFxKind.Ranker, true,
-            new[] { "#FF0C1E4A", "#FF3FBCF0", "#FFEAF9FF", "#FF3FBCF0", "#FF0C1E4A" },
-            new[] { "#FF14295C", "#FF2A9AD4", "#FFDCF2FF", "#FF2A9AD4", "#FF14295C" },
-            IsGauge: true, Motion: GaugeMotion.Frost, SpeedScale: 1.6, Reverse: true),
+            new[] { "#FF1E3A8A", "#FF38BDF8", "#FFF2FCFF", "#FF38BDF8", "#FF1E3A8A" },
+            new[] { "#FF1B347C", "#FF1D9BE0", "#FFDDF4FF", "#FF1D9BE0", "#FF1B347C" },
+            IsGauge: true, Offsets: new[] { 0.0, 0.40, 0.5, 0.60, 1.0 }),
     };
 
     /// <summary>Nickname effects only — what the picker and the settings preview strip offer.</summary>
     public static readonly Effect[] NameEffects = All.Where(e => !e.IsGauge).ToArray();
 
-    /// <summary>DPS gauge skins, both families. Ordered 후원자 then 랭커, matching the nickname list.</summary>
+    /// <summary>Ranker-only DPS gauge skins.</summary>
     public static readonly Effect[] GaugeSkins = All.Where(e => e.IsGauge).ToArray();
 
     private static readonly Dictionary<string, Effect> ById =
@@ -240,20 +166,11 @@ public static class NameFxPalette
         _ => Array.Empty<Effect>(),
     };
 
-    /// <summary>The gauge skins an entitlement may choose from — the same rule as
-    /// <see cref="ChoicesFor"/>, on the same <c>k</c> from the roster. Written as the same shape deliberately:
-    /// while gauges were a ranker-only extra this read <c>kind is "ranker" or "both"</c>, and adding a
-    /// supporter gauge to the table without changing it would have offered nobody the new skins while quietly
-    /// letting a ranker pick them.</summary>
-    public static IReadOnlyList<Effect> GaugeChoicesFor(string? kind) => kind switch
-    {
-        "supporter" => GaugeSkins.Where(e => e.Kind == NameFxKind.Supporter).ToArray(),
-        "ranker" => GaugeSkins.Where(e => e.Kind == NameFxKind.Ranker).ToArray(),
-        "both" => GaugeSkins,
-        _ => Array.Empty<Effect>(),
-    };
+    /// <summary>Gauge skins need the ranker entitlement.</summary>
+    public static IReadOnlyList<Effect> GaugeChoicesFor(string? kind) =>
+        kind is "ranker" or "both" ? GaugeSkins : Array.Empty<Effect>();
 
-    /// <summary>A gauge skin's fill, or null when the id is not a gauge skin this build knows. Family-agnostic —
+    /// <summary>A gauge skin's fill, or null when the id is not a gauge skin this build knows. Ranker-only —
     /// the caller has already checked the grant; this only maps id to paint.</summary>
     public static Brush? GaugeBrush(string? id, bool isLight)
     {
@@ -348,14 +265,14 @@ public static class NameFxPalette
         return b;
     }
 
-    internal static void AddStops(GradientBrush brush, Effect e, bool light)
+    internal static void AddStops(LinearGradientBrush brush, Effect e, bool light)
     {
         string[] hex = light ? e.Light : e.Dark;
         for (int i = 0; i < hex.Length; i++)
         {
             // Even spacing unless the effect asks otherwise. Spacing matters more than it sounds: evenly spread
             // stops make the bright band a third of the tile wide, which reads as "the whole thing is pale"
-            // rather than "a highlight went past".
+            // rather than "a highlight went past". The gauge skins therefore pin their own offsets.
             double offset = e.Offsets is { } o && o.Length == hex.Length
                 ? o[i]
                 : hex.Length == 1 ? 0 : i / (double)(hex.Length - 1);
