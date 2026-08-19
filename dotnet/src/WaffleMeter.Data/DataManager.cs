@@ -221,6 +221,13 @@ public sealed class DataManager : ICaptureGameData
     public void SaveInstancePhaseWindow(int mapId, int phase, long startMs, long windowMs) =>
         TrialDifficulty.ObservePhaseWindow(mapId, phase, startMs, windowMs);
 
+    /// <summary>Raised (packet-consumer thread) with the instance map the character just loaded into and when.
+    /// Stateless on purpose — the only consumer is the 어비스 회랑 clock, which needs "entered a corridor" and
+    /// "left it" and nothing else. Every other map id flows through as a no-op for it.</summary>
+    public event Action<int, long>? InstanceMapChanged;
+
+    public void SaveInstanceMap(int mapId) => InstanceMapChanged?.Invoke(mapId, Clock());
+
     public void LoadEncounters(EncounterCatalog catalog) => Encounters = catalog;
 
     public void LoadBuffs(IEnumerable<Buff> buffs)
@@ -879,6 +886,17 @@ public sealed class DataManager : ICaptureGameData
     public void SaveWeeklyContent(WeeklyContentKind kind, int baseVal, int bonus, bool fromSnapshot) =>
         WeeklyContentChanged?.Invoke(
             kind, Math.Max(0, baseVal) + Math.Max(0, bonus), Clock(), fromSnapshot);
+
+    /// <summary>Raised (packet-consumer thread) when a 어비스 회랑 이용 시간 arrives:
+    /// <c>(ticketId, remainingMs, arrivedAtMs, fromSnapshot)</c>. Forwarded unconditionally for the same reason
+    /// as <see cref="SaveWeeklyContent"/> — the persisted store has writers this cache cannot see, so a repeat
+    /// broadcast is exactly the one that has to re-sync it.</summary>
+    public event Action<int, long, long, bool>? AbyssCorridorChanged;
+
+    /// <summary>Record one corridor's remaining 이용 시간. A spent corridor arrives as 0 because the packet's
+    /// field mask omits an empty field, so the value is the answer as-is.</summary>
+    public void SaveAbyssCorridor(int ticketId, long remainingMs, bool fromSnapshot) =>
+        AbyssCorridorChanged?.Invoke(ticketId, Math.Max(0, remainingMs), Clock(), fromSnapshot);
 
     // ---- field-boss respawn timers (boss code -> target Unix-ms), from the 0x9101 broadcast ----
     // Written on the packet-consumer thread, read (snapshot) on the UI thread → guard with a lock.

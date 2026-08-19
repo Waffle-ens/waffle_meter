@@ -186,6 +186,7 @@ public static class SettingsKeyCatalog
         ["aether.perCharacter"] = "캐릭터 오드 기록",
         ["aether.characterNames"] = "캐릭터 이름 캐시",
         ["content.weeklyClears"] = "주간 클리어 기록",
+        ["content.abyssCorridors"] = "어비스 회랑 기록",
 
         // 기기 고유 — 모니터 구성·네트워크 환경에 묶인다.
         ["uiX"] = "창 위치", ["uiY"] = "창 위치", ["windowX"] = "창 위치", ["windowY"] = "창 위치",

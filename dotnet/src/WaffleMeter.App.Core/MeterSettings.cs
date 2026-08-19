@@ -58,7 +58,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         nameof(_closeAction), nameof(_contributionMode), nameof(_customAlarms), nameof(_damageValueMode),
         nameof(_displayMode), nameof(_fieldBossDisabled), nameof(_fontFamily), nameof(_nameDisplay),
         nameof(_nameFxMode), nameof(_overlayTheme), nameof(_targetInfoDisplayMode), nameof(_tierEffects),
-        nameof(_weeklyContentClears))]
+        nameof(_weeklyContentClears), nameof(_abyssCorridors))]
     public void Reload()
     {
         _displayMode = ReadEnum("displayMode", "dps_percent", DisplayModes);
@@ -139,6 +139,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _aetherPerCharacter = _props.GetProperty("aether.perCharacter") ?? "";
         _aetherCharacterNames = _props.GetProperty("aether.characterNames") ?? "";
         _weeklyContentClears = _props.GetProperty("content.weeklyClears") ?? "";
+        _abyssCorridors = _props.GetProperty("content.abyssCorridors") ?? "";
         _dummyTestMode = ReadBool("dummy.testMode", false);
         _dummyDurationSec = ReadInt("dummy.durationSeconds", 60);
         _patchNotesLastShownVersion = _props.GetProperty("patchNotes.lastShownVersion") ?? "";
@@ -548,6 +549,19 @@ public sealed class MeterSettings : INotifyPropertyChanged
     {
         get => _weeklyContentClears;
         set => SetProp(ref _weeklyContentClears, "content.weeklyClears", value);
+    }
+
+    private string _abyssCorridors;
+    /// <summary>Each character's 어비스 회랑 이용 시간 as
+    /// <c>hash,ticketId,remainingMs,observedAtMs,grantedAtMs,tickingSinceMs</c> records (see
+    /// <see cref="AbyssCorridorStore"/>). Its OWN key, never extra fields on
+    /// <see cref="WeeklyContentClears"/> or <see cref="AetherPerCharacter"/>, for the reason spelled out on
+    /// both: an older build DROPS a record it cannot parse, and those blobs are rewritten on every broadcast,
+    /// so one rollback would make the loss permanent. An unknown key is merely ignored.</summary>
+    public string AbyssCorridors
+    {
+        get => _abyssCorridors;
+        set => SetProp(ref _abyssCorridors, "content.abyssCorridors", value);
     }
 
     // ---- 허수아비 (training-dummy) test mode ----

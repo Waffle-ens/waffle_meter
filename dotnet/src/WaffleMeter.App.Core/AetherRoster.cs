@@ -14,6 +14,19 @@ public readonly record struct WeeklyContentCell(WeeklyContentInfo Content, int R
     public int Grant => WeeklyContentCatalog.WeeklyGrant;
 }
 
+/// <summary>One 어비스 회랑 this character can enter: how much of the 130-second 이용 시간 is left, and whether
+/// the clock is running right now (the character is standing in it).
+/// <para>A cell exists ONLY for a corridor whose artifact this character's side holds this 점령 cycle. There is
+/// no "unknown" variant on purpose: an un-captured corridor and a fully spent one arrive on the wire as the
+/// same zero, so the only honest way to show "0:00" is to have separately seen the corridor hold time first.</para></summary>
+public readonly record struct AbyssCorridorCell(AbyssCorridorInfo Corridor, long RemainingMs, bool Ticking)
+{
+    /// <summary>The denominator — the base grant, or the reading itself if the server ever hands out more.</summary>
+    public long FullMs => Math.Max(AbyssCorridorCatalog.FullGrantMs, RemainingMs);
+
+    public bool Spent => RemainingMs <= 0;
+}
+
 /// <summary>One row of the 컨텐츠 관리 목록 — a character, what it holds, and its weekly clears.</summary>
 public readonly record struct AetherRosterRow(
     string IdentityHash,
@@ -24,10 +37,17 @@ public readonly record struct AetherRosterRow(
     int Total,
     long SavedAtMs,
     bool IsCurrent,
-    IReadOnlyList<WeeklyContentCell>? Weekly = null)
+    IReadOnlyList<WeeklyContentCell>? Weekly = null,
+    IReadOnlyList<AbyssCorridorCell>? Corridors = null,
+    bool CorridorsKnown = false)
 {
     /// <summary>The weekly raids in catalog order, never null.</summary>
     public IReadOnlyList<WeeklyContentCell> WeeklyCells => Weekly ?? [];
+
+    /// <summary>The 어비스 회랑 this character holds time for, in catalog order. Empty means either "none are
+    /// captured" or "we have not watched this character since the last 점령전" — <see cref="CorridorsKnown"/>
+    /// is what separates those, and it is the difference between telling the user something and guessing.</summary>
+    public IReadOnlyList<AbyssCorridorCell> CorridorCells => Corridors ?? [];
 
     /// <summary>"자연회복(+추가)" as the chip shows it; the bonus half is dropped when there is none.</summary>
     public string AetherText => Bonus > 0
@@ -50,7 +70,8 @@ public static class AetherRoster
         IEnumerable<AetherRosterName>? names = null,
         string? currentHash = null,
         WeeklyContentStore? weekly = null,
-        long nowMs = 0)
+        long nowMs = 0,
+        AbyssCorridorStore? corridors = null)
     {
         long at = nowMs > 0 ? nowMs : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -98,7 +119,9 @@ public static class AetherRoster
                 Total: projectedBase + projectedBonus,
                 SavedAtMs: snapshot.SavedAtMs,
                 IsCurrent: currentHash != null && string.Equals(hash, currentHash, StringComparison.Ordinal),
-                Weekly: WeeklyFor(weekly, hash, at)));
+                Weekly: WeeklyFor(weekly, hash, at),
+                Corridors: CorridorsFor(corridors, hash, at),
+                CorridorsKnown: corridors?.HasCycleWitness(hash, at) ?? false));
         }
 
         // Current character first (that's the one the user is looking at), then most-recently-seen. Ordering by
@@ -122,6 +145,33 @@ public static class AetherRoster
                 content,
                 remaining ?? WeeklyContentCatalog.WeeklyGrant,
                 Known: remaining.HasValue));
+        }
+
+        return cells;
+    }
+
+    /// <summary>The 어비스 회랑 this character holds time for, in catalog order — and ONLY those. A corridor with
+    /// no reading for the current 점령 cycle is left out rather than shown as full or empty: the wire cannot tell
+    /// "우리 진영이 못 뺏었다" from "이 캐릭터가 다 썼다", so a chip for a corridor we have never seen stocked
+    /// would be an invention either way.</summary>
+    private static IReadOnlyList<AbyssCorridorCell> CorridorsFor(
+        AbyssCorridorStore? corridors, string hash, long nowMs)
+    {
+        if (corridors is null)
+        {
+            return [];
+        }
+
+        var cells = new List<AbyssCorridorCell>(AbyssCorridorCatalog.All.Count);
+        foreach (AbyssCorridorInfo corridor in AbyssCorridorCatalog.All)
+        {
+            if (corridors.Standing(hash, corridor.TicketId, nowMs) is not { } remainingMs)
+            {
+                continue;
+            }
+
+            bool ticking = corridors.Get(hash, corridor.TicketId) is { TickingSinceMs: > 0 } && remainingMs > 0;
+            cells.Add(new AbyssCorridorCell(corridor, remainingMs, ticking));
         }
 
         return cells;

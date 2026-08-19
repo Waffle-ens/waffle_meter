@@ -134,6 +134,29 @@ public interface ICaptureGameData
     /// Default no-op (capture-only mode).</summary>
     void SaveWeeklyContent(WeeklyContentKind kind, int baseVal, int bonus, bool fromSnapshot) { }
 
+    /// <summary>One 어비스 회랑's remaining 이용 시간 in MILLISECONDS, from the same 0x610x family (a different
+    /// currency id). Unlike every other counter here this is a clock, not a count: the corridor is stocked with
+    /// 130 seconds and the server states it exactly twice per visit — the full budget on entry and zero on
+    /// expiry — so a consumer that wants a live figure has to run the clock itself between those two.
+    /// <para><paramref name="ticketId"/> is the client's own <c>ContentsTicket.ID</c> (10000001~10000012), which
+    /// identifies WHICH corridor. <paramref name="fromSnapshot"/> carries the same meaning as on
+    /// <see cref="SaveWeeklyContent"/>, and for the same reason: the 0x610B dump lands about four seconds before
+    /// the packet that names its character.</para>
+    /// Default no-op (capture-only mode).</summary>
+    void SaveAbyssCorridor(int ticketId, long remainingMs, bool fromSnapshot) { }
+
+    /// <summary>The instance map the character just loaded into (0x6100/0x6101), regardless of whether it came
+    /// with a usable phase window. Only <see cref="SaveInstancePhaseWindow"/> needs the window; this exists
+    /// because entering and leaving a 어비스 회랑 is otherwise invisible — the corridor's own phase packet
+    /// carries <c>endMs = 0</c> and is rejected as a window, yet its map id is the only signal that the corridor
+    /// clock has started or stopped.
+    /// <para>No arrival time: the data layer stamps it from its own clock, the same one
+    /// <see cref="SaveAbyssCorridor"/> is stamped with. The corridor clock starts by matching those two events
+    /// within a few seconds of each other, and comparing a packet timestamp against a wall-clock one would make
+    /// that rendezvous depend on the two agreeing — which they do live, and do not under a simulated clock.</para>
+    /// No-op in capture-only mode.</summary>
+    void SaveInstanceMap(int mapId) { }
+
     /// <summary>Field-boss respawn timers (boss code → target Unix-ms) from the 0x9101 broadcast. No-op in
     /// capture-only mode.</summary>
     void SaveFieldBossTimers(IReadOnlyList<(int Code, long TargetMs)> timers);

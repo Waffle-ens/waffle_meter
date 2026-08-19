@@ -57,6 +57,31 @@ public partial class App : Application
     /// <summary>Weekly 성역 counters from a 0x610B dump, held until the identity they belong to is established.
     /// See <see cref="OnWeeklyContentBroadcast"/> for why filing them on arrival is wrong.</summary>
     private readonly Dictionary<WeeklyContentKind, (int Remaining, long AtMs)> _weeklyContentPending = new();
+
+    /// <summary>어비스 회랑 이용 시간 from a 0x610B dump, held under the same rule as the weekly counters — the
+    /// dump names no character, and filing it early writes one character's corridors onto another's row.</summary>
+    private readonly Dictionary<int, (long RemainingMs, long AtMs)> _abyssCorridorPending = new();
+
+    /// <summary>A corridor ticket that just arrived with time on it, waiting for the map change that proves the
+    /// character ENTERED rather than merely being handed a fresh allocation at 점령전.
+    /// <para>Both facts ride the same LZ4 bundle, but the ticket delta is decoded a few bytes EARLIER than the
+    /// instance-map packet (measured on all six entries in the corpus, same millisecond), so the clock cannot be
+    /// started on the ticket alone — it has to wait for the map to confirm.</para></summary>
+    private (int TicketId, long RemainingMs, long AtMs)? _corridorEntryPending;
+
+    /// <summary>The corridor map the character is currently standing in, or 0. Leaving it is what stops the
+    /// clock — the only chance to turn an early exit into a real number, since the server says nothing more
+    /// until the budget is gone.</summary>
+    private int _corridorInsideMapId;
+
+    /// <summary>How long a pending corridor entry waits for its map packet before it is discarded. The two
+    /// arrive in the same millisecond; this is slack for a stalled stream, not a real delay.</summary>
+    private const long CorridorEntrySettleMs = 5_000;
+
+    /// <summary>Last time an open panel was re-rendered for a running corridor clock. The clock is a projection,
+    /// so only a redraw moves it — but the report loop ticks far faster than a second, and rebuilding the rows
+    /// re-parses two settings blobs every time.</summary>
+    private long _corridorRefreshedAtMs;
     private bool _viewingHistory;
     private long _historyBaselineBattleStart;
     // Pre-combat party preview: the roster = recent boss-combat contributors (the party). Combat is the only
@@ -649,6 +674,8 @@ public partial class App : Application
 
             MaybePromptConsent(services, window);
             FlushPendingWeeklyContent(services);
+            FlushPendingAbyssCorridors(services);
+            TickAbyssCorridor(services);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));
         // A reset clears the data-layer party roster; also drop the UI-side recent-combat party tracker so a stale
@@ -789,6 +816,14 @@ public partial class App : Application
         // at. PersistWeeklyContent refreshes the panel itself when the value actually changed.
         services.Data.WeeklyContentChanged += (kind, remaining, atMs, fromSnapshot) =>
             Dispatcher.BeginInvoke(() => OnWeeklyContentBroadcast(services, kind, remaining, atMs, fromSnapshot));
+
+        // 어비스 회랑 이용 시간 rides the very same packets, one currency id per corridor. Unlike the counters
+        // beside it this is a CLOCK: the server states it on entry and again at zero, and nothing between, so
+        // the instance-map feed below is what tells the meter when to run it and when to stop.
+        services.Data.AbyssCorridorChanged += (ticketId, remainingMs, atMs, fromSnapshot) =>
+            Dispatcher.BeginInvoke(() => OnAbyssCorridorBroadcast(services, ticketId, remainingMs, atMs, fromSnapshot));
+        services.Data.InstanceMapChanged += (mapId, atMs) =>
+            Dispatcher.BeginInvoke(() => OnInstanceMapChanged(services, mapId, atMs));
 
         // Combat-assist overlay: the local player's active buff slots, refreshed twice a second.
         _buffOverlayVm = new BuffOverlayViewModel();
@@ -1499,6 +1534,14 @@ public partial class App : Application
                 _settings.WeeklyContentClears = weekly.Serialize();
             }
 
+            // Same reasoning for the corridor clocks — a forgotten character must leave nothing behind in any
+            // store, or a re-detected one inherits records it never earned.
+            AbyssCorridorStore corridors = AbyssCorridorStore.Parse(_settings.AbyssCorridors);
+            if (corridors.RemoveAll([hash]))
+            {
+                _settings.AbyssCorridors = corridors.Serialize();
+            }
+
             RefreshAetherRoster(services);
         };
 
@@ -1559,7 +1602,9 @@ public partial class App : Application
             AetherPerCharacterStore.Parse(_settings!.AetherPerCharacter, _settings.AetherCharacterNames),
             names,
             services.Consent.CurrentCharacterHash(),
-            WeeklyContentStore.Parse(_settings.WeeklyContentClears)));
+            WeeklyContentStore.Parse(_settings.WeeklyContentClears),
+            nowMs: 0,
+            corridors: AbyssCorridorStore.Parse(_settings.AbyssCorridors)));
     }
 
     /// <summary>Persist one weekly 성역 counter under the character that broadcast it. Runs on the UI thread
@@ -1638,6 +1683,189 @@ public partial class App : Application
 
             _weeklyContentPending.Remove(kind);
             PersistWeeklyContent(services, kind, remaining);
+        }
+    }
+
+    /// <summary>
+    /// A 어비스 회랑 이용 시간 arrived. Two things have to be decided: whose it is, and whether the clock runs.
+    /// <para><b>Whose.</b> Identical to the weekly counters — a 0x610B dump names no character and lands about
+    /// four seconds before the packet that does, so it waits (measured 4.0~4.6 s on 5 of 5 login snapshots; the
+    /// one apparent "corridor recharged itself overnight" in the corpus turned out to be two characters).</para>
+    /// <para><b>Running.</b> A 0x610C delta with time on it means one of two things — the character walked into
+    /// the corridor, or 점령전 just handed out a fresh allocation. Only the first should start a countdown, and
+    /// the instance-map packet is what tells them apart, so the value is banked immediately and the clock waits
+    /// for <see cref="OnInstanceMapChanged"/> to confirm.</para>
+    /// </summary>
+    private void OnAbyssCorridorBroadcast(
+        MeterServices services, int ticketId, long remainingMs, long atMs, bool fromSnapshot)
+    {
+        if (fromSnapshot)
+        {
+            _abyssCorridorPending[ticketId] = (remainingMs, atMs);
+            FlushPendingAbyssCorridors(services);
+            return;
+        }
+
+        // A delta only fires when a corridor's clock actually moved, which means the character has been in the
+        // world long enough for its identity to have settled. A drop to zero is itself proof the corridor was
+        // stocked, so it stamps the grant too — that is what keeps "다 썼다" apart from "점령 못 했다".
+        PersistAbyssCorridor(services, ticketId, remainingMs, atMs, markGranted: true, tickingSinceMs: 0);
+
+        if (remainingMs <= 0)
+        {
+            _corridorEntryPending = null;
+            return;
+        }
+
+        // Re-entering a corridor the meter already believes we are standing in: no map change is coming, so
+        // there is nothing to wait for and the clock starts here.
+        if (AbyssCorridorCatalog.ByMapId(_corridorInsideMapId)?.TicketId == ticketId)
+        {
+            _corridorEntryPending = null;
+            PersistAbyssCorridor(services, ticketId, remainingMs, atMs, markGranted: true, tickingSinceMs: atMs);
+            return;
+        }
+
+        _corridorEntryPending = (ticketId, remainingMs, atMs);
+    }
+
+    /// <summary>The character loaded into a map. Entering a corridor confirms a pending ticket and starts its
+    /// clock; loading anywhere else stops whatever was running, which is the ONLY moment an early exit can be
+    /// turned into a number — the server broadcasts nothing more until the budget is gone.</summary>
+    private void OnInstanceMapChanged(MeterServices services, int mapId, long atMs)
+    {
+        if (mapId == _corridorInsideMapId)
+        {
+            return; // a re-send of the map we are already standing in: nothing began and nothing ended
+        }
+
+        // Any real zone change ends whatever corridor was running — including walking straight from one
+        // corridor into the next, where there is no outdoor map in between and the first clock would
+        // otherwise keep draining a corridor the character has already left.
+        StopAbyssCorridorClock(services, atMs);
+        _corridorInsideMapId = 0;
+
+        if (AbyssCorridorCatalog.ByMapId(mapId) is not { } corridor)
+        {
+            _corridorEntryPending = null;
+            return;
+        }
+
+        _corridorInsideMapId = mapId;
+        if (_corridorEntryPending is { } pending
+            && pending.TicketId == corridor.TicketId
+            && atMs - pending.AtMs <= CorridorEntrySettleMs)
+        {
+            _corridorEntryPending = null;
+            PersistAbyssCorridor(
+                services, pending.TicketId, pending.RemainingMs, pending.AtMs,
+                markGranted: true, tickingSinceMs: pending.AtMs);
+        }
+    }
+
+    /// <summary>Write one corridor reading under the character currently identified.</summary>
+    private void PersistAbyssCorridor(
+        MeterServices services, int ticketId, long remainingMs, long atMs, bool markGranted, long tickingSinceMs)
+    {
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (_settings is null || string.IsNullOrEmpty(hash))
+        {
+            return;
+        }
+
+        AbyssCorridorStore store = AbyssCorridorStore.Parse(_settings.AbyssCorridors);
+        if (store.Upsert(hash, ticketId, remainingMs, atMs, markGranted, tickingSinceMs))
+        {
+            _settings.AbyssCorridors = store.Serialize();
+            RefreshAetherRoster(services);
+        }
+    }
+
+    /// <summary>Freeze every running corridor clock for the current character at <paramref name="atMs"/>.</summary>
+    private void StopAbyssCorridorClock(MeterServices services, long atMs)
+    {
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (_settings is null || string.IsNullOrEmpty(hash))
+        {
+            return;
+        }
+
+        AbyssCorridorStore store = AbyssCorridorStore.Parse(_settings.AbyssCorridors);
+        if (store.StopTicking(hash, atMs))
+        {
+            _settings.AbyssCorridors = store.Serialize();
+            RefreshAetherRoster(services);
+        }
+    }
+
+    /// <summary>File any held dump values whose owning identity has since been established — the corridor twin
+    /// of <see cref="FlushPendingWeeklyContent"/>.
+    /// <para>A zero from a dump is filed ONLY over a corridor already known to have been stocked this cycle. On
+    /// its own a zero says nothing — every corridor the faction does not hold reports zero too — so storing it
+    /// would turn "이 회랑은 우리 게 아니다" into "이 캐릭터가 다 썼다". Over an existing record it is exactly the
+    /// correction wanted: the character spent that corridor while the meter was closed.</para></summary>
+    private void FlushPendingAbyssCorridors(MeterServices services)
+    {
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (_abyssCorridorPending.Count == 0 || _settings is null || string.IsNullOrEmpty(hash))
+        {
+            return;
+        }
+
+        long identityAtMs = services.Data.ExecutorIdentityAtMs;
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        AbyssCorridorStore store = AbyssCorridorStore.Parse(_settings.AbyssCorridors);
+        bool changed = false;
+        long witnessAtMs = 0;
+
+        foreach (int ticketId in _abyssCorridorPending.Keys.ToList())
+        {
+            (long remainingMs, long atMs) = _abyssCorridorPending[ticketId];
+            if (!WeeklyContentOwnership.CanFile(atMs, identityAtMs, nowMs))
+            {
+                continue; // still waiting for the identity this dump belongs to
+            }
+
+            _abyssCorridorPending.Remove(ticketId);
+            witnessAtMs = Math.Max(witnessAtMs, atMs);
+
+            bool known = store.Get(hash, ticketId) is { } prior
+                && AbyssCorridorCycle.IsCurrentCycle(prior.GrantedAtMs, atMs);
+            if (remainingMs > 0 || known)
+            {
+                changed |= store.Upsert(hash, ticketId, remainingMs, atMs, markGranted: remainingMs > 0);
+            }
+        }
+
+        // The dump lists every corridor, so having seen one is having seen them all — and that is what lets the
+        // panel say "어비스 회랑 없음" instead of staying silent about a character it simply has not watched.
+        if (witnessAtMs > 0)
+        {
+            changed |= store.MarkWitness(hash, witnessAtMs);
+        }
+
+        if (changed)
+        {
+            _settings.AbyssCorridors = store.Serialize();
+            RefreshAetherRoster(services);
+        }
+    }
+
+    /// <summary>Report-loop upkeep for the corridor clock: expire a pending entry no map change ever confirmed
+    /// (that was 점령전 stocking the ticket, not the character walking in), and re-render an open panel while a
+    /// clock is running — the displayed time is a projection, so only a redraw moves it.</summary>
+    private void TickAbyssCorridor(MeterServices services)
+    {
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (_corridorEntryPending is { } pending && nowMs - pending.AtMs > CorridorEntrySettleMs)
+        {
+            _corridorEntryPending = null;
+        }
+
+        if (_aetherPanelVisible && _corridorInsideMapId != 0 && nowMs - _corridorRefreshedAtMs >= 1_000)
+        {
+            _corridorRefreshedAtMs = nowMs;
+            RefreshAetherRoster(services);
         }
     }
 

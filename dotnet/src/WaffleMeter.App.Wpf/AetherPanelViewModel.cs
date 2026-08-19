@@ -120,6 +120,57 @@ public sealed class WeeklyContentCellViewModel
     public string ToolTip { get; }
 }
 
+/// <summary>One 어비스 회랑 chip on a character row: the corridor's name and its remaining 이용 시간 as "m:ss".
+/// <para>Read-only, unlike the weekly chips. There is no hand-toggle because there is nothing sensible to toggle
+/// to — the value is a clock the server stocks at 점령전, not a yes/no the user can restate.</para></summary>
+public sealed class AbyssCorridorCellViewModel
+{
+    public AbyssCorridorCellViewModel(AbyssCorridorCell cell)
+    {
+        Name = cell.Corridor.ShortName;
+        TierText = cell.Corridor.Tier == AbyssCorridorTier.Lower ? "하층"
+            : cell.Corridor.Tier == AbyssCorridorTier.Middle ? "중층"
+            : "거점";
+        TimeText = FormatTime(cell.RemainingMs);
+        Spent = cell.Spent;
+        Ticking = cell.Ticking;
+
+        // Only the label recedes when a corridor is used up — the clock stays legible, the same treatment the
+        // weekly chips use so a character who has spent everything doesn't render as an empty row.
+        NameOpacity = Spent ? 0.5 : 1.0;
+
+        string state = Spent
+            ? "이용 시간 모두 사용"
+            : Ticking
+                ? "지금 입장 중 — 남은 시간이 흐르는 중입니다"
+                : $"남은 이용 시간 {TimeText}";
+        ToolTip = $"{cell.Corridor.Tier switch
+        {
+            AbyssCorridorTier.Lower => "어비스 하층",
+            AbyssCorridorTier.Middle => "어비스 중층",
+            _ => "거점",
+        }} · {cell.Corridor.Name} 아티팩트\n{state}\n(점령한 회랑만 표시됩니다)";
+    }
+
+    public string Name { get; }
+    public string TierText { get; }
+    public string TimeText { get; }
+    public bool Spent { get; }
+    public bool Ticking { get; }
+    public double NameOpacity { get; }
+    public string ToolTip { get; }
+
+    /// <summary>"2:10" / "0:54" / "0:00". Rounded UP so a corridor with 200 ms left still reads "0:01" rather
+    /// than announcing "0:00" on a clock that has not actually run out.</summary>
+    private static string FormatTime(long remainingMs)
+    {
+        long seconds = remainingMs <= 0 ? 0 : (remainingMs + 999) / 1000;
+        return string.Concat(
+            (seconds / 60).ToString(CultureInfo.InvariantCulture), ":",
+            (seconds % 60).ToString("00", CultureInfo.InvariantCulture));
+    }
+}
+
 /// <summary>One character row in the 컨텐츠 관리 목록.</summary>
 public sealed class AetherRowViewModel
 {
@@ -129,6 +180,13 @@ public sealed class AetherRowViewModel
         Weekly = row.WeeklyCells
             .Select(c => new WeeklyContentCellViewModel(row.IdentityHash, c))
             .ToList();
+        Corridors = row.CorridorCells.Select(c => new AbyssCorridorCellViewModel(c)).ToList();
+
+        // Three states, and the empty two are NOT the same: "점령한 회랑 없음" is something we watched this
+        // character's login snapshot to learn, while showing nothing at all is us admitting we have not.
+        CorridorsVisibility = Corridors.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        CorridorsEmptyVisibility =
+            Corridors.Count == 0 && row.CorridorsKnown ? Visibility.Visible : Visibility.Collapsed;
         Label = row.Label;
         JobText = row.SubLabel;
         JobVisibility = row.SubLabel.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -142,6 +200,9 @@ public sealed class AetherRowViewModel
 
     public string IdentityHash { get; }
     public IReadOnlyList<WeeklyContentCellViewModel> Weekly { get; }
+    public IReadOnlyList<AbyssCorridorCellViewModel> Corridors { get; }
+    public Visibility CorridorsVisibility { get; }
+    public Visibility CorridorsEmptyVisibility { get; }
     public string Label { get; }
     public string JobText { get; }
     public string RemoveTooltip => $"{Label} 기록 삭제";
