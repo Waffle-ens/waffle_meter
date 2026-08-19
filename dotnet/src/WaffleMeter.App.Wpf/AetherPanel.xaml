@@ -154,6 +154,67 @@
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
+
+                                            <!-- 어비스 회랑. Only corridors this character's side actually
+                                                 captured this 점령 cycle get a chip: the wire reports an
+                                                 un-captured corridor and a fully spent one as the same zero, so
+                                                 a chip for one we never saw stocked would be an invention. A
+                                                 WrapPanel because six of these do not fit the 320px row. -->
+                                            <ItemsControl ItemsSource="{Binding Corridors}" Margin="0,3,0,0"
+                                                          Visibility="{Binding CorridorsVisibility}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <!-- A border rather than a fill: the row's own hover
+                                                             state paints Skin.RowHover, so a chip filled with
+                                                             that brush dissolves into the row the moment the
+                                                             mouse arrives — exactly when it is being read. -->
+                                                        <Border CornerRadius="4" Padding="4,1" Margin="0,2,4,0"
+                                                                Background="Transparent" BorderThickness="1"
+                                                                BorderBrush="{DynamicResource Skin.Border}"
+                                                                ToolTip="{Binding ToolTip}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding TierText}" FontSize="9"
+                                                                           VerticalAlignment="Center" Margin="0,0,3,0"
+                                                                           Opacity="0.7"
+                                                                           Foreground="{DynamicResource Skin.MutedFg}"/>
+                                                                <TextBlock x:Name="corridorName" Text="{Binding Name}"
+                                                                           FontSize="10" VerticalAlignment="Center"
+                                                                           Opacity="{Binding NameOpacity}"
+                                                                           Foreground="{DynamicResource Skin.Fg}"/>
+                                                                <TextBlock x:Name="corridorTime" Text="{Binding TimeText}"
+                                                                           FontSize="10" FontWeight="SemiBold"
+                                                                           Margin="4,0,0,0" VerticalAlignment="Center"
+                                                                           Foreground="#7EE7FF"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding Spent}" Value="True">
+                                                                <Setter TargetName="corridorTime" Property="Foreground"
+                                                                        Value="{DynamicResource Skin.MutedFg}"/>
+                                                                <Setter TargetName="corridorTime" Property="FontWeight"
+                                                                        Value="Normal"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Ticking}" Value="True">
+                                                                <Setter TargetName="corridorTime" Property="Foreground"
+                                                                        Value="{DynamicResource Skin.Accent}"/>
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <!-- Shown only when a login snapshot for THIS character has been
+                                                 seen since the last 점령전 — i.e. when "none" is something we
+                                                 know rather than something we have not watched. -->
+                                            <TextBlock Text="어비스 회랑 없음" FontSize="9" Margin="0,4,0,0"
+                                                       Opacity="0.6"
+                                                       Foreground="{DynamicResource Skin.MutedFg}"
+                                                       Visibility="{Binding CorridorsEmptyVisibility}"/>
                                         </StackPanel>
 
                                         <!-- 오드 아이콘 + 자연회복 + (추가 오드). Same icon and split the meter's

@@ -1494,7 +1494,26 @@ internal static class Program
             new AetherRosterName("h4", "헤로롱", 1001, "살성"),
         };
 
-        return AetherRoster.Build(aether, names, currentHash: "h1", weekly: weekly, nowMs: now);
+        // 어비스 회랑: the worst realistic case for layout — one character holding all six, one mid-visit with a
+        // running clock, one that logged in with none captured (so the "없음" line shows), and one never watched
+        // since the last 점령전 (so the corridor area is silent rather than claiming anything).
+        long thisCycle = Math.Max(now - 1, AbyssCorridorCycle.LastStartAtOrBefore(now) + 1);
+        var corridors = AbyssCorridorStore.Parse(null);
+        foreach (AbyssCorridorInfo corridor in AbyssCorridorCatalog.All)
+        {
+            corridors.Upsert("h1", corridor.TicketId, 130_000, thisCycle, markGranted: true);
+        }
+
+        corridors.Upsert("h1", 10_000_004, 0, thisCycle, markGranted: true);           // spent
+        corridors.Upsert("h2", 10_000_002, 130_000, now - 55_000, markGranted: true, tickingSinceMs: now - 55_000);
+        corridors.Upsert("h2", 10_000_005, 130_000, thisCycle, markGranted: true);
+        corridors.MarkWitness("h1", thisCycle);
+        corridors.MarkWitness("h2", thisCycle);
+        corridors.MarkWitness("h3", thisCycle);   // logged in, captured nothing → "어비스 회랑 없음"
+        // h4 has no witness → the corridor area stays empty, which is the "not watched" state
+
+        return AetherRoster.Build(
+            aether, names, currentHash: "h1", weekly: weekly, nowMs: now, corridors: corridors);
     }
 
     /// <summary>Eight rows, one per tier, so every ring treatment is visible in a single shot.</summary>

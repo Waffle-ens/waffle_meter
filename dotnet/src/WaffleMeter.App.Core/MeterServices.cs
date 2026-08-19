@@ -300,6 +300,13 @@ public sealed class MeterServices
             {
                 props.SetProperty("content.weeklyClears", weekly.Serialize());
             }
+
+            // 어비스 회랑 기록도 같은 해시를 쓴다 — 같이 치운다.
+            AbyssCorridorStore corridors = AbyssCorridorStore.Parse(props.GetProperty("content.abyssCorridors"));
+            if (corridors.RemoveAll(purgedCharacters))
+            {
+                props.SetProperty("content.abyssCorridors", corridors.Serialize());
+            }
         }
 
         UploadQueue = new StatsUploadQueue(consent, StatsBuilder, StatsApi, Data, props);

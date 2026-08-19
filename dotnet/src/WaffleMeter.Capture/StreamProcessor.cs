@@ -395,6 +395,7 @@ public sealed class StreamProcessor
                     ParseAetherStatus(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
                     ParseShugoKey(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
                     ParseWeeklyContent(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
+                    ParseAbyssCorridor(packet, opcodeOffset + 2, fromSnapshot: opcodeKey == AetherKeyA);
                     break;
                 case FieldBossTimerKey:
                     ParseFieldBossTimers(packet, opcodeOffset + 2, arrivedAt);
@@ -2050,6 +2051,40 @@ public sealed class StreamProcessor
     private static readonly WeeklyContentKind[] WeeklyContentKinds =
         [WeeklyContentKind.Rudra, WeeklyContentKind.ErosionPurifier, WeeklyContentKind.MuspelGrail];
 
+    /// <summary>어비스 회랑 이용 시간(ms) — 오드/주간 성역과 같은 0x610B/0x610C에 통화 id 10000001~10000012로
+    /// 실려 온다. 스냅샷은 12개를 전부, 델타는 입장(130000)과 소진(0) 두 순간만 싣는다.
+    /// <para>⚠️ 이 파서는 옆의 세 파서와 필드 폭이 다르다(mask 0x01 = u64 8바이트 고정). 복붙하면 조용히
+    /// 아무것도 못 읽는다 — <see cref="AbyssCorridorParser"/> 주석 참조.</para></summary>
+    private void ParseAbyssCorridor(byte[] packet, int bodyStart, bool fromSnapshot)
+    {
+        Span<AbyssCorridorTicket> tickets = stackalloc AbyssCorridorTicket[AbyssCorridorParser.MaxTickets];
+        int count = AbyssCorridorParser.TryParse(packet, bodyStart, fromSnapshot, tickets);
+        if (count < 0)
+        {
+            // The frame did not walk cleanly, so nothing may be inferred from it — not even a zero. Logged
+            // because the failure mode this feature has is SILENT: a layout drift would simply stop reporting
+            // corridors, which looks exactly like a player who captured none.
+            _sink.Meta("abysscorridor", ("rejected", 1), ("len", packet.Length), ("snapshot", fromSnapshot ? 1 : 0));
+            return;
+        }
+
+        if (count == 0)
+        {
+            return; // a neighbouring currency's broadcast — understood, just not ours
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            _data.SaveAbyssCorridor(tickets[i].TicketId, tickets[i].RemainingMs, fromSnapshot);
+        }
+
+        _sink.Meta("abysscorridor",
+            ("count", count),
+            ("first", tickets[0].TicketId),
+            ("firstMs", tickets[0].RemainingMs),
+            ("snapshot", fromSnapshot ? 1 : 0));
+    }
+
     /// <summary>
     /// Dungeon instance phase window (0x6100 / 0x6101): <c>[u32-LE mapId][u8 phase][u64-LE startMs][u64-LE
     /// endMs]</c>. The trial's main phase (2) is exactly its 제한 시간 setting, which is one of the four
@@ -2088,6 +2123,23 @@ public sealed class StreamProcessor
         if (sane)
         {
             _data.SaveInstancePhaseWindow(mapId, phase, startMs, endMs - startMs);
+        }
+
+        // Reported even when the WINDOW was rejected: a 어비스 회랑's phase packet carries endMs = 0, so the
+        // gate above always throws it away — and its map id is the only signal that the corridor clock just
+        // started or stopped.
+        //
+        // But it gets its own gate rather than none. The consumer treats an unrecognised id as "left the
+        // corridor", so a garbage frame is NOT harmless: one stray id stops a running clock. Everything the
+        // window check tests except the end time is therefore still required here — a real phase packet always
+        // has a phase and a plausible start, and 0x6101 (which this parser reads with the 0x6100 layout though
+        // its body is offset by a padding byte) fails that on anything but the shortest frames.
+        if (mapId > 0
+            && phase > 0
+            && startMs >= MinPlausibleEpochMs
+            && startMs <= MaxPlausibleEpochMs)
+        {
+            _data.SaveInstanceMap(mapId);
         }
     }
 
