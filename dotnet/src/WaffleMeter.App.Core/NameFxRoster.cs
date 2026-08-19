@@ -30,7 +30,7 @@ public sealed class NameFxEntry
     public long ExpiresAtMs { get; set; }
 
     /// <summary>
-    /// Optional DPS gauge skin id — a ranker-only extra on top of the nickname effect. Added after the first
+    /// Optional DPS gauge skin id — an extra on top of the nickname effect. Added after the first
     /// release, which is exactly the additive case the parser is built for: a client that predates this field
     /// ignores it and still renders the nickname effect correctly.
     /// </summary>
