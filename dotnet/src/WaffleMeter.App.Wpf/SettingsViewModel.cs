@@ -36,6 +36,9 @@ public sealed record NameFxChoiceViewModel(
 /// </summary>
 public sealed record GaugeSkinSampleViewModel(
     string Name,
+    /// <summary>후원자 / 랭커. 게이지는 닉네임 연출과 달리 계열이 모션으로 갈리지 않으므로(모든 게이지가
+    /// 같은 주기를 쓴다) 어느 쪽 자격으로 받는 스킨인지는 이 라벨로만 알 수 있다.</summary>
+    string Kind,
     System.Windows.Media.Brush Fill,
     System.Windows.Media.Brush RailBrush,
     System.Windows.Media.ImageSource? IconSource,
@@ -887,8 +890,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// </summary>
     public IReadOnlyList<NameFxSampleViewModel> NameFxSamples { get; private set; } = Array.Empty<NameFxSampleViewModel>();
 
-    /// <summary>랭커 전용 DPS 게이지 스킨 미리보기. 닉네임 연출과 목록을 나눈 이유는 칠하는 자리가 달라서다 —
-    /// 하나는 글자, 하나는 행을 가로지르는 막대다.</summary>
+    /// <summary>DPS 게이지 스킨 미리보기(후원자·랭커 양쪽). 닉네임 연출과 목록을 나눈 이유는 칠하는 자리가
+    /// 달라서다 — 하나는 글자, 하나는 행을 가로지르는 막대다.</summary>
     public IReadOnlyList<GaugeSkinSampleViewModel> GaugeSkinSamples { get; private set; } = Array.Empty<GaugeSkinSampleViewModel>();
 
     public bool NameFxGauge { get => _settings.NameFxGauge; set { _settings.NameFxGauge = value; OnPropertyChanged(); } }
@@ -909,6 +912,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         GaugeSkinSamples = NameFxPalette.GaugeSkins
             .Select(e => new GaugeSkinSampleViewModel(
                 Name: e.Name,
+                Kind: e.Kind == NameFxPalette.NameFxKind.Ranker ? "랭커" : "후원자",
                 Fill: NameFxPalette.For(e.Id, isLight).NameFill,
                 RailBrush: OverlayViewModel.RowGradient(Theme.UserBarFrom, Theme.UserBarTo),
                 IconSource: JoinIcons.Job("마도성"),

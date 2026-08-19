@@ -42,9 +42,11 @@ public sealed class NameFxBadge
 public static class NameFxPalette
 {
     /// <summary>A catalogue entry: what the effect is called, which family it belongs to, and its stops.</summary>
-    /// <param name="IsGauge">True for the ranker-only DPS gauge skins. They live in the same table because they
-    /// share every mechanism (shared animated brush, brightness, speed, the demand clock) and differ only in
-    /// where they are painted — but they are never offered as a nickname effect, and vice versa.</param>
+    /// <param name="IsGauge">True for the DPS gauge skins. They live in the same table because they share every
+    /// mechanism (shared animated brush, brightness, speed, the demand clock) and differ only in where they are
+    /// painted — but they are never offered as a nickname effect, and vice versa.
+    /// <para>Both entitlement families have gauge skins; <see cref="Effect.Kind"/> is what decides who may pick
+    /// which, exactly as it does for the nickname effects.</para></param>
     public sealed record Effect(
         string Id,
         string Name,
@@ -111,7 +113,29 @@ public static class NameFxPalette
             new[] { "#FF115882", "#FF2A9CC4", "#FF8FD6EC", "#FF2A9CC4", "#FF115882" },
             Offsets: new[] { 0.0, 0.40, 0.5, 0.60, 1.0 }),
 
-        // ── 랭커 전용 DPS 게이지 스킨 ──────────────────────────────────────────────
+        // ── 후원자 DPS 게이지 스킨 ─────────────────────────────────────────────────
+        // 랭커 게이지 셋(프리즘=청록+보라 / 잔불=적주황 / 서리=파랑)이 이미 차 있어서, 새 둘은 **비어 있는
+        // 색상 영역**으로 잡았다. 자홍과 녹색이 그 둘이다 — 특히 녹색은 닉네임 연출까지 통틀어 팔레트에
+        // 한 번도 쓰인 적이 없어 한눈에 갈린다. 따뜻한 주황 쪽으로 잡고 싶은 유혹이 있었지만(후원자 연출이
+        // 시럽·버터라) 0.45 불투명도 뒤에서는 잔불과 구분이 안 된다.
+        //
+        // 하이라이트 띠는 랭커보다 **조금 넓다**(타일의 32% 대 20%). 후원자 연출이 '흐른다', 랭커가
+        // '번쩍인다'인 것과 같은 축이다 — 다만 폭을 균등 배치(50%)까지 벌리지는 않았다. 그건 이미 한 번
+        // 실패한 값이고, 넓은 띠는 '지나간다'가 아니라 '막대가 그냥 밝다'로 읽힌다.
+        //
+        // ⚠️ 게이지는 계열이 **모션으로는 갈리지 않는다**(모든 게이지가 같은 주기·같은 속도를 쓴다).
+        // 여기서 계열은 '누가 고를 수 있는가'라는 자격 경계이지, 보는 사람이 후원자와 랭커를 구분하라는
+        // 신호가 아니다. 그 구분이 필요한 자리는 닉네임 쪽이고, 거기서는 모션이 실제로 다르다.
+        new("berryglaze", "베리 글레이즈", NameFxKind.Supporter, true,
+            new[] { "#FF831843", "#FFEC4899", "#FFFFE4F2", "#FFEC4899", "#FF831843" },
+            new[] { "#FF7A1038", "#FFD32B7E", "#FFFBD6E8", "#FFD32B7E", "#FF7A1038" },
+            IsGauge: true, Offsets: new[] { 0.0, 0.34, 0.5, 0.66, 1.0 }),
+        new("matcha", "말차 크림", NameFxKind.Supporter, true,
+            new[] { "#FF14532D", "#FF4ADE80", "#FFF0FFF4", "#FF4ADE80", "#FF14532D" },
+            new[] { "#FF10461F", "#FF2FA85B", "#FFDFF6E4", "#FF2FA85B", "#FF10461F" },
+            IsGauge: true, Offsets: new[] { 0.0, 0.34, 0.5, 0.66, 1.0 }),
+
+        // ── 랭커 DPS 게이지 스킨 ───────────────────────────────────────────────────
         // 첫 판은 채도를 낮추고 스톱을 균등 배치했다가 완전히 실패했다. 게이지는 채움 불투명도 0.3 뒤에
         // 깔리는데, 그 아래에서 옅은 색을 균등하게 펴 놓으면 '스킨을 받았다'가 아니라 '막대가 좀 탁하다'로
         // 보인다. 세 축을 같이 올렸다:
@@ -137,7 +161,7 @@ public static class NameFxPalette
     /// <summary>Nickname effects only — what the picker and the settings preview strip offer.</summary>
     public static readonly Effect[] NameEffects = All.Where(e => !e.IsGauge).ToArray();
 
-    /// <summary>Ranker-only DPS gauge skins.</summary>
+    /// <summary>DPS gauge skins, both families. Ordered 후원자 then 랭커, matching the nickname list.</summary>
     public static readonly Effect[] GaugeSkins = All.Where(e => e.IsGauge).ToArray();
 
     private static readonly Dictionary<string, Effect> ById =
@@ -166,11 +190,20 @@ public static class NameFxPalette
         _ => Array.Empty<Effect>(),
     };
 
-    /// <summary>Gauge skins need the ranker entitlement.</summary>
-    public static IReadOnlyList<Effect> GaugeChoicesFor(string? kind) =>
-        kind is "ranker" or "both" ? GaugeSkins : Array.Empty<Effect>();
+    /// <summary>The gauge skins an entitlement may choose from — the same rule as
+    /// <see cref="ChoicesFor"/>, on the same <c>k</c> from the roster. Written as the same shape deliberately:
+    /// while gauges were a ranker-only extra this read <c>kind is "ranker" or "both"</c>, and adding a
+    /// supporter gauge to the table without changing it would have offered nobody the new skins while quietly
+    /// letting a ranker pick them.</summary>
+    public static IReadOnlyList<Effect> GaugeChoicesFor(string? kind) => kind switch
+    {
+        "supporter" => GaugeSkins.Where(e => e.Kind == NameFxKind.Supporter).ToArray(),
+        "ranker" => GaugeSkins.Where(e => e.Kind == NameFxKind.Ranker).ToArray(),
+        "both" => GaugeSkins,
+        _ => Array.Empty<Effect>(),
+    };
 
-    /// <summary>A gauge skin's fill, or null when the id is not a gauge skin this build knows. Ranker-only —
+    /// <summary>A gauge skin's fill, or null when the id is not a gauge skin this build knows. Family-agnostic —
     /// the caller has already checked the grant; this only maps id to paint.</summary>
     public static Brush? GaugeBrush(string? id, bool isLight)
     {

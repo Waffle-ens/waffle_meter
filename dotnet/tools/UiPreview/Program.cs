@@ -714,6 +714,35 @@ internal static class Program
         // erase that signal — which is why the bar brush is a separate field from FillBrush at all.
         Check("gauge skin never reaches the accent rail", offVm.Rows.All(r => !IsGaugeSkin(r.FillBrush)));
 
+        // 게이지 스킨의 계열 분리. 자격 경계라 "목록이 비지 않는다"로는 아무것도 증명되지 않는다 — 한쪽
+        // 계열만 갖고도 통과하고, 실제로 게이지가 랭커 전용이던 시절의 코드는 후원자에게 빈 목록을 주면서
+        // 랭커에게는 모든 스킨을 줬다. 양방향으로 못 박는다.
+        string[] SupporterGaugeIds = NameFxPalette.GaugeSkins
+            .Where(e => e.Kind == NameFxPalette.NameFxKind.Supporter).Select(e => e.Id).ToArray();
+        string[] RankerGaugeIds = NameFxPalette.GaugeSkins
+            .Where(e => e.Kind == NameFxPalette.NameFxKind.Ranker).Select(e => e.Id).ToArray();
+        string[] GaugeIdsFor(string kind) => NameFxPalette.GaugeChoicesFor(kind).Select(e => e.Id).ToArray();
+
+        Check($"후원자 게이지 스킨이 존재한다 ({SupporterGaugeIds.Length}종)", SupporterGaugeIds.Length > 0);
+        Check("후원자에게는 후원자 게이지만 제시된다", GaugeIdsFor("supporter").SequenceEqual(SupporterGaugeIds));
+        Check("랭커에게는 랭커 게이지만 제시된다", GaugeIdsFor("ranker").SequenceEqual(RankerGaugeIds));
+        Check("both 는 두 계열을 모두 받는다",
+            GaugeIdsFor("both").Length == SupporterGaugeIds.Length + RankerGaugeIds.Length);
+        Check("자격이 없으면 게이지도 없다", GaugeIdsFor("none").Length == 0);
+
+        // 게이지 id 와 닉네임 연출 id 는 서로의 슬롯에 들어가면 안 된다 — 게이지 id 가 닉네임 자리에
+        // 앉으면 글자 하나에 막대 크기 그라디언트가 칠해진다(그래서 술어가 둘이다).
+        Check("게이지 id 는 닉네임 연출로 통과하지 않는다",
+            NameFxPalette.GaugeSkins.All(e => !NameFxPalette.IsKnownNameEffect(e.Id) && NameFxPalette.IsKnownGauge(e.Id)));
+        Check("닉네임 연출 id 는 게이지로 통과하지 않는다",
+            NameFxPalette.NameEffects.All(e => !NameFxPalette.IsKnownGauge(e.Id) && NameFxPalette.IsKnownNameEffect(e.Id)));
+
+        // 스킨마다 다크·라이트 두 벌이 다 있어야 한다. 한쪽이 비면 그 스킨은 특정 스킨에서만 조용히
+        // 기본 게이지로 되돌아간다 — 화면을 그 테마로 열어보기 전에는 드러나지 않는 종류의 결함이다.
+        Check("모든 게이지 스킨이 다크·라이트 브러시를 갖는다",
+            NameFxPalette.GaugeSkins.All(e =>
+                NameFxPalette.GaugeBrush(e.Id, false) is not null && NameFxPalette.GaugeBrush(e.Id, true) is not null));
+
         // A skin at the stock 0.3 fill opacity reads as "the bar is a bit murky", not as a mark — that is the
         // state the first cut shipped in. Only skinned rows get the bump; everyone else stays at 0.3 exactly.
         Check("skinned rows raise the fill opacity",
@@ -762,7 +791,16 @@ internal static class Program
         vm.NameFxSpeedPercent = 200; Check("speed round-trips", settings.NameFxSpeedPercent == 200);
         Check("preview strip covers the nickname catalogue", vm.NameFxSamples.Count == NameFxPalette.NameEffects.Length);
         Check("gauge strip covers the gauge catalogue", vm.GaugeSkinSamples.Count == NameFxPalette.GaugeSkins.Length);
-        Check("gauge skins are ranker-only", NameFxPalette.GaugeSkins.All(e => e.Kind == NameFxPalette.NameFxKind.Ranker));
+        // 게이지 카탈로그는 두 계열이 다 차 있어야 한다. "랭커 전용"이던 시절의 단정을 그대로 두면 후원자
+        // 게이지를 추가하는 순간 빨개지는데, 그게 이 검사가 원한 사실은 아니다 — 원한 건 '계열이 실제로
+        // 갈린다'이지 '한쪽만 있다'가 아니다.
+        Check("게이지 카탈로그에 두 계열이 다 있다",
+            NameFxPalette.GaugeSkins.Any(e => e.Kind == NameFxPalette.NameFxKind.Supporter)
+            && NameFxPalette.GaugeSkins.Any(e => e.Kind == NameFxPalette.NameFxKind.Ranker));
+        Check("게이지 견본에 계열 라벨이 붙는다",
+            vm.GaugeSkinSamples.All(s => s.Kind is "후원자" or "랭커")
+            && vm.GaugeSkinSamples.Any(s => s.Kind == "후원자")
+            && vm.GaugeSkinSamples.Any(s => s.Kind == "랭커"));
         Check("gauge and nickname catalogues do not overlap",
             !NameFxPalette.NameEffects.Any(n => NameFxPalette.GaugeSkins.Any(g => g.Id == n.Id)));
         Check("a nickname effect id is not a gauge brush", NameFxPalette.GaugeBrush("syrup", false) is null);
@@ -948,11 +986,15 @@ internal static class Program
         Check("'둘 다'는 아홉 개 전부 고른다", NameFxPalette.ChoicesFor("both").Count == 9);
         Check("모르는 자격은 아무것도 못 고른다", NameFxPalette.ChoicesFor("nope").Count == 0);
 
-        // 게이지는 랭커 자격이 있을 때만. 후원자에게 보이면 골라도 서버가 거절한다.
-        Check("게이지는 랭커·둘 다에게만 보인다",
-            NameFxPalette.GaugeChoicesFor("supporter").Count == 0
-            && NameFxPalette.GaugeChoicesFor("ranker").Count == 3
-            && NameFxPalette.GaugeChoicesFor("both").Count == 3);
+        // 게이지도 닉네임과 같은 자격 규칙을 따른다 — 자기 계열 것만 고를 수 있고 'both' 는 합집합이다.
+        // ⚠️ 자격 판정과 선택 수락은 **서버**가 한다. 후원자 게이지는 통계웹이 supporter 자격에 대해
+        // gaugeId 를 받아 주고 새 id 두 개를 알아야 실제로 저장된다 — 그 전까지 이 목록은 골라도
+        // 거절당한다(SubmitChoice 는 서버 응답만 신뢰한다).
+        Check("게이지도 계열별로 갈린다",
+            NameFxPalette.GaugeChoicesFor("supporter").All(e => e.Kind == NameFxPalette.NameFxKind.Supporter)
+            && NameFxPalette.GaugeChoicesFor("ranker").All(e => e.Kind == NameFxPalette.NameFxKind.Ranker)
+            && NameFxPalette.GaugeChoicesFor("both").Count
+                == NameFxPalette.GaugeChoicesFor("supporter").Count + NameFxPalette.GaugeChoicesFor("ranker").Count);
 
         // 선택 목록에 게이지 id 가 섞이면 닉네임 자리에서 바 크기 그라디언트가 이름을 가로지른다.
         Check("닉네임 선택지에 게이지가 섞이지 않는다",
@@ -1593,10 +1635,14 @@ internal static class Program
             // stride 2: 연속 인덱스는 후원자 4종만 집어 랭커 게이지가 한 번도 안 걸린다.
             NameFxPalette.Effect e = NameFxPalette.NameEffects[(i * 2) % NameFxPalette.NameEffects.Length];
             string kind = e.Kind == NameFxPalette.NameFxKind.Ranker ? "ranker" : "supporter";
-            // 랭커에게만 게이지 스킨을 얹는다 — 부여 규칙 그대로.
+            // 게이지는 그 캐릭터 **자기 계열**에서 얹는다 — 부여 규칙 그대로다. 종전에는 랭커에게만
+            // 얹었는데, 그러면 후원자 게이지가 어느 캡처에도 안 나와 0.45 불투명도 뒤에서 실제로 읽히는지를
+            // 볼 방법이 없다(그게 이 스킨들의 유일한 판단 기준이다).
+            NameFxPalette.Effect[] familyGauges = NameFxPalette.GaugeSkins
+                .Where(g => g.Kind == e.Kind).ToArray();
             string quote = "\"";
-            string gauge = e.Kind == NameFxPalette.NameFxKind.Ranker
-                ? $",{quote}g{quote}:{quote}{NameFxPalette.GaugeSkins[i % NameFxPalette.GaugeSkins.Length].Id}{quote}"
+            string gauge = familyGauges.Length > 0
+                ? $",{quote}g{quote}:{quote}{familyGauges[i % familyGauges.Length].Id}{quote}"
                 : string.Empty;
             i++;
             entries.Add($$"""{"h":"{{hash}}","e":"{{e.Id}}","k":"{{kind}}"{{gauge}}}""");

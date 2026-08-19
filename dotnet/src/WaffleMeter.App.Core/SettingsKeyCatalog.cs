@@ -75,7 +75,7 @@ public static class SettingsKeyCatalog
         new("nameFx.showOthers", FD, "색상 · 스킨", "파티원 닉네임에 적용"),
         new("nameFx.speedPercent", FD, "색상 · 스킨", "닉네임 효과 속도"),
         new("nameFx.brightnessPercent", FD, "색상 · 스킨", "닉네임 효과 밝기"),
-        new("nameFx.gauge", FD, "색상 · 스킨", "랭커 게이지 스킨 사용"),
+        new("nameFx.gauge", FD, "색상 · 스킨", "게이지 스킨 사용"),
 
         // ── 상태 표시 · 던전 티어 · 컴팩트 ─────────────────────────────────────────
         new("showAetherStatus", FD, "상태 표시", "오드 표시"),
