@@ -120,9 +120,14 @@ public sealed class AbyssCorridorStore
     /// only evidence it carries is a zero, and a zero this meter cannot date says nothing.</para></summary>
     public long? Standing(string? identityHash, int ticketId, long nowMs)
     {
-        if (Get(identityHash, ticketId) is not { } record
-            || !AbyssCorridorCycle.IsCurrentCycle(record.ObservedAtMs, nowMs)
-            || !AbyssCorridorCycle.IsCurrentCycle(record.GrantedAtMs, nowMs))
+        if (Get(identityHash, ticketId) is not { } record)
+        {
+            return null;
+        }
+
+        long boundary = BoundaryFor(identityHash, nowMs);
+        if (!AbyssCorridorCycle.IsWithin(record.ObservedAtMs, boundary, nowMs)
+            || !AbyssCorridorCycle.IsWithin(record.GrantedAtMs, boundary, nowMs))
         {
             return null;
         }
@@ -132,9 +137,31 @@ public sealed class AbyssCorridorStore
 
     /// <summary>Whether a full 0x610B snapshot has been seen for this character within the current cycle — i.e.
     /// whether "이 캐릭터에게 점령된 회랑이 없다" is something we actually know rather than merely have not seen.</summary>
-    public bool HasCycleWitness(string? identityHash, long nowMs) =>
-        Get(identityHash, WitnessTicketId) is { } witness
-        && AbyssCorridorCycle.IsCurrentCycle(witness.ObservedAtMs, nowMs);
+    public bool HasCycleWitness(string? identityHash, long nowMs)
+    {
+        long boundary = BoundaryFor(identityHash, nowMs);
+        return Get(identityHash, WitnessTicketId) is { } witness
+            && AbyssCorridorCycle.IsWithin(witness.ObservedAtMs, boundary, nowMs);
+    }
+
+    /// <summary>The moment before which this character's stored corridor data stops being credible.
+    /// <para>Evidence first: if ANY record for this character was taken at or after the capture began (Wed/Sat
+    /// 22:20 KST), the meter has heard this cycle's answer, and every record older than that is the previous
+    /// occupation — retired on the spot rather than at some later hour. Only a character the meter has heard
+    /// nothing from since falls back to the clock.</para>
+    /// <para>Per character on purpose: an alt that was never logged in during 점령전 has no evidence of its own,
+    /// and the main character's fresh readings say nothing about what the alt holds.</para></summary>
+    private long BoundaryFor(string? identityHash, long nowMs)
+    {
+        long newest = identityHash is { Length: > 0 }
+            && _byHash.TryGetValue(identityHash, out Dictionary<int, AbyssCorridorRecord>? forCharacter)
+            ? Newest(forCharacter)
+            : 0;
+
+        // A record stamped in an impossible future must not be mistaken for "we have already heard this
+        // cycle's answer" — that would retire every real record beside it. BoundaryFor screens for it.
+        return AbyssCorridorCycle.BoundaryFor(newest, nowMs);
+    }
 
     /// <summary>Record a reading. <paramref name="markGranted"/> stamps "this corridor held time" — pass it for
     /// any value above zero, and for a 0x610C drop to zero (which can only follow a grant). Returns false when

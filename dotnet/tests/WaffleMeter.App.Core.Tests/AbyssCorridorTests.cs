@@ -73,35 +73,58 @@ public class AbyssCorridorCatalogTests
     }
 }
 
-/// <summary>The 점령 cycle boundary a stored corridor reading is judged against: Wednesday and Saturday
-/// 22:30 KST, when the usable window opens.</summary>
+/// <summary>
+/// The 점령전 boundary. The schedule on Wednesday and Saturday (KST) is 22:10 wipe → 22:20 capture starts →
+/// 22:30 corridors open, so what decides whether a stored reading is still true is not an hour but whether the
+/// meter has HEARD anything since capturing began. 22:25 is only the give-up point for a character it has not.
+/// </summary>
 public class AbyssCorridorCycleTests
 {
     private static long Kst(int year, int month, int day, int hour, int minute) =>
         new DateTimeOffset(year, month, day, hour, minute, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
 
     [Theory]
-    // Wednesday afternoon — the cycle that opened last Saturday is still the current one.
-    [InlineData(2026, 8, 19, 18, 0, 2026, 8, 15, 22, 30)]
-    // Wednesday 22:29, one minute before the handover: still last Saturday's.
-    [InlineData(2026, 8, 19, 22, 29, 2026, 8, 15, 22, 30)]
-    // Wednesday 22:31 — the new cycle has opened.
-    [InlineData(2026, 8, 19, 22, 31, 2026, 8, 19, 22, 30)]
+    // Wednesday afternoon — nothing has happened yet today, so last Saturday's capture still stands.
+    [InlineData(2026, 8, 19, 18, 0, 2026, 8, 15, 22, 20)]
+    // 22:22, mid-capture with nothing heard: the old answer is deliberately still shown.
+    [InlineData(2026, 8, 19, 22, 22, 2026, 8, 15, 22, 20)]
+    // 22:24, one minute before the give-up point: still last Saturday's.
+    [InlineData(2026, 8, 19, 22, 24, 2026, 8, 15, 22, 20)]
+    // 22:26 — the give-up point has passed, so the boundary snaps to today's capture start.
+    [InlineData(2026, 8, 19, 22, 26, 2026, 8, 19, 22, 20)]
     // Monday morning, the 08-17 capture: last Saturday's cycle.
-    [InlineData(2026, 8, 17, 8, 38, 2026, 8, 15, 22, 30)]
-    // Saturday 21:00, before the handover: still Wednesday's.
-    [InlineData(2026, 8, 22, 21, 0, 2026, 8, 19, 22, 30)]
-    public void Cycle_starts_at_the_most_recent_wednesday_or_saturday_2230_kst(
+    [InlineData(2026, 8, 17, 8, 38, 2026, 8, 15, 22, 20)]
+    // Saturday 21:00, before that evening's 점령전: still Wednesday's.
+    [InlineData(2026, 8, 22, 21, 0, 2026, 8, 19, 22, 20)]
+    public void With_nothing_heard_the_answer_is_given_up_at_2225(
         int y, int mo, int d, int h, int mi, int ey, int emo, int ed, int eh, int emi) =>
         Assert.Equal(Kst(ey, emo, ed, eh, emi), AbyssCorridorCycle.LastStartAtOrBefore(Kst(y, mo, d, h, mi)));
 
+    /// <summary>The point of the whole design: a reading taken at 22:22 IS this cycle's answer, and it retires
+    /// everything older the moment it lands — without waiting for 22:25, and without 22:25 later invalidating
+    /// the reading itself.</summary>
     [Fact]
-    public void A_reading_from_before_the_last_handover_is_no_longer_current()
+    public void A_reading_from_after_capture_began_resets_the_boundary_immediately()
     {
-        long now = Kst(2026, 8, 19, 23, 0);       // just after Wednesday's handover
+        long duringCapture = Kst(2026, 8, 19, 22, 22);
+        long captureStart = Kst(2026, 8, 19, 22, 20);
+        long lastCycle = Kst(2026, 8, 17, 12, 0);
+
+        // Heard nothing: the previous occupation is still what we have.
+        Assert.Equal(Kst(2026, 8, 15, 22, 20), AbyssCorridorCycle.BoundaryFor(lastCycle, duringCapture));
+
+        // Heard something from after capture began: everything older is last cycle's, right now.
+        Assert.Equal(captureStart, AbyssCorridorCycle.BoundaryFor(duringCapture, duringCapture));
+        Assert.Equal(captureStart, AbyssCorridorCycle.BoundaryFor(duringCapture, Kst(2026, 8, 21, 9, 0)));
+    }
+
+    [Fact]
+    public void A_reading_from_before_the_last_capture_is_no_longer_current()
+    {
+        long now = Kst(2026, 8, 19, 23, 0);       // after Wednesday's 점령전
 
         Assert.False(AbyssCorridorCycle.IsCurrentCycle(Kst(2026, 8, 19, 18, 0), now));
-        Assert.True(AbyssCorridorCycle.IsCurrentCycle(Kst(2026, 8, 19, 22, 45), now));
+        Assert.True(AbyssCorridorCycle.IsCurrentCycle(Kst(2026, 8, 19, 22, 22), now));
         Assert.False(AbyssCorridorCycle.IsCurrentCycle(0, now));
     }
 
@@ -111,6 +134,7 @@ public class AbyssCorridorCycleTests
     {
         Assert.Equal(0, AbyssCorridorCycle.LastStartAtOrBefore(long.MinValue));
         Assert.Equal(0, AbyssCorridorCycle.LastStartAtOrBefore(long.MaxValue));
+        Assert.Equal(0, AbyssCorridorCycle.BoundaryFor(long.MaxValue, long.MinValue));
     }
 }
 
@@ -185,7 +209,43 @@ public class AbyssCorridorStoreTests
         store.Upsert(Hash, Ticket, 130_000, Kst(2026, 8, 15, 23, 0), markGranted: true);
 
         Assert.Equal(130_000, store.Standing(Hash, Ticket, Kst(2026, 8, 19, 20, 0)));  // same cycle
-        Assert.Null(store.Standing(Hash, Ticket, Kst(2026, 8, 19, 23, 0)));            // after the handover
+        Assert.Equal(130_000, store.Standing(Hash, Ticket, Kst(2026, 8, 19, 22, 22))); // mid-capture, nothing heard
+        Assert.Null(store.Standing(Hash, Ticket, Kst(2026, 8, 19, 22, 26)));           // gave up at 22:25
+    }
+
+    /// <summary>Hearing ANY reading from after capturing began retires the rest of this character's records on
+    /// the spot — they describe the occupation that was wiped at 22:10. Without this, a corridor the faction
+    /// just lost keeps its chip for the five minutes until the give-up point, during 점령전 itself.</summary>
+    [Fact]
+    public void One_reading_from_the_new_capture_retires_the_others_at_once()
+    {
+        long lastCycle = Kst(2026, 8, 15, 23, 0);
+        long duringCapture = Kst(2026, 8, 19, 22, 22);
+
+        var store = AbyssCorridorStore.Parse(null);
+        store.Upsert(Hash, 10_000_002, 130_000, lastCycle, markGranted: true);   // held last cycle, now lost
+        Assert.Equal(130_000, store.Standing(Hash, 10_000_002, duringCapture));
+
+        store.Upsert(Hash, 10_000_005, 130_000, duringCapture, markGranted: true); // this cycle's answer
+
+        Assert.Null(store.Standing(Hash, 10_000_002, duringCapture));
+        Assert.Equal(130_000, store.Standing(Hash, 10_000_005, duringCapture));
+    }
+
+    /// <summary>...and only for the character that heard it. An alt that was never logged in during 점령전 has
+    /// no evidence of its own, so the main character's fresh readings must not retire the alt's records early.</summary>
+    [Fact]
+    public void New_capture_evidence_does_not_leak_between_characters()
+    {
+        long lastCycle = Kst(2026, 8, 15, 23, 0);
+        long duringCapture = Kst(2026, 8, 19, 22, 22);
+
+        var store = AbyssCorridorStore.Parse(null);
+        store.Upsert("alt", Ticket, 130_000, lastCycle, markGranted: true);
+        store.Upsert("main", Ticket, 130_000, duringCapture, markGranted: true);
+
+        Assert.Equal(130_000, store.Standing("alt", Ticket, duringCapture));
+        Assert.Equal(130_000, store.Standing("main", Ticket, duringCapture));
     }
 
     /// <summary>Zero without a grant behind it is not "다 썼다" — every corridor the faction does not hold reads

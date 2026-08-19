@@ -126,17 +126,29 @@ public static class AbyssCorridorCatalog
 /// simply hands the time out when the artifact is captured, and the in-game guide says the state "다음 점령전
 /// 이전 또는 서버 매칭 변경 전까지 유지됩니다".
 ///
-/// <para>So the boundary a stored reading is judged stale against is the 점령전 itself: the content is offered
-/// 수 22:30~토 22:00 and 토 22:30~수 22:00 KST, which makes <b>Wednesday and Saturday 22:30 KST</b> the moments
-/// a fresh allocation can appear. Anything recorded before the most recent of those is no longer a claim this
-/// meter can make.</para>
+/// <para><b>The 점령전 timetable, Wednesday and Saturday (KST).</b>
+/// <list type="bullet">
+/// <item><b>22:10</b> — the standing occupation is wiped. Nothing is held by anyone from here.</item>
+/// <item><b>22:20</b> — capturing begins, and results start arriving. Anything the meter hears from this
+/// moment on describes the NEW holders.</item>
+/// <item><b>22:30</b> — the corridors open, and stay open until 22:00 on the next 점령전 day.</item>
+/// </list></para>
+///
+/// <para><b>So the boundary is a fact, not a clock.</b> The moment any corridor reading arrives at or after
+/// 22:20, that reading IS this cycle's answer — and everything stored from before it is last cycle's, no
+/// matter how recent it looks. Waiting for a fixed hour instead would keep showing the previous occupation
+/// through the whole capture, which is exactly the window in which it is most obviously wrong.</para>
+///
+/// <para>The clock is only the fallback, for the case the meter heard nothing at all — closed during 점령전,
+/// or the character never logged in. Then there is no evidence either way, and <b>22:25</b> is where the
+/// stored answer is given up rather than shown for another five minutes.</para>
 ///
 /// <para>Fixed +09:00 rather than machine local time, for the same reason as
 /// <see cref="WeeklyContentReset"/>: a Korean game's schedule does not move because the PC is set elsewhere,
 /// and Korea has no DST.</para>
 ///
-/// <para><b>Unmeasured.</b> No capture has ever caught the moment a corridor went 0 → 130000, so the boundary
-/// above is the published schedule rather than something observed. Every corpus reading is consistent with it
+/// <para><b>Unmeasured.</b> No capture has ever caught the moment a corridor went 0 → 130000, so the schedule
+/// above is what the game publishes rather than something observed. Every corpus reading is consistent with it
 /// (the one apparent counter-example — 12 zeroes at 02:28 and three full tickets at 08:38 the same morning —
 /// turned out to be two different characters, 하아앙 and 콘팡). If it is ever shown wrong, this is the single
 /// place to change.</para>
@@ -145,9 +157,16 @@ public static class AbyssCorridorCycle
 {
     private static readonly TimeSpan Kst = TimeSpan.FromHours(9);
 
-    /// <summary>Days a new allocation can land, with the hour/minute the usable window opens.</summary>
-    public const int Hour = 22;
-    public const int Minute = 30;
+    /// <summary>When capturing starts and the new holders begin to be broadcast. A reading stamped at or after
+    /// this describes the CURRENT cycle by construction.</summary>
+    public const int OccupationStartHour = 22;
+    public const int OccupationStartMinute = 20;
+
+    /// <summary>When a stored answer is given up if nothing new was ever heard. Deliberately before the
+    /// corridors open at 22:30: by then the previous occupation has been gone for a quarter of an hour, and
+    /// showing "모름" beats showing a corridor the faction may well have lost.</summary>
+    public const int FallbackHour = 22;
+    public const int FallbackMinute = 25;
 
     private static readonly DayOfWeek[] Days = [DayOfWeek.Wednesday, DayOfWeek.Saturday];
 
@@ -158,9 +177,48 @@ public static class AbyssCorridorCycle
     private const long MinPlausibleMs = 1_577_836_800_000L;
     private const long MaxPlausibleMs = 4_102_444_800_000L;
 
-    /// <summary>The most recent cycle start at or before <paramref name="atMs"/>, as Unix ms, or 0 when the
-    /// input is not a usable timestamp (a hand-edited settings file must not throw the panel down).</summary>
-    public static long LastStartAtOrBefore(long atMs)
+    /// <summary>The most recent 점령 start (Wed/Sat 22:20 KST) at or before <paramref name="atMs"/>, as Unix ms,
+    /// or 0 for an unusable timestamp. A reading stamped at or after this is current-cycle evidence.</summary>
+    public static long LastOccupationStartAtOrBefore(long atMs) =>
+        LastWeeklySlotAtOrBefore(atMs, OccupationStartHour, OccupationStartMinute);
+
+    /// <summary>How long after capturing begins the meter waits before giving up on a character it has heard
+    /// nothing from. Five minutes — 22:20 to 22:25 — chosen so the old answer survives the minutes in which the
+    /// new one is most likely to arrive, and is dropped before the corridors actually open at 22:30.</summary>
+    public const long FallbackGraceMs = ((FallbackHour * 60 + FallbackMinute)
+        - (OccupationStartHour * 60 + OccupationStartMinute)) * 60_000L;
+
+    /// <summary>The boundary a stored reading is judged against when NOTHING has been heard since capturing
+    /// began — see <see cref="BoundaryFor"/> for the case where something has.
+    /// <para>Expressed as the capture start as of five minutes ago, which is the same rule read backwards:
+    /// during 22:20~22:25 that still resolves to the PREVIOUS 점령전, so the old answer stays on screen; from
+    /// 22:25 it resolves to today's 22:20 and retires everything older in one step.</para></summary>
+    public static long LastStartAtOrBefore(long atMs) =>
+        atMs < MinPlausibleMs || atMs > MaxPlausibleMs
+            ? 0
+            : LastOccupationStartAtOrBefore(atMs - FallbackGraceMs);
+
+    /// <summary>The boundary for a character the meter HAS heard from, given the newest timestamp on anything
+    /// stored for it. Once one reading lands at or after the capture began, that reading is this cycle's answer
+    /// and every older record beside it is last cycle's — so the boundary snaps forward to 22:20 immediately
+    /// rather than waiting for the fallback.</summary>
+    public static long BoundaryFor(long newestObservedAtMs, long nowMs)
+    {
+        long occupation = LastOccupationStartAtOrBefore(nowMs);
+        bool heardThisCycle = occupation > 0
+            && newestObservedAtMs >= occupation
+            && newestObservedAtMs <= nowMs + FutureSlackMs;
+
+        return heardThisCycle ? occupation : LastStartAtOrBefore(nowMs);
+    }
+
+    /// <summary>Whether a reading taken at <paramref name="savedAtMs"/> is usable against
+    /// <paramref name="boundary"/>: recent enough to belong to this cycle, and not stamped in a future that
+    /// cannot have happened (see <see cref="FutureSlackMs"/>).</summary>
+    public static bool IsWithin(long savedAtMs, long boundary, long nowMs) =>
+        boundary > 0 && savedAtMs >= boundary && savedAtMs <= nowMs + FutureSlackMs;
+
+    private static long LastWeeklySlotAtOrBefore(long atMs, int hour, int minute)
     {
         if (atMs < MinPlausibleMs || atMs > MaxPlausibleMs)
         {
@@ -180,7 +238,7 @@ public static class AbyssCorridorCycle
                 continue;
             }
 
-            var at = new DateTimeOffset(day.Year, day.Month, day.Day, Hour, Minute, 0, Kst);
+            var at = new DateTimeOffset(day.Year, day.Month, day.Day, hour, minute, 0, Kst);
             if (at <= now)
             {
                 long ms = at.ToUnixTimeMilliseconds();
@@ -197,8 +255,9 @@ public static class AbyssCorridorCycle
     /// <summary>How far ahead of now a stored timestamp may sit and still be believed. A record cannot really
     /// come from the future, but a clock correction or a hand-edited file can produce one — and with no ceiling
     /// such a record satisfies <see cref="IsCurrentCycle"/> forever, pinning a stale corridor on screen through
-    /// every 점령전 from then on.</summary>
-    private const long FutureSlackMs = 60 * 60 * 1000;
+    /// every 점령전 from then on, as well as convincing <see cref="BoundaryFor"/> that this cycle's answer has
+    /// already been heard.</summary>
+    public const long FutureSlackMs = 60 * 60 * 1000;
 
     /// <summary>True when a reading taken at <paramref name="savedAtMs"/> still describes the current cycle.</summary>
     public static bool IsCurrentCycle(long savedAtMs, long nowMs) =>

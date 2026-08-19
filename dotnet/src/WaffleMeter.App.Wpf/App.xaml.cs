@@ -1716,8 +1716,12 @@ public partial class App : Application
         }
 
         // A delta only fires when a corridor's clock actually moved, which means the character has been in the
-        // world long enough for its identity to have settled. A drop to zero is itself proof the corridor was
-        // stocked, so it stamps the grant too — that is what keeps "다 썼다" apart from "점령 못 했다".
+        // world long enough for its identity to have settled.
+        //
+        // Only a POSITIVE reading stamps the grant. A drop to zero proves the corridor once held time, but not
+        // that it holds any THIS cycle — and one of those zeroes arrives on schedule at 22:10, when 점령전 wipes
+        // the standing occupation. Stamping that would turn "우리가 뺏겼다" into "내가 다 썼다" for the whole
+        // cycle. Nothing is lost by being strict: the entry that spent the corridor already stamped it.
         //
         // The clock is NOT started here even when the value is full: an allocation handed out at 점령전 looks
         // identical on the wire to walking in, and only the map can tell them apart. It is stopped here on a
@@ -1726,7 +1730,7 @@ public partial class App : Application
         bool insideThisCorridor = AbyssCorridorCatalog.ByMapId(_corridorInsideMapId)?.TicketId == ticketId;
         PersistAbyssCorridor(
             services, ticketId, remainingMs, atMs,
-            markGranted: true,
+            markGranted: remainingMs > 0,
             tickingSinceMs: remainingMs <= 0 ? 0 : insideThisCorridor ? atMs : null);
 
         if (insideThisCorridor)
