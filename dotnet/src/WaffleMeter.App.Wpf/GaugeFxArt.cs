@@ -51,10 +51,17 @@ internal static class GaugeFxArt
     private static readonly Pen BerryRibbonLow = FrozenPen("#FF74BB", 3.2);
     private static readonly Pen BerryDropEdge = FrozenPen("#FFD2EB", 0.7);
 
-    private static readonly Pen VoltArc = FrozenPen("#FFF4B0", 1.5);
-    private static readonly Pen VoltArcCore = FrozenPen("#FFFFFF", 0.7);
-    private static readonly Pen VoltFilament = FrozenPen("#A5B4FC", 0.8);
-    private static readonly Brush VoltHalo = Halo("#F5C542", "#FFFBE6");
+    // 전류는 흰색에 아주 약간 푸른 기운 — 노랑/금색은 잔불(스파크)로 읽힌다.
+    // 같은 경로를 굵기·명도가 벌어진 네 겹으로 긋는다: 발광이 채널 '뒤'가 아니라 채널 '안'에 있어야
+    // 낙서가 아니라 방전으로 보인다. 예전 VoltHalo(둥근 노란 blob)가 얼룩의 주범이었다.
+    private static readonly Pen VoltCorona = FrozenPen("#6E8CFF", 4.4);
+    private static readonly Pen VoltGlow = FrozenPen("#8FA9FF", 2.6);
+    private static readonly Pen VoltChannel = FrozenPen("#C8DAFF", 1.5);
+    private static readonly Pen VoltCore = FrozenPen("#F2F7FF", 0.9);
+    private static readonly Pen VoltForkChannel = FrozenPen("#9FBAFF", 1.1);
+    private static readonly Pen VoltForkCore = FrozenPen("#E8F0FF", 0.6);
+    private static readonly Brush VoltMote = Halo("#6E8CFF", "#DCE6FF");
+    private static readonly Brush VoltMoteCore = Frozen("#F2F7FF");
 
     private static readonly Brush MatchaFoam = Frozen("#EAF4D1");
     private static readonly Brush MatchaCream = Frozen("#FFF3D2");
@@ -153,91 +160,153 @@ internal static class GaugeFxArt
     }
 
     /// <summary>
-    /// 전류 — arcs snapping across the bar.
+    /// 전류 — a forked bolt striking DOWN through the bar, lit from inside its own channel.
     ///
-    /// <para><b>It flashes; it does not flow.</b> Every other skin here has particles with a smooth
-    /// <c>sin(pi * phase)</c> envelope, which is what makes them read as drifting. Electricity is the opposite:
-    /// nearly always nothing, then a bolt for a fraction of a second. The envelope is therefore raised to a
-    /// high power, so a bolt is at full brightness for a moment and absent the rest of its life.</para>
+    /// <para><b>The bolt is vertical, and that is the whole trick.</b> The first two attempts ran a zigzag along
+    /// the bar, and on a row that is ~260 DIP wide but only ~26 tall a six-segment horizontal zigzag has segments
+    /// about 25 DIP long and 9 tall — 20° from horizontal, which the eye resolves as a waveform or a mountain
+    /// ridge, not as lightning. Real lightning is near-vertical, so the channel here descends the FULL height and
+    /// wanders only a few DIP sideways: the lateral reach is deliberately smaller than the vertical step, which
+    /// is what puts every segment past 45° and makes the kinks read as kinks.</para>
     ///
-    /// <para><b>A bolt is a jagged polyline, not a lightning-shaped icon.</b> The kink positions come from
-    /// <see cref="Hash"/> keyed on the bolt AND on which strike it is, so no two strikes trace the same path —
-    /// a fixed shape that merely blinks reads as a decal being toggled.</para>
+    /// <para><b>The glow runs along the path, never behind it.</b> The original drew a round halo brush behind
+    /// each squiggle, and a round glow behind a jagged line reads as a scribble with a lamp behind it — light and
+    /// line are visibly different shapes, so the eye resolves a smudge. Here the same path is walked four times
+    /// with pens that step hard in both width and brightness: a dim corona, a mid channel, then a thin near-white
+    /// core. Node positions are a pure function of the strike key and the node index, so each pass RECOMPUTES
+    /// them rather than storing a point list — that is what lets a four-pass stroke stay allocation-free.</para>
     ///
-    /// <para>The whole bar never pulses: that would fight the DPS number rather than sit behind it, which is
-    /// the failure the layer as a whole exists to avoid.</para>
+    /// <para><b>Forking is the cue that says lightning.</b> A bolt that never branches reads as a crack or a
+    /// scratch however bright it is. One branch peels off a middle node to the side the channel is NOT about to
+    /// take, runs two shortening segments and dies in mid-air. It is thinner and has no corona pass, so it can
+    /// never out-shout its parent.</para>
+    ///
+    /// <para><b>Both colour directions are drawn, so neither has to be predicted.</b> This skin's fill is an
+    /// indigo ramp with a pale <c>#E0E7FF</c> band in it, and that band MOVES — a repeating tile that scrolls,
+    /// over a bar whose width tracks the row's DPS share — so compensating by position would be guessing. The
+    /// corona is a mid-blue that separates against pale fill and the core is near-white and separates against
+    /// dark fill; one of the two always carries the shape, wherever the band happens to be.</para>
+    ///
+    /// <para><b>Mostly off, and nothing at all in between.</b> A strike occupies the first fifth of a bolt's life
+    /// and the method leaves before drawing anything outside that window, so the ordinary frame costs only the
+    /// three static motes. Lightning is absent most of the time — that is what it IS — but a skin that renders
+    /// NOTHING for two frames in three reads as broken rather than as restraint, which is what the motes are
+    /// for. A high-power peak
+    /// fires the core for about a tenth of a second and a short exponential tail lets the channel cool — without
+    /// the tail it vanishes like a decal being switched off. The strike ordinal is folded into the hash key, so
+    /// no two strikes trace the same path; a fixed shape that merely blinks is the other way this fails.</para>
     /// </summary>
     private static void DrawVoltage(DrawingContext dc, Rect a, double t, int seed)
     {
-        // 바탕을 가로지르는 가는 실. 아크가 없는 동안에도 '전기가 흐르는 중'이라는 것만 알려 준다.
-        double filamentY = a.Y + (a.Height * 0.5);
-        double drift = (t * 26.0) % 30.0;
-        dc.PushOpacity(0.16);
-        for (double x = a.X - 30 + drift; x < a.Right; x += 15)
-        {
-            double x0 = Math.Max(a.X, x);
-            double x1 = Math.Min(a.Right, x + 15);
-            if (x1 <= x0)
-            {
-                continue;
-            }
-
-            double up = ((int)Math.Floor((x - a.X) / 15) & 1) == 0 ? -1.4 : 1.4;
-            dc.DrawLine(VoltFilament, new Point(x0, filamentY - up), new Point(x1, filamentY + up));
-        }
-
-        dc.Pop();
-
-        // 아크 셋. 서로 다른 주기라 동시에 터지는 일이 드물다.
+        // 정전기 모트 — 방전 사이를 잇는 상시 요소.
+        //  ⚠ 점이어야 한다. 앞선 판에서는 짧은 대각 대시였는데, 확대하면 전류가 아니라 막대에 난 **긁힌
+        //    자국**으로 읽힌다. 점은 방향이 없어서 그렇게 안 보인다.
+        //  ⚠ 위치가 사인파여야 한다. 수명으로 순환시키면 경계에서 좌표가 순간이동하는데, 상시 요소는
+        //    알파가 0 이 되는 순간이 없으니 그 순간이동이 그대로 보인다.
         for (int i = 0; i < 3; i++)
         {
-            double life = 1.5 + (Hash(i + seed + 71) * 1.3);
-            double phase = Phase(t, i + seed + 83, life);
+            double sx = a.X + (a.Width
+                * (0.5 + (0.46 * Math.Sin((t * (0.31 + (Hash(seed + i + 41) * 0.22))) + (i * 2.1) + seed))));
+            double sy = a.Y + (a.Height
+                * (0.5 + (0.34 * Math.Sin((t * (0.19 + (Hash(seed + i + 43) * 0.17))) + (i * 1.7)))));
+            double pop = Math.Pow(Math.Max(0.0, Math.Sin((t * 2.6) + (i * 2.3) + (seed * 0.5))), 8);
 
-            // ⚠ 여기가 이 스킨의 전부다: 8제곱 봉우리라 수명의 대부분은 완전히 꺼져 있고 짧게만 터진다.
-            double envelope = Math.Pow(Math.Sin(Math.PI * phase), 8);
-            if (envelope < 0.03)
+            dc.PushOpacity(0.16 + (pop * 0.5));
+            dc.DrawEllipse(VoltMote, null, new Point(sx, sy), 2.4, 2.4);
+            dc.DrawEllipse(VoltMoteCore, null, new Point(sx, sy), 0.6, 0.6);
+            dc.Pop();
+        }
+
+        for (int bolt = 0; bolt < 3; bolt++)
+        {
+            double life = 1.5 + (Hash(bolt + seed + 71) * 1.4);
+            double phase = Phase(t, bolt + seed + 83, life);
+
+            // ⚠ 이 스킨의 핵심: 사건은 수명의 앞 20% 안에서만 일어나고 나머지 프레임은 여기서 끝난다.
+            const double Burst = 0.20;
+            double u = phase / Burst;
+            if (u >= 1.0)
             {
                 continue;
             }
 
-            // 몇 번째 타격인지를 해시에 섞어, 칠 때마다 경로가 달라지게 한다.
-            int strike = (int)Math.Floor((t + (Hash(i + seed + 83) * life)) / life);
-            int key = seed + (i * 31) + (strike * 977);
-
-            double x0b = a.X + (Hash(key + 3) * Math.Max(1, a.Width - 24));
-            double span = 16 + (Hash(key + 5) * 34);
-            double y0b = a.Y + 3 + (Hash(key + 7) * Math.Max(1, a.Height - 6));
-
-            dc.PushOpacity(Math.Min(1.0, envelope * 0.95));
-
-            // 아크가 남기는 잔광 — 밝은 선만으로는 '흰 줄'이고, 이 halo 가 있어야 빛으로 읽힌다.
-            dc.PushOpacity(0.5);
-            dc.DrawEllipse(VoltHalo, null, new Point(x0b + (span * 0.5), y0b), span * 0.55, a.Height * 0.55);
-            dc.Pop();
-
-            const int Kinks = 4;
-            double px = x0b;
-            double py = y0b;
-            for (int k = 1; k <= Kinks; k++)
+            double envelope = Math.Pow(Math.Sin(Math.PI * u), 10);
+            if (u > 0.5)
             {
-                double nx = x0b + (span * k / Kinks);
-                double ny = y0b + ((Hash(key + (k * 13)) - 0.5) * a.Height * 0.7);
-                ny = Math.Clamp(ny, a.Y + 2, a.Bottom - 2);
-                if (nx > a.Right)
-                {
-                    break;
-                }
-
-                dc.DrawLine(VoltArc, new Point(px, py), new Point(nx, ny));
-                dc.DrawLine(VoltArcCore, new Point(px, py), new Point(nx, ny));
-                px = nx;
-                py = ny;
+                envelope = Math.Max(envelope, Math.Exp((0.5 - u) * 9.0) * 0.45); // 식는 채널
             }
 
-            dc.Pop();
+            if (envelope < 0.05)
+            {
+                continue;
+            }
+
+            // 몇 번째 방전인지를 키에 섞는다 — 안 섞으면 한 모양이 깜빡이는 데칼이 된다.
+            int strike = (int)Math.Floor((t + (Hash(bolt + seed + 83) * life)) / life);
+            int key = (seed * 13) + (bolt * 31) + (strike * 977);
+
+            // 🔑 가로 흔들림(reach)이 세로 걸음보다 작아야 마디가 45°를 넘는다. 이 부등식이 깨지는 순간
+            // 번개가 아니라 파형으로 읽힌다 — 앞선 두 시도가 정확히 그렇게 실패했다.
+            double step = (a.Height - 2.0) / Segs;
+            double reach = Math.Min(step * 0.72, a.Height * 0.16);
+            double lean = (Hash(key + 13) - 0.5) * a.Height * 0.55; // 번개는 수직이되 조금 기운다
+            double headX = a.X + 4 + (Hash(key + 5) * Math.Max(1.0, a.Width - 8.0 - Math.Abs(lean)));
+
+            // 겹이 넷인 이유: 굵기 하나로는 falloff 가 안 생겨 '균일한 선'이 되고, 그건 방전이 아니라
+            // 낙서로 읽힌다. 넓고 흐린 것에서 얇고 밝은 것까지 굵기·명도가 함께 계단을 이뤄야 빛으로 보인다.
+            for (int pass = 0; pass < 4; pass++)
+            {
+                Pen pen = pass == 0 ? VoltCorona : pass == 1 ? VoltGlow : pass == 2 ? VoltChannel : VoltCore;
+                double alpha = pass == 0 ? 0.22 : pass == 1 ? 0.40 : pass == 2 ? 0.70 : 1.0;
+                dc.PushOpacity(Math.Min(1.0, envelope * alpha));
+
+                double px = NodeX(key, 0, headX, reach, lean);
+                double py = a.Y + 1;
+                for (int k = 1; k <= Segs; k++)
+                {
+                    double nx = NodeX(key, k, headX, reach, lean);
+                    double ny = a.Y + 1 + (step * k);
+                    dc.DrawLine(pen, new Point(px, py), new Point(nx, ny));
+                    px = nx;
+                    py = ny;
+                }
+
+                dc.Pop();
+            }
+
+            // 갈래 하나. 채널이 다음에 갈 쪽의 반대로 튀어야 각이 열린다.
+            int at = 1 + (int)(Hash(key + 11) * (Segs - 2));
+            double fx = NodeX(key, at, headX, reach, lean);
+            double fy = a.Y + 1 + (step * at);
+            double away = NodeX(key, at + 1, headX, reach, lean) > fx ? -1.0 : 1.0;
+            double bx = fx + (away * reach * 2.1);
+            double by = Math.Min(a.Bottom - 1, fy + (step * 0.9));
+            double cx = bx + (away * reach * 1.1);
+            double cy = Math.Min(a.Bottom - 1, by + (step * 0.5));
+
+            for (int pass = 0; pass < 2; pass++)
+            {
+                dc.PushOpacity(Math.Min(1.0, envelope * (pass == 0 ? 0.5 : 0.85)));
+                Pen pen = pass == 0 ? VoltForkChannel : VoltForkCore;
+                dc.DrawLine(pen, new Point(fx, fy), new Point(bx, by));
+
+                // 두 번째 마디는 짧고 다시 꺾인다 — 한 마디짜리 갈래는 그냥 삐침으로 보인다.
+                dc.DrawLine(pen, new Point(bx, by), new Point(cx, cy));
+                dc.Pop();
+            }
         }
     }
+
+    /// <summary>How many segments a bolt's channel has. Shared by the stroke passes and the fork so the two
+    /// cannot drift apart — a fork hung on a node the channel does not have is the obvious way this breaks.
+    /// </summary>
+    private const int Segs = 5;
+
+    /// <summary>A channel node's x: the bolt's lean applied evenly down the descent, plus a per-node sideways
+    /// kick that alternates so every kink is a hard reversal rather than a meander.</summary>
+    private static double NodeX(int key, int k, double headX, double reach, double lean) =>
+        headX + (lean * k / Segs)
+        + ((((k & 1) == 0) ? -1.0 : 1.0) * reach * (0.30 + (Hash(key + (k * 17)) * 1.25)));
 
     /// <summary>
     /// 말차 크림 — cream folding across matte tea, right to left, plus a few foam rings rising. Rounded
