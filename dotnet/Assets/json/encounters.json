@@ -1,5 +1,5 @@
 {
- "_comment": "Supported-encounter catalog: mobCode -> (dungeon, variant, boss). Mirrors the stats web's encounter seed — regenerate with dotnet/tools/export-encounters.ts whenever that catalog changes. A battle whose boss mobCode is absent here is never uploaded; the web answers 400 unsupported_encounter for it.  LOCAL CORRECTIONS (2026-08-11, see the ShippedEncounterCatalogTests guards): dropped a mobless '시련 13~16단계' variant that duplicated 바크론 시련's dungeonId 600074, and moved 무스펠의 성배 보통 off the dungeonId 620021 it shared with 어려움 to the 620022 the capture corpus shows the game using. Neither field feeds the meter (it keys on mobCode); both are wrong in the web seed and should be fixed there — regenerating this asset will re-introduce them and the guards will fail again, which is the point. NEW 2026-08-12: 잠식된 데우스 연구기지(원정)와 노이란의 숨겨진 유산(초월)은 그날 라이브 패치의 신규 던전이고, 이 두 항목만 웹 시드보다 먼저 손으로 넣었다. 근거는 클라이언트 실측이다 — Dungeon.dat 행(600161/600162/600163, 610030~610033), Map.dat의 맵 이름(BlasphemyLab_*, LegacyNoiran_G_0*), 단계 사다리는 PartyDungeonLevel.DungeonLevel, mobCode는 각 맵 MapData.dat의 SpawnInfoList.NpcIdList 중 NpcSubType=HeroMonster인 것들이다. 웹 시드가 같은 내용을 실으면 export-encounters.ts 재생성으로 자연히 합쳐진다. ⚠️ dungeonId 610030~610033은 심연의 뿔 암굴(시드)과 노이란의 숨겨진 유산(클라)이 함께 주장한다. 클라이언트는 심연의 뿔 암굴을 610070~610073(map FafniteGully_G_01~04, PartyDungeonLevel 1~4단계)으로 싣고, 그 맵 데이터는 8/5 클라에도 똑같이 있었다(개편 아님). 반면 캡처 코퍼스는 phase 패킷 mapId 610030과 심연의 뿔 암굴 보스(2300473/474/475)의 짝을 10회 관측했다 — 즉 게임이 방송하는 id와 클라 Dungeon 테이블의 id가 이 던전에서 다르다. 노이란 쪽 값은 아직 실측 캡처가 없어 클라 값을 그대로 뒀다. 미터는 mobCode로만 키하고 DungeonId는 저장만 할 뿐 페이로드에도 게이팅에도 쓰이지 않으므로 동작에는 영향이 없다. 노이란 캡처가 생기면 empirical_pairing.py로 확정하고 둘 중 틀린 쪽을 고칠 것.",
+ "_comment": "Supported-encounter catalog: mobCode -> (dungeon, variant, boss). Mirrors the stats web's encounter seed — regenerate with dotnet/tools/export-encounters.ts whenever that catalog changes. A battle whose boss mobCode is absent here is never uploaded; the web answers 400 unsupported_encounter for it.",
  "schemaVersion": 1,
  "dungeons": [
   {
@@ -631,15 +631,15 @@
      "stage": null,
      "mobs": [
       [
-       2311302,
+       2301302,
        1
       ],
       [
-       2311303,
+       2301303,
        2
       ],
       [
-       2311301,
+       2301301,
        3
       ]
      ]
@@ -651,15 +651,15 @@
      "stage": null,
      "mobs": [
       [
-       2301302,
+       2311302,
        1
       ],
       [
-       2301303,
+       2311303,
        2
       ],
       [
-       2301301,
+       2311301,
        3
       ]
      ]
@@ -714,15 +714,15 @@
      "stage": null,
      "mobs": [
       [
-       2311401,
+       2301401,
        1
       ],
       [
-       2311402,
+       2301402,
        2
       ],
       [
-       2311403,
+       2301403,
        3
       ]
      ]
@@ -734,15 +734,15 @@
      "stage": null,
      "mobs": [
       [
-       2301401,
+       2311401,
        1
       ],
       [
-       2301402,
+       2311402,
        2
       ],
       [
-       2301403,
+       2311403,
        3
       ]
      ]
@@ -1046,15 +1046,15 @@
      "stage": "1",
      "mobs": [
       [
-       2330616,
+       2320616,
        1
       ],
       [
-       2330615,
+       2320615,
        2
       ],
       [
-       2330601,
+       2320601,
        3
       ]
      ]
@@ -1106,15 +1106,15 @@
      "stage": "4",
      "mobs": [
       [
-       2347616,
+       2346616,
        1
       ],
       [
-       2347615,
+       2346615,
        2
       ],
       [
-       2347601,
+       2346601,
        3
       ]
      ]
@@ -1312,15 +1312,15 @@
      "stage": "4",
      "mobs": [
       [
-       2300133,
+       2300032,
        1
       ],
       [
-       2300132,
+       2300031,
        2
       ],
       [
-       2300131,
+       2300030,
        3
       ],
       [

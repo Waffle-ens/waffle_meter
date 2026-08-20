@@ -65,15 +65,15 @@ const dungeons = seed.encounterDungeons.map((dungeon) => {
     name: dungeon.name,
     variantType: dungeon.variantType,
     bosses: dungeon.bosses.map((boss) => ({ index: boss.index, name: boss.name })),
-    variants: dungeon.variants.map((variant) => ({
+    variants: dungeon.variants
+      .map((variant) => ({
       label: variant.label,
       dungeonId: variant.dungeonId,
       difficulty: variant.difficulty,
       stage: variant.stage,
       // [mobCode, bossIndex] pairs — primary seeds in boss order, then the alias codes.
-      // A variant may legitimately carry NO codes: the trial's difficulty buckets are chosen from the upload
-      // payload rather than identified by a mobCode, so they exist purely as labels. Tolerate both the empty
-      // array and the absent field — the meter's build runs this script, and a crash here blocks it.
+      // Tolerate both an empty array and an absent field — the meter's build runs this script, and a
+      // crash here blocks it. Variants that end up with no codes are dropped below.
       mobs: [
         ...(variant.mobCodes ?? []).flatMap((mobCode, i) => {
           const boss = dungeon.bosses[i];
@@ -92,7 +92,19 @@ const dungeons = seed.encounterDungeons.map((dungeon) => {
         }),
         ...(variant.mobCodeAliases ?? []).map((alias) => [alias.mobCode, alias.bossIndex]),
       ],
-    })),
+      }))
+      // A code-less variant cannot be reached through this file. The shipped catalogue is a
+      // mobCode -> variant lookup, and the seed's one code-less variant on purpose — 시련's top
+      // difficulty bucket, whose levels all share the pooled 시련 variant's three codes — is chosen
+      // from the upload payload's affix block instead. `TierArtifact.cs` says the same from the other
+      // side: that variant "cannot appear in mobs — that map is 1:1", and `OverlayViewModel` builds
+      // "시련 16단계" from the parsed affixes rather than from a catalogue label.
+      //
+      // Emitting it anyway breaks two shipped guards at once: `Every_variant_carries_at_least_one_mob`
+      // and — because it reuses the pooled variant's dungeonId — `No_dungeon_id_belongs_to_two_variants`.
+      // The catalogue committed before this label existed simply lacked it, so dropping it here is what
+      // the meter has always shipped, not a change to it.
+      .filter((variant) => variant.mobs.length > 0),
   };
 });
 
