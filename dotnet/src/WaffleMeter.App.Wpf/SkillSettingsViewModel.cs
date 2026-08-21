@@ -26,6 +26,18 @@ public sealed class SkillSettingsViewModel
 
     /// <summary>Raised after any toggle (App syncs the join panel's visible set + reconciles).</summary>
     public event Action? Changed;
+
+    /// <summary>Re-read every chip from <see cref="SkillVisibility"/>. The rows are built once in the
+    /// constructor and each chip's <c>IsVisible</c> reads through to the shared set, so a replacement from
+    /// outside (a settings import calling <c>Reload</c>) changes the truth without telling the bindings.
+    /// Notify-only — this does not write, so it cannot echo back into <see cref="Changed"/>.</summary>
+    public void Refresh()
+    {
+        foreach (SkillJobGroupViewModel group in Groups)
+        {
+            group.Refresh();
+        }
+    }
 }
 
 public sealed class SkillJobGroupViewModel
@@ -53,15 +65,20 @@ public sealed class SkillJobGroupViewModel
     public void SelectAll() => SetAll(true);
     public void DeselectAll() => SetAll(false);
 
-    private void SetAll(bool on)
+    /// <summary>Re-read every chip in this group from the shared set. See <see cref="SkillSettingsViewModel.Refresh"/>.</summary>
+    public void Refresh()
     {
-        IEnumerable<int> all = NormalChips.Concat(StigmaChips).Select(c => c.Code);
-        _visibility.SetMany(all, on);
         foreach (SkillChipViewModel chip in NormalChips.Concat(StigmaChips))
         {
             chip.Refresh();
         }
+    }
 
+    private void SetAll(bool on)
+    {
+        IEnumerable<int> all = NormalChips.Concat(StigmaChips).Select(c => c.Code);
+        _visibility.SetMany(all, on);
+        Refresh();
         _onChanged();
     }
 

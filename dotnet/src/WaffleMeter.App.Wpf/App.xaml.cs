@@ -1385,6 +1385,16 @@ public partial class App : Application
             _joinViewModel.SetVisibleCodes(_skillVisibility.Codes);
             _joinViewModel.Reconcile(services.JoinRequests.Snapshot()); // rebuild rows so badges honor the new set
         };
+
+        // The other direction: a settings import replaces the set wholesale (SettingsBundleApplier -> Reload).
+        // Without this the imported list only took effect after a restart — the chips still drew the old state,
+        // and touching one wrote that stale state straight back over what was just imported.
+        _skillVisibility.Changed += () =>
+        {
+            skillVm.Refresh();
+            _joinViewModel.SetVisibleCodes(_skillVisibility.Codes);
+            _joinViewModel.Reconcile(services.JoinRequests.Snapshot());
+        };
         _joinPanel.SettingsRequested += () =>
         {
             if (_skillFlyoutVisible)

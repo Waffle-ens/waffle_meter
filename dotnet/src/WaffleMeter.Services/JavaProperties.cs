@@ -21,6 +21,10 @@ public sealed class JavaProperties
 
     public void SetProperty(string key, string value) => _map[key] = value;
 
+    /// <summary>Drops a key entirely. Distinct from setting it to "": a removed key reads back as null, which
+    /// is how callers tell "never configured" from "configured as empty".</summary>
+    public bool Remove(string key) => _map.Remove(key);
+
     public IReadOnlyDictionary<string, string> Entries => _map;
 
     /// <summary>Reads a properties file (the stream is decoded as ISO-8859-1, like Java).</summary>
