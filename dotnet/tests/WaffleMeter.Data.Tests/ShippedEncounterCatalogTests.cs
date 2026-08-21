@@ -132,7 +132,10 @@ public sealed class ShippedEncounterCatalogTests
     /// — and the pairing is what any map-based cross-check would have to trust.
     /// <para>Found 2026-08-11: 무스펠의 성배 보통 and 어려움 both claimed 620021, while the capture corpus shows
     /// the game running them as 620022 and 620021 respectively. Harmless for the meter's own labels (those key
-    /// off mobCode, which is unique) but wrong in the seed the web aggregates by.</para></summary>
+    /// off mobCode, which is unique) but wrong in the seed the web aggregates by.</para>
+    /// <para>✅ Fixed upstream 2026-08-20: 통계웹 <c>490aaf1</c> moves 보통 to 620022 and migration <c>0047</c>
+    /// backfills the rows already stored, so a regeneration now carries the right id on its own. The guard stays —
+    /// it is what caught this — but it has nothing left to catch here.</para></summary>
     [Fact]
     public void No_dungeon_id_belongs_to_two_variants()
     {
