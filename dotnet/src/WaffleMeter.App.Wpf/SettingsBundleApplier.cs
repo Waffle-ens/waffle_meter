@@ -86,6 +86,8 @@ public sealed class SettingsBundleApplier
         _hotkeys.Reload();
         _presets.Reload();
         _skills.Reload();
+        // 가져온 설정의 음성 팩을 즉시 반영한다 — 안 하면 재시작 전까지 옛 목소리가 계속 나온다.
+        TtsSpeech.SetVoicePack(new BakedVoicePack(AppContext.BaseDirectory, _settings.TtsVoice));
 
         bool restart = plan.Bundle.Data.Keys.Any(k => RestartOnly.Contains(k, StringComparer.Ordinal));
         return new SettingsImportResult(applied, backup, restart);

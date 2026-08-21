@@ -251,6 +251,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("모두 숨김", "hidden"),
     };
 
+    /// <summary>동봉된 음성 팩. 값은 폴더명이자 <c>alarms.ttsVoice</c>에 저장되는 문자열이다.</summary>
+    public IReadOnlyList<SettingOption> TtsVoices { get; } = new[]
+    {
+        new SettingOption("와순이 (여성)", BakedVoicePack.Wasuni),
+        new SettingOption("와붕이 (남성)", BakedVoicePack.Wabungi),
+    };
+
     public IReadOnlyList<SettingOption> TargetInfoDisplayModes { get; } = new[]
     {
         new SettingOption("남은/최대 · 퍼센트", "hp_full_percent"),
@@ -464,6 +471,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string DamageValueMode { get => _settings.DamageValueMode; set { _settings.DamageValueMode = value; OnPropertyChanged(); } }
     public string ContributionMode { get => _settings.ContributionMode; set { _settings.ContributionMode = value; OnPropertyChanged(); } }
     public string NameDisplay { get => _settings.NameDisplay; set { _settings.NameDisplay = value; OnPropertyChanged(); } }
+    public string TtsVoice
+    {
+        get => _settings.TtsVoice;
+        set
+        {
+            _settings.TtsVoice = value;
+            TtsSpeech.SetVoicePack(new BakedVoicePack(AppContext.BaseDirectory, value));
+            OnPropertyChanged();
+        }
+    }
     /// <summary>The applied meter font. The setter drops null/empty on purpose — see
     /// <see cref="CardFontSelection"/> for why two Selectors over one setting would otherwise erase it.</summary>
     public string FontFamily

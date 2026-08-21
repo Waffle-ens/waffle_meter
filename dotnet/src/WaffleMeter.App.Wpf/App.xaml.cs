@@ -753,6 +753,10 @@ public partial class App : Application
         Dispatcher.BeginInvoke(new Action(() => MaybeShowPatchNotes(services.Version)),
             System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
+        // The shipped voice pack backs every built-in alert line; the online voice is only the fallback for
+        // custom alarms and anything a newer patch added after this pack was rendered.
+        TtsSpeech.SetVoicePack(new BakedVoicePack(AppContext.BaseDirectory, _settings!.TtsVoice));
+
         // 슈고 페스타 (top-of-hour event) reminder: a transient toast + an app-scoped clock that fires it.
         _alarmToastVm = new AlarmToastViewModel();
         _alarmToast = new AlarmToast { DataContext = _alarmToastVm };

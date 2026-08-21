@@ -16,8 +16,22 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
     private string _title = string.Empty;
     public string Title { get => _title; private set => Set(ref _title, value); }
 
-    /// <summary>The alert read aloud by TTS — the title plus its one-line detail.</summary>
-    public string SpokenText => $"{Title}. {Description}";
+    /// <summary>
+    /// The alert read aloud, which is deliberately NOT derived from <see cref="Description"/>.
+    ///
+    /// <para><b>It has to be a closed set.</b> The shipped voice packs are pre-rendered clips looked up by a
+    /// hash of this exact string, so anything that varies per occurrence makes the line unspeakable from the
+    /// pack. <c>Description</c> carries a wall-clock time for field bosses — useful on screen, fatal here:
+    /// it made every respawn alert a unique string (77 bosses × leads × 1440 minutes), which also meant the
+    /// old runtime cache never once hit on them.</para>
+    ///
+    /// <para><b>No full stops.</b> Measured on the synthesiser, a period between the name and the time buys a
+    /// 0.7–1.0 s dead pause that reads as the voice dragging. A comma gives ~0.4 s, which is the beat we
+    /// actually want. The middle dot is dropped for the same reason — it is punctuation the reader stumbles on
+    /// but the screen still shows it.</para>
+    /// </summary>
+    private string _spokenText = string.Empty;
+    public string SpokenText { get => _spokenText; private set => Set(ref _spokenText, value); }
 
     private string _description = string.Empty;
     public string Description { get => _description; private set => Set(ref _description, value); }
@@ -33,6 +47,7 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
     {
         Title = "슈고 페스타";
         Description = lead <= 0 ? "지금 시작합니다!" : $"{lead}분 뒤 시작합니다.";
+        SpokenText = lead <= 0 ? "슈고 페스타, 지금 시작합니다" : $"슈고 페스타, {lead}분 뒤 시작합니다";
         IconGlyph = GlyphBell;
         IconBrush = Amber;
     }
@@ -42,6 +57,7 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
     {
         Title = bossName;
         Description = $"{leadMinutes}분 뒤 리젠 · {respawn:HH:mm}";
+        SpokenText = $"{bossName}, {leadMinutes}분 뒤 리젠"; // 시각 제외 — 위 SpokenText 주석 참고
         IconGlyph = GlyphBell;
         IconBrush = Amber;
     }
@@ -54,6 +70,9 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
         Description = leadMinutes <= 0
             ? "지금 정각 · 출현 가능"
             : $"{leadMinutes}분 뒤 정각 · 출현 가능";
+        SpokenText = leadMinutes <= 0
+            ? "감시자 카이라, 지금 정각 출현 가능"
+            : $"감시자 카이라, {leadMinutes}분 뒤 정각 출현 가능";
         IconGlyph = GlyphBell;
         IconBrush = Amber;
     }
@@ -63,6 +82,8 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
     {
         Title = string.IsNullOrWhiteSpace(title) ? "알람" : title;
         Description = "지금입니다.";
+        // 자유 입력 제목이라 미리 구울 수 없다 — 이 줄만 온라인 합성으로 넘어간다.
+        SpokenText = $"{Title}, 지금입니다";
         IconGlyph = GlyphBell;
         IconBrush = Amber;
     }

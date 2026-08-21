@@ -100,6 +100,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _shugoLeadStart = ReadBool("alarms.shugoStart", true);
         _alarmSoundEnabled = ReadBool("alarms.soundEnabled", true);
         _ttsEnabled = ReadBool("alarms.ttsEnabled", false);
+        _ttsVoice = ReadEnum("alarms.ttsVoice", BakedVoicePack.Wasuni, BakedVoicePack.All);
         _alarmVolume = ReadDouble("alarms.volume", 0.5);
         _customAlarms = CustomAlarmCodec.Decode(_props.GetProperty("alarms.custom")).ToList();
         _fieldBossAlarmEnabled = ReadBool("alarms.fieldBossEnabled", false);
@@ -311,6 +312,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Speak alerts with an online Korean neural voice instead of (or before falling back to) the
     /// chime. Opt-in: the voice endpoint is unofficial and every failure degrades to the local sound.</summary>
     public bool TtsEnabled { get => _ttsEnabled; set => SetBool(ref _ttsEnabled, "alarms.ttsEnabled", value); }
+
+    private string _ttsVoice;
+    /// <summary>Which shipped voice pack reads the alerts. See <see cref="BakedVoicePack"/>.</summary>
+    public string TtsVoice { get => _ttsVoice; set => SetProp(ref _ttsVoice, "alarms.ttsVoice", value); }
 
     private double _alarmVolume;
     public double AlarmVolume { get => _alarmVolume; set => SetDouble(ref _alarmVolume, "alarms.volume", value); }

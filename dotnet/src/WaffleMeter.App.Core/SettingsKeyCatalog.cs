@@ -127,6 +127,7 @@ public static class SettingsKeyCatalog
         new("alarms.soundEnabled", FA, "알림", "알림 소리"),
         new("alarms.volume", FA, "알림", "알림 음량"),
         new("alarms.ttsEnabled", FA, "알림", "음성 알림(한국어)"),
+        new("alarms.ttsVoice", FA, "알림", "알림 음성"),
         new("alarms.shugoEnabled", FA, "알림", "슈고 페스타 알림"),
         new("alarms.shugoLead10", FA, "알림", "슈고 10분 전"),
         new("alarms.shugoLead5", FA, "알림", "슈고 5분 전"),
