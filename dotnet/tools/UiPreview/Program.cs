@@ -1806,6 +1806,9 @@ internal static class Program
         aether.Upsert("h2", new AetherSnapshot(15, 860, now - 36_000_000, "마이농", 1001));
         aether.Upsert("h3", new AetherSnapshot(520, 1_055, now - 57_600_000, "하아앙", 1001));
         aether.Upsert("h4", new AetherSnapshot(0, 1_805, now - 90_000_000, "헤로롱", 1001));
+        // Most-recently-seen after the current character, so the shot actually contains the two states this
+        // preview exists to check — an inherited row and the "기록 없음" row — rather than scrolling them off.
+        aether.Upsert("h5", new AetherSnapshot(90, 240, now - 1_000, "필러싱", 1002));
 
         long thisWeek = Math.Max(now - 1, WeeklyContentReset.LastResetAtOrBefore(now) + 1);
         var weekly = WeeklyContentStore.Parse(null);
@@ -1824,11 +1827,13 @@ internal static class Program
             new AetherRosterName("h2", "마이농", 1001, "호법성"),
             new AetherRosterName("h3", "하아앙", 1001, "검성"),
             new AetherRosterName("h4", "헤로롱", 1001, "살성"),
+            new AetherRosterName("h5", "필러싱", 1002, "수호성"),
         };
 
         // 어비스 회랑: the worst realistic case for layout — one character holding all six, one mid-visit with a
-        // running clock, one that logged in with none captured (so the "없음" line shows), and one never watched
-        // since the last 점령전 (so the corridor area is silent rather than claiming anything).
+        // running clock, two that have reported nothing this cycle and so show their SERVER's corridors as full
+        // (the 2026-08-20 case: a zeroed snapshot means "이 캐릭터는 안 갔다", not "우리가 못 뺏었다"), and one
+        // on another server with no such donor, which is the only way the "기록 없음" line can still be reached.
         long thisCycle = Math.Max(now - 1, AbyssCorridorCycle.LastStartAtOrBefore(now) + 1);
         var corridors = AbyssCorridorStore.Parse(null);
         foreach (AbyssCorridorInfo corridor in AbyssCorridorCatalog.All)
@@ -1841,8 +1846,9 @@ internal static class Program
         corridors.Upsert("h2", 10_000_005, 130_000, thisCycle, markGranted: true);
         corridors.MarkWitness("h1", thisCycle);
         corridors.MarkWitness("h2", thisCycle);
-        corridors.MarkWitness("h3", thisCycle);   // logged in, captured nothing → "어비스 회랑 없음"
-        // h4 has no witness → the corridor area stays empty, which is the "not watched" state
+        corridors.MarkWitness("h3", thisCycle);   // logged in, reported nothing → inherits its server's six
+        corridors.MarkWitness("h5", thisCycle);   // same, but nobody on 1002 has been watched → "기록 없음"
+        // h4 has no witness at all and still inherits: never having been watched is not evidence either way
 
         return AetherRoster.Build(
             aether, names, currentHash: "h1", weekly: weekly, nowMs: now, corridors: corridors);

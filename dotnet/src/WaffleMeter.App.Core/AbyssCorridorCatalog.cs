@@ -24,7 +24,11 @@ public enum AbyssCorridorTier
 /// <param name="Tier">하층 / 중층.</param>
 /// <param name="Name">The artifact whose capture grants this corridor.</param>
 /// <param name="ShortName">What fits on a chip.</param>
-/// <param name="MapIds">Instance map ids for this corridor, 천족 first then 마족. Both races share one ticket.</param>
+/// <param name="MapIds">Instance map ids for this corridor, 503xxx then 504xxx. Both races share one ticket.
+/// <para>The client tags 503xxx <c>ERace::Light</c> and 504xxx <c>ERace::Dark</c>, but that is a CLIENT tag and
+/// not what comes over the wire: a 마족 install (server 2003, seen standing in map 905 = <c>ERace::Dark</c>) was
+/// sent 503001/503004/503006 on two separate days, and 504xxx has never arrived. Do not read a character's
+/// 진영 off the map id — the server id is where that lives (<see cref="MeterFormat.ServerTier"/>).</para></param>
 public readonly record struct AbyssCorridorInfo(
     int TicketId,
     AbyssCorridorTier Tier,

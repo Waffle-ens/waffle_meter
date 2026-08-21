@@ -165,9 +165,17 @@ public sealed class AbyssCorridorCellViewModel : INotifyPropertyChanged
         TierText = cell.Corridor.Tier == AbyssCorridorTier.Lower ? "하층"
             : cell.Corridor.Tier == AbyssCorridorTier.Middle ? "중층"
             : "거점";
-        TimeText = FormatTime(cell.RemainingMs);
         Spent = cell.Spent;
         Ticking = cell.Ticking;
+        Inferred = cell.Inferred;
+
+        // "~2:10". The tilde is the ONLY thing separating a corridor whose time was measured on this character
+        // from one assumed full because a character beside it on the same server holds the artifact. It has to
+        // live in the text: the three colour states are taken (measured / 진행 중 / 소진), and dimming a guess
+        // would read as "spent", which is the opposite of what it says. Without any mark the panel can show a
+        // 0:00 on the character that walked the corridor and 2:10 on the one beside it — true, but unreadable
+        // as anything but a bug.
+        TimeText = (cell.Inferred ? "~" : string.Empty) + FormatTime(cell.RemainingMs);
 
         // Only the label recedes when a corridor is used up — the clock stays legible, the same treatment the
         // weekly chips use so a character who has spent everything doesn't render as an empty row.
@@ -177,13 +185,25 @@ public sealed class AbyssCorridorCellViewModel : INotifyPropertyChanged
             ? "이용 시간 모두 사용"
             : Ticking
                 ? "지금 입장 중 — 남은 시간이 흐르는 중입니다"
-                : $"남은 이용 시간 {TimeText}";
+                : cell.Inferred
+                    ? $"남은 이용 시간 {FormatTime(cell.RemainingMs)} (추정)"
+                    : $"남은 이용 시간 {TimeText}";
+
+        // The tooltip says which way an inferred number can be wrong — only a corridor this character burned
+        // while the meter was closed makes it too high — and what it takes to enter, since the side holding an
+        // artifact says nothing about whether THIS character is geared for that layer.
+        string source = cell.Inferred
+            ? "\n같은 서버의 다른 캐릭터에서 점령이 확인된 회랑입니다.\n점령 후 이 캐릭터로 이 회랑에 들어간 적이 없다면 시간이 그대로 남아 있습니다."
+                + (cell.Corridor.Tier == AbyssCorridorTier.Middle
+                    ? "\n입장 조건: 아이템 레벨 3000"
+                    : cell.Corridor.Tier == AbyssCorridorTier.Lower ? "\n입장 조건: 아이템 레벨 1000" : string.Empty)
+            : "\n(점령이 확인된 회랑만 표시됩니다)";
         ToolTip = $"{cell.Corridor.Tier switch
         {
             AbyssCorridorTier.Lower => "어비스 하층",
             AbyssCorridorTier.Middle => "어비스 중층",
             _ => "거점",
-        }} · {cell.Corridor.Name} 아티팩트\n{state}\n(점령한 회랑만 표시됩니다)";
+        }} · {cell.Corridor.Name} 아티팩트\n{state}{source}";
     }
 
     public int TicketId { get; }
@@ -210,6 +230,12 @@ public sealed class AbyssCorridorCellViewModel : INotifyPropertyChanged
 
     public bool Spent { get; }
     public bool Ticking { get; }
+
+    /// <summary>Whether the number came from a same-server character rather than from this one. Shown as the
+    /// "~" on <see cref="TimeText"/>, and checked by <see cref="TryAdvance"/> so a chip that stops being a
+    /// guess rebuilds even when the value does not move (2:10 assumed → 2:10 measured).</summary>
+    public bool Inferred { get; }
+
     public double NameOpacity { get; }
     public string ToolTip { get; }
 
@@ -220,12 +246,15 @@ public sealed class AbyssCorridorCellViewModel : INotifyPropertyChanged
     /// list itself is out of date and has to be rebuilt".</summary>
     internal bool TryAdvance(AbyssCorridorCell cell)
     {
-        if (cell.Corridor.TicketId != TicketId || cell.Spent != Spent || cell.Ticking != Ticking)
+        if (cell.Corridor.TicketId != TicketId
+            || cell.Spent != Spent
+            || cell.Ticking != Ticking
+            || cell.Inferred != Inferred)
         {
             return false;
         }
 
-        TimeText = FormatTime(cell.RemainingMs);
+        TimeText = (Inferred ? "~" : string.Empty) + FormatTime(cell.RemainingMs);
         return true;
     }
 
@@ -251,8 +280,10 @@ public sealed class AetherRowViewModel
             .ToList();
         Corridors = row.CorridorCells.Select(c => new AbyssCorridorCellViewModel(c)).ToList();
 
-        // Three states, and the empty two are NOT the same: "점령한 회랑 없음" is something we watched this
-        // character's login snapshot to learn, while showing nothing at all is us admitting we have not.
+        // Three states, and the empty two are NOT the same: the line is shown for a character whose login
+        // snapshot we actually watched, and withheld for one we never have. What the line may NOT say is that
+        // the side captured nothing — a snapshot full of zeros also comes back from a character that has not
+        // been to the abyss since the 점령전, so it is our records that are empty, not necessarily the abyss.
         CorridorsVisibility = Corridors.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         CorridorsEmptyVisibility =
             Corridors.Count == 0 && row.CorridorsKnown ? Visibility.Visible : Visibility.Collapsed;

@@ -1873,7 +1873,7 @@ public partial class App : Application
         }
 
         // The dump lists every corridor, so having seen one is having seen them all — and that is what lets the
-        // panel say "어비스 회랑 없음" instead of staying silent about a character it simply has not watched.
+        // panel say "어비스 회랑 기록 없음" instead of staying silent about a character it simply has not watched.
         if (witnessAtMs > 0)
         {
             changed |= store.MarkWitness(hash, witnessAtMs);

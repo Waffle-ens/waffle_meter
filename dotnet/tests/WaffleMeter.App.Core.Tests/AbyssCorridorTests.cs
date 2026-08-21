@@ -1,4 +1,4 @@
-using WaffleMeter.App.Core;
+﻿using WaffleMeter.App.Core;
 using Xunit;
 
 namespace WaffleMeter.App.Core.Tests;
@@ -27,8 +27,14 @@ public class AbyssCorridorCatalogTests
     }
 
     /// <summary>Both factions' maps spend the same ticket (client <c>MapEntrance.ContentsTicketList</c>), so a
-    /// 마족 character has to resolve to the same corridor. Never observed live — this build has only ever watched
-    /// 천족 — so it is asserted here to make the assumption visible rather than implied.</summary>
+    /// 마족 character has to resolve to the same corridor.
+    /// <para>⚠️ Corrected 2026-08-20 — the older note here ("this build has only ever watched 천족") had it
+    /// backwards. This install is 마족: every character sits on server 2003, and the corpus catches it standing
+    /// in map 905, which the client tags <c>ERace::Dark</c>. The corridor maps it was sent on both 08-17 and
+    /// 08-19 were nonetheless 503001 / 503004 / 503006 — the ids the client tags <c>ERace::Light</c> — and
+    /// 504xxx has not arrived once in 90 logs. So 503=천족 / 504=마족 is a CLIENT tag, not a wire fact, and
+    /// nothing may read a character's 진영 off the map id the server hands it. The rows below stay asserted so
+    /// that a 504xxx which does arrive resolves instead of falling through to "not a corridor".</para></summary>
     [Theory]
     [InlineData(504001, 10_000_002)]
     [InlineData(504003, 10_000_001)]
@@ -277,7 +283,7 @@ public class AbyssCorridorStoreTests
         Assert.Null(store.Standing(Hash, Ticket, Kst(2026, 8, 19, 23, 30)));
     }
 
-    /// <summary>"이 캐릭터는 점령한 회랑이 없다" is only sayable after a login snapshot has been seen for it this
+    /// <summary>"어비스 회랑 기록 없음" is only sayable after a login snapshot has been seen for it this
     /// cycle. Without the witness the panel has to stay quiet rather than imply an empty answer.</summary>
     [Fact]
     public void The_witness_is_what_separates_none_from_unwatched()

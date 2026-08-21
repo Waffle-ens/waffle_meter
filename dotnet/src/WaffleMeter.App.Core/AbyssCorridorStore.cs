@@ -6,8 +6,11 @@ namespace WaffleMeter.App.Core;
 /// <param name="RemainingMs">The 이용 시간 left AS OF <paramref name="ObservedAtMs"/> — never a projection.</param>
 /// <param name="ObservedAtMs">When the server last stated it.</param>
 /// <param name="GrantedAtMs">When this corridor was last seen holding time (or dropping to zero, which proves it
-/// held some). 0 = never — and that is the ONLY thing separating "이 캐릭터가 다 썼다" from "우리 서버가 그
-/// 아티팩트를 점령하지 못했다", because both arrive on the wire as the same zero.</param>
+/// held some). 0 = never — and within one character that is the only thing separating "이 캐릭터가 다 썼다" from
+/// "우리 진영이 그 아티팩트를 점령하지 못했다", because both arrive on the wire as the same zero.
+/// <para>It does not separate a THIRD case that the same zero also covers — 이 캐릭터는 점령 후 안 가봤다. That
+/// one is only answerable by looking across characters, which is what
+/// <c>AetherRoster.CapturedByServer</c> does.</para></param>
 /// <param name="TickingSinceMs">When the character entered the corridor and the clock started, or 0 when it is
 /// not running. Persisted rather than kept in memory so a meter that was closed mid-corridor does not come back
 /// still claiming 2:10 left on a corridor that expired while it was off.</param>
@@ -47,9 +50,13 @@ public readonly record struct AbyssCorridorRecord(
 /// <para><b>What is stored, and what is not.</b> A record is written only for a corridor worth remembering — one
 /// that has held time this cycle, or that the panel has been told about by hand. Corridors that were merely
 /// listed as zero in a snapshot are NOT stored; instead one witness row per character (ticket id 0) records that
-/// a full snapshot was seen, which is what lets the panel say "이 캐릭터는 점령한 회랑이 없다" instead of
-/// "모른다". Without that distinction a character the meter has never watched would look identical to one whose
-/// faction lost every artifact.</para>
+/// a full snapshot was seen, which is what lets the panel say "어비스 회랑 기록 없음" instead of staying silent
+/// about a character it has never watched.</para>
+/// <para>⚠️ That line reports the state of OUR records and nothing more. It used to be read as "이 캐릭터는
+/// 점령한 회랑이 없다", which 2026-08-20 showed to be wrong: five characters on one server reported zero on every
+/// corridor while a sixth beside them held two, so a zeroed snapshot is also what a character that has not been
+/// to the abyss since the 점령전 sends. Whether the side captured anything is answered across characters, in
+/// <c>AetherRoster.CapturedByServer</c> — never from one character's zeros.</para>
 ///
 /// Pure and cap-bounded so the projection and the staleness rule are unit-testable.
 /// </summary>
@@ -136,7 +143,8 @@ public sealed class AbyssCorridorStore
     }
 
     /// <summary>Whether a full 0x610B snapshot has been seen for this character within the current cycle — i.e.
-    /// whether "이 캐릭터에게 점령된 회랑이 없다" is something we actually know rather than merely have not seen.</summary>
+    /// whether the panel may say "어비스 회랑 기록 없음" at all. It reports that a snapshot was WATCHED — never
+    /// that the side captured nothing, which one character's zeros cannot establish.</summary>
     public bool HasCycleWitness(string? identityHash, long nowMs)
     {
         long boundary = BoundaryFor(identityHash, nowMs);
