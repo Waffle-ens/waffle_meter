@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
+using WaffleMeter.App.Core;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -57,7 +58,8 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
     {
         Title = bossName;
         Description = $"{leadMinutes}분 뒤 리젠 · {respawn:HH:mm}";
-        SpokenText = $"{bossName}, {leadMinutes}분 뒤 리젠"; // 시각 제외 — 위 SpokenText 주석 참고
+        // 시각 제외 — 위 SpokenText 주석 참고. 표시명과 읽는 이름이 다른 보스가 있다(SpokenName).
+        SpokenText = $"{SpokenName.Of(bossName)}, {leadMinutes}분 뒤 리젠";
         IconGlyph = GlyphBell;
         IconBrush = Amber;
     }
