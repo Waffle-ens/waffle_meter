@@ -1185,7 +1185,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public void TestAlarmSound() => AlarmSound.Play(_settings.AlarmVolume);
 
     /// <summary>Settings "음성 테스트" button: speak a sample line (falls back to the chime if TTS fails).</summary>
-    public void TestTts() => TtsSpeech.Speak("슈고 페스타. 5분 뒤 시작합니다.", _settings.AlarmVolume);
+    /// <summary>The wording must be a line the shipped pack actually contains — this button exists to preview
+    /// the chosen voice, and a near-miss (a full stop where the pack has a comma) would quietly demo the online
+    /// fallback instead. <c>AlarmToastViewModel.SetShugo</c> is the source of this exact string.</summary>
+    public void TestTts() => TtsSpeech.Speak("슈고 페스타, 5분 뒤 시작합니다", _settings.AlarmVolume);
 
     // ---- field-boss respawn reminder ----
     public bool FieldBossAlarmEnabled { get => _settings.FieldBossAlarmEnabled; set { _settings.FieldBossAlarmEnabled = value; OnPropertyChanged(); } }
