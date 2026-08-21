@@ -2534,6 +2534,9 @@ public partial class App : Application
     private const long BuffEndTtsScanMs = 700;
     private readonly HashSet<int> _buffStartAnnounced = new(); // base codes we've spoken "온" for (cleared when they end)
     private readonly Dictionary<int, long> _buffEndAnnouncedFor = new(); // base code -> the End(ms) already "오프"-warned; a re-cast extends End and re-arms
+    /// <summary>Queued-but-unspoken end warnings, with the End(ms) each was queued against, so a re-cast can
+    /// cancel one before it lies about a buff that is still up.</summary>
+    private readonly Dictionary<int, (System.Windows.Threading.DispatcherTimer Timer, long EndMs)> _buffEndPending = new();
     private long _lastBuffClearRevision; // 마지막으로 본 DataManager.OwnerBuffClearRevision (사망 클리어 감지)
 
     // Refresh the combat-assist overlay each tick: pull the local player's active buffs, fire the start/end
@@ -2641,7 +2644,17 @@ public partial class App : Application
                 _buffEndAnnouncedFor[b.Code] = b.EndMs;
                 // Claimed on the tick that spotted it, but spoken at the lead — the tick lands anywhere in the
                 // scan window, so speaking immediately would put the voice up to half a second early.
-                SpeakBuffEnd($"{b.Name} 오프", s.AlarmVolume, b.RemainingMs - BuffEndTtsLeadMs);
+                SpeakBuffEnd(b.Code, b.EndMs, $"{b.Name} 오프", s.AlarmVolume, b.RemainingMs - BuffEndTtsLeadMs);
+            }
+
+            // A re-cast inside the scan window moves End out, so the warning we already queued is now about an
+            // expiry that is not going to happen — drop it. The claim above is keyed on End, so the refreshed
+            // buff re-arms by itself and warns again off the new one.
+            if (_buffEndPending.TryGetValue(b.Code, out (System.Windows.Threading.DispatcherTimer Timer, long EndMs) pending)
+                && pending.EndMs != b.EndMs)
+            {
+                pending.Timer.Stop();
+                _buffEndPending.Remove(b.Code);
             }
         }
 
@@ -2662,12 +2675,17 @@ public partial class App : Application
     /// <c>TtsSpeech</c>: that queue is drained by a single worker, so parking a request in it would hold up
     /// every other alert behind it.
     /// </summary>
-    private void SpeakBuffEnd(string text, double volume, long delayMs)
+    private void SpeakBuffEnd(int code, long endMs, string text, double volume, long delayMs)
     {
         if (delayMs <= 0)
         {
             TtsSpeech.Speak(text, volume, durable: true);
             return;
+        }
+
+        if (_buffEndPending.Remove(code, out (System.Windows.Threading.DispatcherTimer Timer, long EndMs) prev))
+        {
+            prev.Timer.Stop(); // one pending warning per buff
         }
 
         var t = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
@@ -2677,8 +2695,10 @@ public partial class App : Application
         t.Tick += (_, _) =>
         {
             t.Stop();
+            _buffEndPending.Remove(code);
             TtsSpeech.Speak(text, volume, durable: true);
         };
+        _buffEndPending[code] = (t, endMs);
         t.Start();
     }
 
