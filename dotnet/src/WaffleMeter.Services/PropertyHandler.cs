@@ -126,6 +126,31 @@ public sealed class PropertyHandler
         }
     }
 
+    /// <summary>
+    /// Deletes a key from the file. Needed by one-shot key migrations: writing "" would leave the old key
+    /// present-but-empty, and a migration that keys off "is the legacy key still there?" would then run on
+    /// every load forever.
+    /// </summary>
+    public void RemoveProperty(string key)
+    {
+        lock (_gate)
+        {
+            if (!_props.Remove(key))
+            {
+                return;
+            }
+
+            if (_batchDepth == 0)
+            {
+                Save();
+            }
+            else
+            {
+                _batchDirty = true;
+            }
+        }
+    }
+
     private int _batchDepth;
     private bool _batchDirty;
 

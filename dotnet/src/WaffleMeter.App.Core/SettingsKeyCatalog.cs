@@ -118,7 +118,10 @@ public static class SettingsKeyCatalog
         new("buffUi.presets", F, "버프 오버레이", "프리셋 3슬롯"),
         // 관측된 버프 카탈로그. 받는 쪽의 픽커가 '소스가 본 버프'까지 보여줘야 hidden/voice 선택이 말이 된다.
         new("buffUi.observed", F, "버프 오버레이", "관측된 버프 목록"),
-        new("visibleSkillCodes", F, "버프 오버레이", "표시 스킬", External: true),
+        new("joinSkills.hidden", F, "버프 오버레이", "표시 스킬", External: true),
+        // 2.10.3 이하가 만든 코드를 계속 받기 위한 옛 키(의미가 반대 — '켠 스킬'). SkillVisibility 가 읽는
+        // 즉시 새 키로 바꾸고 파일에서 지우므로, 나가는 코드에는 절대 실리지 않고 들어올 때만 쓰인다.
+        new("visibleSkillCodes", F, "버프 오버레이", "표시 스킬(옛 형식)", External: true),
 
         // ── 알림 ───────────────────────────────────────────────────────────────────
         new("alarms.soundEnabled", FA, "알림", "알림 소리"),
