@@ -1,4 +1,4 @@
-namespace WaffleMeter.App.Core;
+﻿namespace WaffleMeter.App.Core;
 
 /// <summary>One tracked skill (port of codes.ts SkillMeta).</summary>
 public sealed record SkillMeta(int Code, string Job, string Name, bool IsStigma);
@@ -22,9 +22,9 @@ public static class SkillCatalog
 
     public static readonly IReadOnlyList<SkillMeta> Skills = new SkillMeta[]
     {
-        new(11800000, "검성", "살기 파열", false),
-        new(11750000, "검성", "공격 준비", false),
-        new(11780000, "검성", "노련한 반격", false),
+        new(11020000, "검성", "예리한 일격", false),
+        new(11050000, "검성", "분쇄 파동", false),
+        new(11100000, "검성", "파멸의 맹타", false),
         new(11170000, "검성", "내려찍기", false),
         new(11010000, "검성", "절단의 맹타", false),
         new(11240000, "검성", "분노의 파동", true),
@@ -40,7 +40,7 @@ public static class SkillCatalog
         new(11430000, "검성", "강제 결박", true),
         new(11700000, "검성", "강습 일격", true),
         new(11450000, "검성", "분쇄 돌진", true),
-        new(12780000, "수호성", "격앙", false),
+        new(12090000, "수호성", "징벌", false),
         new(12240000, "수호성", "심판", false),
         new(12010000, "수호성", "맹렬한 일격", false),
         new(12040000, "수호성", "연속 난타", false),
@@ -58,9 +58,9 @@ public static class SkillCatalog
         new(12220000, "수호성", "나포", true),
         new(12700000, "수호성", "강습 맹격", true),
         new(12450000, "수호성", "전장의 깃발", true),
-        new(13740000, "살성", "배후 강타", false),
-        new(13750000, "살성", "강습 자세", false),
-        new(13720000, "살성", "빈틈 노리기", false),
+        new(13060000, "살성", "기습", false),
+        new(13070000, "살성", "암습", false),
+        new(13100000, "살성", "맹수의 포효", false),
         new(13350000, "살성", "심장 찌르기", false),
         new(13130000, "살성", "문양 폭발", false),
         new(13010000, "살성", "빠른 베기", false),
@@ -77,8 +77,8 @@ public static class SkillCatalog
         new(13370000, "살성", "회피의 계약", true),
         new(13700000, "살성", "강습 습격", true),
         new(13140000, "살성", "암영보", true),
-        new(14740000, "궁성", "집중의 눈", false),
-        new(14750000, "궁성", "사냥꾼의 결의", false),
+        new(14080000, "궁성", "파열 화살", false),
+        new(14090000, "궁성", "표적 화살", false),
         new(14020000, "궁성", "저격", false),
         new(14340000, "궁성", "속사", false),
         new(14010000, "궁성", "조준 화살", false),
@@ -96,7 +96,7 @@ public static class SkillCatalog
         new(14360000, "궁성", "폭발 화살", true),
         new(14700000, "궁성", "강습 강타", true),
         new(14380000, "궁성", "지원 사격", true),
-        new(15740000, "마도성", "불꽃의 로브", false),
+        new(15010000, "마도성", "화염 난사", false),
         new(15210000, "마도성", "불꽃 화살", false),
         new(15040000, "마도성", "불꽃 작살", false),
         new(15050000, "마도성", "불꽃 폭발", false),
@@ -116,7 +116,7 @@ public static class SkillCatalog
         new(15120000, "마도성", "빙하 강타", true),
         new(15700000, "마도성", "강습 폭격", true),
         new(15410000, "마도성", "동면", true),
-        new(16710000, "정령성", "정령 타격", false),
+        new(16110000, "정령성", "소환: 물의 정령", false),
         new(16010000, "정령성", "냉기 충격", false),
         new(16040000, "정령성", "화염 전소", false),
         new(16300000, "정령성", "원소 융합", false),
@@ -133,8 +133,8 @@ public static class SkillCatalog
         new(16260000, "정령성", "마법 차단", true),
         new(16700000, "정령성", "강습 공포", true),
         new(16170000, "정령성", "명령: 대역", true),
-        new(17780000, "치유성", "대지의 은총", false),
-        new(17730000, "치유성", "주신의 은총", false),
+        new(17040000, "치유성", "심판의 번개", false),
+        new(17070000, "치유성", "고통의 연쇄", false),
         new(17120000, "치유성", "쾌유의 광휘", false),
         new(17350000, "치유성", "단죄", false),
         new(17060000, "치유성", "벽력", false),
@@ -152,8 +152,8 @@ public static class SkillCatalog
         new(17300000, "치유성", "파멸의 목소리", true),
         new(17700000, "치유성", "강습 낙인", true),
         new(17440000, "치유성", "고결한 기운", true),
-        new(18780000, "호법성", "대지의 약속", false),
-        new(18750000, "호법성", "공격 준비", false),
+        new(18060000, "호법성", "타격쇄", false),
+        new(18080000, "호법성", "파동격", false),
         new(18120000, "호법성", "쾌유의 주문", false),
         new(18100000, "호법성", "암격쇄", false),
         new(18010000, "호법성", "격파쇄", false),
@@ -172,10 +172,16 @@ public static class SkillCatalog
         new(18440000, "호법성", "결계의 주문", true),
         // 권성 (prefix 19) — the new job (2026-07-01 patch). Stigma set matches the client's
         // SpecializedSkillParts (InitEquipSlotType != None); normals lead the badge sort by observed volume.
-        new(19720000, "권성", "정면 돌파", false),
-        new(19800000, "권성", "경량화", false),
-        new(19780000, "권성", "충격타", false),
-        new(19710000, "권성", "전선 유지", false),
+        //
+        // ⚠ The 일반 entries must be ACTIVE skills. The join panel's badges come from the official site's
+        // equipment endpoint, which reports every Passive as equip:0 forever — so a passive listed here is a
+        // chip in the picker that can never light up. Measured live 2026-08-23 across 108 level-45+ characters
+        // (12 per job): every job had such entries and 권성 had four of six, leaving it with two possible
+        // badges while 마도성 had six. The codes below are the actives that 12/12 sampled 권성 had equipped.
+        new(19070000, "권성", "질풍격", false),
+        new(19090000, "권성", "지면 강타", false),
+        new(19130000, "권성", "폭주", false),
+        new(19160000, "권성", "승천타", false),
         new(19040000, "권성", "비각", false),
         new(19010000, "권성", "연격", false),
         new(19310000, "권성", "파쇄", true),

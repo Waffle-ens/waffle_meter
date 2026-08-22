@@ -1,4 +1,4 @@
-using WaffleMeter.App.Core;
+﻿using WaffleMeter.App.Core;
 using Xunit;
 
 namespace WaffleMeter.App.Core.Tests;
@@ -42,8 +42,9 @@ public class SkillCatalogTests
     [Fact]
     public void Order_follows_source_order()
     {
-        // 검성 첫 스킬이 두 번째보다 앞.
-        Assert.True(SkillCatalog.Order(11800000) < SkillCatalog.Order(11750000));
+        // 소스에 적힌 순서 그대로. 코드를 박아 두면 카탈로그를 손볼 때마다 같이 썩으므로(2026-08-23 에
+        // 죽은 패시브 19개를 액티브로 교체하면서 실제로 그렇게 됐다) 카탈로그 자신에게서 뽑는다.
+        Assert.True(SkillCatalog.Order(SkillCatalog.Skills[0].Code) < SkillCatalog.Order(SkillCatalog.Skills[1].Code));
         Assert.Equal(999, SkillCatalog.Order(99999999)); // unknown -> tail
     }
 
@@ -62,5 +63,23 @@ public class SkillCatalogTests
         Assert.Contains(15210000, sorc.NormalSkills);  // 불꽃 화살 (normal)
         Assert.Contains(15360000, sorc.StigmaSkills);   // 신성 폭발 (stigma)
         Assert.DoesNotContain(15210000, sorc.StigmaSkills);
+    }
+
+    /// <summary>
+    /// 일반(비스티그마) 항목은 전부 액티브여야 한다. 조인 패널 뱃지는 공식 홈 장착 정보에서만 오는데 그쪽은
+    /// 패시브를 영원히 equip:0 으로 주므로, 여기 실린 패시브는 픽커에서 켜져 있어도 절대 뜨지 않는 칸이다.
+    /// 2026-08-23 라이브 108명 표본에서 전 직업에 그런 항목이 있었고 권성은 6개 중 4개였다.
+    ///
+    /// 클라 데이터에 category 가 없어 코드 대역으로 판정한다: 실측상 x71xxxx~x80xxxx 가 패시브 대역이다.
+    /// </summary>
+    [Fact]
+    public void Normal_skills_are_never_from_the_passive_band()
+    {
+        var passives = SkillCatalog.Skills
+            .Where(s => !s.IsStigma && s.Code % 1_000_000 >= 700_000)
+            .Select(s => $"{s.Code} {s.Job} {s.Name}")
+            .ToArray();
+
+        Assert.Empty(passives);
     }
 }
