@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using WaffleMeter.Data;
@@ -82,20 +82,26 @@ public sealed class StatsConsentManager
     public Info GetInfo(bool syncRemote = false, string clientVersion = "dev") =>
         syncRemote ? RefreshFromServer(clientVersion) : LocalInfo();
 
-    public Info Set(string state, bool uploadEnabled, bool publicCharacter, string clientVersion = "dev")
+    /// <param name="explicitChoice">The user pressed a button for this character on this install. Default true —
+    /// every caller of <see cref="Set"/> is a UI action. The consent dialog passes <c>false</c> when it was
+    /// dismissed rather than answered; see <see cref="CharConsent.Explicit"/> for why that matters.</param>
+    public Info Set(string state, bool uploadEnabled, bool publicCharacter, string clientVersion = "dev",
+        bool explicitChoice = true)
     {
         State next = TryState(state) ?? State.unknown;
         switch (next)
         {
             case State.accepted:
-                return Accept(uploadEnabled, publicCharacter, clientVersion);
+                return Accept(uploadEnabled, publicCharacter, clientVersion, explicitChoice);
             case State.revoked:
                 return Revoke(clientVersion);
             case State.declined:
-                SaveLocal(State.declined, uploadEnabled: false, publicCharacter: false, syncStatus: "local_declined");
+                SaveLocal(State.declined, uploadEnabled: false, publicCharacter: false, syncStatus: "local_declined",
+                    explicitChoice: explicitChoice);
                 return LocalInfo();
             default:
-                SaveLocal(State.unknown, uploadEnabled: false, publicCharacter: false, syncStatus: "local_unknown");
+                SaveLocal(State.unknown, uploadEnabled: false, publicCharacter: false, syncStatus: "local_unknown",
+                    explicitChoice: explicitChoice);
                 return LocalInfo();
         }
     }
@@ -118,8 +124,30 @@ public sealed class StatsConsentManager
         try
         {
             ConsentStatusResponse response = _api.GetConsentStatus(identityHash);
-            Info current = LocalInfo();
-            bool requestedUpload = current.State == State.accepted.ToString() ? current.UploadEnabled : true;
+            LoadCharacters().TryGetValue(identityHash, out CharConsent? local);
+            bool remoteAccepted = (TryState(response.ConsentState) ?? State.unknown) == State.accepted && response.Exists;
+
+            // 🔑 The repair. A character the server already knows as accepted, whose local record on THIS
+            // install says otherwise without the user ever having said so, is a stuck install — and the cost of
+            // leaving it stuck is invisible and total: IsUploadAllowed() is per-character (see LocalInfo), so
+            // every battle on that character is dropped at the first gate, no 소유 증명 is ever earned, and
+            // 공개 전환 and 스킨 선택 stay locked with nothing on screen to explain it. Measured on production
+            // 2026-08-22: 1,290 characters were consented server-side and had never once been an uploader.
+            //
+            // An EXPLICIT local opt-out is a different thing and is left alone — the user turned this character
+            // off on this PC and that decision outranks a stale server row.
+            //
+            // ⚠ Only an UPGRADE is gated this way. A remote revoke/decline is always adopted: the fail-safe
+            // direction is less data, never more.
+            if (remoteAccepted && local is { Explicit: true } && (TryState(local.State) != State.accepted || !local.UploadEnabled))
+            {
+                RememberSync("synced_local_choice", null);
+                return LocalInfo();
+            }
+
+            // Uploads default ON for anything that is not an explicit local preference — that is what makes the
+            // stuck character heal on the next character switch rather than needing a settings visit nobody knows to make.
+            bool requestedUpload = local is { Explicit: true, State: nameof(State.accepted) } ? local.UploadEnabled : true;
             return ApplyRemote(response, requestedUpload);
         }
         catch (Exception e)
@@ -129,7 +157,57 @@ public sealed class StatsConsentManager
         }
     }
 
-    private Info Accept(bool uploadEnabled, bool publicCharacter, string clientVersion)
+    /// <summary>
+    /// Re-read the CURRENT character's consent from the server. Call it when a different character connects.
+    /// <para>⚠ Blocking HTTP — never on the UI thread. Every failure is swallowed into the sync status, because
+    /// this runs unprompted and a decoration-grade sync must not surface as an error mid-combat.</para>
+    /// <para>Before this existed the only caller of the remote sync was the settings window's 서버 동기화 button,
+    /// so a character whose local record was missing or wrong stayed that way for as long as the install lived.</para>
+    /// </summary>
+    public void SyncCurrentCharacter(string clientVersion)
+    {
+        try
+        {
+            RefreshFromServer(clientVersion);
+        }
+        catch
+        {
+            // RefreshFromServer already swallows API failures; this is belt-and-braces for the caller's thread.
+        }
+    }
+
+    /// <summary>Why the current character's battles are (not) being uploaded — for the 통계 탭 to say it out loud.
+    /// <para><c>null</c> = nothing to report (uploading normally, or no character detected yet).</para></summary>
+    public string? CurrentUploadBlockReason()
+    {
+        if (!_ownCharacter().Detected)
+        {
+            return null;
+        }
+
+        Info info = LocalInfo();
+        if (info.State != State.accepted.ToString())
+        {
+            return info.State == State.declined.ToString() || info.State == State.revoked.ToString()
+                ? "이 캐릭터는 통계 업로드를 사용하지 않도록 되어 있어요. 아래에서 다시 켤 수 있습니다."
+                : "이 캐릭터는 아직 통계 동의를 하지 않았어요.";
+        }
+
+        if (!info.UploadEnabled)
+        {
+            return "이 캐릭터만 업로드가 꺼져 있어요. (업로드 설정은 캐릭터별입니다)";
+        }
+
+        string? hash = CurrentIdentityHash();
+        if (hash != null && !HasGrant(hash))
+        {
+            return "이 캐릭터로는 이 PC 에서 아직 업로드된 전투가 없어요. 던전 전투가 한 번 올라가면 공개 전환과 스킨 선택이 열립니다.";
+        }
+
+        return null;
+    }
+
+    private Info Accept(bool uploadEnabled, bool publicCharacter, string clientVersion, bool explicitChoice = true)
     {
         // A character's shared public flag may only be CHANGED (turned ON or OFF) by an install that OWNS
         // the character (holds its grant). A non-owning install (e.g. a PC방/재설치 install with no grant)
@@ -143,7 +221,8 @@ public sealed class StatsConsentManager
         ConsentEventCharacter? character = CurrentConsentCharacter(publicIntent);
         if (character == null)
         {
-            SaveLocal(State.accepted, uploadEnabled: false, publicCharacter: publicCharacter, syncStatus: "identity_missing");
+            SaveLocal(State.accepted, uploadEnabled: false, publicCharacter: publicCharacter, syncStatus: "identity_missing",
+                explicitChoice: explicitChoice);
             return LocalInfo();
         }
 
@@ -152,14 +231,14 @@ public sealed class StatsConsentManager
             ConsentStatusResponse response = _api.PostConsentEvent(
                 new ConsentEventRequest(State.accepted.ToString(), ConsentVersion, Character: character),
                 clientVersion);
-            return ApplyRemote(response, requestedUpload: uploadEnabled);
+            return ApplyRemote(response, requestedUpload: uploadEnabled, explicitChoice: explicitChoice);
         }
         catch (Exception e) when (publicCharacter && IsPublicOwnershipRejection(e))
         {
             // Public refused (no grant). Re-affirm consent WITHOUT asserting public (omit → server preserves),
             // never downgrading a shared row, then surface the ownership notice. Replaces the old destructive
             // "re-accept as private" rollback that overwrote public=false and un-published the character.
-            return AcceptPublicUnmanaged(character, uploadEnabled, clientVersion);
+            return AcceptPublicUnmanaged(character, uploadEnabled, clientVersion, explicitChoice);
         }
         catch (Exception e)
         {
@@ -169,7 +248,8 @@ public sealed class StatsConsentManager
                 publicCharacter: publicCharacter,
                 syncStatus: "sync_failed",
                 identityHash: character.IdentityHash,
-                syncError: Summarize(e));
+                syncError: Summarize(e),
+                explicitChoice: explicitChoice);
             return LocalInfo();
         }
     }
@@ -179,7 +259,8 @@ public sealed class StatsConsentManager
     /// downgrading a row an owning install already made public. Reflect the server's real state locally, and
     /// only stamp the public_requires_ownership notice when the character is genuinely still private (there is
     /// nothing to warn about if another owning install has already made it public).</summary>
-    private Info AcceptPublicUnmanaged(ConsentEventCharacter character, bool uploadEnabled, string clientVersion)
+    private Info AcceptPublicUnmanaged(ConsentEventCharacter character, bool uploadEnabled, string clientVersion,
+        bool explicitChoice = true)
     {
         ConsentEventCharacter consentOnly = character with { PublicCharacter = null };
         bool serverPublic;
@@ -187,14 +268,15 @@ public sealed class StatsConsentManager
         {
             ConsentStatusResponse response = _api.PostConsentEvent(
                 new ConsentEventRequest(State.accepted.ToString(), ConsentVersion, Character: consentOnly), clientVersion);
-            ApplyRemote(response, requestedUpload: uploadEnabled);
+            ApplyRemote(response, requestedUpload: uploadEnabled, explicitChoice: explicitChoice);
             serverPublic = (TryState(response.ConsentState) ?? State.unknown) == State.accepted
                 && response.Exists && response.PublicCharacter;
         }
         catch (Exception e)
         {
             SaveLocal(State.accepted, uploadEnabled: false, publicCharacter: false,
-                syncStatus: "sync_failed", identityHash: consentOnly.IdentityHash, syncError: Summarize(e));
+                syncStatus: "sync_failed", identityHash: consentOnly.IdentityHash, syncError: Summarize(e),
+                explicitChoice: explicitChoice);
             return LocalInfo();
         }
 
@@ -235,7 +317,7 @@ public sealed class StatsConsentManager
         }
     }
 
-    private Info ApplyRemote(ConsentStatusResponse response, bool requestedUpload)
+    private Info ApplyRemote(ConsentStatusResponse response, bool requestedUpload, bool? explicitChoice = null)
     {
         State remoteState = TryState(response.ConsentState) ?? State.unknown;
         bool accepted = remoteState == State.accepted && response.Exists;
@@ -252,7 +334,8 @@ public sealed class StatsConsentManager
             syncError: null,
             serverUpdatedAt: response.UpdatedAt,
             lastSeenAt: response.LastSeenAt,
-            grant: response.Granted);
+            grant: response.Granted,
+            explicitChoice: explicitChoice);
         return LocalInfo();
     }
 
@@ -603,10 +686,16 @@ public sealed class StatsConsentManager
     }
 
     private void UpsertCharacter(string identityHash, State state, bool uploadEnabled, bool publicCharacter,
-        string version, long updatedAt, string? nickname = null, int server = 0, string? job = null, bool grant = false)
+        string version, long updatedAt, string? nickname = null, int server = 0, string? job = null, bool grant = false,
+        bool? explicitChoice = null)
     {
         Dictionary<string, CharConsent> map = LoadCharacters();
         CharConsent entry = map.TryGetValue(identityHash, out CharConsent? existing) ? existing : new CharConsent();
+        if (explicitChoice is { } chosen)
+        {
+            entry.Explicit = chosen; // only a real button press flips this; a server echo passes null
+        }
+
         entry.State = state.ToString();
         entry.UploadEnabled = state == State.accepted && uploadEnabled;
         entry.PublicCharacter = state == State.accepted && publicCharacter;
@@ -713,6 +802,21 @@ public sealed class StatsConsentManager
         // server refused it. Remembered here so the first upload that earns the grant auto-applies public instead
         // of making them re-toggle it. Cleared once public is applied, the user turns it off, or revokes.
         [JsonPropertyName("pendingPublic")] public bool PendingPublic { get; set; }
+
+        /// <summary>
+        /// The user actually pressed a button for THIS character on THIS install (동의 / 거부 / 철회 / 토글).
+        ///
+        /// <para>Everything else — a dialog dismissed with the window close button, a state written to keep the
+        /// record shaped, a server echo — is not a decision. The distinction exists because it decides what
+        /// <see cref="RefreshFromServer"/> is allowed to repair: a character the server already knows as
+        /// <c>accepted</c> whose local record says otherwise WITHOUT this flag is a stuck install, not a choice,
+        /// and leaving it stuck costs that character every upload, its 소유 증명, and with it 공개 전환 and
+        /// 스킨 선택 — silently and forever.</para>
+        ///
+        /// <para>Absent in records written before this field existed, which deserializes to false. That is the
+        /// right default: those records predate the ability to say "the user meant it", so they are repairable.</para>
+        /// </summary>
+        [JsonPropertyName("explicit")] public bool Explicit { get; set; }
     }
 
     private void SaveLocal(
@@ -727,7 +831,8 @@ public sealed class StatsConsentManager
         string? syncError = null,
         string? serverUpdatedAt = null,
         string? lastSeenAt = null,
-        bool grant = false)
+        bool grant = false,
+        bool? explicitChoice = null)
     {
         string? resolvedIdentity = ReferenceEquals(identityHash, KeepCurrentIdentity) ? CurrentIdentityHash() : identityHash;
         string version = consentVersion ?? ConsentVersion;
@@ -757,7 +862,7 @@ public sealed class StatsConsentManager
             User? u = _data.User(_data.ExecutorId());
             string? job = NonBlank(_ownCharacter().Job) ?? (u?.Job is { } jc ? jc.ClassName() : null);
             UpsertCharacter(mapKey, state, uploadEnabled, publicCharacter, version, updated,
-                NonBlank(u?.Nickname), u?.Server ?? 0, job, grant);
+                NonBlank(u?.Nickname), u?.Server ?? 0, job, grant, explicitChoice);
         }
     }
 

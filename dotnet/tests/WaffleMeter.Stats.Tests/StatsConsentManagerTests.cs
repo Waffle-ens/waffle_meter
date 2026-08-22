@@ -1,4 +1,4 @@
-using WaffleMeter.Data;
+﻿using WaffleMeter.Data;
 using WaffleMeter.Services;
 using WaffleMeter.Stats;
 using Xunit;
@@ -520,5 +520,76 @@ public sealed class StatsConsentManagerTests : IDisposable
         Assert.Equal("revoked", info.State);
         Assert.False(info.UploadEnabled);
         Assert.False(Manager(ApiFailing()).IsUploadAllowed());
+    }
+
+    // ---- 캐릭터별 업로드가 조용히 막히는 상태의 자가 복구 (2026-08-22) ----
+    //
+    // 프로덕션 실측: 동의는 accepted 인데 업로더였던 적이 한 번도 없는 캐릭터가 1,290개였다. IsUploadAllowed 는
+    // 캐릭터별이라, 재설치로 per-character 기록이 비면 그 캐릭터는 첫 게이트에서 영구히 걸리고 화면엔 아무 말도 없다.
+
+    private static string StatusJson(string state, bool exists = true, bool publicCharacter = false, bool granted = false) =>
+        $"{{\"ok\":true,\"identityHash\":\"h\",\"exists\":{(exists ? "true" : "false")},\"consentState\":\"{state}\"," +
+        $"\"public\":{(publicCharacter ? "true" : "false")},\"consentVersion\":\"2026-06-04\"," +
+        $"\"granted\":{(granted ? "true" : "false")}}}";
+
+    [Fact]
+    public void Server_accepted_repairs_a_character_this_install_never_decided()
+    {
+        GiveExecutor();
+        StatsConsentManager manager = Manager(ApiReturning(StatusJson("accepted")));
+
+        // 이 설치본에는 이 캐릭터의 기록이 없다 (재설치 직후 상태) -> 업로드가 막혀 있다.
+        Assert.False(manager.IsUploadAllowed());
+
+        manager.SyncCurrentCharacter("test");
+
+        Assert.True(manager.IsUploadAllowed());
+        Assert.Equal("accepted", manager.GetInfo().State);
+    }
+
+    [Fact]
+    public void Server_accepted_repairs_a_dismissed_prompt_but_not_a_real_decline()
+    {
+        GiveExecutor();
+
+        // 모달을 닫기만 한 경우: 결정이 아니므로 복구 대상이다.
+        StatsConsentManager dismissed = Manager(ApiReturning(StatusJson("accepted")));
+        dismissed.Set("declined", uploadEnabled: false, publicCharacter: false, "test", explicitChoice: false);
+        Assert.False(dismissed.IsUploadAllowed());
+        dismissed.SyncCurrentCharacter("test");
+        Assert.True(dismissed.IsUploadAllowed());
+
+        // 사용자가 실제로 '거부'를 누른 경우: 서버가 accepted 여도 건드리지 않는다.
+        StatsConsentManager refused = Manager(ApiReturning(StatusJson("accepted")));
+        refused.Set("declined", uploadEnabled: false, publicCharacter: false, "test");
+        refused.SyncCurrentCharacter("test");
+        Assert.False(refused.IsUploadAllowed());
+        Assert.Equal("declined", refused.GetInfo().State);
+    }
+
+    [Fact]
+    public void Remote_revoke_is_always_adopted_even_over_an_explicit_local_accept()
+    {
+        GiveExecutor();
+        StatsConsentManager manager = Manager(ApiReturning(StatusJson("accepted")));
+        manager.Set("accepted", uploadEnabled: true, publicCharacter: false, "test");
+        Assert.True(manager.IsUploadAllowed());
+
+        // 철회는 항상 따라간다 — 안전 방향은 '데이터가 덜 가는 쪽'이다.
+        StatsConsentManager revoked = Manager(ApiReturning(StatusJson("revoked")));
+        revoked.SyncCurrentCharacter("test");
+        Assert.False(revoked.IsUploadAllowed());
+    }
+
+    [Fact]
+    public void Block_reason_names_the_missing_grant_once_uploads_are_allowed()
+    {
+        GiveExecutor();
+        StatsConsentManager manager = Manager(ApiReturning(StatusJson("accepted")));
+        manager.SyncCurrentCharacter("test");
+
+        Assert.True(manager.IsUploadAllowed());
+        // 업로드는 열렸지만 이 설치본은 아직 이 캐릭터로 올린 적이 없다 -> 그 사실을 말해 준다.
+        Assert.Contains("아직 업로드된 전투가 없어요", manager.CurrentUploadBlockReason());
     }
 }
