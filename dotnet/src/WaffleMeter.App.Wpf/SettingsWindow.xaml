@@ -781,6 +781,13 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+
+                                <!-- 누른 결과와, 왜 지금은 안 바뀌는지. 픽커 바로 아래여야 한다 — 아래쪽
+                                     '후원자 목록 갱신' 줄에 두었을 때는 미리보기 카드와 슬라이더에 밀려
+                                     사유가 스크롤 밖이었고, 그래서 실패가 통째로 조용했다. -->
+                                <TextBlock Text="{Binding MyFxNotice}" Style="{StaticResource SettingDesc}"
+                                           TextWrapping="Wrap" Margin="0,6,0,0"
+                                           Visibility="{Binding MyFxNoticeVisibility}"/>
                             </StackPanel>
                         </Border>
 
