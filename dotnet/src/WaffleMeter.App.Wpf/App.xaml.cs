@@ -753,6 +753,10 @@ public partial class App : Application
         Dispatcher.BeginInvoke(new Action(() => MaybeShowPatchNotes(services.Version)),
             System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
+        // The shipped voice pack backs every built-in alert line; the online voice is only the fallback for
+        // custom alarms and anything a newer patch added after this pack was rendered.
+        TtsSpeech.SetVoicePack(new BakedVoicePack(AppContext.BaseDirectory, _settings!.TtsVoice));
+
         // 슈고 페스타 (top-of-hour event) reminder: a transient toast + an app-scoped clock that fires it.
         _alarmToastVm = new AlarmToastViewModel();
         _alarmToast = new AlarmToast { DataContext = _alarmToastVm };
@@ -2513,10 +2517,26 @@ public partial class App : Application
         PlayAlert(_alarmToastVm.SpokenText);
     }
 
-    // ~0.8s pre-warn so the "오프" voice lands right around the buff's actual expiry (TTS init + speak latency).
-    private const long BuffEndTtsLeadMs = 800;
+    /// <summary>
+    /// How long before a buff actually expires the "오프" voice should start. Pre-rendered packs play from
+    /// disk, so this is now purely a preference — it used to be inflated to ~0.8s to hide the online
+    /// synthesiser's round trip.
+    /// </summary>
+    private const long BuffEndTtsLeadMs = 200;
+
+    /// <summary>
+    /// How early the refresh loop starts LOOKING for an expiring buff. This is deliberately NOT the same
+    /// number as the lead: the check only sees whatever <see cref="_buffTimer"/> happens to sample, so the
+    /// window it scans has to be wider than that timer's 500 ms interval or ticks step straight over it. At a
+    /// 200 ms window roughly 3 in 5 end-warnings would simply never fire, and silently — which is exactly how
+    /// this would have regressed if the lead had just been turned down.
+    /// </summary>
+    private const long BuffEndTtsScanMs = 700;
     private readonly HashSet<int> _buffStartAnnounced = new(); // base codes we've spoken "온" for (cleared when they end)
     private readonly Dictionary<int, long> _buffEndAnnouncedFor = new(); // base code -> the End(ms) already "오프"-warned; a re-cast extends End and re-arms
+    /// <summary>Queued-but-unspoken end warnings, with the End(ms) each was queued against, so a re-cast can
+    /// cancel one before it lies about a buff that is still up.</summary>
+    private readonly Dictionary<int, (System.Windows.Threading.DispatcherTimer Timer, long EndMs)> _buffEndPending = new();
     private long _lastBuffClearRevision; // 마지막으로 본 DataManager.OwnerBuffClearRevision (사망 클리어 감지)
 
     // Refresh the combat-assist overlay each tick: pull the local player's active buffs, fire the start/end
@@ -2618,11 +2638,23 @@ public partial class App : Application
             // so the end alert fires off the REFRESHED duration. A maintained stance (폭주) is skipped entirely:
             // its expiry is a synthetic keep-alive, not a real end, so pre-warning it spoke a false "오프" every
             // time a held re-broadcast gap elapsed while the stance was still up.
-            if (s.BuffTtsOnEnd && !b.Indefinite && b.DurationMs > BuffEndTtsLeadMs * 2 && b.RemainingMs > 0 && b.RemainingMs <= BuffEndTtsLeadMs
+            if (s.BuffTtsOnEnd && !b.Indefinite && b.DurationMs > BuffEndTtsScanMs * 2 && b.RemainingMs > 0 && b.RemainingMs <= BuffEndTtsScanMs
                 && (!_buffEndAnnouncedFor.TryGetValue(b.Code, out long warnedEnd) || warnedEnd != b.EndMs))
             {
                 _buffEndAnnouncedFor[b.Code] = b.EndMs;
-                TtsSpeech.Speak($"{b.Name} 오프", s.AlarmVolume, durable: true);
+                // Claimed on the tick that spotted it, but spoken at the lead — the tick lands anywhere in the
+                // scan window, so speaking immediately would put the voice up to half a second early.
+                SpeakBuffEnd(b.Code, b.EndMs, $"{b.Name} 오프", s.AlarmVolume, b.RemainingMs - BuffEndTtsLeadMs);
+            }
+
+            // A re-cast inside the scan window moves End out, so the warning we already queued is now about an
+            // expiry that is not going to happen — drop it. The claim above is keyed on End, so the refreshed
+            // buff re-arms by itself and warns again off the new one.
+            if (_buffEndPending.TryGetValue(b.Code, out (System.Windows.Threading.DispatcherTimer Timer, long EndMs) pending)
+                && pending.EndMs != b.EndMs)
+            {
+                pending.Timer.Stop();
+                _buffEndPending.Remove(b.Code);
             }
         }
 
@@ -2637,6 +2669,39 @@ public partial class App : Application
 
     /// <summary>Sound an alert: speak it with TTS if enabled (which falls back to the chime on failure),
     /// otherwise play the chime when the sound setting is on.</summary>
+    /// <summary>
+    /// Speak a buff's end warning after <paramref name="delayMs"/>, so it lands at the intended lead rather
+    /// than whenever the 500 ms refresh tick noticed. A one-shot dispatcher timer rather than a delay inside
+    /// <c>TtsSpeech</c>: that queue is drained by a single worker, so parking a request in it would hold up
+    /// every other alert behind it.
+    /// </summary>
+    private void SpeakBuffEnd(int code, long endMs, string text, double volume, long delayMs)
+    {
+        if (delayMs <= 0)
+        {
+            TtsSpeech.Speak(text, volume, durable: true);
+            return;
+        }
+
+        if (_buffEndPending.Remove(code, out (System.Windows.Threading.DispatcherTimer Timer, long EndMs) prev))
+        {
+            prev.Timer.Stop(); // one pending warning per buff
+        }
+
+        var t = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(delayMs),
+        };
+        t.Tick += (_, _) =>
+        {
+            t.Stop();
+            _buffEndPending.Remove(code);
+            TtsSpeech.Speak(text, volume, durable: true);
+        };
+        _buffEndPending[code] = (t, endMs);
+        t.Start();
+    }
+
     private void PlayAlert(string spokenText)
     {
         if (_settings is not { } s)

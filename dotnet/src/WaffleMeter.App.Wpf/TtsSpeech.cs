@@ -40,8 +40,26 @@ public static class TtsSpeech
     private static readonly ConcurrentQueue<string> _cacheOrder = new();
     private static long _disabledUntilMs; // Environment.TickCount64 when Edge synthesis may be retried
 
-    /// <summary>Voice name (settable from settings; defaults to the Korean female voice).</summary>
+    /// <summary>Voice name for the ONLINE fallback (settable from settings; the Korean female voice).</summary>
     public static string Voice { get; set; } = EdgeTtsProtocol.DefaultVoice;
+
+    private static BakedVoicePack? _pack;
+
+    /// <summary>
+    /// Select the shipped voice pack. Changing packs drops the memory cache: it is keyed by text alone, so
+    /// clips rendered by the previous pack would otherwise keep playing in the old voice until restart.
+    /// </summary>
+    public static void SetVoicePack(BakedVoicePack? pack)
+    {
+        if (_pack?.Pack == pack?.Pack)
+        {
+            return;
+        }
+
+        _pack = pack;
+        _cache.Clear();
+        _cacheOrder.Clear();
+    }
 
     /// <summary>Queue <paramref name="text"/> to be spoken at <paramref name="volume"/> (0..1). Returns
     /// immediately; never throws. Set <paramref name="durable"/> for a burst that must all be spoken in order
@@ -119,6 +137,15 @@ public static class TtsSpeech
         if (_cache.TryGetValue(text, out byte[]? hit))
         {
             return hit;
+        }
+
+        // The shipped pack first: it covers every built-in line, costs a file read, and needs no network.
+        // Only a custom alarm's free-text title and lines newer than the installed pack fall past this.
+        byte[]? baked = _pack?.TryGet(text);
+        if (baked is { Length: > 0 })
+        {
+            Cache(text, baked);
+            return baked;
         }
 
         if (Environment.TickCount64 < Interlocked.Read(ref _disabledUntilMs))

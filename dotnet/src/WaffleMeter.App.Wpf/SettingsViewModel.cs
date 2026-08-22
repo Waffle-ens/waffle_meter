@@ -251,6 +251,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("모두 숨김", "hidden"),
     };
 
+    /// <summary>동봉된 음성 팩. 값은 폴더명이자 <c>alarms.ttsVoice</c>에 저장되는 문자열이다.</summary>
+    public IReadOnlyList<SettingOption> TtsVoices { get; } = new[]
+    {
+        new SettingOption("와순이 (여성)", BakedVoicePack.Wasuni),
+        new SettingOption("와붕이 (남성)", BakedVoicePack.Wabungi),
+    };
+
     public IReadOnlyList<SettingOption> TargetInfoDisplayModes { get; } = new[]
     {
         new SettingOption("남은/최대 · 퍼센트", "hp_full_percent"),
@@ -464,6 +471,16 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string DamageValueMode { get => _settings.DamageValueMode; set { _settings.DamageValueMode = value; OnPropertyChanged(); } }
     public string ContributionMode { get => _settings.ContributionMode; set { _settings.ContributionMode = value; OnPropertyChanged(); } }
     public string NameDisplay { get => _settings.NameDisplay; set { _settings.NameDisplay = value; OnPropertyChanged(); } }
+    public string TtsVoice
+    {
+        get => _settings.TtsVoice;
+        set
+        {
+            _settings.TtsVoice = value;
+            TtsSpeech.SetVoicePack(new BakedVoicePack(AppContext.BaseDirectory, value));
+            OnPropertyChanged();
+        }
+    }
     /// <summary>The applied meter font. The setter drops null/empty on purpose — see
     /// <see cref="CardFontSelection"/> for why two Selectors over one setting would otherwise erase it.</summary>
     public string FontFamily
@@ -1168,7 +1185,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public void TestAlarmSound() => AlarmSound.Play(_settings.AlarmVolume);
 
     /// <summary>Settings "음성 테스트" button: speak a sample line (falls back to the chime if TTS fails).</summary>
-    public void TestTts() => TtsSpeech.Speak("슈고 페스타. 5분 뒤 시작합니다.", _settings.AlarmVolume);
+    /// <summary>The wording must be a line the shipped pack actually contains — this button exists to preview
+    /// the chosen voice, and a near-miss (a full stop where the pack has a comma) would quietly demo the online
+    /// fallback instead. <c>AlarmToastViewModel.SetShugo</c> is the source of this exact string.</summary>
+    public void TestTts() => TtsSpeech.Speak("슈고 페스타, 5분 뒤 시작합니다", _settings.AlarmVolume);
 
     // ---- field-boss respawn reminder ----
     public bool FieldBossAlarmEnabled { get => _settings.FieldBossAlarmEnabled; set { _settings.FieldBossAlarmEnabled = value; OnPropertyChanged(); } }

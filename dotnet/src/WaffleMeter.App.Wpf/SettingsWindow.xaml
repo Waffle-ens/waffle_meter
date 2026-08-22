@@ -1235,6 +1235,16 @@
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding TtsEnabled}"/>
                         </Grid>
 
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="알림 음성" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="알림을 읽어줄 목소리입니다. 기본 제공 알림은 인터넷 없이 바로 재생됩니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding TtsVoices}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding TtsVoice}"/>
+                        </Grid>
+
                         <StackPanel Orientation="Horizontal" Margin="0,2,0,4">
                             <Button Content="소리 테스트" Click="OnTestAlarmSound" HorizontalAlignment="Left"
                                     Height="30" Padding="14,0" Cursor="Hand" Margin="0,0,8,0"/>

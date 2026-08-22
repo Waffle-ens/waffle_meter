@@ -78,7 +78,12 @@ public sealed class NameFxArtifactInteropTests : IDisposable
         var props = new PropertyHandler(_dir);
         var api = new FixtureApi(gzip, ExpectedSha256, ExpectedArtifactId);
 
-        using var service = new NameFxService(api, props, KnownEffect, KnownGauge, startWorker: false);
+        // 시계를 고정한다. 픽스처는 서버가 실제로 찍은 문서라 랭커 임대에 고정 만료일(2026-08-22)이 박혀
+        // 있고, 실제 시각을 쓰면 그 날짜가 지나는 순간 만료 항목이 정상적으로 걸러져 이 검사가 매일 깨진다.
+        // 여기서 보려는 건 만료 처리(그건 아래 별도 테스트가 본다)가 아니라 두 언어가 같은 문서를 읽느냐다.
+        long duringLease = DateTimeOffset.Parse("2026-08-21T00:00:00Z").ToUnixTimeMilliseconds();
+        using var service = new NameFxService(
+            api, props, KnownEffect, KnownGauge, clock: () => duringLease, startWorker: false);
         service.TryRefresh();
 
         Assert.Null(service.Status().LastError);
