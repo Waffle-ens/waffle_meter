@@ -108,29 +108,67 @@ public sealed class SkillVisibility
 
     private void LoadInto(HashSet<int> target)
     {
-        // Presence, not emptiness. "" is a real answer — pre-2.10.4 wrote it for 전체 해제 — and treating it as
-        // "never configured" is the very conflation this class exists to undo. Only an absent key is unset.
         string? legacy = _props.GetProperty(LegacyKey);
+
+        // The current key wins. A settings bundle can carry the legacy key (it is in SettingsKeyCatalog), and
+        // the branch below rewrites `joinSkills.hidden` from it wholesale — so importing someone's settings, or
+        // any second arrival of the old key, would silently discard a selection made since the upgrade and
+        // re-run the conversion's losses. Convert only when there is nothing to convert INTO.
+        if (legacy is not null && _props.GetProperty(Key) is not null)
+        {
+            _props.RemoveProperty(LegacyKey);
+            legacy = null;
+        }
+
+        // ⚠ An empty legacy value is NOT "전체 해제". Builds through 2.10.3 read it as "everything visible"
+        // (`if (IsNullOrWhiteSpace(raw)) return DefaultVisibleCodes` — 7427aac^:…/App.Wpf/SkillVisibility.cs:70),
+        // so that is the state its owner has been looking at. Honouring it as an empty selection turns an
+        // upgrade into "every badge disappeared, for every job, and I changed nothing".
+        if (legacy is not null && string.IsNullOrWhiteSpace(legacy))
+        {
+            _props.RemoveProperty(LegacyKey);
+            legacy = null;
+        }
+
         if (legacy is not null)
         {
             // Codes the catalogue has since dropped are discarded here rather than carried as dead weight.
             HashSet<int> kept = Parse(legacy);
-            foreach (int code in SkillCatalog.DefaultVisibleCodes)
-            {
-                if (kept.Contains(code))
-                {
-                    target.Add(code);
-                }
-            }
+            var recognised = new HashSet<int>(SkillCatalog.DefaultVisibleCodes.Where(kept.Contains));
 
             // A value that named codes but none we recognise is not a choice, it is a value we failed to read
             // — an older format, or a file edited by hand. Persisting the complement of "nothing" would write
             // "hide all 167" and delete the evidence in the same breath, leaving a blank picker that looks
             // deliberate. Fall back to the default and still drop the key, so this cannot run twice.
-            bool unreadable = kept.Count > 0 && target.Count == 0;
-            if (unreadable)
+            //
+            // ⚠ Judged on RECOGNISED codes, not on what ends up visible — the rescue below can add codes the
+            // list never mentioned, and counting those would make an unreadable value look readable.
+            bool unreadable = kept.Count > 0 && recognised.Count == 0;
+
+            target.UnionWith(unreadable ? SkillCatalog.DefaultVisibleCodes : recognised);
+
+            // 🔑 A kept-list can only have an opinion about the catalogue it was written against, and the
+            // complement cannot tell "turned off" from "did not exist yet" — so every job added after the list
+            // was written arrives hidden. Exactly one job is in that position: 권성 joined the catalogue on
+            // 2026-07-08 (1043912) while every other job has been there since the format began. A list saved
+            // before that date holds 148 codes across prefixes 11-18 and zero 19s — the file on this machine,
+            // settings.properties.bak-replay (2026-06-29), is precisely that — so the upgrade hides all 19
+            // 권성 skills and their join-panel badges never come back.
+            //
+            // Deliberately narrow. Rescuing EVERY job with no codes in the list would also undo a real choice:
+            // "show only my own job" is a normal thing to pick, and it looks identical from here. 권성 is the
+            // one case where the absence cannot mean a choice, because for many of these files the option did
+            // not exist. If a 20th job ever ships this list needs the same entry — but by then no legacy key
+            // survives to convert, since this branch deletes it on first run.
+            if (!unreadable)
             {
-                target.UnionWith(SkillCatalog.DefaultVisibleCodes);
+                foreach (int code in SkillCatalog.DefaultVisibleCodes)
+                {
+                    if (JobOf(code) == LateJob && !kept.Any(k => JobOf(k) == LateJob))
+                    {
+                        target.Add(code);
+                    }
+                }
             }
 
             // One file write, not two. Dropping the old key and writing the new one are separate saves
@@ -163,6 +201,14 @@ public sealed class SkillVisibility
     /// bracketed. Splitting on ',' alone would silently drop exactly the first and last entry, and a
     /// one-or-two-skill selection would parse to nothing at all.
     /// </summary>
+    /// <summary>The job a skill code belongs to — its leading two digits (11 검성 … 19 권성). Used to tell
+    /// "this job was turned off" from "this job did not exist yet"; see <see cref="LoadInto"/>.</summary>
+    private static int JobOf(int code) => code / 1_000_000;
+
+    /// <summary>권성 — the only job that can be missing from a legacy list because it did not exist yet
+    /// (catalogue entry 1043912, 2026-07-08). See the rescue in <see cref="LoadInto"/>.</summary>
+    private const int LateJob = 19;
+
     private static HashSet<int> Parse(string? raw)
     {
         var set = new HashSet<int>();

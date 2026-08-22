@@ -1,4 +1,4 @@
-using WaffleMeter.App.Core;
+﻿using WaffleMeter.App.Core;
 using WaffleMeter.Services;
 using Xunit;
 
@@ -158,12 +158,12 @@ public sealed class SkillVisibilityTests : IDisposable
 
         var vis = new SkillVisibility(new PropertyHandler(_dir));
 
-        Assert.Equal(keep.OrderBy(c => c), vis.Codes.OrderBy(c => c));
+        Assert.Equal(ExpectedFromLegacy(keep), vis.Codes.OrderBy(c => c));
 
         var reread = new PropertyHandler(_dir);
         Assert.Null(reread.GetProperty("visibleSkillCodes"));   // one-shot: removed, so it cannot re-fire
         Assert.NotNull(reread.GetProperty("joinSkills.hidden"));
-        Assert.Equal(keep.OrderBy(c => c), AfterRestart().Codes.OrderBy(c => c));
+        Assert.Equal(ExpectedFromLegacy(keep), AfterRestart().Codes.OrderBy(c => c));
     }
 
     [Fact]
@@ -186,7 +186,7 @@ public sealed class SkillVisibilityTests : IDisposable
 
         var vis = new SkillVisibility(new PropertyHandler(_dir));
 
-        Assert.Equal(keep.OrderBy(c => c), vis.Codes.OrderBy(c => c));
+        Assert.Equal(ExpectedFromLegacy(keep), vis.Codes.OrderBy(c => c));
     }
 
     /// <summary>
@@ -202,8 +202,8 @@ public sealed class SkillVisibilityTests : IDisposable
 
         var vis = new SkillVisibility(new PropertyHandler(_dir));
 
-        Assert.Equal(keep.OrderBy(c => c), vis.Codes.OrderBy(c => c));
-        Assert.Equal(keep.OrderBy(c => c), AfterRestart().Codes.OrderBy(c => c));
+        Assert.Equal(ExpectedFromLegacy(keep), vis.Codes.OrderBy(c => c));
+        Assert.Equal(ExpectedFromLegacy(keep), AfterRestart().Codes.OrderBy(c => c));
     }
 
     [Fact]
@@ -212,19 +212,20 @@ public sealed class SkillVisibilityTests : IDisposable
         int only = Catalog[0];
         _props.SetProperty("visibleSkillCodes", "[" + only + "]");
 
-        Assert.Equal(new[] { only }, new SkillVisibility(new PropertyHandler(_dir)).Codes.ToArray());
+        Assert.Equal(ExpectedFromLegacy(new[] { only }),
+            new SkillVisibility(new PropertyHandler(_dir)).Codes.OrderBy(c => c));
     }
 
     /// <summary>An old build's 전체 해제 serialised as "". Present-but-empty is a choice, not "never set".</summary>
     [Fact]
-    public void A_legacy_empty_selection_is_honoured_rather_than_reset()
+    public void A_legacy_empty_selection_falls_back_to_everything_visible()
     {
         _props.SetProperty("visibleSkillCodes", string.Empty);
 
         var vis = new SkillVisibility(new PropertyHandler(_dir));
 
-        Assert.Empty(vis.Codes);
-        Assert.Empty(AfterRestart().Codes);
+        Assert.Equal(Catalog.Length, vis.Codes.Count);
+        Assert.Equal(Catalog.Length, AfterRestart().Codes.Count);
         Assert.Null(new PropertyHandler(_dir).GetProperty("visibleSkillCodes")); // must not leak into exports
     }
 
@@ -276,7 +277,7 @@ public sealed class SkillVisibilityTests : IDisposable
 
         vis.Reload();
 
-        Assert.Equal(imported.OrderBy(c => c), vis.Codes.OrderBy(c => c));
+        Assert.Equal(ExpectedFromLegacy(imported), vis.Codes.OrderBy(c => c));
         Assert.Null(new PropertyHandler(_dir).GetProperty("visibleSkillCodes"));
     }
 
@@ -299,5 +300,85 @@ public sealed class SkillVisibilityTests : IDisposable
         return string.IsNullOrWhiteSpace(raw)
             ? Array.Empty<int>()
             : raw.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray();
+    }
+
+    /// <summary>What a legacy kept-list must convert to now: the codes it named, PLUS every 권성 skill when it
+    /// named none. That job joined the catalogue after these files were written, so its absence is not a
+    /// choice - see SkillVisibility.LoadInto.</summary>
+    private static IEnumerable<int> ExpectedFromLegacy(IEnumerable<int> kept)
+    {
+        var set = new HashSet<int>(kept);
+        if (!set.Any(c => c / 1_000_000 == 19))
+        {
+            foreach (int code in Catalog.Where(c => c / 1_000_000 == 19))
+            {
+                set.Add(code);
+            }
+        }
+
+        return set.OrderBy(c => c);
+    }
+
+    /// <summary>
+    /// The reported bug (2026-08-23). A kept-list written before 권성 shipped names 11-18 and nothing else;
+    /// converting it as a plain complement marks all 19 권성 skills hidden, so that user's join panel never
+    /// shows a 권성 applicant's badges again. The picker only dims a hidden chip, which nobody reads as "off".
+    /// </summary>
+    [Fact]
+    public void A_legacy_list_from_before_the_last_job_shipped_keeps_that_job_visible()
+    {
+        int[] preFighter = Catalog.Where(c => c / 1_000_000 is >= 11 and <= 18).ToArray();
+        _props.SetProperty("visibleSkillCodes", string.Join(",", preFighter));
+
+        var vis = new SkillVisibility(new PropertyHandler(_dir));
+
+        Assert.Equal(Catalog.Length, vis.Codes.Count);
+        Assert.All(Catalog.Where(c => c / 1_000_000 == 19), code => Assert.Contains(code, vis.Codes));
+        Assert.Empty(ParseHidden());
+    }
+
+    /// <summary>The rescue stays narrow: a list that DOES mention that job has an opinion about it, and the
+    /// skills it left out stay hidden.</summary>
+    [Fact]
+    public void A_legacy_list_that_mentions_the_last_job_is_taken_at_its_word()
+    {
+        int[] fighter = Catalog.Where(c => c / 1_000_000 == 19).ToArray();
+        int[] keep = Catalog.Where(c => c / 1_000_000 is >= 11 and <= 18).Concat(fighter.Take(3)).ToArray();
+        _props.SetProperty("visibleSkillCodes", string.Join(",", keep));
+
+        var vis = new SkillVisibility(new PropertyHandler(_dir));
+
+        Assert.Equal(keep.OrderBy(c => c), vis.Codes.OrderBy(c => c));
+        Assert.DoesNotContain(fighter[^1], vis.Codes);
+    }
+
+    /// <summary>Turning one job off is a real choice and must survive the conversion - the rescue must not
+    /// generalise into "any job with no codes comes back".</summary>
+    [Fact]
+    public void A_legacy_list_that_turned_a_job_off_keeps_it_off()
+    {
+        int[] keep = Catalog.Where(c => c / 1_000_000 != 12).ToArray();
+        _props.SetProperty("visibleSkillCodes", string.Join(",", keep));
+
+        var vis = new SkillVisibility(new PropertyHandler(_dir));
+
+        Assert.DoesNotContain(Catalog.First(c => c / 1_000_000 == 12), vis.Codes);
+    }
+
+    /// <summary>
+    /// A settings bundle can carry the legacy key. Re-running the conversion would overwrite a selection made
+    /// since the upgrade and re-apply the sender's losses. The current key wins; the stale one is dropped.
+    /// </summary>
+    [Fact]
+    public void A_legacy_key_arriving_next_to_an_existing_selection_is_discarded()
+    {
+        _props.SetProperty("joinSkills.hidden", Catalog[0].ToString());
+        _props.SetProperty("visibleSkillCodes", string.Join(",", Catalog.Take(3)));
+
+        var vis = new SkillVisibility(new PropertyHandler(_dir));
+
+        Assert.Equal(Catalog.Length - 1, vis.Codes.Count);
+        Assert.DoesNotContain(Catalog[0], vis.Codes);
+        Assert.Null(new PropertyHandler(_dir).GetProperty("visibleSkillCodes"));
     }
 }

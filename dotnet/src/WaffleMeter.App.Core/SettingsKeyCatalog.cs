@@ -1,4 +1,4 @@
-namespace WaffleMeter.App.Core;
+﻿namespace WaffleMeter.App.Core;
 
 /// <summary>Which share codes a key travels in. Flags — a key is usually in several.</summary>
 [Flags]
@@ -119,9 +119,6 @@ public static class SettingsKeyCatalog
         // 관측된 버프 카탈로그. 받는 쪽의 픽커가 '소스가 본 버프'까지 보여줘야 hidden/voice 선택이 말이 된다.
         new("buffUi.observed", F, "버프 오버레이", "관측된 버프 목록"),
         new("joinSkills.hidden", F, "버프 오버레이", "표시 스킬", External: true),
-        // 2.10.3 이하가 만든 코드를 계속 받기 위한 옛 키(의미가 반대 — '켠 스킬'). SkillVisibility 가 읽는
-        // 즉시 새 키로 바꾸고 파일에서 지우므로, 나가는 코드에는 절대 실리지 않고 들어올 때만 쓰인다.
-        new("visibleSkillCodes", F, "버프 오버레이", "표시 스킬(옛 형식)", External: true),
 
         // ── 알림 ───────────────────────────────────────────────────────────────────
         new("alarms.soundEnabled", FA, "알림", "알림 소리"),
@@ -168,6 +165,11 @@ public static class SettingsKeyCatalog
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> ExcludedKeys = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        // 이 PC 의 1회성 업그레이드 전용 키다. 카탈로그에 있으면 Full 프로필에 실려 나가고, 도착한 쪽에서
+        // SkillVisibility 의 변환 분기가 다시 돌면서 받는 사람이 그동안 골라 둔 선택을 통째로 덮는다
+        // — 게다가 변환은 '보낸 사람의 목록이 몰랐던 직업'을 숨김으로 만든다. 주석이 "나가는 코드에는 절대
+        // 실리지 않는다" 고 적어 두었지만 카탈로그 등록이 그 말을 거짓으로 만들고 있었다.
+        ["visibleSkillCodes"] = "2.10.3 이하 → 2.10.4+ 업그레이드용 로컬 전용 키. 설정 코드로 옮기면 받는 쪽 선택을 덮는다.",
         // 🔒 신원·비밀. 이게 새면 남이 내 캐릭터로 업로드할 수 있다. DPAPI 키는 다른 PC 에서 어차피
         // 복호화가 실패해 조용히 재생성되므로 옮겨 봐야 이득도 없다.
         ["statsInstallKeyPkcs8DpapiV1"] = "설치 서명 개인키",
