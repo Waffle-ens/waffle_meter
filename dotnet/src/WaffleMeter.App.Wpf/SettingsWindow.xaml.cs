@@ -26,6 +26,9 @@ public partial class SettingsWindow : Window
             _viewModel.RefreshLogging();
             _viewModel.RefreshTierStatus(); // local read of the cached artifact — no network
             _viewModel.RefreshNameFxStatus();
+            // 캐릭터가 바뀌었거나 명단이 새로 도착했을 때만 픽커를 다시 만든다. 창을 연 뒤에 인식되면
+            // 예전에는 픽커가 죽은 채로 남아 있었고, '후원자 목록 갱신' 으로 자격을 받아도 반영되지 않았다.
+            _viewModel.RefreshMyNameFxIfStale();
         };
         _statusTimer.Start();
         _viewModel.RefreshTierStatus(); // fill the line before the first tick so it never opens blank
@@ -385,17 +388,31 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        _viewModel.SetNameFxNotice("적용하는 중…", holdMs: 30_000);
+        // 게이지만 바꾸는 요청에도 닉네임 효과를 같이 실어야 한다(서버는 effectId 를 필수로 받는다).
+        // ⚠ 예전의 `CurrentEffectId ?? id` 폴백은 **게이지 id 를 닉네임 효과 자리에 넣는다** — 서버는 두 계열을
+        // 엄격히 가르므로 그 요청은 400 effect_not_allowed 가 확정이고, 사용자에게는 "게이지만 안 바뀐다" 로 보인다.
+        // 현재 효과를 모르면 보내지 않고 왜 못 보내는지 말한다.
+        string? currentEffect = _viewModel.CurrentEffectId;
+        if (gauge && currentEffect is null)
+        {
+            _viewModel.SetMyFxNotice("닉네임 스킨을 먼저 고른 뒤에 게이지 스킨을 골라 주세요.");
+            return;
+        }
+
+        // 결과는 픽커 **바로 아래** 줄에 남긴다. 예전에는 맨 아래 '후원자 목록 갱신' 줄로 보냈는데, 그 사이에
+        // 미리보기 카드 9장과 슬라이더 네 개가 있어 누른 사람 화면에서는 사유가 스크롤 밖이었다 — 실패가
+        // 조용해지면 "눌리기만 하고 아무 일도 안 난다" 로만 보인다.
+        _viewModel.SetMyFxNotice("적용하는 중…");
         System.Threading.Tasks.Task.Run(() =>
         {
             string message = gauge
-                ? _viewModel.SubmitMyNameFx(_viewModel.CurrentEffectId ?? id, id)
+                ? _viewModel.SubmitMyNameFx(currentEffect!, id)
                 : _viewModel.SubmitMyNameFx(id, null);
 
             Dispatcher.BeginInvoke(() =>
             {
-                _viewModel.SetNameFxNotice(message);
-                _viewModel.RefreshMyNameFx();
+                _viewModel.SetMyFxNotice(message);
+                _viewModel.RefreshMyNameFx(keepNotice: true); // 방금 띄운 사유를 다시 계산해서 덮지 않는다
             });
         });
     }

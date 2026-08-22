@@ -696,6 +696,21 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public string MyFxStatus { get => _myFxStatus; private set => Set(ref _myFxStatus, value); }
 
+    private string _myFxNotice = string.Empty;
+
+    /// <summary>
+    /// 고르기 **바로 아래**에 붙는 줄: 방금 누른 결과, 또는 왜 지금은 안 바뀌는지.
+    /// <para>왜 따로 있는가 — 결과 문구를 <see cref="NameFxStatus"/>(맨 아래 '후원자 목록 갱신' 줄)로 보내던 때는
+    /// 칩과 문구 사이에 미리보기 카드 9장과 슬라이더 네 개가 끼어 있어, 누른 사람 화면에서는 사유가 스크롤 밖이었다.
+    /// 실패가 조용해지면 남는 건 "눌리기만 하고 아무 일도 안 난다" 뿐이고, 그게 실제로 접수된 제보다.</para>
+    /// </summary>
+    public string MyFxNotice { get => _myFxNotice; private set { Set(ref _myFxNotice, value); OnPropertyChanged(nameof(MyFxNoticeVisibility)); } }
+
+    public Visibility MyFxNoticeVisibility => MyFxNotice.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>고르기 결과를 픽커 옆에 남긴다. 다음 <see cref="RefreshMyNameFx"/> 가 지우지 않도록 유지 플래그를 쓴다.</summary>
+    public void SetMyFxNotice(string message) => MyFxNotice = message;
+
     /// <summary>자격이 없으면 못 고르게만 한다 — 섹션을 숨기면 "받으면 뭐가 생기는지" 를 알 수 없다.</summary>
     public bool MyFxEnabled => MyEffectChoices.Count > 0;
 
@@ -710,11 +725,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// 여기에 "누가 무슨 자격인가" 규칙을 두면 서버와 두 벌이 되고, 갈리는 순간 사용자는 고를 수 있는데
     /// 저장이 거부되는 상태를 만난다.</para>
     /// </summary>
-    public void RefreshMyNameFx()
+    public void RefreshMyNameFx(bool keepNotice = false)
     {
         StatsOwnCharacter own = _services.StatsBuilder.OwnCharacter();
         string? hash = own.Detected ? StatsIdentity.CharacterIdentityHash(own.Server, own.Nickname) : null;
         NameFxEntry? grant = hash is null ? null : _services.NameFx.Roster.Find(hash);
+        _myFxHash = hash;
+        _myFxRoster = _services.NameFx.Roster;
 
         if (grant is null)
         {
@@ -725,6 +742,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             MyFxStatus = own.Detected
                 ? "지금 캐릭터에는 스킨 자격이 없습니다. 위 안내를 참고해 주세요."
                 : "캐릭터를 인식하면 내 스킨을 고를 수 있습니다.";
+            if (!keepNotice)
+            {
+                MyFxNotice = string.Empty;
+            }
+
             RaiseMyNameFxState();
             return;
         }
@@ -749,7 +771,40 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             "ranker" => $"{own.Nickname} — 랭커. {reach}",
             _ => $"{own.Nickname} — 후원자. {reach}",
         };
+
+        // 🔑 자격(명단에 실렸는가)과 소유 증명(이 설치본이 그 캐릭터로 전투를 올린 적이 있는가)은 서로 다른
+        // 사실이고, 서버는 둘 다 요구한다 — 명단은 아무 uid 나 실을 수 있으므로 소유 증명이 없으면 남의
+        // 캐릭터 스킨을 바꿀 수 있게 된다. 그런데 랭커 자격은 **남이 올린 전투의 참가자** 기록에서도 나오기
+        // 때문에, 자기 설치본으로는 한 번도 올린 적 없는 캐릭터가 명단에 실릴 수 있다. 그 캐릭터는 칩이 다
+        // 보이는데 누르면 매번 403 이 되고, 사용자에게는 "이 캐릭터만 안 된다" 로만 보인다.
+        // 그래서 누르기 **전에** 말해 준다. 캐시가 낡아 있을 수 있으니 막지는 않는다 — 판정은 서버가 한다.
+        if (!keepNotice)
+        {
+            MyFxNotice = hash is not null && !_services.Consent.HasGrant(hash)
+                ? "⚠ 이 기기에서 이 캐릭터로 전투를 업로드한 기록이 없어 지금은 바꿀 수 없어요. "
+                  + "이 캐릭터로 던전 전투를 한 번 올리고 나면 바로 열립니다. (지금 적용된 스킨은 그대로 유지됩니다.)"
+                : string.Empty;
+        }
+
         RaiseMyNameFxState();
+    }
+
+    /// <summary>마지막으로 픽커를 그린 캐릭터와 명단. 둘 중 하나가 바뀌면 다시 그려야 한다 —
+    /// 창을 연 뒤에 캐릭터가 인식되거나 명단이 도착하면 픽커가 죽은 채로 남아 있었다.</summary>
+    private string? _myFxHash;
+
+    private NameFxRoster? _myFxRoster;
+
+    /// <summary>캐릭터나 명단이 바뀌었을 때만 픽커를 다시 만든다. 2.5초 폴링에 그냥 얹으면 고르는 도중에
+    /// 목록이 갈리므로, 바뀐 순간에만 도는 것이 조건이다.</summary>
+    public void RefreshMyNameFxIfStale()
+    {
+        StatsOwnCharacter own = _services.StatsBuilder.OwnCharacter();
+        string? hash = own.Detected ? StatsIdentity.CharacterIdentityHash(own.Server, own.Nickname) : null;
+        if (!string.Equals(hash, _myFxHash, StringComparison.Ordinal) || !ReferenceEquals(_services.NameFx.Roster, _myFxRoster))
+        {
+            RefreshMyNameFx();
+        }
     }
 
     /// <summary>응답 본문의 <c>error</c> 코드. 못 읽으면 빈 문자열 — 그 경우 상태 코드만으로 판단한다.</summary>
@@ -825,7 +880,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             return (ex.StatusCode, code) switch
             {
                 (401, _) => "설치 서명이 확인되지 않았습니다. 전투를 한 번 업로드한 뒤 다시 시도해 주세요.",
-                (403, "not_your_character") => "이 PC 에서 그 캐릭터로 전투를 올린 기록이 없어 변경할 수 없습니다.",
+                (403, "not_your_character") =>
+                    "이 기기에서 이 캐릭터로 전투를 업로드한 기록이 없어 바꿀 수 없어요. "
+                    + "이 캐릭터로 던전 전투를 한 번 올리고 나면 바로 열립니다. (지금 적용된 스킨은 그대로 유지됩니다.)",
                 (403, _) => "이 캐릭터에는 지금 스킨 자격이 없습니다. 목록을 새로고침해 주세요.",
                 (400, _) => "지금 자격으로 고를 수 없는 스킨입니다. 목록을 새로고침해 주세요.",
                 _ => "지금은 변경할 수 없습니다. 잠시 뒤 다시 시도해 주세요.",
