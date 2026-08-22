@@ -58,7 +58,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         nameof(_closeAction), nameof(_contributionMode), nameof(_customAlarms), nameof(_damageValueMode),
         nameof(_displayMode), nameof(_fieldBossDisabled), nameof(_fontFamily), nameof(_nameDisplay),
         nameof(_nameFxMode), nameof(_overlayTheme), nameof(_targetInfoDisplayMode), nameof(_tierEffects),
-        nameof(_weeklyContentClears), nameof(_abyssCorridors))]
+        nameof(_ttsVoice), nameof(_weeklyContentClears), nameof(_abyssCorridors))]
     public void Reload()
     {
         _displayMode = ReadEnum("displayMode", "dps_percent", DisplayModes);
