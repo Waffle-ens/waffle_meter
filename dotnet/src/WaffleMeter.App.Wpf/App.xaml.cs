@@ -90,6 +90,7 @@ public partial class App : Application
     private readonly HashSet<string> _consentPrompted = new();
     private bool _consentDialogOpen;
     private int _lastConsentBackfillId; // executor uid whose name was last persisted into its consent record
+    private string? _lastConsentSyncHash; // identity whose consent was last re-read from the server (once per character)
 
     /// <summary>identityHash → career tier rank, as the server reported it. Written on the upload worker thread
     /// (the receipt carries the uploader's tier) and read on the UI thread every report tick, hence concurrent.
@@ -661,6 +662,28 @@ public partial class App : Application
             viewModel.SetRecognized(own.Detected, own.Nickname, own.Id, own.Server, ownJob, own.Power);
             // Persist the connected character's display name into its consent record (local only) once per
             // recognized character, so the '내 캐릭터 관리' list shows the real name instead of "이름 없음".
+            // 🔑 Ask the server what IT knows about this character, once per identity.
+            //
+            // Keyed on the identity HASH, not the entity uid: a zone load hands the same character a fresh uid,
+            // and re-asking on every load would be a GET per loading screen. Deliberately NOT hung off
+            // ExecutorChanged either — that only fires on a SWITCH (it needs a previous executor), so the most
+            // common session of all, "open the meter and play one character", would never have synced.
+            //
+            // Why it has to happen at all: until this existed the remote consent sync had exactly one caller,
+            // the settings window's 서버 동기화 button. IsUploadAllowed() is per character, so a character with
+            // no local record on this install — every character after a reinstall — sat blocked at the first
+            // gate for the life of the install, with nothing on screen saying so. Measured on production
+            // 2026-08-22: 1,287 characters were consented server-side and had never once uploaded, and at least
+            // 268 of them belong to installs still in daily use.
+            //
+            // Off the UI thread: blocking HTTP, and this lands right at a loading screen.
+            if (own.Detected && StatsIdentity.CharacterIdentityHash(own.Server, own.Nickname) is { } ownHash
+                && !string.Equals(ownHash, _lastConsentSyncHash, StringComparison.Ordinal))
+            {
+                _lastConsentSyncHash = ownHash;
+                System.Threading.Tasks.Task.Run(() => services.Consent.SyncCurrentCharacter(services.Version));
+            }
+
             if (own.Detected && own.Id != _lastConsentBackfillId)
             {
                 _lastConsentBackfillId = own.Id;
@@ -684,18 +707,6 @@ public partial class App : Application
         // the previous character doesn't linger as a stale 0/s idle preview row under the new one (the data layer
         // drops its 0x9702 roster snapshot in lockstep). Mirrors the ResetCompleted ordering — queued from the
         // consumer thread before the next idle report, so there's no one-frame flash.
-        // 🔑 Ask the server what IT knows about the character that just connected.
-        //
-        // Until this existed the remote consent sync had exactly one caller — the settings window's 서버 동기화
-        // button — so a character whose local record on this install was missing or stale never got repaired.
-        // That is not a rare corner: a reinstall (new install id) starts with an empty per-character map, and
-        // IsUploadAllowed() reads that map PER CHARACTER, so any character not re-decided on the new install is
-        // silently excluded from statistics for the life of the install. Measured on production 2026-08-22:
-        // 1,290 characters were consented server-side yet had never once uploaded a battle.
-        //
-        // Off the UI thread: this is a blocking HTTP call, and it fires on a character switch — i.e. right at a
-        // loading screen, where a frozen overlay is exactly what gets reported as "미터가 멈췄다".
-        _engine.ExecutorChanged += () => System.Threading.Tasks.Task.Run(() => services.Consent.SyncCurrentCharacter(services.Version));
         _engine.ExecutorChanged += () => Dispatcher.Invoke(() =>
         {
             _partyLastCombatMs.Clear();
