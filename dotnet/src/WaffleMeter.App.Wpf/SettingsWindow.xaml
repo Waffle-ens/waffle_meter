@@ -1649,6 +1649,11 @@
                         </StackPanel>
                         <TextBlock Text="{Binding UploadStatus}" Style="{StaticResource SettingDesc}" Margin="0,8,0,0"/>
 
+                        <!-- 지금 캐릭터의 전투가 왜 안 올라가는지. 업로드 여부는 캐릭터별인데 그 사실이 화면 어디에도
+                             없어서, 한 캐릭터만 막혀 있으면 통계에서 조용히 빠지고 공개 전환·스킨 선택까지 같이 잠겼다. -->
+                        <TextBlock Text="{Binding UploadBlockNotice}" TextWrapping="Wrap" Foreground="#FFCC8800" FontSize="12" Margin="0,6,0,0"
+                                   Visibility="{Binding HasUploadBlockNotice, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
+
                         <Border Style="{StaticResource SectionDivider}"/>
                         <TextBlock Text="내 캐릭터 관리" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
                         <TextBlock Text="익명 통계에 동의한 내 캐릭터들의 공개 여부를 바꾸거나 동의를 철회할 수 있습니다. (철회하면 이후 업로드가 중단되고, 이 목록에서도 제거됩니다. 다시 동의하면 다시 나타납니다.)"

@@ -192,4 +192,13 @@ public sealed record StatsUploadStatus(
     int Failed,
     string? LastPath = null,
     string? LastReason = null,
-    long LastUpdatedAt = 0L);
+    long LastUpdatedAt = 0L,
+    /// <summary>Skip reasons and how many battles each one ate this session, most frequent first.
+    /// <para>Exists because <see cref="LastReason"/> is a single slot the next battle overwrites: a gate that
+    /// drops EVERY battle for one character (a per-character consent that was never re-decided, an unresolved
+    /// combat power) looked identical to a one-off, and the count is the only thing that separates them.</para></summary>
+    IReadOnlyList<StatsSkipCount>? SkipReasons = null);
+
+/// <summary>One skip reason and its running count. <paramref name="Reason"/> is the raw code — the settings
+/// screen localizes it, and an unknown code must survive to the screen rather than be swallowed.</summary>
+public sealed record StatsSkipCount(string Reason, int Count);

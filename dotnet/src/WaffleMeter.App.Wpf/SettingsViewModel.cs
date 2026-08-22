@@ -1419,9 +1419,39 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             // 마지막 사유를 함께 보여준다. 큐는 사유를 코드까지 실어 만들어 두는데(예:
             // unsupported_encounter:2301059:영겁의 루드라) 지금까지 어디에도 표시되지 않아서, "안 올라가요" 제보를
             // 미동의·보스아님·카탈로그누락·전투력미해석 중 무엇인지 가를 방법이 없었다.
-            return DescribeUploadReason(s.LastReason) is { } reason ? $"{counts}\n최근: {reason}" : counts;
+            string line = DescribeUploadReason(s.LastReason) is { } reason ? $"{counts}\n최근: {reason}" : counts;
+
+            // 반복되는 사유는 따로 센다. '최근' 한 칸은 다음 전투가 덮어써서, 한 캐릭터의 전투를 매번 먹는 게이트가
+            // 일회성과 구분되지 않았다 — 그 구분이 없으면 몇 달 동안 통계에서 빠져 있어도 아무도 모른다.
+            if (s.SkipReasons is { Count: > 0 } reasons)
+            {
+                string breakdown = string.Join(" · ", reasons
+                    .Where(r => r.Count > 1)
+                    .Take(3)
+                    .Select(r => $"{DescribeUploadReason(r.Reason) ?? r.Reason} {r.Count}회"));
+                if (breakdown.Length > 0)
+                {
+                    line += $"\n건너뜀 사유: {breakdown}";
+                }
+            }
+
+            return line;
         }
     }
+
+    private string _uploadBlockNotice = string.Empty;
+
+    /// <summary>지금 캐릭터의 전투가 왜 안 올라가는지. 없으면 빈 문자열.
+    /// <para>업로드 여부는 <b>캐릭터별</b>인데(StatsConsentManager.LocalInfo) 그 사실이 화면 어디에도 없었다.
+    /// 한 캐릭터만 꺼져 있으면 그 캐릭터는 통계에서 조용히 사라지고, 소유 증명이 안 생기니 공개 전환과 스킨
+    /// 선택까지 같이 막힌다.</para></summary>
+    public string UploadBlockNotice
+    {
+        get => _uploadBlockNotice;
+        private set { Set(ref _uploadBlockNotice, value); OnPropertyChanged(nameof(HasUploadBlockNotice)); }
+    }
+
+    public bool HasUploadBlockNotice => UploadBlockNotice.Length > 0;
 
     /// <summary>업로드 큐/페이로드 빌더가 남긴 마지막 사유를 한국어 한 줄로. 모르는 사유는 원문 그대로 보여준다 —
     /// 새 사유가 생겼을 때 "" 로 삼켜 버리면 진단 가치가 사라진다.</summary>
@@ -1448,7 +1478,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         return reason switch
         {
             "uploaded" or "uploaded_duplicate" => "정상 업로드됨",
-            "consent_not_allowed" => "통계 수집에 동의하지 않아 보내지 않았습니다",
+            // 이 게이트는 캐릭터별이다(StatsConsentManager.LocalInfo). "동의하지 않아서"라고만 하면 전체 동의를
+            // 켜 둔 사람이 자기 얘기가 아니라고 읽고 지나간다 — 실제로는 그 캐릭터 하나만 막혀 있는 상태다.
+            "consent_not_allowed" => "이 캐릭터의 업로드가 꺼져 있어 보내지 않았습니다 (업로드 설정은 캐릭터별입니다)",
+            "unsigned_upload" => "서명 없이 업로드돼 이 캐릭터의 소유 증명이 생기지 않았습니다",
             "force_tracking_mode" => "던전 강제 집계 중에는 보내지 않습니다",
             "not_boss" or "not_uploadable_boss" => "보스 전투가 아닙니다",
             "estimated_boss" => "보스를 확정하지 못했습니다(미상 보스)",
@@ -1569,6 +1602,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         bool changed = detected != CharacterDetected;
         CharacterDetected = detected;
         OnPropertyChanged(nameof(UploadStatus));
+        UploadBlockNotice = _services.Consent.CurrentUploadBlockReason() ?? string.Empty;
         // Per-character public-toggle enablement depends on CharacterDetected; re-evaluate the rows when it flips.
         if (changed)
         {

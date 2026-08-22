@@ -684,6 +684,18 @@ public partial class App : Application
         // the previous character doesn't linger as a stale 0/s idle preview row under the new one (the data layer
         // drops its 0x9702 roster snapshot in lockstep). Mirrors the ResetCompleted ordering — queued from the
         // consumer thread before the next idle report, so there's no one-frame flash.
+        // 🔑 Ask the server what IT knows about the character that just connected.
+        //
+        // Until this existed the remote consent sync had exactly one caller — the settings window's 서버 동기화
+        // button — so a character whose local record on this install was missing or stale never got repaired.
+        // That is not a rare corner: a reinstall (new install id) starts with an empty per-character map, and
+        // IsUploadAllowed() reads that map PER CHARACTER, so any character not re-decided on the new install is
+        // silently excluded from statistics for the life of the install. Measured on production 2026-08-22:
+        // 1,290 characters were consented server-side yet had never once uploaded a battle.
+        //
+        // Off the UI thread: this is a blocking HTTP call, and it fires on a character switch — i.e. right at a
+        // loading screen, where a frozen overlay is exactly what gets reported as "미터가 멈췄다".
+        _engine.ExecutorChanged += () => System.Threading.Tasks.Task.Run(() => services.Consent.SyncCurrentCharacter(services.Version));
         _engine.ExecutorChanged += () => Dispatcher.Invoke(() =>
         {
             _partyLastCombatMs.Clear();
@@ -1946,6 +1958,14 @@ public partial class App : Application
         {
             var dlg = new StatsConsentModal(label) { Owner = owner };
             dlg.ShowDialog();
+            if (!dlg.Answered)
+            {
+                // Dismissed, not answered — record nothing. Writing "declined" here is what silently retired a
+                // character from statistics forever; see StatsConsentModal for the full shape of that failure.
+                // The session-level _consentPrompted guard still stops it re-popping in this session.
+                return;
+            }
+
             if (dlg.Accepted)
             {
                 services.Consent.Set("accepted", uploadEnabled: true, publicCharacter: dlg.PublicCharacter, services.Version);

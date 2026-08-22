@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using WaffleMeter.Services;
 
@@ -81,7 +81,16 @@ public sealed class StatsInstallKey : IStatsSigner
             catch
             {
                 // Unreadable (corrupt, or settings copied to another user/machine where DPAPI can't unwrap)
-                // — fall through and regenerate. A new keypair just re-earns grants on the next upload.
+                // — fall through and regenerate.
+                //
+                // ⚠ Regenerating is NOT free, and an earlier comment here claimed it was ("a new keypair just
+                // re-earns grants on the next upload"). It does not: the server registers an install key
+                // trust-on-first-use with ON CONFLICT DO NOTHING, so the FIRST key ever seen for this install id
+                // wins forever. A new keypair under the same install id therefore fails verification from then
+                // on (install_key_mismatch) — and because uploads are accepted unsigned, battles keep landing
+                // while character_grants stops being written, which reads to the user as "업로드는 되는데
+                // 스킨/공개 전환만 안 된다". There is no key-rollover endpoint today; if this path turns out to
+                // fire in the field, that endpoint is the fix, not this comment.
             }
         }
 

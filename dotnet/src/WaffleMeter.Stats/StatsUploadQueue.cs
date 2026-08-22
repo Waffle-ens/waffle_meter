@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using WaffleMeter.Data;
 using WaffleMeter.Services;
@@ -197,7 +197,11 @@ public sealed class StatsUploadQueue : IDisposable
         Failed: Volatile.Read(ref _failed),
         LastPath: _lastPath,
         LastReason: _lastReason,
-        LastUpdatedAt: Interlocked.Read(ref _lastUpdatedAt));
+        LastUpdatedAt: Interlocked.Read(ref _lastUpdatedAt),
+        SkipReasons: _skipCounts
+            .Select(kv => new StatsSkipCount(kv.Key, kv.Value))
+            .OrderByDescending(r => r.Count)
+            .ToArray());
 
     public string OpenFolder()
     {
@@ -262,6 +266,15 @@ public sealed class StatsUploadQueue : IDisposable
                     if (response.Granted)
                     {
                         _consent.MarkGranted(payload.Character.IdentityHash, _clientVersion);
+                    }
+                    else
+                    {
+                        // The battle landed but earned no ownership. The only way that happens is the server
+                        // treating the write as unsigned (warn mode accepts it and skips grantCharacter), and
+                        // nothing used to record it — so an install whose signing had quietly broken kept
+                        // uploading forever while 공개 전환 and 스킨 선택 stayed locked, with no counter anywhere
+                        // that would have shown it.
+                        _skipCounts.AddOrUpdate("unsigned_upload", 1, (_, n) => n + 1);
                     }
 
                     // 던전 티어는 업로드 응답에 얹혀 온다 — 본인 등급을 얻는 데 요청이 0회 더 든다는 뜻이다.
@@ -363,8 +376,24 @@ public sealed class StatsUploadQueue : IDisposable
     private void MarkSkipped(string reason)
     {
         Interlocked.Increment(ref _skipped);
+        // Count by reason, not just "last one wins". A gate that eats every battle for one character looks
+        // exactly like a one-off in a single-slot field, and that is how a character can sit out of statistics
+        // for months with nothing on screen that says so.
+        _skipCounts.AddOrUpdate(SkipKey(reason), 1, (_, n) => n + 1);
         UpdateLast(null, reason);
     }
+
+    /// <summary>Group key for the counter. Reasons that carry data (<c>unsupported_encounter:&lt;code&gt;:&lt;name&gt;</c>)
+    /// collapse to their prefix so one recurring cause reads as one row instead of a hundred.</summary>
+    private static string SkipKey(string reason)
+    {
+        int colon = reason.IndexOf(':');
+        return colon > 0 ? reason[..colon] : reason;
+    }
+
+    /// <summary>Skip reason -> count for this session. Concurrent because battles are offered from the report
+    /// thread while the settings screen reads it on the UI thread.</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _skipCounts = new(StringComparer.Ordinal);
 
     private void UpdateLast(string? path, string reason)
     {
