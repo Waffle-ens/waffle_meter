@@ -592,4 +592,56 @@ public sealed class StatsConsentManagerTests : IDisposable
         // 업로드는 열렸지만 이 설치본은 아직 이 캐릭터로 올린 적이 없다 -> 그 사실을 말해 준다.
         Assert.Contains("아직 업로드된 전투가 없어요", manager.CurrentUploadBlockReason());
     }
+
+    // ---- 서버가 그 캐릭터를 모를 때 (exists:false) ----
+
+    [Fact]
+    public void Unknown_remote_reprompts_a_dismissed_decline_exactly_once()
+    {
+        GiveExecutor();
+        StatsConsentManager manager = Manager(ApiReturning(StatusJson("unknown", exists: false)));
+
+        // 모달을 X 로 닫아 declined 로 박혔던 예전 빌드의 기록.
+        manager.Set("declined", uploadEnabled: false, publicCharacter: false, "test", explicitChoice: false);
+        Assert.Equal("declined", manager.GetInfo().State);
+
+        manager.SyncCurrentCharacter("test");
+        Assert.Equal("unknown", manager.GetInfo().State); // 다시 물어볼 수 있는 상태로 돌아온다
+        Assert.True(manager.NeedsConsentPrompt());
+
+        // 두 번은 없다: 여기서 다시 거부하면 그걸로 끝이어야 한다.
+        manager.Set("declined", uploadEnabled: false, publicCharacter: false, "test", explicitChoice: false);
+        manager.SyncCurrentCharacter("test");
+        Assert.Equal("declined", manager.GetInfo().State);
+    }
+
+    [Fact]
+    public void Unknown_remote_never_touches_an_explicit_decline()
+    {
+        GiveExecutor();
+        StatsConsentManager manager = Manager(ApiReturning(StatusJson("unknown", exists: false)));
+        manager.Set("declined", uploadEnabled: false, publicCharacter: false, "test");
+
+        manager.SyncCurrentCharacter("test");
+
+        Assert.Equal("declined", manager.GetInfo().State);
+        Assert.False(manager.NeedsConsentPrompt());
+    }
+
+    [Fact]
+    public void Unknown_remote_does_not_reset_a_local_accept()
+    {
+        GiveExecutor();
+        // 동의는 성공했지만(=로컬 accepted) 조회는 서버가 모른다고 답하는 경우.
+        StatsConsentManager accepted = Manager(ApiReturning(StatusJson("accepted")));
+        accepted.Set("accepted", uploadEnabled: true, publicCharacter: false, "test");
+        Assert.True(accepted.IsUploadAllowed());
+
+        StatsConsentManager blind = Manager(ApiReturning(StatusJson("unknown", exists: false)));
+        blind.SyncCurrentCharacter("test");
+
+        // exists:false 는 소식이 아니다 — 이걸 받아쓰면 매 세션 로컬 결정이 지워진다.
+        Assert.Equal("accepted", blind.GetInfo().State);
+        Assert.True(blind.IsUploadAllowed());
+    }
 }

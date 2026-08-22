@@ -125,7 +125,29 @@ public sealed class StatsConsentManager
         {
             ConsentStatusResponse response = _api.GetConsentStatus(identityHash);
             LoadCharacters().TryGetValue(identityHash, out CharConsent? local);
-            bool remoteAccepted = (TryState(response.ConsentState) ?? State.unknown) == State.accepted && response.Exists;
+            State remoteState = TryState(response.ConsentState) ?? State.unknown;
+            bool remoteAccepted = remoteState == State.accepted && response.Exists;
+
+            // ⚠ The server knowing NOTHING about this character is not news, and must not be written down as if
+            // it were. This sync now runs unprompted on every character, so letting an "exists:false / unknown"
+            // answer through to ApplyRemote would reset that character's local record to unknown EVERY session —
+            // re-prompting someone who genuinely declined, over and over. Keep what we have.
+            if (!response.Exists || remoteState == State.unknown)
+            {
+                // The one exception, and it is a one-shot: a local `declined` that nobody explicitly chose.
+                // Builds before 2026-08-23 wrote that for a dialog closed with the X button, and a declined
+                // character is never asked again — so the only people this reopens the door for are the ones who
+                // never closed it. Marked on the record so it happens exactly once per character, ever.
+                if (local is { Explicit: false, Reprompted: false } && TryState(local.State) == State.declined)
+                {
+                    ClearForOneReprompt(identityHash);
+                    RememberSync("reprompt_once", null);
+                    return LocalInfo();
+                }
+
+                RememberSync("synced", null);
+                return LocalInfo();
+            }
 
             // 🔑 The repair. A character the server already knows as accepted, whose local record on THIS
             // install says otherwise without the user ever having said so, is a stuck install — and the cost of
@@ -744,6 +766,25 @@ public sealed class StatsConsentManager
 
     /// <summary>Remember (or clear) that the user wants this character public but couldn't yet (no grant).
     /// Persisted on the character record so the first upload's grant can auto-apply public (공개 자동화).</summary>
+    /// <summary>Put a character back to <c>unknown</c> so the consent dialog asks once more, and stamp the record
+    /// so it can never be asked again this way. Local only — nothing is sent, and no other field is touched.</summary>
+    private void ClearForOneReprompt(string identityHash)
+    {
+        Dictionary<string, CharConsent> map = LoadCharacters();
+        if (!map.TryGetValue(identityHash, out CharConsent? entry))
+        {
+            return;
+        }
+
+        entry.Reprompted = true;
+        entry.State = State.unknown.ToString();
+        entry.UploadEnabled = false;
+        entry.PublicCharacter = false;
+        entry.UpdatedAt = _clock();
+        map[identityHash] = entry;
+        _props.SetProperty(KeyCharacters, JsonSerializer.Serialize(map));
+    }
+
     private void SetPendingPublic(string identityHash, bool pending)
     {
         if (string.IsNullOrWhiteSpace(identityHash))
@@ -817,6 +858,15 @@ public sealed class StatsConsentManager
         /// right default: those records predate the ability to say "the user meant it", so they are repairable.</para>
         /// </summary>
         [JsonPropertyName("explicit")] public bool Explicit { get; set; }
+
+        /// <summary>
+        /// This character already used up its one re-ask. See <see cref="StatsConsentManager.RefreshFromServer"/>.
+        /// <para>Once, and only once: builds before 2026-08-23 recorded a dismissed dialog as a decline, and a
+        /// declined character is never prompted again (<see cref="NeedsConsentPrompt"/> only fires on unknown).
+        /// Anyone stranded that way has no way back that they would ever find. One prompt reopens the door; a
+        /// second one would be nagging someone who has now said no twice.</para>
+        /// </summary>
+        [JsonPropertyName("reprompted")] public bool Reprompted { get; set; }
     }
 
     private void SaveLocal(
