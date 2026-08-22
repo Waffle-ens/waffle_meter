@@ -16,12 +16,12 @@ public readonly record struct WeeklyContentCell(WeeklyContentInfo Content, int R
 
 /// <summary>One 어비스 회랑 this character can enter: how much of the 130-second 이용 시간 is left, and whether
 /// the clock is running right now (the character is standing in it).
-/// <para>A cell exists only for a corridor whose artifact this character's SIDE is known to hold this 점령
-/// cycle — never invented from a bare zero, because an un-captured corridor, a spent one and one this
-/// character has simply never walked into all arrive on the wire as that same zero. Some character on this
-/// install has to have been watched holding it first.</para></summary>
+/// <para>A cell exists only for a corridor some character on this server has been watched WALKING INTO since
+/// the last 점령전 — never invented from a ticket value. A zero covers four different situations at once, and
+/// a positive value covers two: time granted at the last 점령전, and time granted at an earlier one and never
+/// spent, which the server keeps reporting long after the artifact has changed hands.</para></summary>
 /// <param name="Inferred">True when nothing this character reported backs the number: the corridor is known
-/// captured because a character beside it on the same server was seen holding it, and this one is taken to be
+/// held because a character beside it on the same server walked into it, and this one is taken to be
 /// untouched, so the cell reads the full grant. See <see cref="AetherRoster"/> for why that is sound.</param>
 public readonly record struct AbyssCorridorCell(
     AbyssCorridorInfo Corridor,
@@ -159,7 +159,8 @@ public static class AetherRoster
                     isCurrent: currentHash != null && string.Equals(hash, currentHash, StringComparison.Ordinal),
                     capturedOnServer: server > 0 && capturedByServer.TryGetValue(server, out HashSet<int>? captured)
                         ? captured
-                        : null),
+                        : null,
+                    nowMs: at),
                 CorridorsKnown: corridors?.HasCycleWitness(hash, at) ?? false));
         }
 
@@ -208,10 +209,16 @@ public static class AetherRoster
     /// and share an occupation result; two characters on different servers can be matched into different abyss
     /// instances and must never answer for each other.</para>
     ///
-    /// <para>Union rather than "first character wins" because each character only materialises the corridors it
-    /// personally visited, so every one of them is a lower bound on what the side holds and the widest one is
-    /// the closest to the truth. A corridor one character has already spent still counts — 0:00 on it is proof
-    /// the side holds it, which is exactly what the character beside it needs to know.</para>
+    /// <para>Union rather than "first character wins" because each character can only prove the corridors it
+    /// personally walked into, so every one of them is a lower bound on what the side holds and the widest one
+    /// is the closest to the truth. A corridor one character has already spent still counts — it got in, which
+    /// is exactly what the character beside it needs to know.</para>
+    ///
+    /// <para><b>What may NOT be unioned, learned 2026-08-23.</b> This used to take its input from characters
+    /// that had merely been TOLD a corridor held time. That is not the same fact: unspent 이용 시간 survives the
+    /// 점령전 that takes the artifact away, and the server goes on reporting it. One such leftover on the main
+    /// character put a lost 유황나무 on five siblings as a full 2:10, on a corridor whose portal the player had
+    /// already found closed. Entry is the only input now.</para>
     /// </summary>
     private static Dictionary<int, HashSet<int>> CapturedByServer(
         Dictionary<string, Dictionary<int, long>> standings, Dictionary<string, int> serverByHash)
@@ -239,9 +246,12 @@ public static class AetherRoster
     }
 
     /// <summary>Each character's corridor standings for the current 점령 cycle, keyed by ticket id — the entries
-    /// <see cref="AbyssCorridorStore.Standing"/> answers with a value rather than null.
-    /// <para>Standing() is where the cycle filter lives: evidence older than the last 점령전 is answered as
-    /// unknown, so nothing here can hand last week's occupation to anyone as this week's.</para></summary>
+    /// <see cref="AbyssCorridorStore.Standing"/> answers with a value rather than null, i.e. the corridors this
+    /// character has been watched walking INTO since the last 점령전.
+    /// <para>Standing() is where both filters live: the corridor has to have been entered (which the game only
+    /// permits while the side holds the artifact) and the entry has to be newer than the last 점령전. Nothing
+    /// here can hand last week's occupation to anyone as this week's, and nothing here rests on a ticket value,
+    /// which 2026-08-23 established is a stock that outlives the occupation that granted it.</para></summary>
     private static Dictionary<string, Dictionary<int, long>> StandingsFor(
         AbyssCorridorStore? corridors,
         List<KeyValuePair<string, AetherSnapshot>> characters,
@@ -281,31 +291,31 @@ public static class AetherRoster
     /// <para>A corridor no character on that server has been seen holding is still left out entirely. The wire
     /// cannot tell "우리 진영이 못 뺏었다" from "이 캐릭터가 다 썼다" from "여긴 안 가봤다", so a chip nothing on
     /// this install has ever seen stocked would be an invention.</para>
-    /// <para>A reading the store kept for this character always wins, including a zero — a corridor watched
-    /// running down to 0:00 reads 0:00, never the server's optimism.</para>
-    /// <para><b>The zero this cannot see, and the one way the number can be too high.</b> A snapshot zero is
-    /// only STORED for a corridor already known granted this cycle (<c>App.FlushPendingAbyssCorridors</c>:
-    /// <c>remainingMs &gt; 0 || known</c>); for every other corridor the zero is dropped, so "the server said
-    /// zero" and "we never heard" arrive here identically and both inherit. That is deliberate — it is exactly
-    /// the case this exists for, five characters reporting zero while their side plainly held two corridors —
-    /// but it means a character that spent a corridor while the meter was CLOSED reads full instead of 0:00.
-    /// The error only ever runs in that direction, and the chip's tooltip states the condition it depends on.
-    /// Spending it while the meter is running is safe: the 0x610C expiry is filed against a known grant.</para>
-    /// <para><b>Measured 2026-08-21 — the premise is not an assumption.</b> An 87-day corpus could not settle
-    /// why characters differ (no session in it overlaps a 점령전, none holds a town-zero snapshot followed by an
-    /// abyss zone-in), so it was tested live instead. 헤로롱 logged in from town reporting zero on every
-    /// corridor, and the panel inherited its server's two and drew them as guesses. Walking that same character
-    /// into the abyss made the real values arrive — and 고목나무, a corridor it had never once entered, came
-    /// back at the FULL grant, exactly what the guess claimed. A corridor the side holds really is stocked for a
-    /// character that has not been to collect it; the ticket just does not surface until it goes.</para>
-    /// <para>That does not close the ambiguity above. Back in town a spent corridor and an unvisited one report
-    /// the same zero, so "spent while the meter was closed" stays the one way this number reads too high.</para></summary>
+    /// <para>A reading the store kept for THIS character always wins, including a zero — a corridor watched
+    /// running down to 0:00 reads 0:00, never the full grant. The assumed full is only for a character that has
+    /// heard nothing about that corridor this cycle, which is precisely when it has spent none of it.</para>
+    /// <para><b>The one way the number can still be too high.</b> A character that walked a corridor down while
+    /// the meter was CLOSED has no reading from this cycle, so it inherits the full grant. The error only ever
+    /// runs in that direction, and the chip's tooltip states the condition it depends on. Spending it while the
+    /// meter is running is safe — the 0x610C expiry is filed the moment it lands.</para>
+    /// <para><b>Measured 2026-08-21 — the inheritance is not an assumption.</b> 헤로롱 logged in from town
+    /// reporting zero on every corridor, and the panel handed it its server's corridors as guesses. Walking that
+    /// same character into the abyss made the real values arrive — and 고목나무, a corridor it had never once
+    /// entered, came back at the FULL grant, exactly what the guess claimed. A corridor the side holds really is
+    /// stocked for a character that has not been to collect it; the ticket just does not surface until it
+    /// goes.</para>
+    /// <para><b>What 2026-08-23 changed.</b> Which corridors get offered at all used to come from the ticket
+    /// VALUE, and that was wrong in the one direction a player notices: unspent time survives the 점령전 that
+    /// takes the artifact away, so a corridor the side had lost was still being handed to five sibling
+    /// characters as a full 2:10. Entry is what the list is built from now, so a corridor nobody could get into
+    /// this cycle cannot appear on anyone.</para></summary>
     private static IReadOnlyList<AbyssCorridorCell> CorridorsFor(
         AbyssCorridorStore? corridors,
         string hash,
         Dictionary<int, long>? standings,
         bool isCurrent,
-        IReadOnlySet<int>? capturedOnServer)
+        IReadOnlySet<int>? capturedOnServer,
+        long nowMs)
     {
         if (corridors is null)
         {
@@ -315,16 +325,20 @@ public static class AetherRoster
         var cells = new List<AbyssCorridorCell>(AbyssCorridorCatalog.All.Count);
         foreach (AbyssCorridorInfo corridor in AbyssCorridorCatalog.All)
         {
-            if (standings is null || !standings.TryGetValue(corridor.TicketId, out long remainingMs))
+            // Held by this side this cycle, proven either by this character walking in or by one beside it on
+            // the same server. Anything else is left out entirely: a corridor nobody on this install has been
+            // able to enter since the 점령전 would be an invention, whatever the tickets say.
+            bool ownProof = standings?.ContainsKey(corridor.TicketId) == true;
+            if (!ownProof && capturedOnServer?.Contains(corridor.TicketId) != true)
             {
-                if (capturedOnServer?.Contains(corridor.TicketId) == true)
-                {
-                    cells.Add(new AbyssCorridorCell(
-                        corridor, AbyssCorridorCatalog.FullGrantMs, Ticking: false, Inferred: true));
-                }
-
                 continue;
             }
+
+            // The character's own reading is used wherever there is one, even for a corridor it was the server
+            // that proved held — that is how a character sitting on a measured 2:10 stops being drawn as a
+            // guess just because it happened to be a sibling that walked in.
+            long? own = corridors.Reading(hash, corridor.TicketId, nowMs);
+            long remainingMs = own ?? AbyssCorridorCatalog.FullGrantMs;
 
             // "지금 입장 중" is a claim about the character being played, so a record left ticking on anyone
             // else never makes it — a clock that outlived its visit (the meter closed inside a corridor) would
@@ -332,7 +346,7 @@ public static class AetherRoster
             bool ticking = isCurrent
                 && remainingMs > 0
                 && corridors.Get(hash, corridor.TicketId) is { TickingSinceMs: > 0 };
-            cells.Add(new AbyssCorridorCell(corridor, remainingMs, ticking));
+            cells.Add(new AbyssCorridorCell(corridor, remainingMs, ticking, Inferred: own is null));
         }
 
         return cells;

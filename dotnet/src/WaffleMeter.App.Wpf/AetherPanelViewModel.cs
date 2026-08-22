@@ -193,11 +193,11 @@ public sealed class AbyssCorridorCellViewModel : INotifyPropertyChanged
         // while the meter was closed makes it too high — and what it takes to enter, since the side holding an
         // artifact says nothing about whether THIS character is geared for that layer.
         string source = cell.Inferred
-            ? "\n같은 서버의 다른 캐릭터에서 점령이 확인된 회랑입니다.\n점령 후 이 캐릭터로 이 회랑에 들어간 적이 없다면 시간이 그대로 남아 있습니다."
+            ? "\n같은 서버의 다른 캐릭터가 이번 점령 주기에 들어간 것이 확인된 회랑입니다.\n이 캐릭터로는 들어간 적이 없어 시간이 그대로 남아 있는 것으로 보고 있습니다."
                 + (cell.Corridor.Tier == AbyssCorridorTier.Middle
                     ? "\n입장 조건: 아이템 레벨 3000"
                     : cell.Corridor.Tier == AbyssCorridorTier.Lower ? "\n입장 조건: 아이템 레벨 1000" : string.Empty)
-            : "\n(점령이 확인된 회랑만 표시됩니다)";
+            : "\n(이번 점령 주기에 실제로 들어가 본 회랑만 표시됩니다)";
         ToolTip = $"{cell.Corridor.Tier switch
         {
             AbyssCorridorTier.Lower => "어비스 하층",

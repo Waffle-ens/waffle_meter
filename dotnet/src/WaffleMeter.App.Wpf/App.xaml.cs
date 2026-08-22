@@ -1753,12 +1753,12 @@ public partial class App : Application
         }
 
         // A delta only fires when a corridor's clock actually moved, which means the character has been in the
-        // world long enough for its identity to have settled.
+        // world long enough for its identity to have settled. Unlike a dump, a delta zero is trustworthy: the
+        // server only sends it when the budget actually ran out, so it is filed as-is.
         //
-        // Only a POSITIVE reading stamps the grant. A drop to zero proves the corridor once held time, but not
-        // that it holds any THIS cycle — and one of those zeroes arrives on schedule at 22:10, when 점령전 wipes
-        // the standing occupation. Stamping that would turn "우리가 뺏겼다" into "내가 다 썼다" for the whole
-        // cycle. Nothing is lost by being strict: the entry that spent the corridor already stamped it.
+        // Neither reading says anything about whether the side HOLDS the corridor — that question is settled by
+        // OnInstanceMapChanged, and only there. A positive value here is time this character has banked, which
+        // may well have been granted at a 점령전 two occupations ago and never spent.
         //
         // The clock is NOT started here even when the value is full: an allocation handed out at 점령전 looks
         // identical on the wire to walking in, and only the map can tell them apart. It is stopped here on a
@@ -1798,15 +1798,24 @@ public partial class App : Application
         }
 
         _corridorInsideMapId = mapId;
-        StartAbyssCorridorClock(services, corridor.TicketId, atMs);
+        EnterAbyssCorridor(services, corridor.TicketId, atMs);
     }
 
-    /// <summary>Start the clock on the corridor just entered, from whatever time is already banked for it.
-    /// <para>Reading the stored value rather than waiting for a broadcast is what makes re-entry work. The
-    /// server states the budget when it changes, so walking back into a corridor that still has time on it
-    /// produces NO ticket packet at all — a clock that only ever started from a broadcast would leave that
-    /// visit's time frozen on screen while it silently drained.</para></summary>
-    private void StartAbyssCorridorClock(MeterServices services, int ticketId, long atMs)
+    /// <summary>The character just loaded a corridor's instance map. Two things are written: the proof that its
+    /// side holds that artifact, and the clock for this visit.
+    ///
+    /// <para><b>The entry IS the evidence.</b> The game only opens the portal while the side holds the artifact,
+    /// so getting in is the one observation that settles the question. The ticket cannot: 이용 시간 is a stock
+    /// the character keeps, and time granted at one 점령전 and never spent is still reported after the artifact
+    /// changes hands — 2026-08-23, 콘팡 was told 유황나무 held time three and three-quarter hours after the
+    /// 점령전 that lost it, portal already closed. Everything the panel shows now hangs off this stamp.</para>
+    ///
+    /// <para><b>The clock starts from whatever is banked</b> rather than from a broadcast. The server states the
+    /// budget only when it changes, so walking back into a corridor that still has time on it produces NO ticket
+    /// packet at all — a clock that waited for one would leave that visit's time frozen on screen while it
+    /// silently drained. With nothing banked from this cycle the full grant is assumed, which getting in has
+    /// just proved was there.</para></summary>
+    private void EnterAbyssCorridor(MeterServices services, int ticketId, long atMs)
     {
         string? hash = services.Consent.CurrentCharacterHash();
         if (_settings is null || string.IsNullOrEmpty(hash))
@@ -1815,20 +1824,19 @@ public partial class App : Application
         }
 
         AbyssCorridorStore store = AbyssCorridorStore.Parse(_settings.AbyssCorridors);
-        if (store.Get(hash, ticketId) is not { } record)
-        {
-            return; // never seen this corridor stocked — the entry broadcast will land in a moment
-        }
+        bool changed = store.MarkEntered(hash, ticketId, atMs);
 
-        long remaining = record.Project(atMs);
-        if (remaining <= 0)
-        {
-            return;
-        }
+        // A reading from a PREVIOUS cycle is not a starting point — it describes an allocation that has since
+        // been re-granted, spent or lost. Reading() answers null for one, and the full grant takes over.
+        long remaining = store.Reading(hash, ticketId, atMs) is { } banked and > 0
+            ? banked
+            : AbyssCorridorCatalog.FullGrantMs;
 
-        if (store.Upsert(hash, ticketId, remaining, atMs, markGranted: false, tickingSinceMs: atMs))
+        changed |= store.Upsert(hash, ticketId, remaining, atMs, markGranted: false, tickingSinceMs: atMs);
+        _corridorClockHash = hash;
+
+        if (changed)
         {
-            _corridorClockHash = hash;
             _settings.AbyssCorridors = store.Serialize();
             RefreshAetherRoster(services);
         }
@@ -1872,10 +1880,14 @@ public partial class App : Application
 
     /// <summary>File any held dump values whose owning identity has since been established — the corridor twin
     /// of <see cref="FlushPendingWeeklyContent"/>.
-    /// <para>A zero from a dump is filed ONLY over a corridor already known to have been stocked this cycle. On
-    /// its own a zero says nothing — every corridor the faction does not hold reports zero too — so storing it
-    /// would turn "이 회랑은 우리 게 아니다" into "이 캐릭터가 다 썼다". Over an existing record it is exactly the
-    /// correction wanted: the character spent that corridor while the meter was closed.</para></summary>
+    /// <para><b>A zero from a dump is never filed.</b> It is the most overloaded value on this wire — 미점령,
+    /// 소진, 타종족 and 미방문 all send it — and the fourth of those is not rare: a character standing in town
+    /// reports zero on ALL twelve corridors whatever it holds, because the ticket only materialises once it goes
+    /// to the abyss (measured 2026-08-21 on 헤로롱, whose twelve town zeros became real values on zone-in). So a
+    /// dump zero filed over a real reading would turn a corridor with 1:10 left into 0:00 for the rest of the
+    /// cycle, every time the player logged in from anywhere else. A corridor only reaches zero here the two ways
+    /// that mean it: the 0x610C expiry the server sends when the budget runs out, and the clock this app runs
+    /// while the character is standing in it.</para></summary>
     private void FlushPendingAbyssCorridors(MeterServices services)
     {
         string? hash = services.Consent.CurrentCharacterHash();
@@ -1901,11 +1913,9 @@ public partial class App : Application
             _abyssCorridorPending.Remove(ticketId);
             witnessAtMs = Math.Max(witnessAtMs, atMs);
 
-            bool known = store.Get(hash, ticketId) is { } prior
-                && AbyssCorridorCycle.IsCurrentCycle(prior.GrantedAtMs, atMs);
-            if (remainingMs > 0 || known)
+            if (remainingMs > 0)
             {
-                changed |= store.Upsert(hash, ticketId, remainingMs, atMs, markGranted: remainingMs > 0);
+                changed |= store.Upsert(hash, ticketId, remainingMs, atMs, markGranted: true);
             }
         }
 
