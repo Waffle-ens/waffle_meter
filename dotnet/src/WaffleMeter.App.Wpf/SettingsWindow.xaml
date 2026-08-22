@@ -1227,10 +1227,14 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="알림 음량" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="알림 효과음의 크기입니다." Style="{StaticResource SettingDesc}"/>
+                                <!-- 이 바는 효과음뿐 아니라 음성 알림에도 걸린다(TtsSpeech 가 같은 값을 MediaPlayer.Volume 로
+                                     쓴다). 설명이 "효과음의 크기" 였을 때는 음성이 크다고 느낀 사람이 여기를 볼 이유가 없었다. -->
+                                <TextBlock Text="{Binding AlarmVolume, StringFormat='알림 음량 — {0:P0}'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="알림 효과음과 음성 알림(버프·스킬 알림 포함) 모두에 적용됩니다. 음성이 크게 들리면 여기서 줄여 주세요."
+                                           Style="{StaticResource SettingDesc}" TextWrapping="Wrap"/>
                             </StackPanel>
-                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding AlarmVolume}"/>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="{Binding AlarmVolume}"
+                                    TickFrequency="0.05" IsSnapToTickEnabled="True"/>
                         </Grid>
 
                         <Grid Margin="0,0,0,14">
