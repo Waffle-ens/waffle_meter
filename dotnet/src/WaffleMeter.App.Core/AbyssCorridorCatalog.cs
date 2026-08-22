@@ -132,11 +132,23 @@ public static class AbyssCorridorCatalog
 ///
 /// <para><b>The 점령전 timetable, Wednesday and Saturday (KST).</b>
 /// <list type="bullet">
-/// <item><b>22:10</b> — the standing occupation is wiped. Nothing is held by anyone from here.</item>
-/// <item><b>22:20</b> — capturing begins, and results start arriving. Anything the meter hears from this
-/// moment on describes the NEW holders.</item>
-/// <item><b>22:30</b> — the corridors open, and stay open until 22:00 on the next 점령전 day.</item>
+/// <item><b>22:00</b> — the war starts. MEASURED, not reported: <c>EventSchedule</c> rows 3001
+/// (<c>abyss_ar1_artifactwar</c>) and 3002 (<c>abyss_ar2_artifactwar</c>) each carry
+/// <c>bWednesday = bSaturday = true</c> and a single <c>ActiveTimeList</c> entry of 792,000,000,000 ticks
+/// = 79,200 s = 22:00:00 exactly, with every other day false (client dump 2026-08-23).</item>
+/// <item><b>22:10</b> — the standing occupation is wiped (player-reported, unmeasured).</item>
+/// <item><b>22:20</b> — capturing begins and the new holders settle (player-reported, unmeasured).</item>
+/// <item><b>22:30</b> — the corridors open, and stay open until the next 점령전 (player-reported).</item>
 /// </list></para>
+///
+/// <para><b>Why the boundary sits at 22:20 rather than the measured 22:00.</b> What is dated against it is a
+/// corridor ENTRY — proof that the side held the artifact at that moment. During the war the OLD occupation is
+/// still standing (the client's own guide says the corridor entrance is kept "점령 상태와 함께"), so a boundary
+/// at the war's start would let a corridor entered at 22:05 under the outgoing occupation count as the new
+/// one's — which is the exact shape of the bug this file exists to prevent. Erring late costs a few minutes in
+/// which a freshly-won corridor is not yet credited; erring early puts a corridor the side has just LOST back
+/// on the panel for three days. 22:00 is measured, the rest of the timetable is not, and the number stays
+/// where it is until the moment the new occupation takes effect is measured too.</para>
 ///
 /// <para><b>So the boundary is a fact, not a clock.</b> The moment any corridor reading arrives at or after
 /// 22:20, that reading IS this cycle's answer — and everything stored from before it is last cycle's, no
@@ -151,11 +163,20 @@ public static class AbyssCorridorCatalog
 /// <see cref="WeeklyContentReset"/>: a Korean game's schedule does not move because the PC is set elsewhere,
 /// and Korea has no DST.</para>
 ///
-/// <para><b>Unmeasured.</b> No capture has ever caught the moment a corridor went 0 → 130000, so the schedule
-/// above is what the game publishes rather than something observed. Every corpus reading is consistent with it
-/// (the one apparent counter-example — 12 zeroes at 02:28 and three full tickets at 08:38 the same morning —
-/// turned out to be two different characters, 하아앙 and 콘팡). If it is ever shown wrong, this is the single
-/// place to change.</para>
+/// <para><b>The day and the period are measured; the minute is not.</b> Across the whole 96-session capture
+/// corpus a corridor ticket rose in value 12 times, and all 12 rises straddle a Wed/Sat boundary — inside a
+/// cycle there are 113 consecutive readings and not one increase. So 점령전 is the only thing that stocks these
+/// tickets, and it really is Wed/Sat. What is still unmeasured is the minute: no capture has ever covered
+/// 21:50~22:45 on either day, so the moment a corridor goes 0 → 130000 has never been seen. The tightest
+/// bracket the corpus gives is 4 h 21 min (콘팡, 2026-07-08 20:00:23 all-zero → 07-09 00:21:26 four corridors
+/// at 130000), which cannot separate 22:00 from 22:30.</para>
+/// <para><b>A second, independent witness exists and is not used yet.</b> The 진영 occupation COUNT rides
+/// 0x3633/0x3645 as abnormals 12000261~263 (하층 1/2/3개) and 12000264~266 (중층 1/2/3개). Measured 2026-08-23
+/// 02:08 on 콘팡's own load packet: 12000261 + 12000264 and nothing else, i.e. exactly one artifact per layer —
+/// which is how the corridor the ticket still claimed was proved lost, from the wire rather than from the
+/// player. Cross-checked against 2026-08-19, where 12000261 + 12000265 matched the one 하층 and two 중층
+/// corridors a character actually walked into that session. It cannot say WHICH corridors, so it cannot replace
+/// the entry proof — but it can contradict it, and it is the obvious next thing to read.</para>
 /// </summary>
 public static class AbyssCorridorCycle
 {
