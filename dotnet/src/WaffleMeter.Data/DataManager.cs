@@ -259,6 +259,8 @@ public sealed class DataManager : ICaptureGameData
     // Curated self-buff bases from the bundled catalog (datamine-verified) — listed in the picker even before
     // they're observed, so a buff can be configured up front.
     private readonly HashSet<int> _knownBuffBases = new();
+    // True once buff_catalog.json has been loaded. See LoadBuffCatalog for why this is not `_knownBuffBases.Count > 0`.
+    private bool _buffCatalogLoaded;
     // Bases that should default to Off (toggle/aura buffs that stay on indefinitely) — applied on first run.
     private readonly HashSet<int> _defaultOffBuffBases = new();
     // Base skill codes the user unchecked — the overlay suppresses these.
@@ -361,6 +363,10 @@ public sealed class DataManager : ICaptureGameData
     {
         lock (_buffPickerGate)
         {
+            // Tracked separately from _knownBuffBases being non-empty: the revival-heal path also adds to that
+            // set as a safety net, and inferring "a catalogue was loaded" from its size would let one synthetic
+            // code silently switch the whole overlay from show-everything to show-almost-nothing.
+            _buffCatalogLoaded = true;
             foreach ((int code, string name, string job) in catalog)
             {
                 _knownBuffBases.Add(code);
@@ -402,14 +408,25 @@ public sealed class DataManager : ICaptureGameData
         }
     }
 
-    /// <summary>The picker catalog: every observed job buff, grouped-ready as (base code, name, job, hidden).
-    /// Name/job come from the bundled table; unknown codes fall back to the code + "기타".</summary>
+    /// <summary>
+    /// The picker catalog: the curated buff list, grouped-ready as (base code, name, job, hidden).
+    ///
+    /// <para>This used to be <c>observed ∪ curated</c>, which made the list whatever the game happened to
+    /// broadcast — it grew to 182 rows on a well-played install, carried pure attack skills and enemy
+    /// debuffs, and showed rows labelled "스킬 13790007" for codes no name table covers. The curated
+    /// catalogue is now the whole list, so what the picker offers, what the overlay draws, and what the
+    /// voice packs are baked from are one set that can actually be kept in step.</para>
+    ///
+    /// <para>Observation is still recorded (see <see cref="RecordObservedBuff"/>) — it is how a buff a
+    /// patch adds gets discovered and added to the catalogue, it just no longer shows itself.</para>
+    /// </summary>
     public IReadOnlyList<(int BaseCode, string Name, string Job, bool Hidden)> BuffPickerCatalog()
     {
         lock (_buffPickerGate)
         {
-            var bases = new HashSet<int>(_observedBuffBases);
-            bases.UnionWith(_knownBuffBases); // curated catalog + anything actually observed
+            // Empty catalogue = the JSON is missing; fall back to the old observed-driven list so the picker
+            // degrades the same way the overlay does (see IsBuffInCatalog) instead of going blank.
+            IReadOnlyCollection<int> bases = _buffCatalogLoaded ? _knownBuffBases : _observedBuffBases;
             var list = new List<(int, string, string, bool)>(bases.Count);
             foreach (int b in bases)
             {
@@ -420,6 +437,24 @@ public sealed class DataManager : ICaptureGameData
             }
 
             return list;
+        }
+    }
+
+    /// <summary>
+    /// True when the buff overlay is allowed to draw / announce this code. The catalogue is the list, so a
+    /// code outside it has no picker row — leaving it visible would draw a buff the user has no way to turn
+    /// off.
+    ///
+    /// <para>Empty catalogue = no opinion, not "nothing qualifies". <c>MeterServices</c> only calls
+    /// <see cref="LoadBuffCatalog"/> when buff_catalog.json is actually present, so a publish that dropped
+    /// the asset would otherwise blank the entire buff overlay with no error anywhere. Degrading to the old
+    /// show-everything behaviour is the failure worth having.</para>
+    /// </summary>
+    private bool IsBuffInCatalog(int runtimeCode)
+    {
+        lock (_buffPickerGate)
+        {
+            return !_buffCatalogLoaded || _knownBuffBases.Contains(BuffDisplayBase(runtimeCode));
         }
     }
 
@@ -1786,14 +1821,19 @@ public sealed class DataManager : ICaptureGameData
         int baseCode = RevivalContractBase(skillCode);
         int cooldownCode = RevivalHealCooldownCode(baseCode);
 
-        // 합성 코드를 이름표에 등록해 두면 오버레이 이름·직업별 picker 노출·숨김/음성 토글이 전부 기존
-        // 경로로 해결된다((A) 버프와 같은 직업 그룹에 묶이도록 job 문자열을 물려받는다).
+        // 합성 코드는 이제 buff_catalog.json 이 다섯 직업분을 모두 싣고 있으므로 이름·직업·picker 노출이
+        // 기동 시점에 이미 서 있다. 아래는 카탈로그에 빠진 직업이 생겼을 때의 그물일 뿐이다.
+        //
+        // 예전에는 이 등록이 유일한 경로였고, 그게 결함이었다: 이름표는 프록이 실제로 터져야 채워지는데
+        // buffUi.observed 는 저장된다 → 재기동 후 그 직업을 하기 전까지 picker 에 "스킬 13790007" 이라는
+        // 정체불명 행으로 남았다. 지금 하는 직업만 멀쩡해 보이는 이유가 이것이었다.
         lock (_buffPickerGate)
         {
             if (!_buffNames.ContainsKey(cooldownCode))
             {
                 string job = _buffNames.TryGetValue(baseCode, out (string Name, string Job) bn) ? bn.Job : "기타";
                 _buffNames[cooldownCode] = (RevivalHealCooldownName, job);
+                _knownBuffBases.Add(cooldownCode);
             }
         }
 
@@ -2005,6 +2045,11 @@ public sealed class DataManager : ICaptureGameData
                 if (kv.Value.End <= nowMs)
                 {
                     continue; // expired
+                }
+
+                if (!IsBuffInCatalog(kv.Key))
+                {
+                    continue; // outside the curated list — no picker row exists, so it could not be turned off
                 }
 
                 bool hidden = IsBuffHidden(kv.Key);
