@@ -260,6 +260,18 @@ public static class TtsSpeech
     private static Task SendText(ClientWebSocket ws, string message, CancellationToken ct) =>
         ws.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, ct);
 
+    /// <summary>
+    /// How long to leave the player alone after <c>MediaEnded</c> before tearing it down.
+    ///
+    /// <para><c>MediaEnded</c> does not mean "the audio has been heard" — it means the media clock reached the
+    /// end, while the renderer still holds queued samples. Measured against this repo's own packs, it arrives
+    /// 80–95 ms before the clip's own <c>NaturalDuration</c> has elapsed in wall-clock. Closing the player
+    /// inside that callback discarded whatever was still queued, so every line whose trailing silence was
+    /// shorter than that lost real speech — and since the packs' tails run anywhere from 25 ms to 730 ms, only
+    /// some lines sounded cut, which is what made it look intermittent rather than constant.</para>
+    /// </summary>
+    private const int TailGraceMs = 250;
+
     // Play an MP3 clip via a MediaPlayer on the UI dispatcher (MediaEnded fires there). The clip is short;
     // Play() returns immediately and the file is deleted after playback (or a hard timeout).
     private static void Play(byte[] mp3, double volume)
@@ -275,23 +287,45 @@ public static class TtsSpeech
         string file = Path.Combine(path, Guid.NewGuid().ToString("N") + ".mp3");
         File.WriteAllBytes(file, mp3);
 
-        using var done = new ManualResetEventSlim(false);
-        app.Dispatcher.Invoke(() =>
+        var done = new ManualResetEventSlim(false);
+        try
         {
-            var player = new MediaPlayer { Volume = Math.Clamp(volume, 0, 1) };
-            void Cleanup()
+            app.Dispatcher.Invoke(() =>
             {
-                try { player.Close(); } catch { }
-                done.Set();
-            }
+                var player = new MediaPlayer { Volume = Math.Clamp(volume, 0, 1) };
 
-            player.MediaEnded += (_, _) => Cleanup();
-            player.MediaFailed += (_, _) => Cleanup();
-            player.Open(new Uri(file));
-            player.Play();
-        });
+                void Teardown()
+                {
+                    try { player.Close(); } catch { }
+                    // The worker may already have timed out and disposed this; a late signal is a no-op.
+                    try { done.Set(); } catch (ObjectDisposedException) { }
+                }
 
-        done.Wait(8000); // bound the worker so a stuck clip can't wedge the queue
+                // The running timer roots itself and the player it captures, so neither can be collected
+                // mid-clip. The worker stays parked until the grace elapses, which also keeps consecutive
+                // alerts from overlapping the tail we just went to the trouble of preserving.
+                player.MediaEnded += (_, _) =>
+                {
+                    var grace = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(TailGraceMs) };
+                    grace.Tick += (_, _) =>
+                    {
+                        grace.Stop();
+                        Teardown();
+                    };
+                    grace.Start();
+                };
+                player.MediaFailed += (_, _) => Teardown(); // nothing played — there is no tail to protect
+                player.Open(new Uri(file));
+                player.Play();
+            });
+
+            done.Wait(8000); // bound the worker so a stuck clip can't wedge the queue
+        }
+        finally
+        {
+            done.Dispose();
+        }
+
         try { File.Delete(file); } catch { }
     }
 }
