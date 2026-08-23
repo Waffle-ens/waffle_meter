@@ -31,6 +31,15 @@ public sealed class BakedVoicePack
 
     public static bool IsKnown(string? pack) => pack is not null && Array.IndexOf(All, pack) >= 0;
 
+    /// <summary>
+    /// The online voice that reads a line this pack never baked. A stand-in, not a match — the packs are
+    /// rendered locally from a reference clip and no endpoint voice reproduces them — but it keeps the gender
+    /// the user chose. Before this existed, every unbaked line came back in the female voice no matter which
+    /// pack was selected, which is what made a miss audible rather than merely late.
+    /// </summary>
+    public static string OnlineVoiceFor(string? pack) =>
+        pack == Wabungi ? EdgeTtsProtocol.MaleVoice : EdgeTtsProtocol.DefaultVoice;
+
     private readonly string _root;
 
     public BakedVoicePack(string appDirectory, string pack)

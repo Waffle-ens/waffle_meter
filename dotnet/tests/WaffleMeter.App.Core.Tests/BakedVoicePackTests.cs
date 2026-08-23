@@ -87,6 +87,18 @@ public sealed class BakedVoicePackTests
         }
     }
 
+    /// <summary>A line the pack never baked is read by the endpoint instead, and that stand-in used to be the
+    /// female voice regardless of which pack was chosen — so picking 와붕이 made every miss audible as a
+    /// change of speaker rather than just a pause.</summary>
+    [Fact]
+    public void The_online_stand_in_keeps_the_gender_of_the_selected_pack()
+    {
+        Assert.Equal(EdgeTtsProtocol.MaleVoice, BakedVoicePack.OnlineVoiceFor(BakedVoicePack.Wabungi));
+        Assert.Equal(EdgeTtsProtocol.DefaultVoice, BakedVoicePack.OnlineVoiceFor(BakedVoicePack.Wasuni));
+        Assert.Equal(EdgeTtsProtocol.DefaultVoice, BakedVoicePack.OnlineVoiceFor(null));
+        Assert.NotEqual(EdgeTtsProtocol.DefaultVoice, EdgeTtsProtocol.MaleVoice);
+    }
+
     [Fact]
     public void Every_shipped_pack_name_is_known()
     {

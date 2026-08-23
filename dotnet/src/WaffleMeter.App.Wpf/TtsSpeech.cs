@@ -31,7 +31,11 @@ public static class TtsSpeech
     // Durable = a burst-of-many alert (e.g. several buffs turning on at once) that must be spoken in sequence,
     // not dropped: it bypasses the stale-age skip so later items in the burst still play once the worker reaches
     // them. Non-durable (default, e.g. a time-sensitive alarm reminder) keeps the "spoken late is worse" skip.
-    private sealed record Request(string Text, double Volume, long EnqueuedMs, bool Durable);
+    // ChimeFallback = play the bundled chime when the line cannot be spoken at all. Right for an alarm, whose
+    // UI promises exactly that and which fires a few times an hour. Wrong for a buff, which fires dozens of
+    // times a fight and whose whole point is WHICH buff — a chime cannot say that, so a run of identical
+    // chimes is noise standing in for information the user asked for by name.
+    private sealed record Request(string Text, double Volume, long EnqueuedMs, bool Durable, bool ChimeFallback);
 
     private static readonly object Gate = new();
     private static BlockingCollection<Request>? _queue;
@@ -51,6 +55,11 @@ public static class TtsSpeech
     /// </summary>
     public static void SetVoicePack(BakedVoicePack? pack)
     {
+        // Armed unconditionally, and ahead of the early return: the online voice follows the SELECTION, not
+        // the change. Leaving it behind the guard would let a first call that happens to match the current
+        // pack leave the fallback voice at its initial value, silently for as long as the app runs.
+        Voice = BakedVoicePack.OnlineVoiceFor(pack?.Pack);
+
         if (_pack?.Pack == pack?.Pack)
         {
             return;
@@ -65,7 +74,7 @@ public static class TtsSpeech
     /// immediately; never throws. Set <paramref name="durable"/> for a burst that must all be spoken in order
     /// (buff on/off alerts) — those bypass the stale-age skip so a later item isn't dropped while earlier ones
     /// play.</summary>
-    public static void Speak(string text, double volume, bool durable = false)
+    public static void Speak(string text, double volume, bool durable = false, bool chimeFallback = true)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -73,7 +82,7 @@ public static class TtsSpeech
         }
 
         EnsureWorker();
-        var req = new Request(text.Trim(), Math.Clamp(volume, 0, 1), Environment.TickCount64, durable);
+        var req = new Request(text.Trim(), Math.Clamp(volume, 0, 1), Environment.TickCount64, durable, chimeFallback);
         // Bounded + newest-wins: if full, drop the oldest so a fresh alert isn't starved by a backlog.
         while (!_queue!.TryAdd(req))
         {
@@ -120,14 +129,17 @@ public static class TtsSpeech
                 {
                     Play(mp3, req.Volume);
                 }
-                else
+                else if (req.ChimeFallback)
                 {
                     AlarmSound.Play(req.Volume); // network path unavailable — never go silent
                 }
             }
             catch
             {
-                AlarmSound.Play(req.Volume);
+                if (req.ChimeFallback)
+                {
+                    AlarmSound.Play(req.Volume);
+                }
             }
         }
     }
