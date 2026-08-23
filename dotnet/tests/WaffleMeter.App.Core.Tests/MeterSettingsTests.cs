@@ -157,6 +157,32 @@ public sealed class MeterSettingsTests : IDisposable
         Assert.Equal(NameDisplay.MeOnly, s.NameDisplayMode);
     }
 
+    /// <summary>
+    /// alarms.ttsVoice is the only ReadEnum whitelist made of Korean, so it was the only setting where the
+    /// storage layer's Latin-1 damage turned into a visible reset: the stored 와붕이 came back as "???",
+    /// missed the whitelist, and coerced to the 와순이 default on every single launch.
+    /// </summary>
+    [Fact]
+    public void Tts_voice_survives_a_restart()
+    {
+        var s = new MeterSettings(new PropertyHandler(_temp));
+        s.TtsVoice = BakedVoicePack.Wabungi;
+
+        var reopened = new MeterSettings(new PropertyHandler(_temp));
+        Assert.Equal(BakedVoicePack.Wabungi, reopened.TtsVoice);
+    }
+
+    /// <summary>Same damage, different key: a font family with no Latin name is free text with no whitelist to
+    /// coerce it, so it silently fell back to the default font instead.</summary>
+    [Fact]
+    public void Korean_font_family_survives_a_restart()
+    {
+        var s = new MeterSettings(new PropertyHandler(_temp));
+        s.FontFamily = "나눔손글씨 붓";
+
+        Assert.Equal("나눔손글씨 붓", new MeterSettings(new PropertyHandler(_temp)).FontFamily);
+    }
+
     [Fact]
     public void Raises_property_changed_on_csharp_name()
     {

@@ -2671,7 +2671,7 @@ public partial class App : Application
             // cast silently takes over the earlier one.
             if (s.BuffTtsOnStart && _buffStartAnnounced.Add(b.Code))
             {
-                TtsSpeech.Speak($"{b.Name} 온", s.AlarmVolume, durable: true);
+                TtsSpeech.Speak($"{b.Name} 온", s.AlarmVolume, durable: true, chimeFallback: false);
             }
 
             // Pre-warn the end once inside the lead window (skip very short buffs so it doesn't double up with
@@ -2720,7 +2720,7 @@ public partial class App : Application
     {
         if (delayMs <= 0)
         {
-            TtsSpeech.Speak(text, volume, durable: true);
+            TtsSpeech.Speak(text, volume, durable: true, chimeFallback: false);
             return;
         }
 
@@ -2737,7 +2737,7 @@ public partial class App : Application
         {
             t.Stop();
             _buffEndPending.Remove(code);
-            TtsSpeech.Speak(text, volume, durable: true);
+            TtsSpeech.Speak(text, volume, durable: true, chimeFallback: false);
         };
         _buffEndPending[code] = (t, endMs);
         t.Start();

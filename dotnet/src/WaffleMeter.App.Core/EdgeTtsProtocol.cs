@@ -21,6 +21,9 @@ public static class EdgeTtsProtocol
     /// <summary>Default Korean female neural voice.</summary>
     public const string DefaultVoice = "ko-KR-SunHiNeural";
 
+    /// <summary>Korean male neural voice. Both ids are confirmed present in the endpoint's own voice list.</summary>
+    public const string MaleVoice = "ko-KR-InJoonNeural";
+
     // Offset between the Unix epoch (1970) and the Windows FILETIME epoch (1601), in seconds.
     private const long WindowsEpochOffsetSeconds = 11_644_473_600L;
 
