@@ -156,11 +156,12 @@
                                             </ItemsControl>
 
                                             <!-- 어비스 회랑. A chip appears for a corridor this character's SIDE
-                                                 was watched holding this 점령 cycle — on this character, or on
-                                                 another one on the same server, which is the same 진영 and so
-                                                 the same occupation. Never from a bare zero: the wire sends the
-                                                 same zero for un-captured, spent, and never-visited. A
-                                                 WrapPanel because six of these do not fit the 320px row. -->
+                                                 was watched WALKING INTO this 점령 cycle — on this character, or
+                                                 on another one on the same server, which is the same 진영 and so
+                                                 the same occupation. Never from a ticket value: a zero covers
+                                                 미점령·소진·타종족·미방문 alike, and unspent time outlives the
+                                                 occupation that granted it (2026-08-23). A WrapPanel because
+                                                 six of these do not fit the 320px row. -->
                                             <ItemsControl ItemsSource="{Binding Corridors}" Margin="0,3,0,0"
                                                           Visibility="{Binding CorridorsVisibility}">
                                                 <ItemsControl.ItemsPanel>
@@ -211,13 +212,13 @@
 
                                             <!-- Shown only when a login snapshot for THIS character has been
                                                  seen since the last 점령전, and no character on its server has
-                                                 been watched holding a corridor either. It reports the state of
-                                                 our records — a zeroed snapshot is ALSO what a character that
-                                                 has not been to the abyss since the capture sends. -->
+                                                 been watched entering a corridor either. It reports the state
+                                                 of our records — which corridors are open is only knowable by
+                                                 someone getting into one. -->
                                             <TextBlock Text="어비스 회랑 기록 없음" FontSize="9" Margin="0,4,0,0"
                                                        Opacity="0.6"
                                                        Foreground="{DynamicResource Skin.MutedFg}"
-                                                       ToolTip="이 캐릭터의 접속 정보에는 회랑 이용 시간이 없었습니다.&#10;미터를 켜 둔 상태에서 같은 서버의 다른 캐릭터가 회랑 시간을 가진 것이 확인되면 이 캐릭터에도 함께 표시됩니다.&#10;미점령·소진·미방문은 서버가 보내는 값만으로는 구분되지 않습니다."
+                                                       ToolTip="이번 점령 주기에 들어가 본 회랑이 아직 없습니다.&#10;미터를 켜 둔 상태로 어비스 회랑에 한 번 들어가시면 그때부터 표시됩니다.&#10;같은 서버의 다른 캐릭터가 들어간 회랑도 함께 표시됩니다.&#10;서버가 보내는 이용 시간만으로는 점령 여부를 알 수 없어(지난 주기에 안 쓴 시간이 그대로 남습니다) 입장을 기준으로 합니다."
                                                        Visibility="{Binding CorridorsEmptyVisibility}"/>
                                         </StackPanel>
 

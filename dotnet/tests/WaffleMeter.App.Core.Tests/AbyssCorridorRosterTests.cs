@@ -5,9 +5,11 @@ namespace WaffleMeter.App.Core.Tests;
 
 /// <summary>
 /// Spec for the 어비스 회랑 chips on a 컨텐츠 관리 row. The rule that matters: show the corridors this
-/// character's SIDE was watched holding — measured on this character where we have that, and inherited from a
-/// character beside it on the same server where we do not — and never invent one from a bare zero, because the
-/// wire sends the same zero for 미점령, 소진 and 미방문 alike.
+/// character's SIDE was watched WALKING INTO this 점령 cycle — measured on this character where we have a
+/// reading, and inherited at the full grant from a character beside it on the same server where we do not.
+/// <para>Entry, never the ticket value. A zero means 미점령 · 소진 · 타종족 · 미방문 indifferently, and a
+/// positive value is no better: 이용 시간 is a stock the character keeps, so time granted at one 점령전 and
+/// never spent is still reported after the artifact has changed hands (measured 2026-08-23).</para>
 /// </summary>
 public sealed class AbyssCorridorRosterTests
 {
@@ -26,19 +28,29 @@ public sealed class AbyssCorridorRosterTests
         return store;
     }
 
+    /// <summary>A corridor this character was watched walking into, with the value the server last stated for
+    /// it. Both halves are needed and they mean different things — the entry is what proves the side holds the
+    /// artifact, the value is only the number drawn on the chip.</summary>
+    private static void Entered(
+        AbyssCorridorStore store, string hash, int ticketId, long atMs, long remainingMs, long tickingSinceMs = 0)
+    {
+        store.MarkEntered(hash, ticketId, atMs);
+        store.Upsert(hash, ticketId, remainingMs, atMs, markGranted: remainingMs > 0, tickingSinceMs: tickingSinceMs);
+    }
+
     private static AetherRosterRow Build(AbyssCorridorStore corridors, bool current = true) =>
         Assert.Single(AetherRoster.Build(
             OneCharacter(), currentHash: current ? Hash : null, nowMs: Now, corridors: corridors));
 
-    /// <summary>The three corridors measured on 2026-08-19: two 중층 and one 하층, all spent. Only those three
-    /// get a chip — the other three never held time for this character, and inventing a chip for one would be
-    /// telling the user their faction holds an artifact it does not.</summary>
+    /// <summary>Only the corridors this character was watched walking into get a chip. Inventing one for a
+    /// corridor nobody could get into would be telling the user their faction holds an artifact it does
+    /// not.</summary>
     [Fact]
-    public void Only_corridors_seen_holding_time_get_a_chip()
+    public void Only_corridors_this_character_walked_into_get_a_chip()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Hash, 10_000_002, 130_000, Entry, markGranted: true);
-        corridors.Upsert(Hash, 10_000_004, 0, Entry + 200_000, markGranted: true);
+        Entered(corridors, Hash, 10_000_002, Entry, 130_000);
+        Entered(corridors, Hash, 10_000_004, Entry + 200_000, 0);
 
         AetherRosterRow row = Build(corridors);
 
@@ -56,8 +68,8 @@ public sealed class AbyssCorridorRosterTests
     public void Chips_are_listed_in_catalog_order()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Hash, 10_000_006, 130_000, Entry + 2, markGranted: true);
-        corridors.Upsert(Hash, 10_000_001, 130_000, Entry + 1, markGranted: true);
+        Entered(corridors, Hash, 10_000_006, Entry + 2, 130_000);
+        Entered(corridors, Hash, 10_000_001, Entry + 1, 130_000);
 
         Assert.Equal(
             [10_000_001, 10_000_006],
@@ -69,7 +81,7 @@ public sealed class AbyssCorridorRosterTests
     public void A_corridor_being_stood_in_reports_as_ticking()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Hash, 10_000_002, 130_000, Now - 60_000, markGranted: true, tickingSinceMs: Now - 60_000);
+        Entered(corridors, Hash, 10_000_002, Now - 60_000, 130_000, tickingSinceMs: Now - 60_000);
 
         AbyssCorridorCell cell = Assert.Single(Build(corridors).CorridorCells);
 
@@ -84,7 +96,7 @@ public sealed class AbyssCorridorRosterTests
     public void Only_the_character_being_played_can_report_as_being_inside()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Hash, 10_000_002, 130_000, Now - 60_000, markGranted: true, tickingSinceMs: Now - 60_000);
+        Entered(corridors, Hash, 10_000_002, Now - 60_000, 130_000, tickingSinceMs: Now - 60_000);
 
         AbyssCorridorCell cell = Assert.Single(Build(corridors, current: false).CorridorCells);
 
@@ -147,7 +159,7 @@ public sealed class AbyssCorridorRosterTests
     public void A_corridor_seen_on_one_character_is_offered_to_its_server_siblings()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Sibling, 10_000_002, 130_000, Entry, markGranted: true);
+        Entered(corridors, Sibling, 10_000_002, Entry, 130_000);
         corridors.MarkWitness(Hash, Entry + 60_000);
 
         AbyssCorridorCell cell = Assert.Single(RowFor(corridors, Hash).CorridorCells);
@@ -167,7 +179,7 @@ public sealed class AbyssCorridorRosterTests
     public void The_character_that_was_watched_is_not_marked_as_inferred()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Sibling, 10_000_002, 130_000, Entry, markGranted: true);
+        Entered(corridors, Sibling, 10_000_002, Entry, 130_000);
 
         Assert.False(Assert.Single(RowFor(corridors, Sibling).CorridorCells).Inferred);
     }
@@ -178,8 +190,8 @@ public sealed class AbyssCorridorRosterTests
     public void A_characters_own_reading_wins_over_its_servers()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Sibling, 10_000_002, 130_000, Entry, markGranted: true);
-        corridors.Upsert(Hash, 10_000_002, 0, Entry + 130_000, markGranted: true);
+        Entered(corridors, Sibling, 10_000_002, Entry, 130_000);
+        corridors.Upsert(Hash, 10_000_002, 0, Entry + 130_000, markGranted: false);
 
         AbyssCorridorCell cell = Assert.Single(RowFor(corridors, Hash).CorridorCells);
 
@@ -193,7 +205,7 @@ public sealed class AbyssCorridorRosterTests
     public void One_server_never_answers_for_another()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Sibling, 10_000_002, 130_000, Entry, markGranted: true);
+        Entered(corridors, Sibling, 10_000_002, Entry, 130_000);
 
         Assert.Empty(RowFor(corridors, Stranger).CorridorCells);
     }
@@ -205,19 +217,19 @@ public sealed class AbyssCorridorRosterTests
     public void Evidence_from_a_previous_occupation_is_not_handed_out()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Sibling, 10_000_002, 130_000, Kst(2026, 8, 15, 20, 0), markGranted: true);
+        Entered(corridors, Sibling, 10_000_002, Kst(2026, 8, 15, 20, 0), 130_000);
 
         Assert.Empty(RowFor(corridors, Hash).CorridorCells);
     }
 
-    /// <summary>Each character only materialises the corridors it personally walked into, so each is a lower
+    /// <summary>Each character can only prove the corridors it personally walked into, so each is a lower
     /// bound on what the side holds; the union of them is the closest thing to the occupation result.</summary>
     [Fact]
     public void Every_corridor_the_server_was_seen_holding_is_offered()
     {
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Sibling, 10_000_006, 130_000, Entry, markGranted: true);
-        corridors.Upsert(Hash, 10_000_002, 0, Entry, markGranted: true);
+        Entered(corridors, Sibling, 10_000_006, Entry, 130_000);
+        Entered(corridors, Hash, 10_000_002, Entry, 0);
 
         Assert.Equal(
             [10_000_002, 10_000_006],
@@ -236,11 +248,71 @@ public sealed class AbyssCorridorRosterTests
         store.Upsert(Hash, new AetherSnapshot(10, 0, Entry, "서버모름"));
 
         var corridors = AbyssCorridorStore.Parse(null);
-        corridors.Upsert(Sibling, 10_000_002, 130_000, Entry, markGranted: true);
+        Entered(corridors, Sibling, 10_000_002, Entry, 130_000);
 
         AetherRosterRow row = AetherRoster.Build(store, nowMs: Now, corridors: corridors)
             .Single(r => string.Equals(r.IdentityHash, Hash, StringComparison.Ordinal));
 
         Assert.Empty(row.CorridorCells);
+    }
+
+    /// <summary><b>The 2026-08-23 report, as a spec.</b> Unspent 이용 시간 outlives the occupation that granted
+    /// it: the player watched the other faction take 유황나무 on the Saturday and found its portal closed, and
+    /// the server still told 콘팡 the corridor held a full 2:10 on the Sunday. A value alone must therefore put
+    /// a chip on nobody — not on the character that was told, and not on its siblings.</summary>
+    [Fact]
+    public void A_corridor_the_side_lost_is_not_offered_while_the_server_still_reports_time()
+    {
+        var corridors = AbyssCorridorStore.Parse(null);
+        corridors.Upsert(Sibling, 10_000_002, 130_000, Entry, markGranted: true);
+        corridors.MarkWitness(Hash, Entry + 60_000);
+
+        Assert.Empty(RowFor(corridors, Sibling).CorridorCells);
+        Assert.Empty(RowFor(corridors, Hash).CorridorCells);
+    }
+
+    /// <summary>The same cycle, one corridor lost and one entered: the entered one is offered to the whole
+    /// server and the leftover stock stays invisible, rather than both riding out on the same evidence.</summary>
+    [Fact]
+    public void Leftover_time_does_not_ride_along_with_a_corridor_that_was_entered()
+    {
+        var corridors = AbyssCorridorStore.Parse(null);
+        corridors.Upsert(Sibling, 10_000_002, 130_000, Entry, markGranted: true);  // 지난 주기 잔여 재고
+        Entered(corridors, Sibling, 10_000_003, Entry + 1_000, 130_000);           // 이번 주기에 실제 입장
+
+        Assert.Equal([10_000_003], RowFor(corridors, Sibling).CorridorCells.Select(c => c.Corridor.TicketId));
+        Assert.Equal([10_000_003], RowFor(corridors, Hash).CorridorCells.Select(c => c.Corridor.TicketId));
+    }
+
+    /// <summary>A blob written by 2.11.1 carries grant stamps that were made under the old rule, and those
+    /// stamps are exactly the ones that were wrong. None of them may resurrect a chip — the panel starts empty
+    /// for the cycle and refills the first time the character walks into a corridor.</summary>
+    [Fact]
+    public void Records_written_under_the_old_rule_prove_nothing()
+    {
+        // 콘팡's real record for 유황나무 on the morning of 2026-08-23: spent, and stamped as "granted" hours
+        // after the 점령전 that lost the artifact.
+        var corridors = AbyssCorridorStore.Parse(
+            $"{Sibling},10000002,0,{Entry + 60_000},{Entry},0");
+
+        Assert.Empty(RowFor(corridors, Sibling).CorridorCells);
+
+        Entered(corridors, Sibling, 10_000_002, Entry + 120_000, 130_000);
+        Assert.Equal([10_000_002], RowFor(corridors, Sibling).CorridorCells.Select(c => c.Corridor.TicketId));
+    }
+
+    /// <summary>A character sitting on its own measured value is not drawn as a guess just because it was a
+    /// sibling that proved the corridor open — the "~" is for numbers nothing on this character backs.</summary>
+    [Fact]
+    public void An_own_reading_is_not_a_guess_even_when_the_server_proved_the_corridor()
+    {
+        var corridors = AbyssCorridorStore.Parse(null);
+        Entered(corridors, Sibling, 10_000_002, Entry, 130_000);
+        corridors.Upsert(Hash, 10_000_002, 40_000, Entry + 10_000, markGranted: true);
+
+        AbyssCorridorCell cell = Assert.Single(RowFor(corridors, Hash).CorridorCells);
+
+        Assert.Equal(40_000, cell.RemainingMs);
+        Assert.False(cell.Inferred);
     }
 }

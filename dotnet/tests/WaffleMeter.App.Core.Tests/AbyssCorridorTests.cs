@@ -159,11 +159,15 @@ public class AbyssCorridorStoreTests
     public void A_reading_round_trips_through_the_blob()
     {
         var store = AbyssCorridorStore.Parse(null);
+        Assert.True(store.MarkEntered(Hash, Ticket, Entry));
         Assert.True(store.Upsert(Hash, Ticket, 130_000, Entry, markGranted: true));
 
         AbyssCorridorStore reloaded = AbyssCorridorStore.Parse(store.Serialize());
 
+        // Both halves have to survive: the entry row is what makes it a claim at all, and it rides the same
+        // blob as a reserved ticket id rather than a seventh field, so no rollback can drop it.
         Assert.Equal(130_000, reloaded.Standing(Hash, Ticket, Now));
+        Assert.True(reloaded.EnteredThisCycle(Hash, Ticket, Now));
     }
 
     /// <summary>Repeat broadcasts are the norm; the caller skips re-serializing when nothing moved.</summary>
@@ -181,6 +185,7 @@ public class AbyssCorridorStoreTests
     public void A_running_clock_is_projected_at_read_time_and_floors_at_zero()
     {
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, Ticket, Entry);
         store.Upsert(Hash, Ticket, 130_000, Entry, markGranted: true, tickingSinceMs: Entry);
 
         Assert.Equal(130_000, store.Standing(Hash, Ticket, Entry));
@@ -197,6 +202,7 @@ public class AbyssCorridorStoreTests
     public void Leaving_early_freezes_the_remaining_time()
     {
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, Ticket, Entry);
         store.Upsert(Hash, Ticket, 130_000, Entry, markGranted: true, tickingSinceMs: Entry);
 
         Assert.True(store.StopTicking(Hash, Entry + 60_000));
@@ -212,6 +218,7 @@ public class AbyssCorridorStoreTests
     public void A_reading_from_a_previous_cycle_reads_as_unknown()
     {
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, Ticket, Kst(2026, 8, 15, 23, 0));
         store.Upsert(Hash, Ticket, 130_000, Kst(2026, 8, 15, 23, 0), markGranted: true);
 
         Assert.Equal(130_000, store.Standing(Hash, Ticket, Kst(2026, 8, 19, 20, 0)));  // same cycle
@@ -229,10 +236,12 @@ public class AbyssCorridorStoreTests
         long duringCapture = Kst(2026, 8, 19, 22, 22);
 
         var store = AbyssCorridorStore.Parse(null);
-        store.Upsert(Hash, 10_000_002, 130_000, lastCycle, markGranted: true);   // held last cycle, now lost
+        store.MarkEntered(Hash, 10_000_002, lastCycle);                          // held last cycle, now lost
+        store.Upsert(Hash, 10_000_002, 130_000, lastCycle, markGranted: true);
         Assert.Equal(130_000, store.Standing(Hash, 10_000_002, duringCapture));
 
-        store.Upsert(Hash, 10_000_005, 130_000, duringCapture, markGranted: true); // this cycle's answer
+        store.MarkEntered(Hash, 10_000_005, duringCapture);                      // this cycle's answer
+        store.Upsert(Hash, 10_000_005, 130_000, duringCapture, markGranted: true);
 
         Assert.Null(store.Standing(Hash, 10_000_002, duringCapture));
         Assert.Equal(130_000, store.Standing(Hash, 10_000_005, duringCapture));
@@ -247,31 +256,82 @@ public class AbyssCorridorStoreTests
         long duringCapture = Kst(2026, 8, 19, 22, 22);
 
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered("alt", Ticket, lastCycle);
         store.Upsert("alt", Ticket, 130_000, lastCycle, markGranted: true);
+        store.MarkEntered("main", Ticket, duringCapture);
         store.Upsert("main", Ticket, 130_000, duringCapture, markGranted: true);
 
         Assert.Equal(130_000, store.Standing("alt", Ticket, duringCapture));
         Assert.Equal(130_000, store.Standing("main", Ticket, duringCapture));
     }
 
-    /// <summary>Zero without a grant behind it is not "다 썼다" — every corridor the faction does not hold reads
-    /// zero too. Only a record that was seen holding time this cycle may be shown at all.</summary>
+    /// <summary>Neither value is a claim on its own. Zero is 미점령 · 소진 · 타종족 · 미방문 at once, and a
+    /// positive value is time this character has banked — possibly granted at a 점령전 two occupations ago and
+    /// never spent, which is exactly how a corridor the side had lost was still on screen on 2026-08-23.
+    /// Walking in is what makes the number mean anything, and from then on zero really does read "다 썼다".</summary>
     [Fact]
-    public void Zero_without_a_grant_this_cycle_is_not_a_claim()
+    public void A_value_alone_is_not_a_claim_but_an_entry_is()
     {
         var store = AbyssCorridorStore.Parse(null);
         store.Upsert(Hash, Ticket, 0, Entry, markGranted: false);
-
         Assert.Null(store.Standing(Hash, Ticket, Now));
 
-        // ...but zero after the corridor was seen stocked is exactly the "spent" the panel should show.
         store.Upsert(Hash, Ticket, 130_000, Entry, markGranted: true);
-        store.Upsert(Hash, Ticket, 0, Entry + 130_000, markGranted: true);
+        Assert.Null(store.Standing(Hash, Ticket, Now));
+
+        store.MarkEntered(Hash, Ticket, Entry);
+        Assert.Equal(130_000, store.Standing(Hash, Ticket, Now));
+
+        store.Upsert(Hash, Ticket, 0, Entry + 130_000, markGranted: false);
         Assert.Equal(0, store.Standing(Hash, Ticket, Now));
     }
 
-    /// <summary>A grant stamp must not survive its own cycle — otherwise a corridor the faction lost keeps
-    /// rendering as one it still holds.</summary>
+    /// <summary>Walking in proves the corridor was stocked, so a corridor entered but never measured reads as
+    /// the full grant rather than as unknown — that is the value the server went on to state, measured live on
+    /// 2026-08-21.</summary>
+    [Fact]
+    public void An_entry_with_no_reading_behind_it_reads_as_the_full_grant()
+    {
+        var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, Ticket, Entry);
+
+        Assert.Equal(AbyssCorridorCatalog.FullGrantMs, store.Standing(Hash, Ticket, Now));
+        Assert.Null(store.Reading(Hash, Ticket, Now));
+    }
+
+    /// <summary>Reading() answers the number and nothing else. It is what puts a measured value on a corridor
+    /// another character proved open, and it must never be mistaken for the claim itself.</summary>
+    [Fact]
+    public void Reading_answers_the_value_without_claiming_the_side_holds_it()
+    {
+        var store = AbyssCorridorStore.Parse(null);
+        store.Upsert(Hash, Ticket, 40_000, Entry, markGranted: true);
+
+        Assert.Equal(40_000, store.Reading(Hash, Ticket, Now));
+        Assert.False(store.EnteredThisCycle(Hash, Ticket, Now));
+        Assert.Null(store.Standing(Hash, Ticket, Now));
+    }
+
+    /// <summary>An entry from before the last 점령전 is last occupation's answer. Going back in re-proves it,
+    /// which is what keeps a corridor the side kept from expiring off the panel mid-cycle.</summary>
+    [Fact]
+    public void An_entry_expires_with_its_own_occupation_and_is_renewed_by_going_back()
+    {
+        var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, Ticket, Kst(2026, 8, 15, 23, 0));
+
+        Assert.False(store.EnteredThisCycle(Hash, Ticket, Kst(2026, 8, 19, 23, 0)));
+
+        Assert.True(store.MarkEntered(Hash, Ticket, Kst(2026, 8, 19, 23, 10)));
+        Assert.True(store.EnteredThisCycle(Hash, Ticket, Kst(2026, 8, 19, 23, 30)));
+
+        // An older entry never rewinds the proof.
+        Assert.False(store.MarkEntered(Hash, Ticket, Kst(2026, 8, 19, 23, 5)));
+    }
+
+    /// <summary>A grant stamp must not survive its own cycle. It no longer gates the display — an entry row
+    /// does — but it is still the record of when the server last stated time here, and carrying it across a
+    /// handover would date this occupation's silence to the previous one.</summary>
     [Fact]
     public void A_grant_stamp_does_not_carry_across_a_handover()
     {
@@ -302,6 +362,7 @@ public class AbyssCorridorStoreTests
     public void Forgetting_a_character_leaves_nothing_behind()
     {
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, Ticket, Entry);
         store.Upsert(Hash, Ticket, 130_000, Entry, markGranted: true);
         store.MarkWitness(Hash, Entry);
 
@@ -318,6 +379,7 @@ public class AbyssCorridorStoreTests
     public void An_unknown_ticket_id_survives_a_round_trip()
     {
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, 10_000_011, Entry);
         store.Upsert(Hash, 10_000_011, 130_000, Entry, markGranted: true);
 
         Assert.Equal(130_000, AbyssCorridorStore.Parse(store.Serialize()).Standing(Hash, 10_000_011, Now));
@@ -328,7 +390,8 @@ public class AbyssCorridorStoreTests
     public void Malformed_records_are_skipped_rather_than_fatal()
     {
         AbyssCorridorStore store = AbyssCorridorStore.Parse(
-            $"garbage;{Hash},nope,1,2,3,4;;{Hash},{Ticket},130000,{Entry},{Entry},0");
+            $"garbage;{Hash},nope,1,2,3,4;;{Hash},{Ticket},130000,{Entry},{Entry},0"
+            + $";{Hash},{AbyssCorridorStore.EntryTicketFor(Ticket)},0,{Entry},0,0");
 
         Assert.Equal(130_000, store.Standing(Hash, Ticket, Now));
     }
@@ -351,6 +414,7 @@ public class AbyssCorridorStoreTests
     public void An_older_reading_never_overwrites_a_newer_one()
     {
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, Ticket, Entry);
         store.Upsert(Hash, Ticket, 130_000, Entry, markGranted: true);
 
         Assert.False(store.Upsert(Hash, Ticket, 60_000, Entry - 20_000, markGranted: true));
@@ -363,6 +427,7 @@ public class AbyssCorridorStoreTests
     public void A_reading_with_no_clock_argument_leaves_a_running_clock_alone()
     {
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, Ticket, Entry);
         store.Upsert(Hash, Ticket, 130_000, Entry, markGranted: true, tickingSinceMs: Entry);
 
         store.Upsert(Hash, Ticket, 130_000, Entry + 10_000, markGranted: true);
@@ -377,6 +442,7 @@ public class AbyssCorridorStoreTests
     public void A_reading_stamped_in_the_future_is_not_believed()
     {
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered(Hash, Ticket, Now + (7 * 24 * 60 * 60 * 1000L));
         store.Upsert(Hash, Ticket, 130_000, Now + (7 * 24 * 60 * 60 * 1000L), markGranted: true);
 
         Assert.Null(store.Standing(Hash, Ticket, Now));
@@ -388,6 +454,7 @@ public class AbyssCorridorStoreTests
     public void Characters_with_only_a_witness_are_evicted_before_ones_with_time()
     {
         var store = AbyssCorridorStore.Parse(null);
+        store.MarkEntered("keeper", Ticket, Entry);
         store.Upsert("keeper", Ticket, 130_000, Entry, markGranted: true);
         for (int i = 0; i <= AbyssCorridorStore.MaxCharacters; i++)
         {
@@ -404,6 +471,7 @@ public class AbyssCorridorStoreTests
         var store = AbyssCorridorStore.Parse(null);
         for (int i = 0; i <= AbyssCorridorStore.MaxCharacters; i++)
         {
+            store.MarkEntered($"hash{i}", Ticket, Entry + i);
             store.Upsert($"hash{i}", Ticket, 130_000, Entry + i, markGranted: true);
         }
 
