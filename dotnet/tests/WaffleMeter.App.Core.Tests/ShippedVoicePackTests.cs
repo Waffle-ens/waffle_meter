@@ -15,13 +15,13 @@ namespace WaffleMeter.App.Core.Tests;
 /// source is the same trick <see cref="SettingsKeyCatalogTests"/> uses, and for the same reason: a
 /// hand-maintained duplicate of the wording would drift with the thing it is supposed to be checking.</para>
 ///
-/// <para><b>Why the buff axis is derived from buff_names.json and not buff_catalog.json.</b> It used to read
-/// the latter, and that was the whole failure. buff_catalog.json is the ~70-entry curated subset the picker
-/// lists <i>before</i> anything is observed; the picker's actual rows are
-/// <c>observed ∪ curated</c>, labelled out of <c>buff_names.json</c> (433 entries). Deriving the expected
-/// lines from the curated file meant the test asked the packs to contain exactly what the packs had been
-/// baked from — it re-confirmed the bake instead of checking it, and 살성 '환영 분신' and 300-odd others
-/// fell straight through to the network. The set below is the picker's real upper bound.</para>
+/// <para><b>Why the buff axis reads buff_catalog.json.</b> Because that file is now the buff list itself —
+/// <c>BuffPickerCatalog</c> returns exactly its contents and the overlay refuses to draw anything outside it.
+/// Reading it used to be the bug rather than the fix: back when the picker listed <c>observed ∪ curated</c>,
+/// deriving the expected lines from the curated file meant asking the packs to contain exactly what the packs
+/// had been baked from, so the test re-confirmed the bake instead of checking it and 살성 '환영 분신' plus
+/// 300-odd others fell through to the network. The same read is correct now only because the two sets were
+/// made one.</para>
 /// </summary>
 public sealed class ShippedVoicePackTests
 {
@@ -97,32 +97,34 @@ public sealed class ShippedVoicePackTests
         return Regex.Matches(body, @"\b(\d{7,9})\b").Select(m => int.Parse(m.Groups[1].Value)).ToHashSet();
     }
 
-    /// <summary>
-    /// Every buff name the picker can offer a voice for. Mirrors two filters the app applies, in order:
-    /// the row must have a bundled icon (<c>BuffPickerViewModel</c> skips the rest), and its label comes from
-    /// the buff-name table. This is deliberately the upper bound — some of these codes never actually land on
-    /// the local player, so a clip for them is dead weight rather than a miss, and over-covering is the safe
-    /// direction for a test whose job is to catch silence.
-    /// </summary>
-    private static IEnumerable<string> BuffNames()
+    /// <summary>Every buff name that can be given a voice — read through the app's own loader so a change in
+    /// how the catalogue parses cannot drift from what the test believes. Names repeat across jobs (회생의
+    /// 계약 and its 회계·회복 rider exist for five, 균형의 갑옷 for two), and the spoken line is the name, so
+    /// they collapse to one clip.</summary>
+    private static IEnumerable<string> BuffNames() =>
+        ReferenceJson.LoadBuffCatalog(RepoPath("dotnet", "Assets", "json", "buff_catalog.json")).Catalog
+            .Select(x => x.Name)
+            .Where(n => !string.IsNullOrEmpty(n))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>The picker drops any row whose code has no bundled icon, so a catalogued buff without one is
+    /// invisible — no row to switch on, and (since the overlay now follows the catalogue) a slot drawn with a
+    /// blank circle. Cheap to check here, and the failure mode is silent otherwise.</summary>
+    [Fact]
+    public void Every_catalogued_buff_has_an_icon()
     {
         HashSet<int> icons = IconCodes();
         bool HasIcon(int code) =>
             icons.Contains(code)
             || (code is >= 11_000_000 and <= 19_999_999 && icons.Contains(code / 10_000 * 10_000));
 
-        var names = ReferenceJson.LoadBuffNames(RepoPath("dotnet", "Assets", "json", "buff_names.json"))
-            .Where(x => HasIcon(x.Code) && !string.IsNullOrEmpty(x.Name))
-            .Select(x => x.Name)
-            .ToList();
+        int[] blind = ReferenceJson.LoadBuffCatalog(RepoPath("dotnet", "Assets", "json", "buff_catalog.json")).Catalog
+            .Select(x => x.Code)
+            .Where(c => !HasIcon(c))
+            .ToArray();
 
-        // 회생의 계약's cooldown rider is registered into the same name table at RUNTIME under a synthesized
-        // code (base + 7), so it reaches the picker and the voice path exactly like a real buff while being
-        // absent from every JSON on disk. The name is a constant, so it is enumerable here — it just has to
-        // be added by hand.
-        names.Add("회계·회복");
-
-        return names.Distinct(StringComparer.Ordinal).ToList();
+        Assert.True(blind.Length == 0, $"아이콘 없는 카탈로그 항목 {blind.Length}건: {string.Join(", ", blind.Take(10))}");
     }
 
     /// <summary>
