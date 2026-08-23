@@ -11,7 +11,12 @@ namespace WaffleMeter.Services;
 /// EUC-KR bytes comes back as Latin-1 chars; <see cref="EncodeToEucKr"/> reverses that (Latin-1
 /// bytes re-decoded as EUC-KR). For ASCII values it is a no-op, so the behaviour is identical for
 /// the booleans/numbers/hotkey codes that make up real settings. Kept exactly so existing users'
-/// files behave the same byte-for-byte.
+/// files behave the same byte-for-byte — with one carve-out.
+///
+/// The carve-out: the quirk can only ever have applied to values that are entirely Latin-1, because that is
+/// the only shape legacy mojibake has. It used to run on every value, which silently destroyed the ones this
+/// app itself writes — <c>Store</c> escapes non-Latin-1 as <c>\\uXXXX</c> and <c>Load</c> restores it, so
+/// those arrive already correct and Latin-1 has no room to hold them. See <see cref="EncodeToEucKr"/>.
 /// </summary>
 public sealed class PropertyHandler
 {
@@ -244,6 +249,22 @@ public sealed class PropertyHandler
         if (value == null)
         {
             return null;
+        }
+
+        // Only a value that is ENTIRELY inside Latin-1 can be the legacy mojibake this undoes: that shape is
+        // raw EUC-KR bytes read back as ISO-8859-1 chars, so every char is <= 0xFF by construction.
+        //
+        // A value holding anything above that came from a \uXXXX escape, which JavaProperties has already
+        // decoded correctly — and pushing it through Latin-1 replaces each such char with '?' (Latin-1's encoder
+        // fallback is best-fit, so 와순이 -> 63 63 63 -> "???"). That is not a cosmetic loss: it is how
+        // alarms.ttsVoice failed its ReadEnum whitelist and reset the alert voice to 와순이 on every restart,
+        // and it would do the same to any Korean-only font family name. So that case is returned untouched.
+        foreach (char c in value)
+        {
+            if (c > 0xFF)
+            {
+                return value;
+            }
         }
 
         return EucKr.GetString(Encoding.Latin1.GetBytes(value));

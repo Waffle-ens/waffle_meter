@@ -158,9 +158,14 @@ public sealed class SettingsBundleBuilderTests : IDisposable
             }
         });
 
+        // Compared against the literals, not against source.GetProperty(...). Reading both sides through the
+        // same accessor made this pass while the value was being destroyed identically on both — the assertion
+        // held as an identity and said nothing about Korean surviving anything. RawEntries is checked too, so
+        // a bundle that exports a decoded value and re-imports it still fails here even if reads are correct.
         PropertyHandler afterRestart = NewHandler();
-        Assert.Equal(source.GetProperty("theme"), afterRestart.GetProperty("theme"));
-        Assert.Equal(source.GetProperty("fontFamily"), afterRestart.GetProperty("fontFamily"));
+        Assert.Equal("{\"이름\":\"기본 테마\"}", afterRestart.GetProperty("theme"));
+        Assert.Equal("나눔손글씨 붓", afterRestart.GetProperty("fontFamily"));
+        Assert.Equal("나눔손글씨 붓", afterRestart.RawEntries()["fontFamily"]);
     }
 
     [Fact]

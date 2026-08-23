@@ -74,6 +74,36 @@ public sealed class PropertyHandlerTests : IDisposable
         Assert.Equal("13328", reopened.GetProperty("server.port"));
     }
 
+    /// <summary>
+    /// The regression that reset 알림 음성 to 와순이 on every restart. Store escapes 와붕이 to \uXXXX and Load
+    /// brings it back correctly, but the EUC-KR re-decode then pushed it through Latin-1 — which cannot hold
+    /// Hangul and best-fits every char to '?'. The value survived on disk and died on the way out of the file.
+    /// </summary>
+    [Fact]
+    public void Korean_value_round_trips_through_SetProperty_and_a_reopen()
+    {
+        var ph = new PropertyHandler(_tempAppData);
+        ph.SetProperty("alarms.ttsVoice", "와붕이");
+
+        var reopened = new PropertyHandler(_tempAppData);
+        Assert.Equal("와붕이", reopened.GetProperty("alarms.ttsVoice"));
+        Assert.Equal("와붕이", reopened.RawEntries()["alarms.ttsVoice"]);
+    }
+
+    /// <summary>fontFamily is the one key holding arbitrary user text with no encoding of its own, so a
+    /// Korean-only family name is the second thing the re-decode destroyed.</summary>
+    [Fact]
+    public void Korean_font_family_survives_a_reopen()
+    {
+        var ph = new PropertyHandler(_tempAppData);
+        ph.SetProperty("fontFamily", "나눔손글씨 붓");
+
+        Assert.Equal("나눔손글씨 붓", new PropertyHandler(_tempAppData).GetProperty("fontFamily"));
+    }
+
+    /// <summary>The quirk still has to run for values this app never wrote — that is the whole reason it is
+    /// kept. A legacy file holds Korean as raw EUC-KR bytes, which load as Latin-1 chars and must be undone.
+    /// </summary>
     [Fact]
     public void Raw_euckr_bytes_in_file_are_recovered_as_korean()
     {
