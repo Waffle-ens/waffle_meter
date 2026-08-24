@@ -1,0 +1,10 @@
+# 음성 굽기용 Python 의존성. 절차는 이 폴더의 README.md 를 볼 것.
+#
+#   python -m venv C:\Users\<user>\waffle_meter-ttsvenv
+#   C:\Users\<user>\waffle_meter-ttsvenv\Scripts\python -m pip install -r dotnet/Assets/voice/_source/requirements.txt
+#
+# ⚠ venv 를 %TEMP% 아래에 만들지 말 것 — 지워진다.
+# 실제로 v2.11.2 를 구운 조합(Python 3.14.6):
+gradio_client==2.6.0
+numpy
+soundfile
