@@ -62,6 +62,13 @@ public partial class App : Application
     /// dump names no character, and filing it early writes one character's corridors onto another's row.</summary>
     private readonly Dictionary<int, (long RemainingMs, long AtMs)> _abyssCorridorPending = new();
 
+    // 어비스 아티팩트 점령 현황 frames whose SERVER is not known yet. The 0xE307 login broadcast lands about
+    // eight seconds before the packet that names the character (measured 2026-08-28: 23:47:43.491 against
+    // 23:47:51.529), and the store is keyed by server, so it waits exactly like the 0x610B dump does.
+    private readonly Dictionary<int,
+        (long CycleStartMs, long CycleEndMs, IReadOnlyList<AbyssArtifactHolding> Holdings, long AtMs)>
+        _abyssArtifactPending = new();
+
     /// <summary>The corridor map the character is currently standing in, or 0.
     /// <para>Entering one starts the clock and leaving stops it — leaving is the only chance to turn an early
     /// exit into a real number, because the server says nothing more until the budget is gone.</para>
@@ -696,6 +703,7 @@ public partial class App : Application
             MaybePromptConsent(services, window);
             FlushPendingWeeklyContent(services);
             FlushPendingAbyssCorridors(services);
+            FlushPendingAbyssArtifacts(services);
             TickAbyssCorridor(services);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));
@@ -852,6 +860,11 @@ public partial class App : Application
         // the instance-map feed below is what tells the meter when to run it and when to stop.
         services.Data.AbyssCorridorChanged += (ticketId, remainingMs, atMs, fromSnapshot) =>
             Dispatcher.BeginInvoke(() => OnAbyssCorridorBroadcast(services, ticketId, remainingMs, atMs, fromSnapshot));
+        services.Data.AbyssArtifactsChanged += (zoneId, cycleStartMs, cycleEndMs, holdings, atMs) =>
+            Dispatcher.BeginInvoke(() =>
+                OnAbyssArtifactsBroadcast(services, zoneId, cycleStartMs, cycleEndMs, holdings, atMs));
+        services.Data.AbyssArtifactCountChanged += (zoneId, count, atMs) =>
+            Dispatcher.BeginInvoke(() => OnAbyssArtifactCount(services, zoneId, count, atMs));
         services.Data.InstanceMapChanged += (mapId, atMs) =>
             Dispatcher.BeginInvoke(() => OnInstanceMapChanged(services, mapId, atMs));
 
@@ -1582,6 +1595,15 @@ public partial class App : Application
                 _settings.AbyssCorridors = corridors.Serialize();
             }
 
+            // The 점령 개수 reading is per character too, and it is what picks which side of the broadcast is
+            // ours — leaving one behind would let a forgotten character keep deciding that. The server-wide
+            // ownership rows stay: they describe the abyss, not this character.
+            AbyssArtifactStore artifacts = AbyssArtifactStore.Parse(_settings.AbyssArtifacts);
+            if (artifacts.RemoveAll([hash]))
+            {
+                _settings.AbyssArtifacts = artifacts.Serialize();
+            }
+
             RefreshAetherRoster(services);
         };
 
@@ -1650,7 +1672,8 @@ public partial class App : Application
             services.Consent.CurrentCharacterHash(),
             WeeklyContentStore.Parse(_settings.WeeklyContentClears),
             nowMs: 0,
-            corridors: AbyssCorridorStore.Parse(_settings.AbyssCorridors));
+            corridors: AbyssCorridorStore.Parse(_settings.AbyssCorridors),
+            artifacts: AbyssArtifactStore.Parse(_settings.AbyssArtifacts));
     }
 
     /// <summary>Persist one weekly 성역 counter under the character that broadcast it. Runs on the UI thread
@@ -1773,6 +1796,86 @@ public partial class App : Application
         if (insideThisCorridor)
         {
             _corridorClockHash = remainingMs <= 0 ? null : services.Consent.CurrentCharacterHash();
+        }
+    }
+
+    /// <summary>
+    /// 어비스 아티팩트 점령 현황 arrived (0xE305 / 0xE307). This is what decides which 회랑 the panel shows at
+    /// all — see <see cref="AbyssArtifactStore"/>.
+    /// <para>It is filed against a SERVER, and the frame names none: the login broadcast beats the packet that
+    /// identifies the character by about eight seconds, so it is held until an identity has been established at
+    /// or after it arrived — by construction the character the broadcast was sent to. Same rule, same helper as
+    /// the weekly counters and the corridor dump.</para>
+    /// </summary>
+    private void OnAbyssArtifactsBroadcast(
+        MeterServices services,
+        int zoneId,
+        long cycleStartMs,
+        long cycleEndMs,
+        IReadOnlyList<AbyssArtifactHolding> holdings,
+        long atMs)
+    {
+        _abyssArtifactPending[zoneId] = (cycleStartMs, cycleEndMs, holdings, atMs);
+        FlushPendingAbyssArtifacts(services);
+    }
+
+    /// <summary>File any 점령 현황 whose server has since become knowable. Called on arrival (usually enough —
+    /// a world-map open happens long after login) and from the report loop, which is what catches the login
+    /// case.</summary>
+    private void FlushPendingAbyssArtifacts(MeterServices services)
+    {
+        if (_abyssArtifactPending.Count == 0 || _settings is null)
+        {
+            return;
+        }
+
+        int server = services.Data.User(services.Data.ExecutorId())?.Server ?? 0;
+        if (server <= 0)
+        {
+            return;
+        }
+
+        long identityAtMs = services.Data.ExecutorIdentityAtMs;
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        bool changed = false;
+
+        AbyssArtifactStore store = AbyssArtifactStore.Parse(_settings.AbyssArtifacts);
+        foreach (int zoneId in _abyssArtifactPending.Keys.ToList())
+        {
+            (long cycleStartMs, long cycleEndMs, IReadOnlyList<AbyssArtifactHolding> holdings, long atMs) =
+                _abyssArtifactPending[zoneId];
+            if (!WeeklyContentOwnership.CanFile(atMs, identityAtMs, nowMs))
+            {
+                continue; // still waiting for the identity whose server this describes
+            }
+
+            _abyssArtifactPending.Remove(zoneId);
+            changed |= store.UpsertOwnership(server, zoneId, cycleStartMs, cycleEndMs, holdings, atMs);
+        }
+
+        if (changed)
+        {
+            _settings.AbyssArtifacts = store.Serialize();
+            RefreshAetherRoster(services);
+        }
+    }
+
+    /// <summary>The 아티팩트 점령 개수 abnormal, already gated to the own character by the parser. It is the only
+    /// thing that says which of the broadcast's two slots is ours, so it is filed under the character that wore
+    /// it — the roster then hands the answer to that character's server siblings.</summary>
+    private void OnAbyssArtifactCount(MeterServices services, int zoneId, int count, long atMs)
+    {
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (_settings is null || string.IsNullOrEmpty(hash))
+        {
+            return;
+        }
+
+        AbyssArtifactStore store = AbyssArtifactStore.Parse(_settings.AbyssArtifacts);
+        if (store.UpsertCount(hash, zoneId, count, atMs))
+        {
+            _settings.AbyssArtifacts = store.Serialize();
+            RefreshAetherRoster(services);
         }
     }
 

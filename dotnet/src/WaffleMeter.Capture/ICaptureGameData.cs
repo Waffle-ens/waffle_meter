@@ -145,6 +145,27 @@ public interface ICaptureGameData
     /// Default no-op (capture-only mode).</summary>
     void SaveAbyssCorridor(int ticketId, long remainingMs, bool fromSnapshot) { }
 
+    /// <summary>One 어비스 아티팩트 zone's 점령 현황 from 0xE305/0xE307: who holds each of its three artifacts,
+    /// and the exact 점령 주기 the answer belongs to.
+    /// <para><paramref name="zoneId"/> is 1001 (하층) or 2001 (중층) — the zone's first artifact id, which is
+    /// what the server keys it by. <paramref name="cycleStartMs"/>/<paramref name="cycleEndMs"/> are the
+    /// server's OWN window, not a derived timetable: the two zones settle seconds apart and the span alternates
+    /// 72 h / 96 h with the Wed/Sat schedule, so anything computed from a weekday would be wrong every other
+    /// cycle and by ~11 minutes even when it picked the right day.</para>
+    /// <para>⚠️ <see cref="AbyssArtifactHolding.OwnerSide"/> is a slot inside the CURRENT server matchup, not a
+    /// race — the same character read 1 on 2026-08-23 and 2 on 2026-08-28. Which slot is ours comes from
+    /// <see cref="SaveAbyssArtifactCount"/>, never from a constant.</para>
+    /// Default no-op (capture-only mode).</summary>
+    void SaveAbyssArtifacts(int zoneId, long cycleStartMs, long cycleEndMs, IReadOnlyList<AbyssArtifactHolding> holdings) { }
+
+    /// <summary>How many artifacts the ACTIVE character's side holds in one zone, read off the 아티팩트 점령
+    /// abnormal the server applies on abyss entry (12000261~12000266; the code is the value). This is the only
+    /// thing that says which of the two <see cref="SaveAbyssArtifacts"/> slots is ours.
+    /// <para>Never 0 — a side holding none simply gets no abnormal — so "we hold none" has to be read from a
+    /// full buff list that carries none of the six, not from a call to this.</para>
+    /// Default no-op (capture-only mode).</summary>
+    void SaveAbyssArtifactCount(int zoneId, int count) { }
+
     /// <summary>The instance map the character just loaded into (0x6100/0x6101), regardless of whether it came
     /// with a usable phase window. Only <see cref="SaveInstancePhaseWindow"/> needs the window; this exists
     /// because entering and leaving a 어비스 회랑 is otherwise invisible — the corridor's own phase packet

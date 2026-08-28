@@ -29,12 +29,23 @@ public enum AbyssCorridorTier
 /// not what comes over the wire: a 마족 install (server 2003, seen standing in map 905 = <c>ERace::Dark</c>) was
 /// sent 503001/503004/503006 on two separate days, and 504xxx has never arrived. Do not read a character's
 /// 진영 off the map id — the server id is where that lives (<see cref="MeterFormat.ServerTier"/>).</para></param>
+/// <param name="ArtifactId">The artifact whose capture opens this corridor, as the 점령 현황 broadcast
+/// (0xE305/0xE307) names it: <c>1001~1003</c> for 하층 and <c>2001~2003</c> for 중층, in the same RR → STI → WSA
+/// order the ticket ids run in.
+/// <para><b>Measured, not assumed.</b> On 2026-08-28 the broadcast gave slot 2 artifacts 1001/1003/2001/2003 and
+/// the player's 아티팩트 점령 abnormals said 2개 in each layer, i.e. slot 2 was ours; the 0x610B snapshot in the
+/// same capture reported 130000 ms on exactly tickets 10000001/10000003/10000004/10000006 and zero on the other
+/// two. Two independent sources naming the same four corridors is what pins this column.</para>
+/// <para>It agrees with the client, which is the tie-breaker for the ORDER inside a layer (the measurement above
+/// cannot separate 1001↔1 from 1001↔3): <c>ar2_artifact_001/002/003</c> point at
+/// <c>E_AR3_RR/STI/WSA_L_ArtifactDungeonPortal_01</c>, the same RR → STI → WSA run the ticket blurbs use.</para></param>
 public readonly record struct AbyssCorridorInfo(
     int TicketId,
     AbyssCorridorTier Tier,
     string Name,
     string ShortName,
-    IReadOnlyList<int> MapIds);
+    IReadOnlyList<int> MapIds,
+    int ArtifactId = 0);
 
 /// <summary>
 /// The 어비스 회랑 (client-internal <c>ArtifactDungeon</c>, <c>EDungeonType::AbyssArtifact</c>) a character can
@@ -68,12 +79,12 @@ public static class AbyssCorridorCatalog
     /// <summary>The six live corridors, 하층 then 중층, each in artifact order (RR → STI → WSA).</summary>
     public static IReadOnlyList<AbyssCorridorInfo> All { get; } =
     [
-        new(10_000_001, AbyssCorridorTier.Lower, "에레슈란타의 뿌리", "에레슈란타", [503003, 504003]),
-        new(10_000_002, AbyssCorridorTier.Lower, "유황나무 섬", "유황나무", [503001, 504001]),
-        new(10_000_003, AbyssCorridorTier.Lower, "시엘의 날개 군도", "시엘군도", [503002, 504002]),
-        new(10_000_004, AbyssCorridorTier.Middle, "침식된 중앙섬", "중앙섬", [503004, 504004]),
-        new(10_000_005, AbyssCorridorTier.Middle, "오염된 늪지", "늪지", [503005, 504005]),
-        new(10_000_006, AbyssCorridorTier.Middle, "뒤틀린 고목나무 숲", "고목나무", [503006, 504006]),
+        new(10_000_001, AbyssCorridorTier.Lower, "에레슈란타의 뿌리", "에레슈란타", [503003, 504003], 1001),
+        new(10_000_002, AbyssCorridorTier.Lower, "유황나무 섬", "유황나무", [503001, 504001], 1002),
+        new(10_000_003, AbyssCorridorTier.Lower, "시엘의 날개 군도", "시엘군도", [503002, 504002], 1003),
+        new(10_000_004, AbyssCorridorTier.Middle, "침식된 중앙섬", "중앙섬", [503004, 504004], 2001),
+        new(10_000_005, AbyssCorridorTier.Middle, "오염된 늪지", "늪지", [503005, 504005], 2002),
+        new(10_000_006, AbyssCorridorTier.Middle, "뒤틀린 고목나무 숲", "고목나무", [503006, 504006], 2003),
     ];
 
     /// <summary>Catalog entry for a ticket id, or null. Ids 10000007~10000012 exist in the client as unwired
@@ -117,6 +128,26 @@ public static class AbyssCorridorCatalog
 
     /// <summary>Whether this instance map is a corridor at all.</summary>
     public static bool IsCorridorMap(int mapId) => ByMapId(mapId) is not null;
+
+    /// <summary>The corridor an 아티팩트 id opens, or null. This is the join between the 점령 현황 broadcast and
+    /// everything the panel already knows how to draw.</summary>
+    public static AbyssCorridorInfo? ByArtifactId(int artifactId)
+    {
+        if (artifactId <= 0)
+        {
+            return null;
+        }
+
+        foreach (AbyssCorridorInfo info in All)
+        {
+            if (info.ArtifactId == artifactId)
+            {
+                return info;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>Display name for a ticket id, including ids this build has no entry for.</summary>
     public static string NameFor(int ticketId) =>

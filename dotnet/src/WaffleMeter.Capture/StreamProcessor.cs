@@ -126,6 +126,11 @@ public sealed class StreamProcessor
     // IS the 제한 시간 난이도 setting, and that setting is not an abnormal so nothing else carries it.
     private const int InstancePhaseKeyA = 0x00 | (0x61 << 8);  // 0x6100
     private const int InstancePhaseKeyB = 0x01 | (0x61 << 8);  // 0x6101
+    // 어비스 아티팩트 점령 현황. 0xE305 = the zone just loaded (one zone, no count prefix); 0xE307 = every zone,
+    // sent at login and on each world-map open. This is what tells the meter WHICH 회랑 the side holds — the
+    // corridor instance maps it used to rely on never appear on the wire. See AbyssArtifactParser.
+    private const int AbyssArtifactZoneKey = 0x05 | (0xE3 << 8);  // 0xE305
+    private const int AbyssArtifactAllKey = 0x07 | (0xE3 << 8);   // 0xE307
 
     // Epoch-ms sanity bounds for the phase window (2020-01-01 .. 2100-01-01). A window is only believed when
     // both ends land inside these, so a coincidental map-id match can't manufacture one.
@@ -148,6 +153,10 @@ public sealed class StreamProcessor
     {
         OwnNicknameKey, OtherNicknameKey, OwnCombatPowerKey, SummonKey, PartyRosterKey, MemberProfileKey,
         AetherKeyA, AetherKeyB,
+        // The 어비스 아티팩트 broadcast joins for the same reason the 0x610x family did: it is an ABSOLUTE state
+        // (who holds each artifact right now), so replaying it cannot inflate anything, and it arrives at login
+        // — exactly the moment a second server connection is most likely to be the one carrying it.
+        AbyssArtifactZoneKey, AbyssArtifactAllKey,
     };
 
     private static readonly Dictionary<int, string> OpcodeNames = new()
@@ -179,6 +188,8 @@ public sealed class StreamProcessor
         [InstancePhaseKeyA] = "InstancePhase",
         [InstancePhaseKeyB] = "InstancePhase",
         [FieldBossTimerKey] = "FieldBossTimer",
+        [AbyssArtifactZoneKey] = "AbyssArtifact",
+        [AbyssArtifactAllKey] = "AbyssArtifact",
     };
 
     private static readonly byte[] PowerMarker = { 0xF4, 0xCB, 0x1F };
@@ -403,6 +414,10 @@ public sealed class StreamProcessor
                 case InstancePhaseKeyA:
                 case InstancePhaseKeyB:
                     ParseInstancePhase(packet, opcodeOffset + 2);
+                    break;
+                case AbyssArtifactZoneKey:
+                case AbyssArtifactAllKey:
+                    ParseAbyssArtifacts(packet, opcodeOffset + 2, wholeAbyss: opcodeKey == AbyssArtifactAllKey);
                     break;
             }
         }
@@ -1275,6 +1290,64 @@ public sealed class StreamProcessor
         }
 
         _sink.Meta("nickname", ("own", true), ("uid", userInfo.Value), ("nickname", nickname), ("server", server), ("job", job), ("power", sameCharacter ? _lastOwnPower : 0));
+
+        ReadAbyssArtifactCounts(packet);
+    }
+
+    /// <summary>본인 로드 스냅샷이 싣고 온 어보노멀 목록에서 아티팩트 점령 개수(12000261~266)를 읽는다.
+    ///
+    /// <para><b>왜 0x382A만으로는 부족한가.</b> 0x382A는 어비스에 <i>들어가는 순간</i>에만 온다. 이미 어비스
+    /// 안에 있는 상태로 미터를 켜면 그 프레임은 이미 지나갔고, 개수는 이 스냅샷의 목록에만 남는다 —
+    /// 2026-08-23 코퍼스가 정확히 그 경우다(0x382A 0건, 이 패킷 안에 12000261·12000264). 그러면 점령 슬롯이
+    /// 영영 안 풀려서 회랑이 하나도 안 뜬다.</para>
+    ///
+    /// <para><b>왜 목록 전체를 파싱하지 않고 코드만 훑는가.</b> 이 3.5KB 스냅샷의 어보노멀 목록 레이아웃은
+    /// 해독되어 있지 않고, 필요한 건 값이 아니라 <i>코드의 존재</i>뿐이다(코드가 곧 개수). 오탐 위험은
+    /// 세 겹으로 막는다 — ① 이 지점은 uid·서버·닉네임 3중 게이트를 통과한 진짜 본인 로드 프레임이고
+    /// (2026-07-30 쓰레기 신원 사건의 그 게이트다), ② 한 존에서 서로 다른 코드가 둘 이상 보이면 그 존은
+    /// 통째로 버린다, ③ 최종 판정은 브로드캐스트가 말한 슬롯별 개수와 정확히 일치할 때만 성립한다
+    /// (<c>AbyssArtifactStore.SideFor</c>). 실측: 08-23·08-28 두 스냅샷 모두 층당 정확히 한 코드만
+    /// 나왔다.</para></summary>
+    private void ReadAbyssArtifactCounts(byte[] packet)
+    {
+        int lowerCount = 0;
+        int middleCount = 0;
+        bool lowerAmbiguous = false;
+        bool middleAmbiguous = false;
+
+        for (int o = 0; o + 4 <= packet.Length; o++)
+        {
+            long code = PacketPrimitives.ReadUInt32LeAsLong(packet, o);
+            if (!AbyssArtifactBuffCatalog.TryResolve(code, out int zoneId, out int count))
+            {
+                continue;
+            }
+
+            if (zoneId == AbyssArtifactBuffCatalog.LowerZoneId)
+            {
+                lowerAmbiguous |= lowerCount != 0 && lowerCount != count;
+                lowerCount = count;
+            }
+            else
+            {
+                middleAmbiguous |= middleCount != 0 && middleCount != count;
+                middleCount = count;
+            }
+        }
+
+        if (lowerCount > 0 && !lowerAmbiguous)
+        {
+            _data.SaveAbyssArtifactCount(AbyssArtifactBuffCatalog.LowerZoneId, lowerCount);
+            _sink.Meta("abyssartifact-count",
+                ("zone", AbyssArtifactBuffCatalog.LowerZoneId), ("count", lowerCount), ("fromSnapshot", 1));
+        }
+
+        if (middleCount > 0 && !middleAmbiguous)
+        {
+            _data.SaveAbyssArtifactCount(AbyssArtifactBuffCatalog.MiddleZoneId, middleCount);
+            _sink.Meta("abyssartifact-count",
+                ("zone", AbyssArtifactBuffCatalog.MiddleZoneId), ("count", middleCount), ("fromSnapshot", 1));
+        }
     }
 
     /// <summary>Other-player nickname snapshot 0x3644. Kotlin searchOtherNickname (252-348).</summary>
@@ -1748,6 +1821,21 @@ public sealed class StreamProcessor
                 return;
             }
 
+            // 아티팩트 점령 개수 어보노멀. 코드가 곧 값이라 읽을 필드가 없고, 아래 직업 버프 대역 게이트가
+            // 어차피 버릴 코드다(12000262 < 20000000). 본인에게 걸린 것만 받는다 — 옆에 서 있는 적진영
+            // 플레이어도 자기 진영의 개수 버프를 달고 있어서, 대상 검사 없이는 상대의 점령 수를 우리 것으로
+            // 읽는다. 실측(2026-08-28): 어비스 로딩 0.30초 뒤 0x382A가 본인 uid를 대상으로 두 존을 함께 보낸다.
+            if (AbyssArtifactBuffCatalog.TryResolve(skillCode, out int artifactZone, out int artifactCount))
+            {
+                if (_executorId > 0 && targetInfo.Value == _executorId)
+                {
+                    _data.SaveAbyssArtifactCount(artifactZone, artifactCount);
+                    _sink.Meta("abyssartifact-count", ("zone", artifactZone), ("count", artifactCount));
+                }
+
+                return;
+            }
+
             // Job-buff codes are <2-digit job prefix><...>: 11xxxxxxx(검성)..19xxxxxxx(권성, 2026-07-01 패치).
             // The upper bound was 190_000_000 (8 classes, max 18x); 권성 buffs are 190_000_000..199_999_999,
             // so it must reach 199_999_999 or every 권성 buff/debuff is dropped here.
@@ -2083,6 +2171,62 @@ public sealed class StreamProcessor
             ("first", tickets[0].TicketId),
             ("firstMs", tickets[0].RemainingMs),
             ("snapshot", fromSnapshot ? 1 : 0));
+    }
+
+    /// <summary>어비스 아티팩트 점령 현황(0xE305 존 단위 / 0xE307 전체). 어느 슬롯이 어떤 아티팩트를 들고
+    /// 있는지와 이번 점령 주기의 시작·종료 시각을 그대로 싣는다. 종전 근거였던 '회랑 맵에 들어가 봤는가'는
+    /// 옳지만 거의 답을 주지 못한다 — 그 캐릭터가 직접 들어간 회랑만 알 수 있어서 8월 한 달 통틀어 6번
+    /// 발화했다. 이 프레임은 여섯 개 전부를 한 번에, 아무 데도 안 가고 알려준다.
+    /// <para>실측 4일치(08-17·08-19·08-23·08-28) 44프레임(존 레코드 62건) 전부 body를 마지막 바이트까지
+    /// 소진했고 거절 0건이다.
+    /// 08-17에도 같은 문법으로 있었으므로 와이어가 바뀐 적은 없다 — 미터가 원래부터 안 읽고 있었다.</para>
+    /// <para>⚠️ owner 바이트는 종족이 아니라 <b>이번 서버 매칭 안의 슬롯</b>이다. 같은 캐릭터가 08-23엔 1,
+    /// 08-28엔 2였다 — 어느 쪽이 우리인지는 <see cref="AbyssArtifactBuffCatalog"/>의 점령 개수 어보노멀로
+    /// 따로 알아낸다.</para></summary>
+    private void ParseAbyssArtifacts(byte[] packet, int bodyStart, bool wholeAbyss)
+    {
+        Span<AbyssArtifactZone> zones = stackalloc AbyssArtifactZone[AbyssArtifactParser.MaxZones];
+        Span<AbyssArtifactHolding> holdings = stackalloc AbyssArtifactHolding[AbyssArtifactParser.MaxArtifacts];
+        int count = AbyssArtifactParser.TryParse(packet, bodyStart, wholeAbyss, zones, holdings, out int zoneCount);
+        if (count <= 0)
+        {
+            // Rejected frames are logged because this feature's failure mode is SILENT: capture is
+            // direction-unrestricted, unrelated traffic reaches this dispatcher (the 08-28 corpus delivers DNS
+            // answers as 0xEDC2/0x3AE9), and a layout drift would simply stop reporting occupation — which is
+            // indistinguishable from a side that captured nothing.
+            _sink.Meta("abyssartifact", ("rejected", 1), ("len", packet.Length), ("all", wholeAbyss ? 1 : 0));
+            return;
+        }
+
+        for (int z = 0; z < zoneCount; z++)
+        {
+            AbyssArtifactZone zone = zones[z];
+
+            // A zone's artifacts are the ids sharing its thousands group (1001~1003 / 2001~2003), which is how
+            // the server keys the zone itself. 0xE307 lists all six in one flat run, so they are split back out
+            // by id here rather than by position.
+            var forZone = new List<AbyssArtifactHolding>(AbyssArtifactParser.ArtifactsPerZone);
+            for (int i = 0; i < count; i++)
+            {
+                if (holdings[i].ArtifactId / 1000 == zone.ZoneId / 1000)
+                {
+                    forZone.Add(holdings[i]);
+                }
+            }
+
+            if (forZone.Count != AbyssArtifactParser.ArtifactsPerZone)
+            {
+                continue; // a zone whose artifacts did not all arrive says nothing usable about occupation
+            }
+
+            _data.SaveAbyssArtifacts(zone.ZoneId, zone.StartMs, zone.EndMs, forZone);
+            _sink.Meta("abyssartifact",
+                ("zone", zone.ZoneId),
+                ("owners", (forZone[0].OwnerSide * 100) + (forZone[1].OwnerSide * 10) + forZone[2].OwnerSide),
+                ("cycleStart", zone.StartMs),
+                ("cycleEnd", zone.EndMs),
+                ("all", wholeAbyss ? 1 : 0));
+        }
     }
 
     /// <summary>
