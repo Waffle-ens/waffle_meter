@@ -193,11 +193,11 @@ public sealed class AbyssCorridorCellViewModel : INotifyPropertyChanged
         // while the meter was closed makes it too high — and what it takes to enter, since the side holding an
         // artifact says nothing about whether THIS character is geared for that layer.
         string source = cell.Inferred
-            ? "\n같은 서버의 다른 캐릭터가 이번 점령 주기에 들어간 것이 확인된 회랑입니다.\n이 캐릭터로는 들어간 적이 없어 시간이 그대로 남아 있는 것으로 보고 있습니다."
+            ? "\n이번 점령 주기에 우리 진영이 점령한 회랑입니다.\n이 캐릭터로는 아직 들어간 적이 없어 이용 시간이 그대로 남아 있는 것으로 보고 있습니다."
                 + (cell.Corridor.Tier == AbyssCorridorTier.Middle
                     ? "\n입장 조건: 아이템 레벨 3000"
                     : cell.Corridor.Tier == AbyssCorridorTier.Lower ? "\n입장 조건: 아이템 레벨 1000" : string.Empty)
-            : "\n(이번 점령 주기에 실제로 들어가 본 회랑만 표시됩니다)";
+            : "\n(이 캐릭터가 실제로 받은 남은 이용 시간입니다)";
         ToolTip = $"{cell.Corridor.Tier switch
         {
             AbyssCorridorTier.Lower => "어비스 하층",
@@ -280,13 +280,18 @@ public sealed class AetherRowViewModel
             .ToList();
         Corridors = row.CorridorCells.Select(c => new AbyssCorridorCellViewModel(c)).ToList();
 
-        // Three states, and the empty two are NOT the same: the line is shown for a character whose login
-        // snapshot we actually watched, and withheld for one we never have. What the line may NOT say is that
-        // the side captured nothing — a snapshot full of zeros also comes back from a character that has not
-        // been to the abyss since the 점령전, so it is our records that are empty, not necessarily the abyss.
+        // Three states, and the empty two are NOT the same. With the 점령 현황 broadcast on file the emptiness
+        // is a fact about the abyss and may be stated as one; with only this character's login snapshot it is a
+        // fact about our records, because a snapshot full of zeros also comes back from a character that has
+        // not been to the abyss since the 점령전. Saying the wrong one tells the user their 진영 lost artifacts
+        // it still holds.
         CorridorsVisibility = Corridors.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         CorridorsEmptyVisibility =
             Corridors.Count == 0 && row.CorridorsKnown ? Visibility.Visible : Visibility.Collapsed;
+        CorridorsEmptyText = row.CorridorsConfirmed ? "점령한 어비스 회랑 없음" : "어비스 회랑 기록 없음";
+        CorridorsEmptyToolTip = row.CorridorsConfirmed
+            ? "이번 점령 주기에 이 캐릭터의 진영이 점령한 아티팩트가 없습니다.\n다음 점령전에서 아티팩트를 점령하면 회랑이 열립니다."
+            : "아직 이 서버의 점령 현황을 받지 못했습니다.\n미터를 켜 둔 상태로 어비스에 한 번 들어가시면 점령한 회랑과 남은 이용 시간이 표시됩니다.\n같은 서버의 다른 캐릭터가 받아 온 현황도 함께 쓰입니다.";
         Label = row.Label;
         JobText = row.SubLabel;
         JobVisibility = row.SubLabel.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -303,6 +308,8 @@ public sealed class AetherRowViewModel
     public IReadOnlyList<AbyssCorridorCellViewModel> Corridors { get; }
     public Visibility CorridorsVisibility { get; }
     public Visibility CorridorsEmptyVisibility { get; }
+    public string CorridorsEmptyText { get; }
+    public string CorridorsEmptyToolTip { get; }
     public string Label { get; }
     public string JobText { get; }
     public string RemoveTooltip => $"{Label} 기록 삭제";

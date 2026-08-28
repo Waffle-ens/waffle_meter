@@ -58,7 +58,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         nameof(_closeAction), nameof(_contributionMode), nameof(_customAlarms), nameof(_damageValueMode),
         nameof(_displayMode), nameof(_fieldBossDisabled), nameof(_fontFamily), nameof(_nameDisplay),
         nameof(_nameFxMode), nameof(_overlayTheme), nameof(_targetInfoDisplayMode), nameof(_tierEffects),
-        nameof(_ttsVoice), nameof(_weeklyContentClears), nameof(_abyssCorridors))]
+        nameof(_ttsVoice), nameof(_weeklyContentClears), nameof(_abyssCorridors), nameof(_abyssArtifacts))]
     public void Reload()
     {
         _displayMode = ReadEnum("displayMode", "dps_percent", DisplayModes);
@@ -141,6 +141,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _aetherCharacterNames = _props.GetProperty("aether.characterNames") ?? "";
         _weeklyContentClears = _props.GetProperty("content.weeklyClears") ?? "";
         _abyssCorridors = _props.GetProperty("content.abyssCorridors") ?? "";
+        _abyssArtifacts = _props.GetProperty("content.abyssArtifacts") ?? "";
         _dummyTestMode = ReadBool("dummy.testMode", false);
         _dummyDurationSec = ReadInt("dummy.durationSeconds", 60);
         _patchNotesLastShownVersion = _props.GetProperty("patchNotes.lastShownVersion") ?? "";
@@ -567,6 +568,17 @@ public sealed class MeterSettings : INotifyPropertyChanged
     {
         get => _abyssCorridors;
         set => SetProp(ref _abyssCorridors, "content.abyssCorridors", value);
+    }
+
+    private string _abyssArtifacts;
+    /// <summary>The 어비스 아티팩트 점령 현황 per server, plus each character's 점령 개수, as
+    /// <c>kind,key,zoneId,value,observedAtMs,cycleStartMs,cycleEndMs</c> records (see
+    /// <see cref="AbyssArtifactStore"/>). Its OWN key for the same reason <see cref="AbyssCorridors"/> has one —
+    /// and doubly so here, since this blob is what decides whether a corridor is shown at all.</summary>
+    public string AbyssArtifacts
+    {
+        get => _abyssArtifacts;
+        set => SetProp(ref _abyssArtifacts, "content.abyssArtifacts", value);
     }
 
     // ---- 허수아비 (training-dummy) test mode ----

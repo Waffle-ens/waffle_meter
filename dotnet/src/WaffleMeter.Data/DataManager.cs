@@ -228,6 +228,21 @@ public sealed class DataManager : ICaptureGameData
 
     public void SaveInstanceMap(int mapId) => InstanceMapChanged?.Invoke(mapId, Clock());
 
+    /// <summary>Raised (packet-consumer thread) with one 어비스 아티팩트 zone's 점령 현황 and the server's own
+    /// 점령 주기 window, plus when it was heard.</summary>
+    public event Action<int, long, long, IReadOnlyList<AbyssArtifactHolding>, long>? AbyssArtifactsChanged;
+
+    public void SaveAbyssArtifacts(int zoneId, long cycleStartMs, long cycleEndMs, IReadOnlyList<AbyssArtifactHolding> holdings) =>
+        AbyssArtifactsChanged?.Invoke(zoneId, cycleStartMs, cycleEndMs, holdings, Clock());
+
+    /// <summary>Raised (packet-consumer thread) with how many artifacts the active character's side holds in
+    /// one zone, and when. The consumer needs it to work out which owner slot in
+    /// <see cref="AbyssArtifactsChanged"/> is ours.</summary>
+    public event Action<int, int, long>? AbyssArtifactCountChanged;
+
+    public void SaveAbyssArtifactCount(int zoneId, int count) =>
+        AbyssArtifactCountChanged?.Invoke(zoneId, count, Clock());
+
     public void LoadEncounters(EncounterCatalog catalog) => Encounters = catalog;
 
     public void LoadBuffs(IEnumerable<Buff> buffs)

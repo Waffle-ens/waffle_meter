@@ -155,13 +155,14 @@
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
 
-                                            <!-- 어비스 회랑. A chip appears for a corridor this character's SIDE
-                                                 was watched WALKING INTO this 점령 cycle — on this character, or
-                                                 on another one on the same server, which is the same 진영 and so
-                                                 the same occupation. Never from a ticket value: a zero covers
+                                            <!-- 어비스 회랑. A chip appears for a corridor this character's
+                                                 진영 holds, as the server's own 점령 현황 broadcast
+                                                 (0xE305/0xE307) states it — the same answer the game shows on
+                                                 abyss entry. Never from a ticket value alone: a zero covers
                                                  미점령·소진·타종족·미방문 alike, and unspent time outlives the
-                                                 occupation that granted it (2026-08-23). A WrapPanel because
-                                                 six of these do not fit the 320px row. -->
+                                                 occupation that granted it (2026-08-23), so the value only ever
+                                                 supplies the NUMBER on a chip the broadcast already licensed.
+                                                 A WrapPanel because six of these do not fit the 320px row. -->
                                             <ItemsControl ItemsSource="{Binding Corridors}" Margin="0,3,0,0"
                                                           Visibility="{Binding CorridorsVisibility}">
                                                 <ItemsControl.ItemsPanel>
@@ -210,15 +211,14 @@
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
 
-                                            <!-- Shown only when a login snapshot for THIS character has been
-                                                 seen since the last 점령전, and no character on its server has
-                                                 been watched entering a corridor either. It reports the state
-                                                 of our records — which corridors are open is only knowable by
-                                                 someone getting into one. -->
-                                            <TextBlock Text="어비스 회랑 기록 없음" FontSize="9" Margin="0,4,0,0"
+                                            <!-- The empty state, and it says one of two different things — see
+                                                 AetherRowViewModel.CorridorsEmptyText. With the 점령 현황 on
+                                                 file the emptiness is a fact about the abyss; without it, only
+                                                 a fact about our records. -->
+                                            <TextBlock Text="{Binding CorridorsEmptyText}" FontSize="9" Margin="0,4,0,0"
                                                        Opacity="0.6"
                                                        Foreground="{DynamicResource Skin.MutedFg}"
-                                                       ToolTip="이번 점령 주기에 들어가 본 회랑이 아직 없습니다.&#10;미터를 켜 둔 상태로 어비스 회랑에 한 번 들어가시면 그때부터 표시됩니다.&#10;같은 서버의 다른 캐릭터가 들어간 회랑도 함께 표시됩니다.&#10;서버가 보내는 이용 시간만으로는 점령 여부를 알 수 없어(지난 주기에 안 쓴 시간이 그대로 남습니다) 입장을 기준으로 합니다."
+                                                       ToolTip="{Binding CorridorsEmptyToolTip}"
                                                        Visibility="{Binding CorridorsEmptyVisibility}"/>
                                         </StackPanel>
 
