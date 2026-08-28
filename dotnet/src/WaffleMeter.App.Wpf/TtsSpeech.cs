@@ -24,7 +24,12 @@ namespace WaffleMeter.App.Wpf;
 public static class TtsSpeech
 {
     private const int MaxQueue = 16;
-    private const int MaxRequestAgeMs = 4000;
+
+    /// <summary>How stale a non-durable request may be before the worker skips it as "spoken late is worse".
+    /// It has to clear the longest a clip can legitimately hold the worker — the pack's longest line runs
+    /// ~4.8 s and <see cref="InterClipGapMs"/> follows it — or a single long line ahead in the queue would
+    /// drop the alarm behind it as late when nothing was late.</summary>
+    private const int MaxRequestAgeMs = 8000;
     private const int CacheLimit = 32;
     private const int RequestTimeoutMs = 3500;
 
@@ -40,7 +45,7 @@ public static class TtsSpeech
     private static readonly object Gate = new();
     private static BlockingCollection<Request>? _queue;
     private static Thread? _worker;
-    private static readonly ConcurrentDictionary<string, byte[]> _cache = new();
+    private static readonly ConcurrentDictionary<string, string> _cache = new(); // text → clip file path
     private static readonly ConcurrentQueue<string> _cacheOrder = new();
     private static long _disabledUntilMs; // Environment.TickCount64 when Edge synthesis may be retried
 
@@ -124,14 +129,13 @@ public static class TtsSpeech
 
             try
             {
-                byte[]? mp3 = GetOrSynthesize(req.Text);
-                if (mp3 is { Length: > 0 })
+                string? clip = ResolveClipFile(req.Text);
+                if (clip is null || !Play(clip, req.Volume))
                 {
-                    Play(mp3, req.Volume);
-                }
-                else if (req.ChimeFallback)
-                {
-                    AlarmSound.Play(req.Volume); // network path unavailable — never go silent
+                    if (req.ChimeFallback)
+                    {
+                        AlarmSound.Play(req.Volume); // nothing could be spoken — never go silent
+                    }
                 }
             }
             catch
@@ -144,20 +148,21 @@ public static class TtsSpeech
         }
     }
 
-    private static byte[]? GetOrSynthesize(string text)
+    /// <summary>The file to play for <paramref name="text"/>, or null when it cannot be spoken at all.</summary>
+    private static string? ResolveClipFile(string text)
     {
-        if (_cache.TryGetValue(text, out byte[]? hit))
+        // The shipped pack first: it covers every built-in line — every 스킬알림 and 보스알림 takes this path —
+        // and needs no network. Played where the installer put it; only a custom alarm's free-text title and
+        // lines newer than the installed pack fall past this to the online voice.
+        string? baked = _pack?.TryGetPath(text);
+        if (baked is not null)
         {
-            return hit;
+            return baked;
         }
 
-        // The shipped pack first: it covers every built-in line, costs a file read, and needs no network.
-        // Only a custom alarm's free-text title and lines newer than the installed pack fall past this.
-        byte[]? baked = _pack?.TryGet(text);
-        if (baked is { Length: > 0 })
+        if (_cache.TryGetValue(text, out string? hit) && File.Exists(hit))
         {
-            Cache(text, baked);
-            return baked;
+            return hit;
         }
 
         if (Environment.TickCount64 < Interlocked.Read(ref _disabledUntilMs))
@@ -174,8 +179,7 @@ public static class TtsSpeech
                 return null;
             }
 
-            Cache(text, mp3);
-            return mp3;
+            return Store(text, mp3);
         }
         catch
         {
@@ -184,9 +188,61 @@ public static class TtsSpeech
         }
     }
 
-    private static void Cache(string text, byte[] mp3)
+    /// <summary>Write a synthesized clip and hand back its path, or null when the disk refuses. Keyed by voice
+    /// as well as text: the same line in the other pack's voice is a different file, so switching packs can
+    /// never land on a name a player still holds open. Its own catch, because a full disk or a locked %TEMP% is
+    /// not evidence that the endpoint is broken — folded into the caller's catch it would take the online voice
+    /// down for two minutes over a local failure.</summary>
+    private static string? Store(string text, byte[] mp3)
     {
-        if (_cache.TryAdd(text, mp3))
+        try
+        {
+            string file = Path.Combine(TempDir(), BakedVoicePack.HashOf(Voice + "\n" + text) + ".mp3");
+            File.WriteAllBytes(file, mp3);
+            Cache(text, file);
+            return file;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? _tempDir;
+
+    /// <summary>Where clips synthesized this session are kept. Swept once when it is first needed rather than
+    /// deleted per clip: the old per-clip delete raced the player that was still reading the file, so it failed
+    /// silently exactly when it mattered and left nothing to show for it.</summary>
+    private static string TempDir()
+    {
+        if (_tempDir is { } cached)
+        {
+            return cached;
+        }
+
+        string dir = Path.Combine(Path.GetTempPath(), "waffle_meter", "tts");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            foreach (string stale in Directory.EnumerateFiles(dir, "*.mp3"))
+            {
+                // Per file: one leftover that will not go (held elsewhere, ACL) must not abandon the rest.
+                try { File.Delete(stale); } catch { }
+            }
+        }
+        catch
+        {
+            // the folder itself would not enumerate — harmless, clips are written by hash and overwrite
+        }
+
+        return _tempDir = dir;
+    }
+
+    // Evicting a text only forgets the mapping; the file stays until the next session sweeps the folder. It is
+    // keyed by hash, so re-synthesizing the same line simply rewrites the same bytes to the same name.
+    private static void Cache(string text, string file)
+    {
+        if (_cache.TryAdd(text, file))
         {
             _cacheOrder.Enqueue(text);
             while (_cache.Count > CacheLimit && _cacheOrder.TryDequeue(out string? oldest))
@@ -260,72 +316,172 @@ public static class TtsSpeech
     private static Task SendText(ClientWebSocket ws, string message, CancellationToken ct) =>
         ws.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, ct);
 
-    /// <summary>
-    /// How long to leave the player alone after <c>MediaEnded</c> before tearing it down.
-    ///
-    /// <para><c>MediaEnded</c> does not mean "the audio has been heard" — it means the media clock reached the
-    /// end, while the renderer still holds queued samples. Measured against this repo's own packs, it arrives
-    /// 80–95 ms before the clip's own <c>NaturalDuration</c> has elapsed in wall-clock. Closing the player
-    /// inside that callback discarded whatever was still queued, so every line whose trailing silence was
-    /// shorter than that lost real speech — and since the packs' tails run anywhere from 25 ms to 730 ms, only
-    /// some lines sounded cut, which is what made it look intermittent rather than constant.</para>
-    /// </summary>
-    private const int TailGraceMs = 250;
+    // ── playback ───────────────────────────────────────────────────────────────────────────────────────
+    //
+    // Two MediaPlayers, made once on the UI thread and held in a static field for the life of the process.
+    // Both halves of that sentence are load-bearing.
+    //
+    //  1) STATIC, THEREFORE ROOTED. Until 2026-08-28 the player was a local inside the dispatcher lambda. The
+    //     moment Invoke returned, the only references left to it were the delegates hanging off its own events
+    //     — player → MediaEnded → closure → player — and a cycle is not a GC root. Any ephemeral collection
+    //     landing inside the clip finalized the media handle, tore the native pipeline down, and the sound
+    //     stopped mid-word wherever that collection happened to fall. MediaEnded never fired afterwards, so
+    //     the tail grace added in 8883e11 never ran either: it guarded the window AFTER MediaEnded, and the
+    //     clip was dying before it. That is why "the end goes missing sometimes" survived a fix aimed straight
+    //     at it, why no clip length is a cliff (a longer clip is only more seconds of exposure to the next
+    //     gen-0), and why it tracks how busy the app is rather than which line is speaking.
+    //     Never let a playing MediaPlayer be a local again.
+    //
+    //  2) TWO OF THEM, USED IN TURN. Open()ing a new source tears the old topology down, renderer included, so
+    //     one player would leave the previous clip's undrained tail at the mercy of how soon the next alert
+    //     arrives. Alternating means the clip that just ended keeps draining on its own player while the next
+    //     one opens on the other, and nothing here ever closes a player that is still sounding. Measured, that
+    //     is worth 10-25 ms of tail — small, because MediaEnded turns out to arrive 20-32 ms AFTER the last
+    //     sample reaches the mix, not before it. The words the user was losing were taken by (1), not by this;
+    //     what (2) removes is the need to guess a constant at all. Do not fold the two back into one player on
+    //     the grounds that the margin is small — the margin is small only while nothing closes a live player.
+    private static readonly MediaPlayer?[] Players = new MediaPlayer?[2]; // UI thread only
+    private static readonly int[] SlotClipId = new int[2];                // UI thread only
+    private static int _slot = 1, _clipIds, _activeClip;                  // UI thread only
+    private static DispatcherTimer? _watchdog;                            // UI thread only
+    private static volatile bool _clipFailed;                             // set on the UI thread, read by the worker
+    private static readonly ManualResetEventSlim ClipDone = new(false);   // one worker ⇒ one clip in flight
 
-    // Play an MP3 clip via a MediaPlayer on the UI dispatcher (MediaEnded fires there). The clip is short;
-    // Play() returns immediately and the file is deleted after playback (or a hard timeout).
-    private static void Play(byte[] mp3, double volume)
+    /// <summary>Spacing between consecutive alerts — NOT tail protection, which the two players above make
+    /// structural. Set this too low and two alerts overlap; it can no longer cut one short.</summary>
+    private const int InterClipGapMs = 250;
+
+    /// <summary>Last-resort bound on the worker's park. The watchdog below is armed off the clip's own
+    /// duration and should always beat it; this only catches a clip that never opened at all.</summary>
+    private const int ClipWaitCapMs = 10_000;
+
+    /// <summary>Play <paramref name="file"/> and park the worker until it has finished, so the queue is drained
+    /// at the speed the alerts are actually spoken. False when the clip could not be played at all — a truncated
+    /// or quarantined file in the installed pack, a codec the machine lacks — so the caller can fall back rather
+    /// than count a silence as spoken.</summary>
+    private static bool Play(string file, double volume)
     {
         Application? app = Application.Current;
         if (app is null)
         {
+            return false;
+        }
+
+        app.Dispatcher.Invoke(() =>
+        {
+            // Claim an id first: any late event from the clip before this one is now stale and cannot signal.
+            _activeClip = ++_clipIds;
+            _clipFailed = false;
+            ClipDone.Reset();
+
+            MediaPlayer player = NextPlayer();
+            // Closed before it is re-opened, and before the slot is stamped with this clip's id so that nothing
+            // Close() might raise can be mistaken for this clip's own event. The order matters: a player does
+            // NOT raise MediaOpened for a
+            // source it already holds (measured — suppressed from the third play on, both when one line repeats
+            // and when two alternate, which is the shape a buff on/off pair makes all fight). No MediaOpened
+            // means the watchdog keeps the placeholder below instead of the clip's real length, and unparks the
+            // worker mid-clip so the next alert starts over this one. This is the player from TWO clips ago and
+            // is long finished; the one that may still be draining is on the other slot, which is not touched.
+            try { player.Close(); } catch { }
+            SlotClipId[_slot] = _activeClip;
+            player.Volume = Math.Clamp(volume, 0, 1);
+            player.Open(new Uri(file));
+            player.Play();
+            ArmWatchdog(3000); // replaced by the real duration once MediaOpened lands
+        });
+
+        ClipDone.Wait(ClipWaitCapMs);
+        Thread.Sleep(InterClipGapMs);
+        return !_clipFailed;
+    }
+
+    private static MediaPlayer NextPlayer()
+    {
+        _slot ^= 1;
+        if (Players[_slot] is { } existing)
+        {
+            return existing;
+        }
+
+        int slot = _slot;
+        var player = new MediaPlayer();
+        player.MediaOpened += (_, _) =>
+        {
+            if (SlotClipId[slot] != _activeClip)
+            {
+                return; // a late open from a clip we have already moved past
+            }
+
+            Duration d = player.NaturalDuration;
+            // Generous on purpose: this is the "MediaEnded never came" net, not the thing that ends the clip.
+            ArmWatchdog(d.HasTimeSpan ? (int)d.TimeSpan.TotalMilliseconds + 2000 : 6000);
+        };
+        player.MediaEnded += (_, _) => FinishClip(SlotClipId[slot]);
+        player.MediaFailed += (_, _) =>
+        {
+            if (SlotClipId[slot] == _activeClip)
+            {
+                _clipFailed = true; // a pack clip the machine cannot play is not a spoken alert
+            }
+
+            FinishClip(SlotClipId[slot]);
+        };
+        Players[slot] = player;
+        return player;
+    }
+
+    private static void ArmWatchdog(int ms)
+    {
+        // DispatcherPriority.Normal, spelled out. The parameterless DispatcherTimer ctor defaults to Background,
+        // which sits behind Render and DataBind — a busy dispatcher starves it exactly when it is needed, and a
+        // starved net here parks the worker (and every alert behind it) for the full ClipWaitCapMs.
+        if (_watchdog is null)
+        {
+            _watchdog = new DispatcherTimer(DispatcherPriority.Normal);
+            // Stopped here rather than only inside FinishClip: that one returns early for a clip we have moved
+            // past, and an unstopped DispatcherTimer free-runs for the life of the process.
+            _watchdog.Tick += (_, _) => { _watchdog!.Stop(); FinishClip(_activeClip); };
+        }
+
+        _watchdog.Stop();
+        _watchdog.Interval = TimeSpan.FromMilliseconds(ms);
+        _watchdog.Start();
+    }
+
+    private static void FinishClip(int id)
+    {
+        if (id == 0 || id != _activeClip)
+        {
+            return; // a late event from a clip we have already moved past
+        }
+
+        _activeClip = 0;
+        _watchdog?.Stop();
+        ClipDone.Set();
+    }
+
+    /// <summary>Release the players at exit. Each holds its last clip open until it is given another one, and
+    /// measured, that handle blocks writing the file and renaming the folder it sits in (deleting or renaming
+    /// the file itself still works) — which is what an update does to <c>voice/</c>.</summary>
+    public static void Shutdown()
+    {
+        if (Application.Current is not { } app)
+        {
             return;
         }
 
-        string path = Path.Combine(Path.GetTempPath(), "waffle_meter", "tts");
-        Directory.CreateDirectory(path);
-        string file = Path.Combine(path, Guid.NewGuid().ToString("N") + ".mp3");
-        File.WriteAllBytes(file, mp3);
-
-        var done = new ManualResetEventSlim(false);
-        try
+        app.Dispatcher.Invoke(() =>
         {
-            app.Dispatcher.Invoke(() =>
+            _watchdog?.Stop();
+            for (int i = 0; i < Players.Length; i++)
             {
-                var player = new MediaPlayer { Volume = Math.Clamp(volume, 0, 1) };
+                try { Players[i]?.Close(); } catch { }
+                Players[i] = null;
+            }
 
-                void Teardown()
-                {
-                    try { player.Close(); } catch { }
-                    // The worker may already have timed out and disposed this; a late signal is a no-op.
-                    try { done.Set(); } catch (ObjectDisposedException) { }
-                }
-
-                // The running timer roots itself and the player it captures, so neither can be collected
-                // mid-clip. The worker stays parked until the grace elapses, which also keeps consecutive
-                // alerts from overlapping the tail we just went to the trouble of preserving.
-                player.MediaEnded += (_, _) =>
-                {
-                    var grace = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(TailGraceMs) };
-                    grace.Tick += (_, _) =>
-                    {
-                        grace.Stop();
-                        Teardown();
-                    };
-                    grace.Start();
-                };
-                player.MediaFailed += (_, _) => Teardown(); // nothing played — there is no tail to protect
-                player.Open(new Uri(file));
-                player.Play();
-            });
-
-            done.Wait(8000); // bound the worker so a stuck clip can't wedge the queue
-        }
-        finally
-        {
-            done.Dispose();
-        }
-
-        try { File.Delete(file); } catch { }
+            _activeClip = 0;
+            ClipDone.Set(); // never leave the worker parked on a player that is gone
+        });
     }
 }

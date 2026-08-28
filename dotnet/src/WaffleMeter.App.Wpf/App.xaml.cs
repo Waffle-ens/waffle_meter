@@ -2789,6 +2789,7 @@ public partial class App : Application
         _hotkeys?.Dispose();
         _engine?.Services.DebugLogger.Stop(); // finalize the gzip trailer if a packet-log session is running
         _engine?.Dispose();
+        TtsSpeech.Shutdown(); // the voice players keep the clip they last played open
         base.OnExit(e);
     }
 }
