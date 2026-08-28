@@ -57,6 +57,27 @@ public sealed class BakedVoicePack
     /// <summary>The pre-rendered clip for <paramref name="text"/>, or null when the pack has no such line.</summary>
     public byte[]? TryGet(string text)
     {
+        string? path = TryGetPath(text);
+        try
+        {
+            return path is null ? null : File.ReadAllBytes(path);
+        }
+        catch (IOException)
+        {
+            return null; // a locked or half-written file is a miss, not a crash
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Where the pre-rendered clip for <paramref name="text"/> lives, or null when the pack has no
+    /// such line. Playback hands this path straight to the player instead of copying the bytes through a temp
+    /// file: a clip the installer already put on disk has nothing to gain from a second copy, and the copy is
+    /// what used to be deleted out from under a player that was still reading it.</summary>
+    public string? TryGetPath(string text)
+    {
         if (string.IsNullOrWhiteSpace(text))
         {
             return null;
@@ -65,11 +86,11 @@ public sealed class BakedVoicePack
         string path = Path.Combine(_root, FileNameFor(text));
         try
         {
-            return File.Exists(path) ? File.ReadAllBytes(path) : null;
+            return File.Exists(path) ? path : null;
         }
         catch (IOException)
         {
-            return null; // a locked or half-written file is a miss, not a crash
+            return null;
         }
         catch (UnauthorizedAccessException)
         {
