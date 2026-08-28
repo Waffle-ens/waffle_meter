@@ -43,6 +43,8 @@ This project uses free code signing provided by [SignPath.io](https://signpath.i
 
 ## 업데이트 기록
 
+- v2.11.4 (2026-08-29)
+  - [수정] 어비스에 들어가면 우리 진영이 점령한 회랑이 컨텐츠 관리에 곧바로 표시됩니다.
 - v2.11.3 (2026-08-28)
   - [수정] 음성 알림이 재생 도중 끊기던 문제를 고쳤습니다.
 - v2.11.2 (2026-08-24)
