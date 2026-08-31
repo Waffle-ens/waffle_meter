@@ -227,11 +227,18 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
     /// <summary>Update whether a party member (rather than the local player) applied this buff.</summary>
     public void SetByOther(bool byOther) => ByOther = byOther;
 
-    /// <summary>Set the level badge. <paramref name="level"/> 0 = 모름 → 배지를 그리지 않는다 ("0"을 그리면
-    /// 1레벨과 구분이 안 되고, 소모품 버프는 애초에 레벨이 없다).</summary>
+    /// <summary>
+    /// Set the level badge.
+    /// <para><b>0 과 1 은 둘 다 그리지 않는다.</b> 0 은 "모름"이고(소모품·주문서는 애초에 레벨이 없다),
+    /// 1 은 레벨이 올라가지 않는 고정 효과 버프가 실어 보내는 값이다 — 광풍·표적 화살·바이젤의 권능·축복의
+    /// 활처럼 실제로 레벨을 투자하는 스킬이 아닌 것들이 전부 1 로 온다. 그 줄에 "Lv.1"을 붙이면 레벨이 낮은
+    /// 것처럼 읽혀 오히려 틀린 정보가 된다.</para>
+    /// <para>표시에서만 뺀다 — 계산(<see cref="Data.PartySynergyCatalog"/>)과 통계 payload 에는 1 이 그대로
+    /// 간다. 노련한 반격 1레벨 5.4% 처럼 1 이 진짜 의미를 갖는 자리가 있기 때문이다.</para>
+    /// </summary>
     public void SetLevel(int level, bool show)
     {
-        bool visible = show && level > 0;
+        bool visible = show && level > 1;
         LevelText = visible ? level.ToString(Inv) : string.Empty;
         LevelVisibility = visible ? Visibility.Visible : Visibility.Collapsed;
     }

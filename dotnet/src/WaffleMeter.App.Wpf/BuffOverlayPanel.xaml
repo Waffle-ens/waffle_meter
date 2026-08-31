@@ -54,11 +54,19 @@
                             <!-- Faint full-circle track so the icon always reads as framed. -->
                             <Ellipse Width="43" Height="43" HorizontalAlignment="Center" VerticalAlignment="Center"
                                      Stroke="#40000000" StrokeThickness="2.5"/>
+                            <!-- Cooldown/duration ring: a bright arc that frames the icon and sweeps toward nothing as
+                                 the buff runs out, so the border "disappears" as the timer drops. Fixed 46x46 canvas
+                                 with absolute coords keeps the shrinking arc centered. -->
+                            <Path Data="{Binding Ring}" Stroke="#FFE9B54A" StrokeThickness="2.5" Width="46" Height="46"
+                                  Stretch="None" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             <!-- 스킬 레벨 배지(우하단). 원형 아이콘의 오른쪽 아래 여백에 얹히므로 아이콘 그림을
                                  거의 가리지 않는다. 어두운 알약 배경 + 흰 글씨라 밝은 아이콘 위에서도 읽힌다.
                                  레벨을 모르면(0) VM 이 통째로 Collapsed 로 접는다 — "0"을 그리지 않는다.
-                                 ⚠️ 링보다 z-order 가 아래여야 한다. 위에 두면 불투명 배경이 남은시간 호의 끝을
-                                 4~5시 방향(잔여 31~46% 구간)에서 가려, 카운트다운이 사라진 것처럼 보인다.
+                                 ⚠️ 링보다 z-order 가 <b>위</b>다. 반대로 두면 남은시간 호가 숫자를 가로질러
+                                 레벨을 읽을 수 없다(실사용 확인). 링과 배지는 4~5시 방향에서 반드시 겹치는데
+                                 — 배지 모서리가 반지름 21.5 원을 지난다 — 둘 중 하나는 잘린다. 배지가 이기는
+                                 이유는 남은 시간이 아이콘 아래 <b>숫자로도</b> 나오기 때문이다. 호가 잠깐
+                                 끊기면 중복 정보가 하나 줄 뿐이지만, 레벨은 여기 말고 볼 곳이 없다.
                                  배지는 슬롯 Grid 안에 있으므로 아이콘 크기 배율(LayoutTransform)을 함께 탄다. -->
                             <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2"
                                     Background="#D9000000" CornerRadius="6" Padding="3,0" MinWidth="14"
@@ -66,11 +74,6 @@
                                 <TextBlock Text="{Binding LevelText}" Foreground="White" FontSize="10" FontWeight="Bold"
                                            HorizontalAlignment="Center" TextAlignment="Center"/>
                             </Border>
-                            <!-- Cooldown/duration ring: a bright arc that frames the icon and sweeps toward nothing as
-                                 the buff runs out, so the border "disappears" as the timer drops. Fixed 46x46 canvas
-                                 with absolute coords keeps the shrinking arc centered. -->
-                            <Path Data="{Binding Ring}" Stroke="#FFE9B54A" StrokeThickness="2.5" Width="46" Height="46"
-                                  Stretch="None" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             <!-- accent dot when a party member applied the buff -->
                             <Ellipse Width="9" Height="9" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
                                      Fill="{DynamicResource Skin.Accent}" Visibility="{Binding ByOther, Converter={StaticResource BoolToVis}}"/>

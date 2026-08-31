@@ -153,6 +153,11 @@ public static class StatSheetExport
         //   폭 = (최대 − 최소) × (1+증가율) = (1,563 − 973) × 2.2301 = 1,316  ← 실측 일치
         Flat("n1", PlayerStatIds.MinimumAttack);
         Flat("n2", PlayerStatIds.MaximumAttack);
+
+        // 공격력 증가율. 계산기는 이걸 파괴·위력·돌파에서 역산하는데, 실측 캐릭터에서 그 역산이 123.01% 대
+        // 119.9%(돌파를 상한까지 채워도)로 어긋난다. mIncEquipped 가 공격력 구성과 구간을 모두 좌우하므로
+        // 아는 값을 그대로 넘긴다 — 계산기는 0(미입력)일 때만 역산한다.
+        Pct("ai", PlayerStatIds.AttackIncreasePercent);
         Flat("pe", PlayerStatIds.Penetration);       // 관통
         Flat("de", PlayerStatIds.Destruction);       // 파괴
         Flat("mi", PlayerStatIds.Might);             // 위력
