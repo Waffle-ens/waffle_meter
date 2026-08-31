@@ -31,7 +31,7 @@ public sealed class PlayerStatStoreTests
         store.Accept(1234, Stats((PlayerStatIds.Attack, 3238), (PlayerStatIds.HardHitPercent, 5952)),
             fullSnapshot: false, arrivedAt: 100);
 
-        store.SetOwner(1234);
+        store.SetOwner(1234, resetSheet: false);
 
         PlayerStatSheet sheet = Assert.IsType<PlayerStatSheet>(store.Current);
         Assert.Equal(3238, sheet.Raw(PlayerStatIds.Attack));
@@ -46,7 +46,7 @@ public sealed class PlayerStatStoreTests
         var store = new PlayerStatStore();
         store.Accept(0, Stats((PlayerStatIds.Attack, 3238)), fullSnapshot: true, arrivedAt: 100);
 
-        store.SetOwner(1234);
+        store.SetOwner(1234, resetSheet: false);
 
         PlayerStatSheet sheet = Assert.IsType<PlayerStatSheet>(store.Current);
         Assert.Equal(3238, sheet.Raw(PlayerStatIds.Attack));
@@ -59,7 +59,7 @@ public sealed class PlayerStatStoreTests
         var store = new PlayerStatStore();
         store.Accept(999, Stats((PlayerStatIds.Attack, 99999)), fullSnapshot: false, arrivedAt: 100);
 
-        store.SetOwner(1234);
+        store.SetOwner(1234, resetSheet: false);
 
         Assert.Null(store.Current);
     }
@@ -70,7 +70,7 @@ public sealed class PlayerStatStoreTests
         // A stat that vanished (an unequipped item's bonus) has to vanish here too, or the sheet reports a
         // bonus the character no longer has.
         var store = new PlayerStatStore();
-        store.SetOwner(1234);
+        store.SetOwner(1234, resetSheet: false);
         store.Accept(1234, Stats((PlayerStatIds.Attack, 3238), (PlayerStatIds.Penetration, 500)),
             fullSnapshot: false, arrivedAt: 100);
         store.Accept(1234, Stats((PlayerStatIds.Attack, 3400)), fullSnapshot: true, arrivedAt: 200);
@@ -84,7 +84,7 @@ public sealed class PlayerStatStoreTests
     public void A_delta_merges_onto_what_is_already_there()
     {
         var store = new PlayerStatStore();
-        store.SetOwner(1234);
+        store.SetOwner(1234, resetSheet: false);
         store.Accept(1234, Stats((PlayerStatIds.Attack, 3238), (PlayerStatIds.Penetration, 500)),
             fullSnapshot: true, arrivedAt: 100);
         store.Accept(1234, Stats((PlayerStatIds.Attack, 3400)), fullSnapshot: false, arrivedAt: 200);
@@ -101,10 +101,10 @@ public sealed class PlayerStatStoreTests
         // Stats belong to a character. Showing the previous character's numbers under the new one's name is
         // worse than showing none — the user cannot tell they are stale.
         var store = new PlayerStatStore();
-        store.SetOwner(1234);
+        store.SetOwner(1234, resetSheet: false);
         store.Accept(1234, Stats((PlayerStatIds.Attack, 3238)), fullSnapshot: true, arrivedAt: 100);
 
-        store.SetOwner(5678);
+        store.SetOwner(5678, resetSheet: true);
 
         Assert.Null(store.Current);
     }
@@ -119,7 +119,7 @@ public sealed class PlayerStatStoreTests
         // A later frame from someone else advances the store's notion of "now" past the TTL.
         store.Accept(4321, Stats((PlayerStatIds.Attack, 1)), fullSnapshot: false, arrivedAt: 120_000);
 
-        store.SetOwner(1234);
+        store.SetOwner(1234, resetSheet: false);
 
         Assert.Null(store.Current);
     }
@@ -130,7 +130,7 @@ public sealed class PlayerStatStoreTests
         // The server splits it across a base and a bonus id and reports the REDUCTION as positive; a human
         // reads a cooldown reduction as a negative number.
         var store = new PlayerStatStore();
-        store.SetOwner(1);
+        store.SetOwner(1, resetSheet: false);
         store.Accept(1, Stats((PlayerStatIds.CooldownBasePercent, 215), (PlayerStatIds.CooldownBonusPercent, 433)),
             fullSnapshot: true, arrivedAt: 10);
 
@@ -142,9 +142,60 @@ public sealed class PlayerStatStoreTests
     public void Absent_cooldown_ids_report_null_rather_than_zero()
     {
         var store = new PlayerStatStore();
-        store.SetOwner(1);
+        store.SetOwner(1, resetSheet: false);
         store.Accept(1, Stats((PlayerStatIds.Attack, 1)), fullSnapshot: true, arrivedAt: 10);
 
         Assert.Null(Assert.IsType<PlayerStatSheet>(store.Current).CooldownPercent());
+    }
+
+    [Fact]
+    public void A_new_uid_for_the_SAME_character_keeps_the_sheet()
+    {
+        // The local player is re-registered under a fresh uid on every zone/instance load. Clearing on uid
+        // would wipe the sheet at every loading screen — and the full snapshot only ever arrives during
+        // exactly that load, so it would be destroyed the moment it was captured.
+        var store = new PlayerStatStore();
+        store.SetOwner(1234, resetSheet: false);
+        store.Accept(1234, Stats((PlayerStatIds.Attack, 3238)), fullSnapshot: true, arrivedAt: 100);
+
+        store.SetOwner(5678, resetSheet: false);
+
+        PlayerStatSheet sheet = Assert.IsType<PlayerStatSheet>(store.Current);
+        Assert.Equal(3238, sheet.Raw(PlayerStatIds.Attack));
+        Assert.True(sheet.FullSnapshotSeen);
+    }
+
+    [Fact]
+    public void The_local_players_parked_frames_are_not_evicted_by_strangers()
+    {
+        // Nearby players deltas refresh their own timestamps on every frame, so a plain oldest-first eviction
+        // is guaranteed to drop the entity-less full snapshot — the one frame a session gets only once.
+        var store = new PlayerStatStore();
+        store.Accept(0, Stats((PlayerStatIds.Attack, 3238)), fullSnapshot: true, arrivedAt: 1);
+
+        for (int stranger = 100; stranger < 140; stranger++)
+        {
+            store.Accept(stranger, Stats((PlayerStatIds.Attack, 1)), fullSnapshot: false, arrivedAt: 2 + stranger);
+        }
+
+        store.SetOwner(1234, resetSheet: false);
+
+        Assert.Equal(3238, Assert.IsType<PlayerStatSheet>(store.Current).Raw(PlayerStatIds.Attack));
+    }
+
+    [Fact]
+    public void Parked_buckets_replay_in_arrival_order_so_the_newer_one_wins()
+    {
+        // Both buckets fill during the same pre-identity window. A delta parked BEFORE the full snapshot must
+        // not be applied after it — that would resurrect a stat the snapshot had just dropped.
+        var store = new PlayerStatStore();
+        store.Accept(1234, Stats((PlayerStatIds.Penetration, 500)), fullSnapshot: false, arrivedAt: 10);
+        store.Accept(0, Stats((PlayerStatIds.Attack, 3238)), fullSnapshot: true, arrivedAt: 20);
+
+        store.SetOwner(1234, resetSheet: false);
+
+        PlayerStatSheet sheet = Assert.IsType<PlayerStatSheet>(store.Current);
+        Assert.Equal(3238, sheet.Raw(PlayerStatIds.Attack));
+        Assert.Null(sheet.Raw(PlayerStatIds.Penetration)); // the full snapshot replaced, and it came last
     }
 }

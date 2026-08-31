@@ -1484,10 +1484,6 @@ public sealed class DataManager : ICaptureGameData
             _userRepository.Executor(uid);
             newExec.IsExecutor = true;
 
-            // 스탯 사전은 신원보다 먼저 도착한다(실측 ~6초). 여기서 주인이 확정돼야 보류해 둔 프레임이 반영된다.
-            // 다른 캐릭터로 바뀐 경우엔 스토어가 알아서 비운다 — 스탯은 캐릭터의 것이라 물려주면 안 된다.
-            _playerStats.SetOwner(uid);
-
             // When this install last learned WHO it is watching. The weekly 성역 counters need it: the 0x610B
             // login snapshot beats the own-load packet that names the character by ~4 s at every zone-in
             // measured, so a counter filed against "whoever the executor is right now" lands on the PREVIOUS
@@ -1545,6 +1541,13 @@ public sealed class DataManager : ICaptureGameData
                 ClearOwnerBuffs();   // the previous character's buffs, likewise
                 ExecutorIdentityChanged?.Invoke();
             }
+
+            // 스탯 사전의 주인을 확정한다. 신원보다 스탯이 먼저 도착하므로(실측 ~6초) 여기서 보류분이 반영된다.
+            // ⚠️ uid가 바뀌었다고 비우면 안 된다 — 본인은 존/인스턴스를 넘을 때마다 새 uid로 재등록되므로
+            // (이 메서드 맨 위 주석이 그 구분을 위해 oldExec/newExec를 미리 잡아 둔다) uid 기준으로 비우면
+            // 로딩 때마다 스탯이 날아가고, 하필 그 로딩 중에 오는 전체 스냅샷까지 같이 날아간다. 캐릭터가
+            // 실제로 바뀐 경우(identityChanged)에만 비운다.
+            _playerStats.SetOwner(uid, resetSheet: identityChanged);
 
             // Now that this uid is the confirmed executor, replay any self-buffs that were staged while it went
             // unrecognized (owner==0 / stale on a late 0x3633). MUST run after the identityChanged ClearOwnerBuffs

@@ -29,17 +29,27 @@ public static class PartySynergyCatalog
 
     /// <summary>
     /// The level-correct effects for a modelled synergy buff, or <c>null</c> when this base is not one of them
-    /// (the caller then falls back to the shipped snapshot).
-    /// <para>Returns <c>null</c> for a KNOWN base whose level we could not read (<paramref name="level"/> 0):
-    /// guessing a level would silently invent a number, and the snapshot's fixed value — wrong as it is — is
-    /// at least a measured one. 대지의 축복 is the exception, because its tier is legible from the buff code
-    /// even without a level.</para>
+    /// (only then does the caller fall back to the shipped snapshot).
+    ///
+    /// <para><b>A modelled base NEVER falls through to the snapshot</b>, not even when the level is unreadable.
+    /// Two reasons. First, the snapshot has no row at all for several of these — 보호의 빛, 흡혈의 검, and
+    /// 질풍의 권능's and 불패의 진언's rank-5 codes are simply absent, and its second-tier lookup by 8-digit base
+    /// cannot help because the table is keyed by 9-digit runtime codes only. Falling through would price them at
+    /// ZERO, silently erasing a support's entire contribution. Second, where a row does exist it is not on the
+    /// same scale: 질풍의 권능's snapshot rows carry <c>offense_crit: 200</c> — a flat 치명타 rating that the gain
+    /// model would read as +200%, clamp to +100%, and hand out as a doubling.</para>
+    ///
+    /// <para>So an unreadable level (0) is treated as <b>level 1</b> — the floor of the real scale, and a number
+    /// we can defend. It under-credits rather than inventing, and it is rare: a row reports the MAX level across
+    /// its applications, so level 0 means every single application's tail failed validation (the measured rate
+    /// is 99.2% carrying a level, and the 0.8% are consumables, which are not in this catalog).</para>
     /// </summary>
     public static IReadOnlyList<BuffGainEffect>? Effects(int displayBase, int level)
     {
+        // 0 = the wire never gave one. Floor at the real scale's bottom instead of guessing or falling through.
         if (level <= 0)
         {
-            return null;
+            level = 1;
         }
 
         return displayBase switch
@@ -66,9 +76,15 @@ public static class PartySynergyCatalog
             // 25에서 공격 적중 시 추가 피해(= 배수가 아니라 실제 데미지 패킷, GrantedDamageSource 참조).
             ClericEarthBlessing => EarthBlessing(level),
 
-            // 보호의 빛: 레벨별 계수 실측이 아직 없다. null 을 돌려 스냅샷 값(강타 5%)을 그대로 쓰게 둔다 —
-            // 여기에 추정식을 넣으면 "레벨 기반이라 정확하다"는 이 카탈로그의 약속이 깨진다.
-            ClericProtectLight => null,
+            // 보호의 빛: 레벨별 계수 실측이 아직 없다. 사이트가 쓰는 고정값(강타 5%)을 그대로 쓰되, 여기에
+            // 명시적으로 적는다 — 예전처럼 null 로 두고 "스냅샷이 받아 주겠지" 하면 안 된다. 출하 스냅샷에는
+            // 이 버프의 행이 아예 없어서(1741 로 시작하는 키 0개) 기여가 통째로 0이 된다.
+            // ⚠️ 레벨식이 실측되면 여기를 고친다. 그 전까지 이 값은 레벨과 무관하다.
+            ClericProtectLight => [new BuffGainEffect(BuffGainCategory.OffenseCrit, 5.0)],
+
+            // 흡혈의 검: 배수가 아니라 실제 피해로만 기여한다(GrantedDamageSource 참조). 빈 목록을 돌려
+            // "모델링됐고 배수는 0"임을 분명히 한다 — null 이면 스냅샷으로 떨어지는데, 거기에도 행이 없다.
+            SwordBloodBlade => [],
 
             _ => null,
         };

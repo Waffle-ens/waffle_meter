@@ -174,6 +174,12 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
             _graphSignature = long.MinValue;
             TotalDamageText = ContributionText = CritText = StrongText =
                 PerfectText = BackText = FrontText = ParryText = CombatTimeText = "-";
+            // nDPS/rDPS 도 함께 비운다. 안 그러면 "데이터 없음" 화면에 직전에 열어 둔 사람의 숫자가 남아
+            // 그 사람 것으로 읽힌다 — 나머지 타일이 전부 "-" 인 만큼 더 눈에 띈다.
+            NdpsText = RdpsText = "-";
+            MetricsVisibility = Visibility.Collapsed;
+            BuffContributionText = string.Empty;
+            BuffContributionVisibility = Visibility.Collapsed;
             return;
         }
 

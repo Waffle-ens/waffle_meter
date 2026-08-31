@@ -100,17 +100,26 @@ public sealed class DpsMetricsTests
     }
 
     [Fact]
-    public void An_unknown_level_falls_back_to_the_shipped_snapshot_rather_than_guessing()
+    public void An_unknown_level_floors_at_level_one_instead_of_falling_through_to_the_snapshot()
     {
-        // level 0 = the wire never gave one. Inventing a level would fabricate a number; the snapshot value is
-        // at least measured, even if it is stale.
+        // level 0 = the wire never gave one. The snapshot is NOT a safe fallback for a modelled synergy: it has
+        // no row at all for several of them, and where it does the value is on a different scale. Flooring at
+        // the bottom of the real curve under-credits rather than inventing.
         BuffValueCatalog snapshot = CatalogWith(
             (PartySynergyCatalog.SwordCounter, BuffGainCategory.OffenseAmp, 10.7));
 
         double gain = DpsMetrics.Gain(
             Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 0), snapshot);
 
-        Assert.Equal(0.107, gain, 9);
+        Assert.Equal(0.054, gain, 9); // level 1 노련한 반격
+    }
+
+    [Fact]
+    public void A_buff_the_catalog_does_not_model_still_uses_the_snapshot()
+    {
+        BuffValueCatalog snapshot = CatalogWith((987_654_321, BuffGainCategory.OffenseAmp, 12.0));
+
+        Assert.Equal(0.12, DpsMetrics.Gain(Buff(987_654_321, actorId: 2, rate: 100), snapshot), 9);
     }
 
     [Fact]
@@ -244,6 +253,123 @@ public sealed class DpsMetricsTests
         Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(players, [], catalog, Duration);
 
         Assert.Equal(5000 / 5.0, r[1].Ndps, 6); // capped at a total gain of 4
+    }
+
+    // ---- regressions from the 2026-08-31 adversarial review ----
+
+    [Fact]
+    public void Protect_light_is_priced_even_though_the_shipped_snapshot_has_no_row_for_it()
+    {
+        // The synergy catalog used to return null here and lean on "the snapshot will cover it". It does not:
+        // buff_values.json has no 1741 key, and its second-tier lookup by 8-digit base is dead for every job
+        // buff, so the healer's whole contribution priced at zero.
+        double gain = DpsMetrics.Gain(
+            Buff(PartySynergyCatalog.ClericProtectLight, actorId: 2, rate: 100, level: 25), EmptyCatalog());
+
+        Assert.Equal(0.05, gain, 9);
+    }
+
+    [Fact]
+    public void A_modelled_synergy_never_falls_through_to_a_snapshot_row()
+    {
+        // Where a snapshot row does exist it is not on the same scale — 질풍의 권능's rows carry a flat 치명타
+        // RATING of 200, which the gain model would read as +200%, clamp to +100%, and hand out as a doubling.
+        // An unreadable level must floor at level 1, not fall through.
+        BuffValueCatalog poisoned = CatalogWith(
+            (PartySynergyCatalog.ChanterGale, BuffGainCategory.OffenseCrit, 200));
+
+        double gain = DpsMetrics.Gain(
+            Buff(PartySynergyCatalog.ChanterGale, actorId: 2, rate: 100, level: 0), poisoned);
+
+        Assert.Equal(0.0, gain, 9); // level 1 질풍 gives nothing, and the 200 never applies
+    }
+
+    [Fact]
+    public void An_exclusive_loser_keeps_the_time_the_winner_was_not_up()
+    {
+        // The pair rule is instantaneous, but these inputs are whole-battle unions. 대지의 축복 covering almost
+        // the whole fight must not be deleted because 질풍 flickered for a moment.
+        var gale = new MetricBuffInput(
+            PartySynergyCatalog.ChanterGale, PartySynergyCatalog.ChanterGale, 2, 2.0, 20, false,
+            [(0L, 6_000L)]);
+        var blessing = new MetricBuffInput(
+            PartySynergyCatalog.ClericEarthBlessing, PartySynergyCatalog.ClericEarthBlessing, 3, 95.0, 25, false,
+            [(0L, 285_000L)]);
+
+        Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
+            [Player(1, 1000, [gale, blessing]), Player(2, 0), Player(3, 0)], [], EmptyCatalog(), 300.0);
+
+        // 질풍 wins (fixed winner) but only for its 6 s; the healer keeps the other 279 s and is still credited.
+        Assert.True(r[3].GivenBuffDps > 0, "the healer must keep the uptime the chanter never covered");
+        Assert.True(r[1].Ndps < 1000);
+    }
+
+    [Fact]
+    public void A_fully_overlapped_exclusive_loser_is_dropped_entirely()
+    {
+        var gale = new MetricBuffInput(
+            PartySynergyCatalog.ChanterGale, PartySynergyCatalog.ChanterGale, 2, 100.0, 20, false,
+            [(0L, 300_000L)]);
+        var blessing = new MetricBuffInput(
+            PartySynergyCatalog.ClericEarthBlessing, PartySynergyCatalog.ClericEarthBlessing, 3, 50.0, 25, false,
+            [(0L, 150_000L)]);
+
+        Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
+            [Player(1, 1100, [gale, blessing]), Player(2, 0), Player(3, 0)], [], EmptyCatalog(), 300.0);
+
+        Assert.Equal(0, r[3].GivenBuffDps, 6);
+        Assert.Equal(1100 / 1.10, r[1].Ndps, 6);
+    }
+
+    [Fact]
+    public void Without_spans_the_exclusive_loser_falls_back_to_subtracting_rates()
+    {
+        // Old saved battles carry no intervals. Subtracting rates is exact when one window contains the other
+        // and never over-credits otherwise — what must NOT happen is deleting the row.
+        var counter = Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 10, level: 25);  // winner (level)
+        var fervor = Buff(PartySynergyCatalog.GuardianFervor, actorId: 3, rate: 90, level: 10); // loser, mostly alone
+
+        Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
+            [Player(1, 1000, [counter, fervor]), Player(2, 0), Player(3, 0)], [], EmptyCatalog(), 100.0);
+
+        Assert.True(r[2].GivenBuffDps > 0, "the level winner keeps its own uptime");
+        Assert.True(r[3].GivenBuffDps > 0, "the loser keeps the 80% it was up alone");
+    }
+
+    [Fact]
+    public void Two_casters_of_a_granting_buff_split_the_damage_by_uptime()
+    {
+        // Two 검성 in one raid produce one indistinguishable pile of 흡혈의 검 damage on a teammate's meter.
+        // Uptime is the only evidence about who supplied what, so it is the split — the first row must not
+        // take all of it.
+        var fromTwo = Buff(PartySynergyCatalog.SwordBloodBlade, actorId: 2, rate: 75, level: 10);
+        var fromThree = Buff(PartySynergyCatalog.SwordBloodBlade, actorId: 3, rate: 25, level: 10);
+        var granted = new Dictionary<int, long> { [PartySynergyCatalog.SwordBloodBlade] = 40_000 };
+
+        Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
+            [Player(1, 1000, [fromTwo, fromThree], granted), Player(2, 0), Player(3, 0)],
+            [], EmptyCatalog(), 100.0);
+
+        Assert.Equal(30_000, r[2].GrantedDamage);
+        Assert.Equal(10_000, r[3].GrantedDamage);
+        Assert.Equal(40_000, r[2].GrantedDamage + r[3].GrantedDamage); // nothing invented, nothing lost
+    }
+
+    [Fact]
+    public void A_granting_class_keeps_its_own_share_when_a_second_caster_is_present()
+    {
+        // The player is a 검성 themself AND another 검성 buffed them. Only the other caster's share may move;
+        // crediting the whole pile away would take the player's own hits from them.
+        var mine = Buff(PartySynergyCatalog.SwordBloodBlade, actorId: 1, rate: 50, level: 10);
+        var theirs = Buff(PartySynergyCatalog.SwordBloodBlade, actorId: 2, rate: 50, level: 10);
+        var granted = new Dictionary<int, long> { [PartySynergyCatalog.SwordBloodBlade] = 40_000 };
+
+        Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
+            [Player(1, 1000, [mine, theirs], granted), Player(2, 0)], [], EmptyCatalog(), 100.0);
+
+        Assert.Equal(20_000, r[2].GrantedDamage);
+        Assert.Equal(0, r[1].GrantedDamage);
+        Assert.Equal(800, r[1].Ndps, 6); // only half the pile (200/s over 100 s) left this player
     }
 
     [Fact]

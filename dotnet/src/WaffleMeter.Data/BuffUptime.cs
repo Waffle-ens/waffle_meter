@@ -18,6 +18,32 @@ public static class BuffUptime
         MergeIntervals(intervals, windowStart, windowEnd).Sum(iv => iv.End - iv.Start);
 
     /// <summary>
+    /// Milliseconds covered by BOTH interval sets — the overlap of two already-merged, sorted run lists.
+    /// <para>Used to price an exclusive buff pair honestly. Two buffs both appearing in a battle only means
+    /// each was up at some point; it does not mean they overlapped. Deleting one outright on co-presence (the
+    /// rule the live overlay uses, where "both present" really does mean "right now") would erase a buff that
+    /// was live for most of the fight while its rival flickered for five seconds.</para>
+    /// </summary>
+    public static long IntersectionMs(
+        IReadOnlyList<(long Start, long End)> first, IReadOnlyList<(long Start, long End)> second)
+    {
+        long total = 0;
+        int i = 0, j = 0;
+        while (i < first.Count && j < second.Count)
+        {
+            long start = Math.Max(first[i].Start, second[j].Start);
+            long end = Math.Min(first[i].End, second[j].End);
+            if (end > start) total += end - start;
+
+            // Advance whichever run ends first — the other may still overlap the next one.
+            if (first[i].End < second[j].End) i++;
+            else j++;
+        }
+
+        return total;
+    }
+
+    /// <summary>
     /// The same clamp → sort → union that <see cref="CoveredMs"/> sums over, but returns the merged runs
     /// themselves (each <c>[Start, End]</c>, in order) instead of just their total length. Used to draw a
     /// buff's applied intervals on the DPS-graph timeline — <c>CoveredMs</c> answers "how long" while this

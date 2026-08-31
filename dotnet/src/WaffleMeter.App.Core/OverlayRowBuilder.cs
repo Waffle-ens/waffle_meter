@@ -85,8 +85,12 @@ public static class OverlayRowBuilder
     {
         double Metric(DpsInformation info) => useTotalDamage ? info.Amount : info.Dps;
 
+        // 표시 계층과 같은 규칙: 딜이 0인 행(전투 전 로스터 프리뷰)에는 대체 지표를 붙이지 않는다. 안 그러면
+        // 직전 전투에서 얼린 값으로 대기 행이 정렬돼, 아직 아무것도 안 한 사람이 맨 위에 선다.
         double RowMetric(int uid, DpsInformation info) =>
-            metricOverride != null && metricOverride.TryGetValue(uid, out double v) ? v : Metric(info);
+            info.Amount > 0 && metricOverride != null && metricOverride.TryGetValue(uid, out double v)
+                ? v
+                : Metric(info);
 
         // 본인 id for coloring: prefer the id frozen INTO the report (a saved/history battle), else the live one.
         int selfId = report.ExecutorId != 0 ? report.ExecutorId : liveSelfId;

@@ -546,8 +546,13 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             }
         }
 
+        // ⚠️ 딜이 0인 행에는 절대 대체 지표를 붙이지 않는다. 전투 전 로스터 프리뷰는 <b>끝난 리포트 위에</b>
+        // 빈 DpsInformation 으로 얹히는데(OverlayRowBuilder), 그 리포트에는 직전 전투의 nDPS/rDPS가 얼어 있다.
+        // uid 만 보고 붙이면 아직 아무것도 안 한 대기 행에 지난 전투 숫자가 뜬다.
         double RowValue(int uid, DpsInformation info) =>
-            metricOverride != null && metricOverride.TryGetValue(uid, out double v) ? v : Metric(info);
+            info.Amount > 0 && metricOverride != null && metricOverride.TryGetValue(uid, out double v)
+                ? v
+                : Metric(info);
 
         // Row selection lives in the pure OverlayRowBuilder (App.Core, unit-tested): it drops bare/no-nickname
         // combat rows (a mid-join provisional actor that would otherwise show as a blank "broken" line — its DPS
@@ -594,7 +599,10 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             // Restored bracketed server tag (dropped in the WPF migration). A SEPARATE row element (not folded
             // into Name) so it survives name masking + the Name MaxWidth ellipsis; collapsed when off/unknown.
             string serverTag = _settings.ShowServerTag ? ServerNames.GetServerLabel(server) : string.Empty;
-            double ratio = Math.Clamp(Metric(e.Info) / topMetric, 0.0, 1.0);
+            // 분자와 분모가 반드시 같은 지표여야 한다. topMetric 은 위에서 선택된 지표의 최댓값이므로 여기서
+            // raw DPS 를 쓰면 서로 다른 물건을 나누게 되고, rDPS 1위(원딜보다 raw 가 낮은 서포터)가 가장 짧은
+            // 막대를 다는 상태가 된다 — 이 기능이 보여주려는 그림과 정반대다.
+            double ratio = Math.Clamp(RowValue(e.Uid, e.Info) / topMetric, 0.0, 1.0);
             double barRatio = ratio > 0 ? Math.Max(0.015, ratio) : 0.0; // React max(1.5%, ratio) so small bars stay visible
             string? jobName = e.User?.Job is JobClass jc ? jc.ClassName() : null;
             // 직업 강조 mode: this player's job bar (self keeps _userBar; unresolved job -> _normalBar).

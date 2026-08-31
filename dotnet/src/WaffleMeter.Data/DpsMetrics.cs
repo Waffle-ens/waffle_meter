@@ -26,13 +26,17 @@ public readonly record struct DpsMetricResult(
 /// <param name="DisplayBase">The buff's display base code (<see cref="DataManager.BuffDisplayBase"/>), which
 /// is what both the synergy catalog and the exclusive-pair table key on.</param>
 /// <param name="BossScope">True when this row landed on the boss (a debuff) rather than on a player.</param>
+/// <param name="Spans">This buff's merged applied intervals (absolute capture-clock ms), when known. Needed to
+/// price an exclusive PAIR honestly: the rate alone cannot say whether two buffs actually overlapped. Empty is
+/// allowed and falls back to a conservative rate subtraction.</param>
 public readonly record struct MetricBuffInput(
     int Code,
     int DisplayBase,
     int ActorId,
     double OperatingRate,
     int Level,
-    bool BossScope);
+    bool BossScope,
+    IReadOnlyList<(long Start, long End)>? Spans = null);
 
 /// <summary>One participant's inputs.</summary>
 /// <param name="GrantedDamageBySource">Damage dealt on THIS player's meter by another class's effect, keyed
@@ -135,10 +139,11 @@ public static class DpsMetrics
         {
             foreach ((int source, long damage) in participant.GrantedDamageBySource)
             {
-                int granter = GranterOf(participant, source);
-                if (granter >= 0 && granter != participant.Uid && uids.Contains(granter) && damage > 0)
+                if (damage <= 0) continue;
+
+                foreach ((int granter, long share) in SplitGrant(participant, source, damage, uids))
                 {
-                    movable.Add((participant.Uid, granter, damage));
+                    movable.Add((participant.Uid, granter, share));
                 }
             }
         }
@@ -206,29 +211,75 @@ public static class DpsMetrics
     private static double PerSecond(long damage, double durationSeconds) =>
         durationSeconds > 0 ? damage / durationSeconds : 0.0;
 
-    /// <summary>Who cast the granting buff on this player. The damage code alone cannot say — a 검성's own
-    /// 흡혈의 검 hits carry the same code — so the caster of the matching buff row decides it, and a grant
-    /// whose buff row we never saw is left with the player who dealt it (returns -1).</summary>
-    private static int GranterOf(MetricParticipantInput participant, int source)
+    /// <summary>
+    /// Split one grant across everyone who had that synergy buff on this player, in proportion to how long each
+    /// of them had it up.
+    ///
+    /// <para>The damage code cannot tell whose it is — a 검성's own 흡혈의 검 hits carry the same code as the
+    /// 착취 they share, and two 검성 in one raid produce one indistinguishable pile on every teammate's meter.
+    /// Uptime is the only evidence available about who supplied what, so it is the split.</para>
+    ///
+    /// <para>The player's OWN share stays with them and is simply not returned: their own hits are their own
+    /// damage. A grant with no identifiable outside caster therefore moves nothing, which is the safe direction —
+    /// subtracting it anyway would delete damage from the raid, since it would leave the recipient's nDPS and
+    /// land nowhere.</para>
+    /// </summary>
+    private static List<(int Granter, long Damage)> SplitGrant(
+        MetricParticipantInput participant, int source, long damage, HashSet<int> uids)
     {
+        var casters = new List<(int Uid, double Weight)>();
+        double total = 0.0;
         foreach (MetricBuffInput buff in participant.Buffs)
         {
-            if (buff.DisplayBase == source && buff.ActorId != participant.Uid)
-            {
-                return buff.ActorId;
-            }
+            if (buff.DisplayBase != source) continue;
+
+            // An uptime of 0 still means the buff was there; give it a floor so a caster is never weighted out
+            // of existence by a rounding artefact.
+            double weight = Math.Max(buff.OperatingRate, 0.01);
+            casters.Add((buff.ActorId, weight));
+            total += weight;
         }
 
-        return -1;
+        var result = new List<(int, long)>();
+        if (casters.Count == 0 || total <= 0.0)
+        {
+            return result;
+        }
+
+        long assigned = 0;
+        for (int i = 0; i < casters.Count; i++)
+        {
+            (int uid, double weight) = casters[i];
+
+            // The last outside caster absorbs the rounding remainder so the split never loses or invents damage.
+            long share = i == casters.Count - 1
+                ? damage - assigned
+                : (long)Math.Round(damage * (weight / total), MidpointRounding.AwayFromZero);
+            assigned += share;
+
+            if (uid == participant.Uid || !uids.Contains(uid) || share <= 0) continue;
+            result.Add((uid, share));
+        }
+
+        return result;
     }
 
     /// <summary>
-    /// Drop the losing half of every exclusive pair that is present twice on one player. The game applies one
-    /// of them; the server nevertheless broadcasts both (노련한 반격/격앙 overlap for their whole duration,
-    /// measured p50 10 s) and the suppressed one can linger up to ~20 s. Winner: a fixed winner if the pair
-    /// declares one, else the higher skill level, else the pair's declared tie winner, else the one with the
-    /// higher uptime — the same ladder the overlay uses, minus its "later application" tiebreak, which has no
-    /// meaning once the applications are merged into a rate.
+    /// Resolve every exclusive pair present on one player by REDUCING the loser to the time it was actually
+    /// alone, rather than deleting it.
+    ///
+    /// <para>The game applies only one of 노련한 반격/격앙, only one of 보호의 빛/불패의 진언, and blocks a new
+    /// 대지의 축복 while 질풍의 권능 is up. The live overlay resolves this by dropping the loser outright, and
+    /// there that is right: it is looking at what is active AT THIS INSTANT, so both being present really does
+    /// mean one is suppressed.</para>
+    ///
+    /// <para><b>Here the inputs are whole-battle aggregates, and the same rule would be wrong.</b>
+    /// <c>OperatingRate</c> is the union of a buff's applied intervals across the entire fight, so two rows both
+    /// existing only means each was up at some point. Deleting the loser would erase a buff that covered 95% of
+    /// a 300-second fight because its rival flickered for five seconds. So the loser keeps the part of its
+    /// uptime the winner did not cover, computed from the actual intervals; when spans are unavailable it falls
+    /// back to subtracting the rates, which is exact when one window contains the other and conservative
+    /// otherwise.</para>
     /// </summary>
     private static List<MetricBuffInput> SurvivingBuffs(IReadOnlyList<MetricBuffInput> buffs)
     {
@@ -241,28 +292,63 @@ public static class DpsMetrics
             if (ai < 0 || bi < 0) continue;
 
             MetricBuffInput a = kept[ai], b = kept[bi];
-            int loser;
-            if (pair.FixedWinner != 0)
+            int loserBase = LoserOf(pair, a, b);
+            int loserIndex = loserBase == pair.A ? ai : bi;
+            MetricBuffInput loser = kept[loserIndex];
+            MetricBuffInput winner = loserBase == pair.A ? b : a;
+
+            double remaining = ExclusiveRemainder(loser, winner);
+            if (remaining <= 0.0)
             {
-                loser = pair.FixedWinner == pair.A ? pair.B : pair.A;
-            }
-            else if (a.Level > 0 && b.Level > 0 && a.Level != b.Level)
-            {
-                loser = a.Level > b.Level ? pair.B : pair.A;
-            }
-            else if (pair.TieWinner != 0)
-            {
-                loser = pair.TieWinner == pair.A ? pair.B : pair.A;
+                kept.RemoveAt(loserIndex);
             }
             else
             {
-                loser = a.OperatingRate >= b.OperatingRate ? pair.B : pair.A;
+                kept[loserIndex] = loser with { OperatingRate = remaining };
             }
-
-            kept.RemoveAll(x => x.DisplayBase == loser);
         }
 
         return kept;
+    }
+
+    /// <summary>Which half of the pair yields: a declared fixed winner, else the higher skill level, else the
+    /// pair's declared tie winner, else the lower uptime. The same ladder the overlay uses, minus its
+    /// "applied later" tiebreak, which has no meaning once applications are merged into a rate.</summary>
+    private static int LoserOf(DataManager.ExclusiveBuffPair pair, MetricBuffInput a, MetricBuffInput b)
+    {
+        if (pair.FixedWinner != 0)
+        {
+            return pair.FixedWinner == pair.A ? pair.B : pair.A;
+        }
+
+        if (a.Level > 0 && b.Level > 0 && a.Level != b.Level)
+        {
+            return a.Level > b.Level ? pair.B : pair.A;
+        }
+
+        if (pair.TieWinner != 0)
+        {
+            return pair.TieWinner == pair.A ? pair.B : pair.A;
+        }
+
+        return a.OperatingRate >= b.OperatingRate ? pair.B : pair.A;
+    }
+
+    /// <summary>The loser's uptime with the winner's covered time taken out, as a percentage.</summary>
+    private static double ExclusiveRemainder(MetricBuffInput loser, MetricBuffInput winner)
+    {
+        if (loser.Spans is { Count: > 0 } loserSpans && winner.Spans is { Count: > 0 } winnerSpans)
+        {
+            long covered = loserSpans.Sum(sp => sp.End - sp.Start);
+            if (covered <= 0) return 0.0;
+
+            long overlap = BuffUptime.IntersectionMs(loserSpans, winnerSpans);
+            return loser.OperatingRate * Math.Clamp((covered - overlap) / (double)covered, 0.0, 1.0);
+        }
+
+        // No intervals (an old saved battle, or a caller that only had rates): subtract the rates. Exact when
+        // the winner's window sits inside the loser's, and never over-credits otherwise.
+        return Math.Max(0.0, loser.OperatingRate - winner.OperatingRate);
     }
 
     /// <summary>The multiplicative damage gain one buff is worth, from its uptime and its effect values.

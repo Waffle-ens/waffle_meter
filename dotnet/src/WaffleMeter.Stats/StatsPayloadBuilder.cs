@@ -313,7 +313,9 @@ public sealed class StatsPayloadBuilder
         Dictionary<int, List<OperatingData>> Buffs,
         Dictionary<int, int> PartySlots,
         Dictionary<int, long[]> Series,
-        Dictionary<int, DpsMetricResult> Metrics);
+        Dictionary<int, DpsMetricResult> Metrics,
+        /// <summary>대표 uid 가 둘 이상의 uid 를 흡수했는지. true 면 nDPS/rDPS 를 보내지 않는다(합산 불가).</summary>
+        Dictionary<int, bool> MetricsFolded);
 
     /// <summary>
     /// 같은 캐릭터가 두 uid로 참가자에 들어온 경우를 하나로 접는다.
@@ -341,6 +343,7 @@ public sealed class StatsPayloadBuilder
         var partySlots = new Dictionary<int, int>();
         var series = new Dictionary<int, long[]>();
         var metrics = new Dictionary<int, DpsMetricResult>();
+        var metricFolded = new Dictionary<int, bool>();
 
         foreach (User user in damageSorted)
         {
@@ -402,22 +405,22 @@ public sealed class StatsPayloadBuilder
                     : frozenSeries;
             }
 
-            // nDPS/rDPS도 같은 규칙으로 합산한다. 같은 캐릭터가 두 uid로 갈렸다면 두 몫 다 그 사람의 것이고,
-            // 셋 다 초당 값(또는 누적 피해)이라 더해도 정의가 유지된다 — Information 을 접는 것과 같은 이유다.
+            // nDPS/rDPS 는 <b>합산할 수 없다</b>. Dps 는 모든 uid 가 같은 전투 길이로 나눈 값이라 부분의 합이
+            // 전체지만, ndps = ownDps / (1 + totalGain) 는 그렇지 않다 — 한 캐릭터가 두 uid 로 갈리면 버프
+            // 가동률도 함께 갈려 각 조각의 분모가 따로 놀고, 더하면 실제보다 커진다. 정확한 값을 내려면 접은
+            // 뒤에 다시 계산해야 하는데 그러려면 버프 구간이 필요하고, 이 빌더는 그걸 들고 있지 않다.
+            //
+            // 그래서 갈린 참가자에게는 <b>아무 값도 보내지 않는다</b>(아래에서 null). 틀린 줄 아는 숫자를 보내는
+            // 것보다 낫고, 실측상 매우 드물다(2.9.3 기준 146,527 참가자 행 중 2행).
             if (log.Report.DpsMetrics.TryGetValue(user.Id, out DpsMetricResult m))
             {
-                DpsMetricResult acc = metrics.GetValueOrDefault(representative);
-                metrics[representative] = new DpsMetricResult(
-                    acc.Ndps + m.Ndps,
-                    acc.Rdps + m.Rdps,
-                    acc.TakenBuffDps + m.TakenBuffDps,
-                    acc.GivenBuffDps + m.GivenBuffDps,
-                    acc.GrantedDamage + m.GrantedDamage);
+                metricFolded[representative] = metrics.ContainsKey(representative);
+                metrics[representative] = m;
             }
         }
 
         return new FoldedParticipants(
-            representatives, representativeOf, information, skills, buffs, partySlots, series, metrics);
+            representatives, representativeOf, information, skills, buffs, partySlots, series, metrics, metricFolded);
     }
 
     /// <summary>두 초당 배열을 <b>새</b> 배열에 원소별로 더한다(입력은 건드리지 않는다). 같은 전투 창에서 만들어져
@@ -550,7 +553,9 @@ public sealed class StatsPayloadBuilder
                 DpsSeries: BuildSeriesPayload(folded.Series.GetValueOrDefault(user.Id)),
                 // 레벨을 반영한 nDPS/rDPS. 웹도 같은 두 숫자를 ingest 시점에 계산하지만, 웹의 계수표에는 시전자
                 // 스킬 레벨이 들어갈 자리가 없다(웹 소스 자신이 그렇게 적어 두었다). 없으면 null.
-                Metrics: BuildMetricsPayload(folded.Metrics, user.Id)));
+                Metrics: folded.MetricsFolded.GetValueOrDefault(user.Id)
+                    ? null
+                    : BuildMetricsPayload(folded.Metrics, user.Id)));
         }
 
         return result;

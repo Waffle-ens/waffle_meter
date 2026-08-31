@@ -1021,7 +1021,18 @@ public sealed class DpsCalculator
                 ? data.BuffRates.GetValueOrDefault(user.Id) ?? []
                 : GetBuffOperatingRate(user.Id, data.BattleStart, data.BattleEnd);
 
-            List<MetricBuffInput> buffs = rows.Select(r => ToMetricBuff(r, bossScope: false)).ToList();
+            // 배타 쌍을 정직하게 값매김하려면 "겹쳤는가"를 알아야 하고, 그건 가동률이 아니라 구간이 답한다.
+            // 같은 그룹 키로 만들어진 타임라인이라 (표시 base, 시전자)로 1:1 대응한다.
+            List<BuffTimeline> lanes = frozen
+                ? data.BuffIntervals.GetValueOrDefault(user.Id) ?? []
+                : GetBuffIntervals(user.Id, data.BattleStart, data.BattleEnd);
+            var spans = new Dictionary<(int, int), IReadOnlyList<(long Start, long End)>>();
+            foreach (BuffTimeline lane in lanes)
+            {
+                spans[(DataManager.BuffDisplayBase(lane.Code), lane.ActorId)] = lane.Spans;
+            }
+
+            List<MetricBuffInput> buffs = rows.Select(r => ToMetricBuff(r, bossScope: false, spans)).ToList();
             DpsInformation info = data.Information.GetValueOrDefault(user.Id) ?? new DpsInformation();
 
             participants.Add(new MetricParticipantInput(
@@ -1045,7 +1056,10 @@ public sealed class DpsCalculator
             durationMs / 1000.0);
     }
 
-    private static MetricBuffInput ToMetricBuff(OperatingData row, bool bossScope) => new(
+    private static MetricBuffInput ToMetricBuff(
+        OperatingData row,
+        bool bossScope,
+        IReadOnlyDictionary<(int Base, int Actor), IReadOnlyList<(long Start, long End)>>? spans = null) => new(
         row.Code,
         // The display base, not OperatingData.BaseCode: 대지의 축복 collapses to 17400000 there, which is
         // 대지의 징벌's base — the same key the healer's own DoT uses. The display base keeps them apart, and
@@ -1054,7 +1068,10 @@ public sealed class DpsCalculator
         row.ActorId,
         row.OperatingRate,
         row.Level,
-        bossScope);
+        bossScope,
+        spans is not null && spans.TryGetValue((DataManager.BuffDisplayBase(row.Code), row.ActorId), out var s)
+            ? s
+            : null);
 
     /// <summary>Damage on THIS player's meter that another class's effect dealt through them — 검성 흡혈의 검's
     /// 착취 and 치유성 대지의 축복's 추가 피해, which arrive as ordinary damage packets under the granting class's
@@ -1073,7 +1090,11 @@ public sealed class DpsCalculator
         {
             int source = PartySynergyCatalog.GrantedDamageSource(skill.SkillCode);
             if (source == 0) continue;
-            if (!buffs.Any(b => b.DisplayBase == source && b.ActorId != uid)) continue;
+
+            // 시전자가 나 자신인 행도 포함해 통과시킨다. 누구 몫인지는 여기서 가르지 않고 DpsMetrics.SplitGrant 가
+            // 시전자별 가동률로 나눈다 — 검성 본인의 흡혈의 검 타격도 같은 코드라, "남이 걸었나"만 보고 전량을
+            // 넘기면 자기가 낸 피해까지 남에게 넘어간다(공대에 검성이 둘이면 서로의 몫까지 한 사람이 가져간다).
+            if (!buffs.Any(b => b.DisplayBase == source)) continue;
 
             granted[source] = granted.GetValueOrDefault(source) + skill.DamageAmount + skill.DotDamageAmount;
         }

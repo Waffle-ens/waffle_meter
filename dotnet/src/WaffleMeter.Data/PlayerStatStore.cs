@@ -111,28 +111,41 @@ public sealed class PlayerStatStore
         if (changed) Changed?.Invoke();
     }
 
-    /// <summary>Tell the store who the local player is. Anything parked for that entity — plus any entity-less
-    /// full snapshot — is replayed in arrival order. A different owner clears the sheet: the stats belong to a
-    /// character, and carrying one character's numbers onto another is worse than showing none.</summary>
-    public void SetOwner(int ownerId)
+    /// <summary>
+    /// Tell the store who the local player is. Anything parked for that entity — plus any entity-less full
+    /// snapshot — is replayed, oldest bucket first so the newer one wins.
+    /// <para><paramref name="resetSheet"/> must be true ONLY when a DIFFERENT CHARACTER took over, never merely
+    /// because the uid changed: the local player is re-registered under a fresh uid on every zone/instance
+    /// load, and clearing on uid would wipe the sheet at every loading screen — including the full snapshot
+    /// that arrives during exactly that load, which is the only time the game sends one.</para>
+    /// </summary>
+    public void SetOwner(int ownerId, bool resetSheet)
     {
         if (ownerId <= 0) return;
 
         bool changed = false;
         lock (_gate)
         {
-            if (_ownerId != ownerId)
+            if (resetSheet && _values.Count > 0)
             {
                 _values.Clear();
                 _fullSeen = false;
                 _updatedAt = 0;
-                _ownerId = ownerId;
                 changed = true;
             }
 
-            // The entity-less full snapshot (key 0) is the local player's by construction; replay it first so a
-            // later delta wins over it.
-            foreach (int key in new[] { 0, ownerId })
+            _ownerId = ownerId;
+
+            // Replay by ARRIVAL ORDER, not by a fixed bucket order: both the entity-less full snapshot (key 0)
+            // and this uid's deltas are filled during the same pre-identity window, and whichever came last is
+            // the truth. Applying a stale delta after a newer full snapshot would resurrect stats the snapshot
+            // had just dropped.
+            List<int> keys = new[] { 0, ownerId }
+                .Where(k => _pending.ContainsKey(k))
+                .OrderBy(k => _pending[k].At)
+                .ToList();
+
+            foreach (int key in keys)
             {
                 if (!_pending.Remove(key, out (Dictionary<int, int> Values, long At, bool Full) held)) continue;
 
@@ -191,10 +204,19 @@ public sealed class PlayerStatStore
             _pending.Remove(key);
         }
 
+        // 본인 후보 두 자리(엔티티 없는 전체 스냅샷 key 0, 그리고 현재 주인 후보)는 절대 먼저 버리지 않는다.
+        // 주변 플레이어들의 변경분은 프레임마다 At을 갱신해 항상 "최신"이 되므로, 순수 오래된 순 축출은
+        // 구조적으로 한 번만 오는 전체 스냅샷을 먼저 버린다 — 세션에서 유일한 그 프레임을.
         while (_pending.Count > MaxPendingEntities)
         {
-            int oldest = _pending.OrderBy(kv => kv.Value.At).First().Key;
-            _pending.Remove(oldest);
+            int? oldest = _pending
+                .Where(kv => kv.Key != 0 && kv.Key != _ownerId)
+                .OrderBy(kv => kv.Value.At)
+                .Select(kv => (int?)kv.Key)
+                .FirstOrDefault();
+
+            if (oldest is null) break; // 남은 게 보호 대상뿐이면 더 줄이지 않는다
+            _pending.Remove(oldest.Value);
         }
     }
 }

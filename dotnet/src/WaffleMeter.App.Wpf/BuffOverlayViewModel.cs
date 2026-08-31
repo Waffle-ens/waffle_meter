@@ -138,8 +138,9 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
 
             Slots[current].SetRemaining(b.RemainingMs, dur);
             Slots[current].SetCooldown(onCooldown);
-            // 같은 슬롯을 다른 사람이 이어받으면(_ownerBuffs 가 base 코드로 키잉되므로) 레벨이 바뀔 수 있다.
+            // 같은 슬롯을 다른 사람이 이어받으면(_ownerBuffs 가 base 코드로 키잉되므로) 레벨도 시전자도 바뀐다.
             Slots[current].SetLevel(b.Level, showLevel);
+            Slots[current].SetByOther(b.ByOther);
             int destination = Math.Min(target, Slots.Count - 1);
             if (current != destination)
             {
@@ -182,7 +183,7 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
         Code = code;
         Name = name;
         IconSource = JoinIcons.Skill(code);
-        ByOther = byOther;
+        SetByOther(byOther);
         SetRemaining(remainingMs, durationMs);
         SetCooldown(onCooldown);
         SetLevel(level, showLevel);
@@ -191,7 +192,11 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
     public int Code { get; }
     public string Name { get; }
     public ImageSource? IconSource { get; }
-    public bool ByOther { get; }
+    private bool _byOther;
+    /// <summary>다른 사람이 걸어 준 버프인지(우상단 액센트 점). 슬롯은 base 코드로 키잉돼 시전자가 바뀌면
+    /// 그대로 이어받으므로, 재사용 시 반드시 갱신해야 한다 — 안 그러면 레벨 배지는 새 시전자를, 점은 옛
+    /// 시전자를 가리키는 자기모순 상태가 된다.</summary>
+    public bool ByOther { get => _byOther; private set => Set(ref _byOther, value); }
 
     private double _iconOpacity = 1.0;
     /// <summary>Icon opacity — dimmed while the granting skill is on cooldown (the gray-out option).</summary>
@@ -218,6 +223,9 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
 
     private Visibility _levelVisibility = Visibility.Collapsed;
     public Visibility LevelVisibility { get => _levelVisibility; private set => Set(ref _levelVisibility, value); }
+
+    /// <summary>Update whether a party member (rather than the local player) applied this buff.</summary>
+    public void SetByOther(bool byOther) => ByOther = byOther;
 
     /// <summary>Set the level badge. <paramref name="level"/> 0 = 모름 → 배지를 그리지 않는다 ("0"을 그리면
     /// 1레벨과 구분이 안 되고, 소모품 버프는 애초에 레벨이 없다).</summary>
