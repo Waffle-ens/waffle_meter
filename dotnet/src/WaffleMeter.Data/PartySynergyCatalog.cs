@@ -70,7 +70,8 @@ public static class PartySynergyCatalog
 
             // 보스의 PvE 피해 내성을 1레벨 5.4%, 레벨당 +0.4%p 깎는다. 보스에게 걸리는 디버프이므로 Defense
             // 계열에 음수로 싣는다 — site 모델이 "boss scope + 음수 Defense = 모두에게 이득"으로 읽는 관례다.
-            ChanterEarthPromise => [new BuffGainEffect(BuffGainCategory.Defense, -(5.4 + 0.4 * (level - 1)))],
+            ChanterEarthPromise =>
+                [new BuffGainEffect(BuffEffectKind.BossResistDown, -(5.4 + 0.4 * (level - 1)))],
 
             // 대지의 축복은 대지의 징벌 레벨을 따라간다: 10에서 파티원 강타 +5%, 15에서 공격력 +5%,
             // 25에서 공격 적중 시 추가 피해(= 배수가 아니라 실제 데미지 패킷, GrantedDamageSource 참조).
@@ -80,7 +81,7 @@ public static class PartySynergyCatalog
             // 명시적으로 적는다 — 예전처럼 null 로 두고 "스냅샷이 받아 주겠지" 하면 안 된다. 출하 스냅샷에는
             // 이 버프의 행이 아예 없어서(1741 로 시작하는 키 0개) 기여가 통째로 0이 된다.
             // ⚠️ 레벨식이 실측되면 여기를 고친다. 그 전까지 이 값은 레벨과 무관하다.
-            ClericProtectLight => [new BuffGainEffect(BuffGainCategory.OffenseCrit, 5.0)],
+            ClericProtectLight => [new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0)],
 
             // 흡혈의 검: 배수가 아니라 실제 피해로만 기여한다(GrantedDamageSource 참조). 빈 목록을 돌려
             // "모델링됐고 배수는 0"임을 분명히 한다 — null 이면 스냅샷으로 떨어지는데, 거기에도 행이 없다.
@@ -90,30 +91,33 @@ public static class PartySynergyCatalog
         };
     }
 
-    private static BuffGainEffect Amp(double value) => new(BuffGainCategory.OffenseAmp, value);
+    private static BuffGainEffect Amp(double value) => new(BuffEffectKind.DamageAmp, value);
 
     private static IReadOnlyList<BuffGainEffect> Mantra(int level)
     {
+        // 세 breakpoint 가 전부 `offense_crit` 한 덩어리였을 때는 셋 다 데미지 %로 곱해져 L25 가 48.6% 로
+        // 값이 매겨졌다. 셋은 사실 서로 다른 버킷이다 — 치명타 피해 증폭은 치명타가 터졌을 때만, 강타·완벽은
+        // 발동률이라 이미 높은 발동률 위에서는 값이 줄어든다.
         var effects = new List<BuffGainEffect> { Amp(10.5 + 0.5 * (level - 1)) };
-        if (level >= 15) effects.Add(new BuffGainEffect(BuffGainCategory.OffenseCrit, 5.0));  // 치명타 피해 증폭
-        if (level >= 20) effects.Add(new BuffGainEffect(BuffGainCategory.OffenseCrit, 5.0));  // 강타
-        if (level >= 25) effects.Add(new BuffGainEffect(BuffGainCategory.OffenseCrit, 10.0)); // 완벽
+        if (level >= 15) effects.Add(new BuffGainEffect(BuffEffectKind.CritDamageAmp, 5.0));
+        if (level >= 20) effects.Add(new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0));
+        if (level >= 25) effects.Add(new BuffGainEffect(BuffEffectKind.PerfectRate, 10.0));
         return effects;
     }
 
     private static IReadOnlyList<BuffGainEffect> Gale(int level)
     {
         var effects = new List<BuffGainEffect>();
-        if (level >= 20) effects.Add(new BuffGainEffect(BuffGainCategory.OffenseAtk, 10.0)); // 파티원 공격력
-        if (level >= 25) effects.Add(Amp(5.0));                                              // 무기 피해 증폭
+        if (level >= 20) effects.Add(new BuffGainEffect(BuffEffectKind.AttackRatio, 10.0)); // 파티원 공격력
+        if (level >= 25) effects.Add(Amp(5.0));                                               // 무기 피해 증폭
         return effects;
     }
 
     private static IReadOnlyList<BuffGainEffect> EarthBlessing(int level)
     {
         var effects = new List<BuffGainEffect>();
-        if (level >= 10) effects.Add(new BuffGainEffect(BuffGainCategory.OffenseCrit, 5.0)); // 파티원 강타
-        if (level >= 15) effects.Add(new BuffGainEffect(BuffGainCategory.OffenseAtk, 5.0));  // 파티원 공격력
+        if (level >= 10) effects.Add(new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0));   // 파티원 강타
+        if (level >= 15) effects.Add(new BuffGainEffect(BuffEffectKind.AttackRatio, 5.0)); // 파티원 공격력
         // 25레벨의 "공격 적중 시 추가 피해"는 배수가 아니라 실제 데미지라 여기서 곱하지 않는다.
         return effects;
     }

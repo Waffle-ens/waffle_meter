@@ -14,13 +14,36 @@ public sealed class DpsMetricsTests
 
     private static BuffValueCatalog EmptyCatalog() => new();
 
-    private static BuffValueCatalog CatalogWith(params (int Code, BuffGainCategory Category, double Value)[] rows)
+    private static BuffValueCatalog CatalogWith(params (int Code, BuffEffectKind Kind, double Value)[] rows)
     {
         var catalog = new BuffValueCatalog();
         catalog.Load(rows.Select(r =>
-            (r.Code, (IReadOnlyList<BuffGainEffect>)[new BuffGainEffect(r.Category, r.Value)])));
+            (r.Code, (IReadOnlyList<BuffGainEffect>)[new BuffGainEffect(r.Kind, r.Value)])));
         return catalog;
     }
+
+    /// <summary>
+    /// A baseline with every bucket EMPTY: 증폭 0%p, 공격력 증가율 0%p, 발동률 0, 완벽 보너스비 1.
+    ///
+    /// <para>At this baseline every denominator is 1, so a buff's percentage points pass straight through as
+    /// percent and the arithmetic of the tests below stays checkable by hand. It is a measuring stick, NOT a
+    /// claim about a real player — a real one divides by a bucket that is already ~275 (see
+    /// <see cref="BuffGainContext.Default"/>), which is the whole point of the model. The tests that care about
+    /// that use the realistic baseline instead.</para>
+    ///
+    /// <para>치명타 계열은 여기서 0이 된다 — 치명타 피해 증폭은 치명타가 터진 타격에만 붙으므로 발동률 0이면
+    /// 정말로 값이 0이다. 그건 산술의 사고가 아니라 모델이 맞는 답을 낸 것이다.</para>
+    /// </summary>
+    private static readonly BuffGainContext Bare = new(
+        AmpBucketPercent: 0,
+        AttackIncreasePercent: 0,
+        CritAmpPercent: 0,
+        FrontAmpPercent: 0,
+        CritRate: 0,
+        SmiteRate: 0,
+        PerfectRate: 0,
+        FrontRate: 0,
+        PerfectBonusRatio: 1.0);
 
     private static MetricBuffInput Buff(
         int displayBase, int actorId, double rate, int level = 0, int? code = null, bool boss = false) =>
@@ -28,8 +51,10 @@ public sealed class DpsMetricsTests
 
     private static MetricParticipantInput Player(
         int uid, double dps, IReadOnlyList<MetricBuffInput>? buffs = null,
-        IReadOnlyDictionary<int, long>? granted = null, int jobPrefix = 0) =>
-        new(uid, dps, dps * Duration, buffs ?? [], granted ?? new Dictionary<int, long>(), jobPrefix);
+        IReadOnlyDictionary<int, long>? granted = null, int jobPrefix = 0,
+        BuffGainContext? context = null) =>
+        new(uid, dps, dps * Duration, buffs ?? [], granted ?? new Dictionary<int, long>(), jobPrefix,
+            context ?? Bare);
 
     [Fact]
     public void Without_external_buffs_ndps_and_rdps_are_just_dps()
@@ -91,10 +116,10 @@ public sealed class DpsMetricsTests
     {
         // The snapshot deliberately carries a WRONG number here so the test proves the level path wins.
         BuffValueCatalog snapshot = CatalogWith(
-            (PartySynergyCatalog.SwordCounter, BuffGainCategory.OffenseAmp, 10.7));
+            (PartySynergyCatalog.SwordCounter, BuffEffectKind.DamageAmp, 10.7));
 
         double gain = DpsMetrics.Gain(
-            Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: level), snapshot);
+            Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: level), snapshot, Bare);
 
         Assert.Equal(expectedPercent / 100.0, gain, 9);
     }
@@ -106,10 +131,10 @@ public sealed class DpsMetricsTests
         // no row at all for several of them, and where it does the value is on a different scale. Flooring at
         // the bottom of the real curve under-credits rather than inventing.
         BuffValueCatalog snapshot = CatalogWith(
-            (PartySynergyCatalog.SwordCounter, BuffGainCategory.OffenseAmp, 10.7));
+            (PartySynergyCatalog.SwordCounter, BuffEffectKind.DamageAmp, 10.7));
 
         double gain = DpsMetrics.Gain(
-            Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 0), snapshot);
+            Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 0), snapshot, Bare);
 
         Assert.Equal(0.054, gain, 9); // level 1 노련한 반격
     }
@@ -117,32 +142,114 @@ public sealed class DpsMetricsTests
     [Fact]
     public void A_buff_the_catalog_does_not_model_still_uses_the_snapshot()
     {
-        BuffValueCatalog snapshot = CatalogWith((987_654_321, BuffGainCategory.OffenseAmp, 12.0));
+        BuffValueCatalog snapshot = CatalogWith((987_654_321, BuffEffectKind.DamageAmp, 12.0));
 
-        Assert.Equal(0.12, DpsMetrics.Gain(Buff(987_654_321, actorId: 2, rate: 100), snapshot), 9);
+        Assert.Equal(0.12, DpsMetrics.Gain(Buff(987_654_321, actorId: 2, rate: 100), snapshot, Bare), 9);
     }
 
     [Fact]
-    public void Mantra_stacks_its_level_breakpoints_on_top_of_the_linear_term()
+    public void Mantra_prices_each_breakpoint_in_its_own_bucket_instead_of_multiplying_them_all()
     {
-        // 불패의 진언 at 25: amp 10.5 + 0.5×24 = 22.5, plus 치명타 피해 증폭 5, 강타 5, 완벽 10 — each its own
-        // multiplicative effect, exactly as the site composes them.
+        // 불패의 진언 L25 = 증폭 22.5%p + 치명타 피해 증폭 5%p + 강타 5%p + 완벽 10%p.
+        //
+        // 🔑 이 테스트가 이 커밋의 이유다. 종전 모델은 넷을 전부 데미지 배수로 읽어
+        //     1.225 × 1.05 × 1.05 × 1.10 − 1 = 48.6%
+        // 를 냈고, 그 값으로 5인 파티에서 호법성 한 명이 파티 전체 딜의 26%를 자기 기여로 가져갔다.
+        // 넷은 사실 데미지 공식의 서로 다른 자리에 들어간다 (BuffEffectKind 참조):
+        //   증폭 22.5%p     → 이미 175%p 인 가산 버킷 위 → 22.5/275   =  8.18%
+        //   치명타 피해 5%p → 치명타가 터진 타격에만      → c·0.05/mCrit =  2.04%
+        //   강타 5%p        → 발동률, mSmite = 1 + p      → 0.05/1.468  =  3.41%
+        //   완벽 10%p       → 구간 상단으로만 옮김        → 0.1·β/…     =  0.76%
+        // 합성 15.0%. 같은 스킬, 같은 레벨, 3분의 1 이하다.
         double gain = DpsMetrics.Gain(
-            Buff(PartySynergyCatalog.ChanterMantra, actorId: 2, rate: 100, level: 25), EmptyCatalog());
+            Buff(PartySynergyCatalog.ChanterMantra, actorId: 2, rate: 100, level: 25),
+            EmptyCatalog(),
+            BuffGainContext.Default);
 
-        double expected = 1.225 * 1.05 * 1.05 * 1.10 - 1.0;
-        Assert.Equal(expected, gain, 9);
+        Assert.Equal(0.1502, gain, 4);
+        Assert.True(gain < 0.20, $"불패의 진언 L25 는 20%를 넘을 수 없다 (측정 {gain:P2})");
+    }
+
+    [Fact]
+    public void The_same_amp_buff_is_worth_less_to_someone_whose_bucket_is_already_full()
+    {
+        // 증폭은 가산 버킷이라 %p 하나의 값어치가 "이미 얼마나 갖고 있나"에 반비례한다. 이 관계가 없으면
+        // 지원 직업의 기여가 파티원 장비와 무관하게 고정돼 버린다.
+        var counter = Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 25); // 15.0%p
+
+        double onEmpty = DpsMetrics.Gain(counter, EmptyCatalog(), Bare);
+        double onFull = DpsMetrics.Gain(
+            counter, EmptyCatalog(), Bare with { AmpBucketPercent = 175.0 });
+
+        Assert.Equal(0.150, onEmpty, 9);                 // 15/100
+        Assert.Equal(15.0 / 275.0, onFull, 9);           // 15/(100+175) = 5.45%
+        Assert.True(onFull < onEmpty / 2.0);
+    }
+
+    [Fact]
+    public void A_proc_rate_buff_is_worth_nothing_once_the_rate_is_capped()
+    {
+        // 발동률과 배수의 결정적 차이. 강타 100%인 사람에게 강타 +5%p 는 넣을 자리가 없다 — 배수 모델이었다면
+        // ×1.05 를 영원히 더 곱했을 자리다.
+        var blessing = Buff(PartySynergyCatalog.ClericEarthBlessing, actorId: 2, rate: 100, level: 10);
+
+        Assert.Equal(0.05, DpsMetrics.Gain(blessing, EmptyCatalog(), Bare), 9);
+        Assert.Equal(0.0, DpsMetrics.Gain(
+            blessing, EmptyCatalog(), Bare with { SmiteRate = 1.0 }), 9);
+    }
+
+    [Fact]
+    public void A_crit_damage_buff_is_priced_by_how_often_the_recipient_actually_crits()
+    {
+        // 치명타 피해 증폭은 치명타가 터진 타격에만 붙는다. 발동률이 실측으로 들어오므로 이건 가정이 아니라
+        // 그 사람의 패킷에서 읽은 값이다.
+        var effect = new BuffGainEffect(BuffEffectKind.CritDamageAmp, 5.0);
+        BuffGainContext never = Bare with { CritRate = 0.0 };
+        BuffGainContext always = Bare with { CritRate = 1.0 };
+
+        Assert.Equal(0.0, DpsMetrics.RelativeGain(effect, bossScope: false, never), 9);
+        // mCrit = 1 + 1.0 × (0.5 + 0) = 1.5 → 1.0 × 0.05 / 1.5
+        Assert.Equal(0.05 / 1.5, DpsMetrics.RelativeGain(effect, bossScope: false, always), 9);
+    }
+
+    [Fact]
+    public void A_crit_RATING_buff_is_priced_at_zero_rather_than_read_as_percent()
+    {
+        // 질풍의 권능의 스냅샷 행은 `Critical: 200` 을 싣는데 이건 발동률 %p 가 아니라 치명타 <수치>다.
+        // 퍼센트로 읽으면 효과당 상한(100%)에 걸려 받는 사람의 데미지를 통째로 2배로 만든다.
+        // 수치→발동률 곡선이 실측되기 전까지는 0 이 맞다 — 지어내는 것보다 덜 주는 쪽이 낫다.
+        BuffValueCatalog snapshot = CatalogWith((987_654_321, BuffEffectKind.CritRating, 200.0));
+
+        Assert.Equal(0.0, DpsMetrics.Gain(
+            Buff(987_654_321, actorId: 2, rate: 100), snapshot, BuffGainContext.Default), 9);
+    }
+
+    [Fact]
+    public void The_snapshot_reads_its_bucket_from_the_stat_not_the_category()
+    {
+        // `offense_crit` 한 카테고리에 강타(발동률 %p)와 치명타 수치(rating)가 같이 들어 있다. 카테고리만으로는
+        // 어느 버킷인지 못 가르므로 export 가 스탯 이름을 함께 싣고, 여기서 그걸로 가른다.
+        Assert.Equal(BuffEffectKind.SmiteRate, BuffValueCatalog.ParseKind("HardHit", "offense_crit"));
+        Assert.Equal(BuffEffectKind.CritRating, BuffValueCatalog.ParseKind("Critical", "offense_crit"));
+        Assert.Equal(BuffEffectKind.DamageAmp, BuffValueCatalog.ParseKind("PvEAmplifyDamage", "offense_amp"));
+        Assert.Equal(BuffEffectKind.FrontAmp, BuffValueCatalog.ParseKind("AmplifyFrontAttack", "offense_amp"));
+        Assert.Equal(BuffEffectKind.AttackRatio, BuffValueCatalog.ParseKind("DamageRatio", "offense_atk"));
+        Assert.Equal(BuffEffectKind.BossResistDown, BuffValueCatalog.ParseKind("DefenseRatio", "defense"));
+
+        // PvP 계열과 아직 모르는 스탯은 아무것도 기여하지 않는다 — 버킷을 추측하지 않는다.
+        Assert.Equal(BuffEffectKind.None, BuffValueCatalog.ParseKind("PvPAmplifyDamage", "offense_amp_pvp"));
+        Assert.Equal(BuffEffectKind.None, BuffValueCatalog.ParseKind("SomethingNewNextPatch", "offense_amp"));
     }
 
     [Fact]
     public void Gale_gives_nothing_below_level_20_and_adds_weapon_amp_at_25()
     {
         Assert.Equal(0.0, DpsMetrics.Gain(
-            Buff(PartySynergyCatalog.ChanterGale, actorId: 2, rate: 100, level: 19), EmptyCatalog()), 9);
+            Buff(PartySynergyCatalog.ChanterGale, actorId: 2, rate: 100, level: 19), EmptyCatalog(), Bare), 9);
         Assert.Equal(0.10, DpsMetrics.Gain(
-            Buff(PartySynergyCatalog.ChanterGale, actorId: 2, rate: 100, level: 20), EmptyCatalog()), 9);
+            Buff(PartySynergyCatalog.ChanterGale, actorId: 2, rate: 100, level: 20), EmptyCatalog(), Bare), 9);
         Assert.Equal(1.10 * 1.05 - 1.0, DpsMetrics.Gain(
-            Buff(PartySynergyCatalog.ChanterGale, actorId: 2, rate: 100, level: 25), EmptyCatalog()), 9);
+            Buff(PartySynergyCatalog.ChanterGale, actorId: 2, rate: 100, level: 25), EmptyCatalog(), Bare), 9);
     }
 
     [Fact]
@@ -153,8 +260,8 @@ public sealed class DpsMetricsTests
         var onBoss = Buff(PartySynergyCatalog.ChanterEarthPromise, actorId: 2, rate: 100, level: 21, boss: true);
         var onPlayer = Buff(PartySynergyCatalog.ChanterEarthPromise, actorId: 2, rate: 100, level: 21);
 
-        Assert.Equal(0.134, DpsMetrics.Gain(onBoss, EmptyCatalog()), 9); // 5.4 + 0.4×20
-        Assert.Equal(0.0, DpsMetrics.Gain(onPlayer, EmptyCatalog()), 9);
+        Assert.Equal(0.134, DpsMetrics.Gain(onBoss, EmptyCatalog(), Bare), 9); // 5.4 + 0.4×20
+        Assert.Equal(0.0, DpsMetrics.Gain(onPlayer, EmptyCatalog(), Bare), 9);
     }
 
     [Fact]
@@ -315,7 +422,7 @@ public sealed class DpsMetricsTests
             .ToList();
         var catalog = new BuffValueCatalog();
         catalog.Load(huge.Select(b =>
-            (b.Code, (IReadOnlyList<BuffGainEffect>)[new BuffGainEffect(BuffGainCategory.OffenseAmp, 90)])));
+            (b.Code, (IReadOnlyList<BuffGainEffect>)[new BuffGainEffect(BuffEffectKind.DamageAmp, 90)])));
 
         var players = new List<MetricParticipantInput> { Player(1, 5000, huge) };
         players.AddRange(Enumerable.Range(2, 12).Select(a => Player(a, 0)));
@@ -334,7 +441,7 @@ public sealed class DpsMetricsTests
         // buff_values.json has no 1741 key, and its second-tier lookup by 8-digit base is dead for every job
         // buff, so the healer's whole contribution priced at zero.
         double gain = DpsMetrics.Gain(
-            Buff(PartySynergyCatalog.ClericProtectLight, actorId: 2, rate: 100, level: 25), EmptyCatalog());
+            Buff(PartySynergyCatalog.ClericProtectLight, actorId: 2, rate: 100, level: 25), EmptyCatalog(), Bare);
 
         Assert.Equal(0.05, gain, 9);
     }
@@ -346,10 +453,10 @@ public sealed class DpsMetricsTests
         // RATING of 200, which the gain model would read as +200%, clamp to +100%, and hand out as a doubling.
         // An unreadable level must floor at level 1, not fall through.
         BuffValueCatalog poisoned = CatalogWith(
-            (PartySynergyCatalog.ChanterGale, BuffGainCategory.OffenseCrit, 200));
+            (PartySynergyCatalog.ChanterGale, BuffEffectKind.CritRating, 200));
 
         double gain = DpsMetrics.Gain(
-            Buff(PartySynergyCatalog.ChanterGale, actorId: 2, rate: 100, level: 0), poisoned);
+            Buff(PartySynergyCatalog.ChanterGale, actorId: 2, rate: 100, level: 0), poisoned, Bare);
 
         Assert.Equal(0.0, gain, 9); // level 1 질풍 gives nothing, and the 200 never applies
     }
@@ -443,11 +550,11 @@ public sealed class DpsMetricsTests
     }
 
     [Fact]
-    public void Categories_the_model_does_not_price_contribute_nothing()
+    public void Stats_the_model_does_not_price_contribute_nothing()
     {
         // 이동 속도 / 받는 피해 감소 / PvP 증폭 are carried in the shipped table but move no PvE damage.
-        BuffValueCatalog catalog = CatalogWith((900, BuffGainCategory.None, 50));
+        BuffValueCatalog catalog = CatalogWith((900, BuffEffectKind.None, 50));
 
-        Assert.Equal(0.0, DpsMetrics.Gain(Buff(900, actorId: 2, rate: 100), catalog), 9);
+        Assert.Equal(0.0, DpsMetrics.Gain(Buff(900, actorId: 2, rate: 100), catalog, Bare), 9);
     }
 }

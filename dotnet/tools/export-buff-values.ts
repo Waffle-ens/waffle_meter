@@ -11,9 +11,10 @@
  *   npx tsx <waffle_meter>/dotnet/tools/export-buff-values.ts src/shared/buff-values.ts \
  *          <waffle_meter>/dotnet/Assets/json/buff_values.json
  *
- * Only the fields the gain math actually reads are exported — `category` and `value`, keyed by buff code.
- * The Korean label and the `stat` enum are dropped: the meter never shows this table, it only multiplies
- * with it, and carrying them would double the shipped size for nothing.
+ * Exports `stat`, `category` and `value` per buff code. The Korean label is dropped (the meter never shows
+ * this table), but `stat` is NOT optional: the meter puts each effect into the damage formula's own bucket to
+ * measure a relative gain, and `category` alone cannot say which bucket. `offense_crit` covers 치명타(수치),
+ * 강타(%p), 완벽(%p) and 치명타 피해 증폭(%p) — four different places in the formula.
  *
  * ⚠️ This table is a SNAPSHOT and it is NOT the authority for the party-synergy buffs. Those scale with
  * the caster's skill level, which the table has no room for — it holds one fixed number per buff code —
@@ -63,7 +64,7 @@ async function main() {
     // doubles as documentation of which stats a buff touches; the meter has no such use.
     const kept = values
       .filter((entry) => Number.isFinite(entry.value) && entry.value !== 0)
-      .map((entry) => ({ c: entry.category, v: entry.value }));
+      .map((entry) => ({ s: entry.stat, c: entry.category, v: entry.value }));
 
     if (kept.length === 0) {
       continue;

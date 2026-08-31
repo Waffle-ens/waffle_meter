@@ -1,5672 +1,6773 @@
 {
  "194": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "197": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "199": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "10011": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "10013": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 100
   }
  ],
  "21001": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "21002": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "21003": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "21004": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "21005": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "21011": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "21012": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "21013": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 20
   }
  ],
  "22001": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "22002": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "22003": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "22004": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "22005": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "22011": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "22012": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "22013": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 20
   }
  ],
  "30041": [
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "170001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 5
   }
  ],
  "170002": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 80
   }
  ],
  "10000008": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 100
   },
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 200
   }
  ],
  "12000171": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12000172": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -40
   }
  ],
  "12000173": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "12000174": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -60
   }
  ],
  "12000175": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -70
   }
  ],
  "12000473": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12000474": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "12000531": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 80
   }
  ],
  "12000532": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "12000570": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "12172701": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12186311": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12187601": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "12188201": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12195801": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12200001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "12200501": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12202701": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12206101": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -40
   }
  ],
  "12210401": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   }
  ],
  "12214800": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 250
   }
  ],
  "12227601": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12235401": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "12251401": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "12253901": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12256401": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "12265701": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   },
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 70
   }
  ],
  "12286602": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12300701": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   }
  ],
  "12353301": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "12367001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 30
   }
  ],
  "12385601": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 40
   }
  ],
  "12385701": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 40
   }
  ],
  "12390901": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -15
   }
  ],
  "12402802": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -70
   }
  ],
  "12427652": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": -20
   },
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": -20
   },
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -20
   }
  ],
  "12427653": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   },
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "15014601": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "15024401": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "15043904": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "15045103": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "16003001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   }
  ],
  "16013201": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16015051": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16018351": [
   {
+   "s": "Defense",
    "c": "defense",
    "v": -5
   }
  ],
  "16032201": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16034101": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "16034201": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16042606": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 10
   }
  ],
  "16051102": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   }
  ],
  "16053712": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16053713": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16053714": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16053715": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16053751": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16053761": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16059602": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16060402": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "16060902": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "16068705": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -15
   }
  ],
  "16070104": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 5
   },
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "16070701": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": -10
   }
  ],
  "18016900": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 80
   }
  ],
  "18016960": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 80
   }
  ],
  "18017006": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 6
   }
  ],
  "18017011": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 10
   }
  ],
  "18017106": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 6
   }
  ],
  "18018601": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -50
   }
  ],
  "18019421": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   }
  ],
  "18025401": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "18025501": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "18032014": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   }
  ],
  "18036200": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 10
   }
  ],
  "18038601": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   }
  ],
  "18041251": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": -20
   }
  ],
  "18041252": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": -20
   }
  ],
  "18045559": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -20
   }
  ],
  "18048901": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "18055010": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 80
   }
  ],
  "18055013": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   }
  ],
  "18057011": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "18057301": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": -30
   }
  ],
  "18058305": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -60
   }
  ],
  "18069201": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "19000030": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 100
   }
  ],
  "19000031": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "19000039": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -60
   }
  ],
  "19000072": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 10
   }
  ],
  "19003001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 30
   }
  ],
  "19003011": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 30
   }
  ],
  "19003021": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 300
   }
  ],
  "19003031": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 30
   }
  ],
  "19003041": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "19003101": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": -30
   }
  ],
  "19003105": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": -30
   }
  ],
  "19003111": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "19003115": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "19003121": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   }
  ],
  "19003125": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   }
  ],
  "19003131": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": -30
   }
  ],
  "19003135": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": -30
   }
  ],
  "19003141": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "19003145": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -30
   }
  ],
  "19004211": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -30
   }
  ],
  "19004271": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": -20
   }
  ],
  "19004281": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -20
   }
  ],
  "19004411": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   }
  ],
  "19004431": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   }
  ],
  "19004441": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "19004461": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 50
   }
  ],
  "19004471": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   }
  ],
  "19004521": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 10
   }
  ],
  "19004531": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 50
   }
  ],
  "19004541": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 5
   }
  ],
  "19004542": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 5
   }
  ],
  "19004543": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 5
   }
  ],
  "19004551": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "19004552": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "19004553": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "19005001": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "19005061": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": -20
   }
  ],
  "19005071": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   }
  ],
  "19005081": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 250
   }
  ],
  "19005151": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "19005202": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 30
   }
  ],
  "19005302": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 30
   }
  ],
  "19006001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": -10
   }
  ],
  "19006101": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 50
   },
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "19102702": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 30
   }
  ],
  "19102802": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 30
   }
  ],
  "19102902": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   }
  ],
  "19104002": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "19105021": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 90
   }
  ],
  "19105031": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 10
   }
  ],
  "19105051": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 15
   }
  ],
  "19800701": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   },
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 70
   }
  ],
  "19801102": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "30000131": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "30000141": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": -50
   }
  ],
  "30000301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 2
   }
  ],
  "30000341": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 2
   }
  ],
  "30000351": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 20
   }
  ],
  "30000361": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 20
   }
  ],
  "30001131": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "30001141": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": -50
   }
  ],
  "30001301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   }
  ],
  "30001341": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 5
   }
  ],
  "30001351": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 50
   }
  ],
  "30001361": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 50
   }
  ],
  "30002131": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "30002141": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": -50
   }
  ],
  "30002301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 10
   }
  ],
  "30002341": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "30002351": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "30002361": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "30010131": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "30010141": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": -50
   }
  ],
  "30010301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 2
   }
  ],
  "30010341": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 2
   }
  ],
  "30010351": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 20
   }
  ],
  "30010361": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 20
   }
  ],
  "30011131": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "30011141": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": -50
   }
  ],
  "30011301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   }
  ],
  "30011341": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 5
   }
  ],
  "30011351": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 50
   }
  ],
  "30011361": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 50
   }
  ],
  "30012131": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": -50
   }
  ],
  "30012141": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": -50
   }
  ],
  "30012301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 10
   }
  ],
  "30012341": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "30012351": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "30012361": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "45001001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "45002001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 15
   }
  ],
  "45002201": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "45003001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 20
   }
  ],
  "45003201": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "45003501": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "45004001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "45005001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 15
   }
  ],
  "45005201": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "45006001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 20
   }
  ],
  "45006201": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "45006501": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "45009201": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "100000011": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   }
  ],
  "100000012": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   }
  ],
  "100000021": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "100000022": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "100000031": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   }
  ],
  "100000032": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   }
  ],
  "100000041": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 40
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 40
   }
  ],
  "100000042": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 40
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 40
   }
  ],
  "100000051": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   }
  ],
  "100000052": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 50
   }
  ],
  "100000061": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 60
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 60
   }
  ],
  "100000062": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 60
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 60
   }
  ],
  "100000071": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 70
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 70
   }
  ],
  "100000072": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 70
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 70
   }
  ],
  "100000081": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 80
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 80
   }
  ],
  "100000082": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 80
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 80
   }
  ],
  "100000091": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 90
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 90
   }
  ],
  "100000092": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 90
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 90
   }
  ],
  "100000111": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "100000112": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "100000121": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "100000122": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "100000131": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 30
   }
  ],
  "100000132": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 30
   }
  ],
  "100000141": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 40
   }
  ],
  "100000142": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 40
   }
  ],
  "100000151": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 50
   }
  ],
  "100000152": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 50
   }
  ],
  "100000161": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 60
   }
  ],
  "100000162": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 60
   }
  ],
  "100000171": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 70
   }
  ],
  "100000172": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 70
   }
  ],
  "100000181": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 80
   }
  ],
  "100000182": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 80
   }
  ],
  "100000191": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 90
   }
  ],
  "100000192": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 90
   }
  ],
  "100000331": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "100000332": [
   {
+   "s": "DecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "100100001": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   }
  ],
  "100100002": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 10
   }
  ],
  "100100003": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 15
   }
  ],
  "100100004": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 20
   }
  ],
  "100100101": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "100200101": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 50
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 25
   }
  ],
  "110100201": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "110800001": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 30
   }
  ],
  "110800101": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 40
   }
  ],
  "111000071": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "111400001": [
   {
+   "s": "AmplifyAllDamage",
    "c": "offense_amp",
    "v": 20
   }
  ],
  "111900471": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "112300001": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   }
  ],
  "112400201": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "112500001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "112500101": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "112500201": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "112500301": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "112500401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "113500071": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 1
   }
  ],
  "113800001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 50
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 25
   }
  ],
  "113800091": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 50
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 25
   }
  ],
  "113800101": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 50
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 25
   }
  ],
  "113800201": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 50
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 25
   }
  ],
  "113800301": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   },
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 50
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 25
   }
  ],
  "113800401": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   },
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 50
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 25
   }
  ],
  "114000001": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "114000101": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "114000201": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "114000301": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "114000401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "117100001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5.5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.75
   }
  ],
  "117200001": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "117400001": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "117500001": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 5.5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 2.75
   },
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 2
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "117600001": [
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 0.3
   }
  ],
  "117800001": [
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 0.5
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10.7
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.35
   }
  ],
  "117800071": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10.7
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.35
   }
  ],
  "117800072": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10.7
   }
  ],
  "117900001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 12
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 6
   }
  ],
  "117900071": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 12
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 6
   }
  ],
  "120700271": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "120900001": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 200
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "121200001": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": -200
   },
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "121200002": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "121900001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   }
  ],
  "121900002": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   }
  ],
  "121900004": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   }
  ],
  "122500002": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "122500003": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "122500004": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "122500005": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "122500006": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "122700001": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 25
   }
  ],
  "122700002": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 25
   }
  ],
  "122700003": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 25
   }
  ],
  "122700004": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 25
   }
  ],
  "123100371": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "123200003": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "123200004": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "123500001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "123500201": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "123500301": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "123500401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 25
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 12.5
   }
  ],
  "123500402": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   }
  ],
  "123500403": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 35
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 17.5
   }
  ],
  "123500404": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 40
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "123500501": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "123502301": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "123502401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 25
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 12.5
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "123502402": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "123502403": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 35
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 17.5
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "123502404": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 40
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "123503401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 25
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 12.5
   }
  ],
  "123503402": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   }
  ],
  "123503403": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 35
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 17.5
   }
  ],
  "123503404": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 40
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "123523401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 25
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 12.5
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "123523402": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "123523403": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 35
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 17.5
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "123523404": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 40
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "127100001": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 6
   }
  ],
  "127200001": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "127200011": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "127300001": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "127400001": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 7
   }
  ],
  "127600001": [
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 0.3
   }
  ],
  "127800001": [
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 0.2
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 11.3
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.65
   }
  ],
  "127800011": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 11.3
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.65
   }
  ],
  "127900001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 12
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 6
   }
  ],
  "127900011": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 12
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 6
   }
  ],
  "128000001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 11
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5.5
   }
  ],
  "128000012": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 11
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5.5
   }
  ],
  "130000011": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 2
   }
  ],
  "131500001": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "131500101": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "131500201": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "131500301": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "133700201": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   }
  ],
  "133700301": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   }
  ],
  "133700401": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 30
   }
  ],
  "133900001": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "133900101": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "133900201": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "133900301": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "133900401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 30
   }
  ],
  "137200001": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   },
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 5.5
   }
  ],
  "137400001": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 3
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 1.5
   }
  ],
  "137600001": [
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 0.3
   }
  ],
  "137800001": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 12
   }
  ],
  "137800071": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 12
   }
  ],
  "140900001": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 300
   }
  ],
  "140900101": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 300
   }
  ],
  "141100071": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 7
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 7
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 3.5
   }
  ],
  "141100461": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   }
  ],
  "141100471": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 13
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 13
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 6.5
   }
  ],
  "141100481": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 11
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 11
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.5
   }
  ],
  "141100491": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 9
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 9
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 4.5
   }
  ],
  "141900201": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 20
   }
  ],
  "142100001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "142200101": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 200
   }
  ],
  "142200201": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 200
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "142200301": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 200
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "142200401": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 200
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 7
   }
  ],
  "142400001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "142500001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "143100001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "143100101": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "143100201": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "143100301": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "143100401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "143500001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "143500101": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "143500201": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "143500301": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "143500401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 40
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "147300001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   }
  ],
  "147300071": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   }
  ],
  "147400001": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 1
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 0.5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 0.2
   }
  ],
  "150900001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 40
   }
  ],
  "150900201": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 60
   }
  ],
  "151100301": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "151600001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "151600101": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   }
  ],
  "151600201": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   }
  ],
  "151600301": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   }
  ],
  "151600401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   }
  ],
  "152300001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "152300101": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "152300201": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "152300301": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "152300401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 40
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "153100001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153100101": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153100201": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153100301": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153100401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153100501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153101201": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153101301": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153101401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153101501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 1000
   }
  ],
  "153102301": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153102401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153102501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153103401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153103501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153104501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153112301": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153112401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153112501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153113401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153113501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153114501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153123401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153123501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "153124501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "153134501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 10
   }
  ],
  "154000101": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 200
   }
  ],
  "154000201": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 200
   }
  ],
  "154000301": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 200
   }
  ],
  "154000401": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 200
   }
  ],
  "154100101": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   }
  ],
  "154100201": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   }
  ],
  "154100301": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   }
  ],
  "154100401": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   }
  ],
  "157200001": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 105
   }
  ],
  "157400001": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 1
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 0.5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 0.2
   }
  ],
  "157500001": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 1
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 25
   }
  ],
  "157500071": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 25
   }
  ],
  "157500072": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 25
   }
  ],
  "160300401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 2
   }
  ],
  "160700101": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 20
   }
  ],
  "160800001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   }
  ],
  "161100201": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161100202": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161100203": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161100204": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102301": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102302": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102303": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102304": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102402": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102403": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102404": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102501": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102502": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102503": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161102504": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161123401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161123402": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161123403": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161123404": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 10
   }
  ],
  "161200011": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "161300011": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   }
  ],
  "161300201": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "161700001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "161700002": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "161700003": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   }
  ],
  "161700004": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   }
  ],
  "161700005": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   }
  ],
  "161900001": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "161900002": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "161900003": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "161900004": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 45
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 22.5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 45
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 22.5
   }
  ],
  "163600002": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 150
   }
  ],
  "163600003": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 150
   }
  ],
  "163600004": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 150
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 150
   }
  ],
  "163600005": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 150
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 150
   }
  ],
  "163700002": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "163700003": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "163700004": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "163700005": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "167100001": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 6
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 3
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 6
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 3
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 4.5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 4.5
   }
  ],
  "167200001": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 2
   },
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 2
   }
  ],
  "167400001": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "167600001": [
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 0.3
   }
  ],
  "167700001": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "170700001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170700101": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "170700201": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "170700401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 7.5
   }
  ],
  "170700501": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "170701201": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "170701401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 15
   }
  ],
  "170701501": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "170702401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 15
   }
  ],
  "170702501": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "170704501": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 15
   }
  ],
  "170800001": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 2.5
   }
  ],
  "170800201": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 2.5
   },
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 15
   }
  ],
  "170800401": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "170800501": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 5
   }
  ],
  "170802401": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   },
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 15
   }
  ],
  "170802501": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 5
   }
  ],
  "170804501": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 2.5
   }
  ],
  "170824501": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 2.5
   }
  ],
  "170900101": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   }
  ],
  "170900301": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   }
  ],
  "170900401": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   }
  ],
  "170900501": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170901201": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   }
  ],
  "170901301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   }
  ],
  "170901401": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   }
  ],
  "170901501": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170902301": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   }
  ],
  "170902401": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   }
  ],
  "170902501": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170903401": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   }
  ],
  "170903501": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170904501": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170912301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   }
  ],
  "170912401": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   }
  ],
  "170912501": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170913401": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   }
  ],
  "170913501": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170914501": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170923401": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   }
  ],
  "170923501": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170924501": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "170934501": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 5
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 2.5
   }
  ],
  "172700101": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   }
  ],
  "172700201": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   }
  ],
  "172700401": [
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 100
   }
  ],
  "174000271": [
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 7
   }
  ],
  "174000371": [
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 7
   },
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 7
   },
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 7
   }
  ],
  "174000571": [
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 7
   },
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 7
   },
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 7
   }
  ],
  "174200001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   }
  ],
  "174200201": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "174200301": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 20
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "174200401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 30
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 15
   },
   {
+   "s": "Block",
    "c": "defense",
    "v": 100
   }
  ],
  "174300001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "174300201": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "174300301": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "174300401": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 25
   }
  ],
  "177200001": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "177200011": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "177300001": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 0.2
   }
  ],
  "177500001": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 2
   }
  ],
  "177800001": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "177900001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 12
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 6
   }
  ],
  "177900011": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 12
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 6
   }
  ],
  "180500401": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": -200
   }
  ],
  "180800401": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "181600001": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   }
  ],
  "181600011": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   }
  ],
  "181600101": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "181600111": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "181600201": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "181600211": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "181600301": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "181600311": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "181600401": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "181600411": [
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10.5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "181900011": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10.5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10.5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.25
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5.25
   }
  ],
  "181900111": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10.5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10.5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.25
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5.25
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "181900211": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10.5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10.5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.25
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5.25
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "181900311": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10.5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10.5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.25
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5.25
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "181900411": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10.5
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10.5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5.25
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5.25
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "182400101": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 15
   }
  ],
  "182400201": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 15
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "182400301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 15
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "182400401": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 15
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   },
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "182500001": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "182500101": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   }
  ],
  "182500201": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 200
   }
  ],
  "182500301": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 200
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 200
   }
  ],
  "182500401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 20
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 200
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 200
   },
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 20
   }
  ],
  "184200101": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   }
  ],
  "184200201": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   }
  ],
  "184200301": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   }
  ],
  "184200401": [
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 5
   },
   {
+   "s": "AmplifyHpHealGet",
    "c": "healing",
    "v": 10
   }
  ],
  "184400201": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "184400271": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "184400301": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "184400401": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5
   }
  ],
  "187200001": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "187400001": [
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "187500001": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 5.5
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 2.75
   },
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 2
   },
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "187600001": [
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 0.3
   }
  ],
  "187800001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10.5
   }
  ],
  "187800011": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 10.5
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 5.25
   }
  ],
  "187900001": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 12
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 6
   }
  ],
  "187900011": [
   {
+   "s": "PvEDecreaseDamage",
    "c": "mitigation",
    "v": 12
   },
   {
+   "s": "PvPDecreaseDamage",
    "c": "mitigation",
    "v": 6
   }
  ],
  "190400101": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "190700411": [
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 10
   }
  ],
  "191300001": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "191300101": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   }
  ],
  "191300201": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "191300301": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191300401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "191300501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "191301201": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   }
  ],
  "191301301": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191301401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   }
  ],
  "191301501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   }
  ],
  "191302301": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191302401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "191302501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "191303401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191303501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191304501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "191312301": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191312401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   }
  ],
  "191312501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   }
  ],
  "191313401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191313501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191314501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 7.5
   }
  ],
  "191323401": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191323501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "191324501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "191334501": [
   {
+   "s": "CombatSpeed",
    "c": "offense_speed",
    "v": 15
   },
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 15
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   },
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 5
   }
  ],
  "192800001": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   }
  ],
  "192800101": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   }
  ],
  "192800201": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "192800301": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "192800401": [
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 20
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 10
   },
   {
+   "s": "MoveSpeed",
    "c": "utility",
    "v": 10
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "192900101": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   }
  ],
  "192900301": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 10
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 5
   }
  ],
  "197100001": [
   {
+   "s": "Block",
    "c": "defense",
    "v": 200
   }
  ],
  "197200001": [
   {
+   "s": "Accuracy",
    "c": "utility",
    "v": 100
   },
   {
+   "s": "Critical",
    "c": "offense_crit",
    "v": 100
   }
  ],
  "197400001": [
   {
+   "s": "AmplifyFrontAttack",
    "c": "offense_amp",
    "v": 3
   },
   {
+   "s": "PvEAmplifyDamage",
    "c": "offense_amp",
    "v": 3
   },
   {
+   "s": "PvPAmplifyDamage",
    "c": "offense_amp_pvp",
    "v": 1.5
   }
  ],
  "197500001": [
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 1.5
   },
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 2.5
   },
   {
+   "s": "DamageRatio",
    "c": "offense_atk",
    "v": 2.5
   },
   {
+   "s": "DefenseRatio",
    "c": "defense",
    "v": 1.5
   }
  ],
  "197600001": [
   {
+   "s": "HardHit",
    "c": "offense_crit",
    "v": 0.3
   }

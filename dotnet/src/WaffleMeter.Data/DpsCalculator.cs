@@ -1014,6 +1014,12 @@ public sealed class DpsCalculator
             : _cachedSkillDetails.Count > 0 ? _cachedSkillDetails
             : BuildSkillDetails(data);
 
+        // 버킷 기준선의 스탯 절반. 미터가 스탯시트를 갖는 사람은 본인뿐이라 파티원에게도 같은 값을 쓴다 —
+        // 게임이 남의 스탯창을 방송하지 않기 때문이다. 이 모델에서 가장 약한 전제이고, BuffGainContext 주석에
+        // 그렇게 적어 뒀다. 그래도 종전(버킷이 빈 것처럼 100으로 나누기)보다는 훨씬 낫고, 틀리는 방향이 한쪽으로
+        // 정해져 있다(더 잘 갖춘 파티원일수록 실제 버킷이 커서 살짝 과대평가된다).
+        BuffGainContext statBaseline = _dm.PlayerStats.Current?.GainBaseline() ?? BuffGainContext.Default;
+
         var participants = new List<MetricParticipantInput>(data.Contributors.Count);
         foreach (User user in data.Contributors)
         {
@@ -1041,7 +1047,8 @@ public sealed class DpsCalculator
                 info.Amount,
                 buffs,
                 GrantedDamage(skills.GetValueOrDefault(user.Id)),
-                user.Job is { } job ? JobClassInfo.BasicSkillCode(job) / 1_000_000 : 0));
+                user.Job is { } job ? JobClassInfo.BasicSkillCode(job) / 1_000_000 : 0,
+                WithMeasuredRates(statBaseline, skills.GetValueOrDefault(user.Id))));
         }
 
         List<OperatingData> bossRows = frozen
@@ -1055,6 +1062,58 @@ public sealed class DpsCalculator
             bossRows.Select(r => ToMetricBuff(r, bossScope: true)).ToList(),
             _dm.BuffValues,
             durationMs / 1000.0);
+    }
+
+    /// <summary>
+    /// Overlay THIS participant's own 판정 비율 onto the shared stat baseline.
+    ///
+    /// <para>강타·완벽·치명타 buffs add percentage points of PROC RATE, and what a point is worth depends
+    /// entirely on the rate it lands on top of — <c>Δp/(1+p)</c> for 강타, and nothing at all once the rate is
+    /// at 100%. Unlike the stat half, this does not have to be assumed: every one of these judgements is a flag
+    /// on that player's own damage packets, so the rate is measured on exactly the person the buff was applied
+    /// to.</para>
+    ///
+    /// <para>Denominators follow the same rule the combat detail uses: 치명타 is a field on every hit so it goes
+    /// over <see cref="AnalyzedSkill.Times"/>, while 강타/완벽/방향 판정 only exist on flagged direct hits and so
+    /// go over <see cref="AnalyzedSkill.FlaggedTimes"/>. A rate with no sample keeps the baseline's value rather
+    /// than becoming 0 — "no evidence" is not "never procs".</para>
+    /// </summary>
+    private static BuffGainContext WithMeasuredRates(
+        BuffGainContext baseline, Dictionary<string, AnalyzedSkill>? skills)
+    {
+        if (skills is null || skills.Count == 0)
+        {
+            return baseline;
+        }
+
+        long times = 0, crits = 0, flagged = 0, smites = 0, perfects = 0, fronts = 0;
+        foreach (AnalyzedSkill skill in skills.Values)
+        {
+            times += skill.Times;
+            crits += skill.CritTimes;
+            flagged += skill.FlaggedTimes;
+            smites += skill.DoubleTimes;
+            perfects += skill.PerfectTimes;
+            fronts += skill.FrontTimes;
+        }
+
+        BuffGainContext ctx = baseline;
+        if (times > 0)
+        {
+            ctx = ctx with { CritRate = Math.Clamp(crits / (double)times, 0.0, 1.0) };
+        }
+
+        if (flagged > 0)
+        {
+            ctx = ctx with
+            {
+                SmiteRate = Math.Clamp(smites / (double)flagged, 0.0, 1.0),
+                PerfectRate = Math.Clamp(perfects / (double)flagged, 0.0, 1.0),
+                FrontRate = Math.Clamp(fronts / (double)flagged, 0.0, 1.0),
+            };
+        }
+
+        return ctx;
     }
 
     private static MetricBuffInput ToMetricBuff(

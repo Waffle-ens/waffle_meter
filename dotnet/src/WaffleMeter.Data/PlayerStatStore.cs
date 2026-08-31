@@ -45,6 +45,66 @@ public sealed record PlayerStatSheet(
         return flat * (1.0 + (Percent(PlayerStatIds.AttackIncreasePercent) ?? 0.0) / 100.0);
     }
 
+    /// <summary>
+    /// This sheet as the stat-shaped half of a <see cref="BuffGainContext"/> — the denominators an incoming
+    /// buff's percentage points get divided by. The rate-shaped half (치명타/강타/완벽/전방 발동률) is NOT filled
+    /// in here: those are measured per participant from their own damage packets, which is better evidence than
+    /// any stat could be, and this sheet only ever describes the local player anyway.
+    ///
+    /// <para>Anything the sheet has not seen keeps <see cref="BuffGainContext.Default"/>'s value rather than
+    /// falling to zero. A zero here does not mean "no bonus", it means "divide by 100", which is exactly the
+    /// over-crediting this model exists to stop.</para>
+    /// </summary>
+    public BuffGainContext GainBaseline()
+    {
+        BuffGainContext ctx = BuffGainContext.Default;
+
+        // 증폭 버킷은 데미지 공식과 같은 구성이다: 일반 + PvE + 보스. 무기 피해 증폭은 여기 들어가지 않는다 —
+        // 그건 방어력 차감 앞에서 장비 유래 공격력에만 곱해지는 별도 항이다.
+        double? amp = Percent(PlayerStatIds.DamageAmplifyPercent);
+        double? pve = Percent(PlayerStatIds.PveDamageAmplifyPercent);
+        double? boss = Percent(PlayerStatIds.BossDamageAmplifyPercent);
+        if (amp is not null || pve is not null || boss is not null)
+        {
+            ctx = ctx with { AmpBucketPercent = (amp ?? 0.0) + (pve ?? 0.0) + (boss ?? 0.0) };
+        }
+
+        if (Percent(PlayerStatIds.AttackIncreasePercent) is { } inc)
+        {
+            ctx = ctx with { AttackIncreasePercent = inc };
+        }
+
+        if (Percent(PlayerStatIds.CriticalDamageAmplifyPercent) is { } critAmp)
+        {
+            ctx = ctx with { CritAmpPercent = critAmp };
+        }
+
+        if (Percent(PlayerStatIds.FrontDamageAmplifyPercent) is { } frontAmp)
+        {
+            ctx = ctx with { FrontAmpPercent = frontAmp };
+        }
+
+        // 완벽 보너스비 β: 완벽타는 `최대 공격력 + 0.32 × 구간폭`, 평타는 `공격력`이므로
+        // β = (구간폭/2 + 0.32 × 구간폭) / 공격력 = 0.82 × 구간폭 / 공격력.
+        // 증가율은 분자·분모에 똑같이 곱해져 약분되므로 원시 최소/최대와 평탄 합계로 계산한다.
+        // 🔑 구간이 좁은 무기에서는 완벽이 거의 값을 못 갖는다 — 이 값이 상수일 수 없는 이유다.
+        int? minAttack = Raw(PlayerStatIds.MinimumAttack);
+        int? maxAttack = Raw(PlayerStatIds.MaximumAttack);
+        int? attack = Raw(PlayerStatIds.Attack);
+        if (minAttack is not null && maxAttack is not null && attack is not null)
+        {
+            double flat = attack.Value + (Raw(PlayerStatIds.AdditionalAttack) ?? 0)
+                + (minAttack.Value + maxAttack.Value) / 2.0;
+            double width = Math.Max(maxAttack.Value - minAttack.Value, 0);
+            if (flat > 0.0)
+            {
+                ctx = ctx with { PerfectBonusRatio = 0.82 * width / flat };
+            }
+        }
+
+        return ctx;
+    }
+
     /// <summary>인게임 스탯창의 <b>방어력</b> = <c>(기본 방어력 + 방어구 방어력) × (1 + 방어력 증가율)</c>.
     /// 실측: <c>(10,666 + 16,393) × 1.24 = 33,553.16</c> vs 스탯창 <b>33,553</b>.</summary>
     public double? DefensePower()

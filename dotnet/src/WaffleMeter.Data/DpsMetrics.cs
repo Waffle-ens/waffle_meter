@@ -43,13 +43,20 @@ public readonly record struct MetricBuffInput(
 /// by the granting synergy base (<see cref="PartySynergyCatalog.GrantedDamageSource"/>). Already filtered to
 /// grants from someone else — a 검성's own 흡혈의 검 hits are not in here.</param>
 /// <param name="JobPrefix">11(검성)..19(권성), 0 = 모름. 버프 행이 없는 넘어온 피해를 귀속할 때 쓴다.</param>
+/// <param name="Context">
+/// Where in the damage formula THIS player already sits — the denominators every incoming buff is priced
+/// against. Nullable rather than a plain struct on purpose: <c>default(BuffGainContext)</c> is all zeros, which
+/// would silently mean "empty buckets" and reinstate the very error this parameter exists to fix. <c>null</c>
+/// resolves to <see cref="BuffGainContext.Default"/>, which is at least a real character.
+/// </param>
 public sealed record MetricParticipantInput(
     int Uid,
     double Dps,
     double Damage,
     IReadOnlyList<MetricBuffInput> Buffs,
     IReadOnlyDictionary<int, long> GrantedDamageBySource,
-    int JobPrefix = 0);
+    int JobPrefix = 0,
+    BuffGainContext? Context = null);
 
 /// <summary>
 /// nDPS / rDPS, computed locally with the same shape the stats site uses server-side
@@ -72,6 +79,13 @@ public sealed record MetricParticipantInput(
 /// <item><b>Measured grants.</b> 흡혈의 검's 착취 and 대지의 축복's 추가 피해 land as real damage packets on the
 /// recipient's meter under the granting class's skill code. They are moved, not estimated: subtracted from
 /// the recipient before normalizing, added to the granter's rDPS whole.</item>
+/// <item><b>Bucket-relative gains.</b> The site multiplies a buff's number straight into damage — 22.5%p of
+/// 피해 증폭 becomes ×1.225. That is wrong in the same direction for every support, and level-accurate values
+/// made it worse rather than better: 불패의 진언 L25 priced out at +48.6% and handed one 호법성 26% of a
+/// five-player raid's damage. Each effect now goes into the bucket of the damage formula it actually belongs to
+/// and is measured as a RELATIVE increase there (see <see cref="RelativeGain"/>) — the same buff is +15.0%, and
+/// that 호법성 lands at 14.6%. ⚠️ This is where the meter and the site now differ; mirror any change to one in
+/// the other (<c>src/shared/dps-metrics.ts</c>, <c>getBuffGain</c>).</item>
 /// </list>
 /// </summary>
 public static class DpsMetrics
@@ -102,6 +116,10 @@ public static class DpsMetrics
 
         foreach (MetricParticipantInput participant in participants)
         {
+            // The buff is priced against the RECIPIENT's buckets, not the caster's — the same 불패의 진언 is
+            // worth less to a teammate already deep into the 증폭 bucket than to one who is not.
+            BuffGainContext context = participant.Context ?? BuffGainContext.Default;
+
             foreach (MetricBuffInput buff in SurvivingBuffs(participant.Buffs))
             {
                 // Self buffs are the player's own play, not something lent to them.
@@ -109,7 +127,7 @@ public static class DpsMetrics
 
                 // A buff from someone who dealt no damage has no participant row to credit; its gain is still
                 // real for the recipient, so it is kept with an unknown actor (-1) rather than dropped.
-                double gain = Gain(buff, catalog);
+                double gain = Gain(buff, catalog, context);
                 if (gain <= 0.0) continue;
 
                 incoming[participant.Uid].Add((uids.Contains(buff.ActorId) ? buff.ActorId : -1, gain));
@@ -120,12 +138,16 @@ public static class DpsMetrics
         // self buff). Exclusive-pair suppression does not apply here — the pairs are all player buffs.
         foreach (MetricBuffInput debuff in bossDebuffs)
         {
-            double gain = Gain(debuff, catalog);
-            if (gain <= 0.0 || !uids.Contains(debuff.ActorId)) continue;
+            if (!uids.Contains(debuff.ActorId)) continue;
 
             foreach (MetricParticipantInput participant in participants)
             {
-                if (participant.Uid != debuff.ActorId)
+                if (participant.Uid == debuff.ActorId) continue;
+
+                // Priced per recipient for the same reason player buffs are: the stripped resistance lands in
+                // the recipient's 증폭 bucket, so its worth depends on how full that bucket already is.
+                double gain = Gain(debuff, catalog, participant.Context ?? BuffGainContext.Default);
+                if (gain > 0.0)
                 {
                     incoming[participant.Uid].Add((debuff.ActorId, gain));
                 }
@@ -382,11 +404,11 @@ public static class DpsMetrics
         return Math.Max(0.0, loser.OperatingRate - winner.OperatingRate);
     }
 
-    /// <summary>The multiplicative damage gain one buff is worth, from its uptime and its effect values.
-    /// Effects compose multiplicatively and each is capped on its own, exactly as the site does it.
+    /// <summary>The multiplicative damage gain one buff is worth to <paramref name="context"/>'s owner, from
+    /// its uptime and its effect values. Effects compose multiplicatively and each is capped on its own.
     /// <para>Public because the combat detail prices a single row with it — "this buff was worth +15%" — using
     /// the same arithmetic the totals came from, so a row and the summary can never disagree.</para></summary>
-    public static double Gain(MetricBuffInput buff, BuffValueCatalog catalog)
+    public static double Gain(MetricBuffInput buff, BuffValueCatalog catalog, BuffGainContext context)
     {
         double uptime = Math.Clamp(buff.OperatingRate, 0.0, 100.0) / 100.0;
         if (uptime <= 0.0)
@@ -402,16 +424,8 @@ public static class DpsMetrics
         double multiplier = 1.0;
         foreach (BuffGainEffect effect in effects)
         {
-            double raw = effect.Category switch
-            {
-                // A resistance only helps when it was stripped OFF THE BOSS. The same category on a player is
-                // that player's own survivability and moves no damage.
-                BuffGainCategory.Defense => buff.BossScope && effect.Value < 0 ? Math.Abs(effect.Value) / 100.0 : 0.0,
-                BuffGainCategory.None => 0.0,
-                _ => effect.Value / 100.0,
-            };
-
-            double gain = Math.Clamp(raw * uptime, 0.0, MaxSingleEffectGain);
+            double gain = Math.Clamp(
+                RelativeGain(effect, buff.BossScope, context) * uptime, 0.0, MaxSingleEffectGain);
             if (gain > 0.0)
             {
                 multiplier *= 1.0 + gain;
@@ -420,6 +434,84 @@ public static class DpsMetrics
 
         return Math.Max(0.0, multiplier - 1.0);
     }
+
+    /// <summary>
+    /// What ONE effect is worth as a fraction of the recipient's damage, before uptime — measured by putting the
+    /// percentage points into the bucket of the damage formula they actually belong to and taking the ratio.
+    ///
+    /// <para><b>This is the whole point of the model.</b> A buff's number is points added to a stat, and the
+    /// formula's buckets are additive and already large, so the same +5%p is worth wildly different amounts
+    /// depending on where it goes and on what the recipient already has. Pricing every one of them as "×1.05"
+    /// (what the site does, and what this did until 2026-09-01) inflates supports without bound: it valued
+    /// 불패의 진언 L25 at +48.6% and handed a single 호법성 26% of a raid's damage.</para>
+    ///
+    /// <para>Each branch below is the derivative of the corresponding factor in
+    /// <c>src/shared/stat-efficiency.ts</c>, divided by that factor:</para>
+    /// <list type="table">
+    /// <item><term>증폭 / 보스 내성</term><description><c>mAmp = 1 + 버킷/100</c> → <c>v/(100+버킷)</c></description></item>
+    /// <item><term>공격력 증가율</term><description>장비 공격력 배수도 가산 → <c>v/(100+증가율)</c></description></item>
+    /// <item><term>강타</term><description><c>mSmite = 1 + p</c> (강타 = 2배타) → <c>Δp/(1+p)</c></description></item>
+    /// <item><term>완벽</term><description><c>mPerfect = 1 + q·β</c> → <c>Δq·β/(1+q·β)</c></description></item>
+    /// <item><term>치명타 피해 증폭</term><description><c>mCrit = 1 + c(0.5+증폭/100)</c> → <c>c·Δ증폭/mCrit</c></description></item>
+    /// <item><term>치명타 발동률</term><description>같은 <c>mCrit</c> → <c>Δc(0.5+증폭/100)/mCrit</c></description></item>
+    /// <item><term>전방 증폭</term><description><c>mDir = 1 + 전방률·증폭/100</c> → <c>전방률·Δ증폭/mDir</c></description></item>
+    /// </list>
+    /// <para>Public so a test — and the combat detail — can price a single effect without building a buff row.</para>
+    /// </summary>
+    public static double RelativeGain(BuffGainEffect effect, bool bossScope, BuffGainContext context)
+    {
+        double value = effect.Value;
+
+        // 보스 내성 감소만 음수가 의미를 갖는다. 다른 계열의 음수는 디버프거나 잘못 읽은 행이고, 어느 쪽이든
+        // 남의 데미지를 늘려 주지 않는다.
+        if (effect.Kind == BuffEffectKind.BossResistDown)
+        {
+            return bossScope && value < 0.0
+                ? -value / (100.0 + Math.Max(context.AmpBucketPercent, 0.0))
+                : 0.0;
+        }
+
+        if (value <= 0.0)
+        {
+            return 0.0;
+        }
+
+        return effect.Kind switch
+        {
+            BuffEffectKind.DamageAmp => value / (100.0 + Math.Max(context.AmpBucketPercent, 0.0)),
+
+            BuffEffectKind.AttackRatio => value / (100.0 + Math.Max(context.AttackIncreasePercent, 0.0)),
+
+            BuffEffectKind.SmiteRate =>
+                Headroom(value, context.SmiteRate) / context.SmiteMultiplier,
+
+            BuffEffectKind.PerfectRate =>
+                Headroom(value, context.PerfectRate) * Math.Max(context.PerfectBonusRatio, 0.0)
+                / context.PerfectMultiplier,
+
+            BuffEffectKind.CritDamageAmp =>
+                Math.Clamp(context.CritRate, 0.0, 1.0) * (value / 100.0) / context.CritMultiplier,
+
+            BuffEffectKind.CritRate =>
+                Headroom(value, context.CritRate) * (0.5 + Math.Max(context.CritAmpPercent, 0.0) / 100.0)
+                / context.CritMultiplier,
+
+            BuffEffectKind.FrontAmp =>
+                Math.Clamp(context.FrontRate, 0.0, 1.0) * (value / 100.0) / context.FrontMultiplier,
+
+            // 전투 속도는 데미지 버킷이 아니라 시전 횟수를 늘린다 — 유일하게 값이 거의 그대로인 계열.
+            BuffEffectKind.CombatSpeed => value / 100.0,
+
+            // None, CritRating(수치→발동률 곡선 미실측): 값을 매기지 않는다. BuffEffectKind 주석 참조.
+            _ => 0.0,
+        };
+    }
+
+    /// <summary>How many points of a PROC RATE a buff can actually add: what is left before 100%.
+    /// <para>This is the structural difference between a rate and a multiplier. 강타 +5%p on someone already at
+    /// 100% 강타 does nothing at all, while ×1.05 would happily keep multiplying forever.</para></summary>
+    private static double Headroom(double points, double rate) =>
+        Math.Max(0.0, Math.Min(points / 100.0, 1.0 - Math.Clamp(rate, 0.0, 1.0)));
 
     /// <summary>Snapshot lookup: the exact runtime code first, then the display base — the site's table is
     /// keyed by runtime code and a rank the snapshot predates (질풍의 권능's rank-5, 불패의 진언's rank-5) has
