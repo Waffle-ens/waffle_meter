@@ -1,4 +1,4 @@
-namespace WaffleMeter.App.Core;
+namespace WaffleMeter.Data;
 
 /// <summary>
 /// Decodes a skill's specialization (특화) from the FULL wire skill code. The game does not send
@@ -7,7 +7,10 @@ namespace WaffleMeter.App.Core;
 /// tens/hundreds/thousands digits (constrained to 1..5) names one active specialization slot. So a base
 /// skill 13040000 cast as 13040240 has slots {2,4}; cast as 13042350 has {2,3,5}. Verified against a real
 /// 151,937-hit capture and matched to the client's own decode.
-/// <para>Pure so it is unit-testable and shared by the in-meter detail panel.</para>
+/// <para>Pure so it is unit-testable. It lives in Data, not App.Core, because it decodes a field of a Data
+/// type (<see cref="AnalyzedSkill.RawSkillCode"/>) and BOTH the in-meter detail panel and the stats upload
+/// need it — App.Core references Stats, so a decoder in App.Core could never be reached from the payload
+/// builder.</para>
 /// </summary>
 public static class SkillSpecialization
 {

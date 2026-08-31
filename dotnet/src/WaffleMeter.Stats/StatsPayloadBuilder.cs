@@ -723,6 +723,22 @@ public sealed class StatsPayloadBuilder
             SynergyCount: count);
     }
 
+    /// <summary>The active 특화 slot numbers (1..5) for a skill, or null when it carries none. Decoded from the
+    /// full wire code, which is where the game keeps it — there is no specialization field on the wire.</summary>
+    private static IReadOnlyList<int>? DecodeSpecialization(int rawSkillCode)
+    {
+        bool[]? slots = SkillSpecialization.Decode(rawSkillCode);
+        if (slots == null) return null;
+
+        var active = new List<int>();
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (slots[i]) active.Add(i + 1);
+        }
+
+        return active.Count > 0 ? active : null;
+    }
+
     private List<StatsSkillPayload> BuildSkillPayloads(Dictionary<string, AnalyzedSkill> skills, long totalDamage)
     {
         double Share(long amount) => totalDamage > 0 ? OneDecimal((double)amount / totalDamage * 100.0) : 0.0;
@@ -751,7 +767,13 @@ public sealed class StatsPayloadBuilder
                     CritRate: rate.CritRate,
                     StrongRate: rate.StrongRate,
                     PerfectRate: rate.PerfectRate,
-                    Share: Share(directDamage)));
+                    Share: Share(directDamage),
+                    // 미터 상세 표가 스킬마다 보여주는 나머지 칸들. 종전에는 참가자 합계로만 올라가서, 웹은
+                    // "이 스킬은 후방을 몇 %나 쳤나"를 그릴 수 없었다.
+                    BackRate: rate.BackRate,
+                    FrontRate: rate.FrontRate,
+                    ParryRate: rate.ParryRate,
+                    Specialization: DecodeSpecialization(skill.RawSkillCode)));
             }
 
             long dotDamage = Math.Max((long)skill.DotDamageAmount, 0);

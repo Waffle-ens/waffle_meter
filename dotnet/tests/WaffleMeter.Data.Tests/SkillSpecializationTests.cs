@@ -1,7 +1,7 @@
-using WaffleMeter.App.Core;
+using WaffleMeter.Data;
 using Xunit;
 
-namespace WaffleMeter.App.Core.Tests;
+namespace WaffleMeter.Data.Tests;
 
 /// <summary>
 /// Spec for decoding a skill's specialization (특화) from its full wire code — the last four decimal

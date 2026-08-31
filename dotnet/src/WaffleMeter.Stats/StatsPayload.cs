@@ -172,6 +172,19 @@ public sealed record StatsResultPayload(
     double ParryRate,
     double BossBlockRate);
 
+/// <param name="BackRate">후방 타격률 %. Divides by the FLAG-BEARING hit count, not every hit — a direction is
+/// only measurable on hits that carried a special-flag region, and mixing the others in reads as an
+/// artificially low rate. Same denominator the meter's own detail table uses, so the two agree.</param>
+/// <param name="FrontRate">전방 타격률 %, same denominator as <paramref name="BackRate"/>. Front and back are
+/// mutually exclusive by construction (one position byte, not a bitmask).</param>
+/// <param name="ParryRate">막기(페리) 발동률 %, over every direct hit.</param>
+/// <param name="Specialization">
+/// Which of the five 특화 slots this skill was cast with, as the ACTIVE slot numbers (1..5) — e.g. <c>[2, 4]</c>.
+/// Null when the skill carries none: only player skills (8-digit codes in the 11M..19.99M band) do, so basic
+/// attacks, 테오스톤 오브, mob skills and DoT rows have no build. The game sends no specialization field — it is
+/// baked into the skill code's last four digits — so this is the meter's decode of it, and the only way the
+/// site can show the same five pips the meter draws.
+/// </param>
 public sealed record StatsSkillPayload(
     int SkillCode,
     string SkillName,
@@ -181,7 +194,11 @@ public sealed record StatsSkillPayload(
     double CritRate,
     double StrongRate,
     double PerfectRate,
-    double Share);
+    double Share,
+    double? BackRate = null,
+    double? FrontRate = null,
+    double? ParryRate = null,
+    IReadOnlyList<int>? Specialization = null);
 
 /// <param name="Category">
 /// Target-derived: "buff" for a player target, "debuff" for the boss. That IS the correct taxonomy — a player
