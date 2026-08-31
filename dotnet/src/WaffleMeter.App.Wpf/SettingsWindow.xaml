@@ -1774,7 +1774,7 @@
                                 <TextBlock Text="{Binding StatSheetUnfilled}" Style="{StaticResource SettingDesc}"
                                            Margin="0,4,0,0" TextWrapping="Wrap"/>
                                 <TextBlock Style="{StaticResource SettingDesc}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                           Text="특히 공격력은 게임이 보내는 값과 스탯창에 뜨는 값이 서로 달라서, 잘못 넣으면 공격력 계열 옵션의 효율이 실제보다 훨씬 높게 계산됩니다. 그래서 비워 두고 보냅니다."/>
+                                           Text="장비 해제 공격력과 장비 돌파 레벨은 게임이 보내 주지 않습니다. 무기 최소/최대 공격력과 최대 공격력 합계는 미터가 읽는 값이 이미 모든 출처를 합친 수치라, 계산기의 저 칸들에 그대로 넣으면 같은 값을 두 번 세게 되어 넣지 않습니다."/>
                             </StackPanel>
                         </Border>
 
