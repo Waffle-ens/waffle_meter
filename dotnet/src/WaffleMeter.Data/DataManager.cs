@@ -266,6 +266,16 @@ public sealed class DataManager : ICaptureGameData
 
     public bool IsBuffBlacklisted(int code) => _buffBlacklist.Contains(code);
 
+    // ---- player stat sheet (0x364A / 0x3649) ----
+    private readonly PlayerStatStore _playerStats = new();
+
+    /// <summary>본인 캐릭터의 스탯 사전. "내 스탯 복사"와 계산기 딥링크가 읽는 단일 원천.</summary>
+    public PlayerStatStore PlayerStats => _playerStats;
+
+    /// <summary><see cref="ICaptureGameData.SaveStatSheet"/> 구현. 도착 시각은 캡처 클럭을 쓴다.</summary>
+    public void SaveStatSheet(int entityId, IReadOnlyList<(int Stat, int Value)> stats, bool fullSnapshot) =>
+        _playerStats.Accept(entityId, stats, fullSnapshot, Clock());
+
     // ---- buff gain values (nDPS/rDPS) ----
     private readonly BuffValueCatalog _buffValues = new();
 
@@ -1473,6 +1483,10 @@ public sealed class DataManager : ICaptureGameData
 
             _userRepository.Executor(uid);
             newExec.IsExecutor = true;
+
+            // 스탯 사전은 신원보다 먼저 도착한다(실측 ~6초). 여기서 주인이 확정돼야 보류해 둔 프레임이 반영된다.
+            // 다른 캐릭터로 바뀐 경우엔 스토어가 알아서 비운다 — 스탯은 캐릭터의 것이라 물려주면 안 된다.
+            _playerStats.SetOwner(uid);
 
             // When this install last learned WHO it is watching. The weekly 성역 counters need it: the 0x610B
             // login snapshot beats the own-load packet that names the character by ~4 s at every zone-in

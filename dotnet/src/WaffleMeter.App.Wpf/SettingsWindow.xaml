@@ -1728,6 +1728,27 @@
                         <Button Content="내 캐릭터 통계 보기" Click="OnOpenMyStats" IsEnabled="{Binding CharacterDetected}" HorizontalAlignment="Left"/>
                         <TextBlock Text="캐릭터가 접속해 있어야 열 수 있어요" Style="{StaticResource SettingDesc}" Margin="0,4,0,0"
                                    Visibility="{Binding CharacterDetected, Converter={StaticResource BoolToVisInverse}, FallbackValue=Collapsed}"/>
+
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="내 스탯" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"
+                                   Text="게임이 보내주는 캐릭터 스탯을 그대로 읽어 둡니다. 스탯 계산기에 직접 입력할 필요 없이 값을 그대로 넘길 수 있어요. 전체 스탯은 캐릭터가 접속할 때 한 번 오고, 그 뒤로는 바뀐 항목만 옵니다."/>
+                        <TextBlock Text="{Binding StatSheetStatus}" Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="내 스탯 복사" Click="OnCopyStatSheet" IsEnabled="{Binding HasStatSheet}" Margin="0,0,8,0"/>
+                            <Button Content="계산기 열기" Click="OnOpenCalculator" IsEnabled="{Binding HasStatSheet}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding StatSheetUnfilled}" Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"
+                                   Visibility="{Binding HasStatSheet, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
+                        <!-- 잡힌 값을 그대로 보여준다. 인게임 스탯창과 눈으로 맞춰 보라는 자리다 — 항목 이름을
+                             패킷에서 직접 읽을 방법이 없어서, 이 대조가 유일한 확인 수단이다. -->
+                        <Expander Header="잡힌 스탯 보기 (인게임 스탯창과 비교)" Margin="0,0,0,8"
+                                  Visibility="{Binding HasStatSheet, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
+                            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0">
+                                <TextBlock Text="{Binding StatSheetDump}" Style="{StaticResource SettingDesc}"
+                                           FontFamily="Consolas" TextWrapping="NoWrap"/>
+                            </ScrollViewer>
+                        </Expander>
                     </StackPanel>
 
                     <!-- ===== 게임 최적화 ===== -->

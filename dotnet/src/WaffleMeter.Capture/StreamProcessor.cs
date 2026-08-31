@@ -99,6 +99,11 @@ public sealed class StreamProcessor
     // periodic 0x3847 snapshot catches up. remaining = the frame's LAST varint (ground-truth verified: 바이젤/
     // 지원사격 39100ms, 축복의활 78200ms). Filtered to self.
     private const int CooldownStartKey = 0x02 | (0x38 << 8);   // 0x3802
+    // 캐릭터 스탯 사전. 0x364A = 변경분(엔티티 id 포함), 0x3649 = 전체 스냅샷(엔티티 id 없음 — 본인 것이고
+    // 수신 측이 현재 본인 uid에 묶는다). 2026-06-10 패치의 0x36 시프트(첫 바이트 ≥0x40이면 +1) 이전 번호는
+    // 각각 0x3649 / 0x3648 이었다. 레이아웃은 아래 ParseStatSheet 참조.
+    private const int StatSheetDeltaKey = 0x4A | (0x36 << 8);  // 0x364A (was 0x3649)
+    private const int StatSheetFullKey = 0x49 | (0x36 << 8);   // 0x3649 (was 0x3648)
     private const int BattleToggleKey = 0x21 | (0x8D << 8);    // 0x8D21
     private const int RemainHpKey = 0x00 | (0x8D << 8);        // 0x8D00
     // 엔티티 사망 브로드캐스트. 죽은 엔티티 id가 첫 varint. 코퍼스 3세션 481프레임이 전부 그 엔티티의 HP=0
@@ -172,6 +177,8 @@ public sealed class StreamProcessor
         [CooldownKey] = "Cooldown",
         [CooldownStartKey] = "CooldownStart",
         [BattleToggleKey] = "BattleToggle",
+        [StatSheetDeltaKey] = "StatSheet",
+        [StatSheetFullKey] = "StatSheetFull",
         [RemainHpKey] = "RemainHp",
         [BuffRemoveKey] = "BuffRemove",
         [EntityDeathKey] = "EntityDeath",
@@ -351,6 +358,12 @@ public sealed class StreamProcessor
                     break;
                 case OwnCombatPowerKey:
                     ParseOwnCombatPower(packet, lengthInfo, extraFlag, arrivedAt);
+                    break;
+                case StatSheetDeltaKey:
+                    ParseStatSheet(packet, lengthInfo, extraFlag, withEntityId: true);
+                    break;
+                case StatSheetFullKey:
+                    ParseStatSheet(packet, lengthInfo, extraFlag, withEntityId: false);
                     break;
                 case SummonKey:
                     ParseSummonPacket(packet, extraFlag);
@@ -691,6 +704,91 @@ public sealed class StreamProcessor
         _data.SaveDamage(pdp, _data.CurrentEpoch());
         _sink.Damage("dot", pdp, true, null, null);
     }
+
+    /// <summary>
+    /// 캐릭터 스탯 사전(0x364A 변경분 / 0x3649 전체 스냅샷).
+    /// <code>
+    /// 0x364A: [varint len][4A 36][varint entityId][varint count][count × (u16 LE statId, i32 LE value)][8B 꼬리]
+    /// 0x3649: [varint len][49 36][00 00]         [varint count][count × (u16 LE statId, i32 LE value)][8B 꼬리]
+    /// </code>
+    /// <para>값은 <b>부호 있는</b> i32다(저항·감소 계열이 음수로 온다). 단위는 id마다 다르다 — 퍼센트 계열은
+    /// basis point(값/100 = %)이고 나머지는 그대로 정수다. 어느 쪽인지는 값만 봐서는 알 수 없어
+    /// <see cref="PlayerStatIds.IsPercent"/>가 id별로 선언한다.</para>
+    /// <para><b>게이트</b>: <c>offset + count*6 + 8 == packet.Length</c> 로 프레임을 정확히 소진해야만 채택한다.
+    /// 스탯 사전은 값의 모양으로는 검증할 수 없다(어떤 i32든 그럴듯하다) — 소진 검사가 유일한 방어선이다.
+    /// count 상한 1024는 폭주한 varint가 거대한 루프를 돌지 못하게 막는다.</para>
+    /// <para>0x3649는 엔티티 id를 싣지 않는다. 본인 캐릭터 전용이고, 수신 측이 <b>지금</b>의 본인 uid에 묶는
+    /// 구조다 — 그래서 신원을 모르는 동안 도착하면 데이터 계층이 잠시 들고 있다가 신원이 확정될 때 반영한다
+    /// (실측: 스탯 프레임이 본인 신원 패킷보다 약 6초 먼저 온다).</para>
+    /// </summary>
+    private void ParseStatSheet(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, bool withEntityId)
+    {
+        try
+        {
+            int offset = lengthInfo.Length + (extraFlag ? 1 : 0) + 2;
+            int entityId = 0;
+            if (withEntityId)
+            {
+                if (offset >= packet.Length) return;
+                VarIntOutput entity = PacketPrimitives.ReadVarInt(packet, offset);
+                entityId = entity.Value;
+                offset += entity.Length;
+            }
+            else
+            {
+                offset += 2; // 전체 스냅샷은 opcode 뒤에 00 00 두 바이트가 붙는다
+            }
+
+            if (offset >= packet.Length) return;
+            VarIntOutput countInfo = PacketPrimitives.ReadVarInt(packet, offset);
+            offset += countInfo.Length;
+            int count = countInfo.Value;
+            if (count is < 0 or > MaxStatSheetEntries)
+            {
+                _sink.ParserError("stat_sheet", "implausible count");
+                return;
+            }
+
+            if (offset + (count * StatSheetEntryLength) + StatSheetTrailerLength != packet.Length)
+            {
+                _sink.ParserError("stat_sheet", "frame not exhausted");
+                return;
+            }
+
+            // count 0 = "이번엔 바뀐 게 없다". 정상 프레임이므로 오류로 세지 않고 조용히 끝낸다 — 실측 코퍼스
+            // 2,904 델타 프레임 중 40%가 이 모양이었고, 이걸 오류로 세면 파서가 고장난 것처럼 보인다.
+            if (count == 0)
+            {
+                return;
+            }
+
+            var stats = new (int Stat, int Value)[count];
+            for (int i = 0; i < count; i++)
+            {
+                stats[i] = (
+                    packet[offset] | (packet[offset + 1] << 8),
+                    (int)PacketPrimitives.ParseUInt32Le(packet, offset + 2));
+                offset += StatSheetEntryLength;
+            }
+
+            _data.SaveStatSheet(entityId, stats, fullSnapshot: !withEntityId);
+            _sink.Meta("stat_sheet", ("entity", entityId), ("count", count), ("full", !withEntityId));
+        }
+        catch
+        {
+            // swallowed — a short/garbage frame must never take the consumer down.
+        }
+    }
+
+    /// <summary>스탯 사전 한 항목 = <c>[u16 statId][i32 value]</c>.</summary>
+    private const int StatSheetEntryLength = 6;
+
+    /// <summary>스탯 사전 프레임 꼬리(실측 8바이트). 소진 검사에 쓰인다.</summary>
+    private const int StatSheetTrailerLength = 8;
+
+    /// <summary>한 프레임이 실어 나를 수 있다고 보는 스탯 개수 상한. 실측 최대는 87개다 — 상한은 폭주한 varint가
+    /// 거대한 루프를 돌지 못하게 막는 용도이지 정확한 경계가 아니다.</summary>
+    private const int MaxStatSheetEntries = 1024;
 
     /// <summary>Own combat-power packet 0x3656 (was 0x3655). Kotlin parseOwnCombatPower (177-190).
     /// <para>본문은 실측 고정 레이아웃이다: <c>[u32 LE 현재 전투력][00 00 00 00][u32 LE 최고 전투력]
