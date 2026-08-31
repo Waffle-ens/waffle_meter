@@ -42,6 +42,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     // Empty by default so a meter with the feature off — or with no artifact yet — renders exactly as before.
     private IReadOnlyDictionary<int, RowTier> _rowTiers = EmptyTiers;
     private static readonly Dictionary<int, RowTier> EmptyTiers = [];
+    private static readonly Dictionary<int, DpsMetricResult> EmptyMetrics = [];
 
     // React isLightOverlay hardcoded stat colors — used when the active skin is "light" so values stay
     // readable on the light background (the user theme colors are tuned for dark).
@@ -88,6 +89,12 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
     /// (its participants have different entity uids, so the stale map had no entry for them).</para>
     /// </summary>
     public Func<DpsReport, IReadOnlyDictionary<int, RowTier>>? TierResolver { get; set; }
+
+    /// <summary>nDPS/rDPS for the report being shown. Injected the same way <see cref="TierResolver"/> is, so a
+    /// live report and a history replay go through one function — a saved battle returns its frozen snapshot and
+    /// a live one recomputes. Null (not wired) simply means the row metric selector has nothing to switch to and
+    /// the rows stay on raw DPS.</summary>
+    public Func<DpsReport, IReadOnlyDictionary<int, DpsMetricResult>>? MetricsResolver { get; set; }
 
     private NameFxRoster _nameFx = NameFxRoster.Empty;
     /// <summary>Grant lookups memoised on (server, nickname) — the hot loop must not hash per row per tick.
@@ -519,6 +526,29 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
         TargetBottomBarVisibility = barVis;
         double Metric(DpsInformation info) => total ? info.Amount : info.Dps;
 
+        // 행에 찍을 초당 피해량의 종류. 총 피해량 모드에서는 언제나 Dps 로 떨어진다(정규화된 누적 피해량이라는
+        // 물건은 없다 — MeterSettings.RowDpsMetricMode 주석 참조).
+        RowDpsMetricMode metricMode = _settings.RowDpsMetricMode;
+        IReadOnlyDictionary<int, DpsMetricResult> metrics =
+            metricMode != RowDpsMetricMode.Dps && MetricsResolver is { } resolveMetrics
+                ? resolveMetrics(report)
+                : EmptyMetrics;
+
+        // uid -> 표시/정렬에 쓸 값. 지표를 못 구한 행(버프 정보가 없어 계산이 안 된 참가자)은 raw DPS 로 남는다 —
+        // 0 으로 떨어뜨리면 그 사람만 맨 아래로 밀려 "빠진 것처럼" 보인다.
+        Dictionary<int, double>? metricOverride = null;
+        if (metrics.Count > 0)
+        {
+            metricOverride = new Dictionary<int, double>(metrics.Count);
+            foreach ((int uid, DpsMetricResult m) in metrics)
+            {
+                metricOverride[uid] = metricMode == RowDpsMetricMode.Rdps ? m.Rdps : m.Ndps;
+            }
+        }
+
+        double RowValue(int uid, DpsInformation info) =>
+            metricOverride != null && metricOverride.TryGetValue(uid, out double v) ? v : Metric(info);
+
         // Row selection lives in the pure OverlayRowBuilder (App.Core, unit-tested): it drops bare/no-nickname
         // combat rows (a mid-join provisional actor that would otherwise show as a blank "broken" line — its DPS
         // still accumulates and the row appears once identity arrives), surfaces the pre-combat party roster
@@ -530,13 +560,14 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             topN: _settings.DisplayRowCap, // 사용자가 고른 인원의 1.5배 여유 (파티원·본인은 추가로 상한 면제)
             selfNickname: _selfNickname, selfServer: _selfServer, selfJob: _selfJob, selfPower: _selfPower,
             authoritativeParty: _authoritativeParty,
+            metricOverride: metricOverride,
             // Opt-in "던전 강제 집계": only on a classified instanced (원정/초월/성역) boss (stamped live into the report).
             forceInstanceTracking: _settings.ForceInstanceTracking && report.TargetInstanced,
             rosterIdentities: _authoritativePartyIdentities,
             memberProfiles: _memberProfiles,
             allowRosterResurface: _allowRosterResurface);
 
-        double topMetric = Math.Max(display.Count > 0 ? display.Max(e => Metric(e.Info)) : 0.0, 1.0);
+        double topMetric = Math.Max(display.Count > 0 ? display.Max(e => RowValue(e.Uid, e.Info)) : 0.0, 1.0);
 
         // "off" is the hard kill switch: no ring, no chip, no timer — the row renders through the IsNone
         // trigger and is pixel-identical to a build without the feature.
@@ -640,7 +671,9 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                 ServerTagVisibility: serverTag.Length == 0 ? Visibility.Collapsed : Visibility.Visible,
                 PowerText: power > 0 ? MeterFormat.FormatPower(power) : string.Empty,
                 PowerVisible: power > 0 ? Visibility.Visible : Visibility.Collapsed,
-                DamageText: total ? MeterFormat.FormatAmount(e.Info.Amount) : MeterFormat.FormatDps(e.Info.Dps),
+                DamageText: total
+                    ? MeterFormat.FormatAmount(e.Info.Amount)
+                    : MeterFormat.FormatDps(RowValue(e.Uid, e.Info)),
                 PercentText: MeterFormat.FormatPercent(entire ? e.Info.EntireContribution : contribution),
                 BarRatio: barRatio,
                 BarRest: 1.0 - barRatio,

@@ -371,6 +371,16 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="DPS 종류" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="nDPS는 남이 걸어준 버프 몫을 걷어낸 값, rDPS는 거기에 내가 파티에 얹어준 몫을 더한 값입니다. 순서와 게이지도 같이 바뀝니다. (딜량 기준이 '누적 피해량'이면 적용되지 않습니다)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding RowDpsMetrics}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding RowDpsMetric}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="기여도 표시 방식" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="파티 기여도 또는 보스 체력 기여도로 표시합니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>

@@ -246,10 +246,17 @@
                 <Button Content="&#xE8BB;" Click="OnClose" HorizontalAlignment="Right" Style="{StaticResource HeaderCloseButton}"/>
             </Grid>
 
-            <!-- Stat tiles: label above value, 6 per row (stats-site layout). -->
-            <UniformGrid DockPanel.Dock="Top" Columns="6" Margin="0,0,0,10">
+            <!-- Stat tiles: label above value. 7 per row since nDPS/rDPS joined — 13 tiles in 6 columns would
+                 spill a single tile onto a third row. -->
+            <UniformGrid DockPanel.Dock="Top" Columns="7" Margin="0,0,0,10">
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="총 피해" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding TotalDamageText}" Style="{StaticResource SumValue}" Foreground="{Binding AmountBrush}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="DPS" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding DpsText}" Style="{StaticResource SumValue}" Foreground="{StaticResource ValueCyan}"/></StackPanel></Border>
+                <!-- nDPS/rDPS: 계산이 안 된 전투에서는 값이 "-" 로 떨어진다(0을 그리면 "버프를 하나도 못 받았다"로
+                     읽힌다). 타일 자체는 자리를 지켜 레이아웃이 튀지 않게 둔다. -->
+                <Border Style="{StaticResource SumTile}" ToolTip="남이 걸어준 버프 몫을 걷어낸 초당 피해량. 내가 스스로 건 버프는 그대로 남습니다.">
+                    <StackPanel><TextBlock Text="nDPS" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding NdpsText}" Style="{StaticResource SumValue}" Foreground="{StaticResource ValueCyan}"/></StackPanel></Border>
+                <Border Style="{StaticResource SumTile}" ToolTip="nDPS + 내가 파티에 얹어준 몫(버프 배수 + 흡혈의 검·대지의 축복처럼 실제로 남의 미터에 들어간 피해).">
+                    <StackPanel><TextBlock Text="rDPS" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding RdpsText}" Style="{StaticResource SumValue}" Foreground="{StaticResource ValueCyan}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="기여도" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding ContributionText}" Style="{StaticResource SumValue}" Foreground="{Binding ContributionBrush}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="타수" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding HitsText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="전투시간" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding CombatTimeText}" Style="{StaticResource SumValue}" Foreground="{Binding DetailCombatTimeBrush}"/></StackPanel></Border>
@@ -261,6 +268,10 @@
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="전방" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding FrontText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="막기" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding ParryText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
             </UniformGrid>
+
+            <!-- 버프 주고받은 몫 한 줄 요약. rDPS 타일이 "얼마"라면 이 줄은 "어디서 왔나"다. -->
+            <TextBlock DockPanel.Dock="Top" Text="{Binding BuffContributionText}" Visibility="{Binding BuffContributionVisibility}"
+                       Foreground="{DynamicResource Skin.MutedFg}" FontSize="11.5" Margin="2,0,0,10" TextWrapping="Wrap"/>
 
             <Grid>
                 <TextBlock Text="이 전투에는 표시할 데이터가 없어요." Visibility="{Binding NoDataVisibility}"
@@ -348,6 +359,15 @@
                                                                 <Image Source="{Binding Merged.IconSource}" Width="24" Height="24" Margin="0,0,9,0" VerticalAlignment="Center"/>
                                                                 <TextBlock Text="{Binding Merged.Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="13" FontWeight="SemiBold"
                                                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                                <!-- 남이 만들어 준 피해(흡혈의 검 착취 / 대지의 축복 추가 피해)에 시전자 이름표.
+                                                                     없으면 "내가 안 배운 직업 스킬이 내 목록에 있다"로 읽힌다. -->
+                                                                <Border Visibility="{Binding Merged.GrantedByVisibility}" Margin="6,0,0,0" Padding="5,0"
+                                                                        CornerRadius="3" VerticalAlignment="Center"
+                                                                        Background="{DynamicResource Skin.StatBg}"
+                                                                        BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1">
+                                                                    <TextBlock Text="{Binding Merged.GrantedByText}" FontSize="10" FontWeight="Bold"
+                                                                               Foreground="{DynamicResource Skin.MutedFg}"/>
+                                                                </Border>
                                                             </StackPanel>
                                                             <Border Grid.Column="1" Style="{StaticResource TypeBadge}">
                                                                 <TextBlock Text="{Binding Merged.TypeText}" Foreground="{DynamicResource Skin.MutedFg}" FontSize="10.5"/>

@@ -53,6 +53,7 @@ public static class SettingsKeyCatalog
         // ── 표시 형식 ──────────────────────────────────────────────────────────────
         new("displayMode", FD, "표시 형식", "표시 형식"),
         new("damageValueMode", FD, "표시 형식", "딜량 기준"),
+        new("rowDpsMetric", FD, "표시 형식", "DPS 종류(DPS/nDPS/rDPS)"),
         new("contributionMode", FD, "표시 형식", "기여도 표시 방식"),
         new("nameDisplay", FD, "표시 형식", "아이디 표기"),
         new("showServerTag", FD, "표시 형식", "서버 표시"),

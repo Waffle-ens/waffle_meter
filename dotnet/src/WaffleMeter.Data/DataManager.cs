@@ -266,6 +266,18 @@ public sealed class DataManager : ICaptureGameData
 
     public bool IsBuffBlacklisted(int code) => _buffBlacklist.Contains(code);
 
+    // ---- buff gain values (nDPS/rDPS) ----
+    private readonly BuffValueCatalog _buffValues = new();
+
+    /// <summary>Per-buff-code effect values used by <see cref="DpsMetrics"/>. Empty until buff_values.json is
+    /// loaded, which is fine: an empty catalog just means every non-synergy buff prices at zero gain, so
+    /// nDPS falls back to raw DPS rather than to a wrong number.</summary>
+    public BuffValueCatalog BuffValues => _buffValues;
+
+    public void LoadBuffValues(IEnumerable<(int Code, IReadOnlyList<BuffGainEffect> Effects)> rows) =>
+        _buffValues.Load(rows);
+
+
     // ---- per-job buff picker (combat-assist overlay) ----
     // Names + job for each base skill code (110000000-buff / 11000000-skill share a base), for the picker UI.
     private readonly Dictionary<int, (string Name, string Job)> _buffNames = new();
@@ -308,7 +320,13 @@ public sealed class DataManager : ICaptureGameData
     //    적용, 동일하면 불패의 진언" 이라고 명문화돼 있어 동률 승자를 고정한다.
     //  · 대지의 축복↔질풍의 권능 : 서버가 새 적용은 막지만(질풍 우선) 이미 걸린 축복을 제거하진 않아
     //    최대 ~20초 잔존 → 질풍이 살아 있으면 축복을 감춘다(고정 승자).
-    private readonly record struct ExclusiveBuffPair(int A, int B, int FixedWinner, int TieWinner);
+    /// <summary>공개 이유: 오버레이(<see cref="SuppressExclusiveLosers"/>)와 nDPS/rDPS 계산
+    /// (<see cref="DpsMetrics"/>)이 <b>같은 배타 규칙</b>을 써야 한다. 두 벌로 갈라두면 화면에서는 감춘 버프를
+    /// 계산에서는 이득으로 세는(또는 그 반대) 어긋남이 조용히 생긴다.</summary>
+    public readonly record struct ExclusiveBuffPair(int A, int B, int FixedWinner, int TieWinner);
+
+    /// <summary>인게임에서 서로 중복 적용되지 않는 버프 쌍(표시용 base 코드 기준).</summary>
+    public static IReadOnlyList<ExclusiveBuffPair> ExclusivePairs => ExclusiveBuffPairs;
 
     private static readonly ExclusiveBuffPair[] ExclusiveBuffPairs =
     {
@@ -2569,6 +2587,7 @@ public sealed class DataManager : ICaptureGameData
             PartyRosterSize = rosterFresh ? _partyRoster.Count : 0,
             DpsSeries = data.DpsSeries,          // frozen per-second damage series so the replayed DPS graph isn't empty
             BuffIntervals = data.BuffIntervals,  // frozen buff timeline (built pre-prune by the caller) for the graph's icon lane
+            DpsMetrics = data.DpsMetrics,        // frozen nDPS/rDPS — unrecomputable once the buff repo is pruned below
         };
 
         var log = new DpsLog

@@ -86,6 +86,24 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     private string _dpsText = "0";
     public string DpsText { get => _dpsText; private set => Set(ref _dpsText, value); }
 
+
+    private string _ndpsText = "-";
+    /// <summary>버프를 걷어낸 초당 피해량. 계산 불가 시 "-".</summary>
+    public string NdpsText { get => _ndpsText; private set => Set(ref _ndpsText, value); }
+
+    private string _rdpsText = "-";
+    /// <summary>nDPS + 내가 파티에 얹어준 몫. 계산 불가 시 "-".</summary>
+    public string RdpsText { get => _rdpsText; private set => Set(ref _rdpsText, value); }
+
+    private Visibility _metricsVisibility = Visibility.Collapsed;
+    public Visibility MetricsVisibility { get => _metricsVisibility; private set => Set(ref _metricsVisibility, value); }
+
+    private string _buffContributionText = string.Empty;
+    /// <summary>"받은 버프 +N/s · 준 버프 +N/s (파티에 넘긴 피해 N)" 한 줄 요약.</summary>
+    public string BuffContributionText { get => _buffContributionText; private set => Set(ref _buffContributionText, value); }
+
+    private Visibility _buffContributionVisibility = Visibility.Collapsed;
+    public Visibility BuffContributionVisibility { get => _buffContributionVisibility; private set => Set(ref _buffContributionVisibility, value); }
     private string _hitsText = "0";
     public string HitsText { get => _hitsText; private set => Set(ref _hitsText, value); }
     private string _contributionText = "0.0%";
@@ -185,13 +203,46 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
             ? new DetailProcRow(heal.Code, heal.Name, heal.Count, "생명력 10% 이하에서 발동 (재발동 1분)")
             : null;
 
+        // nDPS/rDPS: 저장 전투는 얼려 둔 값, 라이브는 지금 계산. 이 uid 몫이 없으면(버프 정보가 없어 계산이
+        // 안 된 전투) null 로 남겨 타일을 감춘다 — 0을 그리면 "버프를 하나도 못 받았다"로 읽힌다.
+        IReadOnlyDictionary<int, DpsMetricResult> metricsByUid = _calc.GetDpsMetrics(report);
+        DetailMetrics? metrics = metricsByUid.TryGetValue(_uid, out DpsMetricResult m)
+            ? new DetailMetrics(m.Ndps, m.Rdps, m.TakenBuffDps, m.GivenBuffDps, m.GrantedDamage)
+            : null;
+
+        // 남이 나에게 걸어 준 시너지 버프의 시전자 이름 — 스킬 표에서 "흡혈의 검 (밀피)" 처럼 붙는다. 코드만으로는
+        // 내 것과 남의 것을 못 가르므로(검성 본인 타격도 같은 코드) 시전자가 나와 다른 행만 담는다.
+        Dictionary<int, string>? grantedBy = null;
+        foreach (OperatingData row in own)
+        {
+            int source = DataManager.BuffDisplayBase(row.Code);
+            if (row.ActorId == _uid || !PartySynergyCatalog.IsMeasuredGrant(source)) continue;
+
+            string granter = report.Contributors.FirstOrDefault(c => c.Id == row.ActorId)?.Nickname ?? string.Empty;
+            if (granter.Length == 0) continue;
+
+            grantedBy ??= new Dictionary<int, string>();
+            grantedBy[source] = granter;
+        }
+
         DetailModel model = DetailModel.Compute(
-            skills, own, boss, _uid, user?.Job, contribution, combatMs, proc);
+            skills, own, boss, _uid, user?.Job, contribution, combatMs, proc, metrics, grantedBy);
 
         TotalDamageText = MeterFormat.FormatAmount(model.TotalDamage);
         DpsText = model.CombatMs > 0
             ? (model.TotalDamage / (model.CombatMs / 1000.0)).ToString("N0", Inv)
             : "0";
+        // nDPS/rDPS 타일. 계산이 안 된 전투에서는 두 타일을 통째로 감춘다.
+        NdpsText = model.Metrics is { } dm ? dm.Ndps.ToString("N0", Inv) : "-";
+        RdpsText = model.Metrics is { } dm2 ? dm2.Rdps.ToString("N0", Inv) : "-";
+        MetricsVisibility = model.Metrics != null ? Visibility.Visible : Visibility.Collapsed;
+        BuffContributionText = model.Metrics is { } dm3
+            ? $"받은 버프 +{dm3.TakenBuffDps:N0}/s · 준 버프 +{dm3.GivenBuffDps:N0}/s"
+              + (dm3.GrantedDamage > 0 ? $" (파티에 넘긴 피해 {MeterFormat.FormatAmount(dm3.GrantedDamage)})" : "")
+            : string.Empty;
+        BuffContributionVisibility =
+            model.Metrics != null && BuffContributionText.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
         HitsText = model.HitCount.ToString("N0", Inv);
         ContributionText = model.Contribution.ToString("F1", Inv) + "%";
         CritText = model.CritPct.ToString("F1", Inv) + "%";
@@ -438,7 +489,16 @@ public sealed class SkillRowVM
         PercentText = (row.Ratio * 100).ToString("F1", Inv) + "%";
         BarRatio = row.Ratio;
         BarRest = 1.0 - row.Ratio;
+        // 남의 효과로 들어온 피해면 시전자 이름표를 붙인다. 없으면 칩을 접는다 — 대부분의 행은 내 스킬이다.
+        GrantedByText = row.GrantedBy is { Length: > 0 } g ? g : string.Empty;
+        GrantedByVisibility = GrantedByText.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    /// <summary>이 행의 피해를 만들어 준 파티원 이름(검성 흡혈의 검 착취 / 치유성 대지의 축복 추가 피해).
+    /// 비어 있으면 내 스킬이다.</summary>
+    public string GrantedByText { get; }
+
+    public Visibility GrantedByVisibility { get; }
 
     public string Name { get; }
     public bool IsDot { get; }

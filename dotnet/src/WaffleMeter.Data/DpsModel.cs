@@ -303,6 +303,14 @@ public sealed class DpsReport
     /// <see cref="DpsCalculator.GetBuffIntervals"/> against the intact repo).</summary>
     public Dictionary<int, List<BuffTimeline>> BuffIntervals { get; set; } = new();
 
+    /// <summary>Frozen nDPS/rDPS per contributor, computed at save time from the frozen buff rates + skill
+    /// snapshot (see <see cref="DpsCalculator.GetDpsMetrics"/>). Frozen for the same reason
+    /// <see cref="BuffRates"/> is: the live buff repository is pruned right after a battle is saved, so a
+    /// history-replayed battle could not recompute these — it would report every buff at 0% uptime and hand
+    /// back nDPS == DPS, which reads as "nobody buffed you" rather than as "unknown".
+    /// <para>Empty while the battle is in progress; the detail/overlay then recomputes live.</para></summary>
+    public Dictionary<int, DpsMetricResult> DpsMetrics { get; set; } = new();
+
     /// <summary>Frozen per-actor skill-breakdown snapshot (uid -&gt; skillCode -&gt; analyzed skill),
     /// populated when the battle is saved. A SAVED report carries <see cref="Packets"/>=null, so
     /// <see cref="DpsCalculator.BattleDetails"/> could otherwise only rebuild from packets and would return

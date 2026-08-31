@@ -238,6 +238,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         new SettingOption("누적 피해량", "total"),
     };
 
+    public IReadOnlyList<SettingOption> RowDpsMetrics { get; } = new[]
+    {
+        new SettingOption("DPS (실제 피해)", "dps"),
+        new SettingOption("nDPS (버프 제외)", "ndps"),
+        new SettingOption("rDPS (버프 기여 포함)", "rdps"),
+    };
+
     public IReadOnlyList<SettingOption> ContributionModes { get; } = new[]
     {
         new SettingOption("파티 기여도", "contribution"),
@@ -469,6 +476,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     // ---- display tab (live) ----
     public string DisplayMode { get => _settings.DisplayMode; set { _settings.DisplayMode = value; OnPropertyChanged(); } }
     public string DamageValueMode { get => _settings.DamageValueMode; set { _settings.DamageValueMode = value; OnPropertyChanged(); } }
+
+    /// <summary>미터 행의 초당 피해량 종류(DPS/nDPS/rDPS). 표시·정렬·게이지가 함께 움직인다.</summary>
+    public string RowDpsMetric { get => _settings.RowDpsMetric; set { _settings.RowDpsMetric = value; OnPropertyChanged(); } }
     public string ContributionMode { get => _settings.ContributionMode; set { _settings.ContributionMode = value; OnPropertyChanged(); } }
     public string NameDisplay { get => _settings.NameDisplay; set { _settings.NameDisplay = value; OnPropertyChanged(); } }
     public string TtsVoice
@@ -1711,6 +1721,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         DisplayMode = "dps_percent";
         DamageValueMode = "dps";
+        RowDpsMetric = "dps";
         ContributionMode = "contribution";
         NameDisplay = "all";
         FontFamily = DefaultFontFamily;
@@ -2158,7 +2169,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     }
 
     private sealed record Snapshot(
-        string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
+        string DisplayMode, string DamageValueMode, string RowDpsMetric, string ContributionMode, string NameDisplay,
         string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
         string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
         bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster, bool ShowAetherStatus,
@@ -2168,7 +2179,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         int BuffUiIconSize)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
-            s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
+            s.DisplayMode, s.DamageValueMode, s.RowDpsMetric, s.ContributionMode, s.NameDisplay,
             s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
             s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
             s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster, s.ShowAetherStatus,
@@ -2181,6 +2192,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         {
             s.DisplayMode = DisplayMode;
             s.DamageValueMode = DamageValueMode;
+            s.RowDpsMetric = RowDpsMetric;
             s.ContributionMode = ContributionMode;
             s.NameDisplay = NameDisplay;
             s.FontFamily = FontFamily;

@@ -136,7 +136,24 @@ public sealed record StatsParticipantPayload(
     // every party member instead of the uploader alone. Null (omitted, never an empty array) when the frozen
     // snapshot has nothing for them: a pre-freeze report, or damage that never reached a second bucket. Every
     // participant's series in one battle covers the same window, so they line up index-for-index.
-    StatsDpsSeriesPayload? DpsSeries = null);
+    StatsDpsSeriesPayload? DpsSeries = null,
+    // The meter's own nDPS/rDPS for this participant. The site computes the same two numbers at ingest, so this
+    // is not a replacement — it is the LEVEL-AWARE version of them. The site prices a support buff from a fixed
+    // snapshot table with no room for the caster's skill level (its own source: "the payload has no skill level
+    // with which to make this rDPS approximation exact"), which reads 불패의 진언 at level 25 as its level-1
+    // value, has no row for 질풍의 권능's rank-5 code, and none for 흡혈의 검 at all. The meter reads the level
+    // off the wire and prices those from it, and it can measure 흡혈의 검/대지의 축복's shared damage directly —
+    // those land as real damage packets on each party member under the granting class's skill code.
+    // Null when the battle had no computable metrics (no buff data, or a zero-length window).
+    StatsDpsMetricsPayload? Metrics = null);
+
+/// <summary>One participant's buff-normalized rates, rounded to whole damage-per-second.</summary>
+/// <param name="Ndps">DPS with the buffs OTHER people supplied divided out, and another class's shared damage
+/// removed.</param>
+/// <param name="Rdps"><paramref name="Ndps"/> plus what this participant enabled in everyone else.</param>
+/// <param name="GrantedDamage">Raw damage this participant's effects dealt ON OTHER participants' meters —
+/// the measured (not estimated) half of the rDPS credit.</param>
+public sealed record StatsDpsMetricsPayload(long Ndps, long Rdps, long GrantedDamage);
 
 public sealed record StatsResultPayload(
     long TotalDamage,

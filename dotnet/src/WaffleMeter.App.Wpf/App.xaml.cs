@@ -222,6 +222,10 @@ public partial class App : Application
             // 값을 넘겨주면 아티팩트의 trial gate가 "이 난이도가 맞을 때만" 좌표를 내준다.
             services.Data.TrialDifficulty.Current);
 
+        // nDPS/rDPS 도 같은 방식으로 표시 중인 리포트에서 파생시킨다. 저장 전투는 저장 시점에 얼려 둔 값을
+        // 그대로 돌려주고(버프 저장소가 이미 비워졌으므로 재계산이 불가능하다), 라이브는 지금 값을 다시 센다.
+        viewModel.MetricsResolver = report => services.Calculator.GetDpsMetrics(report);
+
         // 후원자·랭커 닉네임 연출 명단. 파일이 없으면 아무도 연출을 갖지 않는다 — 서버 배포 채널이 붙기
         // 전까지가 그 상태다. 공개 repo 에 동봉하지 않는 이유는 부여를 철회해도 git 히스토리에서는 회수할
         // 수 없기 때문이다.

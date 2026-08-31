@@ -983,6 +983,105 @@ public sealed class DpsCalculator
     }
 
     /// <summary>
+    /// nDPS/rDPS for every contributor in <paramref name="data"/>. Prefers the frozen snapshot on a SAVED
+    /// report and otherwise recomputes live, the same way the buff tabs and the DPS graph do — a saved report
+    /// carries no packets and its buff repository has been pruned, so a live recompute there would silently
+    /// under-count.
+    /// </summary>
+    public Dictionary<int, DpsMetricResult> GetDpsMetrics(DpsReport data)
+    {
+        if (data.DpsMetrics.Count > 0)
+        {
+            return data.DpsMetrics;
+        }
+
+        return BuildDpsMetrics(data, null);
+    }
+
+    private Dictionary<int, DpsMetricResult> BuildDpsMetrics(
+        DpsReport data, Dictionary<int, Dictionary<string, AnalyzedSkill>>? skillsOverride)
+    {
+        long durationMs = data.BattleEnd - data.BattleStart;
+        if (durationMs <= 0 || data.Contributors.Count == 0)
+        {
+            return new Dictionary<int, DpsMetricResult>();
+        }
+
+        bool frozen = data.BuffRates.Count > 0;
+        Dictionary<int, Dictionary<string, AnalyzedSkill>> skills =
+            skillsOverride is { Count: > 0 } ? skillsOverride
+            : data.SkillDetailsSnapshot.Count > 0 ? data.SkillDetailsSnapshot
+            : _cachedSkillDetails.Count > 0 ? _cachedSkillDetails
+            : BuildSkillDetails(data);
+
+        var participants = new List<MetricParticipantInput>(data.Contributors.Count);
+        foreach (User user in data.Contributors)
+        {
+            List<OperatingData> rows = frozen
+                ? data.BuffRates.GetValueOrDefault(user.Id) ?? []
+                : GetBuffOperatingRate(user.Id, data.BattleStart, data.BattleEnd);
+
+            List<MetricBuffInput> buffs = rows.Select(r => ToMetricBuff(r, bossScope: false)).ToList();
+            DpsInformation info = data.Information.GetValueOrDefault(user.Id) ?? new DpsInformation();
+
+            participants.Add(new MetricParticipantInput(
+                user.Id,
+                info.Dps,
+                info.Amount,
+                buffs,
+                GrantedDamage(skills.GetValueOrDefault(user.Id), buffs, user.Id)));
+        }
+
+        List<OperatingData> bossRows = frozen
+            ? data.BossBuffRates
+            : data.Target is { } target
+                ? GetBuffOperatingRate(target.Id, data.BattleStart, data.BattleEnd)
+                : [];
+
+        return DpsMetrics.Compute(
+            participants,
+            bossRows.Select(r => ToMetricBuff(r, bossScope: true)).ToList(),
+            _dm.BuffValues,
+            durationMs / 1000.0);
+    }
+
+    private static MetricBuffInput ToMetricBuff(OperatingData row, bool bossScope) => new(
+        row.Code,
+        // The display base, not OperatingData.BaseCode: 대지의 축복 collapses to 17400000 there, which is
+        // 대지의 징벌's base — the same key the healer's own DoT uses. The display base keeps them apart, and
+        // it is what both the synergy catalog and the exclusive-pair table are written against.
+        DataManager.BuffDisplayBase(row.Code),
+        row.ActorId,
+        row.OperatingRate,
+        row.Level,
+        bossScope);
+
+    /// <summary>Damage on THIS player's meter that another class's effect dealt through them — 검성 흡혈의 검's
+    /// 착취 and 치유성 대지의 축복's 추가 피해, which arrive as ordinary damage packets under the granting class's
+    /// skill code. Only counted when the matching buff on this player came from SOMEONE ELSE: the granting
+    /// class's own hits carry the same code and are their own damage.</summary>
+    private static Dictionary<int, long> GrantedDamage(
+        Dictionary<string, AnalyzedSkill>? skills, IReadOnlyList<MetricBuffInput> buffs, int uid)
+    {
+        var granted = new Dictionary<int, long>();
+        if (skills == null || skills.Count == 0)
+        {
+            return granted;
+        }
+
+        foreach (AnalyzedSkill skill in skills.Values)
+        {
+            int source = PartySynergyCatalog.GrantedDamageSource(skill.SkillCode);
+            if (source == 0) continue;
+            if (!buffs.Any(b => b.DisplayBase == source && b.ActorId != uid)) continue;
+
+            granted[source] = granted.GetValueOrDefault(source) + skill.DamageAmount + skill.DotDamageAmount;
+        }
+
+        return granted;
+    }
+
+    /// <summary>
     /// Invoked with the frozen DpsLog each time a battle is saved (Kotlin called StatsUploadQueue
     /// here directly). Left null in replay/headless-without-upload so the DPS golden is unaffected;
     /// the live app wires it to the stats upload queue.
@@ -1011,6 +1110,12 @@ public sealed class DpsCalculator
         _recentData.BossBuffRates = bossBuffRates;
         _recentData.DpsSeries = dpsSeries;
         _recentData.BuffIntervals = buffIntervals;
+        // Freeze AFTER the rates above are on the report: BuildDpsMetrics reads THOSE (plus the skill table
+        // passed in) rather than the buff repository, which SaveBattleLog is about to prune. The skill table
+        // is handed over explicitly instead of being parked on _recentData.SkillDetailsSnapshot — that field
+        // means "this is a saved report" to BattleDetails, and setting it on the live report would change
+        // which source the post-battle detail reads from.
+        _recentData.DpsMetrics = BuildDpsMetrics(_recentData, skillDetails);
 
         // 이 전투의 파티 문맥도 함께 얼린다. 표시 계층의 이름 복구는 파티가 있어야 동작하는데, 종전에는
         // 리포트만 얼고 파티는 "지금"의 것을 봤다 — 전투 후 파티를 나가면(또는 로스터 TTL이 만료되면) 같은
