@@ -227,7 +227,8 @@ void PrintPayload(DpsLog log)
     foreach (StatsBuffPayload b in p.Buffs.OrderByDescending(b => b.OperatingRate).Take(30))
     {
         Console.WriteLine($"      {b.OperatingRate,6:F1}%  {b.BuffName,-18} buffCode={b.BuffCode,-10} baseCode={b.BaseCode?.ToString(CultureInfo.InvariantCulture) ?? "-",-9} " +
-                          $"category={b.Category,-6} source={b.Source ?? "-"}");
+                          $"category={b.Category,-6} source={b.Source ?? "-",-6} " +
+                          $"lv={b.Level?.ToString(CultureInfo.InvariantCulture) ?? "-"}");
     }
 
     var badCategory = p.Buffs.Where(b => b.Category != "buff").ToList();

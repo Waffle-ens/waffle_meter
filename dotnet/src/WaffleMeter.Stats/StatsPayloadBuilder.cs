@@ -826,7 +826,10 @@ public sealed class StatsPayloadBuilder
             ActorIdentityHash: actorIdentityHash,
             OwnerParticipantIndex: ownerParticipantIndex,
             ActorParticipantIndex: actorParticipantIndex,
-            BaseCode: value.BaseCode > 0 ? value.BaseCode : null);
+            BaseCode: value.BaseCode > 0 ? value.BaseCode : null,
+            // 0 = the wire never gave a level (consumable/scroll, or the tail self-validation declined) — send
+            // null rather than 0 so the site can tell "no level" apart from a real level.
+            Level: value.Level > 0 ? value.Level : null);
     }
 
     // Same classification as the local meter's DetailModel.BuildOwnBuffs():

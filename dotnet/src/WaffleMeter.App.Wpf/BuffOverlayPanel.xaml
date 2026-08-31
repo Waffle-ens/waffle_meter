@@ -62,6 +62,16 @@
                             <!-- accent dot when a party member applied the buff -->
                             <Ellipse Width="9" Height="9" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
                                      Fill="{DynamicResource Skin.Accent}" Visibility="{Binding ByOther, Converter={StaticResource BoolToVis}}"/>
+                            <!-- 스킬 레벨 배지(우하단). 원형 아이콘의 오른쪽 아래 여백에 얹히므로 아이콘 그림을
+                                 거의 가리지 않는다. 어두운 알약 배경 + 흰 글씨라 밝은 아이콘 위에서도 읽힌다.
+                                 레벨을 모르면(0) VM 이 통째로 Collapsed 로 접는다 — "0"을 그리지 않는다.
+                                 배지는 슬롯 Grid 안에 있으므로 아이콘 크기 배율(LayoutTransform)을 함께 탄다. -->
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2"
+                                    Background="#D9000000" CornerRadius="6" Padding="3,0" MinWidth="14"
+                                    Visibility="{Binding LevelVisibility}">
+                                <TextBlock Text="{Binding LevelText}" Foreground="White" FontSize="10" FontWeight="Bold"
+                                           HorizontalAlignment="Center" TextAlignment="Center"/>
+                            </Border>
                         </Grid>
                         <!-- 아래쪽 2px = WrapPanel 이 줄을 바꿨을 때 윗줄 글씨와 아랫줄 아이콘 사이의 간격.
                              슬롯의 마지막 자식이라 배율을 따라간다 — 바깥 StackPanel 에 주면 LayoutTransform

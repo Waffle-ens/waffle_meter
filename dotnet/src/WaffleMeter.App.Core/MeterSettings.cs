@@ -128,6 +128,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffTtsOnStart = ReadBool("buffUi.ttsOnStart", false);
         _buffTtsOnEnd = ReadBool("buffUi.ttsOnEnd", false);
         _buffUiGrayOnCooldown = ReadBool("buffUi.grayOnCooldown", false);
+        _buffUiShowLevel = ReadBool("buffUi.showLevel", true);
         _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
         _buffUiHidden = _props.GetProperty("buffUi.hidden") ?? "";
         _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
@@ -473,6 +474,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Gray out a buff overlay icon while the skill that grants it is still on cooldown (from the live
     /// 0x3847 cooldown snapshot), so you can see at a glance when it's re-castable. Off by default.</summary>
     public bool BuffUiGrayOnCooldown { get => _buffUiGrayOnCooldown; set => SetBool(ref _buffUiGrayOnCooldown, "buffUi.grayOnCooldown", value); }
+
+    private bool _buffUiShowLevel;
+    /// <summary>버프 아이콘 우하단에 그 버프의 <b>스킬 레벨</b>(어노멀 레벨)을 작게 겹쳐 그린다. 레벨을 못 읽은
+    /// 적용(0)은 배지를 아예 그리지 않는다 — "0"을 띄우면 1레벨과 구분이 안 된다. 기본 켜짐.</summary>
+    public bool BuffUiShowLevel { get => _buffUiShowLevel; set => SetBool(ref _buffUiShowLevel, "buffUi.showLevel", value); }
 
     private bool _showOtherPlayerBuffs;
     /// <summary>Include buffs applied by other players (off = only the local player's own buffs).</summary>

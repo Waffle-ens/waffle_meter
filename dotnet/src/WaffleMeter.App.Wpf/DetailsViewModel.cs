@@ -526,7 +526,16 @@ public sealed class BuffRowVM
         BarBrush = DetailsViewModel.BuffBarBrush(row.Rate);
         Description = row.Description;
         IconSource = JoinIcons.Skill(row.Code); // buff/debuff share the skill-icon manifest
+        // 시전자의 스킬 레벨. 0 = 모름이면 칩을 통째로 접는다 — "Lv.0" 은 1레벨과 구분이 안 되고, 소모품
+        // 버프는 애초에 레벨이 없어서 모든 행에 빈 칩이 붙는 꼴이 된다.
+        LevelText = row.Level > 0 ? "Lv." + row.Level.ToString(Inv) : string.Empty;
+        LevelVisibility = row.Level > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    /// <summary>"Lv.25" 형태의 시전자 스킬 레벨 칩(레벨을 모르면 빈 문자열).</summary>
+    public string LevelText { get; }
+
+    public Visibility LevelVisibility { get; }
 
     public string Name { get; }
 

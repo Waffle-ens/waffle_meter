@@ -1648,7 +1648,7 @@ public sealed class DataManager : ICaptureGameData
     /// 이 슬롯을 지목하므로, 들고 있어야 정확히 그 인스턴스만 지울 수 있다.</summary>
     public void SaveUseBuff(int uid, int skillCode, long buffStart, long buffEnd, long duration, int actorId, int level, int slot)
     {
-        SaveUseBuff(uid, new UseBuff(skillCode, buffStart, buffEnd, duration, actorId));
+        SaveUseBuff(uid, new UseBuff(skillCode, buffStart, buffEnd, duration, actorId, level));
 
         // Live combat-assist overlay: track buffs currently ON the local player (recipient == executor), so
         // the overlay can show what's active + how long is left. Job-skill buffs only — consumable/item buffs
@@ -2082,7 +2082,8 @@ public sealed class DataManager : ICaptureGameData
                     owner != 0 && kv.Value.Actor != owner,
                     !hidden,  // Overlay: 음성만 (hidden + voice) is announced but not drawn
                     onCooldown,
-                    kv.Value.Indefinite));
+                    kv.Value.Indefinite,
+                    kv.Value.Level));
             }
 
             SuppressExclusiveLosers(result, nowMs);

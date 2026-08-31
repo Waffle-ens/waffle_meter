@@ -1126,6 +1126,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool BuffTtsOnStart { get => _settings.BuffTtsOnStart; set { _settings.BuffTtsOnStart = value; OnPropertyChanged(); } }
     public bool BuffTtsOnEnd { get => _settings.BuffTtsOnEnd; set { _settings.BuffTtsOnEnd = value; OnPropertyChanged(); } }
     public bool BuffUiGrayOnCooldown { get => _settings.BuffUiGrayOnCooldown; set { _settings.BuffUiGrayOnCooldown = value; OnPropertyChanged(); } }
+
+    /// <summary>버프 아이콘 우하단에 스킬 레벨 배지를 그린다(기본 켜짐). 레벨을 못 읽은 버프는 배지 없음.</summary>
+    public bool BuffUiShowLevel { get => _settings.BuffUiShowLevel; set { _settings.BuffUiShowLevel = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }
 
     /// <summary>버프 오버레이 정렬 모드를 ComboBox의 SelectedIndex(0 적용순 / 1 남은시간순 / 2 이름순)로
@@ -1192,6 +1195,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(BuffTtsOnStart));
         OnPropertyChanged(nameof(BuffTtsOnEnd));
         OnPropertyChanged(nameof(BuffUiGrayOnCooldown));
+        OnPropertyChanged(nameof(BuffUiShowLevel));
         OnPropertyChanged(nameof(ShowOtherPlayerBuffs));
         OnPropertyChanged(nameof(ActivePresetName));
     }

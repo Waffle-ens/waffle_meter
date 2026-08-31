@@ -172,6 +172,14 @@ public sealed record StatsSkillPayload(
 /// datamined per-code type is not shipped because it is wrong often enough to be dangerous.
 /// </param>
 /// <param name="BaseCode">The 8-digit base skill code this row's rank/aspect variants collapsed to.</param>
+/// <param name="Level">
+/// The CASTER's skill level for this buff — the 어노멀 레벨 (1..40) the apply packet carries, or null when the
+/// wire did not give one (consumables/scrolls have no level, and the tail self-validation can decline).
+/// <para>Why it matters: a support buff's magnitude is linear in this level (노련한 반격 = 5.4% + 0.4%/level,
+/// 불패의 진언 = 10.5% + 0.5%/level), so uptime alone cannot say how much a buffer contributed. The site's own
+/// rDPS model says as much in <c>dps-metrics.ts</c> — "the payload has no skill level with which to make this
+/// rDPS approximation exact" — and it currently credits a level-25 불패의 진언 with its level-1 value.</para>
+/// </param>
 public sealed record StatsBuffPayload(
     int BuffCode,
     string BuffName,
@@ -182,7 +190,8 @@ public sealed record StatsBuffPayload(
     string? ActorIdentityHash = null,
     int? OwnerParticipantIndex = null,
     int? ActorParticipantIndex = null,
-    int? BaseCode = null);
+    int? BaseCode = null,
+    int? Level = null);
 
 public sealed record StatsUploadStatus(
     bool Enabled,

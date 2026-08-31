@@ -839,10 +839,25 @@ public sealed class DpsCalculator
                 .FirstOrDefault(p => p != 0);
 
             result.Add(new OperatingData(
-                display.Code, name, display.Summary, display.Effect, rate, actorId, baseCode, jobPrefix));
+                display.Code, name, display.Summary, display.Effect, rate, actorId, baseCode, jobPrefix,
+                GroupLevel(group)));
         }
 
         return result;
+    }
+
+    /// <summary>이 그룹이 대표할 어노멀 레벨: 구성 적용들의 최댓값(레벨을 못 읽은 0은 무시). 그룹 키에 이미
+    /// 시전자가 들어 있으므로 한 그룹은 한 사람의 한 스킬이고, 전투 중 스킬 레벨이 바뀌지 않으니 최댓값이
+    /// 곧 그 사람의 레벨이다. 전부 0이면 0(모름)을 돌려 상위 계산이 레벨 기반 계수를 건너뛴다.</summary>
+    private static int GroupLevel(IEnumerable<(BuffDisplay D, UseBuff U, int Base)> group)
+    {
+        int level = 0;
+        foreach ((BuffDisplay _, UseBuff u, int _) in group)
+        {
+            if (u.Level > level) level = u.Level;
+        }
+
+        return level;
     }
 
     /// <summary>The member that best stands for the merged group: catalogued codes first (they resolve an icon and
@@ -888,7 +903,7 @@ public sealed class DpsCalculator
                 .Select(x => DataManager.IsJobBuffCode(x.U.SkillCode) ? x.U.SkillCode / 10_000_000 : 0)
                 .FirstOrDefault(p => p != 0);
 
-            result.Add(new BuffTimeline(display.Code, name, actorId, baseCode, jobPrefix, spans));
+            result.Add(new BuffTimeline(display.Code, name, actorId, baseCode, jobPrefix, spans, GroupLevel(group)));
         }
 
         return result;

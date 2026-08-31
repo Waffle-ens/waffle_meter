@@ -25,7 +25,11 @@ public sealed record DetailSkillGroup(DetailSkillRow Merged, IReadOnlyList<Detai
 /// <summary>One buff/debuff uptime row. <see cref="Count"/> is null for a normal uptime row (the window shows
 /// <see cref="Rate"/> as a %); when set, the row is a PROC whose uptime % is meaningless and the window shows
 /// "N회" instead — see <see cref="DetailProcRow"/>.</summary>
-public sealed record DetailBuffRow(int Code, string Name, double Rate, string Description, int? Count = null);
+/// <param name="Level">시전자가 이 버프의 스킬을 가진 레벨(어노멀 레벨 1~40). 0 = 모름(소모품·주문서처럼
+/// 레벨 개념이 없는 버프이거나 적용 패킷이 레벨을 안 실은 경우)이고, 그때 표시 계층은 칸을 비운다.
+/// 시너지 버프의 효과량이 레벨 선형이라(노련한 반격 = 5.4% + 0.4%/레벨) 가동률만으로는 기여를 못 읽는다.</param>
+public sealed record DetailBuffRow(
+    int Code, string Name, double Rate, string Description, int? Count = null, int Level = 0);
 
 /// <summary>A count-based row pinned to the BOTTOM of the 내 버프 section: an effect that fires on a condition
 /// with an internal cooldown, where "how many times" is the only meaningful number. Currently 회생의 계약's
@@ -362,7 +366,8 @@ public sealed record DetailModel(
     }
 
     private static DetailBuffRow ToBuffRow(OperatingData b) =>
-        new(b.Code, b.Name, Math.Clamp(b.OperatingRate, 0.0, 100.0), ReadableBuffText(b.Effect, b.Summary));
+        new(b.Code, b.Name, Math.Clamp(b.OperatingRate, 0.0, 100.0), ReadableBuffText(b.Effect, b.Summary),
+            Level: b.Level);
 
     private static int Normalize(int code) =>
         code is >= 11_000_000 and <= 19_999_999 ? code / 10_000 * 10_000 : code;

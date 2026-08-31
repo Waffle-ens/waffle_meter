@@ -109,6 +109,7 @@ public static class SettingsKeyCatalog
         new("buffUi.show", F, "버프 오버레이", "버프 오버레이 표시"),
         new("buffUi.showOther", F, "버프 오버레이", "다른 캐릭터가 준 버프 표시"),
         new("buffUi.grayOnCooldown", F, "버프 오버레이", "쿨타임 중 아이콘 회색"),
+        new("buffUi.showLevel", F, "버프 오버레이", "아이콘에 버프 레벨 표시"),
         new("buffUi.sortMode", F, "버프 오버레이", "표시 순서"),
         new("buffUi.ttsOnStart", F, "버프 오버레이", "버프 시작 음성"),
         new("buffUi.ttsOnEnd", F, "버프 오버레이", "버프 종료 음성"),

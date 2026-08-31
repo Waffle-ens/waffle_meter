@@ -1101,6 +1101,15 @@
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="아이콘에 버프 레벨 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="버프 아이콘 오른쪽 아래에 그 버프의 스킬 레벨을 작게 표시합니다. 레벨 정보가 없는 버프(물약·주문서 등)에는 표시되지 않습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiShowLevel}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="다른 캐릭터가 준 버프 표시" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="끄면 본인이 직접 받은 버프만 표시합니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>

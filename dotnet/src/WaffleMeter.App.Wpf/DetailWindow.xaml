@@ -195,8 +195,19 @@
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Image Source="{Binding IconSource}" Width="24" Height="24" Margin="0,0,9,0" VerticalAlignment="Center"/>
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="12.5" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis"/>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Skin.Fg}" FontSize="12.5" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <!-- 시전자의 스킬 레벨. 시너지 버프는 효과량이 레벨 선형이라
+                                                         가동률만으로는 기여를 읽을 수 없어 함께 보여준다. -->
+                                                    <Border Visibility="{Binding LevelVisibility}" Margin="6,0,0,0" Padding="4,0"
+                                                            CornerRadius="3" VerticalAlignment="Center"
+                                                            Background="{DynamicResource Skin.StatBg}"
+                                                            BorderBrush="{DynamicResource Skin.SoftBorder}" BorderThickness="1">
+                                                        <TextBlock Text="{Binding LevelText}" FontSize="10" FontWeight="Bold"
+                                                                   Foreground="{DynamicResource Skin.MutedFg}"/>
+                                                    </Border>
+                                                </StackPanel>
                                                 <TextBlock Text="{Binding Subtitle}" Visibility="{Binding SubtitleVisibility}"
                                                            Foreground="{DynamicResource Skin.MutedFg}" FontSize="10.5" Margin="0,1,0,0"
                                                            TextTrimming="CharacterEllipsis"/>
