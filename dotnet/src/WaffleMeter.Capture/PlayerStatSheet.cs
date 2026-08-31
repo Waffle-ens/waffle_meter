@@ -72,6 +72,26 @@ public static class PlayerStatIds
     public const int FrontDamageAmplifyPercent = 589;        // 전방 피해 증폭
     public const int BackDamageAmplifyPercent = 102;         // 후방 피해 증폭
 
+    // ---- 방어·내성 (2026-08-31 인게임 '세부 스탯' 탭과 값이 정확히 일치해 확정) ----
+    // 🔑 id 배치에 규칙이 있다: 공격 쪽 id 바로 뒤(+1)나 일정 간격(+3, +42)에 그 방어 짝이 온다.
+    //    98 후방 공격력 → 99 후방 방어력, 100 후방 치명타 → 101 후방 치명타 저항,
+    //    38 치명타 공격력 → 41 치명타 방어력, 28 피해 증폭 → 70 피해 내성, 32 무기 피해 증폭 → 74 무기 피해 내성.
+    //    값 일치만으로는 같은 숫자를 가진 다른 id와 구분이 안 되는 경우가 있어(1,500 이 두 곳), 이 간격이
+    //    교차검증 역할을 한다.
+    public const int CriticalDefense = 41;                   // 치명타 방어력
+    public const int CriticalDamageResistPercent = 47;       // 치명타 피해 내성
+    public const int DamageResistPercent = 70;               // 피해 내성
+    public const int WeaponDamageResistPercent = 74;         // 무기 피해 내성
+    public const int BackDefense = 99;                       // 후방 방어력
+    public const int BackCriticalResist = 101;               // 후방 치명타 저항
+    public const int BackDamageResistPercent = 103;          // 후방 피해 내성
+    public const int AdditionalHitResistPercent = 147;       // 다단 히트 저항
+    public const int IronWallPercent = 445;                  // 철벽
+    public const int IronWallPenetrationPercent = 449;        // 철벽 관통
+    public const int FrontDefense = 588;                     // 전방 방어력
+    public const int FrontDamageResistPercent = 590;         // 전방 피해 내성
+    public const int FrontCriticalResist = 592;              // 전방 치명타 저항
+
     /// <summary>쿨타임 감소는 두 id의 합이고, 표시할 때 <b>부호를 뒤집는다</b> — 서버는 "감소량"을 양수로
     /// 싣지만 사람이 읽는 쪽에서는 −14% 가 자연스럽다.</summary>
     public const int CooldownBasePercent = 215;
@@ -131,6 +151,19 @@ public static class PlayerStatIds
         CombatSpeedPercent => "전투 속도 (확인 필요)",
         FrontDamageAmplifyPercent => "전방 피해 증폭",
         BackDamageAmplifyPercent => "후방 피해 증폭",
+        CriticalDefense => "치명타 방어력",
+        CriticalDamageResistPercent => "치명타 피해 내성",
+        DamageResistPercent => "피해 내성",
+        WeaponDamageResistPercent => "무기 피해 내성",
+        BackDefense => "후방 방어력",
+        BackCriticalResist => "후방 치명타 저항",
+        BackDamageResistPercent => "후방 피해 내성",
+        AdditionalHitResistPercent => "다단 히트 저항",
+        IronWallPercent => "철벽",
+        IronWallPenetrationPercent => "철벽 관통",
+        FrontDefense => "전방 방어력",
+        FrontDamageResistPercent => "전방 피해 내성",
+        FrontCriticalResist => "전방 치명타 저항",
         _ => null,
     };
 
@@ -140,5 +173,8 @@ public static class PlayerStatIds
         or DamageAmplifyPercent or WeaponDamageAmplifyPercent or PveDamageAmplifyPercent
         or BossDamageAmplifyPercent or CriticalDamageAmplifyPercent or AdditionalHitAccuracyPercent
         or PerfectPercent or HardHitPercent or CombatSpeedPercent or FrontDamageAmplifyPercent
-        or BackDamageAmplifyPercent or CooldownBasePercent or CooldownBonusPercent;
+        or BackDamageAmplifyPercent or CooldownBasePercent or CooldownBonusPercent
+        or CriticalDamageResistPercent or DamageResistPercent or WeaponDamageResistPercent
+        or BackDamageResistPercent or AdditionalHitResistPercent or IronWallPercent
+        or IronWallPenetrationPercent or FrontDamageResistPercent;
 }

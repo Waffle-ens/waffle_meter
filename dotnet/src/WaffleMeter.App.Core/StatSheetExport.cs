@@ -148,10 +148,18 @@ public static class StatSheetExport
             query.Add($"ae={Math.Round(attackPower).ToString(Inv)}");
         }
 
-        // 무기 damage range. 계산기가 이걸로 공격력 구간(min/max)을 만든다. 이 둘의 평균이 위 합계에 그대로
-        // 들어간다는 것이 실측으로 확인됐으므로 같은 물건이 맞다.
-        Flat("wn", PlayerStatIds.MinimumAttack);
-        Flat("wx", PlayerStatIds.MaximumAttack);
+        // ⚠️ 무기 최소/최대(wn·wx)와 최대 공격력 합계(ma)는 보내지 않는다. 우리가 읽는 최소/최대 공격력은
+        // <b>무기 툴팁 값이 아니라 모든 출처가 합쳐진 스탯</b>이고(펫 이해도·타이틀·날개의 최대 공격력 334 가
+        // 이미 그 안에 들어 있다 — 2026-08-31 실측), 계산기는 그 둘을 별개 항으로 받아
+        // rawRange = (무기최대−무기최소)×2 + 최대공격력합계 로 구간을 만든다. 우리 값을 그 칸에 넣으면
+        // 이중 계상이다.
+        //
+        // 게다가 실제 구간은 그 근사가 필요 없다 — 게임이 최소/최대를 직접 주고, 그대로 폭이 된다:
+        //   최소 = (기본+추가+최소) × (1+증가율) = 13,010
+        //   최대 = (기본+추가+최대) × (1+증가율) = 14,326
+        //   폭   = (최대−최소) × (1+증가율)      =  1,316
+        // 즉 rawRange = 최대 − 최소 이고 계수 2 도 별도 ma 항도 없다. 계산기가 이 입력을 받게 되면 그때
+        // 보낸다(웹 핸드오프에 적어 두었다).
         Flat("pe", PlayerStatIds.Penetration);       // 관통
         Flat("de", PlayerStatIds.Destruction);       // 파괴
         Flat("mi", PlayerStatIds.Might);             // 위력
@@ -196,8 +204,9 @@ public static class StatSheetExport
         {
             // 장비를 벗어야 알 수 있는 값이라 어떤 패킷에도 없다.
             "장비 해제 공격력",
-            // 계산기의 '최대 공격력 합계'는 펫 이해도·타이틀·날개의 가산치이고, 우리가 읽는 '무기 최대
-            // 공격력'과 다른 물건이다. 섞으면 공격력 구간이 두 배로 커진다.
+            // 계산기의 '무기 최소/최대'는 무기 툴팁 값이고, '최대 공격력 합계'는 펫·타이틀·날개의 가산치다.
+            // 우리가 읽는 최소/최대 공격력은 그 둘이 이미 합쳐진 스탯이라 어느 칸에도 그대로 못 넣는다.
+            "무기 최소/최대 공격력",
             "최대 공격력 합계",
             "장비 돌파 레벨 합계",
         };
@@ -261,7 +270,14 @@ public static class StatSheetExport
                 PlayerStatIds.Critical, PlayerStatIds.FrontCritical, PlayerStatIds.BackCritical,
                 PlayerStatIds.AccuracyIncreasePercent, PlayerStatIds.CriticalIncreasePercent),
             Group("방어",
-                PlayerStatIds.Defense, PlayerStatIds.ArmorDefense, PlayerStatIds.DefenseIncreasePercent),
+                PlayerStatIds.Defense, PlayerStatIds.ArmorDefense, PlayerStatIds.DefenseIncreasePercent,
+                PlayerStatIds.CriticalDefense, PlayerStatIds.FrontDefense, PlayerStatIds.BackDefense),
+            Group("내성 · 저항",
+                PlayerStatIds.DamageResistPercent, PlayerStatIds.WeaponDamageResistPercent,
+                PlayerStatIds.CriticalDamageResistPercent, PlayerStatIds.FrontDamageResistPercent,
+                PlayerStatIds.BackDamageResistPercent, PlayerStatIds.AdditionalHitResistPercent,
+                PlayerStatIds.FrontCriticalResist, PlayerStatIds.BackCriticalResist,
+                PlayerStatIds.IronWallPercent, PlayerStatIds.IronWallPenetrationPercent),
             Group("주신 스탯",
                 PlayerStatIds.Might, PlayerStatIds.Agility, PlayerStatIds.Knowledge, PlayerStatIds.Vitality,
                 PlayerStatIds.Precision, PlayerStatIds.Will, PlayerStatIds.Justice, PlayerStatIds.Freedom,
