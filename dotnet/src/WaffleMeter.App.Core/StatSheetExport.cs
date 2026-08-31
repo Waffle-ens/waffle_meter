@@ -213,23 +213,26 @@ public static class StatSheetExport
     }
 
     /// <summary>
-    /// The captured sheet, grouped the way a person reads a stat window rather than in id order.
+    /// The captured sheet as the settings tab shows it — the numbers the calculator actually consumes, plus
+    /// the four stat-window totals to check them against.
     ///
-    /// <para>The last group is every id we have not named yet, shown as <c>#id</c>. They are NOT hidden: the
-    /// id→name mapping cannot be read off the wire (the packet carries numbers only), so the only way to
-    /// confirm or extend it is for someone to put this list next to the in-game stat window. An id whose value
-    /// we never showed is an id nobody can ever name.</para>
+    /// <para><b>Everything else is captured but not displayed.</b> The sheet holds ~150 entries; the fields
+    /// this feature exists to fill are a dozen. The rest — the player's own resistances, 명중/치명타/방어
+    /// breakdowns, 주신 스탯 beyond 파괴·위력, and the ids we have not named — were shown while the id→name
+    /// mapping was still being confirmed against the in-game stat window. That confirmation is done, so the
+    /// list is now the shorter, useful one.</para>
+    ///
+    /// <para>Nothing is lost by hiding them: <see cref="BuildClipboard"/> still carries every id, named and
+    /// unnamed, in its <c>raw</c> block. An id whose value we stopped capturing could never be named later;
+    /// an id we merely stopped drawing can.</para>
     /// </summary>
     public static IReadOnlyList<StatSheetGroup> Groups(PlayerStatSheet sheet)
     {
-        var used = new HashSet<int>();
-
         StatSheetGroup Group(string title, params int[] ids)
         {
             var rows = new List<StatSheetRow>();
             foreach (int id in ids)
             {
-                used.Add(id);
                 if (sheet.Raw(id) is not { } value) continue;
                 rows.Add(new StatSheetRow(PlayerStatIds.Label(id) ?? "#" + id.ToString(Inv), Format(id, value)));
             }
@@ -237,8 +240,8 @@ public static class StatSheetExport
             return new StatSheetGroup(title, rows);
         }
 
-        // 인게임 스탯창에 뜨는 합계부터 보여준다. 와이어에는 이 숫자가 없고 항만 오므로 미터가 합친 것인데,
-        // 사용자가 대조할 때 제일 먼저 찾는 값이 이 넷이다. 아래 그룹들이 그 항들이다.
+        // 스탯창에 뜨는 합계. 와이어에는 이 숫자가 없고 항만 오므로 미터가 합친 것이라, 사용자가 눈으로
+        // 맞춰 볼 수 있게 맨 위에 둔다.
         var derived = new StatSheetGroup("인게임 스탯창 값 (미터가 합산)", new List<StatSheetRow>());
         void Derived(string label, double? value)
         {
@@ -253,57 +256,25 @@ public static class StatSheetExport
         var groups = new List<StatSheetGroup>
         {
             derived,
-            Group("공격",
-                PlayerStatIds.Attack, PlayerStatIds.AdditionalAttack, PlayerStatIds.MaximumAttack,
-                PlayerStatIds.MinimumAttack, PlayerStatIds.CriticalAttackPower, PlayerStatIds.Penetration,
-                PlayerStatIds.PveAttack, PlayerStatIds.BossAttack, PlayerStatIds.FrontAttack,
-                PlayerStatIds.BackAttack, PlayerStatIds.SealstoneAdditionalDamage),
-            Group("증폭 · 판정",
-                PlayerStatIds.DamageAmplifyPercent, PlayerStatIds.WeaponDamageAmplifyPercent,
+
+            // 계산기 딥링크가 실어 보내는 값 그대로. 이 목록과 BuildCalculatorUrl 은 함께 움직여야 한다 —
+            // 화면에 보이는데 안 넘어가거나, 넘어가는데 안 보이면 사용자가 어느 쪽을 믿을지 알 수 없다.
+            Group("계산기로 넘어가는 값",
+                PlayerStatIds.Penetration, PlayerStatIds.DamageAmplifyPercent,
+                PlayerStatIds.WeaponDamageAmplifyPercent, PlayerStatIds.CriticalDamageAmplifyPercent,
                 PlayerStatIds.PveDamageAmplifyPercent, PlayerStatIds.BossDamageAmplifyPercent,
-                PlayerStatIds.CriticalDamageAmplifyPercent, PlayerStatIds.FrontDamageAmplifyPercent,
-                PlayerStatIds.BackDamageAmplifyPercent, PlayerStatIds.HardHitPercent,
-                PlayerStatIds.PerfectPercent, PlayerStatIds.AdditionalHitAccuracyPercent,
-                PlayerStatIds.AttackIncreasePercent, PlayerStatIds.CombatSpeedPercent),
-            Group("명중 · 치명",
-                PlayerStatIds.Accuracy, PlayerStatIds.WeaponAccuracy, PlayerStatIds.PveAccuracy,
-                PlayerStatIds.Critical, PlayerStatIds.FrontCritical, PlayerStatIds.BackCritical,
-                PlayerStatIds.AccuracyIncreasePercent, PlayerStatIds.CriticalIncreasePercent),
-            Group("방어",
-                PlayerStatIds.Defense, PlayerStatIds.ArmorDefense, PlayerStatIds.DefenseIncreasePercent,
-                PlayerStatIds.CriticalDefense, PlayerStatIds.FrontDefense, PlayerStatIds.BackDefense),
-            Group("내성 · 저항",
-                PlayerStatIds.DamageResistPercent, PlayerStatIds.WeaponDamageResistPercent,
-                PlayerStatIds.CriticalDamageResistPercent, PlayerStatIds.FrontDamageResistPercent,
-                PlayerStatIds.BackDamageResistPercent, PlayerStatIds.AdditionalHitResistPercent,
-                PlayerStatIds.FrontCriticalResist, PlayerStatIds.BackCriticalResist,
-                PlayerStatIds.IronWallPercent, PlayerStatIds.IronWallPenetrationPercent),
-            Group("주신 스탯",
-                PlayerStatIds.Might, PlayerStatIds.Agility, PlayerStatIds.Knowledge, PlayerStatIds.Vitality,
-                PlayerStatIds.Precision, PlayerStatIds.Will, PlayerStatIds.Justice, PlayerStatIds.Freedom,
-                PlayerStatIds.Illusion, PlayerStatIds.Life, PlayerStatIds.Time, PlayerStatIds.Destruction,
-                PlayerStatIds.Death, PlayerStatIds.Wisdom, PlayerStatIds.Destiny, PlayerStatIds.Space),
+                PlayerStatIds.HardHitPercent, PlayerStatIds.PerfectPercent,
+                PlayerStatIds.AdditionalHitAccuracyPercent,
+                PlayerStatIds.FrontDamageAmplifyPercent, PlayerStatIds.BackDamageAmplifyPercent,
+                PlayerStatIds.Destruction, PlayerStatIds.Might),
+
+            // 위 '공격력' 한 줄이 어떻게 나왔는지. 계산기가 최소/최대 공격력을 직접 받게 되면 이 항들도
+            // 그대로 넘어간다(웹 핸드오프 §11-1).
+            Group("공격력 구성",
+                PlayerStatIds.Attack, PlayerStatIds.AdditionalAttack,
+                PlayerStatIds.MinimumAttack, PlayerStatIds.MaximumAttack,
+                PlayerStatIds.AttackIncreasePercent),
         };
-
-        // 쿨타임 감소는 두 id의 합이라 위 그룹 함수로는 못 만든다.
-        used.Add(PlayerStatIds.CooldownBasePercent);
-        used.Add(PlayerStatIds.CooldownBonusPercent);
-        if (sheet.CooldownPercent() is { } cooldown)
-        {
-            groups[1].Rows.Add(new StatSheetRow("쿨타임 감소", cooldown.ToString("0.##", Inv) + "%"));
-        }
-
-        var unknown = new List<StatSheetRow>();
-        foreach ((int id, int value) in sheet.Values.OrderBy(kv => kv.Key))
-        {
-            if (used.Contains(id)) continue;
-            unknown.Add(new StatSheetRow("#" + id.ToString(Inv), value.ToString("N0", Inv)));
-        }
-
-        if (unknown.Count > 0)
-        {
-            groups.Add(new StatSheetGroup("아직 이름을 못 붙인 항목", unknown));
-        }
 
         return groups.Where(g => g.Rows.Count > 0).ToList();
     }
