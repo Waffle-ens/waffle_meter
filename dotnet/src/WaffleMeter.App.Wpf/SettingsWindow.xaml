@@ -318,6 +318,19 @@
                 <ListBoxItem Tag="stats">
                     <StackPanel><TextBlock Text="내 캐릭터 · 통계" Style="{StaticResource NavTitle}"/><TextBlock Text="동의 · 공개 · 전투 기록" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
+                <!-- 강조 탭: 제목을 액센트 색으로 칠하고 왼쪽에 얇은 액센트 레일을 둔다. 선택 스타일
+                     (NavItem)은 건드리지 않으므로 선택/호버 동작은 나머지 탭과 완전히 같다. -->
+                <ListBoxItem Tag="mystats">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Width="3" CornerRadius="1.5" Margin="0,1,8,1"
+                                Background="{DynamicResource Skin.Accent}"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="내 스탯" Style="{StaticResource NavTitle}" Foreground="{DynamicResource Skin.Accent}"/>
+                            <TextBlock Text="스탯 확인 · 계산기로 넘기기" Style="{StaticResource NavSub}"/>
+                        </StackPanel>
+                    </Grid>
+                </ListBoxItem>
                 <ListBoxItem Tag="gameopt">
                     <StackPanel><TextBlock Text="게임 최적화" Style="{StaticResource NavTitle}"/><TextBlock Text="Engine.ini · 렉 감소" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
@@ -1729,26 +1742,82 @@
                         <TextBlock Text="캐릭터가 접속해 있어야 열 수 있어요" Style="{StaticResource SettingDesc}" Margin="0,4,0,0"
                                    Visibility="{Binding CharacterDetected, Converter={StaticResource BoolToVisInverse}, FallbackValue=Collapsed}"/>
 
-                        <Border Style="{StaticResource SectionDivider}"/>
-                        <TextBlock Text="내 스탯" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
-                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"
-                                   Text="게임이 보내주는 캐릭터 스탯을 그대로 읽어 둡니다. 스탯 계산기에 직접 입력할 필요 없이 값을 그대로 넘길 수 있어요. 전체 스탯은 캐릭터가 접속할 때 한 번 오고, 그 뒤로는 바뀐 항목만 옵니다."/>
-                        <TextBlock Text="{Binding StatSheetStatus}" Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Button Content="내 스탯 복사" Click="OnCopyStatSheet" IsEnabled="{Binding HasStatSheet}" Margin="0,0,8,0"/>
-                            <Button Content="계산기 열기" Click="OnOpenCalculator" IsEnabled="{Binding HasStatSheet}"/>
-                        </StackPanel>
-                        <TextBlock Text="{Binding StatSheetUnfilled}" Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"
+                    </StackPanel>
+
+                    <!-- ===== 내 스탯 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=mystats}">
+                        <TextBlock Text="내 스탯" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,14" TextWrapping="Wrap"
+                                   Text="게임이 보내 주는 캐릭터 스탯을 그대로 읽습니다. 스탯 계산기에 하나씩 옮겨 적을 필요 없이 값을 그대로 넘길 수 있어요."/>
+
+                        <!-- 상태 + 두 동작을 한 카드에 모은다. 종전에는 안내문·상태·버튼·주의문이 전부 같은
+                             굵기로 세로로 늘어서 어디부터 읽어야 할지가 없었다. -->
+                        <Border Background="{DynamicResource Skin.StatBg}" BorderBrush="{DynamicResource Skin.SoftBorder}"
+                                BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="{Binding StatSheetStatus}" Style="{StaticResource SettingTitle}" TextWrapping="Wrap"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                    <Button Content="계산기 열기" Click="OnOpenCalculator" IsEnabled="{Binding HasStatSheet}"
+                                            MinWidth="120" Margin="0,0,8,0"/>
+                                    <Button Content="내 스탯 복사" Click="OnCopyStatSheet" IsEnabled="{Binding HasStatSheet}"
+                                            MinWidth="120"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 자동으로 못 채우는 칸. 사용자가 "왜 비어 있지"를 묻기 전에 답해 둔다. -->
+                        <Border Background="#22FF9800" BorderBrush="#55FF9800" BorderThickness="1" CornerRadius="6"
+                                Padding="12,10" Margin="0,0,0,14"
+                                Visibility="{Binding HasStatSheet, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
+                            <StackPanel>
+                                <TextBlock Text="계산기에서 직접 채우셔야 하는 칸" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="{Binding StatSheetUnfilled}" Style="{StaticResource SettingDesc}"
+                                           Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                <TextBlock Style="{StaticResource SettingDesc}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                           Text="특히 공격력은 게임이 보내는 값과 스탯창에 뜨는 값이 서로 달라서, 잘못 넣으면 공격력 계열 옵션의 효율이 실제보다 훨씬 높게 계산됩니다. 그래서 비워 두고 보냅니다."/>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="잡힌 스탯" Style="{StaticResource SectionHeader}" Margin="0,4,0,4"
                                    Visibility="{Binding HasStatSheet, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
-                        <!-- 잡힌 값을 그대로 보여준다. 인게임 스탯창과 눈으로 맞춰 보라는 자리다 — 항목 이름을
-                             패킷에서 직접 읽을 방법이 없어서, 이 대조가 유일한 확인 수단이다. -->
-                        <Expander Header="잡힌 스탯 보기 (인게임 스탯창과 비교)" Margin="0,0,0,8"
-                                  Visibility="{Binding HasStatSheet, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
-                            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0">
-                                <TextBlock Text="{Binding StatSheetDump}" Style="{StaticResource SettingDesc}"
-                                           FontFamily="Consolas" TextWrapping="NoWrap"/>
-                            </ScrollViewer>
-                        </Expander>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"
+                                   Visibility="{Binding HasStatSheet, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"
+                                   Text="인게임 스탯창과 나란히 놓고 비교해 주세요. 게임이 항목 이름은 보내 주지 않아 미터가 짐작해 붙인 것이라, 한 번 맞춰 보면 확정됩니다. 다른 값이 있으면 디스코드로 알려 주세요."/>
+
+                        <ItemsControl ItemsSource="{Binding StatGroups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,14">
+                                        <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="Bold"
+                                                   Foreground="{DynamicResource Skin.MutedFg}" Margin="2,0,0,6"/>
+                                        <!-- 2열 격자. 인게임 스탯창이 2열이라 눈으로 대조하기 쉽다. -->
+                                        <ItemsControl ItemsSource="{Binding Rows}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><UniformGrid Columns="2"/></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{DynamicResource Skin.RowBg}" CornerRadius="4"
+                                                            Padding="10,5" Margin="0,0,6,4">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Label}" FontSize="12"
+                                                                       Foreground="{DynamicResource Skin.MutedFg}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="12"
+                                                                       FontWeight="SemiBold" Margin="10,0,0,0"
+                                                                       Foreground="{DynamicResource Skin.Fg}"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
 
                     <!-- ===== 게임 최적화 ===== -->

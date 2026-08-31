@@ -1558,16 +1558,27 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 return "아직 스탯 정보를 받지 못했습니다. 캐릭터 선택 화면으로 나갔다가 다시 접속하면 전체 스탯이 한 번에 들어옵니다.";
             }
 
-            string kind = sheet.FullSnapshotSeen
-                ? "전체 스냅샷"
-                : "변경분만 (전체를 받으려면 캐릭터 재접속이 필요합니다)";
-            return $"{sheet.Values.Count}개 항목 · {kind}";
+            return sheet.FullSnapshotSeen
+                ? $"{sheet.Values.Count}개 항목 · 전체 스냅샷을 받았습니다"
+                : $"{sheet.Values.Count}개 항목 · 바뀐 항목만 받은 상태입니다. 캐릭터 선택 화면으로 나갔다가 "
+                  + "다시 접속하시면 전체가 채워집니다.";
         }
     }
 
-    /// <summary>잡힌 스탯을 그대로 나열한 것. 인게임 스탯창과 눈으로 대조하라고 두는 자리다 — 이 대조가
-    /// 항목 이름 매칭을 "거의 확실"에서 "확인됨"으로 바꿔 준다.</summary>
-    public string StatSheetDump => Sheet is { } sheet ? StatSheetExport.Describe(sheet) : string.Empty;
+    /// <summary>잡힌 스탯을 사람이 읽는 순서로 묶은 것. 인게임 스탯창과 눈으로 대조하라고 두는 자리다 —
+    /// 항목 이름은 패킷에 없어서 이 대조가 매칭을 "거의 확실"에서 "확인됨"으로 바꾸는 유일한 방법이다.</summary>
+    public ObservableCollection<StatGroupVM> StatGroups { get; } = new();
+
+    private void RebuildStatGroups()
+    {
+        StatGroups.Clear();
+        if (Sheet is not { } sheet) return;
+
+        foreach (StatSheetGroup group in StatSheetExport.Groups(sheet))
+        {
+            StatGroups.Add(new StatGroupVM(group));
+        }
+    }
 
     /// <summary>딥링크가 채우지 못하는 칸 안내(계산기에 없는 값이 아니라, 어떤 경로로도 못 얻는 값들).</summary>
     public string StatSheetUnfilled => Sheet is { } sheet
@@ -1639,9 +1650,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <summary>스탯 사전이 갱신됐을 때 화면을 새로 그리게 한다.</summary>
     public void NotifyStatSheetChanged()
     {
+        RebuildStatGroups();
         OnPropertyChanged(nameof(HasStatSheet));
         OnPropertyChanged(nameof(StatSheetStatus));
-        OnPropertyChanged(nameof(StatSheetDump));
         OnPropertyChanged(nameof(StatSheetUnfilled));
     }
 
@@ -1777,7 +1788,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public static readonly string[] NavKeys =
     {
         "display", "theme", "window", "buffs", "alarms",
-        "battle", "hotkeys", "stats", "gameopt", "advanced",
+        "battle", "hotkeys", "stats", "mystats", "gameopt", "advanced",
     };
 
     private string _selectedNav = NavKeys[0];
@@ -2359,4 +2370,18 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
+/// <summary>설정창 '내 스탯' 탭의 한 묶음. 두 칸(이름 · 값) 격자로 그려진다.</summary>
+public sealed class StatGroupVM
+{
+    public StatGroupVM(StatSheetGroup group)
+    {
+        Title = group.Title;
+        Rows = group.Rows;
+    }
+
+    public string Title { get; }
+
+    public IReadOnlyList<StatSheetRow> Rows { get; }
 }

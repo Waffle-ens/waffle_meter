@@ -130,7 +130,14 @@ public static class StatSheetExport
             if (sheet.Percent(statId) is { } v) query.Add($"{key}={v.ToString("0.##", Inv)}");
         }
 
-        Flat("ae", PlayerStatIds.Attack);            // 착용 공격력
+        // ⚠️ 착용 공격력(ae)은 <b>보내지 않는다</b>. id 317 의 값이 인게임 스탯창의 '공격력'과 다르다 —
+        // 실측 대조에서 스탯창 13,668 인 캐릭터의 317 이 그보다 훨씬 작았다. 어느 id 가 스탯창의 공격력인지
+        // 아직 못 찾았다(설정 화면이 이름 못 붙인 id 를 전부 보여주는 이유가 이것이다).
+        //
+        // 낮은 공격력을 넣는 것은 빈칸으로 두는 것보다 <b>나쁘다</b>. 계산기의 한계효율은 유한차분이라 분모가
+        // 작을수록 공격력 계열 1포인트의 이득이 커 보이고, 그러면 인게임에서는 결코 강타 1%·전방 증폭 1%를
+        // 넘을 수 없는 공격력 옵션이 최상위 효율로 뒤집혀 나온다. 즉 틀린 값 하나가 순위표 전체를 뒤집는다.
+        // 사용자가 스탯창을 보고 직접 채우도록 UnfilledFields 가 안내한다.
         Flat("pe", PlayerStatIds.Penetration);       // 관통
         Flat("de", PlayerStatIds.Destruction);       // 파괴
         Flat("mi", PlayerStatIds.Might);             // 위력
@@ -170,38 +177,101 @@ public static class StatSheetExport
     /// "왜 안 채워졌지"를 묻기 전에 답해 두는 쪽이 낫다.</para></summary>
     public static IReadOnlyList<string> UnfilledFields(PlayerStatSheet sheet)
     {
-        var missing = new List<string>
+        _ = sheet;
+        return new List<string>
         {
+            // 인게임 스탯창의 '공격력'에 해당하는 id 를 아직 못 찾았다 — 잡히는 값은 그보다 작다. 틀린 값을
+            // 넣으면 공격력 계열이 실제보다 훨씬 효율 높게 나오므로 비워 두고 사용자가 채우게 한다.
+            "공격력 (스탯창 값 그대로)",
             "장비 해제 공격력",
             "무기 최소/최대 공격력",
             "최대 공격력 합계",
             "장비 돌파 레벨 합계",
         };
-
-        if (sheet.Raw(PlayerStatIds.Attack) is null) missing.Insert(0, "착용 공격력");
-        return missing;
     }
 
-    /// <summary>Human-readable dump for the settings screen, so the user can eyeball the captured sheet against
-    /// their in-game stat window. This is the comparison that turns an id mapping from "very likely" into
-    /// "verified", so it is a feature, not a debug leftover.</summary>
-    public static string Describe(PlayerStatSheet sheet)
+    /// <summary>
+    /// The captured sheet, grouped the way a person reads a stat window rather than in id order.
+    ///
+    /// <para>The last group is every id we have not named yet, shown as <c>#id</c>. They are NOT hidden: the
+    /// id→name mapping cannot be read off the wire (the packet carries numbers only), so the only way to
+    /// confirm or extend it is for someone to put this list next to the in-game stat window. An id whose value
+    /// we never showed is an id nobody can ever name.</para>
+    /// </summary>
+    public static IReadOnlyList<StatSheetGroup> Groups(PlayerStatSheet sheet)
     {
-        var lines = new StringBuilder();
+        var used = new HashSet<int>();
+
+        StatSheetGroup Group(string title, params int[] ids)
+        {
+            var rows = new List<StatSheetRow>();
+            foreach (int id in ids)
+            {
+                used.Add(id);
+                if (sheet.Raw(id) is not { } value) continue;
+                rows.Add(new StatSheetRow(PlayerStatIds.Label(id) ?? "#" + id.ToString(Inv), Format(id, value)));
+            }
+
+            return new StatSheetGroup(title, rows);
+        }
+
+        var groups = new List<StatSheetGroup>
+        {
+            Group("공격",
+                PlayerStatIds.Attack, PlayerStatIds.AdditionalAttack, PlayerStatIds.MaximumAttack,
+                PlayerStatIds.MinimumAttack, PlayerStatIds.CriticalAttackPower, PlayerStatIds.Penetration,
+                PlayerStatIds.PveAttack, PlayerStatIds.BossAttack, PlayerStatIds.FrontAttack,
+                PlayerStatIds.BackAttack, PlayerStatIds.SealstoneAdditionalDamage),
+            Group("증폭 · 판정",
+                PlayerStatIds.DamageAmplifyPercent, PlayerStatIds.WeaponDamageAmplifyPercent,
+                PlayerStatIds.PveDamageAmplifyPercent, PlayerStatIds.BossDamageAmplifyPercent,
+                PlayerStatIds.CriticalDamageAmplifyPercent, PlayerStatIds.FrontDamageAmplifyPercent,
+                PlayerStatIds.BackDamageAmplifyPercent, PlayerStatIds.HardHitPercent,
+                PlayerStatIds.PerfectPercent, PlayerStatIds.AdditionalHitAccuracyPercent,
+                PlayerStatIds.AttackIncreasePercent, PlayerStatIds.CombatSpeedPercent),
+            Group("명중 · 치명",
+                PlayerStatIds.Accuracy, PlayerStatIds.WeaponAccuracy, PlayerStatIds.PveAccuracy,
+                PlayerStatIds.Critical, PlayerStatIds.FrontCritical, PlayerStatIds.BackCritical,
+                PlayerStatIds.AccuracyIncreasePercent, PlayerStatIds.CriticalIncreasePercent),
+            Group("방어",
+                PlayerStatIds.Defense, PlayerStatIds.ArmorDefense, PlayerStatIds.DefenseIncreasePercent),
+            Group("주신 스탯",
+                PlayerStatIds.Might, PlayerStatIds.Agility, PlayerStatIds.Knowledge, PlayerStatIds.Vitality,
+                PlayerStatIds.Precision, PlayerStatIds.Will, PlayerStatIds.Justice, PlayerStatIds.Freedom,
+                PlayerStatIds.Illusion, PlayerStatIds.Life, PlayerStatIds.Time, PlayerStatIds.Destruction,
+                PlayerStatIds.Death, PlayerStatIds.Wisdom, PlayerStatIds.Destiny, PlayerStatIds.Space),
+        };
+
+        // 쿨타임 감소는 두 id의 합이라 위 그룹 함수로는 못 만든다.
+        used.Add(PlayerStatIds.CooldownBasePercent);
+        used.Add(PlayerStatIds.CooldownBonusPercent);
+        if (sheet.CooldownPercent() is { } cooldown)
+        {
+            groups[1].Rows.Add(new StatSheetRow("쿨타임 감소", cooldown.ToString("0.##", Inv) + "%"));
+        }
+
+        var unknown = new List<StatSheetRow>();
         foreach ((int id, int value) in sheet.Values.OrderBy(kv => kv.Key))
         {
-            string? label = PlayerStatIds.Label(id);
-            if (label == null) continue;
-            lines.Append(label).Append("  ");
-            lines.Append(PlayerStatIds.IsPercent(id) ? (value / 100.0).ToString("0.##", Inv) + "%" : value.ToString("N0", Inv));
-            lines.AppendLine();
+            if (used.Contains(id)) continue;
+            unknown.Add(new StatSheetRow("#" + id.ToString(Inv), value.ToString("N0", Inv)));
         }
 
-        if (sheet.CooldownPercent() is { } cd)
+        if (unknown.Count > 0)
         {
-            lines.Append("쿨타임 감소  ").Append(cd.ToString("0.##", Inv)).AppendLine("%");
+            groups.Add(new StatSheetGroup("아직 이름을 못 붙인 항목", unknown));
         }
 
-        return lines.ToString().TrimEnd();
+        return groups.Where(g => g.Rows.Count > 0).ToList();
     }
+
+    private static string Format(int id, int value) => PlayerStatIds.IsPercent(id)
+        ? (value / 100.0).ToString("0.##", Inv) + "%"
+        : value.ToString("N0", Inv);
 }
+
+/// <summary>One titled block of the stat sheet, as the settings screen lays it out.</summary>
+public sealed record StatSheetGroup(string Title, List<StatSheetRow> Rows);
+
+/// <summary>One stat line: a name and the value already in the unit a person reads.</summary>
+public sealed record StatSheetRow(string Label, string Value);

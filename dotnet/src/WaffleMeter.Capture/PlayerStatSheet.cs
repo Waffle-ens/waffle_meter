@@ -31,10 +31,10 @@ public static class PlayerStatIds
     public const int ArmorDefense = 307;           // 방어구 방어력
     public const int PveAttack = 56;               // PvE 공격력
     public const int BossAttack = 50;              // 보스 공격력
-    public const int FrontAttack = 587;            // 정면 공격력
-    public const int BackAttack = 98;              // 후면 공격력
-    public const int FrontCritical = 591;          // 정면 치명타
-    public const int BackCritical = 100;           // 후면 치명타
+    public const int FrontAttack = 587;            // 전방 공격력
+    public const int BackAttack = 98;              // 후방 공격력
+    public const int FrontCritical = 591;          // 전방 치명타
+    public const int BackCritical = 100;           // 후방 치명타
     public const int SealstoneAdditionalDamage = 69; // 신석 추가 피해
 
     // ---- 주신/기본 스탯 (flat, 포인트) ----
@@ -69,8 +69,8 @@ public static class PlayerStatIds
     public const int PerfectPercent = 442;                   // 완벽
     public const int HardHitPercent = 443;                   // 강타
     public const int CombatSpeedPercent = 282;               // 전투 속도
-    public const int FrontDamageAmplifyPercent = 589;        // 정면 피해 증폭
-    public const int BackDamageAmplifyPercent = 102;         // 후면 피해 증폭
+    public const int FrontDamageAmplifyPercent = 589;        // 전방 피해 증폭
+    public const int BackDamageAmplifyPercent = 102;         // 후방 피해 증폭
 
     /// <summary>쿨타임 감소는 두 id의 합이고, 표시할 때 <b>부호를 뒤집는다</b> — 서버는 "감소량"을 양수로
     /// 싣지만 사람이 읽는 쪽에서는 −14% 가 자연스럽다.</summary>
@@ -95,10 +95,10 @@ public static class PlayerStatIds
         ArmorDefense => "방어구 방어력",
         PveAttack => "PvE 공격력",
         BossAttack => "보스 공격력",
-        FrontAttack => "정면 공격력",
-        BackAttack => "후면 공격력",
-        FrontCritical => "정면 치명타",
-        BackCritical => "후면 치명타",
+        FrontAttack => "전방 공격력",
+        BackAttack => "후방 공격력",
+        FrontCritical => "전방 치명타",
+        BackCritical => "후방 치명타",
         SealstoneAdditionalDamage => "신석 추가 피해",
         Might => "위력",
         Agility => "민첩",
@@ -129,8 +129,8 @@ public static class PlayerStatIds
         PerfectPercent => "완벽",
         HardHitPercent => "강타",
         CombatSpeedPercent => "전투 속도",
-        FrontDamageAmplifyPercent => "정면 피해 증폭",
-        BackDamageAmplifyPercent => "후면 피해 증폭",
+        FrontDamageAmplifyPercent => "전방 피해 증폭",
+        BackDamageAmplifyPercent => "후방 피해 증폭",
         _ => null,
     };
 
