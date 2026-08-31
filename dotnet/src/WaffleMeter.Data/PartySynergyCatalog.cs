@@ -137,6 +137,25 @@ public static class PartySynergyCatalog
         return skillCode / 10_000 * 10_000 == SwordBloodBlade ? SwordBloodBlade : 0;
     }
 
+    /// <summary>
+    /// 이 시너지를 <b>줄 수 있는 직업</b>의 접두(11 검성 … 19 권성), 아니면 0.
+    ///
+    /// <para>버프 행이 없을 때의 마지막 근거다. 실측(2026-09-01, 5인 파티)에서 파티원 전원이 대지의 축복
+    /// 추가 피해(17400058, 1인당 31~54만)를 맞고 있는데 <b>버프 행은 치유성 본인에게만</b> 있었다 — 파티에
+    /// 호법성이 있어 질풍의 권능이 대지의 축복 <i>적용</i>을 막았는데도 추가 피해는 계속 들어온 것이다.
+    /// 버프 행만 근거로 삼으면 그 피해는 아무에게도 귀속되지 않고 조용히 사라진다(그 전투에서 치유성의
+    /// 넘긴 피해가 정확히 0이었다).</para>
+    ///
+    /// <para>직업이 근거가 되는 이유: 이 스킬 코드들은 직업 전용이다. 치유성이 아닌 사람 미터에 찍힌
+    /// 17400058 은 그 사람 것일 수 없다.</para>
+    /// </summary>
+    public static int GrantingJobPrefix(int displayBase) => displayBase switch
+    {
+        SwordBloodBlade => 11,      // 검성
+        ClericEarthBlessing => 17,  // 치유성
+        _ => 0,
+    };
+
     /// <summary>Whether this base ALSO puts measured damage on party members, on top of whatever multiplier
     /// <see cref="Effects"/> reports for it. Used by the combat detail to label the row.
     /// <para>There is no double-counting to guard against: 흡혈의 검 has no multiplier at all (it is not in the

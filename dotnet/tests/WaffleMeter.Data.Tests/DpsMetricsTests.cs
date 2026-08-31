@@ -28,8 +28,8 @@ public sealed class DpsMetricsTests
 
     private static MetricParticipantInput Player(
         int uid, double dps, IReadOnlyList<MetricBuffInput>? buffs = null,
-        IReadOnlyDictionary<int, long>? granted = null) =>
-        new(uid, dps, dps * Duration, buffs ?? [], granted ?? new Dictionary<int, long>());
+        IReadOnlyDictionary<int, long>? granted = null, int jobPrefix = 0) =>
+        new(uid, dps, dps * Duration, buffs ?? [], granted ?? new Dictionary<int, long>(), jobPrefix);
 
     [Fact]
     public void Without_external_buffs_ndps_and_rdps_are_just_dps()
@@ -233,6 +233,76 @@ public sealed class DpsMetricsTests
         // participant is awarded it — and crucially the player is not credited twice.
         Assert.Equal(0, r[1].GrantedDamage);
         Assert.Equal(1000, r[1].Rdps, 6);
+    }
+
+    [Fact]
+    public void A_grant_with_no_buff_row_is_attributed_by_the_granting_class()
+    {
+        // 실측(2026-09-01): 파티에 호법성이 있으면 질풍의 권능이 대지의 축복 <적용>을 막는데도 추가 피해는
+        // 파티원 전원에게 계속 들어온다 — 피해는 있고 버프 행은 시전자에게만 있는 상태다. 버프 행만 근거로
+        // 삼으면 그 피해가 아무에게도 안 붙어 치유성의 기여가 통째로 0이 된다.
+        var granted = new Dictionary<int, long> { [PartySynergyCatalog.ClericEarthBlessing] = 30_000 };
+
+        Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
+            [
+                Player(1, 1000, granted: granted, jobPrefix: 16), // 정령성 — 자기 것일 수 없다
+                Player(2, 500, jobPrefix: 17),                    // 치유성
+            ],
+            [], EmptyCatalog(), Duration);
+
+        Assert.Equal(30_000, r[2].GrantedDamage);
+        Assert.Equal(700, r[1].Ndps, 6); // 30,000 / 100s = 300/s 가 빠진다
+    }
+
+    [Fact]
+    public void A_buff_row_still_wins_over_the_class_fallback()
+    {
+        // 시전자를 아는 경우가 언제나 더 정확하다 — 치유성이 둘일 때 특히.
+        var fromThree = Buff(PartySynergyCatalog.ClericEarthBlessing, actorId: 3, rate: 100, level: 25);
+        var granted = new Dictionary<int, long> { [PartySynergyCatalog.ClericEarthBlessing] = 30_000 };
+
+        Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
+            [
+                Player(1, 1000, [fromThree], granted, jobPrefix: 16),
+                Player(2, 0, jobPrefix: 17),
+                Player(3, 0, jobPrefix: 17),
+            ],
+            [], EmptyCatalog(), Duration);
+
+        Assert.Equal(30_000, r[3].GrantedDamage);
+        Assert.Equal(0, r[2].GrantedDamage);
+    }
+
+    [Fact]
+    public void The_granting_class_keeps_its_own_grant_when_nothing_names_a_caster()
+    {
+        // 치유성이 맞은 대지의 축복은 자기 것일 수도, 다른 치유성 것일 수도 있다. 가릴 근거가 없으면 옮기지
+        // 않는다 — 잘못 옮기면 남의 피해가 되거나 총합에서 증발한다.
+        var granted = new Dictionary<int, long> { [PartySynergyCatalog.ClericEarthBlessing] = 30_000 };
+
+        Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
+            [Player(1, 1000, granted: granted, jobPrefix: 17), Player(2, 0, jobPrefix: 17)],
+            [], EmptyCatalog(), Duration);
+
+        Assert.Equal(0, r[2].GrantedDamage);
+        Assert.Equal(1000, r[1].Ndps, 6); // 그대로 남는다
+    }
+
+    [Fact]
+    public void The_class_fallback_splits_evenly_between_two_of_that_class()
+    {
+        var granted = new Dictionary<int, long> { [PartySynergyCatalog.ClericEarthBlessing] = 30_000 };
+
+        Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
+            [
+                Player(1, 1000, granted: granted, jobPrefix: 16),
+                Player(2, 0, jobPrefix: 17),
+                Player(3, 0, jobPrefix: 17),
+            ],
+            [], EmptyCatalog(), Duration);
+
+        Assert.Equal(15_000, r[2].GrantedDamage);
+        Assert.Equal(15_000, r[3].GrantedDamage);
     }
 
     [Fact]

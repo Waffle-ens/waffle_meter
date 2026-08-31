@@ -42,12 +42,14 @@ public readonly record struct MetricBuffInput(
 /// <param name="GrantedDamageBySource">Damage dealt on THIS player's meter by another class's effect, keyed
 /// by the granting synergy base (<see cref="PartySynergyCatalog.GrantedDamageSource"/>). Already filtered to
 /// grants from someone else — a 검성's own 흡혈의 검 hits are not in here.</param>
+/// <param name="JobPrefix">11(검성)..19(권성), 0 = 모름. 버프 행이 없는 넘어온 피해를 귀속할 때 쓴다.</param>
 public sealed record MetricParticipantInput(
     int Uid,
     double Dps,
     double Damage,
     IReadOnlyList<MetricBuffInput> Buffs,
-    IReadOnlyDictionary<int, long> GrantedDamageBySource);
+    IReadOnlyDictionary<int, long> GrantedDamageBySource,
+    int JobPrefix = 0);
 
 /// <summary>
 /// nDPS / rDPS, computed locally with the same shape the stats site uses server-side
@@ -141,7 +143,8 @@ public static class DpsMetrics
             {
                 if (damage <= 0) continue;
 
-                foreach ((int granter, long share) in SplitGrant(participant, source, damage, uids))
+                foreach ((int granter, long share) in
+                         SplitGrant(participant, source, damage, uids, participants))
                 {
                     movable.Add((participant.Uid, granter, share));
                 }
@@ -225,7 +228,11 @@ public static class DpsMetrics
     /// land nowhere.</para>
     /// </summary>
     private static List<(int Granter, long Damage)> SplitGrant(
-        MetricParticipantInput participant, int source, long damage, HashSet<int> uids)
+        MetricParticipantInput participant,
+        int source,
+        long damage,
+        HashSet<int> uids,
+        IReadOnlyList<MetricParticipantInput> others)
     {
         var casters = new List<(int Uid, double Weight)>();
         double total = 0.0;
@@ -241,6 +248,30 @@ public static class DpsMetrics
         }
 
         var result = new List<(int, long)>();
+
+        // 버프 행이 없어도 피해는 실재한다 — 실측에서 파티원 전원이 대지의 축복 추가 피해를 맞는데 버프 행은
+        // 시전자에게만 있었다(질풍의 권능이 적용을 막은 파티). 그때는 직업으로 되짚는다: 이 스킬 코드는
+        // 직업 전용이라, 그 직업이 아닌 사람 미터에 찍혔다면 그 사람 것일 수 없다.
+        //
+        // ⚠️ 받은 사람의 직업이 곧 주는 직업이면 되짚지 않는다(치유성이 맞은 대지의 축복은 자기 것일 수도,
+        // 다른 치유성 것일 수도 있다). 가릴 근거가 없을 때는 원래 사람에게 남긴다 — 잘못 옮기면 공대 총합에서
+        // 그만큼이 증발하거나 엉뚱한 사람에게 붙는다.
+        if (casters.Count == 0)
+        {
+            int grantingJob = PartySynergyCatalog.GrantingJobPrefix(source);
+            if (grantingJob == 0 || participant.JobPrefix == grantingJob)
+            {
+                return result;
+            }
+
+            foreach (MetricParticipantInput other in others)
+            {
+                if (other.Uid == participant.Uid || other.JobPrefix != grantingJob) continue;
+                casters.Add((other.Uid, 1.0));
+                total += 1.0;
+            }
+        }
+
         if (casters.Count == 0 || total <= 0.0)
         {
             return result;

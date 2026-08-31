@@ -1040,7 +1040,8 @@ public sealed class DpsCalculator
                 info.Dps,
                 info.Amount,
                 buffs,
-                GrantedDamage(skills.GetValueOrDefault(user.Id), buffs, user.Id)));
+                GrantedDamage(skills.GetValueOrDefault(user.Id)),
+                user.Job is { } job ? JobClassInfo.BasicSkillCode(job) / 1_000_000 : 0));
         }
 
         List<OperatingData> bossRows = frozen
@@ -1077,8 +1078,7 @@ public sealed class DpsCalculator
     /// 착취 and 치유성 대지의 축복's 추가 피해, which arrive as ordinary damage packets under the granting class's
     /// skill code. Only counted when the matching buff on this player came from SOMEONE ELSE: the granting
     /// class's own hits carry the same code and are their own damage.</summary>
-    private static Dictionary<int, long> GrantedDamage(
-        Dictionary<string, AnalyzedSkill>? skills, IReadOnlyList<MetricBuffInput> buffs, int uid)
+    private static Dictionary<int, long> GrantedDamage(Dictionary<string, AnalyzedSkill>? skills)
     {
         var granted = new Dictionary<int, long>();
         if (skills == null || skills.Count == 0)
@@ -1091,11 +1091,12 @@ public sealed class DpsCalculator
             int source = PartySynergyCatalog.GrantedDamageSource(skill.SkillCode);
             if (source == 0) continue;
 
-            // 시전자가 나 자신인 행도 포함해 통과시킨다. 누구 몫인지는 여기서 가르지 않고 DpsMetrics.SplitGrant 가
-            // 시전자별 가동률로 나눈다 — 검성 본인의 흡혈의 검 타격도 같은 코드라, "남이 걸었나"만 보고 전량을
-            // 넘기면 자기가 낸 피해까지 남에게 넘어간다(공대에 검성이 둘이면 서로의 몫까지 한 사람이 가져간다).
-            if (!buffs.Any(b => b.DisplayBase == source)) continue;
-
+            // 여기서는 거르지 않는다. 누구 몫인지는 DpsMetrics.SplitGrant 가 (버프 시전자 → 없으면 직업) 으로
+            // 가른다.
+            //
+            // 종전에는 "이 사람에게 그 버프 행이 있나"를 게이트로 썼는데, 실측(2026-09-01)에서 파티원 전원이
+            // 대지의 축복 추가 피해를 맞는데도 버프 행은 시전자에게만 있는 전투가 나왔다(호법성의 질풍의 권능이
+            // 적용을 막은 파티). 그 게이트가 피해를 수집 단계에서 통째로 버려, 치유성의 넘긴 피해가 0이 됐다.
             granted[source] = granted.GetValueOrDefault(source) + skill.DamageAmount + skill.DotDamageAmount;
         }
 
