@@ -17,7 +17,7 @@ namespace WaffleMeter.Capture;
 public static class PlayerStatIds
 {
     // ---- 공격 (flat) ----
-    public const int Attack = 317;                 // 착용 공격력
+    public const int Attack = 317;                 // 인게임 스탯창의 공격력과 다르다 — Label 주석 참조
     public const int AdditionalAttack = 19;        // 추가 공격력
     public const int MaximumAttack = 31;           // 최대 공격력
     public const int MinimumAttack = 33;           // 최소 공격력
@@ -81,7 +81,10 @@ public static class PlayerStatIds
     /// <summary>Human-readable Korean label for a stat id, or null when we have not named it yet.</summary>
     public static string? Label(int id) => id switch
     {
-        Attack => "착용 공격력",
+        // 실측 대조에서 인게임 스탯창의 '공격력'과 값이 달랐다(스탯창 13,668 인 캐릭터가 여기서는 훨씬 작다).
+        // 어느 id 가 스탯창의 공격력인지 아직 못 찾았으므로, 이름에 그 사실을 적어 둔다 — '착용 공격력'이라고
+        // 단정해 두면 사용자가 대조해도 무엇이 틀렸는지 알 수 없다.
+        Attack => "공격력 (확인 필요)",
         AdditionalAttack => "추가 공격력",
         MaximumAttack => "최대 공격력",
         MinimumAttack => "최소 공격력",
