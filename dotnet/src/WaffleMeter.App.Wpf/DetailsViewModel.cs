@@ -99,7 +99,7 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     public Visibility MetricsVisibility { get => _metricsVisibility; private set => Set(ref _metricsVisibility, value); }
 
     private string _buffContributionText = string.Empty;
-    /// <summary>"받은 버프 +N/s · 준 버프 +N/s (파티에 넘긴 피해 N)" 한 줄 요약.</summary>
+    /// <summary>"받은 버프 +N/s · 준 버프 +N/s (파티 피해량에 기여한 피해 N)" 한 줄 요약.</summary>
     public string BuffContributionText { get => _buffContributionText; private set => Set(ref _buffContributionText, value); }
 
     private Visibility _buffContributionVisibility = Visibility.Collapsed;
@@ -244,7 +244,7 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         MetricsVisibility = model.Metrics != null ? Visibility.Visible : Visibility.Collapsed;
         BuffContributionText = model.Metrics is { } dm3
             ? $"받은 버프 +{dm3.TakenBuffDps:N0}/s · 준 버프 +{dm3.GivenBuffDps:N0}/s"
-              + (dm3.GrantedDamage > 0 ? $" (파티에 넘긴 피해 {MeterFormat.FormatAmount(dm3.GrantedDamage)})" : "")
+              + (dm3.GrantedDamage > 0 ? $" (파티 피해량에 기여한 피해 {MeterFormat.FormatAmount(dm3.GrantedDamage)})" : "")
             : string.Empty;
         BuffContributionVisibility =
             model.Metrics != null && BuffContributionText.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
