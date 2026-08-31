@@ -40,6 +40,12 @@ foreach (string buffFile in new[] { "buff.json", "buff_custom.json" })
     }
 }
 
+string valuesPath = Path.Combine(jsonDir, "buff_values.json");
+if (File.Exists(valuesPath))
+{
+    dm.LoadBuffValues(ReferenceJson.LoadBuffValues(valuesPath));
+}
+
 string blacklistPath = Path.Combine(jsonDir, "buff_blacklist.json");
 if (File.Exists(blacklistPath))
 {
@@ -142,6 +148,25 @@ foreach ((DpsLog log, int idx) in battles.Select((b, i) => (b, i)))
         continue;
     }
 
+    // nDPS/rDPS for this battle — the frozen snapshot the detail window and the payload will read.
+    Dictionary<int, DpsMetricResult> metrics = r.DpsMetrics.Count > 0 ? r.DpsMetrics : calculator.GetDpsMetrics(r);
+    if (metrics.Count > 0)
+    {
+        Console.WriteLine("   ▸ nDPS/rDPS");
+        foreach (User u in r.Contributors
+                     .OrderByDescending(u => metrics.TryGetValue(u.Id, out DpsMetricResult m0) ? m0.Rdps : 0))
+        {
+            if (!metrics.TryGetValue(u.Id, out DpsMetricResult m)) continue;
+            double dps = r.Information.TryGetValue(u.Id, out DpsInformation? di) ? di.Dps : 0;
+            string nick = string.IsNullOrWhiteSpace(u.Nickname) ? $"uid {u.Id}" : u.Nickname!;
+            Console.WriteLine(
+                $"      {nick,-12} {u.Job?.ClassName() ?? "?",-10} dps={dps,12:N0}  ndps={m.Ndps,12:N0}  rdps={m.Rdps,12:N0}  " +
+                $"준버프={m.GivenBuffDps,11:N0}  받은버프={m.TakenBuffDps,11:N0}  넘긴피해={m.GrantedDamage,12:N0}");
+        }
+
+        Console.WriteLine();
+    }
+
     foreach (User u in r.Contributors.OrderByDescending(u => r.Information.TryGetValue(u.Id, out DpsInformation? i2) ? i2.Amount : 0))
     {
         List<OperatingData> rows = log.BuffRates.GetValueOrDefault(u.Id) ?? [];
@@ -227,7 +252,8 @@ void PrintPayload(DpsLog log)
     foreach (StatsBuffPayload b in p.Buffs.OrderByDescending(b => b.OperatingRate).Take(30))
     {
         Console.WriteLine($"      {b.OperatingRate,6:F1}%  {b.BuffName,-18} buffCode={b.BuffCode,-10} baseCode={b.BaseCode?.ToString(CultureInfo.InvariantCulture) ?? "-",-9} " +
-                          $"category={b.Category,-6} source={b.Source ?? "-"}");
+                          $"category={b.Category,-6} source={b.Source ?? "-",-6} " +
+                          $"lv={b.Level?.ToString(CultureInfo.InvariantCulture) ?? "-"}");
     }
 
     var badCategory = p.Buffs.Where(b => b.Category != "buff").ToList();

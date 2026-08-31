@@ -1,0 +1,144 @@
+namespace WaffleMeter.Capture;
+
+/// <summary>
+/// The stat ids the server uses in its character stat dictionary (0x364A / 0x3649), named.
+///
+/// <para>Only the ids we can name are listed. The full sheet carries ~85-87 entries and 112 distinct ids were
+/// observed across one session; the rest stay unnamed and are still carried through as raw pairs, because an
+/// id we cannot label today is not an id we want to silently drop — the stat window comparison that names it
+/// later needs the value to have been captured.</para>
+///
+/// <para><b>Units.</b> Values are signed 32-bit. The percent-ish stats are basis points (value / 100 = %), the
+/// flat ones are plain integers. Which is which is per-id, NOT derivable from the value, so it is declared
+/// here — reading 6425 as 64.25% when it is a flat 6,425 attack is the exact failure this table exists to
+/// prevent. ⚠️ The percent/flat split is from cross-reading a live capture against a client whose stat window
+/// shows the same numbers; treat any id you add without that comparison as unverified.</para>
+/// </summary>
+public static class PlayerStatIds
+{
+    // ---- 공격 (flat) ----
+    public const int Attack = 317;                 // 착용 공격력
+    public const int AdditionalAttack = 19;        // 추가 공격력
+    public const int MaximumAttack = 31;           // 최대 공격력
+    public const int MinimumAttack = 33;           // 최소 공격력
+    public const int CriticalAttackPower = 38;     // 치명타 공격력
+    public const int Penetration = 284;            // 관통
+    public const int Accuracy = 104;               // 명중
+    public const int WeaponAccuracy = 318;         // 무기 명중
+    public const int PveAccuracy = 110;            // PvE 명중
+    public const int Critical = 128;               // 치명타(수치)
+    public const int Defense = 52;                 // 방어력
+    public const int ArmorDefense = 307;           // 방어구 방어력
+    public const int PveAttack = 56;               // PvE 공격력
+    public const int BossAttack = 50;              // 보스 공격력
+    public const int FrontAttack = 587;            // 정면 공격력
+    public const int BackAttack = 98;              // 후면 공격력
+    public const int FrontCritical = 591;          // 정면 치명타
+    public const int BackCritical = 100;           // 후면 치명타
+    public const int SealstoneAdditionalDamage = 69; // 신석 추가 피해
+
+    // ---- 주신/기본 스탯 (flat, 포인트) ----
+    public const int Might = 1;        // 위력
+    public const int Agility = 2;      // 민첩
+    public const int Knowledge = 3;    // 지식
+    public const int Vitality = 4;     // 활력
+    public const int Precision = 5;    // 정밀
+    public const int Will = 6;         // 의지
+    public const int Justice = 7;      // 정의
+    public const int Freedom = 8;      // 자유
+    public const int Illusion = 9;     // 환상
+    public const int Life = 10;        // 생명
+    public const int Time = 11;        // 시간
+    public const int Destruction = 13; // 파괴
+    public const int Death = 14;       // 죽음
+    public const int Wisdom = 15;      // 지혜
+    public const int Destiny = 16;     // 운명
+    public const int Space = 17;       // 공간
+
+    // ---- 증폭·판정 (basis points: value / 100 = %) ----
+    public const int AttackIncreasePercent = 425;            // 공격력 증가율
+    public const int AccuracyIncreasePercent = 427;          // 명중 증가율
+    public const int CriticalIncreasePercent = 429;          // 치명타 증가율
+    public const int DefenseIncreasePercent = 426;           // 방어력 증가율
+    public const int DamageAmplifyPercent = 28;              // 피해 증폭
+    public const int WeaponDamageAmplifyPercent = 32;        // 무기 피해 증폭
+    public const int PveDamageAmplifyPercent = 379;          // PvE 피해 증폭
+    public const int BossDamageAmplifyPercent = 520;         // 보스 피해 증폭
+    public const int CriticalDamageAmplifyPercent = 44;      // 치명타 피해 증폭
+    public const int AdditionalHitAccuracyPercent = 146;     // 다단 히트 적중
+    public const int PerfectPercent = 442;                   // 완벽
+    public const int HardHitPercent = 443;                   // 강타
+    public const int CombatSpeedPercent = 282;               // 전투 속도
+    public const int FrontDamageAmplifyPercent = 589;        // 정면 피해 증폭
+    public const int BackDamageAmplifyPercent = 102;         // 후면 피해 증폭
+
+    /// <summary>쿨타임 감소는 두 id의 합이고, 표시할 때 <b>부호를 뒤집는다</b> — 서버는 "감소량"을 양수로
+    /// 싣지만 사람이 읽는 쪽에서는 −14% 가 자연스럽다.</summary>
+    public const int CooldownBasePercent = 215;
+
+    public const int CooldownBonusPercent = 433;
+
+    /// <summary>Human-readable Korean label for a stat id, or null when we have not named it yet.</summary>
+    public static string? Label(int id) => id switch
+    {
+        Attack => "착용 공격력",
+        AdditionalAttack => "추가 공격력",
+        MaximumAttack => "최대 공격력",
+        MinimumAttack => "최소 공격력",
+        CriticalAttackPower => "치명타 공격력",
+        Penetration => "관통",
+        Accuracy => "명중",
+        WeaponAccuracy => "무기 명중",
+        PveAccuracy => "PvE 명중",
+        Critical => "치명타",
+        Defense => "방어력",
+        ArmorDefense => "방어구 방어력",
+        PveAttack => "PvE 공격력",
+        BossAttack => "보스 공격력",
+        FrontAttack => "정면 공격력",
+        BackAttack => "후면 공격력",
+        FrontCritical => "정면 치명타",
+        BackCritical => "후면 치명타",
+        SealstoneAdditionalDamage => "신석 추가 피해",
+        Might => "위력",
+        Agility => "민첩",
+        Knowledge => "지식",
+        Vitality => "활력",
+        Precision => "정밀",
+        Will => "의지",
+        Justice => "정의",
+        Freedom => "자유",
+        Illusion => "환상",
+        Life => "생명",
+        Time => "시간",
+        Destruction => "파괴",
+        Death => "죽음",
+        Wisdom => "지혜",
+        Destiny => "운명",
+        Space => "공간",
+        AttackIncreasePercent => "공격력 증가율",
+        AccuracyIncreasePercent => "명중 증가율",
+        CriticalIncreasePercent => "치명타 증가율",
+        DefenseIncreasePercent => "방어력 증가율",
+        DamageAmplifyPercent => "피해 증폭",
+        WeaponDamageAmplifyPercent => "무기 피해 증폭",
+        PveDamageAmplifyPercent => "PvE 피해 증폭",
+        BossDamageAmplifyPercent => "보스 피해 증폭",
+        CriticalDamageAmplifyPercent => "치명타 피해 증폭",
+        AdditionalHitAccuracyPercent => "다단 히트 적중",
+        PerfectPercent => "완벽",
+        HardHitPercent => "강타",
+        CombatSpeedPercent => "전투 속도",
+        FrontDamageAmplifyPercent => "정면 피해 증폭",
+        BackDamageAmplifyPercent => "후면 피해 증폭",
+        _ => null,
+    };
+
+    /// <summary>True when this id's value is basis points (divide by 100 for a percent).</summary>
+    public static bool IsPercent(int id) => id
+        is AttackIncreasePercent or AccuracyIncreasePercent or CriticalIncreasePercent or DefenseIncreasePercent
+        or DamageAmplifyPercent or WeaponDamageAmplifyPercent or PveDamageAmplifyPercent
+        or BossDamageAmplifyPercent or CriticalDamageAmplifyPercent or AdditionalHitAccuracyPercent
+        or PerfectPercent or HardHitPercent or CombatSpeedPercent or FrontDamageAmplifyPercent
+        or BackDamageAmplifyPercent or CooldownBasePercent or CooldownBonusPercent;
+}

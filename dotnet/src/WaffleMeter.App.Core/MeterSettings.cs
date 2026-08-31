@@ -19,6 +19,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
     private static readonly string[] DamageValueModes = { "dps", "total" };
     private static readonly string[] ContributionModes = { "contribution", "entireContribution" };
     private static readonly string[] NameDisplays = { "all", "me_only", "hidden" };
+    private static readonly string[] RowDpsMetrics = { "dps", "ndps", "rdps" };
     private static readonly string[] Themes = { "dark", "light" };
     private static readonly string[] CloseActions = { "ask", "tray", "exit" };
     private static readonly string[] CaptureBackends = { "windivert", "npcap" };
@@ -57,12 +58,14 @@ public sealed class MeterSettings : INotifyPropertyChanged
         nameof(_buffUiSortMode), nameof(_buffUiTextColor), nameof(_buffUiVoice), nameof(_captureBackend),
         nameof(_closeAction), nameof(_contributionMode), nameof(_customAlarms), nameof(_damageValueMode),
         nameof(_displayMode), nameof(_fieldBossDisabled), nameof(_fontFamily), nameof(_nameDisplay),
-        nameof(_nameFxMode), nameof(_overlayTheme), nameof(_targetInfoDisplayMode), nameof(_tierEffects),
+        nameof(_nameFxMode), nameof(_overlayTheme), nameof(_rowDpsMetric), nameof(_targetInfoDisplayMode),
+        nameof(_tierEffects),
         nameof(_ttsVoice), nameof(_weeklyContentClears), nameof(_abyssCorridors), nameof(_abyssArtifacts))]
     public void Reload()
     {
         _displayMode = ReadEnum("displayMode", "dps_percent", DisplayModes);
         _damageValueMode = ReadEnum("damageValueMode", "dps", DamageValueModes);
+        _rowDpsMetric = ReadEnum("rowDpsMetric", "dps", RowDpsMetrics);
         _contributionMode = ReadEnum("contributionMode", "contribution", ContributionModes);
         _nameDisplay = ReadEnum("nameDisplay", "all", NameDisplays);
         _overlayTheme = ReadEnum("overlayTheme", "dark", Themes);
@@ -128,6 +131,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffTtsOnStart = ReadBool("buffUi.ttsOnStart", false);
         _buffTtsOnEnd = ReadBool("buffUi.ttsOnEnd", false);
         _buffUiGrayOnCooldown = ReadBool("buffUi.grayOnCooldown", false);
+        _buffUiShowLevel = ReadBool("buffUi.showLevel", true);
         _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
         _buffUiHidden = _props.GetProperty("buffUi.hidden") ?? "";
         _buffUiObserved = _props.GetProperty("buffUi.observed") ?? "";
@@ -153,6 +157,14 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private string _damageValueMode;
     public string DamageValueMode { get => _damageValueMode; set => SetProp(ref _damageValueMode, "damageValueMode", value); }
+
+    private string _rowDpsMetric;
+    /// <summary>미터 행에 찍히는 초당 피해량의 종류: <c>dps</c>(실제 낸 피해, 기본) / <c>ndps</c>(남이 걸어준
+    /// 버프 몫을 걷어낸 값) / <c>rdps</c>(nDPS + 내가 남에게 얹어준 몫). 표시 문자열뿐 아니라 <b>정렬과 게이지
+    /// 길이도</b> 같이 따라간다 — 숫자만 바꾸고 순서를 그대로 두면 3등 행이 1등 숫자를 달고 있게 된다.
+    /// <para>"총 피해량"(<see cref="DamageValueMode"/>) 모드와는 별개 축이다. 총량 모드에서는 이 선택이 적용되지
+    /// 않는다 — 누적 피해량은 정의상 실제로 낸 피해이고, 거기에 정규화를 섞으면 두 축이 한 숫자에서 만난다.</para></summary>
+    public string RowDpsMetric { get => _rowDpsMetric; set => SetProp(ref _rowDpsMetric, "rowDpsMetric", value); }
 
     private string _contributionMode;
     public string ContributionMode { get => _contributionMode; set => SetProp(ref _contributionMode, "contributionMode", value); }
@@ -474,6 +486,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// 0x3847 cooldown snapshot), so you can see at a glance when it's re-castable. Off by default.</summary>
     public bool BuffUiGrayOnCooldown { get => _buffUiGrayOnCooldown; set => SetBool(ref _buffUiGrayOnCooldown, "buffUi.grayOnCooldown", value); }
 
+    private bool _buffUiShowLevel;
+    /// <summary>버프 아이콘 우하단에 그 버프의 <b>스킬 레벨</b>(어노멀 레벨)을 작게 겹쳐 그린다. 레벨을 못 읽은
+    /// 적용(0)은 배지를 아예 그리지 않는다 — "0"을 띄우면 1레벨과 구분이 안 된다. 기본 켜짐.</summary>
+    public bool BuffUiShowLevel { get => _buffUiShowLevel; set => SetBool(ref _buffUiShowLevel, "buffUi.showLevel", value); }
+
     private bool _showOtherPlayerBuffs;
     /// <summary>Include buffs applied by other players (off = only the local player's own buffs).</summary>
     public bool ShowOtherPlayerBuffs { get => _showOtherPlayerBuffs; set => SetBool(ref _showOtherPlayerBuffs, "buffUi.showOther", value); }
@@ -646,6 +663,16 @@ public sealed class MeterSettings : INotifyPropertyChanged
     };
 
     public bool UseTotalDamage => _damageValueMode == "total";
+
+    /// <summary>Resolve the row metric enum. Total-damage mode wins: it has no normalized counterpart.</summary>
+    public RowDpsMetricMode RowDpsMetricMode => UseTotalDamage
+        ? Core.RowDpsMetricMode.Dps
+        : _rowDpsMetric switch
+        {
+            "ndps" => Core.RowDpsMetricMode.Ndps,
+            "rdps" => Core.RowDpsMetricMode.Rdps,
+            _ => Core.RowDpsMetricMode.Dps,
+        };
     public bool UseEntireContribution => _contributionMode == "entireContribution";
 
     private string ReadEnum(string key, string fallback, string[] allowed)
@@ -722,4 +749,17 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
+
+/// <summary>어떤 초당 피해량을 미터 행에 쓸지. <see cref="MeterSettings.RowDpsMetricMode"/> 참조.</summary>
+public enum RowDpsMetricMode
+{
+    /// <summary>실제로 낸 피해 / 전투시간. 늘 기본값 — 다른 두 값은 모델 추정이 섞인다.</summary>
+    Dps = 0,
+
+    /// <summary>남이 걸어준 버프 몫을 나눠 걷어낸 값. "버프를 빼면 이 사람은 얼마인가".</summary>
+    Ndps,
+
+    /// <summary>nDPS + 내가 남에게 얹어준 몫. 서포터의 기여가 보이는 유일한 축.</summary>
+    Rdps,
 }

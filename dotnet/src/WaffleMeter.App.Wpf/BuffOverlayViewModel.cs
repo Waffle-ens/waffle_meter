@@ -96,7 +96,7 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
 
     /// <summary>Replace the slot list from a fresh snapshot, reusing existing rows by code so only the
     /// countdown text + ring progress change on a normal tick.</summary>
-    public void Update(IReadOnlyList<OwnerBuffView> buffs, bool grayOnCooldown)
+    public void Update(IReadOnlyList<OwnerBuffView> buffs, bool grayOnCooldown, bool showLevel = true)
     {
         // remove slots no longer present
         for (int i = Slots.Count - 1; i >= 0; i--)
@@ -130,12 +130,17 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
 
             if (current < 0)
             {
-                Slots.Insert(Math.Min(target, Slots.Count), new BuffSlotVM(b.Code, b.Name, b.RemainingMs, dur, b.ByOther, onCooldown));
+                Slots.Insert(
+                    Math.Min(target, Slots.Count),
+                    new BuffSlotVM(b.Code, b.Name, b.RemainingMs, dur, b.ByOther, onCooldown, b.Level, showLevel));
                 continue;
             }
 
             Slots[current].SetRemaining(b.RemainingMs, dur);
             Slots[current].SetCooldown(onCooldown);
+            // 같은 슬롯을 다른 사람이 이어받으면(_ownerBuffs 가 base 코드로 키잉되므로) 레벨도 시전자도 바뀐다.
+            Slots[current].SetLevel(b.Level, showLevel);
+            Slots[current].SetByOther(b.ByOther);
             int destination = Math.Min(target, Slots.Count - 1);
             if (current != destination)
             {
@@ -171,20 +176,27 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
     private const double Center = Canvas / 2; // 23
     private const double RingRadius = 21.5;
 
-    public BuffSlotVM(int code, string name, long remainingMs, long durationMs, bool byOther, bool onCooldown)
+    public BuffSlotVM(
+        int code, string name, long remainingMs, long durationMs, bool byOther, bool onCooldown,
+        int level = 0, bool showLevel = true)
     {
         Code = code;
         Name = name;
         IconSource = JoinIcons.Skill(code);
-        ByOther = byOther;
+        SetByOther(byOther);
         SetRemaining(remainingMs, durationMs);
         SetCooldown(onCooldown);
+        SetLevel(level, showLevel);
     }
 
     public int Code { get; }
     public string Name { get; }
     public ImageSource? IconSource { get; }
-    public bool ByOther { get; }
+    private bool _byOther;
+    /// <summary>다른 사람이 걸어 준 버프인지(우상단 액센트 점). 슬롯은 base 코드로 키잉돼 시전자가 바뀌면
+    /// 그대로 이어받으므로, 재사용 시 반드시 갱신해야 한다 — 안 그러면 레벨 배지는 새 시전자를, 점은 옛
+    /// 시전자를 가리키는 자기모순 상태가 된다.</summary>
+    public bool ByOther { get => _byOther; private set => Set(ref _byOther, value); }
 
     private double _iconOpacity = 1.0;
     /// <summary>Icon opacity — dimmed while the granting skill is on cooldown (the gray-out option).</summary>
@@ -203,6 +215,26 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
 
     private string _remainingText = string.Empty;
     public string RemainingText { get => _remainingText; private set => Set(ref _remainingText, value); }
+
+    private string _levelText = string.Empty;
+    /// <summary>아이콘 우하단 배지에 찍히는 스킬 레벨. 레벨을 모르거나(0) 옵션이 꺼져 있으면 빈 문자열이고,
+    /// 그러면 <see cref="LevelVisibility"/>가 배지를 통째로 접는다.</summary>
+    public string LevelText { get => _levelText; private set => Set(ref _levelText, value); }
+
+    private Visibility _levelVisibility = Visibility.Collapsed;
+    public Visibility LevelVisibility { get => _levelVisibility; private set => Set(ref _levelVisibility, value); }
+
+    /// <summary>Update whether a party member (rather than the local player) applied this buff.</summary>
+    public void SetByOther(bool byOther) => ByOther = byOther;
+
+    /// <summary>Set the level badge. <paramref name="level"/> 0 = 모름 → 배지를 그리지 않는다 ("0"을 그리면
+    /// 1레벨과 구분이 안 되고, 소모품 버프는 애초에 레벨이 없다).</summary>
+    public void SetLevel(int level, bool show)
+    {
+        bool visible = show && level > 0;
+        LevelText = visible ? level.ToString(Inv) : string.Empty;
+        LevelVisibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private Geometry? _ring;
     /// <summary>The ring arc drawn around the icon; sweeps a shorter arc as the buff runs down, so the border

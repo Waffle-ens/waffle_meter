@@ -312,7 +312,10 @@ public sealed class StatsPayloadBuilder
         Dictionary<int, Dictionary<string, AnalyzedSkill>> Skills,
         Dictionary<int, List<OperatingData>> Buffs,
         Dictionary<int, int> PartySlots,
-        Dictionary<int, long[]> Series);
+        Dictionary<int, long[]> Series,
+        Dictionary<int, DpsMetricResult> Metrics,
+        /// <summary>대표 uid 가 둘 이상의 uid 를 흡수했는지. true 면 nDPS/rDPS 를 보내지 않는다(합산 불가).</summary>
+        Dictionary<int, bool> MetricsFolded);
 
     /// <summary>
     /// 같은 캐릭터가 두 uid로 참가자에 들어온 경우를 하나로 접는다.
@@ -339,6 +342,8 @@ public sealed class StatsPayloadBuilder
         var buffs = new Dictionary<int, List<OperatingData>>();
         var partySlots = new Dictionary<int, int>();
         var series = new Dictionary<int, long[]>();
+        var metrics = new Dictionary<int, DpsMetricResult>();
+        var metricFolded = new Dictionary<int, bool>();
 
         foreach (User user in damageSorted)
         {
@@ -399,9 +404,23 @@ public sealed class StatsPayloadBuilder
                     ? AddSeries(mergedSoFar, frozenSeries)
                     : frozenSeries;
             }
+
+            // nDPS/rDPS 는 <b>합산할 수 없다</b>. Dps 는 모든 uid 가 같은 전투 길이로 나눈 값이라 부분의 합이
+            // 전체지만, ndps = ownDps / (1 + totalGain) 는 그렇지 않다 — 한 캐릭터가 두 uid 로 갈리면 버프
+            // 가동률도 함께 갈려 각 조각의 분모가 따로 놀고, 더하면 실제보다 커진다. 정확한 값을 내려면 접은
+            // 뒤에 다시 계산해야 하는데 그러려면 버프 구간이 필요하고, 이 빌더는 그걸 들고 있지 않다.
+            //
+            // 그래서 갈린 참가자에게는 <b>아무 값도 보내지 않는다</b>(아래에서 null). 틀린 줄 아는 숫자를 보내는
+            // 것보다 낫고, 실측상 매우 드물다(2.9.3 기준 146,527 참가자 행 중 2행).
+            if (log.Report.DpsMetrics.TryGetValue(user.Id, out DpsMetricResult m))
+            {
+                metricFolded[representative] = metrics.ContainsKey(representative);
+                metrics[representative] = m;
+            }
         }
 
-        return new FoldedParticipants(representatives, representativeOf, information, skills, buffs, partySlots, series);
+        return new FoldedParticipants(
+            representatives, representativeOf, information, skills, buffs, partySlots, series, metrics, metricFolded);
     }
 
     /// <summary>두 초당 배열을 <b>새</b> 배열에 원소별로 더한다(입력은 건드리지 않는다). 같은 전투 창에서 만들어져
@@ -531,7 +550,12 @@ public sealed class StatsPayloadBuilder
                 // 이 사람의 초당 피해 시계열. 계산·동결은 이미 전원분으로 돌고 있었고(DpsCalculator.BuildDpsSeries가
                 // 기여자 전체를 돈다) payload가 업로더 것만 꺼내 쓰느라 버려지던 값이다 — 웹 전투상세가 파티원
                 // 전원에게 DPS 추이 그래프를 그릴 수 있게 하는 유일한 소스. 없으면 null(빈 배열 아님).
-                DpsSeries: BuildSeriesPayload(folded.Series.GetValueOrDefault(user.Id))));
+                DpsSeries: BuildSeriesPayload(folded.Series.GetValueOrDefault(user.Id)),
+                // 레벨을 반영한 nDPS/rDPS. 웹도 같은 두 숫자를 ingest 시점에 계산하지만, 웹의 계수표에는 시전자
+                // 스킬 레벨이 들어갈 자리가 없다(웹 소스 자신이 그렇게 적어 두었다). 없으면 null.
+                Metrics: folded.MetricsFolded.GetValueOrDefault(user.Id)
+                    ? null
+                    : BuildMetricsPayload(folded.Metrics, user.Id)));
         }
 
         return result;
@@ -540,6 +564,14 @@ public sealed class StatsPayloadBuilder
     /// <summary>참가자 한 명이 실어 보내는 시계열 샘플 수 상한. 웹 스키마는 3,600까지 받지만 그건 <b>업로더 한 명</b>
     /// 기준이라 16명 × 3,600 = 5.7만 샘플이 되면 본문 1MB 한도에 붙는다. 웹 표시는 어차피 3초 버킷이라 900샘플이면
     /// 약 15분 전투까지 step=1 무손실이고, 그보다 긴 전투만 접힌다.</summary>
+    /// <summary>이 참가자의 nDPS/rDPS를 payload 모양으로. 계산이 안 된 전투(버프 정보 없음/길이 0)면 null —
+    /// 0을 실어 보내면 웹이 "버프를 하나도 못 받았다"로 읽는다.</summary>
+    private static StatsDpsMetricsPayload? BuildMetricsPayload(
+        Dictionary<int, DpsMetricResult> metrics, int uid) =>
+        metrics.TryGetValue(uid, out DpsMetricResult m)
+            ? new StatsDpsMetricsPayload(RoundToLong(m.Ndps), RoundToLong(m.Rdps), m.GrantedDamage)
+            : null;
+
     private const int MaxSeriesSamples = 900;
 
     /// <summary>웹 zod가 <c>step</c>에 걸어둔 상한. 정상 전투는 근처도 못 간다(step 60 = 15시간 창). 하지만 전투
@@ -826,7 +858,10 @@ public sealed class StatsPayloadBuilder
             ActorIdentityHash: actorIdentityHash,
             OwnerParticipantIndex: ownerParticipantIndex,
             ActorParticipantIndex: actorParticipantIndex,
-            BaseCode: value.BaseCode > 0 ? value.BaseCode : null);
+            BaseCode: value.BaseCode > 0 ? value.BaseCode : null,
+            // 0 = the wire never gave a level (consumable/scroll, or the tail self-validation declined) — send
+            // null rather than 0 so the site can tell "no level" apart from a real level.
+            Level: value.Level > 0 ? value.Level : null);
     }
 
     // Same classification as the local meter's DetailModel.BuildOwnBuffs():

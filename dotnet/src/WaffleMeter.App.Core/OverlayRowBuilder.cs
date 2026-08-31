@@ -74,9 +74,23 @@ public static class OverlayRowBuilder
         // Feature 1: 표시 중인 '끝난 전투'(<see cref="DpsReport.BattleFinished"/> 또는 파티 스냅샷 보유) 위로 로스터
         // 프리뷰를 다시 띄울지. 라이브 idle 경로에서만 true. 기록 재생 경로는 false로 넘겨(재생 전투도 끝난
         // 전투지만 스냅샷이 라이브 로스터와 정당히 다름) 절대 안 비운다. 기존 호출자/테스트는 기본값으로 그대로.
-        bool allowRosterResurface = false)
+        bool allowRosterResurface = false,
+        // 행 정렬·게이지에 쓸 대체 지표(uid -> 값). nDPS/rDPS 표시 모드일 때만 채워 넘긴다. null 이면 기존대로
+        // 누적 피해량 / DPS 로 정렬한다.
+        //
+        // 왜 표시 문자열만 바꾸지 않는가: 정렬을 그대로 두면 1등 행에 3등 숫자가 찍힌다. 서포터의 rDPS가
+        // 딜러보다 높은 것이 이 기능의 요점이므로(실측 8인 공대에서 치유성이 raw 5위 → rDPS 1위), 순서가
+        // 같이 움직이지 않으면 기능이 아무것도 보여주지 못한다.
+        IReadOnlyDictionary<int, double>? metricOverride = null)
     {
         double Metric(DpsInformation info) => useTotalDamage ? info.Amount : info.Dps;
+
+        // 표시 계층과 같은 규칙: 딜이 0인 행(전투 전 로스터 프리뷰)에는 대체 지표를 붙이지 않는다. 안 그러면
+        // 직전 전투에서 얼린 값으로 대기 행이 정렬돼, 아직 아무것도 안 한 사람이 맨 위에 선다.
+        double RowMetric(int uid, DpsInformation info) =>
+            info.Amount > 0 && metricOverride != null && metricOverride.TryGetValue(uid, out double v)
+                ? v
+                : Metric(info);
 
         // 본인 id for coloring: prefer the id frozen INTO the report (a saved/history battle), else the live one.
         int selfId = report.ExecutorId != 0 ? report.ExecutorId : liveSelfId;
@@ -85,7 +99,7 @@ public static class OverlayRowBuilder
         // Raw COMBAT rows (pre blank-row filter), metric-sorted.
         List<Row> rawCombat = report.Information
             .Select(kv => new Row(kv.Key, kv.Value, report.Contributors.FirstOrDefault(c => c.Id == kv.Key), false))
-            .OrderByDescending(e => Metric(e.Info))
+            .OrderByDescending(e => RowMetric(e.Uid, e.Info))
             .ToList();
 
         // Lost-executor recovery: when 본인 re-instances (new entity id) and the new id's own-load packet
@@ -103,6 +117,9 @@ public static class OverlayRowBuilder
         // random strong stranger at a field boss as 본인 (the "someone else's field boss shows as my DPS" bug).
         // Done on a display-only copy (no state mutation), recomputed every tick, so it self-corrects the moment
         // the real 본인 id appears.
+        // ⚠️ topMetric 이하의 "주력 딜러인가" 판정들(SelfRecoveryMinShare / BareMajorMinShare)은 대체 지표가
+        // 아니라 항상 RAW 피해량으로 잰다. 이 게이트들이 묻는 것은 "이 이름 없는 행이 실제로 큰 피해를 냈나"이고,
+        // nDPS/rDPS 는 모델 추정이 섞인 값이라 신원 복구 같은 되돌리기 어려운 판단의 근거로 쓸 수 없다.
         double topMetric = rawCombat.Count > 0 ? rawCombat.Max(e => Metric(e.Info)) : 0.0;
         // 이 전투를 함께한 파티. SAVED/기록 리포트는 전투 종료 시점에 얼려 둔 스냅샷을 들고 있고, 그때는
         // 그쪽이 절대적으로 우선한다 — 호출자가 넘기는 로스터는 "지금"의 파티라, 전투가 끝나고 파티를 나가거나

@@ -13,6 +13,8 @@ namespace WaffleMeter.Data;
 /// <para><see cref="Indefinite"/> is true for an actively-maintained stance with no packet-declared expiry
 /// (폭주/권성): its <see cref="RemainingMs"/>/<see cref="EndMs"/> are a synthetic keep-alive, not a real
 /// countdown, so the overlay draws no ring/timer and the voice alert never pre-warns its (guessed) end.</para>
+/// <para><see cref="Level"/> is the caster's skill level for this buff (어노멀 레벨 1~40; 0 = unknown, which
+/// the overlay draws as no badge rather than as "0").</para>
 /// </summary>
 public readonly record struct OwnerBuffView(
     int Code,
@@ -23,4 +25,5 @@ public readonly record struct OwnerBuffView(
     bool ByOther,
     bool Overlay,
     bool OnCooldown,
-    bool Indefinite);
+    bool Indefinite,
+    int Level = 0);

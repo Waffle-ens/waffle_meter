@@ -17,7 +17,11 @@ public sealed record DetailSkillRow(
     int? FrontPct,
     int? ParryPct,
     double Ratio,
-    IReadOnlyList<bool>? Spec);
+    IReadOnlyList<bool>? Spec,
+    /// <summary>이 행의 피해가 <b>다른 사람의 효과</b>로 들어온 것일 때 그 사람의 이름(아니면 null).
+    /// 검성 흡혈의 검의 착취와 치유성 대지의 축복의 추가 피해는 수혜자의 미터에 <i>시전자 직업의 스킬 코드</i>로
+    /// 찍히기 때문에, 이름표가 없으면 "내가 안 배운 직업 스킬이 내 스킬 목록에 있다"로 읽힌다.</summary>
+    string? GrantedBy = null);
 
 /// <summary>A chain group: the merged/displayed skill + its child rows (expandable when >1).</summary>
 public sealed record DetailSkillGroup(DetailSkillRow Merged, IReadOnlyList<DetailSkillRow> Children, bool HasChildren);
@@ -25,7 +29,11 @@ public sealed record DetailSkillGroup(DetailSkillRow Merged, IReadOnlyList<Detai
 /// <summary>One buff/debuff uptime row. <see cref="Count"/> is null for a normal uptime row (the window shows
 /// <see cref="Rate"/> as a %); when set, the row is a PROC whose uptime % is meaningless and the window shows
 /// "N회" instead — see <see cref="DetailProcRow"/>.</summary>
-public sealed record DetailBuffRow(int Code, string Name, double Rate, string Description, int? Count = null);
+/// <param name="Level">시전자가 이 버프의 스킬을 가진 레벨(어노멀 레벨 1~40). 0 = 모름(소모품·주문서처럼
+/// 레벨 개념이 없는 버프이거나 적용 패킷이 레벨을 안 실은 경우)이고, 그때 표시 계층은 칸을 비운다.
+/// 시너지 버프의 효과량이 레벨 선형이라(노련한 반격 = 5.4% + 0.4%/레벨) 가동률만으로는 기여를 못 읽는다.</param>
+public sealed record DetailBuffRow(
+    int Code, string Name, double Rate, string Description, int? Count = null, int Level = 0);
 
 /// <summary>A count-based row pinned to the BOTTOM of the 내 버프 section: an effect that fires on a condition
 /// with an internal cooldown, where "how many times" is the only meaningful number. Currently 회생의 계약's
@@ -33,6 +41,16 @@ public sealed record DetailBuffRow(int Code, string Name, double Rate, string De
 public sealed record DetailProcRow(int Code, string Name, int Count, string Description);
 
 public sealed record DetailBuffSection(string Label, IReadOnlyList<DetailBuffRow> Rows);
+
+/// <summary>버프를 걷어낸/얹은 초당 피해량. 전투 상세 상단 타일에 그대로 올라간다.</summary>
+/// <param name="Ndps">남이 걸어준 버프 몫을 나눠 걷어낸 값. 내 버프는 남아 있다 — 그건 내 플레이다.</param>
+/// <param name="Rdps"><see cref="Ndps"/> + 내가 남에게 얹어준 몫(버프 배수 + 실제로 넘어간 피해).</param>
+/// <param name="TakenBuffDps">내 DPS 중 남의 버프가 만들어 준 몫(= dps − ndps).</param>
+/// <param name="GivenBuffDps">내가 남에게 얹어준 몫(= rdps − ndps). 서포터의 기여가 보이는 축.</param>
+/// <param name="GrantedDamage">내 효과가 <b>남의 미터에</b> 낸 실제 피해 총량(흡혈의 검 착취 / 대지의 축복 추가
+/// 피해). <see cref="GivenBuffDps"/> 중 추정이 아니라 실측인 부분이다.</param>
+public sealed record DetailMetrics(
+    double Ndps, double Rdps, double TakenBuffDps, double GivenBuffDps, long GrantedDamage);
 
 /// <summary>
 /// Pure computation of a player's detail breakdown — summary stats, chain-grouped skill table, and
@@ -52,7 +70,10 @@ public sealed record DetailModel(
     long CombatMs,
     IReadOnlyList<DetailSkillGroup> Skills,
     IReadOnlyList<DetailBuffSection> Buffs,
-    IReadOnlyList<DetailBuffSection> Debuffs)
+    IReadOnlyList<DetailBuffSection> Debuffs,
+    /// <summary>nDPS/rDPS. null = 계산할 수 없었던 전투(버프 정보가 없거나 지속시간 0) — 그때 표시 계층은
+    /// 타일을 아예 감춘다. 0으로 그리면 "버프를 하나도 못 받았다"로 읽힌다.</summary>
+    DetailMetrics? Metrics = null)
 {
     private static readonly (int Main, int[] Children)[] ChainGroups =
     {
@@ -98,7 +119,10 @@ public sealed record DetailModel(
         JobClass? job,
         double contribution,
         long combatMs,
-        DetailProcRow? proc = null)
+        DetailProcRow? proc = null,
+        DetailMetrics? metrics = null,
+        // 넘겨준 사람 이름표(시너지 base 코드 -> 시전자 이름). 스킬 행에 "(밀피)" 처럼 붙는다.
+        IReadOnlyDictionary<int, string>? grantedBy = null)
     {
         var raws = new List<Raw>();
         foreach (KeyValuePair<string, AnalyzedSkill> entry in skills)
@@ -153,7 +177,7 @@ public sealed record DetailModel(
             den > 0 ? Math.Round((double)raws.Where(r => !r.IsDot).Sum(sel) / den * 1000, MidpointRounding.AwayFromZero) / 10.0 : 0.0;
 
         raws.Sort((a, b) => b.Damage.CompareTo(a.Damage));
-        IReadOnlyList<DetailSkillGroup> groups = BuildGroups(raws, totalDamage);
+        IReadOnlyList<DetailSkillGroup> groups = BuildGroups(raws, totalDamage, grantedBy);
 
         return new DetailModel(
             totalDamage,
@@ -168,10 +192,12 @@ public sealed record DetailModel(
             combatMs,
             groups,
             BuildOwnBuffs(ownBuffs, uid, job, proc),
-            BuildDebuffs(bossDebuffs, uid));
+            BuildDebuffs(bossDebuffs, uid),
+            metrics);
     }
 
-    private static IReadOnlyList<DetailSkillGroup> BuildGroups(List<Raw> raws, long totalDamage)
+    private static IReadOnlyList<DetailSkillGroup> BuildGroups(
+        List<Raw> raws, long totalDamage, IReadOnlyDictionary<int, string>? grantedBy)
     {
         var used = new bool[raws.Count];
         var groups = new List<DetailSkillGroup>();
@@ -195,8 +221,8 @@ public sealed record DetailModel(
             {
                 Raw merged = Merge(ordered);
                 groups.Add(new DetailSkillGroup(
-                    ToRow(merged, totalDamage),
-                    ordered.Select(r => ToRow(r, totalDamage)).ToList(),
+                    ToRow(merged, totalDamage, grantedBy),
+                    ordered.Select(r => ToRow(r, totalDamage, grantedBy)).ToList(),
                     HasChildren: true));
             }
             else
@@ -230,20 +256,20 @@ public sealed record DetailModel(
             {
                 Raw merged = Merge(sameName);
                 groups.Add(new DetailSkillGroup(
-                    ToRow(merged, totalDamage),
-                    sameName.Select(r => ToRow(r, totalDamage)).ToList(),
+                    ToRow(merged, totalDamage, grantedBy),
+                    sameName.Select(r => ToRow(r, totalDamage, grantedBy)).ToList(),
                     HasChildren: true));
             }
             else
             {
-                DetailSkillRow row = ToRow(sameName[0], totalDamage);
+                DetailSkillRow row = ToRow(sameName[0], totalDamage, grantedBy);
                 groups.Add(new DetailSkillGroup(row, new[] { row }, HasChildren: false));
             }
         }
 
         foreach (Raw dot in remaining.Where(r => r.IsDot))
         {
-            DetailSkillRow row = ToRow(dot, totalDamage);
+            DetailSkillRow row = ToRow(dot, totalDamage, grantedBy);
             groups.Add(new DetailSkillGroup(row, new[] { row }, HasChildren: false));
         }
 
@@ -271,7 +297,8 @@ public sealed record DetailModel(
         return m;
     }
 
-    private static DetailSkillRow ToRow(Raw r, long totalDamage) => new(
+    private static DetailSkillRow ToRow(
+        Raw r, long totalDamage, IReadOnlyDictionary<int, string>? grantedBy) => new(
         r.Code,
         r.Name,
         r.Hits,
@@ -287,7 +314,18 @@ public sealed record DetailModel(
         r.IsDot ? null : PctInt(r.Front, r.Flagged),
         r.IsDot ? null : PctInt(r.Parry, r.Hits),
         totalDamage > 0 ? r.Damage / (double)totalDamage : 0.0,
-        r.IsDot ? null : SkillSpecialization.Decode(r.RawCode));
+        r.IsDot ? null : SkillSpecialization.Decode(r.RawCode),
+        GrantedByOf(r.Code, grantedBy));
+
+    /// <summary>이 스킬 행이 남의 효과로 들어온 것이면 그 사람 이름. 코드만으로는 판정할 수 없다 — 검성 본인의
+    /// 흡혈의 검 타격도 같은 코드를 쓴다 — 그래서 호출자가 "이 전투에서 나에게 그 버프를 건 사람"을 이미
+    /// 해석해 넘겨준 표만 참조한다.</summary>
+    private static string? GrantedByOf(int code, IReadOnlyDictionary<int, string>? grantedBy)
+    {
+        if (grantedBy == null || grantedBy.Count == 0) return null;
+        int source = PartySynergyCatalog.GrantedDamageSource(code);
+        return source != 0 && grantedBy.TryGetValue(source, out string? name) ? name : null;
+    }
 
     /// <summary>
     /// The buffs this player put up themselves — their own class buffs, then consumables (scrolls/potions).
@@ -362,7 +400,8 @@ public sealed record DetailModel(
     }
 
     private static DetailBuffRow ToBuffRow(OperatingData b) =>
-        new(b.Code, b.Name, Math.Clamp(b.OperatingRate, 0.0, 100.0), ReadableBuffText(b.Effect, b.Summary));
+        new(b.Code, b.Name, Math.Clamp(b.OperatingRate, 0.0, 100.0), ReadableBuffText(b.Effect, b.Summary),
+            Level: b.Level);
 
     private static int Normalize(int code) =>
         code is >= 11_000_000 and <= 19_999_999 ? code / 10_000 * 10_000 : code;

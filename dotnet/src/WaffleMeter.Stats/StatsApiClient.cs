@@ -82,6 +82,10 @@ public sealed class StatsApiClient : ITierApi, INameFxApi
     private const string TierLookupEndpoint = BaseUrl + "/api/v1/tiers/lookup";
     private const string NameFxManifestEndpoint = BaseUrl + "/api/v1/supporters/manifest";
     private const string NameFxChoiceEndpoint = BaseUrl + "/api/v1/supporters/effect";
+
+    /// <summary>스탯 계산기 페이지. 미터가 잡은 스탯을 쿼리로 실어 열어 준다(딥링크). 여기 두는 이유는 도메인이
+    /// 이미 여기 한 곳에만 적혀 있기 때문이다 — 두 군데 적어두면 도메인이 바뀔 때 한쪽만 고쳐진다.</summary>
+    public const string CalculatorPageUrl = BaseUrl + "/calculator";
     private const int ConnectTimeoutMs = 8_000;
     private const int ReadTimeoutMs = 15_000;
 

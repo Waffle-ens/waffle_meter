@@ -8,6 +8,7 @@ using System.Windows;
 using WaffleMeter.App.Core;
 using WaffleMeter.Capture;
 using WaffleMeter.Capture.Live;
+using WaffleMeter.Data;
 using WaffleMeter.Stats;
 
 namespace WaffleMeter.App.Wpf;
@@ -236,6 +237,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         new SettingOption("DPS", "dps"),
         new SettingOption("누적 피해량", "total"),
+    };
+
+    public IReadOnlyList<SettingOption> RowDpsMetrics { get; } = new[]
+    {
+        new SettingOption("DPS (실제 피해)", "dps"),
+        new SettingOption("nDPS (버프 제외)", "ndps"),
+        new SettingOption("rDPS (버프 기여 포함)", "rdps"),
     };
 
     public IReadOnlyList<SettingOption> ContributionModes { get; } = new[]
@@ -469,6 +477,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     // ---- display tab (live) ----
     public string DisplayMode { get => _settings.DisplayMode; set { _settings.DisplayMode = value; OnPropertyChanged(); } }
     public string DamageValueMode { get => _settings.DamageValueMode; set { _settings.DamageValueMode = value; OnPropertyChanged(); } }
+
+    /// <summary>미터 행의 초당 피해량 종류(DPS/nDPS/rDPS). 표시·정렬·게이지가 함께 움직인다.</summary>
+    public string RowDpsMetric { get => _settings.RowDpsMetric; set { _settings.RowDpsMetric = value; OnPropertyChanged(); } }
     public string ContributionMode { get => _settings.ContributionMode; set { _settings.ContributionMode = value; OnPropertyChanged(); } }
     public string NameDisplay { get => _settings.NameDisplay; set { _settings.NameDisplay = value; OnPropertyChanged(); } }
     public string TtsVoice
@@ -1126,6 +1137,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool BuffTtsOnStart { get => _settings.BuffTtsOnStart; set { _settings.BuffTtsOnStart = value; OnPropertyChanged(); } }
     public bool BuffTtsOnEnd { get => _settings.BuffTtsOnEnd; set { _settings.BuffTtsOnEnd = value; OnPropertyChanged(); } }
     public bool BuffUiGrayOnCooldown { get => _settings.BuffUiGrayOnCooldown; set { _settings.BuffUiGrayOnCooldown = value; OnPropertyChanged(); } }
+
+    /// <summary>버프 아이콘 우하단에 스킬 레벨 배지를 그린다(기본 켜짐). 레벨을 못 읽은 버프는 배지 없음.</summary>
+    public bool BuffUiShowLevel { get => _settings.BuffUiShowLevel; set { _settings.BuffUiShowLevel = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }
 
     /// <summary>버프 오버레이 정렬 모드를 ComboBox의 SelectedIndex(0 적용순 / 1 남은시간순 / 2 이름순)로
@@ -1192,6 +1206,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(BuffTtsOnStart));
         OnPropertyChanged(nameof(BuffTtsOnEnd));
         OnPropertyChanged(nameof(BuffUiGrayOnCooldown));
+        OnPropertyChanged(nameof(BuffUiShowLevel));
         OnPropertyChanged(nameof(ShowOtherPlayerBuffs));
         OnPropertyChanged(nameof(ActivePresetName));
     }
@@ -1524,6 +1539,112 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// <summary>통계 웹서비스 첫 화면 주소(설정창 하단 '통계 웹' 버튼).</summary>
     public string StatsWebUrl => _services.StatsApi.WebHomeUrl;
 
+    // ---- 내 스탯 (0x364A/0x3649 스탯 사전) ----
+
+    /// <summary>지금 잡혀 있는 본인 스탯 사전. 없으면 null.</summary>
+    private PlayerStatSheet? Sheet => _services.Data.PlayerStats.Current;
+
+    /// <summary>스탯을 하나라도 잡았는지. 두 버튼의 활성 조건.</summary>
+    public bool HasStatSheet => Sheet != null;
+
+    /// <summary>사용자에게 보여줄 상태 한 줄. "몇 개 잡았는지"보다 "믿고 써도 되는지"를 말한다.</summary>
+    public string StatSheetStatus
+    {
+        get
+        {
+            PlayerStatSheet? sheet = Sheet;
+            if (sheet == null)
+            {
+                return "아직 스탯 정보를 받지 못했습니다. 캐릭터 선택 화면으로 나갔다가 다시 접속하면 전체 스탯이 한 번에 들어옵니다.";
+            }
+
+            string kind = sheet.FullSnapshotSeen
+                ? "전체 스냅샷"
+                : "변경분만 (전체를 받으려면 캐릭터 재접속이 필요합니다)";
+            return $"{sheet.Values.Count}개 항목 · {kind}";
+        }
+    }
+
+    /// <summary>잡힌 스탯을 그대로 나열한 것. 인게임 스탯창과 눈으로 대조하라고 두는 자리다 — 이 대조가
+    /// 항목 이름 매칭을 "거의 확실"에서 "확인됨"으로 바꿔 준다.</summary>
+    public string StatSheetDump => Sheet is { } sheet ? StatSheetExport.Describe(sheet) : string.Empty;
+
+    /// <summary>딥링크가 채우지 못하는 칸 안내(계산기에 없는 값이 아니라, 어떤 경로로도 못 얻는 값들).</summary>
+    public string StatSheetUnfilled => Sheet is { } sheet
+        ? "계산기에서 직접 채워야 하는 칸: " + string.Join(" · ", StatSheetExport.UnfilledFields(sheet))
+        : string.Empty;
+
+    /// <summary>미터가 실제 전투에서 잰 판정 빈도(치명타 적중률 · 전방/후방 타격률). 스탯창에 없는 값이라
+    /// 계산기의 '전투 환경' 칸을 이걸로 채운다. 표시 중인 전투에 본인 행이 없으면 null.</summary>
+    private MeasuredCombatRates? MeasuredRates()
+    {
+        DpsReport? report = _services.Calculator.GetRecentData();
+        int uid = _services.Data.ExecutorId();
+        if (report == null || uid <= 0) return null;
+
+        Dictionary<string, AnalyzedSkill> skills = _services.Calculator.BattleDetails(report, uid);
+        if (skills.Count == 0) return null;
+
+        int hits = skills.Values.Sum(s => s.Times);
+        int flagged = skills.Values.Sum(s => s.FlaggedTimes);
+        if (hits == 0) return null;
+
+        int crit = skills.Values.Sum(s => s.CritTimes);
+        int back = skills.Values.Sum(s => s.BackTimes);
+        int front = skills.Values.Sum(s => s.FrontTimes);
+        bool preferBack = back >= front;
+        int directional = preferBack ? back : front;
+
+        return new MeasuredCombatRates(
+            crit / (double)hits * 100.0,
+            flagged > 0 ? directional / (double)flagged * 100.0 : 0.0,
+            preferBack);
+    }
+
+    /// <summary>"내 스탯 복사" — 클립보드에 WAFFLE_STATS_V1 블록을 넣는다.</summary>
+    public bool CopyStatSheet()
+    {
+        if (Sheet is not { } sheet) return false;
+
+        string payload = StatSheetExport.BuildClipboard(
+            sheet,
+            _services.Data.User(_services.Data.ExecutorId())?.Job?.ClassName(),
+            _services.Data.User(_services.Data.ExecutorId())?.Nickname,
+            _services.Data.User(_services.Data.ExecutorId())?.Server ?? -1,
+            sheet.UpdatedAt,
+            MeasuredRates());
+
+        try
+        {
+            Clipboard.SetText(payload);
+            return true;
+        }
+        catch
+        {
+            // 클립보드는 다른 프로세스가 잡고 있으면 실패한다 — 조용히 실패시키고 호출부가 안내한다.
+            return false;
+        }
+    }
+
+    /// <summary>"계산기 열기" — 잡힌 스탯을 쿼리로 실어 계산기 페이지를 연다(웹 수정 없이 동작).</summary>
+    public void OpenCalculator()
+    {
+        if (Sheet is not { } sheet) return;
+
+        string url = StatSheetExport.BuildCalculatorUrl(
+            sheet, MeasuredRates(), StatsApiClient.CalculatorPageUrl);
+        Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+    }
+
+    /// <summary>스탯 사전이 갱신됐을 때 화면을 새로 그리게 한다.</summary>
+    public void NotifyStatSheetChanged()
+    {
+        OnPropertyChanged(nameof(HasStatSheet));
+        OnPropertyChanged(nameof(StatSheetStatus));
+        OnPropertyChanged(nameof(StatSheetDump));
+        OnPropertyChanged(nameof(StatSheetUnfilled));
+    }
+
     // ---- per-character consent management (the 내 캐릭터 관리 list) ----
     public ObservableCollection<ConsentCharacterRow> ConsentCharacters { get; } = new();
     public bool HasConsentCharacters => ConsentCharacters.Count > 0;
@@ -1707,6 +1828,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         DisplayMode = "dps_percent";
         DamageValueMode = "dps";
+        RowDpsMetric = "dps";
         ContributionMode = "contribution";
         NameDisplay = "all";
         FontFamily = DefaultFontFamily;
@@ -2120,6 +2242,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ApplyInfo(_services.Consent.GetInfo(syncRemote: false, _services.Version));
         RefreshCharacterStatus();
         RefreshConsentCharacters();
+        // 스탯 사전은 캡처 스레드가 갱신한다. 이벤트로 실시간 반영하면 디스패처를 타야 하는데, 이 화면은 열 때
+        // 한 번 읽으면 충분하다 — 스탯은 전투 중에 초 단위로 바뀌는 값이 아니다.
+        NotifyStatSheetChanged();
         RefreshCustomAlarms();
         CaptureConfig config = _services.BuildCaptureConfig();
         ServerIp = config.ServerIp;
@@ -2154,7 +2279,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     }
 
     private sealed record Snapshot(
-        string DisplayMode, string DamageValueMode, string ContributionMode, string NameDisplay,
+        string DisplayMode, string DamageValueMode, string RowDpsMetric, string ContributionMode, string NameDisplay,
         string FontFamily, int RowHeight, double MeterOpacity, bool MultiMonitor, string Theme, bool AutoHide,
         string TargetInfoDisplayMode, bool IsMinimal, bool ShowCombatTimerInMinimal, bool ShowTargetInfoInMinimal,
         bool ShowServerTag, string BarStyle, bool ShowJoinPanel, bool ShowPreCombatRoster, bool ShowAetherStatus,
@@ -2164,7 +2289,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         int BuffUiIconSize)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
-            s.DisplayMode, s.DamageValueMode, s.ContributionMode, s.NameDisplay,
+            s.DisplayMode, s.DamageValueMode, s.RowDpsMetric, s.ContributionMode, s.NameDisplay,
             s.FontFamily, s.RowHeight, s.MeterOpacity, s.MultiMonitorMode, s.OverlayTheme, c.IsAutoHide,
             s.TargetInfoDisplayMode, s.IsMinimal, s.ShowCombatTimerInMinimal, s.ShowTargetInfoInMinimal,
             s.ShowServerTag, s.BarStyle, s.ShowJoinPanel, s.ShowPreCombatRoster, s.ShowAetherStatus,
@@ -2177,6 +2302,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         {
             s.DisplayMode = DisplayMode;
             s.DamageValueMode = DamageValueMode;
+            s.RowDpsMetric = RowDpsMetric;
             s.ContributionMode = ContributionMode;
             s.NameDisplay = NameDisplay;
             s.FontFamily = FontFamily;

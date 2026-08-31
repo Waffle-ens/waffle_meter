@@ -167,6 +167,11 @@ public static class ReferenceJson
         return (catalog, defaultOff);
     }
 
+    /// <summary>buff_values.json: <c>{ "&lt;buffCode&gt;": [ { "c": category, "v": value } ] }</c>, exported from the
+    /// stats site by <c>dotnet/tools/export-buff-values.ts</c>. Feeds <see cref="BuffValueCatalog"/>.</summary>
+    public static List<(int Code, IReadOnlyList<BuffGainEffect> Effects)> LoadBuffValues(string path) =>
+        BuffValueCatalog.Parse(File.ReadAllText(path));
+
     /// <summary>buff_blacklist.json: { "blacklist": [int, ...] }.</summary>
     public static List<int> LoadBuffBlacklist(string path)
     {

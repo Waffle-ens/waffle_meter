@@ -75,6 +75,11 @@ public interface ICaptureGameData
     /// 겹칠 때 어느 인스턴스를 닫는 신호인지 원리적으로 구분할 수 없어 제거 신호로 쓰지 않는다. 기본 no-op.</summary>
     void RemoveBuffSlots(int entityId, IReadOnlyList<int> slots) { }
 
+    /// <summary>캐릭터 스탯 사전 한 프레임(0x364A 변경분 / 0x3649 전체 스냅샷).
+    /// <paramref name="entityId"/> 0 = 전체 스냅샷이라 패킷이 대상을 안 실었다는 뜻이고, 그때는 "지금의 본인"이다.
+    /// 기본 구현은 아무것도 하지 않는다 — 캡처 전용 호스트는 스탯을 보관할 곳이 없다.</summary>
+    void SaveStatSheet(int entityId, IReadOnlyList<(int Stat, int Value)> stats, bool fullSnapshot) { }
+
     void RequestOfficialCharacterLookup(int uid);
 
     /// <summary>Skill cooldown update: <paramref name="remainingMs"/> ms left on <paramref name="skillCode"/>'s

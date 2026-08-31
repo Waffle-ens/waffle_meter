@@ -839,10 +839,25 @@ public sealed class DpsCalculator
                 .FirstOrDefault(p => p != 0);
 
             result.Add(new OperatingData(
-                display.Code, name, display.Summary, display.Effect, rate, actorId, baseCode, jobPrefix));
+                display.Code, name, display.Summary, display.Effect, rate, actorId, baseCode, jobPrefix,
+                GroupLevel(group)));
         }
 
         return result;
+    }
+
+    /// <summary>이 그룹이 대표할 어노멀 레벨: 구성 적용들의 최댓값(레벨을 못 읽은 0은 무시). 그룹 키에 이미
+    /// 시전자가 들어 있으므로 한 그룹은 한 사람의 한 스킬이고, 전투 중 스킬 레벨이 바뀌지 않으니 최댓값이
+    /// 곧 그 사람의 레벨이다. 전부 0이면 0(모름)을 돌려 상위 계산이 레벨 기반 계수를 건너뛴다.</summary>
+    private static int GroupLevel(IEnumerable<(BuffDisplay D, UseBuff U, int Base)> group)
+    {
+        int level = 0;
+        foreach ((BuffDisplay _, UseBuff u, int _) in group)
+        {
+            if (u.Level > level) level = u.Level;
+        }
+
+        return level;
     }
 
     /// <summary>The member that best stands for the merged group: catalogued codes first (they resolve an icon and
@@ -888,7 +903,7 @@ public sealed class DpsCalculator
                 .Select(x => DataManager.IsJobBuffCode(x.U.SkillCode) ? x.U.SkillCode / 10_000_000 : 0)
                 .FirstOrDefault(p => p != 0);
 
-            result.Add(new BuffTimeline(display.Code, name, actorId, baseCode, jobPrefix, spans));
+            result.Add(new BuffTimeline(display.Code, name, actorId, baseCode, jobPrefix, spans, GroupLevel(group)));
         }
 
         return result;
@@ -968,6 +983,126 @@ public sealed class DpsCalculator
     }
 
     /// <summary>
+    /// nDPS/rDPS for every contributor in <paramref name="data"/>. Prefers the frozen snapshot on a SAVED
+    /// report and otherwise recomputes live, the same way the buff tabs and the DPS graph do — a saved report
+    /// carries no packets and its buff repository has been pruned, so a live recompute there would silently
+    /// under-count.
+    /// </summary>
+    public Dictionary<int, DpsMetricResult> GetDpsMetrics(DpsReport data)
+    {
+        if (data.DpsMetrics.Count > 0)
+        {
+            return data.DpsMetrics;
+        }
+
+        return BuildDpsMetrics(data, null);
+    }
+
+    private Dictionary<int, DpsMetricResult> BuildDpsMetrics(
+        DpsReport data, Dictionary<int, Dictionary<string, AnalyzedSkill>>? skillsOverride)
+    {
+        long durationMs = data.BattleEnd - data.BattleStart;
+        if (durationMs <= 0 || data.Contributors.Count == 0)
+        {
+            return new Dictionary<int, DpsMetricResult>();
+        }
+
+        bool frozen = data.BuffRates.Count > 0;
+        Dictionary<int, Dictionary<string, AnalyzedSkill>> skills =
+            skillsOverride is { Count: > 0 } ? skillsOverride
+            : data.SkillDetailsSnapshot.Count > 0 ? data.SkillDetailsSnapshot
+            : _cachedSkillDetails.Count > 0 ? _cachedSkillDetails
+            : BuildSkillDetails(data);
+
+        var participants = new List<MetricParticipantInput>(data.Contributors.Count);
+        foreach (User user in data.Contributors)
+        {
+            List<OperatingData> rows = frozen
+                ? data.BuffRates.GetValueOrDefault(user.Id) ?? []
+                : GetBuffOperatingRate(user.Id, data.BattleStart, data.BattleEnd);
+
+            // 배타 쌍을 정직하게 값매김하려면 "겹쳤는가"를 알아야 하고, 그건 가동률이 아니라 구간이 답한다.
+            // 같은 그룹 키로 만들어진 타임라인이라 (표시 base, 시전자)로 1:1 대응한다.
+            List<BuffTimeline> lanes = frozen
+                ? data.BuffIntervals.GetValueOrDefault(user.Id) ?? []
+                : GetBuffIntervals(user.Id, data.BattleStart, data.BattleEnd);
+            var spans = new Dictionary<(int, int), IReadOnlyList<(long Start, long End)>>();
+            foreach (BuffTimeline lane in lanes)
+            {
+                spans[(DataManager.BuffDisplayBase(lane.Code), lane.ActorId)] = lane.Spans;
+            }
+
+            List<MetricBuffInput> buffs = rows.Select(r => ToMetricBuff(r, bossScope: false, spans)).ToList();
+            DpsInformation info = data.Information.GetValueOrDefault(user.Id) ?? new DpsInformation();
+
+            participants.Add(new MetricParticipantInput(
+                user.Id,
+                info.Dps,
+                info.Amount,
+                buffs,
+                GrantedDamage(skills.GetValueOrDefault(user.Id), buffs, user.Id)));
+        }
+
+        List<OperatingData> bossRows = frozen
+            ? data.BossBuffRates
+            : data.Target is { } target
+                ? GetBuffOperatingRate(target.Id, data.BattleStart, data.BattleEnd)
+                : [];
+
+        return DpsMetrics.Compute(
+            participants,
+            bossRows.Select(r => ToMetricBuff(r, bossScope: true)).ToList(),
+            _dm.BuffValues,
+            durationMs / 1000.0);
+    }
+
+    private static MetricBuffInput ToMetricBuff(
+        OperatingData row,
+        bool bossScope,
+        IReadOnlyDictionary<(int Base, int Actor), IReadOnlyList<(long Start, long End)>>? spans = null) => new(
+        row.Code,
+        // The display base, not OperatingData.BaseCode: 대지의 축복 collapses to 17400000 there, which is
+        // 대지의 징벌's base — the same key the healer's own DoT uses. The display base keeps them apart, and
+        // it is what both the synergy catalog and the exclusive-pair table are written against.
+        DataManager.BuffDisplayBase(row.Code),
+        row.ActorId,
+        row.OperatingRate,
+        row.Level,
+        bossScope,
+        spans is not null && spans.TryGetValue((DataManager.BuffDisplayBase(row.Code), row.ActorId), out var s)
+            ? s
+            : null);
+
+    /// <summary>Damage on THIS player's meter that another class's effect dealt through them — 검성 흡혈의 검's
+    /// 착취 and 치유성 대지의 축복's 추가 피해, which arrive as ordinary damage packets under the granting class's
+    /// skill code. Only counted when the matching buff on this player came from SOMEONE ELSE: the granting
+    /// class's own hits carry the same code and are their own damage.</summary>
+    private static Dictionary<int, long> GrantedDamage(
+        Dictionary<string, AnalyzedSkill>? skills, IReadOnlyList<MetricBuffInput> buffs, int uid)
+    {
+        var granted = new Dictionary<int, long>();
+        if (skills == null || skills.Count == 0)
+        {
+            return granted;
+        }
+
+        foreach (AnalyzedSkill skill in skills.Values)
+        {
+            int source = PartySynergyCatalog.GrantedDamageSource(skill.SkillCode);
+            if (source == 0) continue;
+
+            // 시전자가 나 자신인 행도 포함해 통과시킨다. 누구 몫인지는 여기서 가르지 않고 DpsMetrics.SplitGrant 가
+            // 시전자별 가동률로 나눈다 — 검성 본인의 흡혈의 검 타격도 같은 코드라, "남이 걸었나"만 보고 전량을
+            // 넘기면 자기가 낸 피해까지 남에게 넘어간다(공대에 검성이 둘이면 서로의 몫까지 한 사람이 가져간다).
+            if (!buffs.Any(b => b.DisplayBase == source)) continue;
+
+            granted[source] = granted.GetValueOrDefault(source) + skill.DamageAmount + skill.DotDamageAmount;
+        }
+
+        return granted;
+    }
+
+    /// <summary>
     /// Invoked with the frozen DpsLog each time a battle is saved (Kotlin called StatsUploadQueue
     /// here directly). Left null in replay/headless-without-upload so the DPS golden is unaffected;
     /// the live app wires it to the stats upload queue.
@@ -996,6 +1131,12 @@ public sealed class DpsCalculator
         _recentData.BossBuffRates = bossBuffRates;
         _recentData.DpsSeries = dpsSeries;
         _recentData.BuffIntervals = buffIntervals;
+        // Freeze AFTER the rates above are on the report: BuildDpsMetrics reads THOSE (plus the skill table
+        // passed in) rather than the buff repository, which SaveBattleLog is about to prune. The skill table
+        // is handed over explicitly instead of being parked on _recentData.SkillDetailsSnapshot — that field
+        // means "this is a saved report" to BattleDetails, and setting it on the live report would change
+        // which source the post-battle detail reads from.
+        _recentData.DpsMetrics = BuildDpsMetrics(_recentData, skillDetails);
 
         // 이 전투의 파티 문맥도 함께 얼린다. 표시 계층의 이름 복구는 파티가 있어야 동작하는데, 종전에는
         // 리포트만 얼고 파티는 "지금"의 것을 봤다 — 전투 후 파티를 나가면(또는 로스터 TTL이 만료되면) 같은

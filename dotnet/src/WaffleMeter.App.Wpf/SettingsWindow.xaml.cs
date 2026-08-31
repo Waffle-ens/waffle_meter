@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Threading;
 
@@ -356,6 +357,27 @@ public partial class SettingsWindow : Window
     private void OnRefreshConsent(object sender, RoutedEventArgs e) => RunThenRefresh(_viewModel.RefreshConsentFromServer);
 
     private void OnOpenMyStats(object sender, RoutedEventArgs e) => _viewModel.OpenMyStats();
+
+    private void OnCopyStatSheet(object sender, RoutedEventArgs e)
+    {
+        // 클립보드는 다른 프로세스가 잡고 있으면 실패할 수 있다. 버튼 글자를 잠깐 바꿔 성공/실패를 알린다 —
+        // 모달을 띄우면 "복사"라는 사소한 동작에 확인 클릭이 하나 더 붙는다.
+        if (sender is not Button button) return;
+
+        object? original = button.Content;
+        button.Content = _viewModel.CopyStatSheet() ? "복사했습니다" : "복사 실패";
+        // 우선순위를 명시한다 — 인자 없는 DispatcherTimer 는 Background 로 떨어져 바쁜 디스패처에서 굶고,
+        // 그러면 버튼이 "복사했습니다" 상태로 남는다.
+        var timer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = TimeSpan.FromSeconds(1.6) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            button.Content = original;
+        };
+        timer.Start();
+    }
+
+    private void OnOpenCalculator(object sender, RoutedEventArgs e) => _viewModel.OpenCalculator();
 
     /// <summary>티어 갱신. The fetch itself is the tier worker's job — this only nudges it and
     /// re-reads the status line, so the click never blocks the UI thread on a 15s HTTP timeout.</summary>

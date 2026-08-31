@@ -442,6 +442,12 @@ public sealed class MeterServices
             Data.LoadBuffBlacklist(ReferenceJson.LoadBuffBlacklist(blacklist));
         }
 
+        string buffValues = Path.Combine(jsonDir, "buff_values.json");
+        if (File.Exists(buffValues))
+        {
+            Data.LoadBuffValues(ReferenceJson.LoadBuffValues(buffValues));
+        }
+
         string buffNames = Path.Combine(jsonDir, "buff_names.json");
         if (File.Exists(buffNames))
         {

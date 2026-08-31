@@ -165,6 +165,9 @@ public sealed class AnalyzedSkill
 /// code — not from <see cref="Code"/> or <see cref="BaseCode"/>, because 8-digit mob/consumable codes like
 /// 12000101(중독) would otherwise read as 수호성 and be mistaken for a self-buff.
 /// </param>
+/// <param name="Level">이 행이 모은 적용들 중 가장 높은 어노멀 레벨(0 = 모름). 시전자별로 이미 행이
+/// 갈라져 있으므로 사실상 "그 시전자가 이 스킬을 몇 레벨로 갖고 있나"다. 전투 도중 랭크가 오르는 일은
+/// 없으니 최댓값이 곧 대표값이고, 레벨을 못 읽은 적용(0)이 섞여도 끌어내리지 않는다.</param>
 public sealed record OperatingData(
     int Code,
     string Name,
@@ -173,7 +176,8 @@ public sealed record OperatingData(
     double OperatingRate,
     int ActorId,
     int BaseCode = 0,
-    int JobPrefix = 0)
+    int JobPrefix = 0,
+    int Level = 0)
 {
     public OperatingData(int code, Buff? buff, double rate, int actorId)
         : this(code, buff?.Name ?? code.ToString(), buff?.Summary, buff?.Effect, rate, actorId) { }
@@ -214,7 +218,13 @@ public sealed record Skill(long Code, string? Name);
 public sealed record Buff(int Code, string Name, string Summary, string Effect);
 
 /// <summary>An applied buff/debuff interval (Kotlin UseBuff).</summary>
-public sealed record UseBuff(int SkillCode, long BuffStart, long BuffEnd, long Duration, int ActorId);
+/// <param name="Level">어노멀 레벨(1~40, 0 = 모름) — 적용 패킷이 실어 보내는 시전자의 그 스킬 레벨.
+/// <see cref="Capture.StreamProcessor"/>의 <c>ReadAbnormalLevel</c>이 자기검증으로 읽어 온 값이고, 실캡처
+/// 8인 공대 기준 직업 버프 적용의 99.2%가 레벨을 달고 온다(나머지는 소모품/주문서라 직업 스킬 대역 밖).
+/// <para>여기 담기 전까지 레벨은 라이브 오버레이 스토어에서만 살아남아 배타 버프 쌍 승자 판정에만 쓰였다.
+/// 집계·상세·통계로 넘기려면 구간과 함께 보관해야 한다 — 시너지 버프의 효과량이 레벨 선형이라(예: 노련한
+/// 반격 = 5.4% + 0.4%/레벨) 레벨 없이는 nDPS/rDPS가 랭크 스냅샷 근사에 머문다.</para></param>
+public sealed record UseBuff(int SkillCode, long BuffStart, long BuffEnd, long Duration, int ActorId, int Level = 0);
 
 /// <summary>
 /// One buff/debuff's merged applied intervals on a single entity, for the combat-detail DPS-graph timeline
@@ -230,7 +240,8 @@ public sealed record BuffTimeline(
     int ActorId,
     int BaseCode,
     int JobPrefix,
-    IReadOnlyList<(long Start, long End)> Spans)
+    IReadOnlyList<(long Start, long End)> Spans,
+    int Level = 0)
 {
     /// <summary><see cref="JobPrefix"/>, or the prefix implied by a 9-digit job-buff <see cref="Code"/> when the
     /// raw code carried none — mirrors <see cref="OperatingData.EffectiveJobPrefix"/> so the DPS graph's
@@ -291,6 +302,14 @@ public sealed class DpsReport
     /// graph keeps the intervals. Empty while the battle is in progress (the detail recomputes live via
     /// <see cref="DpsCalculator.GetBuffIntervals"/> against the intact repo).</summary>
     public Dictionary<int, List<BuffTimeline>> BuffIntervals { get; set; } = new();
+
+    /// <summary>Frozen nDPS/rDPS per contributor, computed at save time from the frozen buff rates + skill
+    /// snapshot (see <see cref="DpsCalculator.GetDpsMetrics"/>). Frozen for the same reason
+    /// <see cref="BuffRates"/> is: the live buff repository is pruned right after a battle is saved, so a
+    /// history-replayed battle could not recompute these — it would report every buff at 0% uptime and hand
+    /// back nDPS == DPS, which reads as "nobody buffed you" rather than as "unknown".
+    /// <para>Empty while the battle is in progress; the detail/overlay then recomputes live.</para></summary>
+    public Dictionary<int, DpsMetricResult> DpsMetrics { get; set; } = new();
 
     /// <summary>Frozen per-actor skill-breakdown snapshot (uid -&gt; skillCode -&gt; analyzed skill),
     /// populated when the battle is saved. A SAVED report carries <see cref="Packets"/>=null, so

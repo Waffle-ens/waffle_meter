@@ -371,6 +371,16 @@
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="DPS 종류" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="nDPS는 남이 걸어준 버프 몫을 걷어낸 값, rDPS는 거기에 내가 파티에 얹어준 몫을 더한 값입니다. 순서와 게이지도 같이 바뀝니다. (딜량 기준이 '누적 피해량'이면 적용되지 않습니다)" Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <ComboBox Grid.Column="1" Width="190" VerticalAlignment="Center" ItemsSource="{Binding RowDpsMetrics}"
+                                      ItemTemplate="{StaticResource OptionItemTemplate}" SelectedValuePath="Value" SelectedValue="{Binding RowDpsMetric}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="기여도 표시 방식" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="파티 기여도 또는 보스 체력 기여도로 표시합니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
@@ -1101,6 +1111,15 @@
                         <Grid Margin="0,0,0,4">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="아이콘에 버프 레벨 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="버프 아이콘 오른쪽 아래에 그 버프의 스킬 레벨을 작게 표시합니다. 레벨 정보가 없는 버프(물약·주문서 등)에는 표시되지 않습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding BuffUiShowLevel}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="다른 캐릭터가 준 버프 표시" Style="{StaticResource SettingTitle}"/>
                                 <TextBlock Text="끄면 본인이 직접 받은 버프만 표시합니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
@@ -1709,6 +1728,27 @@
                         <Button Content="내 캐릭터 통계 보기" Click="OnOpenMyStats" IsEnabled="{Binding CharacterDetected}" HorizontalAlignment="Left"/>
                         <TextBlock Text="캐릭터가 접속해 있어야 열 수 있어요" Style="{StaticResource SettingDesc}" Margin="0,4,0,0"
                                    Visibility="{Binding CharacterDetected, Converter={StaticResource BoolToVisInverse}, FallbackValue=Collapsed}"/>
+
+                        <Border Style="{StaticResource SectionDivider}"/>
+                        <TextBlock Text="내 스탯" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/>
+                        <TextBlock Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"
+                                   Text="게임이 보내주는 캐릭터 스탯을 그대로 읽어 둡니다. 스탯 계산기에 직접 입력할 필요 없이 값을 그대로 넘길 수 있어요. 전체 스탯은 캐릭터가 접속할 때 한 번 오고, 그 뒤로는 바뀐 항목만 옵니다."/>
+                        <TextBlock Text="{Binding StatSheetStatus}" Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="내 스탯 복사" Click="OnCopyStatSheet" IsEnabled="{Binding HasStatSheet}" Margin="0,0,8,0"/>
+                            <Button Content="계산기 열기" Click="OnOpenCalculator" IsEnabled="{Binding HasStatSheet}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding StatSheetUnfilled}" Style="{StaticResource SettingDesc}" Margin="0,0,0,10" TextWrapping="Wrap"
+                                   Visibility="{Binding HasStatSheet, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}"/>
+                        <!-- 잡힌 값을 그대로 보여준다. 인게임 스탯창과 눈으로 맞춰 보라는 자리다 — 항목 이름을
+                             패킷에서 직접 읽을 방법이 없어서, 이 대조가 유일한 확인 수단이다. -->
+                        <Expander Header="잡힌 스탯 보기 (인게임 스탯창과 비교)" Margin="0,0,0,8"
+                                  Visibility="{Binding HasStatSheet, Converter={StaticResource BoolToVis}, FallbackValue=Collapsed}">
+                            <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0">
+                                <TextBlock Text="{Binding StatSheetDump}" Style="{StaticResource SettingDesc}"
+                                           FontFamily="Consolas" TextWrapping="NoWrap"/>
+                            </ScrollViewer>
+                        </Expander>
                     </StackPanel>
 
                     <!-- ===== 게임 최적화 ===== -->
