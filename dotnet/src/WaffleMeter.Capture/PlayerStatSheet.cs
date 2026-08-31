@@ -17,17 +17,17 @@ namespace WaffleMeter.Capture;
 public static class PlayerStatIds
 {
     // ---- 공격 (flat) ----
-    public const int Attack = 317;                 // 인게임 스탯창의 공격력과 다르다 — Label 주석 참조
+    public const int Attack = 317;                 // 기본 공격력 (스탯창 공격력의 한 항. PlayerStatSheet.AttackPower 참조)
     public const int AdditionalAttack = 19;        // 추가 공격력
-    public const int MaximumAttack = 31;           // 최대 공격력
-    public const int MinimumAttack = 33;           // 최소 공격력
+    public const int MaximumAttack = 31;           // 무기 최대 공격력
+    public const int MinimumAttack = 33;           // 무기 최소 공격력
     public const int CriticalAttackPower = 38;     // 치명타 공격력
     public const int Penetration = 284;            // 관통
-    public const int Accuracy = 104;               // 명중
+    public const int Accuracy = 104;               // 기본 명중 (스탯창 명중의 한 항)
     public const int WeaponAccuracy = 318;         // 무기 명중
     public const int PveAccuracy = 110;            // PvE 명중
-    public const int Critical = 128;               // 치명타(수치)
-    public const int Defense = 52;                 // 방어력
+    public const int Critical = 128;               // 기본 치명타 (스탯창 치명타의 한 항)
+    public const int Defense = 52;                 // 기본 방어력 (스탯창 방어력의 한 항)
     public const int ArmorDefense = 307;           // 방어구 방어력
     public const int PveAttack = 56;               // PvE 공격력
     public const int BossAttack = 50;              // 보스 공격력
@@ -35,7 +35,7 @@ public static class PlayerStatIds
     public const int BackAttack = 98;              // 후방 공격력
     public const int FrontCritical = 591;          // 전방 치명타
     public const int BackCritical = 100;           // 후방 치명타
-    public const int SealstoneAdditionalDamage = 69; // 신석 추가 피해
+    public const int SealstoneAdditionalDamage = 69; // 봉혼석 추가 피해
 
     // ---- 주신/기본 스탯 (flat, 포인트) ----
     public const int Might = 1;        // 위력
@@ -81,20 +81,17 @@ public static class PlayerStatIds
     /// <summary>Human-readable Korean label for a stat id, or null when we have not named it yet.</summary>
     public static string? Label(int id) => id switch
     {
-        // 실측 대조에서 인게임 스탯창의 '공격력'과 값이 달랐다(스탯창 13,668 인 캐릭터가 여기서는 훨씬 작다).
-        // 어느 id 가 스탯창의 공격력인지 아직 못 찾았으므로, 이름에 그 사실을 적어 둔다 — '착용 공격력'이라고
-        // 단정해 두면 사용자가 대조해도 무엇이 틀렸는지 알 수 없다.
-        Attack => "공격력 (확인 필요)",
+        Attack => "기본 공격력",
         AdditionalAttack => "추가 공격력",
-        MaximumAttack => "최대 공격력",
-        MinimumAttack => "최소 공격력",
+        MaximumAttack => "무기 최대 공격력",
+        MinimumAttack => "무기 최소 공격력",
         CriticalAttackPower => "치명타 공격력",
         Penetration => "관통",
-        Accuracy => "명중",
+        Accuracy => "기본 명중",
         WeaponAccuracy => "무기 명중",
         PveAccuracy => "PvE 명중",
-        Critical => "치명타",
-        Defense => "방어력",
+        Critical => "기본 치명타",
+        Defense => "기본 방어력",
         ArmorDefense => "방어구 방어력",
         PveAttack => "PvE 공격력",
         BossAttack => "보스 공격력",
@@ -102,7 +99,7 @@ public static class PlayerStatIds
         BackAttack => "후방 공격력",
         FrontCritical => "전방 치명타",
         BackCritical => "후방 치명타",
-        SealstoneAdditionalDamage => "신석 추가 피해",
+        SealstoneAdditionalDamage => "봉혼석 추가 피해",
         Might => "위력",
         Agility => "민첩",
         Knowledge => "지식",
@@ -131,7 +128,7 @@ public static class PlayerStatIds
         AdditionalHitAccuracyPercent => "다단 히트 적중",
         PerfectPercent => "완벽",
         HardHitPercent => "강타",
-        CombatSpeedPercent => "전투 속도",
+        CombatSpeedPercent => "전투 속도 (확인 필요)",
         FrontDamageAmplifyPercent => "전방 피해 증폭",
         BackDamageAmplifyPercent => "후방 피해 증폭",
         _ => null,

@@ -85,6 +85,15 @@ public static class StatSheetExport
             if (sheet.CooldownPercent() is { } cooldown) writer.WriteNumber("쿨타임 감소", cooldown);
             writer.WriteEndObject();
 
+            // 스탯창에 뜨는 합계. 와이어에는 없고 미터가 항을 합친 값이라 별도 블록으로 둔다 — 받는 쪽이
+            // "이건 패킷 원본이 아니라 계산된 값"임을 구분할 수 있어야 한다.
+            writer.WriteStartObject("derived");
+            if (sheet.AttackPower() is { } ap) writer.WriteNumber("공격력", Math.Round(ap));
+            if (sheet.DefensePower() is { } dp) writer.WriteNumber("방어력", Math.Round(dp));
+            if (sheet.AccuracyTotal() is { } acc) writer.WriteNumber("명중", Math.Round(acc));
+            if (sheet.CriticalTotal() is { } crit) writer.WriteNumber("치명타", Math.Round(crit));
+            writer.WriteEndObject();
+
             if (measured is { } m)
             {
                 // 스탯창에 없는 값들 — 미터가 실제 전투에서 센 빈도다. 계산기의 '전투 환경' 칸이 이걸 원한다.
@@ -130,14 +139,19 @@ public static class StatSheetExport
             if (sheet.Percent(statId) is { } v) query.Add($"{key}={v.ToString("0.##", Inv)}");
         }
 
-        // ⚠️ 착용 공격력(ae)은 <b>보내지 않는다</b>. id 317 의 값이 인게임 스탯창의 '공격력'과 다르다 —
-        // 실측 대조에서 스탯창 13,668 인 캐릭터의 317 이 그보다 훨씬 작았다. 어느 id 가 스탯창의 공격력인지
-        // 아직 못 찾았다(설정 화면이 이름 못 붙인 id 를 전부 보여주는 이유가 이것이다).
-        //
-        // 낮은 공격력을 넣는 것은 빈칸으로 두는 것보다 <b>나쁘다</b>. 계산기의 한계효율은 유한차분이라 분모가
-        // 작을수록 공격력 계열 1포인트의 이득이 커 보이고, 그러면 인게임에서는 결코 강타 1%·전방 증폭 1%를
-        // 넘을 수 없는 공격력 옵션이 최상위 효율로 뒤집혀 나온다. 즉 틀린 값 하나가 순위표 전체를 뒤집는다.
-        // 사용자가 스탯창을 보고 직접 채우도록 UnfilledFields 가 안내한다.
+        // 착용 공격력 = 스탯창에 뜨는 그 숫자다. 와이어에는 합계가 없고 항만 오므로 미터가 합친다
+        // (PlayerStatSheet.AttackPower — 실측 대조로 소수점까지 일치). 항 하나(id 317)만 넣으면 실제의 28%
+        // 수준이 되고, 계산기의 한계효율은 유한차분이라 분모가 작을수록 공격력 계열 1포인트가 커 보여
+        // 인게임에서는 결코 강타 1%를 못 넘는 공격력 옵션이 최상위로 뒤집힌다.
+        if (sheet.AttackPower() is { } attackPower)
+        {
+            query.Add($"ae={Math.Round(attackPower).ToString(Inv)}");
+        }
+
+        // 무기 damage range. 계산기가 이걸로 공격력 구간(min/max)을 만든다. 이 둘의 평균이 위 합계에 그대로
+        // 들어간다는 것이 실측으로 확인됐으므로 같은 물건이 맞다.
+        Flat("wn", PlayerStatIds.MinimumAttack);
+        Flat("wx", PlayerStatIds.MaximumAttack);
         Flat("pe", PlayerStatIds.Penetration);       // 관통
         Flat("de", PlayerStatIds.Destruction);       // 파괴
         Flat("mi", PlayerStatIds.Might);             // 위력
@@ -180,11 +194,10 @@ public static class StatSheetExport
         _ = sheet;
         return new List<string>
         {
-            // 인게임 스탯창의 '공격력'에 해당하는 id 를 아직 못 찾았다 — 잡히는 값은 그보다 작다. 틀린 값을
-            // 넣으면 공격력 계열이 실제보다 훨씬 효율 높게 나오므로 비워 두고 사용자가 채우게 한다.
-            "공격력 (스탯창 값 그대로)",
+            // 장비를 벗어야 알 수 있는 값이라 어떤 패킷에도 없다.
             "장비 해제 공격력",
-            "무기 최소/최대 공격력",
+            // 계산기의 '최대 공격력 합계'는 펫 이해도·타이틀·날개의 가산치이고, 우리가 읽는 '무기 최대
+            // 공격력'과 다른 물건이다. 섞으면 공격력 구간이 두 배로 커진다.
             "최대 공격력 합계",
             "장비 돌파 레벨 합계",
         };
@@ -215,8 +228,22 @@ public static class StatSheetExport
             return new StatSheetGroup(title, rows);
         }
 
+        // 인게임 스탯창에 뜨는 합계부터 보여준다. 와이어에는 이 숫자가 없고 항만 오므로 미터가 합친 것인데,
+        // 사용자가 대조할 때 제일 먼저 찾는 값이 이 넷이다. 아래 그룹들이 그 항들이다.
+        var derived = new StatSheetGroup("인게임 스탯창 값 (미터가 합산)", new List<StatSheetRow>());
+        void Derived(string label, double? value)
+        {
+            if (value is { } v) derived.Rows.Add(new StatSheetRow(label, Math.Round(v).ToString("N0", Inv)));
+        }
+
+        Derived("공격력", sheet.AttackPower());
+        Derived("방어력", sheet.DefensePower());
+        Derived("명중", sheet.AccuracyTotal());
+        Derived("치명타", sheet.CriticalTotal());
+
         var groups = new List<StatSheetGroup>
         {
+            derived,
             Group("공격",
                 PlayerStatIds.Attack, PlayerStatIds.AdditionalAttack, PlayerStatIds.MaximumAttack,
                 PlayerStatIds.MinimumAttack, PlayerStatIds.CriticalAttackPower, PlayerStatIds.Penetration,

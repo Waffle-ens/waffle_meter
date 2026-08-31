@@ -23,6 +23,60 @@ public sealed record PlayerStatSheet(
     /// <summary>A basis-point stat as a percentage (6613 → 66.13), or null when absent.</summary>
     public double? Percent(int statId) => Raw(statId) is { } v ? v / 100.0 : null;
 
+    /// <summary>
+    /// 인게임 스탯창의 <b>공격력</b>.
+    /// <code>(기본 공격력 + 추가 공격력 + (무기 최소 + 무기 최대)/2) × (1 + 공격력 증가율)</code>
+    /// <para>와이어에는 이 합계가 실리지 않는다 — 항을 따로 보내고 클라이언트가 합친다. 실측 대조(같은 시각
+    /// 스탯창): <c>(3778 + 1083 + (973+1563)/2) × 2.2301 = 13,668.28</c> vs 스탯창 <b>13,668</b>.</para>
+    /// <para>🔑 계산기에 넣어야 하는 값이 바로 이것이다. 항 하나(id 317)만 넣으면 3,778 이 되어 실제의 28%
+    /// 수준이고, 계산기의 한계효율은 유한차분이라 분모가 작을수록 공격력 계열이 커 보인다 — 인게임에서는 결코
+    /// 강타 1%를 못 넘는 공격력 옵션이 최상위로 뒤집힌다.</para>
+    /// </summary>
+    public double? AttackPower()
+    {
+        int? attack = Raw(PlayerStatIds.Attack);
+        if (attack is null) return null;
+
+        // 무기 최소/최대 중 하나만 와도 있는 쪽만 반영한다 — 없는 항을 0으로 두는 것이 합계를 0으로 만드는
+        // 것보다 낫고, 실측상 둘은 항상 함께 온다.
+        double weaponAverage =
+            ((Raw(PlayerStatIds.MinimumAttack) ?? 0) + (Raw(PlayerStatIds.MaximumAttack) ?? 0)) / 2.0;
+        double flat = attack.Value + (Raw(PlayerStatIds.AdditionalAttack) ?? 0) + weaponAverage;
+        return flat * (1.0 + (Percent(PlayerStatIds.AttackIncreasePercent) ?? 0.0) / 100.0);
+    }
+
+    /// <summary>인게임 스탯창의 <b>방어력</b> = <c>(기본 방어력 + 방어구 방어력) × (1 + 방어력 증가율)</c>.
+    /// 실측: <c>(10,666 + 16,393) × 1.24 = 33,553.16</c> vs 스탯창 <b>33,553</b>.</summary>
+    public double? DefensePower()
+    {
+        int? defense = Raw(PlayerStatIds.Defense);
+        if (defense is null) return null;
+
+        double flat = defense.Value + (Raw(PlayerStatIds.ArmorDefense) ?? 0);
+        return flat * (1.0 + (Percent(PlayerStatIds.DefenseIncreasePercent) ?? 0.0) / 100.0);
+    }
+
+    /// <summary>인게임 스탯창의 <b>명중</b> = <c>(기본 명중 + 무기 명중) × (1 + 명중 증가율)</c>.
+    /// 실측: <c>(1,697 + 391) × 1.535 = 3,205.08</c> vs 스탯창 <b>3,205</b>.</summary>
+    public double? AccuracyTotal()
+    {
+        int? accuracy = Raw(PlayerStatIds.Accuracy);
+        if (accuracy is null) return null;
+
+        double flat = accuracy.Value + (Raw(PlayerStatIds.WeaponAccuracy) ?? 0);
+        return flat * (1.0 + (Percent(PlayerStatIds.AccuracyIncreasePercent) ?? 0.0) / 100.0);
+    }
+
+    /// <summary>인게임 스탯창의 <b>치명타</b> = <c>기본 치명타 × (1 + 치명타 증가율)</c>. 명중·공격력과 달리
+    /// 무기 몫이 따로 없다. 실측: <c>2,278 × 1.595 = 3,633.41</c> vs 스탯창 <b>3,633</b>.</summary>
+    public double? CriticalTotal()
+    {
+        int? critical = Raw(PlayerStatIds.Critical);
+        if (critical is null) return null;
+
+        return critical.Value * (1.0 + (Percent(PlayerStatIds.CriticalIncreasePercent) ?? 0.0) / 100.0);
+    }
+
     /// <summary>쿨타임 감소(%). 서버는 두 항목(기본 + 추가)에 나눠 "감소량"을 양수로 싣는다 — 사람이 읽는 쪽에서
     /// 자연스러운 음수로 뒤집어 돌려준다. 둘 다 없으면 null.</summary>
     public double? CooldownPercent()
