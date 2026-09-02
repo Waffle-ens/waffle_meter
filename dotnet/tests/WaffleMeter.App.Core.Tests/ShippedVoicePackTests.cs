@@ -48,11 +48,11 @@ public sealed class ShippedVoicePackTests
         foreach (int lead in new[] { 10, 5, 1 })
         {
             yield return $"슈고 페스타, {lead}분 뒤 시작합니다";
-            yield return $"감시자 카이라, {lead}분 뒤 정각 출현 가능";
+            // 카이라는 lead 0 줄이 없다 — KairaAlarm.EnabledLeads 가 10/5/1 만 넣어 SetKaira(0) 이 도달 불가다.
+            yield return $"{SpokenName.Of(KairaName())}, {lead}분 뒤 출현합니다";
         }
 
         yield return "슈고 페스타, 지금 시작합니다";
-        yield return "감시자 카이라, 지금 정각 출현 가능";
 
         // A custom alarm's title is free text and cannot be baked, but the default title is not: the composer
         // in AlarmToastViewModel substitutes "알람" for a blank one, and the 새 알람 field is pre-filled with
@@ -74,17 +74,34 @@ public sealed class ShippedVoicePackTests
         }
     }
 
-    private static IEnumerable<string> FieldBossNames()
+    /// <summary>감시자 카이라 — 리젠 타이머가 아니라 4시간 격자 전용 큐(<c>SetKaira</c>)를 쓰므로 리젠
+    /// 문구 목록에서는 빠지지만, 그 전용 문구를 만들 때 <b>이름은 여기서 가져와야 한다</b>. 손으로 다시
+    /// 적어 두면 몹 이름이 교정돼도 테스트와 앱이 같은 옛 이름을 공유해 그린인 채로 팩만 고아가 된다.</summary>
+    private const string ScheduledSpawnCode = "2600089";
+
+    private static Dictionary<string, string> CatalogueNamesByCode()
     {
         string src = ReadSource("dotnet", "src", "WaffleMeter.Capture", "FieldBossCatalog.cs");
         string body = src[src.IndexOf("Bosses =", StringComparison.Ordinal)
                           ..src.IndexOf("public static bool HasOwnAlarm", StringComparison.Ordinal)];
-        const string Hourly = "2600089"; // 감시자 카이라 has its own cue
-        return Regex.Matches(body, @"new\(\s*(\d+),\s*""([^""]+)""")
-            .Where(m => m.Groups[1].Value != Hourly)
-            .Select(m => m.Groups[2].Value)
-            .Distinct(StringComparer.Ordinal);
+        var byCode = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (Match m in Regex.Matches(body, @"new\(\s*(\d+),\s*""([^""]+)"""))
+        {
+            byCode[m.Groups[1].Value] = m.Groups[2].Value;
+        }
+
+        Assert.True(byCode.ContainsKey(ScheduledSpawnCode),
+            "FieldBossCatalog 에서 감시자 카이라(2600089) 행을 찾지 못했습니다 — 표 형식이 바뀌었는지 보세요.");
+        return byCode;
     }
+
+    private static string KairaName() => CatalogueNamesByCode()[ScheduledSpawnCode];
+
+    private static IEnumerable<string> FieldBossNames() =>
+        CatalogueNamesByCode()
+            .Where(kv => kv.Key != ScheduledSpawnCode)
+            .Select(kv => kv.Value)
+            .Distinct(StringComparer.Ordinal);
 
     /// <summary>
     /// The skill-icon codes that ship as PNGs. Read out of the source because <c>SkillIconManifest</c> is

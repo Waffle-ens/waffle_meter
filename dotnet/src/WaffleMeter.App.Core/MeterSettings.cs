@@ -362,7 +362,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     // ---- 감시자 카이라: its own clock-based reminder (see KairaAlarm for why it is not a picker row) ----
     private bool _kairaAlarmEnabled;
-    /// <summary>Master toggle for the 감시자 카이라 hourly reminder.</summary>
+    /// <summary>Master toggle for the 감시자 카이라 출현 알림 (KST 0시 기준 4시간 격자).</summary>
     public bool KairaAlarmEnabled { get => _kairaAlarmEnabled; set => SetBool(ref _kairaAlarmEnabled, "alarms.kairaEnabled", value); }
 
     private bool _kairaLead10;

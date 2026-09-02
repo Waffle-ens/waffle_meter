@@ -137,21 +137,128 @@ public class FieldBossAlarmTests
         Assert.Equal("수·토 22:35", FieldBossFixedSchedule.Describe(2600156));   // 실캡처: 수 22:35
         Assert.Null(FieldBossFixedSchedule.Describe(2406034));
 
-        // 감시자 카이라는 리젠 타이머가 아니라 정각 알림으로 다룬다 — 여기에도, picker에도 없다.
-        Assert.False(FieldBossFixedSchedule.HasFixedSchedule(FieldBossCatalog.HourlySpawnCode));
-        Assert.True(FieldBossCatalog.HasOwnAlarm(FieldBossCatalog.HourlySpawnCode));
+        // 감시자 카이라는 리젠 타이머가 아니라 4시간 격자 출현 알림으로 다룬다 — 여기에도, picker에도 없다.
+        Assert.False(FieldBossFixedSchedule.HasFixedSchedule(FieldBossCatalog.ScheduledSpawnCode));
+        Assert.True(FieldBossCatalog.HasOwnAlarm(FieldBossCatalog.ScheduledSpawnCode));
         Assert.False(FieldBossCatalog.HasOwnAlarm(2600098));   // 집행자 슬롯 카이라는 일반 알림 대상
     }
 
+    private static readonly TimeSpan Kst = TimeSpan.FromHours(9);
+
+    /// <summary>KST 벽시계 시각을 Unix ms 로. 테스트가 실행 머신 시간대에 좌우되면 안 되므로 오프셋을
+    /// 명시한다 — 이 저장소는 CI 에서 테스트를 돌리지 않아 그런 드리프트를 아무도 못 잡는다.</summary>
+    private static long KstMs(int h, int m, int day = 2) =>
+        new DateTimeOffset(2026, 9, day, h, m, 0, Kst).ToUnixTimeMilliseconds();
+
     [Fact]
-    public void Kaira_leads_are_due_only_on_the_matching_minute_before_the_hour()
+    public void Kaira_leads_are_due_only_before_a_four_hour_slot()
     {
         var leads = new[] { 10, 5, 1 };
-        Assert.Equal(10, HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 50, 0), leads));
-        Assert.Equal(5, HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 55, 0), leads));
-        Assert.Equal(1, HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 59, 0), leads));
-        Assert.Null(HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 52, 0), leads));
-        Assert.Null(HourlyAlarm.DueLead(new DateTime(2026, 7, 27, 20, 0, 0), leads));   // 정각 자체는 0 lead
+
+        // 20시는 출현 슬롯 — 리드가 맞는 분에만 뜬다.
+        Assert.Equal(10, KairaAlarm.DueLead(KstMs(19, 50), leads));
+        Assert.Equal(5, KairaAlarm.DueLead(KstMs(19, 55), leads));
+        Assert.Equal(1, KairaAlarm.DueLead(KstMs(19, 59), leads));
+        Assert.Null(KairaAlarm.DueLead(KstMs(19, 52), leads));   // 리드에 없는 분
+        Assert.Null(KairaAlarm.DueLead(KstMs(20, 0), leads));    // 출현 정각 자체는 0 lead → 켜진 리드가 없다
+
+        // 21시는 슬롯이 아니다 — 옛 '매시 정각' 구현이라면 여기서 울렸다. 이게 이번 패치의 핵심 회귀 그물이다.
+        Assert.Null(KairaAlarm.DueLead(KstMs(20, 50), leads));
+        Assert.Null(KairaAlarm.DueLead(KstMs(20, 55), leads));
+        Assert.Null(KairaAlarm.DueLead(KstMs(20, 59), leads));
+    }
+
+    [Fact]
+    public void Kaira_slots_are_midnight_plus_every_four_hours()
+    {
+        var leads = new[] { 10 };
+        int[] spawnHours = { 0, 4, 8, 12, 16, 20 };
+
+        for (int hour = 0; hour < 24; hour++)
+        {
+            // 그 시각 정각의 10분 전 = (hour-1):50. 0시의 10분 전은 전날 23:50 이다.
+            long tenBefore = KstMs(hour == 0 ? 23 : hour - 1, 50, day: hour == 0 ? 1 : 2);
+            int? due = KairaAlarm.DueLead(tenBefore, leads);
+            if (spawnHours.Contains(hour))
+            {
+                Assert.Equal(10, due);
+            }
+            else
+            {
+                Assert.Null(due);
+            }
+        }
+    }
+
+    /// <summary>23:50 → 익일 00:00. 격자를 시(hour) 나눗셈으로 재면 자정에서 끊기기 쉬운 자리다
+    /// (1440 % 240 == 0 이라 실제로는 끊기지 않는다는 것을 못박는다).</summary>
+    [Fact]
+    public void The_midnight_slot_rolls_over_from_the_previous_day()
+    {
+        var leads = new[] { 10, 5, 1 };
+        Assert.Equal(10, KairaAlarm.DueLead(KstMs(23, 50, day: 1), leads));
+        Assert.Equal(1, KairaAlarm.DueLead(KstMs(23, 59, day: 1), leads));
+
+        long spawn = KairaAlarm.NextSpawnMs(KstMs(23, 50, day: 1));
+        Assert.Equal(new DateTimeOffset(2026, 9, 2, 0, 0, 0, Kst).ToUnixTimeMilliseconds(), spawn);
+    }
+
+    /// <summary>격자는 머신 시간대가 아니라 서버(KST)에 걸려 있다. 로컬 시로 재면 UTC+8 사용자는 여섯
+    /// 슬롯이 전부 한 시간 어긋난다 — timeBasis 결정 전체를 지키는 그물이다.</summary>
+    [Fact]
+    public void The_grid_is_anchored_to_kst_not_to_the_machine_timezone()
+    {
+        var leads = new[] { 10 };
+
+        // 같은 순간을 UTC+8 벽시계로 쓰면 19:50 이 아니라 18:50 이다. 그래도 KST 19:50 이므로 떠야 한다.
+        long sameInstantFromPlus8 =
+            new DateTimeOffset(2026, 9, 2, 18, 50, 0, TimeSpan.FromHours(8)).ToUnixTimeMilliseconds();
+        Assert.Equal(KstMs(19, 50), sameInstantFromPlus8);
+        Assert.Equal(10, KairaAlarm.DueLead(sameInstantFromPlus8, leads));
+
+        // 반대로 UTC+8 사용자의 로컬 19:50 은 KST 20:50 이라 슬롯이 아니다.
+        long localEveningInPlus8 =
+            new DateTimeOffset(2026, 9, 2, 19, 50, 0, TimeSpan.FromHours(8)).ToUnixTimeMilliseconds();
+        Assert.Null(KairaAlarm.DueLead(localEveningInPlus8, leads));
+    }
+
+    /// <summary>하루치를 분 단위로 훑어 두 스케줄이 실제로 갈렸음을 수치로 고정한다. 슈고는 매시 정각
+    /// 그대로(24슬롯 × 3리드 = 72회), 카이라는 4시간 격자(6슬롯 × 3리드 = 18회).</summary>
+    [Fact]
+    public void A_full_day_gives_kaira_eighteen_cues_and_shugo_seventy_two()
+    {
+        var leads = new[] { 10, 5, 1 };
+        int kaira = 0, shugo = 0;
+
+        for (int minute = 0; minute < 24 * 60; minute++)
+        {
+            long ms = KstMs(0, 0) + (minute * 60_000L);
+            if (KairaAlarm.DueLead(ms, leads) is not null)
+            {
+                kaira++;
+            }
+
+            // 슈고는 사용자 벽시계 기준이므로 같은 분을 KST 벽시계로 그대로 넘긴다.
+            DateTime wall = new DateTimeOffset(2026, 9, 2, 0, 0, 0, Kst).AddMinutes(minute).DateTime;
+            if (ShugoAlarm.DueLead(wall, leads) is not null)
+            {
+                shugo++;
+            }
+        }
+
+        Assert.Equal(18, kaira);
+        Assert.Equal(72, shugo);
+    }
+
+    /// <summary>토스트가 찍는 "· HH:mm" 의 근거. DueLead 와 같은 격자를 공유해야 한다.</summary>
+    [Fact]
+    public void The_next_spawn_is_the_slot_the_lead_is_counting_down_to()
+    {
+        long spawn20 = new DateTimeOffset(2026, 9, 2, 20, 0, 0, Kst).ToUnixTimeMilliseconds();
+        Assert.Equal(spawn20, KairaAlarm.NextSpawnMs(KstMs(19, 50)));
+        Assert.Equal(spawn20, KairaAlarm.NextSpawnMs(KstMs(19, 59)));
+        Assert.Equal(spawn20, KairaAlarm.NextSpawnMs(KstMs(16, 1)));   // 16시 슬롯 직후 → 다음은 20시
+        Assert.Equal(spawn20, KairaAlarm.NextSpawnMs(KstMs(20, 0)));   // 정각 자신
     }
 
     [Fact]

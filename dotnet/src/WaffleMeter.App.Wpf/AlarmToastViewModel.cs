@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using WaffleMeter.App.Core;
+using WaffleMeter.Capture;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -64,17 +65,28 @@ public sealed class AlarmToastViewModel : INotifyPropertyChanged
         IconBrush = Amber;
     }
 
-    /// <summary>Set the toast for the 감시자 카이라 hourly cue. The boss is not guaranteed to spawn, so the
-    /// wording says "출현 가능" rather than promising a spawn.</summary>
-    public void SetKaira(int leadMinutes)
+    /// <summary>Set the toast for the 감시자 카이라 spawn cue.
+    /// <para>2026-09-02 패치로 출현이 <b>100% 확정</b>이 됐으므로 확률 20% 시절의 "출현 가능"을 버렸다.
+    /// 확정 스케줄이 되면서 다음 출현 정각을 계산할 수 있게 됐으니 <see cref="SetFieldBoss"/> 와 같은 모양으로
+    /// 시각도 함께 보여 준다.</para>
+    /// <para>발화는 "…분 뒤 출현합니다" — 완결 평서문이라야 한다. 옛 문구는 명사로 끝나는 조각이라 종결
+    /// 하강이 없었고, 그게 팩 레퍼런스로 쓰였을 땐 억양이 통째로 오염됐다(<c>Assets/voice/_source/README.md</c>).
+    /// "리젠"을 쓰지 않는 이유는 두 가지다: (1) 이 보스는 처치 후 재생성이 아니라 고정 시각 출현이고 —
+    /// 서버가 리젠 시각을 0으로 보내는 유일한 보스라는 게 이 알림이 따로 존재하는 이유 그 자체다,
+    /// (2) 같은 어비스 하층에 <b>집행자 카이라</b>(2600098)가 있어 "…카이라, 10분 뒤 리젠"이 어절 하나만
+    /// 다른 두 발화로 겹친다.</para>
+    /// <para>lead 0 분기는 없다 — <see cref="KairaAlarm.EnabledLeads"/> 가 10/5/1 만 넣는다. '출현 시점' 토글을
+    /// 열게 되면 여기에 분기를 되살리고 그 문구를 새로 구워야 한다.</para></summary>
+    public void SetKaira(int leadMinutes, DateTime spawn)
     {
-        Title = "감시자 카이라";
-        Description = leadMinutes <= 0
-            ? "지금 정각 · 출현 가능"
-            : $"{leadMinutes}분 뒤 정각 · 출현 가능";
-        SpokenText = leadMinutes <= 0
-            ? "감시자 카이라, 지금 정각 출현 가능"
-            : $"감시자 카이라, {leadMinutes}분 뒤 정각 출현 가능";
+        // 이름은 카탈로그에서 읽는다 — 리터럴로 박으면 몹 이름 교정이 들어와도 여기만 옛 이름을 말하고,
+        // 팩 테스트는 자기가 적어 둔 같은 리터럴과 비교하느라 그린인 채로 지나간다. 다른 보스 알림
+        // (SetFieldBoss)은 이미 FieldBossCatalog.Name 을 거쳐 오므로 카이라만 예외였다.
+        string name = FieldBossCatalog.Name(FieldBossCatalog.ScheduledSpawnCode);
+        Title = name;
+        Description = $"{leadMinutes}분 뒤 출현 · {spawn:HH:mm}";
+        // 시각 제외 — 위 SpokenText 주석 참고(구운 클립은 문구 해시 주소라 가변 시각을 담을 수 없다).
+        SpokenText = $"{SpokenName.Of(name)}, {leadMinutes}분 뒤 출현합니다";
         IconGlyph = GlyphBell;
         IconBrush = Amber;
     }

@@ -316,11 +316,21 @@ public sealed class DataManager : ICaptureGameData
     // 인게임과 다른 이름("대지의 징벌")과 다른 아이콘(바위 가시)을 쓴다. 축복 쪽 abnormal 코드만 별도 표시
     // base로 돌린다 — 17400058은 skills.json에 이미 '대지의 축복'으로 있고 클라에서도 같은 아이콘을 쓰는
     // 실제 코드라, 이름표·아이콘·상세 스킬행이 한 코드로 정합된다. (데이터마인 07-01/07-15 동일 확인)
+    // 2026-08-26 패치가 이 스킬을 둘로 쪼갰다: 종전엔 한 어노멀(…271/371/571)이 시전자+파티 전원에게
+    // 걸렸는데(SkillEffectFilter includeCaster=True), 이제 자신용과 파티용 코드가 갈렸다. SkillEffect.dat의
+    // SkillEffectLvGroupId 실측: …271/371/571 = Cleric_Skill040_LvUp_A*_Buff_Self, …281/381/591 = *_Buff_Party.
+    // 파티용 3코드는 2026-09-01 카탈로그 갱신 전까지 buff.json에서 이름이 'None'(=IsPlaceholderBuff)이라 통째로
+    // 버려졌던 탓에 이 표에 없었다. 이름이 들어온 지금 빠뜨리면 파티원의 축복이 base 17400000('대지의 징벌')으로
+    // 접혀 ①오버레이/음성이 틀린 이름·아이콘을 쓰고 ②PartySynergyCatalog.Effects(DisplayBase)가 null을 돌려줘
+    // 파티원 이득이 0으로 계산되며 ③질풍의 권능과의 배타쌍이 파티원에게 안 걸린다.
     private static readonly Dictionary<int, int> BuffDisplayBaseOverrides = new()
     {
-        [174000271] = 17400058,
-        [174000371] = 17400058,
-        [174000571] = 17400058,
+        [174000271] = 17400058,   // A2 자신 (Cleric_Skill040_LvUp_A2_Buff_Self)
+        [174000281] = 17400058,   // A2 파티 (…_A2_Buff_Party)
+        [174000371] = 17400058,   // A3 자신
+        [174000381] = 17400058,   // A3 파티
+        [174000571] = 17400058,   // A5 자신
+        [174000591] = 17400058,   // A5 파티
     };
 
     // 인게임에서 서로 중복 적용되지 않는 버프 쌍. 둘 다 활성으로 보이면 지는 쪽을 오버레이에서 감춘다.

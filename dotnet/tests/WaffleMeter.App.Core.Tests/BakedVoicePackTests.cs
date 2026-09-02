@@ -72,7 +72,7 @@ public sealed class BakedVoicePackTests
         Directory.CreateDirectory(dir);
         try
         {
-            const string Line = "감시자 카이라, 10분 뒤 정각 출현 가능";
+            const string Line = "감시자 카이라, 10분 뒤 출현합니다";
             byte[] payload = { 0xFF, 0xFB, 0x90, 0x44 }; // MP3 frame header shape
             File.WriteAllBytes(Path.Combine(dir, BakedVoicePack.FileNameFor(Line)), payload);
 

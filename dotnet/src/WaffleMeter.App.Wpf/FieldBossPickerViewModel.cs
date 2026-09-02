@@ -21,7 +21,7 @@ public sealed class FieldBossPickerViewModel
 
         foreach (FieldBossRegion region in FieldBossCatalog.Regions)
         {
-            // 감시자 카이라 has its own hourly reminder in the settings, so it is not a row here.
+            // 감시자 카이라 has its own 4-hour-grid reminder in the settings, so it is not a row here.
             List<FieldBossInfo> bosses = FieldBossCatalog.InRegion(region)
                 .Where(b => !FieldBossCatalog.HasOwnAlarm(b.Code)).ToList();
             if (bosses.Count == 0)

@@ -138,10 +138,12 @@ public static class SettingsKeyCatalog
         new("alarms.fieldBossLead30", FA, "알림", "필드보스 30분 전"),
         new("alarms.fieldBossMuteInCombat", FA, "알림", "전투 중 알림 숨김"),
         new("alarms.fieldBossDisabled", FA, "알림", "알림 제외 보스"),
-        new("alarms.kairaEnabled", FA, "알림", "카이라 정각 알림"),
-        new("alarms.kairaLead10", FA, "알림", "카이라 10분 전"),
-        new("alarms.kairaLead5", FA, "알림", "카이라 5분 전"),
-        new("alarms.kairaLead1", FA, "알림", "카이라 1분 전"),
+        // '감시자' 를 붙여 둔다 — 같은 어비스 하층에 집행자 카이라(2600098)가 따로 있어서, 백업/복원
+        // 목록에 "카이라 …" 로만 뜨면 어느 쪽 설정인지 갈리지 않는다. 키는 그대로다(바꾸면 설정이 고아가 된다).
+        new("alarms.kairaEnabled", FA, "알림", "감시자 카이라 출현 알림"),
+        new("alarms.kairaLead10", FA, "알림", "감시자 카이라 10분 전"),
+        new("alarms.kairaLead5", FA, "알림", "감시자 카이라 5분 전"),
+        new("alarms.kairaLead1", FA, "알림", "감시자 카이라 1분 전"),
         new("alarms.custom", FA, "알림", "커스텀 알람"),
 
         // ── 전투 집계 ──────────────────────────────────────────────────────────────

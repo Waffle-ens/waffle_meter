@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace WaffleMeter.Capture;
 
@@ -87,8 +87,8 @@ public static class FieldBossCatalog
         new(2400855, "침묵의 타르탄", 111024, FieldBossRegion.Altgard, 1110),
 
         // ---- 엘테넨 (map 1011) — 이 지역은 타이머 패킷이 몹 코드를 그대로 싣는다 ----
-        new(2101217, "루브레인 변이 벌레", 0, FieldBossRegion.Eltnen, 1011),
-        new(2101218, "힐로스터 약탈꾼 대장", 0, FieldBossRegion.Eltnen, 1011),
+        new(2101217, "응집된 베레놈", 0, FieldBossRegion.Eltnen, 1011),
+        new(2101218, "옛 두목 비고르", 0, FieldBossRegion.Eltnen, 1011),
         new(2101257, "꺾인 날개 츠바인", 0, FieldBossRegion.Eltnen, 1011),
         new(2101278, "탐욕의 이게티스", 0, FieldBossRegion.Eltnen, 1011),
         new(2101279, "생명의 신수 수페르비아", 0, FieldBossRegion.Eltnen, 1011),
@@ -121,8 +121,8 @@ public static class FieldBossCatalog
         new(2600093, "수호신장 나흐마", 2004, FieldBossRegion.Abyss, AbyssLowerMapId),
         new(2600094, "수호신장 나흐마", 2005, FieldBossRegion.Abyss, AbyssLowerMapId),
         new(2600096, "집행자 타마사", 2006, FieldBossRegion.Abyss, AbyssLowerMapId),
-        new(2600097, "정령왕 아그로", 2007, FieldBossRegion.Abyss, AbyssLowerMapId),
-        new(2600098, "감시자 카이라", 2008, FieldBossRegion.Abyss, AbyssLowerMapId),
+        new(2600097, "집행자 아그로", 2007, FieldBossRegion.Abyss, AbyssLowerMapId),
+        new(2600098, "집행자 카이라", 2008, FieldBossRegion.Abyss, AbyssLowerMapId),
 
         // ---- 어비스 중층 (map 22) ----
         new(2600150, "분노한 수호신장 나흐마", 2201, FieldBossRegion.Abyss, AbyssMiddleMapId),
@@ -139,13 +139,19 @@ public static class FieldBossCatalog
     public const int AbyssMiddleMapId = 22;
 
     /// <summary>감시자 카이라 (어비스 하층). The server sends a ZEROED timestamp for this one boss in every
-    /// capture, so it has no respawn time to remind against; it spawns on the hour and is not guaranteed to
-    /// spawn at all. It therefore gets its own clock-based reminder and is kept out of the boss picker and
-    /// the timer-driven alarm — see <c>KairaAlarm</c>.</summary>
-    public const int HourlySpawnCode = 2600089;
+    /// capture, so it has no respawn time to remind against. It therefore gets its own clock-based reminder
+    /// and is kept out of the boss picker and the timer-driven alarm — see <c>KairaAlarm</c>.
+    /// <para>2026-09-02 패치로 <b>KST 0시 기준 4시간마다(00·04·08·12·16·20시) 100% 확정 출현</b>이 됐다.
+    /// 종전 이름은 <c>HourlySpawnCode</c> 였는데, 그 이름이 남아 있으면 '매시 정각'이라는 죽은 전제를 계속
+    /// 퍼뜨린다 — 이 저장소는 "주석으로만 두면 회귀한다"가 명문 규칙이라 이름 쪽을 고쳤다.</para>
+    /// <para>⚠️ 그렇다고 <c>FieldBossFixedSchedule</c> 표에 넣지 마라. 넣는 순간
+    /// <c>FieldBossTimerParser</c> 의 폴백이 <b>서버가 명시적으로 0으로 보낸 보스에 미터가 타이머를 지어내고</b>,
+    /// 그게 서버 사실인 척 흘러간다. 게다가 그 알림은 그 지역에 있을 때만 울려서 "어디에 있든 울린다"와도
+    /// 충돌한다.</para></summary>
+    public const int ScheduledSpawnCode = 2600089;
 
     /// <summary>True when this boss is driven by its own alarm instead of the shared respawn-timer one.</summary>
-    public static bool HasOwnAlarm(int code) => code == HourlySpawnCode;
+    public static bool HasOwnAlarm(int code) => code == ScheduledSpawnCode;
 
     /// <summary>Wire codes the boss table does not list directly, kept so a record that still carries the old
     /// value resolves. 2101349는 옛 표가 쓰던 "맹목적인 니호그" 코드인데 현행 데이터마인엔 보스가 아니고,

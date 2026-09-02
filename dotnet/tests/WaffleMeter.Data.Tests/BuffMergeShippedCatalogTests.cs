@@ -73,10 +73,12 @@ public sealed class BuffMergeShippedCatalogTests
     {
         // Tooltip: "적중 시 대상에게 10초 동안 공격력을 10% 감소시키고, 10초 동안 자신의 PVE 피해 증폭이 10% 증가".
         // Live capture: 113900071/072 land on the target (352 + 1,148 events), 113900481 on the caster (1,016).
-        // Only the entity separates them — they share base 11390000 and the name 격노 폭발.
+        // The entity is what separates them; they share base 11390000. The 2026-09-01 catalog refresh gave
+        // 113900481 its own in-game name (격노 — the caster's own buff) where it used to fall through to the
+        // skill name 격노 폭발. The split is the entity's doing either way, and that is what this pins.
         DataManager dm = ShippedCatalog();
         Assert.NotNull(dm.Buff(113900071));
-        Assert.Null(dm.Buff(113900481)); // uncatalogued: resolves to the skill name via base 11390000
+        Assert.Equal("격노", dm.Buff(113900481)!.Name);
 
         Apply(dm, uid: 9, code: 113900481, start: 0, end: 661, actorId: 9);
         Apply(dm, uid: 500, code: 113900071, start: 0, end: 655, actorId: 9);
@@ -129,10 +131,13 @@ public sealed class BuffMergeShippedCatalogTests
     [Fact]
     public void Differently_named_effects_under_base_16300000_stay_separate()
     {
-        // 4원소(163000002) and 피해 내성 감소(163000007) share base 16300000. Base-keyed dedup would merge them.
+        // 4원소(163000002) and 모든 속성 증폭(163000007) share base 16300000. Base-keyed dedup would merge them.
+        // 163000007 shipped as "피해 내성 감소" until the 2026-09-01 catalog refresh; the client's own
+        // SkillAbnormalString for it reads 모든 속성 증폭. The NAME is what keeps the two rows apart, so the
+        // rename has to land here rather than silently re-merging them.
         DataManager dm = ShippedCatalog();
         Assert.Equal("4원소", dm.Buff(163000002)!.Name);
-        Assert.Equal("피해 내성 감소", dm.Buff(163000007)!.Name);
+        Assert.Equal("모든 속성 증폭", dm.Buff(163000007)!.Name);
 
         Apply(dm, uid: 9, code: 163000002, start: 0, end: 878, actorId: 9);
         Apply(dm, uid: 9, code: 163000007, start: 0, end: 970, actorId: 9);
@@ -163,12 +168,15 @@ public sealed class BuffMergeShippedCatalogTests
     }
 
     [Fact]
-    public void An_uncatalogued_rank_merges_with_its_catalogued_sibling()
+    public void Two_ranks_of_격앙_merge_into_one_row()
     {
-        // Live capture: 격앙 arrives as 127800011 (catalogued) and 127800012 (not). One buff, one row.
+        // Live capture: 격앙 arrives as 127800011 and 127800012 on the same player from the same caster.
+        // One buff, one row. Both ranks are catalogued since the 2026-09-01 refresh (127800012 used to fall
+        // through to the skill name), so the representative is now settled by uptime rather than by catalogue
+        // membership — see DpsCalculator.RepresentativeOf.
         DataManager dm = ShippedCatalog();
-        Assert.NotNull(dm.Buff(127800011));
-        Assert.Null(dm.Buff(127800012));
+        Assert.Equal("격앙", dm.Buff(127800011)!.Name);
+        Assert.Equal("격앙", dm.Buff(127800012)!.Name);
 
         Apply(dm, uid: 9, code: 127800012, start: 0, end: 385, actorId: 7);
         Apply(dm, uid: 9, code: 127800011, start: 900, end: 967, actorId: 7);
@@ -177,7 +185,7 @@ public sealed class BuffMergeShippedCatalogTests
 
         Assert.Equal("격앙", row.Name);
         Assert.Equal(12780000, row.BaseCode);
-        Assert.Equal(127800011, row.Code);
+        Assert.Equal(127800012, row.Code);  // the longer-running of the two catalogued ranks
         Assert.Equal(45.2, row.OperatingRate, 3);
     }
 

@@ -32,7 +32,8 @@ public static class FieldBossFixedSchedule
     private static readonly Dictionary<int, Kind> ByBossCode = new()
     {
         // 감시자 카이라(2600089)는 여기 없다 — 서버가 시각을 0으로 보내는 유일한 보스라 리젠 타이머로
-        // 다룰 수가 없고, 매시 정각 기준 별도 알림(KairaAlarm)으로 뺐다.
+        // 다룰 수가 없고, KST 0시 기준 4시간 격자(00·04·08·12·16·20시) 별도 알림(KairaAlarm)으로 뺐다.
+        // ⚠️ 확정 출현이 됐다고 여기로 옮기지 마라 — FieldBossCatalog.ScheduledSpawnCode 의 doc 참고.
         [2600084] = Kind.FriSun2205,   // 수호신장 나흐마 ×3 (하층)
         [2600093] = Kind.FriSun2205,
         [2600094] = Kind.FriSun2205,
@@ -41,7 +42,7 @@ public static class FieldBossFixedSchedule
 
         [2600096] = Kind.WedSat2235,   // 집행자 타마사 (하층)
         [2600097] = Kind.WedSat2235,   // 정령왕 아그로 (하층, 집행자 슬롯)
-        [2600098] = Kind.WedSat2235,   // 감시자 카이라 (하층, 집행자 슬롯)
+        [2600098] = Kind.WedSat2235,   // 집행자 카이라 (하층, 집행자 슬롯)
         [2600156] = Kind.WedSat2235,   // 분노한 수호신장 나흐마 (중층)
         [2600521] = Kind.WedSat2235,   // 반역자 듀칼 (중층)
         [2600522] = Kind.WedSat2235,   // 파멸자 마라카 (중층)
@@ -50,8 +51,8 @@ public static class FieldBossFixedSchedule
     /// <summary>True when this boss spawns on a fixed schedule rather than a per-kill respawn timer.</summary>
     public static bool HasFixedSchedule(int bossCode) => ByBossCode.ContainsKey(bossCode);
 
-    /// <summary>A short human label for the schedule, for the picker row ("매시 정각" / "금·일 22:00" /
-    /// "수·토 22:30"), or null when the boss uses a normal respawn timer.</summary>
+    /// <summary>A short human label for the schedule, for the picker row ("금·일 22:05" / "수·토 22:35"),
+    /// or null when the boss uses a normal respawn timer.</summary>
     public static string? Describe(int bossCode) => ByBossCode.TryGetValue(bossCode, out Kind k)
         ? k switch
         {

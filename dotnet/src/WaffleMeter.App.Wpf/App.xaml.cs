@@ -806,7 +806,7 @@ public partial class App : Application
             fieldBossTimers: () => services.Data.CurrentFieldBossTimers,
             onFieldBoss: due => Dispatcher.Invoke(() => ShowFieldBossAlarm(due)),
             combatActive: () => _combatActive,
-            onKaira: lead => Dispatcher.Invoke(() => ShowKairaAlarm(lead)));
+            onKaira: (lead, spawn) => Dispatcher.Invoke(() => ShowKairaAlarm(lead, spawn)));
         _alarms.Start();
 
         // Per-job buff picker: seed the observed catalog + hidden selection from persisted settings, and
@@ -2625,16 +2625,16 @@ public partial class App : Application
         PlayAlert(_alarmToastVm.SpokenText);
     }
 
-    /// <summary>Show the 감시자 카이라 hourly reminder toast + alert sound/voice. Unlike the respawn-timer
+    /// <summary>Show the 감시자 카이라 4-hour-grid reminder toast + alert sound/voice. Unlike the respawn-timer
     /// alerts this is not gated on being in the abyss — the reminder exists to get you there in time.</summary>
-    private void ShowKairaAlarm(int lead)
+    private void ShowKairaAlarm(int lead, DateTime spawn)
     {
         if (_alarmToast is null || _alarmToastVm is null)
         {
             return;
         }
 
-        _alarmToastVm.SetKaira(lead);
+        _alarmToastVm.SetKaira(lead, spawn);
         if (_overlayWindow is { } w)
         {
             _alarmToast.Left = w.Left;
