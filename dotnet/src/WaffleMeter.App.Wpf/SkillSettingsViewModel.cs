@@ -18,7 +18,8 @@ public sealed class SkillSettingsViewModel
     {
         _visibility = visibility;
         Groups = SkillCatalog.GroupedByJob
-            .Select(g => new SkillJobGroupViewModel(g, visibility, () => Changed?.Invoke()))
+            .Select(g => new SkillJobGroupViewModel(
+                g, visibility, () => Changed?.Invoke(), c => SkillCatalog.GetName(c) ?? c.ToString()))
             .ToList();
     }
 
@@ -40,15 +41,21 @@ public sealed class SkillSettingsViewModel
     }
 }
 
+/// <summary>One job's block of chips. Deliberately generic over <see cref="ISkillVisibility"/> and the name
+/// lookup so the same rows — and therefore the same flyout window and its 전체 선택/해제 buttons — serve both
+/// the join-panel badge picker and the cooldown-overlay picker. The two run on different catalogues (167 vs
+/// 249 codes) and different keys, so nothing else can be shared.</summary>
 public sealed class SkillJobGroupViewModel
 {
-    private readonly SkillVisibility _visibility;
+    private readonly ISkillVisibility _visibility;
     private readonly Action _onChanged;
+    private readonly Func<int, string> _nameOf;
 
-    public SkillJobGroupViewModel(GroupedJobSkills group, SkillVisibility visibility, Action onChanged)
+    public SkillJobGroupViewModel(GroupedJobSkills group, ISkillVisibility visibility, Action onChanged, Func<int, string> nameOf)
     {
         _visibility = visibility;
         _onChanged = onChanged;
+        _nameOf = nameOf;
         Job = group.Job;
         JobIcon = JoinIcons.Job(group.Job);
         NormalChips = group.NormalSkills.Select(c => Chip(c)).ToList();
@@ -82,20 +89,20 @@ public sealed class SkillJobGroupViewModel
         _onChanged();
     }
 
-    private SkillChipViewModel Chip(int code) => new(code, _visibility, _onChanged);
+    private SkillChipViewModel Chip(int code) => new(code, _visibility, _onChanged, _nameOf(code));
 }
 
 public sealed class SkillChipViewModel : INotifyPropertyChanged
 {
-    private readonly SkillVisibility _visibility;
+    private readonly ISkillVisibility _visibility;
     private readonly Action _onChanged;
 
-    public SkillChipViewModel(int code, SkillVisibility visibility, Action onChanged)
+    public SkillChipViewModel(int code, ISkillVisibility visibility, Action onChanged, string name)
     {
         _visibility = visibility;
         _onChanged = onChanged;
         Code = code;
-        Name = SkillCatalog.GetName(code) ?? code.ToString();
+        Name = name;
         Icon = JoinIcons.Skill(code);
     }
 

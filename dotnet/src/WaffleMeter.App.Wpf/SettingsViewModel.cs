@@ -1155,6 +1155,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// 바꾼다 — 상한이 없으면 넘친 슬롯이 줄바꿈도 스크롤도 없이 조용히 사라진다.</summary>
     public int CooldownUiPerRow { get => _settings.CooldownUiPerRow; set { _settings.CooldownUiPerRow = value; OnPropertyChanged(); } }
 
+    /// <summary>"스킬 고르기" 버튼 — 쿨타임 픽커 플라이아웃을 여닫는다. App 이 배선한다(창 위치와 수명을
+    /// 아는 쪽이 App 이고, 다른 버튼들도 전부 이 모양이다).</summary>
+    public Action? CooldownPickerRequested { get; set; }
+
+    public void OpenCooldownPicker() => CooldownPickerRequested?.Invoke();
+
     /// <summary>버프 아이콘 우하단에 스킬 레벨 배지를 그린다(기본 켜짐). 레벨을 못 읽은 버프는 배지 없음.</summary>
     public bool BuffUiShowLevel { get => _settings.BuffUiShowLevel; set { _settings.BuffUiShowLevel = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }
@@ -1810,7 +1816,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// </summary>
     public static readonly string[] NavKeys =
     {
-        "display", "theme", "window", "buffs", "alarms",
+        "display", "theme", "window", "buffs", "cooldown", "alarms",
         "battle", "hotkeys", "stats", "mystats", "gameopt", "advanced",
     };
 

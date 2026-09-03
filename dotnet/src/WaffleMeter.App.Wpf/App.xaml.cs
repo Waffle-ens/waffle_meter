@@ -125,6 +125,10 @@ public partial class App : Application
     private Point? _cooldownOverlayHome;
     private CooldownOverlayViewModel? _cooldownOverlayVm;
     private System.Windows.Threading.DispatcherTimer? _cooldownTimer;
+    private CooldownVisibility? _cooldownVisibility;
+    private CooldownPickerViewModel? _cooldownPickerVm;
+    private SkillSettingsFlyout? _cooldownFlyout;
+    private bool _cooldownFlyoutVisible;
 
     /// <summary>Auto-reset event the FIRST instance owns (set by <see cref="Program"/>); a later launch
     /// opens it by name and signals it instead of spawning a colliding UI. We wait on it and surface the
@@ -353,7 +357,7 @@ public partial class App : Application
             var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, _buffPresets!, new GameOptimizerService());
             if (_skillVisibility is { } skills)
             {
-                svm.BundleApplier = new SettingsBundleApplier(services, settings, theme, skin, controller, hotkeys, _buffPresets!, skills);
+                svm.BundleApplier = new SettingsBundleApplier(services, settings, theme, skin, controller, hotkeys, _buffPresets!, skills, _cooldownVisibility);
             }
 
             // 전투가 도는 중에 70키를 밀면 전 행 리페인트 + 스킨 사전 교체 + 전역 핫키 재등록이 한꺼번에
@@ -363,6 +367,7 @@ public partial class App : Application
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
             svm.PlayReplayRequested = () => PlayReplayFromPicker(services, window);
             svm.DummyResetRequested = () => _engine?.RequestDummyReset(); // 허수아비 DPS 초기화 button (settings tab)
+            svm.CooldownPickerRequested = ToggleCooldownPicker;
             var settingsWindow = new SettingsWindow(svm) { Owner = window };
             LoadWindowSize(services.Props, "settingsWidth", "settingsHeight", settingsWindow);
             settingsWindow.SizeChanged += (_, _) =>
@@ -946,6 +951,24 @@ public partial class App : Application
         };
         _cooldownTimer.Tick += (_, _) => RefreshCooldownOverlay(svc);
         _cooldownTimer.Start();
+
+        // 표시할 스킬 픽커. 참가요청 배지 픽커와 창(SkillSettingsFlyout)과 행 클래스는 공유하고 카탈로그와
+        // 저장 키만 다르다. ⚠️ 선택 집합은 반드시 별도 인스턴스여야 한다 — SkillVisibility/CooldownVisibility
+        // 는 집합을 참조로 넘기므로 하나를 공유하면 배지 토글이 쿨타임 표시를 함께 바꾼다.
+        _cooldownVisibility = new CooldownVisibility(services.Props, services.Data.CooldownCatalog);
+        _cooldownPickerVm = new CooldownPickerViewModel(services.Data.CooldownCatalog, _cooldownVisibility);
+        _cooldownFlyout = new SkillSettingsFlyout { DataContext = _cooldownPickerVm, Title = "표시할 스킬 선택 (쿨타임)" };
+        LoadWindowSize(services.Props, "cooldownPickerWidth", "cooldownPickerHeight", _cooldownFlyout);
+        _cooldownFlyout.Show();
+        _cooldownFlyout.Park();
+        _controller?.RegisterOverlay(_cooldownFlyout);
+        AttachScreenClamp(_cooldownFlyout);
+        AttachResize(_cooldownFlyout, services.Props, "cooldownPickerWidth", "cooldownPickerHeight");
+        _cooldownFlyout.CloseRequested += () => { _cooldownFlyoutVisible = false; _cooldownFlyout.Park(); };
+        // 토글 즉시 반영 — 250ms 를 기다리면 체크가 안 먹은 것처럼 보인다.
+        _cooldownPickerVm.Changed += () => RefreshCooldownOverlay(svc);
+        // 반대 방향: 설정 가져오기가 집합을 통째로 갈아끼웠을 때 칩을 다시 읽는다.
+        _cooldownVisibility.Changed += () => { _cooldownPickerVm.Refresh(); RefreshCooldownOverlay(svc); };
 
         _updateService = new UpdateService(prerelease: false);
         UpdateService updateService = _updateService;
@@ -2233,7 +2256,7 @@ public partial class App : Application
     private void ClampAllWindows()
     {
         bool allow = _settings?.MultiMonitorMode ?? false;
-        foreach (Window? w in new Window?[] { _overlayWindow, _joinPanel, _historyPanel, _aetherPanel, _skillFlyout, _detailWindow })
+        foreach (Window? w in new Window?[] { _overlayWindow, _joinPanel, _historyPanel, _aetherPanel, _skillFlyout, _cooldownFlyout, _detailWindow })
         {
             if (w != null)
             {
@@ -2821,6 +2844,33 @@ public partial class App : Application
         }
     }
 
+    /// <summary>설정창의 "스킬 고르기" 버튼. 참가요청 픽커와 같은 토글 동작이고, 위치만 설정창 옆으로 잡는다
+    /// (설정창이 없으면 미터 옆). 창은 Park 상태로 미리 만들어 두므로 여는 데 지연이 없다.</summary>
+    private void ToggleCooldownPicker()
+    {
+        if (_cooldownFlyout is null)
+        {
+            return;
+        }
+
+        if (_cooldownFlyoutVisible)
+        {
+            _cooldownFlyoutVisible = false;
+            _cooldownFlyout.Park();
+            return;
+        }
+
+        Window? anchor = _settingsWindow ?? (Window?)_overlayWindow;
+        if (anchor is not null)
+        {
+            _cooldownFlyout.Left = anchor.Left + anchor.Width + 8;
+            _cooldownFlyout.Top = anchor.Top;
+        }
+
+        _cooldownFlyoutVisible = true;
+        _cooldownFlyout.Present(true);
+    }
+
     // Refresh the skill-cooldown overlay. Same two-layer shape as the buff overlay — the controller poll
     // publishes the meter's presence, this tick applies our own toggle and reconciles Present/Fade — but the
     // toggle gate comes FIRST here: with the overlay off there is nothing to compute, and the data-layer call
@@ -2840,6 +2890,11 @@ public partial class App : Application
 
         long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         IReadOnlyList<WaffleMeter.Data.SkillCooldownView> rows = services.Data.ActiveCooldowns(nowMs);
+        if (_cooldownVisibility is { } picked)
+        {
+            rows = rows.Where(r => picked.IsVisible(r.GroupId)).ToList();
+        }
+
         if (_settings.CooldownUiHideReady)
         {
             rows = rows.Where(r => !r.IsReady).ToList();

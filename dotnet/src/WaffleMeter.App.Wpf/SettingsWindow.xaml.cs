@@ -132,6 +132,8 @@ public partial class SettingsWindow : Window
 
     private void OnResetDummyDps(object sender, RoutedEventArgs e) => _viewModel.ResetDummyDps();
 
+    private void OnOpenCooldownPicker(object sender, RoutedEventArgs e) => _viewModel.OpenCooldownPicker();
+
     private void OnApplyGameOpt(object sender, RoutedEventArgs e) => _viewModel.ApplyGameOpt();
 
     private void OnRevertGameOpt(object sender, RoutedEventArgs e) => _viewModel.RevertGameOpt();

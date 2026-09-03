@@ -2053,6 +2053,10 @@ public sealed class DataManager : ICaptureGameData
     /// it group ids fall back to the plain fold and the cooldown overlay simply has nothing it can name.</summary>
     public void LoadCooldownCatalog(CooldownCatalog catalog) => _cooldownCatalog = catalog;
 
+    /// <summary>The installed cooldown catalog. The picker needs the same instance the overlay keys against —
+    /// building a second one from the file would drift the moment the asset is regenerated mid-session.</summary>
+    public CooldownCatalog CooldownCatalog => _cooldownCatalog;
+
     // A cast (0x3802) only PROPOSES a cooldown. The server routinely resets or shortens it immediately and says
     // so with a 0x3847 that lands a median 251–348 ms later (p90 352 ms), so acting on the cast the instant it
     // arrives paints the icon gray for a quarter-second on EVERY cast: 649 casts of 도약 찍기 in one session

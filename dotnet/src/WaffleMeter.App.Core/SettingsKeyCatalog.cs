@@ -127,6 +127,9 @@ public static class SettingsKeyCatalog
         new("cooldownUi.transparent", FD, "스킬 쿨타임", "투명 배경"),
         new("cooldownUi.hideReady", F, "스킬 쿨타임", "준비된 스킬 숨기기"),
         new("cooldownUi.perRow", FD, "스킬 쿨타임", "한 줄 최대 개수"),
+        // External: MeterSettings 에 프로퍼티가 없는 키(CooldownVisibility 가 직접 읽고 쓴다) — 손으로
+        // 넣지 않으면 완성도 테스트의 시야 밖이라 전체 백업에서 조용히 빠진다. joinSkills.hidden 과 같다.
+        new("cooldownUi.hidden", F, "스킬 쿨타임", "표시할 스킬", External: true),
         new("joinSkills.hidden", F, "버프 오버레이", "표시 스킬", External: true),
 
         // ── 알림 ───────────────────────────────────────────────────────────────────
@@ -214,11 +217,13 @@ public static class SettingsKeyCatalog
         ["joinPanelWidth"] = "창 크기", ["joinPanelHeight"] = "창 크기",
         ["joinPanelX"] = "창 위치", ["joinPanelY"] = "창 위치",
         ["skillFlyoutWidth"] = "창 크기", ["skillFlyoutHeight"] = "창 크기",
+        ["cooldownPickerWidth"] = "창 크기", ["cooldownPickerHeight"] = "창 크기",
         ["historyPanelWidth"] = "창 크기", ["historyPanelHeight"] = "창 크기",
         ["historyPanelX"] = "창 위치", ["historyPanelY"] = "창 위치",
         ["aetherPanelWidth"] = "창 크기", ["aetherPanelHeight"] = "창 크기",
         ["aetherPanelX"] = "창 위치", ["aetherPanelY"] = "창 위치",
         ["buffOverlayX"] = "창 위치", ["buffOverlayY"] = "창 위치",
+        ["cooldownOverlayX"] = "창 위치", ["cooldownOverlayY"] = "창 위치",
         ["server.ip"] = "캡처 환경", ["server.port"] = "캡처 환경",
         ["server.timeout"] = "캡처 환경", ["server.maxSnapshotSize"] = "캡처 환경",
         ["capture.dedupeGameStreams"] = "캡처 환경", ["capture.selfHealGapMs"] = "캡처 환경",

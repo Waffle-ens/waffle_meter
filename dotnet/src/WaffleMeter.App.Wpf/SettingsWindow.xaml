@@ -304,7 +304,10 @@
                     <StackPanel><TextBlock Text="창 동작" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 조건 · 위치 · 패널" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="buffs">
-                    <StackPanel><TextBlock Text="버프 오버레이" Style="{StaticResource NavTitle}"/><TextBlock Text="버프 · 쿨타임 · 음성" Style="{StaticResource NavSub}"/></StackPanel>
+                    <StackPanel><TextBlock Text="버프 오버레이" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 · 음성 · 직업별" Style="{StaticResource NavSub}"/></StackPanel>
+                </ListBoxItem>
+                <ListBoxItem Tag="cooldown">
+                    <StackPanel><TextBlock Text="스킬 쿨타임" Style="{StaticResource NavTitle}"/><TextBlock Text="오버레이 · 스킬 선택" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="alarms">
                     <StackPanel><TextBlock Text="알림" Style="{StaticResource NavTitle}"/><TextBlock Text="소리 · 슈고 · 필드보스" Style="{StaticResource NavSub}"/></StackPanel>
@@ -1242,13 +1245,11 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- 스킬 쿨타임 오버레이. 새 탭을 만들지 않는 이유: 설정창은 이미 11탭이고 직전 작업이
-                             "버프가 2탭으로 잘못 쪼개졌다"를 결함으로 잡아 12->10 으로 합친 참이다. 탭 계약은
-                             SettingsViewModel.NavKeys / ListBoxItem.Tag / ConverterParameter 3곳에 이중화돼 있고
-                             VerifyNavContract 가 DEBUG 에서 SequenceEqual 로 강제하므로, 여기 이어 붙이면 기존
-                             항목이 1픽셀도 안 움직이고 UiPreview 기준선 비용도 0이다. -->
-                        <Border Height="1" Background="{DynamicResource Skin.SoftBorder}" Margin="0,18,0,18"/>
-                        <TextBlock Text="스킬 쿨타임" Style="{StaticResource SectionHeader}"/>
+                    </StackPanel>
+
+                    <!-- ===== 스킬 쿨타임 ===== -->
+                    <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=cooldown}">
+                        <TextBlock Text="스킬 쿨타임 오버레이" Style="{StaticResource SectionHeader}"/>
                         <TextBlock Text="내 스킬의 재사용 대기시간을 별도 창에 표시합니다. 목록은 이번 접속에서 실제로 쓴 스킬로 채워집니다 — 게임이 접속 시점 스킬창을 알려주지 않기 때문입니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
 
                         <Grid Margin="0,0,0,14">
@@ -1308,6 +1309,20 @@
                                 <TextBlock Text="아이콘 위에 겹쳐 나오는 남은 초의 색상입니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <controls:ColorSwatchButton Grid.Column="1" Color="{Binding CooldownTextColor, Mode=TwoWay}" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Grid Margin="0,4,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="표시할 스킬" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="직업별 액티브 · 스티그마 스킬 중에서 고릅니다. 끈 스킬은 써도 창에 뜨지 않습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <!-- BrandButton 은 배경을 TemplateBinding 으로 받는다 — 색을 안 주면 투명한 글자만
+                                 남는다(다른 사용처도 전부 색을 명시한다). -->
+                            <Button Grid.Column="1" Content="스킬 고르기" Click="OnOpenCooldownPicker" VerticalAlignment="Center"
+                                    Height="30" MinWidth="96" FontSize="12" FontWeight="SemiBold"
+                                    Background="{DynamicResource Skin.Accent}" Foreground="White"
+                                    Style="{StaticResource BrandButton}"/>
                         </Grid>
                     </StackPanel>
 

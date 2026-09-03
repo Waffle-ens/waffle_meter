@@ -41,7 +41,7 @@ namespace WaffleMeter.App.Core;
 /// the effect is one-time, and the picker's per-job 전체 선택 undoes it in a click. Only the conversion has
 /// this problem — once stored as a hidden-list, new skills appear on their own, which is the point.</para>
 /// </summary>
-public sealed class SkillVisibility
+public sealed class SkillVisibility : ISkillVisibility
 {
     private const string Key = "joinSkills.hidden";
 

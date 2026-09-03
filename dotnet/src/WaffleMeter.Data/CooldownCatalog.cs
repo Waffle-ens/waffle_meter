@@ -14,6 +14,7 @@ namespace WaffleMeter.Data;
 /// model is an approximation.</param>
 /// <param name="HasIcon">Whether <c>Assets/SkillIcons/&lt;BaseCode&gt;.png</c> shipped.</param>
 /// <param name="Order">Stable position inside the job (base code ascending).</param>
+/// <param name="IsStigma">스티그마 스킬인가 — 픽커가 직업 안에서 일반/스티그마 두 묶음으로 나눠 보여 준다.</param>
 public readonly record struct CooldownSkillInfo(
     int BaseCode,
     int Job,
@@ -22,7 +23,8 @@ public readonly record struct CooldownSkillInfo(
     int GroupId,
     int AutoLoadCount,
     bool HasIcon,
-    int Order);
+    int Order,
+    bool IsStigma);
 
 /// <summary>
 /// The static half of the skill-cooldown overlay: which player skills have a cooldown, what they are called,
@@ -151,7 +153,8 @@ public sealed class CooldownCatalog
                         v.TryGetProperty("gct", out JsonElement g) && g.TryGetInt32(out int gct) && gct > 0 ? gct : baseCode,
                         Int(v, "auto"),
                         v.TryGetProperty("icon", out JsonElement ic) && ic.ValueKind == JsonValueKind.True,
-                        Int(v, "order"));
+                        Int(v, "order"),
+                        v.TryGetProperty("stig", out JsonElement st) && st.ValueKind == JsonValueKind.True);
                 }
             }
 
