@@ -2127,10 +2127,18 @@ public sealed class StreamProcessor
         }
     }
 
-    /// <summary>Per-cast cooldown START 0x3802 (multi-actor). Layout: <c>[actor v][00][u32 skillCode][counter]
-    /// [flag][…][varint remaining]</c> where remaining is the frame's LAST varint (0 on non-cast/ready frames,
-    /// the full cooldown on a cast — ground-truth: 바이젤/지원사격 39100ms, 축복의활 78200ms). Only cast frames
-    /// (remaining &gt; 0) are stored, filtered to self; 0x3847 handles the accurate decay/clear afterwards.</summary>
+    /// <summary>Per-cast cooldown START 0x3802 (multi-actor). Layout: <c>[actor v][flag u8][u32 skillCode]
+    /// [counter][…][varint remaining]</c> where remaining is the frame's LAST varint (0 on non-cast/ready
+    /// frames, the full cooldown on a cast — ground-truth: 바이젤/지원사격 39100ms, 축복의활 78200ms). Only cast
+    /// frames (remaining &gt; 0) are stored, filtered to self; 0x3847 handles the accurate decay/clear after.
+    /// <para>The byte after the actor varint — long documented here as a literal <c>[00]</c> — is a FLAG. When
+    /// bit 0x04 or 0x08 is set the frame carries an extra trailing varint (a buff/charge remainder), so the
+    /// "last varint" walk below reads THAT and stores a duration as if it were a cooldown. Every such frame in
+    /// the corpus belongs to a charge-type skill whose real cooldown is 0, i.e. the skill is ready — the exact
+    /// opposite of what gets stored. Measured over five packet corpora: 165/165 mis-stores are removed by the
+    /// guard and nothing real is lost (all 165 carry cooldown 0, which the <c>remaining &lt;= 0</c> guard below
+    /// would have dropped anyway). Symptom it fixes: 쾌유의 주문(호법성)·표적 화살(궁성)·지면 강타(권성) sat
+    /// grayed for the full 8.0 s their buff was on screen.</para></summary>
     private void ParseCooldownStartPacket(byte[] packet, VarIntOutput lengthInfo, bool extraFlag, long arrivedAt)
     {
         try
@@ -2147,7 +2155,18 @@ public sealed class StreamProcessor
                 return;
             }
 
-            int skillOff = opcodeOffset + 2 + actor.Length + 1; // [00] then the u32 skill code
+            int flagOff = opcodeOffset + 2 + actor.Length;
+            if (flagOff >= packet.Length)
+            {
+                return;
+            }
+
+            if ((packet[flagOff] & 0x0C) != 0)
+            {
+                return; // extra trailing varint present — the last-varint walk would read a duration, not a cooldown
+            }
+
+            int skillOff = flagOff + 1; // the flag byte, then the u32 skill code
             if (skillOff + 4 > packet.Length)
             {
                 return;
@@ -2173,7 +2192,7 @@ public sealed class StreamProcessor
                 return; // ready/non-cast (0) or implausible — only cooldown STARTS gray instantly
             }
 
-            _data.SaveCooldown(skillCode, remaining, arrivedAt, actor.Value);
+            _data.SaveCooldown(skillCode, remaining, arrivedAt, actor.Value, fromCast: true);
         }
         catch
         {

@@ -85,8 +85,12 @@ public interface ICaptureGameData
     /// <summary>Skill cooldown update: <paramref name="remainingMs"/> ms left on <paramref name="skillCode"/>'s
     /// cooldown (0 = ready) as of <paramref name="arrivedAt"/> (capture wall-clock ms). <paramref name="actorId"/>
     /// is the caster's entity id, or 0 for the self-only 0x3847 hotbar snapshot (no filter needed); the data
-    /// layer keeps only self cooldowns. Default no-op. Drives the buff overlay's cooldown gray-out.</summary>
-    void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId) { }
+    /// layer keeps only self cooldowns. Default no-op. Drives the buff overlay's cooldown gray-out.
+    /// <para><paramref name="fromCast"/> marks the value as coming from the per-cast 0x3802 frame, which only
+    /// PROPOSES a cooldown — the server frequently resets or shortens it a fraction of a second later and says
+    /// so with 0x3847. The data layer treats a cast-sourced value as provisional for a short grace window so a
+    /// correction that is already in flight never shows up as a flicker.</para></summary>
+    void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId, bool fromCast = false) { }
 
     /// <summary>엔티티 사망 브로드캐스트(0x8D04). 몹·파티원에게도 오므로 본인 여부 판정은 executor를 아는
     /// 데이터 계층이 한다. 기본 no-op(캡처 전용 모드).</summary>

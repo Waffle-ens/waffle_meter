@@ -2026,16 +2026,26 @@ public sealed class DataManager : ICaptureGameData
     // code/10000*10000 으로 접어 아이콘을 찾으므로 회생의 계약 아이콘이 그대로 재사용된다.
     private const string RevivalHealCooldownName = "회계·회복";
     private static int RevivalHealCooldownCode(int baseCode) => baseCode + 7;
-    // Skill cooldowns from the 0x3847 snapshot, keyed by the SAME base code, so a buff slot can be grayed while
-    // its skill is on cooldown. Value = cooldown end (ms, capture clock); on-cooldown iff end > now.
-    private readonly Dictionary<int, long> _cooldowns = new(); // baseCode -> cooldown end (ms)
+    // Skill cooldowns from 0x3847 / 0x3802, keyed by the SAME base code, so a buff slot can be grayed while its
+    // skill is on cooldown. End = cooldown end (ms, capture clock). ProvisionalUntil = 0 for an authoritative
+    // 0x3847 value; for a cast-sourced 0x3802 value it is the instant the guess stops being a guess (see below).
+    private readonly Dictionary<int, (long End, long ProvisionalUntil)> _cooldowns = new();
     private readonly object _ownerBuffGate = new();
 
+    // A cast (0x3802) only PROPOSES a cooldown. The server routinely resets or shortens it immediately and says
+    // so with a 0x3847 that lands a median 251–348 ms later (p90 352 ms), so acting on the cast the instant it
+    // arrives paints the icon gray for a quarter-second on EVERY cast: 649 casts of 도약 찍기 in one session
+    // added up to 255 s of false gray, 529 casts of 단죄 to 197 s. A cast-sourced entry therefore stays
+    // provisional for this window and grays nothing; a 0x3847 for the same skill — the authority — clears the
+    // window and wins outright, whichever way it decides.
+    private const long CastCooldownGraceMs = 400;
+
     /// <summary>Cooldown update from 0x3847 (self snapshot, <paramref name="actorId"/>=0) or 0x3802 (per-cast,
-    /// real actor). Stored under the buff overlay's base scheme (skill 8-digit -> /10000*10000, buff 9-digit ->
-    /// /100000*10000 — validated to line up with buff bases). remaining 0 = ready (end in the past). Only the
-    /// self's cooldowns are kept: actorId 0 (snapshot) or == executor. Consumer-thread writer.</summary>
-    public void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId)
+    /// real actor, <paramref name="fromCast"/>). Stored under the buff overlay's base scheme (skill 8-digit ->
+    /// /10000*10000, buff 9-digit -> /100000*10000 — validated to line up with buff bases). remaining 0 = ready
+    /// (end in the past). Only the self's cooldowns are kept: actorId 0 (snapshot) or == executor.
+    /// Consumer-thread writer.</summary>
+    public void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId, bool fromCast = false)
     {
         if (actorId != 0 && actorId != _userRepository.Executor())
         {
@@ -2045,9 +2055,17 @@ public sealed class DataManager : ICaptureGameData
         int baseCode = skillCode is >= 11_000_000 and <= 19_999_999 ? skillCode / 10_000 * 10_000 : BuffBaseCode(skillCode);
         lock (_ownerBuffGate)
         {
-            _cooldowns[baseCode] = arrivedAt + Math.Max(0, remainingMs);
+            _cooldowns[baseCode] = (arrivedAt + Math.Max(0, remainingMs), fromCast ? arrivedAt + CastCooldownGraceMs : 0);
         }
     }
+
+    /// <summary>True when <paramref name="baseCode"/>'s skill should be drawn as on cooldown at
+    /// <paramref name="nowMs"/> — i.e. the cooldown has not run out AND the value is no longer a cast's guess
+    /// waiting on its 0x3847 correction. Caller holds <see cref="_ownerBuffGate"/>.</summary>
+    private bool IsOnCooldown(int baseCode, long nowMs) =>
+        _cooldowns.TryGetValue(baseCode, out (long End, long ProvisionalUntil) cd)
+        && cd.End > nowMs
+        && nowMs >= cd.ProvisionalUntil;
 
     // Buff-tracking diagnostics (see SaveUseBuff). Written on the single consumer thread only.
     private long _diagJobBuffSeen;        // job-buff apply/refresh frames seen (any recipient)
@@ -2066,18 +2084,19 @@ public sealed class DataManager : ICaptureGameData
         {
             storeCount = _ownerBuffs.Count;
             cdStore = _cooldowns.Count;
-            foreach (long cdEnd in _cooldowns.Values)
+            foreach ((long End, long ProvisionalUntil) cd in _cooldowns.Values)
             {
-                if (cdEnd > nowMs)
+                if (cd.End > nowMs)
                 {
                     cdActive++;
                 }
             }
 
             // active owner buffs whose skill is on cooldown right now — these are the ones that SHOULD gray.
+            // Same rule the overlay uses, so a gap between this counter and the screen is never the rule itself.
             foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)> kv in _ownerBuffs)
             {
-                if (kv.Value.End > nowMs && _cooldowns.TryGetValue(kv.Key, out long cd) && cd > nowMs)
+                if (kv.Value.End > nowMs && IsOnCooldown(kv.Key, nowMs))
                 {
                     buffsOnCd++;
                 }
@@ -2121,7 +2140,7 @@ public sealed class DataManager : ICaptureGameData
                 string name = _buffNames.TryGetValue(BuffBaseCode(kv.Key), out (string Name, string Job) bn)
                     ? bn.Name
                     : Buff(kv.Key)?.Name ?? Skill(kv.Key)?.Name ?? $"버프 {kv.Key}";
-                bool onCooldown = _cooldowns.TryGetValue(kv.Key, out long cdEnd) && cdEnd > nowMs;
+                bool onCooldown = IsOnCooldown(kv.Key, nowMs);
                 result.Add(new OwnerBuffView(
                     kv.Key, name, kv.Value.End - nowMs, kv.Value.Duration, kv.Value.End,
                     owner != 0 && kv.Value.Actor != owner,
