@@ -8,8 +8,8 @@ using WaffleMeter.Data;
 
 namespace WaffleMeter.App.Wpf;
 
-/// <summary>View model for the skill-cooldown overlay: one square slot per skill the local player has used
-/// this session, with a dark pie that wipes away as the cooldown runs out. Slots are reconciled in place (by
+/// <summary>View model for the skill-cooldown overlay: one square slot per skill of the recognised character's
+/// job, with a dark pie that wipes away as the cooldown runs out. Slots are reconciled in place (by
 /// shared-cooldown group) so icons never jump under the cursor.
 /// <para>Visually deliberately unlike the buff overlay — square icons and a filling/emptying pie, against that
 /// overlay's circular icons and outline ring — because the two windows sit side by side and mean different
@@ -88,9 +88,9 @@ public sealed class CooldownOverlayViewModel : INotifyPropertyChanged
     public Thickness PanelBorderThickness { get => _panelBorderThickness; private set => Set(ref _panelBorderThickness, value); }
 
     private Visibility _emptyVisibility = Visibility.Collapsed;
-    /// <summary>The "아직 쓴 스킬이 없습니다" placeholder — shown only with the background on and no slots. It is
-    /// also the honest answer at session start: the client sends no hotbar snapshot, so until a skill is used
-    /// the meter genuinely does not know it exists.</summary>
+    /// <summary>Placeholder shown only with the background on and no slots — i.e. before the character has been
+    /// recognised, or with every skill unticked in the picker. Once the job is known the grid fills on its own,
+    /// so this is a short-lived state rather than the normal one.</summary>
     public Visibility EmptyVisibility { get => _emptyVisibility; private set => Set(ref _emptyVisibility, value); }
 
     private void RecomputePlaceholder() => EmptyVisibility = _showBackground && Slots.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -172,6 +172,16 @@ public sealed class CooldownSlotVM : INotifyPropertyChanged
         GroupId = row.GroupId;
         Name = row.Name;
         IconSource = JoinIcons.Skill(row.DisplayCode);
+
+        // 배포 아이콘이 없는 스킬이 249개 중 28개 있다(직업당 0~6). 인식된 직업의 카탈로그를 통째로 까는
+        // 지금은 그 칸이 격자 한가운데에 빈 구멍으로 남는다 — 슬롯이 사라진 것처럼 보이고, 옆 아이콘의
+        // 자리까지 세기 어려워진다. 이름 첫 글자를 넣어 "여기 스킬이 있다"는 것만은 읽히게 한다(전체 이름은
+        // 슬롯 툴팁에 있다).
+        FallbackText = IconSource is null && Name.Length > 0
+            ? Name[..System.Globalization.StringInfo.GetNextTextElementLength(Name, 0)]
+            : string.Empty;
+        FallbackVisibility = IconSource is null ? Visibility.Visible : Visibility.Collapsed;
+
         Update(row);
     }
 
@@ -183,6 +193,11 @@ public sealed class CooldownSlotVM : INotifyPropertyChanged
     public string Name { get => _name; private set => Set(ref _name, value); }
 
     public ImageSource? IconSource { get; }
+
+    /// <summary>아이콘 파일이 없는 스킬의 대체 글자(이름 첫 글자).</summary>
+    public string FallbackText { get; }
+
+    public Visibility FallbackVisibility { get; }
 
     private string _remainingText = string.Empty;
     public string RemainingText { get => _remainingText; private set => Set(ref _remainingText, value); }

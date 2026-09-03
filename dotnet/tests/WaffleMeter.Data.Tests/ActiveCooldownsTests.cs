@@ -9,8 +9,10 @@ namespace WaffleMeter.Data.Tests;
 
 /// <summary>
 /// 스킬 쿨타임 오버레이가 데이터 계층에서 받는 행(<see cref="DataManager.ActiveCooldowns"/>)의 스펙.
-/// <para>표시 목록은 <b>학습</b>된다 — 클라이언트가 로그인 시점 핫바 스냅샷을 보내지 않으므로, 이번 세션에
-/// 실제로 쓴(또는 서버가 쿨타임을 알려 온) 스킬만이 정직하게 그릴 수 있는 전부다.</para>
+/// <para>캐릭터가 인식되면 그 직업의 카탈로그가 <b>통째로</b> 깔린다 — 스킬을 한 번 써야 칸이 생기면 픽커가
+/// 고장난 것처럼 보이기 때문이다. 아직 아무 정보가 없는 칸은 '미확인'이 아니라 <b>쓸 수 있음</b>으로 그린다:
+/// 클라이언트가 접속 시점 스냅샷을 안 주므로 쿨 도는 중간에 켜면 실제로 모르지만, 그 창은 좁고 한 번 쓰면
+/// 닫힌다. 직업을 아직 모르면 서버가 알려 온 스킬만 그린다.</para>
 /// </summary>
 public sealed class ActiveCooldownsTests
 {
@@ -47,8 +49,84 @@ public sealed class ActiveCooldownsTests
         return dm;
     }
 
+    /// <summary>궁성(RANGER) 로 인식되는 job 바이트. ConvertFromCode 13~16 이 RANGER 다.</summary>
+    private const int RangerJobByte = 13;
+
+    private static DataManager WithSelfJob(long t0, int jobByte)
+    {
+        var dm = new DataManager { Clock = () => t0 };
+        dm.LoadCooldownCatalog(ShippedCatalog());
+        dm.SaveNickname(Me, "본인", isExecutor: true, server: 3, jobByte: jobByte);
+        return dm;
+    }
+
     [Fact]
-    public void A_skill_appears_only_after_it_has_been_seen()
+    public void A_recognised_job_lays_out_its_whole_catalogue_before_anything_is_cast()
+    {
+        // 픽커에서 체크해 둔 스킬이 "한 번 눌러야" 나타나면 픽커가 고장난 것처럼 보인다.
+        long t0 = 1_000_000;
+        DataManager dm = WithSelfJob(t0, RangerJobByte);
+
+        IReadOnlyList<SkillCooldownView> rows = dm.ActiveCooldowns(t0);
+        Assert.NotEmpty(rows);
+        Assert.All(rows, r => Assert.Equal(14, r.Job));
+        Assert.Contains(rows, r => r.GroupId == BlessedBow);
+        Assert.Contains(rows, r => r.GroupId == Weisel);
+    }
+
+    [Fact]
+    public void An_untouched_skill_reads_as_ready_with_no_ring()
+    {
+        // 아직 아무 정보가 없는 칸은 '미확인'이 아니라 '쓸 수 있음'으로 그린다. 오버레이를 쿨 도는 중간에
+        // 켜는 일이 드물고, 한 번 쓰면 그 순간부터 실제 값이 들어온다.
+        long t0 = 1_000_000;
+        DataManager dm = WithSelfJob(t0, RangerJobByte);
+
+        SkillCooldownView row = Assert.Single(dm.ActiveCooldowns(t0), r => r.GroupId == BlessedBow);
+        Assert.True(row.IsReady);
+        Assert.Equal(0, row.RemainingMs);
+        Assert.Equal(0, row.TotalMs); // 클라 테이블 값으로 채우면 쿨감이 빠진 거짓 분모가 된다
+        Assert.Equal(BlessedBow, row.DisplayCode);
+    }
+
+    [Fact]
+    public void A_live_cooldown_replaces_the_prefilled_row_rather_than_adding_a_second_one()
+    {
+        long t0 = 1_000_000;
+        DataManager dm = WithSelfJob(t0, RangerJobByte);
+        int before = dm.ActiveCooldowns(t0).Count;
+
+        dm.SaveCooldown(BlessedBowCast, 80_000, t0, actorId: Me, fromCast: true);
+
+        IReadOnlyList<SkillCooldownView> rows = dm.ActiveCooldowns(t0 + 20_000);
+        Assert.Equal(before, rows.Count);
+        SkillCooldownView row = Assert.Single(rows, r => r.GroupId == BlessedBow);
+        Assert.False(row.IsReady);
+        Assert.Equal(80_000, row.TotalMs);
+    }
+
+    [Fact]
+    public void Only_the_recognised_jobs_skills_are_prefilled()
+    {
+        long t0 = 1_000_000;
+        DataManager dm = WithSelfJob(t0, RangerJobByte);
+
+        Assert.DoesNotContain(dm.ActiveCooldowns(t0), r => r.Job != 14);
+    }
+
+    [Fact]
+    public void A_reported_skill_from_another_band_survives_a_wrong_job_byte()
+    {
+        // 직업 바이트가 틀리게 와도, 라이브 데이터가 있는 스킬까지 지워 버리면 안 된다.
+        long t0 = 1_000_000;
+        DataManager dm = WithSelfJob(t0, RangerJobByte);
+        dm.SaveCooldown(11_120_000, 10_000, t0, actorId: 0); // 검성 피의 흡수
+
+        Assert.Contains(dm.ActiveCooldowns(t0 + 1_000), r => r.GroupId == 11_120_000);
+    }
+
+    [Fact]
+    public void With_no_recognised_job_only_reported_skills_are_drawn()
     {
         long t0 = 1_000_000;
         DataManager dm = WithSelf(t0);

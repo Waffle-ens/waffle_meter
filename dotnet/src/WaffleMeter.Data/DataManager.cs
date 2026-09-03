@@ -2178,13 +2178,21 @@ public sealed class DataManager : ICaptureGameData
 
     /// <summary>The local player's skill cooldowns for the overlay, one row per shared-cooldown group, ordered
     /// by job then by the catalog's stable order so icons never move under the cursor.
-    /// <para>The row set is <b>learned</b>: a skill appears once the session has seen it cast or reported. That
-    /// is the only honest list available — the client sends no login snapshot of the hotbar, so a meter started
-    /// mid-fight cannot know what it missed, and a catalogue-driven list would show twenty skills the character
-    /// never equipped.</para></summary>
+    /// <para>Once the character is recognised, the whole of that job's catalogue is laid out at once — a skill
+    /// does not have to be cast before it gets a slot. The alternative (only what the session has seen) makes
+    /// the picker look broken: you tick a skill and nothing appears until you press it.</para>
+    /// <para>A skill nobody has cast yet is reported as <b>ready</b>, not as unknown. The client sends no login
+    /// snapshot of the hotbar, so a meter started in the middle of a cooldown genuinely cannot know — but that
+    /// window is small (you rarely open the overlay mid-rotation) and it closes for good the first time the
+    /// skill is used. A permanent "unknown" badge on every untouched icon would cost more than it tells.</para>
+    /// <para>Rows the wire has reported are always included even if they fall outside the recognised job — a
+    /// job byte that arrived wrong should not blank the overlay for skills we have live data for.</para></summary>
     public IReadOnlyList<SkillCooldownView> ActiveCooldowns(long nowMs)
     {
+        int band = User(_userRepository.Executor())?.Job?.SkillBand() ?? 0;
         var result = new List<SkillCooldownView>();
+        var reported = new HashSet<int>();
+
         lock (_ownerBuffGate)
         {
             foreach (KeyValuePair<int, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode)> kv in _cooldowns)
@@ -2195,6 +2203,7 @@ public sealed class DataManager : ICaptureGameData
                 }
 
                 bool cooling = IsOnCooldown(kv.Key, nowMs);
+                reported.Add(kv.Key);
                 result.Add(new SkillCooldownView(
                     kv.Key,
                     kv.Value.DisplayCode,
@@ -2204,6 +2213,20 @@ public sealed class DataManager : ICaptureGameData
                     !cooling,
                     info.Job,
                     info.Order));
+            }
+        }
+
+        if (band != 0)
+        {
+            foreach (CooldownSkillInfo info in _cooldownCatalog.Skills)
+            {
+                if (info.Job == band && !reported.Contains(info.BaseCode))
+                {
+                    // TotalMs 0 = 아직 이 캐릭터의 실제 쿨 길이를 모른다(첫 시전이 알려 준다). 링을 그릴 일이
+                    // 없으므로 분모가 없어도 무해하고, 클라 테이블 값으로 채우면 쿨감이 빠진 거짓 분모가 된다.
+                    result.Add(new SkillCooldownView(
+                        info.BaseCode, info.BaseCode, info.Name, 0, 0, true, info.Job, info.Order));
+                }
             }
         }
 

@@ -33,6 +33,22 @@ public static class JobClassInfo
         _ => "",
     };
 
+    /// <summary>The job's skill-code band — the inverse of <see cref="ConvertFromSkill"/>. The cooldown
+    /// overlay needs it to lay out a recognised character's skills before any of them has been cast.</summary>
+    public static int SkillBand(this JobClass job) => job switch
+    {
+        JobClass.GLADIATOR => 11,
+        JobClass.TEMPLAR => 12,
+        JobClass.ASSASSIN => 13,
+        JobClass.RANGER => 14,
+        JobClass.SORCERER => 15,
+        JobClass.ELEMENTALIST => 16,
+        JobClass.CLERIC => 17,
+        JobClass.CHANTER => 18,
+        JobClass.FIGHTER => 19,
+        _ => 0,
+    };
+
     /// <summary>Kotlin JobClass.convertFromSkill (skill-code range -> job).</summary>
     public static JobClass? ConvertFromSkill(int skillCode) => skillCode switch
     {

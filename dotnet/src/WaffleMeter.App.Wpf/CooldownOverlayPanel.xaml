@@ -13,7 +13,7 @@
     <Border Background="{Binding PanelBackground}" BorderBrush="{Binding PanelBorderBrush}"
             BorderThickness="{Binding PanelBorderThickness}" CornerRadius="8" MouseLeftButtonDown="OnDragHandle" Padding="2">
       <Grid Background="Transparent" MinWidth="60" MinHeight="20">
-        <TextBlock Text="스킬 쿨타임 (스킬을 쓰면 채워집니다 · 드래그해서 이동)" Foreground="#CCFFFFFF" FontSize="11"
+        <TextBlock Text="스킬 쿨타임 (캐릭터 인식 후 표시됩니다 · 드래그해서 이동)" Foreground="#CCFFFFFF" FontSize="11"
                    VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8,4"
                    Visibility="{Binding EmptyVisibility}">
             <TextBlock.Effect><DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="0" Opacity="0.9"/></TextBlock.Effect>
@@ -47,6 +47,14 @@
                                     <RectangleGeometry Rect="0,0,42,42" RadiusX="2" RadiusY="2"/>
                                 </Border.Clip>
                                 <Grid>
+                                    <!-- 아이콘 자산이 없는 스킬(249개 중 28개)의 대체 칸. 안 그리면 격자에
+                                         구멍이 뚫려 슬롯이 사라진 것처럼 보인다. -->
+                                    <Grid Visibility="{Binding FallbackVisibility}">
+                                        <Rectangle Fill="#FF232A35"/>
+                                        <TextBlock Text="{Binding FallbackText}" Foreground="#FF9AA6B8"
+                                                   FontSize="20" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
                                     <!-- 원본 에셋이 48x48 이라 200%(84 DIP)에서는 확대가 된다 — 다른 오버레이와
                                          같이 보간을 HighQuality(Fant)로 지정한다. -->
                                     <Image Source="{Binding IconSource}" Stretch="Fill" Opacity="{Binding ReadyOpacity}"
