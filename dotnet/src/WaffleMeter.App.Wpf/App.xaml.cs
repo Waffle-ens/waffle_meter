@@ -118,6 +118,14 @@ public partial class App : Application
     private BuffPresetManager? _buffPresets;
     private System.Windows.Threading.DispatcherTimer? _buffTimer;
 
+    private CooldownOverlayPanel? _cooldownOverlay;
+    /// <summary>사용자가 정한 쿨타임 오버레이 위치("집"). 버프 오버레이와 같은 이유로 따로 둔다 — 이 창도
+    /// SizeToContent 라 스킬이 하나씩 학습될 때마다 폭이 자라고, 클램프로 밀린 좌표를 저장하면 세션 내내
+    /// 왼쪽으로 밀려나기만 한다.</summary>
+    private Point? _cooldownOverlayHome;
+    private CooldownOverlayViewModel? _cooldownOverlayVm;
+    private System.Windows.Threading.DispatcherTimer? _cooldownTimer;
+
     /// <summary>Auto-reset event the FIRST instance owns (set by <see cref="Program"/>); a later launch
     /// opens it by name and signals it instead of spawning a colliding UI. We wait on it and surface the
     /// overlay (un-hide from tray) so relaunching the shortcut brings the running instance back.</summary>
@@ -906,6 +914,38 @@ public partial class App : Application
         };
         _buffTimer.Tick += (_, _) => RefreshBuffOverlay(svc);
         _buffTimer.Start();
+
+        // Skill-cooldown overlay: a SECOND window, wired the same way as the buff overlay but with its own
+        // toggle and its own home. It is not registered as the controller's companion — that slot is a single
+        // field and taking it would silently unwire the buff overlay. Instead it reads CompanionBaseShown (the
+        // same meter-presence decision the poll publishes) and reconciles itself on its own tick, which is how
+        // the buff overlay's visibility actually works in practice anyway.
+        _cooldownOverlayVm = new CooldownOverlayViewModel();
+        _cooldownOverlay = new CooldownOverlayPanel(_cooldownOverlayVm);
+        LoadPanelPosition(services.Props, _cooldownOverlay, "cooldownOverlayX", "cooldownOverlayY");
+        _cooldownOverlayHome = new Point(_cooldownOverlay.Left, _cooldownOverlay.Top);
+        ClampWhenLoaded(_cooldownOverlay);
+        _cooldownOverlay.SizeChanged += (_, _) => ReflowCooldownOverlay();
+        _cooldownOverlay.DpiChanged += (_, _) => ReflowCooldownOverlay();
+        _cooldownOverlay.Show();
+        _cooldownOverlay.Park();
+        _controller?.RegisterOverlay(_cooldownOverlay);
+        _cooldownOverlay.CloseRequested += () => { _settings.ShowCooldownUi = false; };
+        _cooldownOverlay.PositionChanged += (left, top) =>
+        {
+            _cooldownOverlayHome = new Point(left, top);
+            services.Props.SetProperty("cooldownOverlayX", left.ToString("0", CultureInfo.InvariantCulture));
+            services.Props.SetProperty("cooldownOverlayY", top.ToString("0", CultureInfo.InvariantCulture));
+            ReflowCooldownOverlay();
+        };
+        // 250ms: a cooldown is read in seconds, so four steps a second is smooth enough, and the measured cost
+        // of a 32-slot repaint at this rate is ~1.7% of a core. A 24fps shared clock would be ~10%.
+        _cooldownTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(250),
+        };
+        _cooldownTimer.Tick += (_, _) => RefreshCooldownOverlay(svc);
+        _cooldownTimer.Start();
 
         _updateService = new UpdateService(prerelease: false);
         UpdateService updateService = _updateService;
@@ -2201,7 +2241,8 @@ public partial class App : Application
             }
         }
 
-        ReflowBuffOverlay(); // 버프 오버레이는 폭 상한까지 다시 잡아야 해서 자기 경로로 간다
+        ReflowBuffOverlay();     // 폭 상한까지 다시 잡아야 하는 두 창은 자기 경로로 간다
+        ReflowCooldownOverlay();
     }
 
     /// <summary>버프 오버레이의 폭 상한과 실제 위치를 "집"(사용자가 정한 좌표)에서 다시 계산한다. 이 창만
@@ -2214,27 +2255,56 @@ public partial class App : Application
     /// 상한 → 폭 되먹임이 닫혀 작업영역이 다른 듀얼에서 진동한다.
     /// 클램프된 좌표를 집으로 저장하지 않는 것도 요점 — 저장하면 창이 커질 때마다 집이 왼쪽으로 옮겨가
     /// 사용자가 정한 자리가 세션 안에서 조금씩 사라진다.</summary>
-    private void ReflowBuffOverlay()
+    private void ReflowBuffOverlay() => ReflowOverlay(_buffOverlay, _buffOverlayHome, null);
+
+    /// <summary>쿨타임 오버레이의 리플로우. 버프 오버레이와 다른 점은 폭 상한을 화면이 아니라 <b>사용자가 정한
+    /// "한 줄 최대 개수"</b>가 정한다는 것뿐이다 — 이 창은 슬롯이 20~30개까지 가므로 화면 폭까지 늘어나게 두면
+    /// 한 줄짜리 띠가 모니터를 가로지른다. 슬롯 하나의 폭은 아이콘 46 + 좌우 여백 3+3 = 52 DIP(배율 1 기준).</summary>
+    private void ReflowCooldownOverlay()
     {
-        // 드래그 중에는 손대지 않는다 — 오버레이는 0.5초마다 갱신되니 옮기는 도중 버프 하나가 끝나 창이
-        // 줄어들 수 있고, 그때 집으로 되돌리면 잡고 있던 창이 커서 밑에서 빠져나간다. 드래그가 끝나면
-        // PositionChanged 가 새 집을 알려주며 곧바로 다시 맞춘다.
-        if (_buffOverlay is null || _buffOverlayHome is null || _buffOverlay.IsDragging)
+        double scale = Math.Clamp(_settings?.CooldownUiIconSize ?? 40, 32, 80) / 40.0;
+        int perRow = _settings?.CooldownUiPerRow ?? 8;
+        ReflowOverlay(_cooldownOverlay, _cooldownOverlayHome, (perRow * 52.0 * scale) + 10);
+    }
+
+    /// <summary>SizeToContent 오버레이(버프·쿨타임)의 폭 상한과 실제 위치를 "집"(사용자가 정한 좌표)에서 다시
+    /// 계산한다. 이 창들만 폭이 스스로 자라므로 두 가지가 필요하다.
+    /// ① 폭 상한 — 없으면 WPF 가 작업영역 폭에서 측정을 잘라 넘친 슬롯을 줄바꿈도 스크롤도 없이 버린다
+    /// (ItemsPanel 의 WrapPanel 도 상한이 있어야 줄을 바꾼다).
+    /// ② 화면 안 복귀 — 넓어졌을 땐 끌어오고 다시 좁아졌을 땐 집으로 되돌린다.
+    /// 두 계산 모두 기준 모니터를 <b>집 좌표</b>에서 고른다. 창 사각형으로 고르면 (a) 폭이 자라 두 모니터에
+    /// 걸치는 순간 "많이 겹친 쪽"인 이웃 모니터가 뽑혀 창이 게임 화면 밖으로 밀려나고, (b) 폭 → 모니터 →
+    /// 상한 → 폭 되먹임이 닫혀 작업영역이 다른 듀얼에서 진동한다.
+    /// 클램프된 좌표를 집으로 저장하지 않는 것도 요점 — 저장하면 창이 커질 때마다 집이 왼쪽으로 옮겨가
+    /// 사용자가 정한 자리가 세션 안에서 조금씩 사라진다.
+    /// <para><paramref name="preferredMaxWidth"/> 는 화면 상한보다 좁게 두고 싶을 때만 준다(쿨타임 오버레이의
+    /// 한 줄 개수). 화면 상한은 언제나 함께 걸린다.</para></summary>
+    private void ReflowOverlay(OverlayPanelWindow? window, Point? homePoint, double? preferredMaxWidth)
+    {
+        // 드래그 중에는 손대지 않는다 — 오버레이는 계속 갱신되니 옮기는 도중 슬롯 하나가 사라져 창이 줄어들 수
+        // 있고, 그때 집으로 되돌리면 잡고 있던 창이 커서 밑에서 빠져나간다. 드래그가 끝나면 PositionChanged 가
+        // 새 집을 알려주며 곧바로 다시 맞춘다.
+        if (window is null || homePoint is null || window.IsDragging)
         {
             return;
         }
 
-        Point home = _buffOverlayHome.Value;
+        Point home = homePoint.Value;
         // 작업영역보다 살짝 좁게 — WPF 자체 측정 캡이 작업영역 폭 + 20px 근처라 그 아래에 머물러야 한다.
-        double max = Math.Max(120, ScreenClamp.WorkAreaWidth(_buffOverlay, home) - 16);
-        if (Math.Abs(_buffOverlay.MaxWidth - max) > 0.5)
+        double max = Math.Max(120, ScreenClamp.WorkAreaWidth(window, home) - 16);
+        if (preferredMaxWidth is { } want)
         {
-            _buffOverlay.MaxWidth = max;
+            max = Math.Min(max, Math.Max(120, want));
         }
 
-        _buffOverlay.Left = home.X;
-        _buffOverlay.Top = home.Y;
-        ScreenClamp.Apply(_buffOverlay, _settings?.MultiMonitorMode ?? false, home);
+        if (Math.Abs(window.MaxWidth - max) > 0.5)
+        {
+            window.MaxWidth = max;
+        }
+
+        window.Left = home.X;
+        window.Top = home.Y;
+        ScreenClamp.Apply(window, _settings?.MultiMonitorMode ?? false, home);
     }
 
     /// <summary>
@@ -2747,6 +2817,50 @@ public partial class App : Application
             else
             {
                 _buffOverlay.Fade();
+            }
+        }
+    }
+
+    // Refresh the skill-cooldown overlay. Same two-layer shape as the buff overlay — the controller poll
+    // publishes the meter's presence, this tick applies our own toggle and reconciles Present/Fade — but the
+    // toggle gate comes FIRST here: with the overlay off there is nothing to compute, and the data-layer call
+    // takes a lock the capture thread also wants.
+    private void RefreshCooldownOverlay(MeterServices services)
+    {
+        if (_cooldownOverlayVm is null || _settings is null)
+        {
+            return;
+        }
+
+        if (!_settings.ShowCooldownUi)
+        {
+            _cooldownOverlay?.Fade();
+            return;
+        }
+
+        long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        IReadOnlyList<WaffleMeter.Data.SkillCooldownView> rows = services.Data.ActiveCooldowns(nowMs);
+        if (_settings.CooldownUiHideReady)
+        {
+            rows = rows.Where(r => !r.IsReady).ToList();
+        }
+
+        _cooldownOverlayVm.ShowBackground = !_settings.CooldownUiTransparent;
+        _cooldownOverlayVm.SetIconSize(_settings.CooldownUiIconSize);
+        _cooldownOverlayVm.SetTextColor(_settings.CooldownUiTextColor);
+        _cooldownOverlayVm.Update(rows);
+
+        if (_cooldownOverlay is not null)
+        {
+            if (_controller?.CompanionBaseShown ?? true)
+            {
+                _cooldownOverlay.SetClickThrough(_controller?.MeterClickThrough ?? false);
+                _cooldownOverlay.Present(true);
+                _cooldownOverlay.ReassertTopmostIfBuried();
+            }
+            else
+            {
+                _cooldownOverlay.Fade();
             }
         }
     }

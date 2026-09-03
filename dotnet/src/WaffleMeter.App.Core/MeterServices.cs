@@ -460,6 +460,15 @@ public sealed class MeterServices
             (var catalog, var defaultOff) = ReferenceJson.LoadBuffCatalog(buffCatalog);
             Data.LoadBuffCatalog(catalog, defaultOff);
         }
+
+        // Skill-cooldown catalog (names + shared-cooldown groups + order) for the cooldown overlay. Optional in
+        // the same way as the others: without it group ids fall back to the plain fold — the buff overlay's gray
+        // veil keeps working exactly as before and the cooldown overlay simply has no rows it can name.
+        string cooldowns = Path.Combine(jsonDir, "cooldown_catalog.json");
+        if (File.Exists(cooldowns))
+        {
+            Data.LoadCooldownCatalog(CooldownCatalog.Load(cooldowns));
+        }
     }
 
     /// <summary>Diagnostic: total permanent-gap skips across the live streams — a capture-loss indicator for

@@ -1138,6 +1138,23 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool BuffTtsOnEnd { get => _settings.BuffTtsOnEnd; set { _settings.BuffTtsOnEnd = value; OnPropertyChanged(); } }
     public bool BuffUiGrayOnCooldown { get => _settings.BuffUiGrayOnCooldown; set { _settings.BuffUiGrayOnCooldown = value; OnPropertyChanged(); } }
 
+    // ---- 스킬 쿨타임 오버레이 ----
+    public bool ShowCooldownUi { get => _settings.ShowCooldownUi; set { _settings.ShowCooldownUi = value; OnPropertyChanged(); } }
+    public bool CooldownUiTransparent { get => _settings.CooldownUiTransparent; set { _settings.CooldownUiTransparent = value; OnPropertyChanged(); } }
+    public bool CooldownUiHideReady { get => _settings.CooldownUiHideReady; set { _settings.CooldownUiHideReady = value; OnPropertyChanged(); } }
+    public string CooldownTextColor { get => _settings.CooldownUiTextColor; set { _settings.CooldownUiTextColor = value; OnPropertyChanged(); } }
+
+    /// <summary>쿨타임 아이콘 배율(%). 버프 오버레이와 같은 규약 — 40px 을 100% 로 잡고 80~200%. 저장은 px.</summary>
+    public int CooldownIconScalePercent
+    {
+        get => Math.Clamp(_settings.CooldownUiIconSize * 100 / BuffIconBasePx, 80, 200);
+        set { _settings.CooldownUiIconSize = Math.Clamp(value, 80, 200) * BuffIconBasePx / 100; OnPropertyChanged(); }
+    }
+
+    /// <summary>한 줄에 놓을 최대 아이콘 수. 이 값이 창의 폭 상한이 되고, 폭 상한이 있어야만 WrapPanel 이 줄을
+    /// 바꾼다 — 상한이 없으면 넘친 슬롯이 줄바꿈도 스크롤도 없이 조용히 사라진다.</summary>
+    public int CooldownUiPerRow { get => _settings.CooldownUiPerRow; set { _settings.CooldownUiPerRow = value; OnPropertyChanged(); } }
+
     /// <summary>버프 아이콘 우하단에 스킬 레벨 배지를 그린다(기본 켜짐). 레벨을 못 읽은 버프는 배지 없음.</summary>
     public bool BuffUiShowLevel { get => _settings.BuffUiShowLevel; set { _settings.BuffUiShowLevel = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }
@@ -1206,6 +1223,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(BuffTtsOnStart));
         OnPropertyChanged(nameof(BuffTtsOnEnd));
         OnPropertyChanged(nameof(BuffUiGrayOnCooldown));
+        OnPropertyChanged(nameof(ShowCooldownUi));
+        OnPropertyChanged(nameof(CooldownUiTransparent));
+        OnPropertyChanged(nameof(CooldownUiHideReady));
+        OnPropertyChanged(nameof(CooldownTextColor));
+        OnPropertyChanged(nameof(CooldownIconScalePercent));
+        OnPropertyChanged(nameof(CooldownUiPerRow));
         OnPropertyChanged(nameof(BuffUiShowLevel));
         OnPropertyChanged(nameof(ShowOtherPlayerBuffs));
         OnPropertyChanged(nameof(ActivePresetName));
@@ -2297,7 +2320,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         string NameFxMode, bool NameFxShowSelf, bool NameFxShowOthers, int NameFxSpeedPercent, int NameFxBrightnessPercent,
         bool NameFxGauge,
         bool TierShow, string TierEffects, bool TierShowOthers, bool TierShowSelfChip,
-        int BuffUiIconSize)
+        int BuffUiIconSize, int CooldownUiIconSize, int CooldownUiPerRow, string CooldownUiTextColor)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.RowDpsMetric, s.ContributionMode, s.NameDisplay,
@@ -2307,7 +2330,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.NameFxMode, s.NameFxShowSelf, s.NameFxShowOthers, s.NameFxSpeedPercent, s.NameFxBrightnessPercent,
             s.NameFxGauge,
             s.TierShow, s.TierEffects, s.TierShowOthers, s.TierShowSelfChip,
-            s.BuffUiIconSize);
+            s.BuffUiIconSize, s.CooldownUiIconSize, s.CooldownUiPerRow, s.CooldownUiTextColor);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -2351,6 +2374,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             // 티가 안 났지만, 연속 배율은 원래 값을 사람이 기억하지 못한다 — 취소해도 안 돌아오면
             // 슬라이더를 만져본 것만으로 되돌릴 수 없는 변경이 된다.
             s.BuffUiIconSize = BuffUiIconSize;
+            // 쿨타임 오버레이의 연속값 3개도 같은 이유로 여기 있어야 한다 — 슬라이더와 색상은 사람이 원래
+            // 값을 기억하지 못하므로, 스냅샷에서 빠지면 만져본 것만으로 되돌릴 수 없는 변경이 된다.
+            s.CooldownUiIconSize = CooldownUiIconSize;
+            s.CooldownUiPerRow = CooldownUiPerRow;
+            s.CooldownUiTextColor = CooldownUiTextColor;
             NameFxSheen.Rebuild(NameFxBrightnessPercent);
         }
     }

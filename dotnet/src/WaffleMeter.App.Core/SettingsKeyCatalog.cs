@@ -120,6 +120,13 @@ public static class SettingsKeyCatalog
         new("buffUi.presets", F, "버프 오버레이", "프리셋 3슬롯"),
         // 관측된 버프 카탈로그. 받는 쪽의 픽커가 '소스가 본 버프'까지 보여줘야 hidden/voice 선택이 말이 된다.
         new("buffUi.observed", F, "버프 오버레이", "관측된 버프 목록"),
+
+        new("cooldownUi.show", F, "스킬 쿨타임", "쿨타임 오버레이 표시"),
+        new("cooldownUi.iconSize", FD, "스킬 쿨타임", "아이콘 크기"),
+        new("cooldownUi.textColor", FD, "스킬 쿨타임", "남은시간 글씨 색상"),
+        new("cooldownUi.transparent", FD, "스킬 쿨타임", "투명 배경"),
+        new("cooldownUi.hideReady", F, "스킬 쿨타임", "준비된 스킬 숨기기"),
+        new("cooldownUi.perRow", FD, "스킬 쿨타임", "한 줄 최대 개수"),
         new("joinSkills.hidden", F, "버프 오버레이", "표시 스킬", External: true),
 
         // ── 알림 ───────────────────────────────────────────────────────────────────

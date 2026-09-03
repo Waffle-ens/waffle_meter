@@ -304,7 +304,7 @@
                     <StackPanel><TextBlock Text="창 동작" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 조건 · 위치 · 패널" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="buffs">
-                    <StackPanel><TextBlock Text="버프 오버레이" Style="{StaticResource NavTitle}"/><TextBlock Text="표시 · 음성 · 직업별" Style="{StaticResource NavSub}"/></StackPanel>
+                    <StackPanel><TextBlock Text="버프 오버레이" Style="{StaticResource NavTitle}"/><TextBlock Text="버프 · 쿨타임 · 음성" Style="{StaticResource NavSub}"/></StackPanel>
                 </ListBoxItem>
                 <ListBoxItem Tag="alarms">
                     <StackPanel><TextBlock Text="알림" Style="{StaticResource NavTitle}"/><TextBlock Text="소리 · 슈고 · 필드보스" Style="{StaticResource NavSub}"/></StackPanel>
@@ -1241,6 +1241,74 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+
+                        <!-- 스킬 쿨타임 오버레이. 새 탭을 만들지 않는 이유: 설정창은 이미 11탭이고 직전 작업이
+                             "버프가 2탭으로 잘못 쪼개졌다"를 결함으로 잡아 12->10 으로 합친 참이다. 탭 계약은
+                             SettingsViewModel.NavKeys / ListBoxItem.Tag / ConverterParameter 3곳에 이중화돼 있고
+                             VerifyNavContract 가 DEBUG 에서 SequenceEqual 로 강제하므로, 여기 이어 붙이면 기존
+                             항목이 1픽셀도 안 움직이고 UiPreview 기준선 비용도 0이다. -->
+                        <Border Height="1" Background="{DynamicResource Skin.SoftBorder}" Margin="0,18,0,18"/>
+                        <TextBlock Text="스킬 쿨타임" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="내 스킬의 재사용 대기시간을 별도 창에 표시합니다. 목록은 이번 접속에서 실제로 쓴 스킬로 채워집니다 — 게임이 접속 시점 스킬창을 알려주지 않기 때문입니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="쿨타임 오버레이 표시" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="스킬 쿨타임 창을 켭니다. 버프 오버레이와 별개의 창이라 따로 옮겨 둘 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding ShowCooldownUi}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="투명 배경" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="켜면 아이콘만 떠서 배경이 투명합니다. 끄면 배경/테두리가 보여 목록이 비어 있을 때도 창을 찾아 옮길 수 있습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding CooldownUiTransparent}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="준비된 스킬 숨기기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="쿨이 도는 스킬만 보여 줍니다. 창이 계속 크기를 바꾸므로 아이콘 자리는 고정되지 않습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding CooldownUiHideReady}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding CooldownIconScalePercent, StringFormat='아이콘 크기 — {0}%'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="100%가 기본 크기입니다. 아이콘·남은시간 글씨가 함께 커집니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <!-- 버프 오버레이 슬라이더와 같은 규약: 눈금 5% = 정확히 2px 이고, 최솟값을 80% 위로
+                                 올리면 Slider 가 coerce 한 값을 소스에 되써 설정창을 여는 것만으로 사용자 값이
+                                 재기록된다. -->
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="80" Maximum="200"
+                                    Value="{Binding CooldownIconScalePercent}" TickFrequency="5" IsSnapToTickEnabled="True"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="220"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="{Binding CooldownUiPerRow, StringFormat='한 줄 최대 개수 — {0}개'}" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="이 개수를 넘으면 다음 줄로 넘어갑니다. 스킬이 많으면 줄여서 정사각형에 가깝게 두는 편이 읽기 좋습니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <Slider Grid.Column="1" VerticalAlignment="Center" Minimum="4" Maximum="16"
+                                    Value="{Binding CooldownUiPerRow}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                <TextBlock Text="남은시간 글씨 색상" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Text="아이콘 위에 겹쳐 나오는 남은 초의 색상입니다." Style="{StaticResource SettingDesc}"/>
+                            </StackPanel>
+                            <controls:ColorSwatchButton Grid.Column="1" Color="{Binding CooldownTextColor, Mode=TwoWay}" VerticalAlignment="Center"/>
+                        </Grid>
                     </StackPanel>
 
                     <!-- ===== 알림 ===== -->

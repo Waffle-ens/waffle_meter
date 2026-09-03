@@ -82,6 +82,14 @@ public sealed class OverlayController
     /// every tick (poll Present ↔ refresh Fade) and the overlay flickered.</summary>
     public bool CompanionShown { get; private set; } = true;
 
+    /// <summary>The meter's own on-screen state as of the last reconcile — <see cref="CompanionShown"/>
+    /// without the buff overlay's enable predicate folded in. A second overlay that wants to live in lockstep
+    /// with the meter but carries its own toggle (the skill-cooldown panel) reads THIS and applies its own gate.
+    /// <para>⚠️ Reading <c>MeterShown</c> instead is the trap: the startup-grace path returns early after
+    /// <c>SyncCompanion(true)</c> without ever updating it, which is exactly what left the buff overlay hidden
+    /// until the settings window was opened.</para></summary>
+    public bool CompanionBaseShown { get; private set; } = true;
+
     // Companion overlay (the combat-assist buff overlay): presented/parked in exact lockstep with the meter
     // window, gated by its enabled predicate — so when the toggle is on it is ALWAYS shown whenever the meter
     // is, and never disappears on its own. Edge-tracked so a steady state doesn't re-issue SetWindowPos.
@@ -104,6 +112,7 @@ public sealed class OverlayController
     {
         // Single source of truth for the companion's on-screen state, published as CompanionShown so the 500ms
         // buff-refresh timer reconciles against the SAME decision (no more Present/Fade fight → no flicker).
+        CompanionBaseShown = meterPresent;
         bool show = meterPresent && _companionEnabled?.Invoke() == true;
         CompanionShown = show;
         if (_companion is null)

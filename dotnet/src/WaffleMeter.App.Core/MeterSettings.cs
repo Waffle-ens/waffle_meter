@@ -56,6 +56,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         nameof(_aetherCharacterNames), nameof(_aetherLastValue), nameof(_aetherPerCharacter), nameof(_barStyle),
         nameof(_buffUiHidden), nameof(_buffUiObserved), nameof(_buffUiPinned), nameof(_buffUiPresets),
         nameof(_buffUiSortMode), nameof(_buffUiTextColor), nameof(_buffUiVoice), nameof(_captureBackend),
+        nameof(_cooldownUiTextColor),
         nameof(_closeAction), nameof(_contributionMode), nameof(_customAlarms), nameof(_damageValueMode),
         nameof(_displayMode), nameof(_fieldBossDisabled), nameof(_fontFamily), nameof(_nameDisplay),
         nameof(_nameFxMode), nameof(_overlayTheme), nameof(_rowDpsMetric), nameof(_targetInfoDisplayMode),
@@ -140,6 +141,12 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffUiPinned = _props.GetProperty("buffUi.pinned") ?? "";
         _buffUiDefaultsApplied = ReadBool("buffUi.defaultsApplied", false);
         _buffUiPresets = _props.GetProperty("buffUi.presets") ?? "";
+        _showCooldownUi = ReadBool("cooldownUi.show", false);
+        _cooldownUiIconSize = ReadInt("cooldownUi.iconSize", 40);
+        _cooldownUiTextColor = _props.GetProperty("cooldownUi.textColor") ?? "#FFFFFF";
+        _cooldownUiTransparent = ReadBool("cooldownUi.transparent", true);
+        _cooldownUiHideReady = ReadBool("cooldownUi.hideReady", false);
+        _cooldownUiPerRow = ReadInt("cooldownUi.perRow", 8);
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
         _aetherPerCharacter = _props.GetProperty("aether.perCharacter") ?? "";
         _aetherCharacterNames = _props.GetProperty("aether.characterNames") ?? "";
@@ -485,6 +492,48 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Gray out a buff overlay icon while the skill that grants it is still on cooldown (from the live
     /// 0x3847 cooldown snapshot), so you can see at a glance when it's re-castable. Off by default.</summary>
     public bool BuffUiGrayOnCooldown { get => _buffUiGrayOnCooldown; set => SetBool(ref _buffUiGrayOnCooldown, "buffUi.grayOnCooldown", value); }
+
+    // ---- skill-cooldown overlay (a separate window from the buff overlay) ----
+    private bool _showCooldownUi;
+    /// <summary>스킬 쿨타임 전용 오버레이 창을 띄운다. 버프 오버레이와 별개의 창이고, 표시 목록은 이번 세션에
+    /// 실제로 쓴(또는 서버가 쿨타임을 알려 온) 스킬로 스스로 채워진다 — 클라이언트가 로그인 시점 핫바 스냅샷을
+    /// 보내지 않으므로 그것 말고는 정직한 목록이 없다. 기본 꺼짐.</summary>
+    public bool ShowCooldownUi { get => _showCooldownUi; set => SetBool(ref _showCooldownUi, "cooldownUi.show", value); }
+
+    private int _cooldownUiIconSize;
+    /// <summary>쿨타임 오버레이 아이콘 크기(px). 버프 오버레이와 같은 규약 — 40px 이 100%(설계 기준)이고
+    /// 32~80px 이 80~200% 다. <b>저장 단위는 px 로 고정</b>한다(퍼센트로 바꾸면 구·신 빌드가 서로를 조용히
+    /// 오독한다). getter 도 클램프하는 이유는 공유코드가 값 검증 없이 심어질 수 있어서다.</summary>
+    public int CooldownUiIconSize
+    {
+        get => Math.Clamp(_cooldownUiIconSize, 32, 80);
+        set => SetInt(ref _cooldownUiIconSize, "cooldownUi.iconSize", Math.Clamp(value, 32, 80));
+    }
+
+    private string _cooldownUiTextColor;
+    /// <summary>남은 시간 글씨 색상(hex). 기본 흰색.</summary>
+    public string CooldownUiTextColor { get => _cooldownUiTextColor; set => SetProp(ref _cooldownUiTextColor, "cooldownUi.textColor", value); }
+
+    private bool _cooldownUiTransparent;
+    /// <summary>투명 배경(기본). 끄면 패널 배경 + 테두리 + 안내문이 생겨 목록이 비어 있을 때도 창을 찾아
+    /// 드래그할 수 있다.</summary>
+    public bool CooldownUiTransparent { get => _cooldownUiTransparent; set => SetBool(ref _cooldownUiTransparent, "cooldownUi.transparent", value); }
+
+    private bool _cooldownUiHideReady;
+    /// <summary>준비된 스킬은 감추고 쿨이 도는 것만 보여 준다. 켜면 창이 계속 크기를 바꾸므로 기본은 꺼짐 —
+    /// 아이콘 자리가 고정돼야 근육기억으로 읽을 수 있다.</summary>
+    public bool CooldownUiHideReady { get => _cooldownUiHideReady; set => SetBool(ref _cooldownUiHideReady, "cooldownUi.hideReady", value); }
+
+    private int _cooldownUiPerRow;
+    /// <summary>한 줄에 놓을 최대 아이콘 수(4~16). 이 값이 창의 폭 상한을 정하고, 폭 상한이 있어야만
+    /// WrapPanel 이 줄을 바꾼다 — 상한이 없으면 WPF 가 작업영역 폭에서 측정을 잘라 넘친 슬롯을 줄바꿈도
+    /// 스크롤도 없이 버린다. 쿨타임 오버레이는 슬롯이 20~30개까지 가므로 버프 오버레이보다 훨씬 낮은
+    /// 배율에서 그 함정에 닿는다.</summary>
+    public int CooldownUiPerRow
+    {
+        get => Math.Clamp(_cooldownUiPerRow, 4, 16);
+        set => SetInt(ref _cooldownUiPerRow, "cooldownUi.perRow", Math.Clamp(value, 4, 16));
+    }
 
     private bool _buffUiShowLevel;
     /// <summary>버프 아이콘 우하단에 그 버프의 <b>스킬 레벨</b>(어노멀 레벨)을 작게 겹쳐 그린다. 레벨을 못 읽은

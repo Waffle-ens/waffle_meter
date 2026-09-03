@@ -1563,6 +1563,7 @@ public sealed class DataManager : ICaptureGameData
             // unrecognized (owner==0 / stale on a late 0x3633). MUST run after the identityChanged ClearOwnerBuffs
             // above — replaying before it would wipe the freshly-restored buffs on a character switch.
             ReplayStagedSelfBuffs(uid);
+            ReplayStagedSelfCooldowns(uid);
         }
     }
 
@@ -2026,11 +2027,31 @@ public sealed class DataManager : ICaptureGameData
     // code/10000*10000 으로 접어 아이콘을 찾으므로 회생의 계약 아이콘이 그대로 재사용된다.
     private const string RevivalHealCooldownName = "회계·회복";
     private static int RevivalHealCooldownCode(int baseCode) => baseCode + 7;
-    // Skill cooldowns from 0x3847 / 0x3802, keyed by the SAME base code, so a buff slot can be grayed while its
-    // skill is on cooldown. End = cooldown end (ms, capture clock). ProvisionalUntil = 0 for an authoritative
-    // 0x3847 value; for a cast-sourced 0x3802 value it is the instant the guess stops being a guess (see below).
-    private readonly Dictionary<int, (long End, long ProvisionalUntil)> _cooldowns = new();
+    // Skill cooldowns from 0x3847 / 0x3802, keyed by the client's shared-cooldown group so a buff slot can be
+    // grayed while its skill is on cooldown AND the cooldown overlay can draw one row per group.
+    //   End              cooldown end (ms, capture clock)
+    //   ProvisionalUntil 0 for an authoritative 0x3847 value; for a cast-sourced 0x3802 value, the instant the
+    //                    guess stops being a guess (see CastCooldownGraceMs)
+    //   TotalMs          the character's real full cooldown, learned from the cast frame — the ring denominator
+    //   DisplayCode      the last wire code seen for the group, for the icon
+    // Entries are never removed, so the key set doubles as "which skills this character has used this session" —
+    // the overlay's learned display list. ClearOwnerBuffs wipes it on a real character switch, which is right:
+    // the next character's skills are different.
+    private readonly Dictionary<int, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode)> _cooldowns = new();
     private readonly object _ownerBuffGate = new();
+
+    // Cast frames that arrived before the executor was known. The self's own cooldowns are indistinguishable
+    // from a party member's until then, and simply dropping them costs a lot: in one session 224 of 811 self
+    // casts (27.6%, 17 distinct skills) landed in the 118 s before the own-nickname packet did. Staged per uid
+    // and replayed the moment that uid is confirmed — same shape as _pendingSelfBuffs.
+    private readonly Dictionary<int, Dictionary<int, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode)>> _pendingSelfCooldowns = new();
+    private const int PendingSelfCooldownUidCap = 16;
+
+    private CooldownCatalog _cooldownCatalog = CooldownCatalog.Empty;
+
+    /// <summary>Install the shipped cooldown catalog (names, shared-cooldown groups, order). Optional: without
+    /// it group ids fall back to the plain fold and the cooldown overlay simply has nothing it can name.</summary>
+    public void LoadCooldownCatalog(CooldownCatalog catalog) => _cooldownCatalog = catalog;
 
     // A cast (0x3802) only PROPOSES a cooldown. The server routinely resets or shortens it immediately and says
     // so with a 0x3847 that lands a median 251–348 ms later (p90 352 ms), so acting on the cast the instant it
@@ -2047,25 +2068,143 @@ public sealed class DataManager : ICaptureGameData
     /// Consumer-thread writer.</summary>
     public void SaveCooldown(int skillCode, long remainingMs, long arrivedAt, int actorId, bool fromCast = false)
     {
-        if (actorId != 0 && actorId != _userRepository.Executor())
+        int executor = _userRepository.Executor();
+        int groupId = CooldownGroupId(skillCode);
+        (long End, long ProvisionalUntil, long TotalMs, int DisplayCode) fresh =
+            (arrivedAt + Math.Max(0, remainingMs), fromCast ? arrivedAt + CastCooldownGraceMs : 0, Math.Max(0, remainingMs), skillCode);
+
+        if (actorId != 0 && actorId != executor)
         {
-            return; // another player's cooldown — not for the self overlay
+            if (executor == 0)
+            {
+                StageSelfCooldownCandidate(actorId, groupId, fresh);
+            }
+
+            return; // another player's cooldown (or an unknown self) — not for the self overlay yet
         }
 
-        int baseCode = skillCode is >= 11_000_000 and <= 19_999_999 ? skillCode / 10_000 * 10_000 : BuffBaseCode(skillCode);
         lock (_ownerBuffGate)
         {
-            _cooldowns[baseCode] = (arrivedAt + Math.Max(0, remainingMs), fromCast ? arrivedAt + CastCooldownGraceMs : 0);
+            Apply(groupId, fresh);
         }
     }
 
-    /// <summary>True when <paramref name="baseCode"/>'s skill should be drawn as on cooldown at
+    // Merge one cooldown report onto the store. The total is the one field a correction must NOT clobber: a
+    // 0x3847 carries only what is LEFT, so taking it as the total would shrink the ring's denominator every
+    // tick and make a 60 s cooldown look like a 3 s one. Only a larger value (or the first one seen) raises it.
+    // Caller holds _ownerBuffGate.
+    private void Apply(int groupId, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode) fresh)
+    {
+        long total = fresh.TotalMs;
+        if (_cooldowns.TryGetValue(groupId, out (long End, long ProvisionalUntil, long TotalMs, int DisplayCode) prev)
+            && prev.TotalMs > total)
+        {
+            total = prev.TotalMs;
+        }
+
+        _cooldowns[groupId] = (fresh.End, fresh.ProvisionalUntil, total, fresh.DisplayCode);
+    }
+
+    /// <summary>The shared-cooldown group a wire skill code belongs to. With no catalog loaded this is the old
+    /// fold, so the buff overlay's gray veil keys exactly as it did before.</summary>
+    private int CooldownGroupId(int skillCode) =>
+        skillCode is >= 11_000_000 and <= 19_999_999 ? _cooldownCatalog.GroupId(skillCode) : BuffBaseCode(skillCode);
+
+    /// <summary>True when <paramref name="groupId"/>'s skill should be drawn as on cooldown at
     /// <paramref name="nowMs"/> — i.e. the cooldown has not run out AND the value is no longer a cast's guess
     /// waiting on its 0x3847 correction. Caller holds <see cref="_ownerBuffGate"/>.</summary>
-    private bool IsOnCooldown(int baseCode, long nowMs) =>
-        _cooldowns.TryGetValue(baseCode, out (long End, long ProvisionalUntil) cd)
+    private bool IsOnCooldown(int groupId, long nowMs) =>
+        _cooldowns.TryGetValue(groupId, out (long End, long ProvisionalUntil, long TotalMs, int DisplayCode) cd)
         && cd.End > nowMs
         && nowMs >= cd.ProvisionalUntil;
+
+    // Hold a cast from an unconfirmed uid. Bounded like _pendingSelfBuffs: prune buffers whose every entry has
+    // expired, then refuse to grow — a dropped cast costs one icon until the skill is used again.
+    private void StageSelfCooldownCandidate(int uid, int groupId, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode) entry)
+    {
+        lock (_ownerBuffGate)
+        {
+            if (!_pendingSelfCooldowns.TryGetValue(uid, out Dictionary<int, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode)>? buffer))
+            {
+                if (_pendingSelfCooldowns.Count >= PendingSelfCooldownUidCap)
+                {
+                    long now = Clock();
+                    foreach (int stale in _pendingSelfCooldowns
+                                 .Where(kv => kv.Value.Values.All(e => e.End <= now))
+                                 .Select(kv => kv.Key).ToList())
+                    {
+                        _pendingSelfCooldowns.Remove(stale);
+                    }
+
+                    if (_pendingSelfCooldowns.Count >= PendingSelfCooldownUidCap)
+                    {
+                        return;
+                    }
+                }
+
+                _pendingSelfCooldowns[uid] = buffer = new Dictionary<int, (long, long, long, int)>();
+            }
+
+            buffer[groupId] = entry;
+        }
+    }
+
+    // Replay a newly-confirmed executor's staged casts. Called from SaveExecutorId after the pointer is set and
+    // after any identity-change clear, so a character switch clears first and only then replays. Expired entries
+    // are dropped rather than resurrected.
+    private void ReplayStagedSelfCooldowns(int uid)
+    {
+        lock (_ownerBuffGate)
+        {
+            if (!_pendingSelfCooldowns.Remove(uid, out Dictionary<int, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode)>? buffer))
+            {
+                return;
+            }
+
+            long now = Clock();
+            foreach (KeyValuePair<int, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode)> kv in buffer)
+            {
+                if (kv.Value.End > now)
+                {
+                    Apply(kv.Key, kv.Value);
+                }
+            }
+        }
+    }
+
+    /// <summary>The local player's skill cooldowns for the overlay, one row per shared-cooldown group, ordered
+    /// by job then by the catalog's stable order so icons never move under the cursor.
+    /// <para>The row set is <b>learned</b>: a skill appears once the session has seen it cast or reported. That
+    /// is the only honest list available — the client sends no login snapshot of the hotbar, so a meter started
+    /// mid-fight cannot know what it missed, and a catalogue-driven list would show twenty skills the character
+    /// never equipped.</para></summary>
+    public IReadOnlyList<SkillCooldownView> ActiveCooldowns(long nowMs)
+    {
+        var result = new List<SkillCooldownView>();
+        lock (_ownerBuffGate)
+        {
+            foreach (KeyValuePair<int, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode)> kv in _cooldowns)
+            {
+                if (!_cooldownCatalog.TryGet(kv.Key, out CooldownSkillInfo info))
+                {
+                    continue; // outside the catalog — no name and no icon, so there is nothing to draw
+                }
+
+                bool cooling = IsOnCooldown(kv.Key, nowMs);
+                result.Add(new SkillCooldownView(
+                    kv.Key,
+                    kv.Value.DisplayCode,
+                    info.Name,
+                    cooling ? kv.Value.End - nowMs : 0,
+                    kv.Value.TotalMs,
+                    !cooling,
+                    info.Job,
+                    info.Order));
+            }
+        }
+
+        return result.OrderBy(r => r.Job).ThenBy(r => r.Order).ToList();
+    }
 
     // Buff-tracking diagnostics (see SaveUseBuff). Written on the single consumer thread only.
     private long _diagJobBuffSeen;        // job-buff apply/refresh frames seen (any recipient)
@@ -2084,7 +2223,7 @@ public sealed class DataManager : ICaptureGameData
         {
             storeCount = _ownerBuffs.Count;
             cdStore = _cooldowns.Count;
-            foreach ((long End, long ProvisionalUntil) cd in _cooldowns.Values)
+            foreach ((long End, long ProvisionalUntil, long TotalMs, int DisplayCode) cd in _cooldowns.Values)
             {
                 if (cd.End > nowMs)
                 {
@@ -2096,7 +2235,7 @@ public sealed class DataManager : ICaptureGameData
             // Same rule the overlay uses, so a gap between this counter and the screen is never the rule itself.
             foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)> kv in _ownerBuffs)
             {
-                if (kv.Value.End > nowMs && IsOnCooldown(kv.Key, nowMs))
+                if (kv.Value.End > nowMs && IsOnCooldown(CooldownGroupId(kv.Key), nowMs))
                 {
                     buffsOnCd++;
                 }
@@ -2140,7 +2279,7 @@ public sealed class DataManager : ICaptureGameData
                 string name = _buffNames.TryGetValue(BuffBaseCode(kv.Key), out (string Name, string Job) bn)
                     ? bn.Name
                     : Buff(kv.Key)?.Name ?? Skill(kv.Key)?.Name ?? $"버프 {kv.Key}";
-                bool onCooldown = IsOnCooldown(kv.Key, nowMs);
+                bool onCooldown = IsOnCooldown(CooldownGroupId(kv.Key), nowMs);
                 result.Add(new OwnerBuffView(
                     kv.Key, name, kv.Value.End - nowMs, kv.Value.Duration, kv.Value.End,
                     owner != 0 && kv.Value.Actor != owner,
