@@ -172,16 +172,6 @@ public sealed class CooldownSlotVM : INotifyPropertyChanged
         GroupId = row.GroupId;
         Name = row.Name;
         IconSource = JoinIcons.Skill(row.DisplayCode);
-
-        // 배포 아이콘이 없는 스킬이 249개 중 28개 있다(직업당 0~6). 인식된 직업의 카탈로그를 통째로 까는
-        // 지금은 그 칸이 격자 한가운데에 빈 구멍으로 남는다 — 슬롯이 사라진 것처럼 보이고, 옆 아이콘의
-        // 자리까지 세기 어려워진다. 이름 첫 글자를 넣어 "여기 스킬이 있다"는 것만은 읽히게 한다(전체 이름은
-        // 슬롯 툴팁에 있다).
-        FallbackText = IconSource is null && Name.Length > 0
-            ? Name[..System.Globalization.StringInfo.GetNextTextElementLength(Name, 0)]
-            : string.Empty;
-        FallbackVisibility = IconSource is null ? Visibility.Visible : Visibility.Collapsed;
-
         Update(row);
     }
 
@@ -193,11 +183,6 @@ public sealed class CooldownSlotVM : INotifyPropertyChanged
     public string Name { get => _name; private set => Set(ref _name, value); }
 
     public ImageSource? IconSource { get; }
-
-    /// <summary>아이콘 파일이 없는 스킬의 대체 글자(이름 첫 글자).</summary>
-    public string FallbackText { get; }
-
-    public Visibility FallbackVisibility { get; }
 
     private string _remainingText = string.Empty;
     public string RemainingText { get => _remainingText; private set => Set(ref _remainingText, value); }

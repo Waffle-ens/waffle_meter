@@ -45,8 +45,27 @@ public sealed class ShippedCooldownCatalogTests
         Dictionary<int, int> perJob = c.Skills.GroupBy(s => s.Job).ToDictionary(g => g.Key, g => g.Count());
         for (int job = 11; job <= 19; job++)
         {
+            // 실측 하한은 정령성 21개다. 15 를 밑돌면 더미 필터가 진짜 스킬까지 먹었다는 뜻이다.
             Assert.True(perJob.TryGetValue(job, out int n) && n >= 15, $"직업 {job} 의 쿨타임 스킬이 {perJob.GetValueOrDefault(job)}개");
         }
+    }
+
+    [Fact]
+    public void Every_row_has_a_shipped_icon()
+    {
+        // 아이콘이 없는 행은 카탈로그에 없어야 한다 — 2026-09-04 인게임 대조로 그 28개가 전부 더미이거나
+        // 현재 없는 스킬임이 확인됐고, 생성기가 그 조건으로 걸러낸다. 이 테스트는 두 방향을 함께 지킨다:
+        // ① 더미가 다시 새어 들어오는 것 ② 자산에서 PNG 가 사라져 격자에 구멍이 뚫리는 것.
+        DirectoryInfo icons = new(Path.Combine(AssetsJsonDir(), "..", "SkillIcons"));
+        Assert.True(icons.Exists, $"아이콘 폴더가 없다: {icons.FullName}");
+
+        List<CooldownSkillInfo> missing = Shipped().Skills
+            .Where(sk => !File.Exists(Path.Combine(icons.FullName, $"{sk.BaseCode}.png")))
+            .ToList();
+
+        Assert.True(
+            missing.Count == 0,
+            "아이콘 없는 행: " + string.Join(", ", missing.Select(m => $"{m.BaseCode}({m.Name})")));
     }
 
     [Fact]

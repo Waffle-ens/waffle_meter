@@ -12,7 +12,6 @@ namespace WaffleMeter.Data;
 /// <param name="AutoLoadCount">Charge stacks (2–3) when a specialization turns the skill into a charge type,
 /// 0 otherwise. Never drawn — the wire carries no stack count — but it marks the rows whose single-expiry
 /// model is an approximation.</param>
-/// <param name="HasIcon">Whether <c>Assets/SkillIcons/&lt;BaseCode&gt;.png</c> shipped.</param>
 /// <param name="Order">Stable position inside the job (base code ascending).</param>
 /// <param name="IsStigma">스티그마 스킬인가 — 픽커가 직업 안에서 일반/스티그마 두 묶음으로 나눠 보여 준다.</param>
 public readonly record struct CooldownSkillInfo(
@@ -22,7 +21,6 @@ public readonly record struct CooldownSkillInfo(
     long CatalogCooldownMs,
     int GroupId,
     int AutoLoadCount,
-    bool HasIcon,
     int Order,
     bool IsStigma);
 
@@ -40,6 +38,12 @@ public readonly record struct CooldownSkillInfo(
 /// not by folding the skill code, because both naive schemes fail: the raw wire code is a specialization
 /// variant 99.4% of the time (so nothing would ever match), while <c>code / 10000 * 10000</c> collapses
 /// 긴급 회피 onto 무기 장착 and merges skills that do not actually share a cooldown.</para>
+/// <para><b>A skill with no shipped icon is not in here.</b> Verified in game on 2026-09-04: the 28 rows the
+/// generator used to emit without an icon are all dummies or skills that no longer exist — the client table
+/// still carries them, but no icon was ever assigned, and that absence turned out to be the tell. Filtering
+/// them out at generation is what keeps the picker, the overlay and the job pre-fill consistent in one place.
+/// The risk it buys is the opposite one: a genuinely new skill whose icon has not been extracted yet would
+/// vanish silently, which is what the per-job minimums in <c>ShippedCooldownCatalogTests</c> are for.</para>
 /// </summary>
 public sealed class CooldownCatalog
 {
@@ -152,7 +156,6 @@ public sealed class CooldownCatalog
                         Int(v, "cd"),
                         v.TryGetProperty("gct", out JsonElement g) && g.TryGetInt32(out int gct) && gct > 0 ? gct : baseCode,
                         Int(v, "auto"),
-                        v.TryGetProperty("icon", out JsonElement ic) && ic.ValueKind == JsonValueKind.True,
                         Int(v, "order"),
                         v.TryGetProperty("stig", out JsonElement st) && st.ValueKind == JsonValueKind.True);
                 }

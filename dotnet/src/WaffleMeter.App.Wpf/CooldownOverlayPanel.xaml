@@ -47,14 +47,6 @@
                                     <RectangleGeometry Rect="0,0,42,42" RadiusX="2" RadiusY="2"/>
                                 </Border.Clip>
                                 <Grid>
-                                    <!-- 아이콘 자산이 없는 스킬(249개 중 28개)의 대체 칸. 안 그리면 격자에
-                                         구멍이 뚫려 슬롯이 사라진 것처럼 보인다. -->
-                                    <Grid Visibility="{Binding FallbackVisibility}">
-                                        <Rectangle Fill="#FF232A35"/>
-                                        <TextBlock Text="{Binding FallbackText}" Foreground="#FF9AA6B8"
-                                                   FontSize="20" FontWeight="SemiBold"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Grid>
                                     <!-- 원본 에셋이 48x48 이라 200%(84 DIP)에서는 확대가 된다 — 다른 오버레이와
                                          같이 보간을 HighQuality(Fant)로 지정한다. -->
                                     <Image Source="{Binding IconSource}" Stretch="Fill" Opacity="{Binding ReadyOpacity}"
