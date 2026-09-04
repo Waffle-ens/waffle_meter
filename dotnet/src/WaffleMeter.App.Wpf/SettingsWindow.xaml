@@ -155,6 +155,40 @@
                     </StackPanel>
                 </Border>
             </DataTemplate>
+            <!-- 쿨타임 프리셋 바. 버프 바와 마크업은 쌍둥이지만 바인딩 이름이 다르다(CooldownPresetSlots /
+                 ActiveCooldownPresetName) — 같은 이름을 쓰면 두 바가 서로의 컬렉션을 그린다. PresetChip 에
+                 GroupName 이 없는 것도 그래서다: WPF 는 GroupName 을 창 전체에서 묶으므로 붙이는 순간 버프
+                 칩과 쿨타임 칩이 서로를 끈다. 활성 표시는 뷰모델이 직접 한다. -->
+            <DataTemplate x:Key="CooldownPresetBar">
+                <Border CornerRadius="8" Padding="12,10" Margin="0,0,0,16"
+                        Background="{DynamicResource Skin.RowBg}" BorderThickness="1"
+                        BorderBrush="{DynamicResource Skin.SoftBorder}">
+                    <StackPanel>
+                        <TextBlock Text="쿨타임 오버레이 프리셋" Style="{StaticResource SettingTitle}"/>
+                        <TextBlock Text="표시할 스킬과 오버레이 외형을 슬롯 3개에 저장합니다. 슬롯을 고르면 바로 적용되고, 이후 바꾼 설정은 그 슬롯에 자동 저장됩니다. (오버레이 켬/끔은 프리셋과 무관)"
+                                   Style="{StaticResource SettingDesc}" Margin="0,0,0,9"/>
+                        <ItemsControl ItemsSource="{Binding CooldownPresetSlots}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <RadioButton Style="{StaticResource PresetChip}" Content="{Binding Name}"
+                                                 IsChecked="{Binding IsActive, Mode=TwoWay}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="이름" VerticalAlignment="Center" Margin="0,0,8,0"
+                                       FontSize="12" Foreground="{DynamicResource Skin.MutedFg}"/>
+                            <TextBox Grid.Column="1" Height="30" Padding="8,4" MaxLength="20"
+                                     VerticalContentAlignment="Center" KeyDown="OnPresetNameKeyDown"
+                                     Text="{Binding ActiveCooldownPresetName, UpdateSourceTrigger=LostFocus}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </DataTemplate>
             <!-- HotkeyCaptureBox is a TextBox subclass, so the implicit TextBox style (Skin.Controls)
                  doesn't auto-apply; inherit it so the hotkey inputs match the other dark controls. -->
             <Style TargetType="{x:Type local:HotkeyCaptureBox}" BasedOn="{StaticResource {x:Type TextBox}}"/>
@@ -1250,7 +1284,9 @@
                     <!-- ===== 스킬 쿨타임 ===== -->
                     <StackPanel Visibility="{Binding SelectedNav, Converter={StaticResource NavVis}, ConverterParameter=cooldown}">
                         <TextBlock Text="스킬 쿨타임 오버레이" Style="{StaticResource SectionHeader}"/>
-                        <TextBlock Text="내 스킬의 재사용 대기시간을 별도 창에 표시합니다. 목록은 이번 접속에서 실제로 쓴 스킬로 채워집니다 — 게임이 접속 시점 스킬창을 알려주지 않기 때문입니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
+                        <TextBlock Text="내 스킬의 재사용 대기시간을 별도 창에 표시합니다. 인식된 캐릭터의 직업 스킬이 미리 깔리고, 아직 정보가 없는 칸은 쓸 수 있음으로 표시됩니다." Style="{StaticResource SettingDesc}" Margin="0,0,0,10"/>
+                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource CooldownPresetBar}"
+                                        Visibility="{Binding HasCooldownPresets, Converter={StaticResource BoolToVis}}"/>
 
                         <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -1268,15 +1304,6 @@
                                 <TextBlock Text="켜면 아이콘만 떠서 배경이 투명합니다. 끄면 배경/테두리가 보여 목록이 비어 있을 때도 창을 찾아 옮길 수 있습니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding CooldownUiTransparent}"/>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,14">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                <TextBlock Text="준비된 스킬 숨기기" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="쿨이 도는 스킬만 보여 줍니다. 창이 계속 크기를 바꾸므로 아이콘 자리는 고정되지 않습니다." Style="{StaticResource SettingDesc}"/>
-                            </StackPanel>
-                            <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding CooldownUiHideReady}"/>
                         </Grid>
 
                         <Grid Margin="0,0,0,14">

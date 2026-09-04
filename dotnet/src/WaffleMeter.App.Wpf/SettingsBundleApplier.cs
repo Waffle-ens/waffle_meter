@@ -29,6 +29,7 @@ public sealed class SettingsBundleApplier
     private readonly BuffPresetManager _presets;
     private readonly SkillVisibility _skills;
     private readonly CooldownVisibility? _cooldownSkills;
+    private readonly CooldownPresetManager? _cooldownPresets;
 
     public SettingsBundleApplier(
         MeterServices services,
@@ -39,7 +40,8 @@ public sealed class SettingsBundleApplier
         HotkeyHandler hotkeys,
         BuffPresetManager presets,
         SkillVisibility skills,
-        CooldownVisibility? cooldownSkills = null)
+        CooldownVisibility? cooldownSkills = null,
+        CooldownPresetManager? cooldownPresets = null)
     {
         _services = services;
         _settings = settings;
@@ -50,6 +52,7 @@ public sealed class SettingsBundleApplier
         _presets = presets;
         _skills = skills;
         _cooldownSkills = cooldownSkills;
+        _cooldownPresets = cooldownPresets;
     }
 
     /// <summary>Keys nothing re-reads at runtime. Changing one is honest about needing a restart rather than
@@ -92,6 +95,9 @@ public sealed class SettingsBundleApplier
         // 쿨타임 픽커도 같은 이유로 다시 읽어야 한다 — 안 하면 가져온 선택이 재시작 전까지 안 먹고,
         // 사용자가 칩 하나를 만지는 순간 옛 상태가 그대로 덮어써진다.
         _cooldownSkills?.Reload();
+        // 프리셋도 같은 줄에 있어야 한다. Load 만 하고 Apply 를 빼면 픽커는 가져온 프리셋 이름을 보여 주는데
+        // 오버레이는 옛 목록으로 계속 거른다 — 매니저의 Reload 가 그 둘을 함께 한다.
+        _cooldownPresets?.Reload();
         // 가져온 설정의 음성 팩을 즉시 반영한다 — 안 하면 재시작 전까지 옛 목소리가 계속 나온다.
         TtsSpeech.SetVoicePack(new BakedVoicePack(AppContext.BaseDirectory, _settings.TtsVoice));
 

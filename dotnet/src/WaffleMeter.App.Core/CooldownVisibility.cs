@@ -53,9 +53,25 @@ public sealed class CooldownVisibility : ISkillVisibility
         Changed?.Invoke();
     }
 
-    /// <summary>바깥에서 집합이 통째로 바뀌었을 때(설정 가져오기). 픽커는 행을 생성자에서 한 번 만들므로
-    /// 이 신호가 없으면 옛 상태를 계속 그리다가 사용자가 토글하는 순간 그대로 되쓴다.</summary>
+    /// <summary>선택이 바뀌었을 때. 두 방향 모두에서 난다 — 바깥에서 통째로 갈아끼웠을 때(설정 가져오기·
+    /// 프리셋 적용)와 사용자가 칩 하나를 토글했을 때.
+    /// <para>토글에서도 쏘는 것이 중요하다: 이 키는 <see cref="MeterSettings"/> 프로퍼티가 아니라 여기서 직접
+    /// 읽고 쓰므로, 프리셋 매니저의 자동 캡처가 기대는 <c>MeterSettings.PropertyChanged</c> 에 절대 잡히지
+    /// 않는다. 이 이벤트가 그 자리를 대신한다.</para></summary>
     public event Action? Changed;
+
+    /// <summary>저장된 여집합 문자열 <b>원문</b>. 프리셋이 담는 값이 이것이어야 한다 —
+    /// <see cref="Codes"/> 로 여집합을 다시 계산해 담으면, 카탈로그 자산이 없는 실행 한 번이 모든 슬롯의
+    /// 선택을 "숨긴 것 없음"으로 덮어쓴다(<see cref="Save"/> 가 비어 있는 <c>_all</c> 의 여집합을 쓰기 때문).</summary>
+    public string RawHidden => _props.GetProperty(Key) ?? string.Empty;
+
+    /// <summary>여집합 문자열을 그대로 심고 메모리 집합을 제자리에서 다시 읽는다(프리셋 적용용).
+    /// 카탈로그 밖 코드가 들어 있어도 <see cref="LoadInto"/> 가 <c>_all</c> 만 순회하므로 무해하게 무시된다.</summary>
+    public void SetRawHidden(string csv)
+    {
+        _props.SetProperty(Key, csv ?? string.Empty);
+        Reload();
+    }
 
     public bool IsVisible(int code) => Codes.Contains(code);
 
@@ -116,6 +132,9 @@ public sealed class CooldownVisibility : ISkillVisibility
         return set;
     }
 
-    private void Save() =>
+    private void Save()
+    {
         _props.SetProperty(Key, string.Join(",", _all.Where(c => !Codes.Contains(c))));
+        Changed?.Invoke();
+    }
 }

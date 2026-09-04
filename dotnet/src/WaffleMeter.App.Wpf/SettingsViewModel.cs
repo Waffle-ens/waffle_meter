@@ -177,11 +177,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly HotkeyHandler _hotkeys;
     private readonly BuffPresetManager _presets;
     private readonly GameOptimizerService _gameOpt;
+    private readonly CooldownPresetManager? _cooldownPresets;
     // NOT readonly: an import re-takes it. Cancel restores the values captured when the window opened, so
     // after a 70-key import it would put back a mixture that neither the code nor any backup describes.
     private Snapshot _snapshot;
 
-    public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, SkinManager skin, OverlayController controller, HotkeyHandler hotkeys, BuffPresetManager presets, GameOptimizerService gameOpt)
+    public SettingsViewModel(MeterServices services, MeterSettings settings, MeterColorTheme theme, SkinManager skin, OverlayController controller, HotkeyHandler hotkeys, BuffPresetManager presets, GameOptimizerService gameOpt, CooldownPresetManager? cooldownPresets = null)
     {
         _services = services;
         _settings = settings;
@@ -191,6 +192,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _hotkeys = hotkeys;
         _presets = presets;
         _gameOpt = gameOpt;
+        _cooldownPresets = cooldownPresets;
         _snapshot = Snapshot.Capture(settings, controller);
         RefreshGameOpt();
 
@@ -204,6 +206,17 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         for (int i = 0; i < BuffPresetManager.SlotCount; i++)
         {
             PresetSlots.Add(new BuffPresetSlotViewModel(i, presetNames[i], i == _presets.ActiveIndex, SelectPreset));
+        }
+
+        // 쿨타임 프리셋은 선택적이다 — UiPreview 하네스와 단위 테스트는 오버레이 배선 없이 이 뷰모델을
+        // 만든다. null 이면 바를 통째로 접는다(HasCooldownPresets).
+        if (_cooldownPresets is { } cd)
+        {
+            IReadOnlyList<string> cdNames = cd.Names;
+            for (int i = 0; i < CooldownPresetManager.SlotCount; i++)
+            {
+                CooldownPresetSlots.Add(new BuffPresetSlotViewModel(i, cdNames[i], i == cd.ActiveIndex, SelectCooldownPreset));
+            }
         }
 
         RebuildFontCards();
@@ -1141,7 +1154,6 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     // ---- 스킬 쿨타임 오버레이 ----
     public bool ShowCooldownUi { get => _settings.ShowCooldownUi; set { _settings.ShowCooldownUi = value; OnPropertyChanged(); } }
     public bool CooldownUiTransparent { get => _settings.CooldownUiTransparent; set { _settings.CooldownUiTransparent = value; OnPropertyChanged(); } }
-    public bool CooldownUiHideReady { get => _settings.CooldownUiHideReady; set { _settings.CooldownUiHideReady = value; OnPropertyChanged(); } }
     public string CooldownTextColor { get => _settings.CooldownUiTextColor; set { _settings.CooldownUiTextColor = value; OnPropertyChanged(); } }
 
     /// <summary>쿨타임 아이콘 배율(%). 버프 오버레이와 같은 규약 — 40px 을 100% 로 잡고 80~200%. 저장은 px.</summary>
@@ -1229,15 +1241,78 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(BuffTtsOnStart));
         OnPropertyChanged(nameof(BuffTtsOnEnd));
         OnPropertyChanged(nameof(BuffUiGrayOnCooldown));
-        OnPropertyChanged(nameof(ShowCooldownUi));
-        OnPropertyChanged(nameof(CooldownUiTransparent));
-        OnPropertyChanged(nameof(CooldownUiHideReady));
-        OnPropertyChanged(nameof(CooldownTextColor));
-        OnPropertyChanged(nameof(CooldownIconScalePercent));
-        OnPropertyChanged(nameof(CooldownUiPerRow));
         OnPropertyChanged(nameof(BuffUiShowLevel));
         OnPropertyChanged(nameof(ShowOtherPlayerBuffs));
         OnPropertyChanged(nameof(ActivePresetName));
+    }
+
+    /// <summary>쿨타임 프리셋 칩. 슬롯 뷰모델은 버프 쪽과 같은 타입을 쓴다(인덱스·이름·활성만 담는
+    /// 껍데기다). ⚠️ 바인딩 이름은 반드시 달라야 한다 — 같은 이름을 쓰면 두 바가 서로의 컬렉션을 그린다.</summary>
+    public ObservableCollection<BuffPresetSlotViewModel> CooldownPresetSlots { get; } = new();
+
+    /// <summary>쿨타임 프리셋 바를 그릴지. 오버레이 배선 없이 만들어진 뷰모델(UiPreview·테스트)에서는 false.</summary>
+    public bool HasCooldownPresets => _cooldownPresets is not null;
+
+    /// <summary>활성 쿨타임 슬롯의 이름, 인라인 편집. 빈 이름은 "프리셋 N" 으로 돌아간다.</summary>
+    public string ActiveCooldownPresetName
+    {
+        get => _cooldownPresets?.ActiveName ?? string.Empty;
+        set
+        {
+            if (_cooldownPresets is not { } cd)
+            {
+                return;
+            }
+
+            cd.RenameSlot(cd.ActiveIndex, value);
+            SyncCooldownPresetSlots();
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>쿨타임 프리셋 적용. 버프 쪽과 같은 세 가지 후속이 필요하다 — 픽커 칩 다시 읽기, 취소 스냅샷
+    /// 이설, 바인딩 재방송(<c>MeterSettings</c> setter 는 같은 값이면 이벤트를 안 내므로 컨트롤이 안 갱신된다).</summary>
+    public void SelectCooldownPreset(int index)
+    {
+        if (_cooldownPresets is not { } cd)
+        {
+            return;
+        }
+
+        cd.SelectSlot(index);
+        SyncCooldownPresetSlots();
+
+        // 🔴 프리셋 전환은 취소 대상이 아니다(고르는 즉시 저장된다). 그런데 이 세 키는 취소 스냅샷에 들어
+        // 있으므로, 옮겨 두지 않으면 전환 뒤 취소가 옛 슬롯 값을 되쓰고 매니저가 그것을 지금 활성인 슬롯에
+        // 캡처해 저장한다 — 방금 고른 프리셋의 세 값이 영구히 사라진다. 버프는 아이콘 크기 하나뿐이라
+        // 한 줄이었지만 여기는 셋이다.
+        _snapshot = _snapshot with
+        {
+            CooldownUiIconSize = _settings.CooldownUiIconSize,
+            CooldownUiPerRow = _settings.CooldownUiPerRow,
+            CooldownUiTextColor = _settings.CooldownUiTextColor,
+        };
+
+        OnPropertyChanged(nameof(CooldownUiTransparent));
+        OnPropertyChanged(nameof(CooldownIconScalePercent));
+        OnPropertyChanged(nameof(CooldownTextColor));
+        OnPropertyChanged(nameof(CooldownUiPerRow));
+        OnPropertyChanged(nameof(ActiveCooldownPresetName));
+    }
+
+    private void SyncCooldownPresetSlots()
+    {
+        if (_cooldownPresets is not { } cd)
+        {
+            return;
+        }
+
+        IReadOnlyList<string> names = cd.Names;
+        foreach (BuffPresetSlotViewModel slot in CooldownPresetSlots)
+        {
+            slot.Name = names[slot.Index];
+            slot.SyncActive(slot.Index == cd.ActiveIndex);
+        }
     }
 
     private void SyncPresetSlots()

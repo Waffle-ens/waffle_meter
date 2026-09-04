@@ -125,8 +125,8 @@ public static class SettingsKeyCatalog
         new("cooldownUi.iconSize", FD, "스킬 쿨타임", "아이콘 크기"),
         new("cooldownUi.textColor", FD, "스킬 쿨타임", "남은시간 글씨 색상"),
         new("cooldownUi.transparent", FD, "스킬 쿨타임", "투명 배경"),
-        new("cooldownUi.hideReady", F, "스킬 쿨타임", "준비된 스킬 숨기기"),
         new("cooldownUi.perRow", FD, "스킬 쿨타임", "한 줄 최대 개수"),
+        new("cooldownUi.presets", F, "스킬 쿨타임", "프리셋 3슬롯"),
         // External: MeterSettings 에 프로퍼티가 없는 키(CooldownVisibility 가 직접 읽고 쓴다) — 손으로
         // 넣지 않으면 완성도 테스트의 시야 밖이라 전체 백업에서 조용히 빠진다. joinSkills.hidden 과 같다.
         new("cooldownUi.hidden", F, "스킬 쿨타임", "표시할 스킬", External: true),

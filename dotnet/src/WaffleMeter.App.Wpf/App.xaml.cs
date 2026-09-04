@@ -129,6 +129,7 @@ public partial class App : Application
     private CooldownPickerViewModel? _cooldownPickerVm;
     private CooldownPickerFlyout? _cooldownFlyout;
     private bool _cooldownFlyoutVisible;
+    private CooldownPresetManager? _cooldownPresets;
 
     /// <summary>Auto-reset event the FIRST instance owns (set by <see cref="Program"/>); a later launch
     /// opens it by name and signals it instead of spawning a colliding UI. We wait on it and surface the
@@ -354,10 +355,10 @@ public partial class App : Application
             }
 
             // _buffPresets is assigned later in OnStartup, well before the overlay exists to raise this.
-            var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, _buffPresets!, new GameOptimizerService());
+            var svm = new SettingsViewModel(services, settings, theme, skin, controller, hotkeys, _buffPresets!, new GameOptimizerService(), _cooldownPresets);
             if (_skillVisibility is { } skills)
             {
-                svm.BundleApplier = new SettingsBundleApplier(services, settings, theme, skin, controller, hotkeys, _buffPresets!, skills, _cooldownVisibility);
+                svm.BundleApplier = new SettingsBundleApplier(services, settings, theme, skin, controller, hotkeys, _buffPresets!, skills, _cooldownVisibility, _cooldownPresets);
             }
 
             // 전투가 도는 중에 70키를 밀면 전 행 리페인트 + 스킨 사전 교체 + 전역 핫키 재등록이 한꺼번에
@@ -969,6 +970,9 @@ public partial class App : Application
         _cooldownPickerVm.Changed += () => RefreshCooldownOverlay(svc);
         // 반대 방향: 설정 가져오기가 집합을 통째로 갈아끼웠을 때 칩을 다시 읽는다.
         _cooldownVisibility.Changed += () => { _cooldownPickerVm.Refresh(); RefreshCooldownOverlay(svc); };
+        // 프리셋 매니저는 CooldownVisibility 뒤에 만들어야 한다 — 활성 슬롯을 라이브 선택으로 치유하려면
+        // 그 선택이 이미 파일에서 읽혀 있어야 한다.
+        _cooldownPresets = new CooldownPresetManager(_settings, _cooldownVisibility);
 
         _updateService = new UpdateService(prerelease: false);
         UpdateService updateService = _updateService;
@@ -2900,11 +2904,6 @@ public partial class App : Application
         if (_cooldownVisibility is { } picked)
         {
             rows = rows.Where(r => picked.IsVisible(r.GroupId)).ToList();
-        }
-
-        if (_settings.CooldownUiHideReady)
-        {
-            rows = rows.Where(r => !r.IsReady).ToList();
         }
 
         _cooldownOverlayVm.ShowBackground = !_settings.CooldownUiTransparent;

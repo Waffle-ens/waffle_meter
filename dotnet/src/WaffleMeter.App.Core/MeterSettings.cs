@@ -56,7 +56,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         nameof(_aetherCharacterNames), nameof(_aetherLastValue), nameof(_aetherPerCharacter), nameof(_barStyle),
         nameof(_buffUiHidden), nameof(_buffUiObserved), nameof(_buffUiPinned), nameof(_buffUiPresets),
         nameof(_buffUiSortMode), nameof(_buffUiTextColor), nameof(_buffUiVoice), nameof(_captureBackend),
-        nameof(_cooldownUiTextColor),
+        nameof(_cooldownUiTextColor), nameof(_cooldownUiPresets),
         nameof(_closeAction), nameof(_contributionMode), nameof(_customAlarms), nameof(_damageValueMode),
         nameof(_displayMode), nameof(_fieldBossDisabled), nameof(_fontFamily), nameof(_nameDisplay),
         nameof(_nameFxMode), nameof(_overlayTheme), nameof(_rowDpsMetric), nameof(_targetInfoDisplayMode),
@@ -145,8 +145,8 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _cooldownUiIconSize = ReadInt("cooldownUi.iconSize", 40);
         _cooldownUiTextColor = _props.GetProperty("cooldownUi.textColor") ?? "#FFFFFF";
         _cooldownUiTransparent = ReadBool("cooldownUi.transparent", true);
-        _cooldownUiHideReady = ReadBool("cooldownUi.hideReady", false);
         _cooldownUiPerRow = ReadInt("cooldownUi.perRow", 8);
+        _cooldownUiPresets = _props.GetProperty("cooldownUi.presets") ?? "";
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
         _aetherPerCharacter = _props.GetProperty("aether.perCharacter") ?? "";
         _aetherCharacterNames = _props.GetProperty("aether.characterNames") ?? "";
@@ -519,10 +519,10 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// 드래그할 수 있다.</summary>
     public bool CooldownUiTransparent { get => _cooldownUiTransparent; set => SetBool(ref _cooldownUiTransparent, "cooldownUi.transparent", value); }
 
-    private bool _cooldownUiHideReady;
-    /// <summary>준비된 스킬은 감추고 쿨이 도는 것만 보여 준다. 켜면 창이 계속 크기를 바꾸므로 기본은 꺼짐 —
-    /// 아이콘 자리가 고정돼야 근육기억으로 읽을 수 있다.</summary>
-    public bool CooldownUiHideReady { get => _cooldownUiHideReady; set => SetBool(ref _cooldownUiHideReady, "cooldownUi.hideReady", value); }
+    private string _cooldownUiPresets;
+    /// <summary>쿨타임 프리셋 3슬롯, Base64(JSON) 한 덩어리(<see cref="CooldownPresetCodec"/>). 한글 슬롯
+    /// 이름이 설정 읽기의 EUC-KR 재디코드를 통과해야 해서 Base64 다.</summary>
+    public string CooldownUiPresets { get => _cooldownUiPresets; set => SetProp(ref _cooldownUiPresets, "cooldownUi.presets", value); }
 
     private int _cooldownUiPerRow;
     /// <summary>한 줄에 놓을 최대 아이콘 수(4~16). 이 값이 창의 폭 상한을 정하고, 폭 상한이 있어야만
