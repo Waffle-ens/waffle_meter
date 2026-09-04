@@ -127,7 +127,7 @@ public partial class App : Application
     private System.Windows.Threading.DispatcherTimer? _cooldownTimer;
     private CooldownVisibility? _cooldownVisibility;
     private CooldownPickerViewModel? _cooldownPickerVm;
-    private SkillSettingsFlyout? _cooldownFlyout;
+    private CooldownPickerFlyout? _cooldownFlyout;
     private bool _cooldownFlyoutVisible;
 
     /// <summary>Auto-reset event the FIRST instance owns (set by <see cref="Program"/>); a later launch
@@ -367,7 +367,7 @@ public partial class App : Application
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
             svm.PlayReplayRequested = () => PlayReplayFromPicker(services, window);
             svm.DummyResetRequested = () => _engine?.RequestDummyReset(); // 허수아비 DPS 초기화 button (settings tab)
-            svm.CooldownPickerRequested = ToggleCooldownPicker;
+            svm.CooldownPickerRequested = () => ToggleCooldownPicker(services);
             var settingsWindow = new SettingsWindow(svm) { Owner = window };
             LoadWindowSize(services.Props, "settingsWidth", "settingsHeight", settingsWindow);
             settingsWindow.SizeChanged += (_, _) =>
@@ -957,7 +957,7 @@ public partial class App : Application
         // 는 집합을 참조로 넘기므로 하나를 공유하면 배지 토글이 쿨타임 표시를 함께 바꾼다.
         _cooldownVisibility = new CooldownVisibility(services.Props, services.Data.CooldownCatalog);
         _cooldownPickerVm = new CooldownPickerViewModel(services.Data.CooldownCatalog, _cooldownVisibility);
-        _cooldownFlyout = new SkillSettingsFlyout { DataContext = _cooldownPickerVm, Title = "표시할 스킬 선택 (쿨타임)" };
+        _cooldownFlyout = new CooldownPickerFlyout { DataContext = _cooldownPickerVm };
         LoadWindowSize(services.Props, "cooldownPickerWidth", "cooldownPickerHeight", _cooldownFlyout);
         _cooldownFlyout.Show();
         _cooldownFlyout.Park();
@@ -2846,7 +2846,7 @@ public partial class App : Application
 
     /// <summary>설정창의 "스킬 고르기" 버튼. 참가요청 픽커와 같은 토글 동작이고, 위치만 설정창 옆으로 잡는다
     /// (설정창이 없으면 미터 옆). 창은 Park 상태로 미리 만들어 두므로 여는 데 지연이 없다.</summary>
-    private void ToggleCooldownPicker()
+    private void ToggleCooldownPicker(MeterServices services)
     {
         if (_cooldownFlyout is null)
         {
@@ -2865,6 +2865,13 @@ public partial class App : Application
         {
             _cooldownFlyout.Left = anchor.Left + anchor.Width + 8;
             _cooldownFlyout.Top = anchor.Top;
+        }
+
+        // 창을 열 때마다 직업을 다시 읽는다 — 생성 시점에는 대개 아직 캐릭터를 모르고, 캐릭터를 바꿔도
+        // 다음에 열 때 맞는 직업이 걸려야 한다.
+        if (_cooldownPickerVm is { } picker)
+        {
+            picker.OwnJobBand = services.Data.User(services.Data.ExecutorId())?.Job?.SkillBand() ?? 0;
         }
 
         _cooldownFlyoutVisible = true;

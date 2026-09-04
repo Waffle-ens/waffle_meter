@@ -45,7 +45,7 @@ public sealed class SkillSettingsViewModel
 /// lookup so the same rows — and therefore the same flyout window and its 전체 선택/해제 buttons — serve both
 /// the join-panel badge picker and the cooldown-overlay picker. The two run on different catalogues (167 vs
 /// 249 codes) and different keys, so nothing else can be shared.</summary>
-public sealed class SkillJobGroupViewModel
+public sealed class SkillJobGroupViewModel : INotifyPropertyChanged
 {
     private readonly ISkillVisibility _visibility;
     private readonly Action _onChanged;
@@ -69,6 +69,22 @@ public sealed class SkillJobGroupViewModel
     public bool HasNormal => NormalChips.Count > 0;
     public bool HasStigma => StigmaChips.Count > 0;
 
+    /// <summary>이 직업에서 켜 둔 스킬 수 / 전체. 픽커 헤더가 "16 / 30" 으로 보여 준다 — 칩 30개를 눈으로
+    /// 세지 않고도 어느 직업을 손댔는지 알 수 있다.</summary>
+    public int SelectedCount => NormalChips.Concat(StigmaChips).Count(c => c.IsVisible);
+
+    public int TotalCount => NormalChips.Count + StigmaChips.Count;
+
+    public string CountText => $"{SelectedCount} / {TotalCount}";
+
+    /// <summary>칩 하나가 토글됐을 때 카운트 표시를 다시 읽게 한다.</summary>
+    public void RaiseCounts()
+    {
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(TotalCount));
+        OnPropertyChanged(nameof(CountText));
+    }
+
     public void SelectAll() => SetAll(true);
     public void DeselectAll() => SetAll(false);
 
@@ -79,6 +95,8 @@ public sealed class SkillJobGroupViewModel
         {
             chip.Refresh();
         }
+
+        RaiseCounts();
     }
 
     private void SetAll(bool on)
@@ -89,7 +107,12 @@ public sealed class SkillJobGroupViewModel
         _onChanged();
     }
 
-    private SkillChipViewModel Chip(int code) => new(code, _visibility, _onChanged, _nameOf(code));
+    // 칩 콜백은 그룹을 한 번 거친다 — 칩이 켜지고 꺼질 때마다 헤더의 "16 / 30" 도 같이 움직여야 한다.
+    private SkillChipViewModel Chip(int code) => new(code, _visibility, () => { RaiseCounts(); _onChanged(); }, _nameOf(code));
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
 public sealed class SkillChipViewModel : INotifyPropertyChanged
