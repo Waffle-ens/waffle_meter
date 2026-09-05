@@ -63,9 +63,13 @@ public sealed class OverlayController
     public bool IsAutoHide { get; private set; }
     public bool TaskbarMode { get; private set; }
 
-    /// <summary>When true, the companion buff overlay stays on screen while the METER is tray-hidden (Ctrl+H /
+    /// <summary>When true, the secondary overlays stay on screen while the METER is tray-hidden (Ctrl+H /
     /// tray) — it then follows only the game foreground (still hides when AION2 isn't active), so a user can hide
-    /// the DPS meter but keep the combat-assist buff timers. Off by default (overlay hides with the meter).</summary>
+    /// the DPS meter but keep the combat-assist buff timers and the skill-cooldown grid. Off by default
+    /// (both overlays hide with the meter).
+    /// <para>두 오버레이가 이 한 토글을 함께 탄다: 버프 오버레이는 <see cref="CompanionShown"/> 을, 쿨타임
+    /// 오버레이는 <see cref="CompanionBaseShown"/> 을 읽는데 둘 다 <see cref="SyncCompanion"/> 이 세우고,
+    /// 트레이 분기는 이 플래그로 그 인자를 만든다.</para></summary>
     public bool KeepOverlayWhenHidden { get; private set; }
 
     /// <summary>True while the meter is actually on screen (game foreground + not tray-hidden). Secondary
@@ -291,7 +295,7 @@ public sealed class OverlayController
         _props.SetProperty("isAutoHide", enabled ? "true" : "false");
     }
 
-    /// <summary>Toggle "메터를 숨겨도 버프 오버레이는 유지". Reconcile the companion at once so the change applies
+    /// <summary>Toggle "미터를 숨겨도 오버레이 유지". Reconcile the companion at once so the change applies
     /// without waiting for a poll tick (e.g. turning it ON while the meter is currently tray-hidden).</summary>
     public void SetKeepOverlayWhenHidden(bool enabled)
     {
@@ -315,6 +319,8 @@ public sealed class OverlayController
             // Decoupled buff overlay: with "메터 숨겨도 오버레이 유지" on, the companion stays while the meter is
             // tray-hidden, but STILL follows the game foreground (park only when a DIFFERENT app is genuinely
             // foreground) so it never floats over the desktop. Off → it hides with the meter (original behavior).
+            // 이 한 줄이 "미터를 숨겨도 오버레이 유지" 의 전부다 — 버프 오버레이(CompanionShown)와 쿨타임
+            // 오버레이(CompanionBaseShown)가 둘 다 SyncCompanion 이 세우는 값을 읽으므로 함께 따라온다.
             bool companionShow = KeepOverlayWhenHidden && (!IsAutoHide || fg != Foreground.Other);
             SyncCompanion(companionShow);
             return; // parked/hidden owns the METER's visibility while hidden

@@ -1044,7 +1044,7 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,16,0">
                                 <TextBlock Text="미터를 숨겨도 오버레이 유지" Style="{StaticResource SettingTitle}"/>
-                                <TextBlock Text="미터기 본체를 숨겨도(Ctrl+H·트레이) 버프 오버레이는 계속 표시합니다. 게임이 활성일 때만 뜹니다." Style="{StaticResource SettingDesc}"/>
+                                <TextBlock Text="미터기 본체를 숨겨도(Ctrl+H·트레이) 버프 오버레이와 스킬 쿨타임 오버레이는 계속 표시합니다. 게임이 활성일 때만 뜹니다." Style="{StaticResource SettingDesc}"/>
                             </StackPanel>
                             <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" IsChecked="{Binding KeepOverlayWhenMeterHidden}"/>
                         </Grid>
