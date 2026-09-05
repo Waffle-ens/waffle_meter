@@ -267,6 +267,28 @@
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="후방" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding BackText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="전방" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding FrontText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
                 <Border Style="{StaticResource SumTile}"><StackPanel><TextBlock Text="막기" Style="{StaticResource SumLabel}"/><TextBlock Text="{Binding ParryText}" Style="{StaticResource SumValue}"/></StackPanel></Border>
+
+                <!-- 티어 타일. 13개였던 격자의 빈 14번째 칸을 채우므로 레이아웃이 흔들리지 않는다.
+                     🔑 이 타일의 존재 이유는 세 번째 줄(비교 기준)이다 — 미터 행은 폭 490px 에 두 번째 줄을
+                     놓을 자리가 없어 파티원의 "상위 X.X%" 가 전체 기준인지 그 사람의 전투력 구간 기준인지가
+                     툴팁에만 있다. 각 행은 자기 전투력으로 밴드가 매겨지므로 파티원은 나와 다른 풀과 비교될
+                     수 있고, 그러면 같은 백분위가 다른 뜻이 된다.
+                     등급과 백분위를 한 줄로 합치지 않는 것도 폭 때문이다: 최소 창폭 860 에서 타일 실사용
+                     폭이 ~95px 이라 "챌린저 · 상위 0.7%" 는 실측으로 잘린다. SumValue(15.5 Bold)도 같은 이유로
+                     쓰지 않는다. -->
+                <Border Style="{StaticResource SumTile}" Visibility="{Binding TierVisibility}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding TierLabelText}" Style="{StaticResource SumLabel}"/>
+                        <TextBlock Text="{Binding TierRankText}" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Skin.Fg}"/>
+                        <TextBlock Text="{Binding TierPercentText}" Visibility="{Binding TierPercentVisibility}"
+                                   FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{StaticResource ValueCyan}"/>
+                        <TextBlock Text="{Binding TierBasisText}" Visibility="{Binding TierBasisVisibility}"
+                                   FontSize="9.5" Opacity="0.75" Margin="0,1,0,0" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Skin.Fg}"/>
+                    </StackPanel>
+                </Border>
             </UniformGrid>
 
             <!-- 버프 주고받은 몫 한 줄 요약. rDPS 타일이 "얼마"라면 이 줄은 "어디서 왔나"다. -->

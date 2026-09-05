@@ -33,11 +33,22 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
     private readonly DpsCalculator _calc;
     private readonly string _fallbackName;
 
-    public DetailsViewModel(DpsReport report, int uid, DpsCalculator calc, string name, MeterColorTheme theme, string fontFamily)
+    /// <summary>이 캐릭터의 티어 줄을 <b>표시 중인 리포트에서</b> 다시 뽑는 공급자. 값으로 스냅샷해 두지 않는
+    /// 이유는 티어가 "렌더되는 리포트의 함수"여야 하기 때문이다 — 밀어 넣는 모델(SetTiers)은 기록 재생에서
+    /// 옛 값을 그리던 회귀를 낳아 이미 한 번 걷어냈다. null 이면 티어 타일을 접는다(설정 꺼짐·미배선).</summary>
+    private readonly Func<DpsReport, TierDetailLine>? _tierLineOf;
+
+    // 같은 리포트로 Refresh 가 다시 와도 재평가하지 않는다. 티어 평가는 참가자마다 사전 조회 + 해시라
+    // 미터가 이미 틱마다 한 번 돌리고 있고, 여기서 무조건 또 돌리면 그 비용이 두 배가 된다.
+    private DpsReport? _tierReport;
+
+    public DetailsViewModel(DpsReport report, int uid, DpsCalculator calc, string name, MeterColorTheme theme, string fontFamily,
+        Func<DpsReport, TierDetailLine>? tierLineOf = null)
     {
         _uid = uid;
         _calc = calc;
         _fallbackName = name;
+        _tierLineOf = tierLineOf;
         FontFamily = fontFamily;
         // Theme-linked text colors (snapshot at open; the detail window is short-lived per row click).
         AmountBrush = ThemeBrush(theme.MeterStatAmount);
@@ -104,6 +115,44 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
 
     private Visibility _buffContributionVisibility = Visibility.Collapsed;
     public Visibility BuffContributionVisibility { get => _buffContributionVisibility; private set => Set(ref _buffContributionVisibility, value); }
+
+    // ---- 티어 타일 (요약 격자의 14번째 칸) ----
+    private string _tierLabelText = "이번 전투 등급";
+    /// <summary>타일 제목. `누적 등급`(서버가 준 본인 성적) / `이번 전투 등급`(이 전투에서 계산한 값).</summary>
+    public string TierLabelText { get => _tierLabelText; private set => Set(ref _tierLabelText, value); }
+
+    private string _tierRankText = string.Empty;
+    /// <summary>등급 이름 — `챌린저`.</summary>
+    public string TierRankText { get => _tierRankText; private set => Set(ref _tierRankText, value); }
+
+    private string _tierPercentText = string.Empty;
+    /// <summary>이번 전투 백분위 — `상위 0.7%`. 표본이 없으면 빈 문자열이고 줄이 접힌다.</summary>
+    public string TierPercentText { get => _tierPercentText; private set => Set(ref _tierPercentText, value); }
+
+    private Visibility _tierPercentVisibility = Visibility.Collapsed;
+    public Visibility TierPercentVisibility { get => _tierPercentVisibility; private set => Set(ref _tierPercentVisibility, value); }
+
+    private string _tierBasisText = string.Empty;
+    /// <summary>🔑 이 타일이 존재하는 이유. 백분위가 무엇과 비교한 값인지 — 미터 행에서는 폭이 모자라 툴팁에만
+    /// 있는 문장이다.</summary>
+    public string TierBasisText { get => _tierBasisText; private set => Set(ref _tierBasisText, value); }
+
+    private Visibility _tierVisibility = Visibility.Collapsed;
+    public Visibility TierVisibility { get => _tierVisibility; private set => Set(ref _tierVisibility, value); }
+
+    private Visibility _tierBasisVisibility = Visibility.Collapsed;
+    public Visibility TierBasisVisibility { get => _tierBasisVisibility; private set => Set(ref _tierBasisVisibility, value); }
+
+    private void ApplyTier(TierDetailLine line)
+    {
+        TierVisibility = line.HasValue ? Visibility.Visible : Visibility.Collapsed;
+        TierLabelText = line.HasValue ? line.Label : "이번 전투 등급";
+        TierRankText = line.Rank;
+        TierPercentText = line.Percent;
+        TierPercentVisibility = line.Percent.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        TierBasisText = line.Basis;
+        TierBasisVisibility = line.Basis.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
     private string _hitsText = "0";
     public string HitsText { get => _hitsText; private set => Set(ref _hitsText, value); }
     private string _contributionText = "0.0%";
@@ -162,6 +211,12 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
         Title = $"{display} 상세내역";
         HasData = present;
 
+        if (present && !ReferenceEquals(_tierReport, report))
+        {
+            _tierReport = report;
+            ApplyTier(_tierLineOf?.Invoke(report) ?? TierDetailLine.None);
+        }
+
         if (!present)
         {
             Skills.Clear();
@@ -180,6 +235,9 @@ public sealed class DetailsViewModel : INotifyPropertyChanged
             MetricsVisibility = Visibility.Collapsed;
             BuffContributionText = string.Empty;
             BuffContributionVisibility = Visibility.Collapsed;
+            // 티어도 같은 이유로 비운다 — 안 그러면 "데이터 없음" 화면에 직전에 열어 둔 사람의 등급이 남는다.
+            ApplyTier(TierDetailLine.None);
+            _tierReport = null;
             return;
         }
 

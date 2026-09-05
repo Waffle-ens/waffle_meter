@@ -1323,7 +1323,29 @@ public partial class App : Application
         _detailWindow?.Close();
 
         string name = source.Contributors.FirstOrDefault(c => c.Id == uid)?.Nickname ?? uid.ToString();
-        _detailViewModel = new DetailsViewModel(source, uid, services.Calculator, name, _theme!, _settings!.FontFamily);
+
+        // 티어 줄은 미터가 쓰는 것과 **같은** resolver 로 뽑는다. 상세창이 자체 Evaluate 를 구성하면 인자가
+        // 갈라져(기록 재생에서 커리어 티어를 빼는 결정, 시련 어픽스 게이트) 미터와 다른 숫자를 낼 수 있다.
+        // 게이트는 마스터 두 개만 본다 — tier.showOthers 는 "미터 행", tier.showSelfChip 은 "미터 아래
+        // 전투 시간 옆"을 문구가 명시적으로 지목하므로 상세창에 재사용하면 두 설명이 거짓이 된다.
+        Func<DpsReport, TierDetailLine> tierLineOf = rep =>
+        {
+            if (_settings is not { TierShow: true } s || string.Equals(s.TierEffects, "off", StringComparison.Ordinal))
+            {
+                return TierDetailLine.None;
+            }
+
+            if (meterVm.TierResolver is not { } resolve || !resolve(rep).TryGetValue(uid, out RowTier row))
+            {
+                return TierDetailLine.None; // 전투력 미확보·미지원 보스 등 — 애초에 모집단 밖이다
+            }
+
+            TierBadge badge = TierPalette.For(row.TierRank, _skin?.IsLight ?? false);
+            return TierDetail.Build(row, badge.IsNone ? null : badge.Name);
+        };
+
+        _detailViewModel = new DetailsViewModel(
+            source, uid, services.Calculator, name, _theme!, _settings!.FontFamily, tierLineOf: tierLineOf);
         _detailUid = uid;
         _detailWindow = new DetailWindow { DataContext = _detailViewModel };
         _detailWindow.Closed += (s, _) =>
