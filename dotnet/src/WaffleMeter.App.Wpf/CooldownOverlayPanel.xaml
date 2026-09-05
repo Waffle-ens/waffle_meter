@@ -2,6 +2,9 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:WaffleMeter.App.Wpf"
+        xmlns:po="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="po"
         Title="스킬 쿨타임"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ResizeMode="NoResize"
@@ -10,6 +13,20 @@
          windows sit side by side and answer different questions ("active on me" vs "ready to press").
          ResizeMode=NoResize keeps us clear of the SizeToContent trap entirely — WPF turns SizeToContent off the
          moment a resize STARTS, in any direction, so a resizable auto-sized window cannot keep its height. -->
+    <local:OverlayPanelWindow.Resources>
+        <!-- 슬롯 장식띠. 창 리소스라 30개 슬롯이 브러시 인스턴스 하나를 공유하고, po:Freeze 로 렌더 스레드가
+             잠금 없이 읽는다 — 슬롯마다 브러시를 만들면 250ms 마다 그 개수만큼 다시 만들어진다.
+             바깥 링은 배경과의 분리선, 안쪽 띠는 좌상단이 밝고 우하단이 어두운 사선 그라디언트라 아이콘이
+             살짝 눌린 금속판처럼 읽힌다(게임 액션바 관례). 색을 알파로만 쓰므로 어떤 게임 화면 위에서도
+             아이콘 색을 물들이지 않는다. -->
+        <SolidColorBrush x:Key="CdRimOuter" Color="#B3000000" po:Freeze="True"/>
+        <LinearGradientBrush x:Key="CdRimSheen" StartPoint="0,0" EndPoint="1,1" po:Freeze="True">
+            <GradientStop Color="#66FFFFFF" Offset="0"/>
+            <GradientStop Color="#1AFFFFFF" Offset="0.42"/>
+            <GradientStop Color="#0DFFFFFF" Offset="0.58"/>
+            <GradientStop Color="#59000000" Offset="1"/>
+        </LinearGradientBrush>
+    </local:OverlayPanelWindow.Resources>
     <Border Background="{Binding PanelBackground}" BorderBrush="{Binding PanelBorderBrush}"
             BorderThickness="{Binding PanelBorderThickness}" CornerRadius="8" MouseLeftButtonDown="OnDragHandle" Padding="2">
       <Grid Background="Transparent" MinWidth="60" MinHeight="20">
@@ -36,7 +53,10 @@
                             <ScaleTransform ScaleX="{Binding DataContext.IconScale, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             ScaleY="{Binding DataContext.IconScale, RelativeSource={RelativeSource AncestorType=ItemsControl}}"/>
                         </Grid.LayoutTransform>
-                        <Grid Width="46" Height="46" Margin="3,3">
+                        <!-- 셀 46 + 좌우 여백 1 = 슬롯 피치 48. ⚠️ App.ReflowCooldownOverlay 의 폭 상한
+                             계산이 이 숫자를 그대로 쓴다 — 어긋나면 WrapPanel 이 창보다 넓게 재서 넘친 슬롯이
+                             줄바꿈도 스크롤도 없이 사라진다. -->
+                        <Grid Width="46" Height="46" Margin="1,1">
                             <!-- 아이콘 + 파이를 하나의 사각형으로 잘라 낸다. 꼭지점만 살짝(2px)
                                  둥글려 버프 오버레이의 원형 아이콘과 한눈에 갈린다. 파이 반지름은 모서리 너머까지
                                  뻗어 있고(대각 반지름 29.7 < 31), ClipToBounds 가 그걸 다시 이 모양으로 깎는다 —
@@ -55,8 +75,13 @@
                                     <Path Data="{Binding Wipe}" Fill="#B2000000" Width="42" Height="42" Stretch="None"/>
                                 </Grid>
                             </Border>
-                            <!-- 아이콘이 늘 테두리를 갖도록 하는 옅은 프레임. 파이보다 위, 글씨보다 아래. -->
-                            <Border Width="42" Height="42" CornerRadius="2" BorderBrush="#59000000" BorderThickness="1"
+                            <!-- 장식띠 2겹. 파이보다 위, 남은시간 글씨보다 아래. 바깥 링은 아이콘 밖 1px 에
+                                 앉아 배경과 갈라 주고, 안쪽 띠는 아이콘 가장자리에 겹쳐 사선 광택을 준다. -->
+                            <Border Width="44" Height="44" CornerRadius="3" BorderThickness="1"
+                                    BorderBrush="{StaticResource CdRimOuter}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Border Width="42" Height="42" CornerRadius="2" BorderThickness="1"
+                                    BorderBrush="{StaticResource CdRimSheen}"
                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             <!-- 남은 시간. ⚠️ 파이보다 z-order 가 반드시 위다 — 반대로 두면 어두운 쐐기가 숫자를
                                  가로질러 읽을 수 없다(버프 오버레이가 링/배지에서 같은 실수를 한 적이 있다).

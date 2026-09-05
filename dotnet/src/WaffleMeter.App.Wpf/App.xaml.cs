@@ -2286,12 +2286,14 @@ public partial class App : Application
 
     /// <summary>쿨타임 오버레이의 리플로우. 버프 오버레이와 다른 점은 폭 상한을 화면이 아니라 <b>사용자가 정한
     /// "한 줄 최대 개수"</b>가 정한다는 것뿐이다 — 이 창은 슬롯이 20~30개까지 가므로 화면 폭까지 늘어나게 두면
-    /// 한 줄짜리 띠가 모니터를 가로지른다. 슬롯 하나의 폭은 아이콘 46 + 좌우 여백 3+3 = 52 DIP(배율 1 기준).</summary>
+    /// 한 줄짜리 띠가 모니터를 가로지른다. 슬롯 하나의 폭은 셀 46 + 좌우 여백 1+1 = 48 DIP(배율 1 기준).
+    /// ⚠️ 이 값은 CooldownOverlayPanel.xaml 의 셀 크기·여백과 반드시 같아야 한다 — 상한이 실제보다 좁으면
+    /// 한 줄에 예상보다 적게 들어가고, 넓으면 WrapPanel 이 줄을 안 바꿔 넘친 슬롯이 조용히 사라진다.</summary>
     private void ReflowCooldownOverlay()
     {
         double scale = Math.Clamp(_settings?.CooldownUiIconSize ?? 40, 32, 80) / 40.0;
         int perRow = _settings?.CooldownUiPerRow ?? 8;
-        ReflowOverlay(_cooldownOverlay, _cooldownOverlayHome, (perRow * 52.0 * scale) + 10);
+        ReflowOverlay(_cooldownOverlay, _cooldownOverlayHome, (perRow * 48.0 * scale) + 10);
     }
 
     /// <summary>SizeToContent 오버레이(버프·쿨타임)의 폭 상한과 실제 위치를 "집"(사용자가 정한 좌표)에서 다시
