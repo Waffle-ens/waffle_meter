@@ -146,12 +146,48 @@ public sealed class OfficialCharacterLookup : IOfficialCharacterLookup
             skills);
     }
 
+    /// <summary>공식 검색 API 가 요구하는 종족 값을 서버 id 에서 뽑는다. 1 = 천족, 2 = 마족.
+    /// <para>🔴 <b>필수값이다.</b> 빈 값·파라미터 생략·0 은 전부 <c>HTTP 400 {"code":"race invalid"}</c> 로
+    /// 떨어진다(2026-09-05 실측). 예전에는 빈 값이 통했고, 서버가 바꾼 뒤로는 검색이 체인 1단계라 전체가 죽어
+    /// <b>파티 신청 배지가 100% 안 떴다</b> — 조회가 던지면 호출자가 콜백 없이 10분짜리 실패를 캐시하므로 로그에도
+    /// 화면에도 흔적이 남지 않는다.</para>
+    /// <para>🔑 <b>서버 id 가 곧 진영이다</b> — 1001~1021 천족, 2001~2021 마족. 그래서 종족을 추측하거나 두 값을
+    /// 차례로 시도할 필요가 없다. 실측(2026-09-05): 서버 1018 은 race=1 에서만, 2003·2011 은 race=2 에서만 결과가
+    /// 나온다(반대쪽은 200-빈목록). 같은 사실이 <c>MeterFormat.ServerTier</c> 와 <c>AetherRoster</c> 주석에도 이미
+    /// 적혀 있다.</para></summary>
+    private static int RaceFor(int server) => server / 1000;
+
+    /// <summary>알 수 없는 서버 대역(미래에 3xxx 가 생기는 등)일 때만 쓰는 폴백. 진영은 둘뿐이므로 차례로
+    /// 시도하면 최소한 배지가 사라지지는 않는다.</summary>
+    private static readonly int[] FallbackRaces = [1, 2];
+
     private CharacterSearchResult? FindCharacter(string nickname, int server, JobClass? fallbackJob)
+    {
+        int race = RaceFor(server);
+        if (race is 1 or 2)
+        {
+            return FindCharacter(nickname, server, fallbackJob, race);
+        }
+
+        foreach (int fallback in FallbackRaces)
+        {
+            // 200 인데 못 찾은 경우에만 다음 종족으로 넘어간다. 통신 실패는 그대로 위로 던져 호출자가
+            // 실패로 캐시하게 둔다 — 여기서 삼키면 네트워크가 끊긴 동안 요청이 두 배로 나간다.
+            if (FindCharacter(nickname, server, fallbackJob, fallback) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private CharacterSearchResult? FindCharacter(string nickname, int server, JobClass? fallbackJob, int race)
     {
         string url = $"{BaseUrl}/api/search/character?{Query(
             ("keyword", nickname),
             ("pcId", ""),
-            ("race", ""),
+            ("race", race.ToString(CultureInfo.InvariantCulture)),
             ("serverId", server.ToString(CultureInfo.InvariantCulture)),
             ("sort", "desc"),
             ("page", "1"),

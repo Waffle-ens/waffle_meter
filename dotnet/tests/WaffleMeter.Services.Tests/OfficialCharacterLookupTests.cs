@@ -23,6 +23,97 @@ public sealed class OfficialCharacterLookupTests
 
     private const string InfoJson = """{"profile":{"combatPower":12345}}""";
 
+    /// <summary>공식 검색 API 는 race 를 필수로 받는다 — 빈 값·생략·0 은 HTTP 400 {"code":"race invalid"} 다
+    /// (2026-09-05 실측). 그 400 이 체인 1단계를 죽여 파티 신청 배지가 100% 사라졌었다. 이 가짜 서버는 같은
+    /// 계약을 흉내내 회귀를 막는다.</summary>
+    private static string RouteStrictRace(string url, List<string> seen, string matchingRace)
+    {
+        if (url.Contains("/api/search/character"))
+        {
+            seen.Add(url);
+            if (!url.Contains("race=1") && !url.Contains("race=2"))
+            {
+                throw new HttpRequestException("race invalid"); // 서버가 400 을 던지는 자리
+            }
+
+            return url.Contains("race=" + matchingRace) ? SearchJson : """{"list":[]}""";
+        }
+
+        return Route(url);
+    }
+
+    /// <summary>천족 서버(1001~1021)의 캐릭터를 담은 검색 결과.</summary>
+    private const string ElyosSearchJson = """{"list":[{"name":"Waffle","serverId":1018,"characterId":"abc%3D","level":80,"pcId":5}]}""";
+
+    /// <summary>마족 서버(2001~2021)의 캐릭터.</summary>
+    private const string AsmoSearchJson = """{"list":[{"name":"Waffle","serverId":2003,"characterId":"abc%3D","level":80,"pcId":5}]}""";
+
+    private static string RouteForServer(string url, List<string> seen, string body)
+    {
+        if (url.Contains("/api/search/character"))
+        {
+            seen.Add(url);
+            if (!url.Contains("race=1") && !url.Contains("race=2"))
+            {
+                throw new HttpRequestException("race invalid");
+            }
+
+            return body;
+        }
+
+        return Route(url);
+    }
+
+    [Fact]
+    public void The_race_comes_from_the_server_id_so_one_search_is_enough()
+    {
+        // 🔑 서버 id 가 곧 진영이다 — 1001~1021 천족. 종족을 추측하거나 두 값을 시도할 이유가 없다.
+        var seen = new List<string>();
+        var lookup = new OfficialCharacterLookup(u => RouteForServer(u, seen, ElyosSearchJson), () => 0);
+
+        Assert.NotNull(lookup.LookupBlocking("Waffle", 1018, null));
+        Assert.Single(seen);
+        Assert.Contains("race=1", seen[0]);
+    }
+
+    [Fact]
+    public void An_asmodian_server_searches_the_second_race_directly()
+    {
+        var seen = new List<string>();
+        var lookup = new OfficialCharacterLookup(u => RouteForServer(u, seen, AsmoSearchJson), () => 0);
+
+        Assert.NotNull(lookup.LookupBlocking("Waffle", 2003, null));
+        Assert.Single(seen);
+        Assert.Contains("race=2", seen[0]);
+    }
+
+    [Fact]
+    public void The_search_never_sends_an_empty_race()
+    {
+        // 빈 값·생략·0 은 서버가 HTTP 400 {"code":"race invalid"} 로 거절한다 — 그 400 이 체인 1단계를 죽여
+        // 파티 신청 배지가 100% 사라졌던 회귀다.
+        var seen = new List<string>();
+        var lookup = new OfficialCharacterLookup(u => RouteForServer(u, seen, ElyosSearchJson), () => 0);
+
+        lookup.LookupBlocking("Waffle", 1018, null);
+
+        Assert.All(seen, u => Assert.DoesNotContain("race=&", u));
+        Assert.All(seen, u => Assert.False(u.EndsWith("race=", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void An_unknown_server_range_falls_back_to_trying_both_races()
+    {
+        // 진영은 둘뿐이므로, 미래에 새 대역(3xxx)이 생겨도 배지가 사라지지는 않게 둔다.
+        var seen = new List<string>();
+        var lookup = new OfficialCharacterLookup(u => RouteStrictRace(u, seen, "2"), () => 0);
+
+        Assert.NotNull(lookup.LookupBlocking("Waffle", 3, null));
+        Assert.Equal(2, seen.Count);
+        Assert.Contains("race=1", seen[0]);
+        Assert.Contains("race=2", seen[1]);
+    }
+
     private static string Route(string url)
     {
         if (url.Contains("/api/search/character"))
@@ -147,9 +238,9 @@ public sealed class OfficialCharacterLookupTests
 
         var lookup = new OfficialCharacterLookup(Empty, clock: () => 0);
 
-        Assert.Null(lookup.LookupBlocking("Ghost", 3, null));
+        Assert.Null(lookup.LookupBlocking("Ghost", 1018, null));
         Assert.Equal(1, calls); // only the search call; no equipment/info
-        Assert.Null(lookup.LookupBlocking("Ghost", 3, null));
+        Assert.Null(lookup.LookupBlocking("Ghost", 1018, null));
         Assert.Equal(1, calls); // miss cached -> no new HTTP
     }
 
