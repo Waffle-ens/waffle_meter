@@ -11,9 +11,14 @@ namespace WaffleMeter.Data;
 /// room, automatch — and reporting a range still beats reporting a guess: pooling a 4 with a 16 distorts a
 /// percentile badly (the boss has 2.2x the HP), but so would filing a run under the wrong level.</para>
 /// </summary>
-public readonly record struct TrialDifficulty(int? Timelimit, int? Rebirthlimit, int? BossBuff, int? SkillUpgrade)
+public readonly record struct TrialDifficulty(
+    int? Timelimit, int? Rebirthlimit, int? BossBuff, int? SkillUpgrade, int MapId = TrialDungeonAxes.BakronIslandMapId)
 {
     private int[] Levels => [Timelimit ?? 0, Rebirthlimit ?? 0, BossBuff ?? 0, SkillUpgrade ?? 0];
+
+    /// <summary>This run's per-axis ceilings. 바크론 is the default so every existing construction site and
+    /// test keeps its exact meaning.</summary>
+    private int[] AxisMax => TrialDungeonAxes.For(MapId);
 
     /// <summary>How many of the four knobs are known.</summary>
     public int KnownCount => Levels.Count(l => l > 0);
@@ -27,8 +32,26 @@ public readonly record struct TrialDifficulty(int? Timelimit, int? Rebirthlimit,
     /// <summary>Lowest displayed level consistent with what is known (unknown knobs assumed 1).</summary>
     public int LevelMin => Levels.Sum(l => l > 0 ? l : 1);
 
-    /// <summary>Highest displayed level consistent with what is known (unknown knobs assumed 4).</summary>
-    public int LevelMax => Levels.Sum(l => l > 0 ? l : 4);
+    /// <summary>Highest displayed level consistent with what is known (unknown knobs assumed at their
+    /// ceiling).
+    /// <para>⚠️ The ceiling is per-axis, not a flat 4. 불의 신전's knobs top out at 3/3/8/2, so an unread
+    /// 보스 강화 there widens the range by 7 where 바크론 widens it by 3 — a range label from one dungeon
+    /// says nothing about how coarse the other's is.</para></summary>
+    public int LevelMax
+    {
+        get
+        {
+            int[] max = AxisMax;
+            int[] levels = Levels;
+            int sum = 0;
+            for (int i = 0; i < levels.Length; i++)
+            {
+                sum += levels[i] > 0 ? levels[i] : max[i];
+            }
+
+            return sum;
+        }
+    }
 
     /// <summary>"시련 16단계" when the level is pinned, "시련 13~16단계" while it isn't, "" when this is not
     /// a trial run at all.</summary>
@@ -46,8 +69,13 @@ public readonly record struct TrialDifficulty(int? Timelimit, int? Rebirthlimit,
     /// the one older builds could evaluate, and widening it would silently retire every run they can still
     /// file. Ask <see cref="IsTop16Difficulty"/> when you mean the number on the screen.</para>
     /// </summary>
+    /// <para>⚠️ "4" became "this axis's ceiling" when 불의 신전 arrived with 3/3/8/2. For 바크론 the two
+    /// read identically, so no shipped run changes verdict; what it does NOT do is widen the predicate —
+    /// 부활 제한 is still excluded.</para>
     public bool IsTopDifficulty =>
-        Timelimit == 4 && BossBuff == 4 && SkillUpgrade == 4;
+        Timelimit == AxisMax[(int)TrialAffixGroup.Timelimit]
+        && BossBuff == AxisMax[(int)TrialAffixGroup.BossBuff]
+        && SkillUpgrade == AxisMax[(int)TrialAffixGroup.BakronSkillUpgrade];
 
     /// <summary>
     /// 16단계 — all four knobs at 4, i.e. the level the screen shows.
@@ -60,7 +88,51 @@ public readonly record struct TrialDifficulty(int? Timelimit, int? Rebirthlimit,
     /// formality.</para>
     /// </summary>
     public bool IsTop16Difficulty =>
-        IsTopDifficulty && Rebirthlimit == 4;
+        IsTopDifficulty && Rebirthlimit == AxisMax[(int)TrialAffixGroup.Rebirthlimit];
+}
+
+/// <summary>
+/// Per-dungeon affix ceilings. Every 시련 shows the SUM of four knobs and every one of them runs 4~16, but
+/// the knobs do not divide the range the same way: 바크론 is 4/4/4/4 while 불의 신전 is 3/3/8/2 (confirmed
+/// against <c>DungeonTrial.dat</c> and cross-checked by the l10n achievement "보스 강화 특성을 8단계로 클리어").
+/// <para>🔴 <b>ADD rows here; never edit one.</b> A dungeon's ceilings decide what
+/// <see cref="TrialDifficulty.IsTopDifficulty"/> promises for every build already in the wild, and the
+/// statistics site keys its comparability gate off the same numbers. Changing 바크론's row would silently
+/// re-file runs that shipped builds can still upload; adding a row cannot.</para>
+/// <para>The four slots are positional — the wire (<c>0x9702</c> tail <c>_affix_list</c>) carries an array,
+/// never an axis name. Slot 3 is "the fourth knob", which is 바크론 패턴 강화 in one dungeon and
+/// <c>Pc_debuff_1</c> in the other; the payload keeps calling it <c>skillUpgrade</c> because the name is a
+/// slot label, not a claim about meaning. Axis identity is a function of (map, slot) and the web derives it
+/// from the map id.</para>
+/// </summary>
+public static class TrialDungeonAxes
+{
+    /// <summary>바크론의 공중섬 시련.</summary>
+    public const int BakronIslandMapId = 600074;
+
+    /// <summary>불의 신전 시련 (2026-09-23, client 112). ⚠️ 600025, NOT 600024 — the dungeon's
+    /// 탐험/보통/어려움 are 600021/22/23 and the trial skips a number.</summary>
+    public const int FireTempleMapId = 600025;
+
+    private static readonly int[] BakronMax = [4, 4, 4, 4];
+    private static readonly int[] FireTempleMax = [3, 3, 8, 2];
+
+    /// <summary>True when this map is a 시련 whose knobs the meter knows how to read.</summary>
+    public static bool IsTrialMap(int mapId) =>
+        mapId == BakronIslandMapId || mapId == FireTempleMapId;
+
+    /// <summary>The map's per-axis ceilings, in <see cref="TrialAffixGroup"/> order. Unknown maps fall back
+    /// to 바크론's so a caller that skipped <see cref="IsTrialMap"/> degrades to the old behaviour rather
+    /// than throwing.</summary>
+    public static int[] For(int mapId) =>
+        mapId == FireTempleMapId ? FireTempleMax : BakronMax;
+
+    /// <summary>The ceiling for one axis, or 0 when the axis index is out of range.</summary>
+    public static int Max(int mapId, int axis)
+    {
+        int[] m = For(mapId);
+        return axis >= 0 && axis < m.Length ? m[axis] : 0;
+    }
 }
 
 /// <summary>
@@ -71,9 +143,9 @@ public readonly record struct TrialDifficulty(int? Timelimit, int? Rebirthlimit,
 /// </summary>
 public sealed class TrialDifficultyTracker
 {
-    /// <summary>The trial's map. The affix abnormals only ever appear here, but the phase window arrives for
-    /// every dungeon, so that path has to be scoped explicitly.</summary>
-    public const int TrialMapId = 600074;
+    /// <summary>바크론's map, kept under its original name for callers that predate the second trial.
+    /// Ask <see cref="TrialDungeonAxes.IsTrialMap"/> when you mean "is this a 시련".</summary>
+    public const int TrialMapId = TrialDungeonAxes.BakronIslandMapId;
 
     /// <summary>The instance phase whose window IS the 제한 시간 setting. Phases 3/4 are short transitions
     /// (measured ~10 s) and must not be mistaken for it.</summary>
@@ -82,6 +154,10 @@ public sealed class TrialDifficultyTracker
     private readonly object _gate = new();
     private readonly int?[] _levels = new int?[TrialAffixCatalog.GroupCount];
     private long _runStartMs;
+
+    /// <summary>Which 시련 the held knobs belong to. Decides their ceilings, so it has to travel with them —
+    /// a 3 means "top" in 불의 신전's 제한 시간 and "not top" in 바크론's.</summary>
+    private int _mapId = TrialDungeonAxes.BakronIslandMapId;
 
     /// <summary>어픽스를 실어 온 방. <b>이것이 런 토큰이다.</b> 런마다 반드시 새 key 가 발급되고(실측 9/9:
     /// 07-23 384095/384441/384766/385001, 08-05 132887/133388/133923) 같은 방에서 재풀하면 유지된다.</summary>
@@ -100,7 +176,7 @@ public sealed class TrialDifficultyTracker
             return;
         }
 
-        if (dungeonId != TrialMapId)
+        if (!TrialDungeonAxes.IsTrialMap(dungeonId))
         {
             // 시련이 아닌 방 정보를 받았다 = 그 사이 다른 컨텐츠를 잡았다는 뜻이고, 들고 있던 어픽스는
             // 지난 런 것이다. 맵 전환 Reset 과 같은 이유다.
@@ -110,15 +186,22 @@ public sealed class TrialDifficultyTracker
 
         lock (_gate)
         {
-            if (roomKey != _roomKey)
+            if (roomKey != _roomKey || dungeonId != _mapId)
             {
+                // 던전이 바뀌면 방 key 가 같아도 지운다 — 축 상한이 달라서 이전 런의 값을 새 던전의
+                // 자로 재면 엉뚱한 단계가 나온다.
                 Array.Clear(_levels);
                 _roomKey = roomKey;
             }
 
+            _mapId = dungeonId;
+
             for (int i = 0; i < TrialAffixCatalog.GroupCount; i++)
             {
-                if (levels[i] >= 1 && levels[i] <= 4)
+                // ⚠️ 상한은 던전별이다. 종전의 고정 `<= 4` 는 불의 신전의 보스 강화 5~8 을 **조용히
+                // 버렸다** — 그 던전에서 16단계는 보스 강화 8 이므로, 정확히 최상위 런만 통째로
+                // 미기록되는 형태로 틀린다.
+                if (levels[i] >= 1 && levels[i] <= TrialDungeonAxes.Max(dungeonId, i))
                 {
                     _levels[i] = levels[i];
                 }
@@ -128,13 +211,19 @@ public sealed class TrialDifficultyTracker
 
     public void Observe(TrialAffixGroup group, int level)
     {
-        if (level < 1 || level > 4)
+        if (level < 1)
         {
             return;
         }
 
         lock (_gate)
         {
+            // 상한 검사는 락 안에서 한다 — 어느 던전의 자로 재는지가 _mapId 에 달렸다.
+            if (level > TrialDungeonAxes.Max(_mapId, (int)group))
+            {
+                return;
+            }
+
             _levels[(int)group] = level;
         }
     }
@@ -150,7 +239,7 @@ public sealed class TrialDifficultyTracker
             return;
         }
 
-        if (mapId != TrialMapId)
+        if (!TrialDungeonAxes.IsTrialMap(mapId))
         {
             // A phase window for ANOTHER map is proof the trial is over, and it is the only such proof the
             // meter gets — there is no "you left the instance" packet. Until 2026-08-11 this method returned
@@ -187,6 +276,16 @@ public sealed class TrialDifficultyTracker
             }
 
             _runStartMs = startMs;
+            _mapId = mapId;
+        }
+
+        // ⚠️ 초 → 단계 환산표(1800/1200/900/600)는 바크론에서 실측한 것이고, 불의 신전의 제한 시간은
+        // 축 상한이 3이라 같은 표일 수 없다. 모르는 표로 환산하느니 이 축은 비워 둔다 — 불의 신전은
+        // 방 스냅샷이 네 축을 다 실어 오므로(_affix_list) 이 경로 없이도 점값이 나온다.
+        // 환산표를 실측하면 여기 던전별로 갈라 붙일 것.
+        if (mapId != TrialDungeonAxes.BakronIslandMapId)
+        {
+            return;
         }
 
         int level = TrialAffixCatalog.TimelimitLevelForSeconds(windowMs / 1000);
@@ -206,7 +305,8 @@ public sealed class TrialDifficultyTracker
                     Timelimit: _levels[(int)TrialAffixGroup.Timelimit],
                     Rebirthlimit: _levels[(int)TrialAffixGroup.Rebirthlimit],
                     BossBuff: _levels[(int)TrialAffixGroup.BossBuff],
-                    SkillUpgrade: _levels[(int)TrialAffixGroup.BakronSkillUpgrade]);
+                    SkillUpgrade: _levels[(int)TrialAffixGroup.BakronSkillUpgrade],
+                    MapId: _mapId);
             }
         }
     }
@@ -218,6 +318,7 @@ public sealed class TrialDifficultyTracker
             Array.Clear(_levels);
             _runStartMs = 0;
             _roomKey = 0;
+            _mapId = TrialDungeonAxes.BakronIslandMapId;
         }
     }
 }
