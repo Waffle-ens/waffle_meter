@@ -190,10 +190,12 @@ public sealed record StatsEncounterPayload(
     StatsTrialDifficultyPayload? Trial = null);
 
 /// <summary>
-/// The 시련 난이도 for a trial run. Sent only for 시련: 바크론의 공중섬, where every level 4~16 shares one
-/// dungeonId and one set of boss mobCodes — so unlike every other dungeon, the encounter identity alone does
-/// NOT say which fight this was.
-/// <para>The party sets four knobs, each 1~4, and the game shows their sum. Three are readable today, so
+/// The 시련 난이도 for a trial run. Sent for any 시련 — 바크론의 공중섬 and, since client 112, 불의 신전 —
+/// where every level 4~16 shares one dungeonId and one set of boss mobCodes, so unlike every other dungeon
+/// the encounter identity alone does NOT say which fight this was.
+/// <para>The party sets four knobs and the game shows their sum. ⚠️ The knobs do NOT share one ceiling:
+/// 바크론 is 4/4/4/4 while 불의 신전 is 3/3/8/2 (see <c>TrialDungeonAxes</c>), so a knob value means nothing
+/// until you know which dungeon sent it — the site reads that off the boss mobCode. Three are readable today, so
 /// <see cref="Level"/> is null more often than not and <see cref="LevelMin"/>/<see cref="LevelMax"/> bound
 /// it instead. <see cref="BossBuff"/> is the one that matters for a DPS percentile — it alone scales the
 /// boss (max HP x1.0/1.3/1.7/2.2) — so it is worth bucketing on even while the total is uncertain.</para>
