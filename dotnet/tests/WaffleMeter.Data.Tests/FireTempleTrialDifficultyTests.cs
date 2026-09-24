@@ -98,6 +98,24 @@ public sealed class FireTempleTrialDifficultyTests
         Assert.Equal(16, bakron.LevelMax);
     }
 
+    /// <summary>The web's schema rejects the WHOLE report when levelMax &gt; 16. Widening an unread 불의 신전 axis
+    /// by 바크론's +3 would turn a 16단계 run with 부활 제한 unread into 14~17 — a permanent loss, not a
+    /// coarse label.</summary>
+    [Theory]
+    [InlineData(0, 14)]   // 제한 시간 unread: 1+3+8+2
+    [InlineData(1, 14)]   // 부활 제한 unread
+    [InlineData(2, 9)]    // 보스 강화 unread: 3+3+1+2
+    [InlineData(3, 15)]   // Pc_debuff_1 unread
+    public void A_fire_temple_sixteen_with_one_axis_unread_never_ranges_past_sixteen(int unread, int min)
+    {
+        int?[] k = [3, 3, 8, 2];
+        k[unread] = null;
+        TrialDifficulty fire = new(k[0], k[1], k[2], k[3], FireTemple);
+
+        Assert.Equal(min, fire.LevelMin);
+        Assert.Equal(16, fire.LevelMax);
+    }
+
     [Fact]
     public void Bakron_rejects_a_boss_buff_that_only_fire_temple_allows()
     {
