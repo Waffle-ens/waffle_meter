@@ -1241,7 +1241,8 @@ public sealed class StreamProcessor
     /// preview. A full snapshot, so it REPLACES the roster.</summary>
     /// <summary>
     /// 0x9702 방 스냅샷의 <b>꼬리</b>에 실린 시련 난이도 어픽스. 본문 끝 = <c>[count u8][affix i32 LE × n][_reason u8]</c>
-    /// 이고 값은 <c>축번호*10 + 레벨</c>(축 0=제한시간 1=부활제한 2=보스강화 3=바크론패턴, 레벨 1~4).
+    /// 이고 값은 <c>DungeonTrialAffix.dat</c> 의 ID 다 — 바크론은 우연히 <c>축번호*10 + 레벨</c> 모양이지만 불의 신전은
+    /// 아니다. 해석은 <see cref="TrialAffixCatalog.TryDecodeAffixQuad"/> 의 ID 표가 한다.
     ///
     /// <para>🔴 <b>반드시 프레임 끝에서 역으로 앵커한다.</b> 앞에서 오프셋을 누적하면 가변 길이 멤버 배열에서
     /// 깨진다 — 실측으로 7월 비시련 꼬리는 <c>…01|00|reason</c> 인데 9월엔 <c>…01|XX|00|reason</c> 으로
