@@ -94,6 +94,19 @@ public sealed class OverlayController
     /// until the settings window was opened.</para></summary>
     public bool CompanionBaseShown { get; private set; } = true;
 
+    /// <summary>
+    /// 게임 포그라운드 축<b>만</b> 본 "오버레이를 띄워도 되는가" — 트레이 숨김(<see cref="IsVisible"/>)도,
+    /// 전역 '오버레이 유지'(<see cref="KeepOverlayWhenHidden"/>)도 섞지 않은 값이다. 자기 유지 토글을 따로 가진
+    /// 창(메모)이 "미터를 숨겨도 남되 게임이 비활성이면 숨는다"를 직접 조합할 때 읽는다.
+    /// <para>왜 기존 값으로는 안 되나: <see cref="CompanionBaseShown"/> 은 트레이 숨김 중에 전역 유지 토글을
+    /// 이미 품고 있고(그 토글이 꺼져 있으면 게임이 활성이어도 false), <see cref="MeterShown"/> 은 기동 유예
+    /// 경로에서 갱신되지 않는다.</para>
+    /// <para>값은 각 분기가 실제로 내리는 판단을 그대로 옮긴다: 항상 표시 모드·기동 유예·게임/우리 창 포그라운드
+    /// = true, 다른 앱 포그라운드 = 미터와 같은 유예(약 0.9초) 뒤 false, 판정 불가 = 직전 값 유지. 트레이 숨김
+    /// 중에는 컴패니언과 같은 규칙(다른 앱이 포그라운드일 때만 false)을 쓴다.</para>
+    /// </summary>
+    public bool OverlayForegroundOk { get; private set; } = true;
+
     // Companion overlay (the combat-assist buff overlay): presented/parked in exact lockstep with the meter
     // window, gated by its enabled predicate — so when the toggle is on it is ALWAYS shown whenever the meter
     // is, and never disappears on its own. Edge-tracked so a steady state doesn't re-issue SetWindowPos.
@@ -241,6 +254,7 @@ public sealed class OverlayController
             }
 
             _parkPending = 0;
+            OverlayForegroundOk = true;
             PresentMeter();                    // un-fade if auto-hidden, then...
             _window.ReassertTopmostIfBuried(); // ...re-claim above the topmost the game just re-asserted
             ReassertOverlaysIfBuried();
@@ -392,12 +406,14 @@ public sealed class OverlayController
             // 이 한 줄이 "미터를 숨겨도 오버레이 유지" 의 전부다 — 버프 오버레이(CompanionShown)와 쿨타임
             // 오버레이(CompanionBaseShown)가 둘 다 SyncCompanion 이 세우는 값을 읽으므로 함께 따라온다.
             bool companionShow = KeepOverlayWhenHidden && (!IsAutoHide || fg != Foreground.Other);
+            OverlayForegroundOk = !IsAutoHide || fg != Foreground.Other; // 위 줄에서 전역 유지 토글만 뺀 것
             SyncCompanion(companionShow);
             return; // parked/hidden owns the METER's visibility while hidden
         }
 
         if (!IsAutoHide)
         {
+            OverlayForegroundOk = true;
             MeterShown = true;
             ParkAnimations(false);
             // "항상 표시": hold HWND_TOPMOST regardless of foreground. (The old Present(fg == Aion) demoted to
@@ -429,6 +445,7 @@ public sealed class OverlayController
                 // 등록되기 때문이다. 본체가 SetParked(false) 로 자기 호스트를 세워 주지 않으면 전부 hidden 이
                 // 되어, 게임을 처음 포커스할 때까지 닉네임 연출이 얼어붙는다 — 분리모드를 안 쓰는 사람도.
                 ParkAnimations(false);
+                OverlayForegroundOk = true; // 기동 유예: 미터가 떠 있으니 같이 뜬다
                 SyncCompanion(true);
                 return;
             }
@@ -438,6 +455,7 @@ public sealed class OverlayController
         {
             case Foreground.Aion:
                 _parkPending = 0;
+                OverlayForegroundOk = true;
                 MeterShown = true;
                 ParkAnimations(false);
                 PresentMeter();
@@ -450,6 +468,7 @@ public sealed class OverlayController
                 // shown and topmost — do NOT demote. The old Present(false) demotion was a reclaim-race source;
                 // owned dialogs (Owner = meter) already render above the topmost meter, so nothing is covered.
                 _parkPending = 0;
+                OverlayForegroundOk = true;
                 MeterShown = true;
                 ParkAnimations(false);
                 PresentMeter();
@@ -467,6 +486,7 @@ public sealed class OverlayController
                 // overlay, and re-issue the fade only ONCE when the grace elapses (Fade is itself idempotent).
                 if (_parkPending < ParkGraceTicks && ++_parkPending == ParkGraceTicks)
                 {
+                    OverlayForegroundOk = false;
                     MeterShown = false;
                     FadeMeter();
                     ParkAnimations(true);

@@ -44,6 +44,8 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
     private bool? _presentedTopMost; // last applied present state; null = parked -> ReassertTopmostIfBuried no-ops
     private bool _faded;             // auto-hidden (opacity 0) but STILL topmost — mirrors OverlayWindow.Fade
     private bool _clickThrough;      // user click-through: input passes through even while presented
+    private bool _hitPeek;           // 잠긴(클릭 통과) 창을 잠깐 눌리게 하는 '엿보기' — 메모의 Ctrl+잠금 버튼
+    private bool _activatable;       // 이 창만 NOACTIVATE 를 잠시 내린다 — 메모의 오버레이 안 편집 모드
 
     /// <summary>Raised after a drag completes with the new Left/Top (App persists it).</summary>
     public event Action<double, double>? PositionChanged;
@@ -85,9 +87,16 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
 
         int current = GetWindowLong(_handle, GwlExStyle);
         int baseStyle = (current | WsExToolWindow | WsExLayered | WsExNoActivate) & ~WsExAppWindow;
+        if (_activatable)
+        {
+            // 편집 모드인 동안만. 기본값(false)이면 위 줄 그대로라 다른 패널은 바이트 단위로 같다.
+            baseStyle &= ~WsExNoActivate;
+        }
+
         // Click-through while the user enabled it, OR while faded (invisible-but-topmost must let clicks fall
-        // through its footprint) — mirrors OverlayWindow.SyncInputStyle.
-        bool transparent = _clickThrough || _faded;
+        // through its footprint) — mirrors OverlayWindow.SyncInputStyle. The hit-test peek lifts only the USER
+        // click-through, never the faded one: an invisible window must never start eating clicks.
+        bool transparent = (_clickThrough && !_hitPeek) || _faded;
         int next = transparent ? baseStyle | WsExTransparent : baseStyle & ~WsExTransparent;
         if (next == current)
         {
@@ -107,6 +116,41 @@ public abstract class OverlayPanelWindow : Window, IReassertableOverlay
         }
 
         _clickThrough = enable;
+        SyncInputStyle();
+    }
+
+    /// <summary>
+    /// 클릭 통과로 잠긴 창을 <b>잠깐</b> 눌리게 한다(엿보기). 통과 창(WS_EX_TRANSPARENT)에는 WM_LBUTTONDOWN 자체가
+    /// 오지 않으므로, 잠긴 창 위의 무언가를 누르게 하려면 클릭 <b>전에</b> 통과를 걷어야 한다. 메모가 Ctrl 을
+    /// 쥔 채 잠금 버튼 위에 커서가 있을 때만 켠다. 기본값 false 라 이걸 부르지 않는 패널은 영향이 없다.
+    /// <see cref="Fade"/> 로 내려간 창은 엿보기와 무관하게 계속 통과한다.
+    /// </summary>
+    public void SetHitTestPeek(bool peek)
+    {
+        if (_hitPeek == peek)
+        {
+            return;
+        }
+
+        _hitPeek = peek;
+        SyncInputStyle();
+    }
+
+    /// <summary>
+    /// 이 창만 WS_EX_NOACTIVATE 를 내리거나(true) 되돌린다(false). 오버레이 안에서 글자를 입력받으려면 창이
+    /// 활성화돼 키보드 포커스와 IME 를 받아야 하는데, NOACTIVATE 창은 둘 다 못 받는다.
+    /// <para>⚠️ 켜 둔 동안 이 창이 포그라운드가 되면 게임은 배경이 되어 FPS 가 떨어진다(overlay-fps-noactivate
+    /// 가 고친 그 증상). 그래서 편집하는 동안에만 켜고 끝나면 반드시 끈다. WndProc 의 WM_ACTIVATE 재적용도
+    /// 이 값을 따른다.</para>
+    /// </summary>
+    protected void SetActivatable(bool activatable)
+    {
+        if (_activatable == activatable)
+        {
+            return;
+        }
+
+        _activatable = activatable;
         SyncInputStyle();
     }
 
