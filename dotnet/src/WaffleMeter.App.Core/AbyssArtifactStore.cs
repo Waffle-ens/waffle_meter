@@ -34,6 +34,15 @@ public readonly record struct AbyssArtifactZoneState(
     }
 }
 
+/// <summary>A 점령 주기 window exactly as the server stated it in 0xE305/0xE307 — <b>whether or not it has ended</b>.
+/// <para>That last part is the point. <see cref="AbyssArtifactZoneState.IsCurrent"/> drops a window the instant
+/// its end passes, which is right for "who holds what" and useless for "when did the war start": the moment the
+/// war begins is precisely the moment that filter goes silent. See <see cref="ArtifactWarSchedule"/>.</para></summary>
+/// <param name="StartMs">When that occupation settled — the previous war's end, per zone, seconds apart.</param>
+/// <param name="EndMs">When the NEXT 점령전 starts on that server (its own R). Measured 2026-10-07 on server 2003:
+/// Wed 21:20:00 KST, round to the minute and identical for both zones, like every frame before it.</param>
+public readonly record struct AbyssArtifactWindow(long StartMs, long EndMs);
+
 /// <summary>
 /// Remembers the 어비스 아티팩트 점령 현황 — who holds what, per server — plus how many artifacts the local
 /// characters' own side holds, which is the only thing that says WHICH of the broadcast's two slots is ours.
@@ -149,8 +158,20 @@ public sealed class AbyssArtifactStore
         return new AbyssArtifactStore(ownership, counts);
     }
 
+    /// <summary>How much newer a repeat of the SAME answer must be before it moves the stored stamp. The stamp is
+    /// what <see cref="LatestObservedServer"/> reads, so it has to follow the player from server to server; but
+    /// the broadcast repeats verbatim on every world-map open and every rewrite is a synchronous settings-file
+    /// save. Ten minutes keeps "which server was heard last" right for anything but a switch to another server
+    /// and back inside ten minutes, at no more than one save per zone per ten minutes.
+    /// <para>Before this, a repeated answer never moved the stamp at all, so "last observed" really meant "last
+    /// CHANGED" — the server played every day lost to one visited once since its occupation last changed, and a
+    /// meter started before the game timed the 아티쟁 alarm off the wrong server's war (review 2026-10-07).</para></summary>
+    public const long ObservedRefreshMs = 10 * 60_000L;
+
     /// <summary>File one zone's 점령 현황 for a server. Returns false when nothing changed, so the caller can
-    /// skip re-serializing — the broadcast repeats on every world-map open.</summary>
+    /// skip re-serializing — the broadcast repeats on every world-map open. A repeat of the same answer counts as
+    /// a change only once it is <see cref="ObservedRefreshMs"/> newer than the stored stamp, which it then
+    /// moves.</summary>
     public bool UpsertOwnership(
         int serverId,
         int zoneId,
@@ -208,9 +229,10 @@ public sealed class AbyssArtifactStore
         if (existing.ZoneId == zoneId
             && existing.CycleStartMs == cycleStartMs
             && existing.CycleEndMs == cycleEndMs
-            && existing.Owners.SequenceEqual(owners))
+            && existing.Owners.SequenceEqual(owners)
+            && observedAtMs - existing.ObservedAtMs < ObservedRefreshMs)
         {
-            return false; // same answer, same cycle — only the stamp would move
+            return false; // same answer, same cycle — only the stamp would move, and not far enough to matter
         }
 
         forServer[zoneId] = updated;
@@ -397,6 +419,96 @@ public sealed class AbyssArtifactStore
 
         return start;
     }
+
+    /// <summary>How far ahead of now a window's start may sit and still be believed — the same hour the corridor
+    /// store allows its own stamps (<see cref="AbyssCorridorCycle.FutureSlackMs"/>). A settle cannot really lie in
+    /// the future; one that does is a PC clock running behind the server, or a hand-edited file, and taken at face
+    /// value it would date every real record as "before this cycle".</summary>
+    public const long WindowFutureSlackMs = AbyssCorridorCycle.FutureSlackMs;
+
+    /// <summary>How long after its end a window is still read at all. Two weeks — the in-game guide's 서버 매칭
+    /// 변경 period — after which the server's matchup, and with it its war time, may well have moved, so the
+    /// stored window stops answering and callers fall back to whatever they did without one.</summary>
+    public const long WindowStaleAfterMs = 14L * 24 * 60 * 60 * 1000;
+
+    /// <summary>The newest 점령 주기 window on file for this server, <b>expired or not</b>, or null when none
+    /// is usable. Unlike <see cref="Zones"/> this does not filter on <see cref="AbyssArtifactZoneState.IsCurrent"/>
+    /// — a window whose end has passed is exactly the one that says the war has started.
+    /// <para>The newest cycle is the zones carrying the latest end; its start is the EARLIEST of their settles,
+    /// because the two zones settle seconds to minutes apart (21:37:57 / 21:41:42 on 2026-10-03) and a reading
+    /// taken between them already belongs to the new cycle. A zone still carrying the previous cycle — only the
+    /// other zone's 0xE305 has arrived since — is left out rather than dragging the start back a whole cycle.</para>
+    /// <para>Implausible zones are skipped, never trusted: a start more than <see cref="WindowFutureSlackMs"/>
+    /// ahead of now, an end older than <see cref="WindowStaleAfterMs"/>, or an end not after its start.</para></summary>
+    public AbyssArtifactWindow? LatestWindow(int serverId, long nowMs)
+    {
+        if (!_ownership.TryGetValue(serverId, out Dictionary<int, AbyssArtifactZoneState>? forServer))
+        {
+            return null;
+        }
+
+        long end = 0;
+        foreach (AbyssArtifactZoneState zone in forServer.Values)
+        {
+            if (IsUsableWindow(zone, nowMs))
+            {
+                end = Math.Max(end, zone.CycleEndMs);
+            }
+        }
+
+        if (end == 0)
+        {
+            return null;
+        }
+
+        long start = 0;
+        foreach (AbyssArtifactZoneState zone in forServer.Values)
+        {
+            if (IsUsableWindow(zone, nowMs) && zone.CycleEndMs == end)
+            {
+                start = start == 0 ? zone.CycleStartMs : Math.Min(start, zone.CycleStartMs);
+            }
+        }
+
+        return new AbyssArtifactWindow(start, end);
+    }
+
+    /// <summary>One zone's own window on file for this server, expired or not, or null — the per-zone twin of
+    /// <see cref="LatestWindow(int,long)"/>, under the same plausibility rules.</summary>
+    public AbyssArtifactWindow? LatestWindow(int serverId, int zoneId, long nowMs) =>
+        _ownership.TryGetValue(serverId, out Dictionary<int, AbyssArtifactZoneState>? forServer)
+        && forServer.TryGetValue(zoneId, out AbyssArtifactZoneState zone)
+        && IsUsableWindow(zone, nowMs)
+            ? new AbyssArtifactWindow(zone.CycleStartMs, zone.CycleEndMs)
+            : null;
+
+    /// <summary>The server whose 점령 현황 was heard most recently — changed or merely repeated, to within
+    /// <see cref="ObservedRefreshMs"/> — or 0 when nothing is on file. What answers "which server" before any
+    /// character has been identified this session — the meter usually starts before the game does.</summary>
+    public int LatestObservedServer()
+    {
+        int best = 0;
+        long bestAt = 0;
+        foreach ((int serverId, Dictionary<int, AbyssArtifactZoneState> forServer) in _ownership.OrderBy(kv => kv.Key))
+        {
+            foreach (AbyssArtifactZoneState zone in forServer.Values)
+            {
+                if (zone.ObservedAtMs > bestAt)
+                {
+                    bestAt = zone.ObservedAtMs;
+                    best = serverId;
+                }
+            }
+        }
+
+        return best;
+    }
+
+    private static bool IsUsableWindow(AbyssArtifactZoneState zone, long nowMs) =>
+        zone.CycleStartMs > 0
+        && zone.CycleEndMs > zone.CycleStartMs
+        && zone.CycleStartMs <= nowMs + WindowFutureSlackMs
+        && zone.CycleEndMs >= nowMs - WindowStaleAfterMs;
 
     /// <summary>Drop every count row for the given characters. Wired to the panel's per-row ✕ and the startup
     /// purge, the same as the other per-character stores. Server ownership is not per character and stays.</summary>

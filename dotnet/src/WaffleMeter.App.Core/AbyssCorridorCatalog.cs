@@ -155,13 +155,24 @@ public static class AbyssCorridorCatalog
 }
 
 /// <summary>
-/// The 점령 cycle a corridor's 이용 시간 belongs to. The client has NO recharge schedule for these tickets —
+/// The 점령 cycle a corridor's 이용 시간 belongs to, <b>for a server whose own 점령 window the meter has not
+/// heard</b>. The client has NO recharge schedule for these tickets —
 /// every daily/weekly/time field on all twelve rows is zero, and <c>CurrencyLimitSchedule</c> (which lists the
 /// Wednesday 05:00 resets for party dungeons and 어비스 포인트) has no corridor category at all. The server
 /// simply hands the time out when the artifact is captured, and the in-game guide says the state "다음 점령전
 /// 이전 또는 서버 매칭 변경 전까지 유지됩니다".
 ///
-/// <para><b>The 점령전 timetable, Wednesday and Saturday (KST).</b>
+/// <para><b>⚠️ Since 2026-10-07 this clock is the FALLBACK, not the boundary.</b> The 09-30 patch staggered
+/// the war by server group — 21:20 / 21:50 / 22:20 (owner report; server 2003's E307 measured end = Wed
+/// 21:20:00, and the live client's <c>EventSchedule</c> 3001/3002 now read 21:20) — so no single Wed/Sat clock
+/// can be every server's boundary. The 22:20 below fitted at most one group: on a 21:20 server it kept the lost
+/// occupation on screen until 22:25, and at 22:25 it retired that evening's fresh readings as "last cycle's".
+/// Wherever the server's own window is on file (<see cref="AbyssArtifactStore.LatestWindow(int,long)"/>),
+/// <see cref="ArtifactWarSchedule"/> supplies the boundary and nothing here is consulted. Everything below
+/// describes the pre-patch timetable this fallback was built on, and it is kept exactly as it was so that a
+/// server with no window — an alt's server, a fresh install — behaves as it always did.</para>
+///
+/// <para><b>The 점령전 timetable, Wednesday and Saturday (KST) — pre-2026-09-30.</b>
 /// <list type="bullet">
 /// <item><b>22:00</b> — the war starts. MEASURED, not reported: <c>EventSchedule</c> rows 3001
 /// (<c>abyss_ar1_artifactwar</c>) and 3002 (<c>abyss_ar2_artifactwar</c>) each carry
@@ -213,8 +224,9 @@ public static class AbyssCorridorCycle
 {
     private static readonly TimeSpan Kst = TimeSpan.FromHours(9);
 
-    /// <summary>When capturing starts and the new holders begin to be broadcast. A reading stamped at or after
-    /// this describes the CURRENT cycle by construction.</summary>
+    /// <summary>When capturing starts and the new holders begin to be broadcast — under the pre-patch timetable,
+    /// i.e. for the no-window fallback only (see the class doc). A reading stamped at or after this describes the
+    /// CURRENT cycle by construction there; on a server whose war now starts at 21:20 it does not.</summary>
     public const int OccupationStartHour = 22;
     public const int OccupationStartMinute = 20;
 
@@ -273,6 +285,21 @@ public static class AbyssCorridorCycle
     /// cannot have happened (see <see cref="FutureSlackMs"/>).</summary>
     public static bool IsWithin(long savedAtMs, long boundary, long nowMs) =>
         boundary > 0 && savedAtMs >= boundary && savedAtMs <= nowMs + FutureSlackMs;
+
+    /// <summary>The most recent Wednesday or Saturday at or before <paramref name="atMs"/> at the KST time of
+    /// day <paramref name="anchorMs"/> falls on, as Unix ms, or 0 for an unusable timestamp. The same war-day
+    /// calendar as the clock above, carrying a server's OWN war time instead of 22:20 — see
+    /// <see cref="ArtifactWarSchedule.CorridorBoundaryMs(AbyssArtifactWindow?,long)"/>.</summary>
+    public static long LastWarDayAtSameTimeAtOrBefore(long anchorMs, long atMs)
+    {
+        if (anchorMs < MinPlausibleMs || anchorMs > MaxPlausibleMs)
+        {
+            return 0;
+        }
+
+        DateTimeOffset anchor = DateTimeOffset.FromUnixTimeMilliseconds(anchorMs).ToOffset(Kst);
+        return LastWeeklySlotAtOrBefore(atMs, anchor.Hour, anchor.Minute);
+    }
 
     private static long LastWeeklySlotAtOrBefore(long atMs, int hour, int minute)
     {

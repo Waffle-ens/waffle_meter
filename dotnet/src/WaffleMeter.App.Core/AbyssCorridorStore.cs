@@ -150,9 +150,12 @@ public sealed class AbyssCorridorStore
     /// fact that establishes the side holds the artifact, because the game only opens the portal while it does.
     /// <para>Per character, but not only about that character: it is handed to its server siblings by
     /// <c>AetherRoster.CapturedByServer</c>, since an occupation is a fact about the 진영.</para></summary>
-    public bool EnteredThisCycle(string? identityHash, int ticketId, long nowMs) =>
+    /// <param name="serverBoundaryMs">The cycle boundary this character's SERVER window gives
+    /// (<see cref="ArtifactWarSchedule.CorridorBoundaryMs(AbyssArtifactStore?,int,long)"/>), or 0 for none — then
+    /// the legacy Wed/Sat clock decides, exactly as before. Same meaning on every reader below.</param>
+    public bool EnteredThisCycle(string? identityHash, int ticketId, long nowMs, long serverBoundaryMs = 0) =>
         Get(identityHash, EntryTicketFor(ticketId)) is { } entry
-        && AbyssCorridorCycle.IsWithin(entry.ObservedAtMs, BoundaryFor(identityHash, nowMs), nowMs);
+        && AbyssCorridorCycle.IsWithin(entry.ObservedAtMs, BoundaryFor(identityHash, nowMs, serverBoundaryMs), nowMs);
 
     /// <summary>What this character can claim about one corridor right now: <c>null</c> unless it has been
     /// watched inside that corridor since the last 점령전, otherwise the remaining ms carried forward to
@@ -164,24 +167,25 @@ public sealed class AbyssCorridorStore
     /// 점령전 that handed that artifact to the other side, with the portal already closed. That one stale
     /// reading was then spread to five sibling characters as a full 2:10 by the server-wide union, which is the
     /// bug the player reported.</para></summary>
-    public long? Standing(string? identityHash, int ticketId, long nowMs)
+    public long? Standing(string? identityHash, int ticketId, long nowMs, long serverBoundaryMs = 0)
     {
-        if (!EnteredThisCycle(identityHash, ticketId, nowMs))
+        if (!EnteredThisCycle(identityHash, ticketId, nowMs, serverBoundaryMs))
         {
             return null;
         }
 
-        return Reading(identityHash, ticketId, nowMs) ?? AbyssCorridorCatalog.FullGrantMs;
+        return Reading(identityHash, ticketId, nowMs, serverBoundaryMs) ?? AbyssCorridorCatalog.FullGrantMs;
     }
 
     /// <summary>This character's OWN reading for one corridor, carried forward to <paramref name="nowMs"/>, or
     /// <c>null</c> when nothing was heard for it this cycle. Says nothing about whether the side holds the
     /// corridor — <see cref="Standing"/> answers that — so it is only used to put a real number on a corridor
     /// already established as held, in place of the full grant the panel would otherwise assume.</summary>
-    public long? Reading(string? identityHash, int ticketId, long nowMs)
+    public long? Reading(string? identityHash, int ticketId, long nowMs, long serverBoundaryMs = 0)
     {
         if (Get(identityHash, ticketId) is not { } record
-            || !AbyssCorridorCycle.IsWithin(record.ObservedAtMs, BoundaryFor(identityHash, nowMs), nowMs))
+            || !AbyssCorridorCycle.IsWithin(
+                record.ObservedAtMs, BoundaryFor(identityHash, nowMs, serverBoundaryMs), nowMs))
         {
             return null;
         }
@@ -192,22 +196,31 @@ public sealed class AbyssCorridorStore
     /// <summary>Whether a full 0x610B snapshot has been seen for this character within the current cycle — i.e.
     /// whether the panel may say "어비스 회랑 기록 없음" at all. It reports that a snapshot was WATCHED — never
     /// that the side captured nothing, which one character's zeros cannot establish.</summary>
-    public bool HasCycleWitness(string? identityHash, long nowMs)
+    public bool HasCycleWitness(string? identityHash, long nowMs, long serverBoundaryMs = 0)
     {
-        long boundary = BoundaryFor(identityHash, nowMs);
+        long boundary = BoundaryFor(identityHash, nowMs, serverBoundaryMs);
         return Get(identityHash, WitnessTicketId) is { } witness
             && AbyssCorridorCycle.IsWithin(witness.ObservedAtMs, boundary, nowMs);
     }
 
     /// <summary>The moment before which this character's stored corridor data stops being credible.
-    /// <para>Evidence first: if ANY record for this character was taken at or after the capture began (Wed/Sat
-    /// 22:20 KST), the meter has heard this cycle's answer, and every record older than that is the previous
-    /// occupation — retired on the spot rather than at some later hour. Only a character the meter has heard
-    /// nothing from since falls back to the clock.</para>
+    /// <para><b>The server's own window first</b> (2026-10-07). When the character's server has a 점령 window on
+    /// file, its boundary — the settle while the window runs, the war start once it has ended — is the answer,
+    /// and no clock or per-character evidence second-guesses it: servers now start the war at 21:20, 21:50 or
+    /// 22:20 depending on their group, which no single clock can match. See <see cref="ArtifactWarSchedule"/>.</para>
+    /// <para>Without one, the legacy rule. Evidence first: if ANY record for this character was taken at or after
+    /// the capture began (Wed/Sat 22:20 KST), the meter has heard this cycle's answer, and every record older than
+    /// that is the previous occupation — retired on the spot rather than at some later hour. Only a character the
+    /// meter has heard nothing from since falls back to the clock.</para>
     /// <para>Per character on purpose: an alt that was never logged in during 점령전 has no evidence of its own,
     /// and the main character's fresh readings say nothing about what the alt holds.</para></summary>
-    private long BoundaryFor(string? identityHash, long nowMs)
+    private long BoundaryFor(string? identityHash, long nowMs, long serverBoundaryMs)
     {
+        if (serverBoundaryMs > 0)
+        {
+            return serverBoundaryMs;
+        }
+
         long newest = identityHash is { Length: > 0 }
             && _byHash.TryGetValue(identityHash, out Dictionary<int, AbyssCorridorRecord>? forCharacter)
             ? Newest(forCharacter)
@@ -227,13 +240,17 @@ public sealed class AbyssCorridorStore
     /// <param name="tickingSinceMs"><c>null</c> = leave the clock exactly as it is, which is what almost every
     /// caller wants: a login snapshot filed while the character is standing in a corridor must correct the VALUE
     /// without also silently stopping the countdown. Pass 0 to stop it, or a timestamp to start it.</param>
+    /// <param name="serverBoundaryMs">The server window's cycle boundary AT <paramref name="observedAtMs"/>, or 0
+    /// for the legacy clock — what decides whether an earlier grant stamp is still this cycle's and may be
+    /// carried over.</param>
     public bool Upsert(
         string? identityHash,
         int ticketId,
         long remainingMs,
         long observedAtMs,
         bool markGranted,
-        long? tickingSinceMs = null)
+        long? tickingSinceMs = null,
+        long serverBoundaryMs = 0)
     {
         if (string.IsNullOrWhiteSpace(identityHash) || ticketId <= 0 || observedAtMs <= 0)
         {
@@ -253,9 +270,12 @@ public sealed class AbyssCorridorStore
 
         // A grant stamp only ever moves forward, and only within the cycle it was taken in: carrying last
         // cycle's stamp over would keep claiming a corridor is occupied after the artifact changed hands.
+        bool grantStillCurrent = serverBoundaryMs > 0
+            ? AbyssCorridorCycle.IsWithin(existing.GrantedAtMs, serverBoundaryMs, observedAtMs)
+            : AbyssCorridorCycle.IsCurrentCycle(existing.GrantedAtMs, observedAtMs);
         long grantedAt = markGranted
             ? observedAtMs
-            : AbyssCorridorCycle.IsCurrentCycle(existing.GrantedAtMs, observedAtMs) ? existing.GrantedAtMs : 0;
+            : grantStillCurrent ? existing.GrantedAtMs : 0;
 
         var updated = new AbyssCorridorRecord(
             Math.Max(0, remainingMs),

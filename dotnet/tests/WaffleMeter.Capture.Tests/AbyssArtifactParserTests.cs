@@ -33,6 +33,15 @@ public class AbyssArtifactParserTests
         + "070000B2CA100001B2CA100000000000E9030000F1C8100002F1C8100000000000EA030000F3C8100002F3C8"
         + "100000000000EB030000F5C8100001F5C8100000000000";
 
+    // 2026-10-07 00:02:12 KST — server 2003, sent by the ordinary game server (outside the abyss). The first frame
+    // under the staggered war schedule: 하층 first this time (August led with 중층), both zones ending Wed 10-07
+    // 21:20:00 — the "21:20 group". Side 1 holds 1001/1003, side 2 holds 1002 and all of 중층.
+    private const string WholeAbyss1007 =
+        "9E0107E300000201E903000003008868C501A101000080694E16A101000001D1070000030070D7C801A101000080694E16A101"
+        + "000006E9030000F1C8100001F1C8100000000000EA030000F3C8100002F3C8100000000000EB030000F5C8100001F5C81000"
+        + "00000000D1070000B0CA100002B0CA100000000000D2070000B1CA100002B1CA100000000000D3070000B2CA100002B2CA10"
+        + "0000000000";
+
     // 2026-08-28 23:47:51 KST — 어비스 하층 load, 5.6 s after the capture began.
     private const string LowerZone0828 =
         "5105E301E90300000302107F363EA001000060989F4DA001000003E9030000F1C81000020000000000000000EA"
@@ -86,6 +95,31 @@ public class AbyssArtifactParserTests
         Assert.Equal(1_788_008_700_000, zones[0].EndMs);
         Assert.Equal(1_788_008_700_000, zones[1].EndMs);
         Assert.All(zones, z => Assert.True(z.EndMs > z.StartMs));
+    }
+
+    /// <summary>The 2026-10-07 frame, the one window measured since the war was staggered by server group: end =
+    /// Wed 21:20:00 for both zones, which is that server's war start (the live client's EventSchedule now says
+    /// 21:20 too), and the settles 3m45s apart. Zone order is not fixed — 하층 came first here. The corridor
+    /// boundary and the 아티쟁 boss alarm are both read off exactly these values.</summary>
+    [Fact]
+    public void The_2026_10_07_frame_carries_the_2120_group_window()
+    {
+        (AbyssArtifactZone[] zones, AbyssArtifactHolding[] holdings) =
+            Parse(WholeAbyss1007, WholeAbyssBody, wholeAbyss: true);
+
+        Assert.Equal(
+            new[] { AbyssArtifactBuffCatalog.LowerZoneId, AbyssArtifactBuffCatalog.MiddleZoneId },
+            zones.Select(z => z.ZoneId).ToArray());
+        Assert.Equal(1_791_031_077_000, zones[0].StartMs);   // Sat 10-03 21:37:57 KST
+        Assert.Equal(1_791_031_302_000, zones[1].StartMs);   // Sat 10-03 21:41:42 KST
+        Assert.All(zones, z => Assert.Equal(1_791_375_600_000, z.EndMs)); // Wed 10-07 21:20:00 KST
+
+        Assert.Equal(
+            new[] { 1001, 1002, 1003, 2001, 2002, 2003 },
+            holdings.Select(h => h.ArtifactId).ToArray());
+        Assert.Equal(
+            new[] { 1, 2, 1, 2, 2, 2 },
+            holdings.Select(h => h.OwnerSide).ToArray());
     }
 
     /// <summary>The window is per cycle, not a constant: the Wednesday→Saturday cycle measured on 08-28 runs

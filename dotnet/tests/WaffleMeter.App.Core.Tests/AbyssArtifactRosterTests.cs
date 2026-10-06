@@ -170,7 +170,9 @@ public sealed class AbyssArtifactRosterTests
     }
 
     /// <summary>The broadcast expires with the cycle the server stamped on it, and the row goes back to the
-    /// entry proof rather than carrying last week's occupation forward.</summary>
+    /// entry proof rather than carrying last week's occupation forward. Since 2026-10-07 the entry proofs it
+    /// falls back to are dated against that same server window, so an entry from the expired cycle does not
+    /// come back through them either — <c>ArtifactWarScheduleTests</c> pins that half.</summary>
     [Fact]
     public void After_the_cycle_ends_the_broadcast_stops_answering()
     {

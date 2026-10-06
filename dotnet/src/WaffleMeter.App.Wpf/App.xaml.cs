@@ -155,6 +155,9 @@ public partial class App : Application
     private AlarmToast? _alarmToast;
     private AlarmToastViewModel? _alarmToastVm;
     private AlarmController? _alarms;
+    /// <summary>The 아티쟁 bosses' derived spawns, remembered for the session so the window filed right after
+    /// the war (which already names the NEXT war) cannot pull today's spawn out from under its 5-minute lead.</summary>
+    private readonly ArtifactWarBossTimers _artifactWarBosses = new();
     private volatile bool _combatActive; // recent damage activity — gates the "mute field-boss alarm in combat" option
     private BuffOverlayPanel? _buffOverlay;
     /// <summary>사용자가 정한 버프 오버레이 위치("집"). 이 창만 SizeToContent 라 폭이 스스로 자라는데,
@@ -1037,7 +1040,15 @@ public partial class App : Application
             _settings,
             lead => Dispatcher.Invoke(() => ShowShugoAlarm(lead)),
             alarm => Dispatcher.Invoke(() => ShowCustomAlarm(alarm)),
-            fieldBossTimers: () => services.Data.CurrentFieldBossTimers,
+            // The 0x9101 table, plus the 아티쟁 bosses' spawn derived from the current character's server war
+            // time (R + ArtifactWarSchedule.BossSpawnMinutesAfterWarStart) wherever the server has not timed them
+            // itself — a server time always wins, and with no R on file there is simply no alarm. Same server
+            // lookup as FlushPendingAbyssArtifacts.
+            fieldBossTimers: () => _artifactWarBosses.Merge(
+                services.Data.CurrentFieldBossTimers,
+                AbyssArtifactStore.Parse(_settings!.AbyssArtifacts),
+                services.Data.User(services.Data.ExecutorId())?.Server ?? 0,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
             onFieldBoss: due => Dispatcher.Invoke(() => ShowFieldBossAlarm(due)),
             combatActive: () => _combatActive,
             onKaira: (lead, spawn) => Dispatcher.Invoke(() => ShowKairaAlarm(lead, spawn)));
@@ -2469,13 +2480,21 @@ public partial class App : Application
         AbyssCorridorStore store = AbyssCorridorStore.Parse(_settings.AbyssCorridors);
         bool changed = store.MarkEntered(hash, ticketId, atMs);
 
+        // Which cycle "previous" means is this character's SERVER's call, not the Wed/Sat 22:20 clock's: the war
+        // now starts at 21:20, 21:50 or 22:20 depending on the server group. The server is looked up exactly as
+        // FlushPendingAbyssArtifacts files the window under it; 0 (no server, no window) keeps the old clock.
+        int server = services.Data.User(services.Data.ExecutorId())?.Server ?? 0;
+        long serverBoundary = ArtifactWarSchedule.CorridorBoundaryMs(
+            AbyssArtifactStore.Parse(_settings.AbyssArtifacts), server, atMs);
+
         // A reading from a PREVIOUS cycle is not a starting point — it describes an allocation that has since
         // been re-granted, spent or lost. Reading() answers null for one, and the full grant takes over.
-        long remaining = store.Reading(hash, ticketId, atMs) is { } banked and > 0
+        long remaining = store.Reading(hash, ticketId, atMs, serverBoundary) is { } banked and > 0
             ? banked
             : AbyssCorridorCatalog.FullGrantMs;
 
-        changed |= store.Upsert(hash, ticketId, remaining, atMs, markGranted: false, tickingSinceMs: atMs);
+        changed |= store.Upsert(
+            hash, ticketId, remaining, atMs, markGranted: false, tickingSinceMs: atMs, serverBoundaryMs: serverBoundary);
         _corridorClockHash = hash;
 
         if (changed)
