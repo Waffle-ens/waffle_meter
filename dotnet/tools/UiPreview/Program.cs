@@ -98,6 +98,19 @@ internal static class Program
             content.SetRows(SampleContentRows(now));
             Capture(() => new AetherPanel { DataContext = content }, palette, Path.Combine(outDir, $"content_{skin}.png"));
 
+            // 메모: 기본 투명도, 그리고 투명도 0(머리줄이 사라지고 슬라이더·글자만 남는다) 두 장. 설정은 임시
+            // 폴더에 따로 둔다 — 위의 settings 는 실제 %APPDATA% 를 읽고 쓰므로 투명도를 바꿔 찍으면 사용자
+            // 설정이 바뀐다.
+            string memoDir = Path.Combine(Path.GetTempPath(), "waffle_ui_preview_memo");
+            var memoSettings = new MeterSettings(new PropertyHandler(memoDir));
+            var memoStore = new MemoTextStore(memoDir);
+            memoStore.Update("19:30 성역 · 파티 4/8\r\n버프 순서: 사자 → 늑대 → 독수리\r\n딜 사이클 2×3, 쿨 45° 각도 🔥");
+            var memo = new MemoOverlayViewModel(memoSettings, memoStore);
+            memoSettings.MemoOpacity = MeterSettings.MemoOpacityDefault;
+            Capture(() => new MemoOverlayPanel { DataContext = memo }, palette, Path.Combine(outDir, $"memo_{skin}.png"), fixedSize: true);
+            memoSettings.MemoOpacity = 0;
+            Capture(() => new MemoOverlayPanel { DataContext = memo }, palette, Path.Combine(outDir, $"memo_clear_{skin}.png"), fixedSize: true);
+
             string currentSkin = skin;
             var overlay = new OverlayViewModel("1.7.8", settings, theme, () => currentSkin == "Light") { Status = "캡처 중" };
             overlay.Update(SampleMeterReport(now));
@@ -1432,6 +1445,9 @@ internal static class Program
                         .ToArray();
                     Check("설정창 투명도 슬라이더가 헤더와 같은 경로(Settings.MeterOpacity)를 쓴다",
                         sliderPaths.Contains("Settings.MeterOpacity", StringComparer.Ordinal));
+                    // 메모도 같은 규칙 — 메모 머리줄 슬라이더와 설정 '메모' 탭 슬라이더가 한 값을 봐야 한다.
+                    Check("설정창 메모 투명도 슬라이더가 메모 머리줄과 같은 경로(Settings.MemoOpacity)를 쓴다",
+                        sliderPaths.Contains("Settings.MemoOpacity", StringComparer.Ordinal));
                 }
 
                 foreach (string key in navKeys)

@@ -354,6 +354,42 @@ public partial class SettingsWindow : Window
 
     private void OnResetAetherPosition(object sender, RoutedEventArgs e) => _viewModel.ResetAetherPosition();
 
+    private void OnResetMemoPosition(object sender, RoutedEventArgs e) => _viewModel.ResetMemoPosition();
+
+    private bool _memoHotkeysSuspended;
+
+    // 메모 본문을 입력하는 동안 전역 단축키를 내린다 — RegisterHotKey 로 잡힌 조합(단일 키도 허용된다)은 OS 가
+    // 가로채 글자가 상자에 닿지 않고 미터가 숨거나 패널이 열린다. 단축키 입력 상자와 같은 장치다. 창이 포커스를
+    // 쥔 채 닫혀도 단축키가 영영 내려가 있지 않게 Closed 에서도 되올린다.
+    private void OnMemoTextGotKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        if (_memoHotkeysSuspended)
+        {
+            return;
+        }
+
+        _memoHotkeysSuspended = true;
+        HotkeyCaptureBox.SuspendGlobalHotkeys?.Invoke(true);
+        Closed -= OnClosedResumeMemoHotkeys;
+        Closed += OnClosedResumeMemoHotkeys;
+    }
+
+    private void OnMemoTextLostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e) =>
+        ResumeMemoHotkeys();
+
+    private void OnClosedResumeMemoHotkeys(object? sender, EventArgs e) => ResumeMemoHotkeys();
+
+    private void ResumeMemoHotkeys()
+    {
+        if (!_memoHotkeysSuspended)
+        {
+            return;
+        }
+
+        _memoHotkeysSuspended = false;
+        HotkeyCaptureBox.SuspendGlobalHotkeys?.Invoke(false);
+    }
+
     private void OnApplyConsent(object sender, RoutedEventArgs e) => RunThenRefresh(_viewModel.ApplyConsent);
 
     private void OnRefreshConsent(object sender, RoutedEventArgs e) => RunThenRefresh(_viewModel.RefreshConsentFromServer);

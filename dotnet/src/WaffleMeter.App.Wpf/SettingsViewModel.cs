@@ -1447,6 +1447,23 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public void OpenCooldownPicker() => CooldownPickerRequested?.Invoke();
 
+    // ---- 메모 ----
+    // 토글·슬라이더·색은 래퍼 없이 XAML 이 Settings.* 로 직접 묶는다. 메모의 ✕·잠금 버튼·트레이 '입력 복구'가
+    // 설정창이 열린 채로 같은 값을 바꾸는데, 래퍼는 그때 PropertyChanged 를 못 받아 토글이 옛 상태로 남는다
+    // (미터 투명도 슬라이더가 Settings.MeterOpacity 로 직접 묶이는 것과 같은 이유).
+
+    private MemoOverlayViewModel? _memo;
+
+    /// <summary>메모 본문 상자가 묶이는 오버레이 뷰모델 — App 이 꽂는다(생성자를 바꾸면 UiPreview 하네스가
+    /// 깨진다). UiPreview 에선 null 이고 상자는 비어 있다.</summary>
+    public MemoOverlayViewModel? Memo
+    {
+        get => _memo;
+        set => Set(ref _memo, value);
+    }
+
+    public void ResetMemoPosition() => ResetPositionRequested?.Invoke("memo");
+
     /// <summary>버프 아이콘 우하단에 스킬 레벨 배지를 그린다(기본 켜짐). 레벨을 못 읽은 버프는 배지 없음.</summary>
     public bool BuffUiShowLevel { get => _settings.BuffUiShowLevel; set { _settings.BuffUiShowLevel = value; OnPropertyChanged(); } }
     public bool ShowOtherPlayerBuffs { get => _settings.ShowOtherPlayerBuffs; set { _settings.ShowOtherPlayerBuffs = value; OnPropertyChanged(); } }
@@ -2304,7 +2321,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// </summary>
     public static readonly string[] NavKeys =
     {
-        "display", "theme", "window", "buffs", "cooldown", "alarms",
+        "display", "theme", "window", "buffs", "cooldown", "memo", "alarms",
         "battle", "hotkeys", "stats", "mystats", "gameopt", "advanced",
     };
 
@@ -2883,7 +2900,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         string MeterLayoutId,
         bool SplitUiMode,
         int BossSlotScalePercent,
-        int MeterScalePercent)
+        int MeterScalePercent,
+        double MemoOpacity,
+        string MemoTextColor)
     {
         public static Snapshot Capture(MeterSettings s, OverlayController c) => new(
             s.DisplayMode, s.DamageValueMode, s.RowDpsMetric, s.ContributionMode, s.NameDisplay,
@@ -2897,7 +2916,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             s.MeterLayoutId,
             s.SplitUiMode,
             s.BossSlotScalePercent,
-            s.MeterScalePercent);
+            s.MeterScalePercent,
+            s.MemoOpacity,
+            s.MemoTextColor);
 
         public void Apply(MeterSettings s, OverlayController c)
         {
@@ -2957,6 +2978,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             // 세터가 곧바로 파일에 쓰고 App 이 창까지 갈라 놓기 때문에, 여기 없으면 '취소'가 안 되는 게 아니라
             // **이미 저장됐고 되돌릴 수 없는** 상태가 된다(이 record 맨 위 경고 그대로).
             s.SplitUiMode = SplitUiMode;
+            // 메모의 연속값 둘(투명도 슬라이더·글씨 색)도 같은 이유다 — 원래 값을 사람이 기억하지 못한다.
+            // 토글(표시·유지·잠금)은 미터 쪽 토글들처럼 다시 누르면 되는 값이라 넣지 않는다.
+            s.MemoOpacity = MemoOpacity;
+            s.MemoTextColor = MemoTextColor;
             NameFxSheen.Rebuild(NameFxBrightnessPercent);
         }
     }
