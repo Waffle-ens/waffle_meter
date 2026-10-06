@@ -2167,7 +2167,7 @@
                                 <TextBlock Text="{Binding StatSheetUnfilled}" Style="{StaticResource SettingDesc}"
                                            Margin="0,4,0,0" TextWrapping="Wrap"/>
                                 <TextBlock Style="{StaticResource SettingDesc}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                           Text="이 두 칸은 게임이 보내 주지 않습니다. 장비 해제 공격력은 장비를 벗어야 나오고, 장비 돌파 레벨은 아예 전송되지 않습니다."/>
+                                           Text="이 칸은 게임이 보내 주지 않습니다. 장비 해제 공격력은 장비를 벗어야 나옵니다."/>
                             </StackPanel>
                         </Border>
 

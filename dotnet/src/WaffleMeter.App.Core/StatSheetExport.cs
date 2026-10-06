@@ -21,7 +21,7 @@ public readonly record struct MeasuredCombatRates(double CritHitRate, double Dir
 ///
 /// <para><b>Only fields whose meaning lines up are filled.</b> The calculator asks for several numbers the
 /// stat dictionary does not contain and the in-game stat window does not show either — 장비 해제 공격력, the
-/// weapon tooltip's 최소/최대 공격력, 장비 돌파 레벨 합계, and the 최대 공격력 합계 that means "the additive
+/// weapon tooltip's 최소/최대 공격력, and the 최대 공격력 합계 that means "the additive
 /// max-attack bonuses" rather than "your maximum attack". Two ids in the sheet (31/33) look like the latter
 /// and are NOT the same quantity, so they are deliberately left out: a plausible-looking wrong number in a
 /// calculator is worse than an empty field the user knows to fill.</para>
@@ -154,9 +154,8 @@ public static class StatSheetExport
         Flat("n1", PlayerStatIds.MinimumAttack);
         Flat("n2", PlayerStatIds.MaximumAttack);
 
-        // 공격력 증가율. 계산기는 이걸 파괴·위력·돌파에서 역산하는데, 실측 캐릭터에서 그 역산이 123.01% 대
-        // 119.9%(돌파를 상한까지 채워도)로 어긋난다. mIncEquipped 가 공격력 구성과 구간을 모두 좌우하므로
-        // 아는 값을 그대로 넘긴다 — 계산기는 0(미입력)일 때만 역산한다.
+        // 공격력 증가율. 계산기는 이 값을 그대로 쓴다(2026-10-06 돌파 입력 폐지 — 역산 경로 없음).
+        // mIncEquipped 가 공격력 구성과 구간을 모두 좌우하므로 아는 값을 그대로 넘긴다.
         Pct("ai", PlayerStatIds.AttackIncreasePercent);
         Flat("pe", PlayerStatIds.Penetration);       // 관통
         Flat("de", PlayerStatIds.Destruction);       // 파괴
@@ -202,7 +201,6 @@ public static class StatSheetExport
         {
             // 장비를 벗어야 알 수 있는 값이라 어떤 패킷에도 없다.
             "장비 해제 공격력",
-            "장비 돌파 레벨 합계",
         };
     }
 
