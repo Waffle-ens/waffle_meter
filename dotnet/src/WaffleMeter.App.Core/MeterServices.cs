@@ -310,6 +310,13 @@ public sealed class MeterServices
             {
                 props.SetProperty("content.abyssCorridors", corridors.Serialize());
             }
+
+            // 재화 기록도 같은 해시로 남는다. 서버 창고 행은 캐릭터가 아니라 서버 것이라 그대로 둔다.
+            CurrencyStore currencies = CurrencyStore.Parse(props.GetProperty("content.currencies"));
+            if (currencies.RemoveAll(purgedCharacters))
+            {
+                props.SetProperty("content.currencies", currencies.Serialize());
+            }
         }
 
         UploadQueue = new StatsUploadQueue(consent, StatsBuilder, StatsApi, Data, props);
