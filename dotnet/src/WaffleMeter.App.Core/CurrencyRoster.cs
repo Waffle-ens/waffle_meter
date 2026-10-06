@@ -8,7 +8,11 @@ public readonly record struct CurrencyCell(CurrencyInfo Currency, long? Count, l
 }
 
 /// <summary>One character's share of a server's 총 키나.</summary>
-public readonly record struct CharacterKina(string IdentityHash, string Label, long Kina, long ObservedAtMs);
+/// <param name="Partial">Only some of the character's kinah balances (각인 · 거래 가능 · 캐릭터 창고) have ever been
+/// stated — a meter started mid-session learns them one change at a time — so <paramref name="Kina"/> is what is
+/// known, not everything the character holds.</param>
+public readonly record struct CharacterKina(
+    string IdentityHash, string Label, long Kina, long ObservedAtMs, bool Partial = false);
 
 /// <summary>
 /// One 총 키나 line — everything one server holds in kinah, per the owner's definition (2026-10-07): every
@@ -16,9 +20,10 @@ public readonly record struct CharacterKina(string IdentityHash, string Label, l
 /// ONCE.
 /// </summary>
 /// <param name="ServerStorage">The 서버 창고 kinah, or null when it has never been stated for this server.</param>
-/// <param name="Characters">The characters on this server whose kinah is on file, highest first.</param>
+/// <param name="Characters">The characters on this server whose kinah is on file, highest first — including
+/// <see cref="CharacterKina.Partial"/> ones, which add only what is known of them.</param>
 /// <param name="CharactersWithoutRecord">Characters on this server the panel lists but whose kinah has never been
-/// stated — counted as nothing, so the total is a lower bound while this is above zero.</param>
+/// stated — counted as nothing.</param>
 public readonly record struct ServerKinaLine(
     int Server,
     string ServerLabel,
@@ -27,7 +32,14 @@ public readonly record struct ServerKinaLine(
     long ServerStorageObservedAtMs,
     IReadOnlyList<CharacterKina> Characters,
     int CharactersWithoutRecord,
-    bool IsCurrentServer);
+    bool IsCurrentServer)
+{
+    /// <summary><see cref="Total"/> is only a lower bound: some listed character's kinah is unknown in whole
+    /// (<see cref="CharactersWithoutRecord"/>) or in part (<see cref="CharacterKina.Partial"/>), or the 서버 창고
+    /// has never been stated. Every unknown balance counts as nothing, so the real total can only be higher.</summary>
+    public bool IsLowerBound =>
+        CharactersWithoutRecord > 0 || ServerStorage is null || Characters.Any(c => c.Partial);
+}
 
 /// <summary>
 /// The currency side of the 컨텐츠 관리 list. Pure (no WPF) so the 총 키나 arithmetic — and above all the rule that
@@ -108,7 +120,7 @@ public static class CurrencyRoster
             if (KinaOf(currencies, hash) is { } kina)
             {
                 string label = FirstNonBlank(snapshot.Nickname, known.Nickname) ?? "이름 없는 캐릭터";
-                entry.Known.Add(new CharacterKina(hash, label, kina.Amount, kina.ObservedAtMs));
+                entry.Known.Add(new CharacterKina(hash, label, kina.Amount, kina.ObservedAtMs, kina.Partial));
             }
             else
             {
@@ -144,16 +156,19 @@ public static class CurrencyRoster
 
     /// <summary>A character's own kinah — 각인 + 거래 가능 + 캐릭터 창고 — or null when none of the three has ever been
     /// stated for it. A balance never stated counts as nothing; that is what keeps a half-known character from
-    /// reading as "has no kinah" while still adding what is known.</summary>
-    private static (long Amount, long ObservedAtMs)? KinaOf(CurrencyStore currencies, string hash)
+    /// reading as "has no kinah" while still adding what is known — and <c>Partial</c> says that is what happened,
+    /// so the sum is not shown as the character's whole kinah.</summary>
+    private static (long Amount, long ObservedAtMs, bool Partial)? KinaOf(CurrencyStore currencies, string hash)
     {
         long amount = 0;
         long newest = 0;
         bool any = false;
+        bool missing = false;
         foreach (string slug in CurrencyCatalog.CharacterKinaSlugs)
         {
             if (currencies.Character(hash, slug) is not { } record)
             {
+                missing = true;
                 continue;
             }
 
@@ -162,7 +177,7 @@ public static class CurrencyRoster
             newest = Math.Max(newest, record.ObservedAtMs);
         }
 
-        return any ? (amount, newest) : null;
+        return any ? (amount, newest, missing) : null;
     }
 
     private static string? FirstNonBlank(params string?[] candidates)

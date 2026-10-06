@@ -145,6 +145,63 @@ public sealed class CurrencyRosterTests
         Assert.Equal(1, line.CharactersWithoutRecord);
     }
 
+    /// <summary>A meter started mid-session learns a character's kinah one change at a time: here only the
+    /// tradeable stack has moved, so 각인 and 캐릭터 창고 are unknown. The character still adds what is known — but
+    /// is flagged Partial, and the line is a lower bound even though no character is missing outright. The next
+    /// exact world-entry snapshot states all three and both flags clear.</summary>
+    [Fact]
+    public void A_half_known_character_makes_the_total_a_lower_bound()
+    {
+        AetherPerCharacterStore characters = Characters(("h1", "밀피", Trinity));
+        var ledger = new CurrencyLedger();
+        var store = CurrencyStore.Parse(null);
+        store.UpsertServer(Trinity, CurrencyCatalog.ServerStorageKina, 325_000_000, At);
+
+        ledger.ApplyChanges(
+        [
+            new CurrencyItemChange(ItemChangeType.Update, new CurrencyItem(2, CurrencyItemParser.KinaId, 4_454_882, 1)),
+        ], At + 1_000);
+        Assert.True(ledger.TryTakeFiling(At, At + 1_000, out IReadOnlyList<CurrencyBalance> filed));
+        store.File("h1", Trinity, filed);
+
+        ServerKinaLine half = Assert.Single(CurrencyRoster.ServerKina(characters, currencies: store));
+        Assert.Equal(4_454_882 + 325_000_000L, half.Total);
+        Assert.Equal(0, half.CharactersWithoutRecord);
+        Assert.True(Assert.Single(half.Characters).Partial);
+        Assert.True(half.IsLowerBound);
+
+        ledger.ApplySnapshot(
+        [
+            new CurrencyItem(1, CurrencyItemParser.BoundKinaId, 13_000, 1),
+            new CurrencyItem(2, CurrencyItemParser.KinaId, 4_454_882, 1),
+            new CurrencyItem(3, CurrencyItemParser.KinaId, 325_000_000, 2),
+        ], exact: true, At + 60_000);
+        Assert.True(ledger.TryTakeFiling(At + 67_000, At + 67_000, out filed));
+        store.File("h1", Trinity, filed);
+
+        ServerKinaLine whole = Assert.Single(CurrencyRoster.ServerKina(characters, currencies: store));
+        Assert.Equal(13_000 + 4_454_882 + 325_000_000L, whole.Total);
+        Assert.False(Assert.Single(whole.Characters).Partial);
+        Assert.False(whole.IsLowerBound);
+    }
+
+    /// <summary>A 서버 창고 never stated is unknown, not empty — the line says it is a lower bound.</summary>
+    [Fact]
+    public void An_unknown_warehouse_makes_the_total_a_lower_bound()
+    {
+        AetherPerCharacterStore characters = Characters(("h1", "밀피", Trinity));
+        CurrencyStore currencies = Kina(
+            ("h1", CurrencyCatalog.BoundKina, 13_000),
+            ("h1", CurrencyCatalog.Kina, 4_454_882),
+            ("h1", CurrencyCatalog.CharacterStorageKina, 0));
+
+        ServerKinaLine line = Assert.Single(CurrencyRoster.ServerKina(characters, currencies: currencies));
+
+        Assert.False(Assert.Single(line.Characters).Partial);
+        Assert.Null(line.ServerStorage);
+        Assert.True(line.IsLowerBound);
+    }
+
     /// <summary>The warehouse alone is enough for a line — a server whose characters were played before this
     /// feature existed still has a total to show once any of them withdraws.</summary>
     [Fact]

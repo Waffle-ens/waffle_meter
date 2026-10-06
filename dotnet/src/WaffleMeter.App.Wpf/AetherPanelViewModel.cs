@@ -350,10 +350,24 @@ public sealed class ServerKinaViewModel
         long characters = line.Characters.Sum(c => c.Kina);
         var tip = new System.Text.StringBuilder();
         tip.Append(ServerText).Append(" 총 키나 ").Append(CurrencyFormat.Exact(line.Total));
+        if (line.IsLowerBound)
+        {
+            tip.Append(" 이상"); // an unknown balance counts as nothing, so the real total can only be higher
+        }
+
+        int partial = 0;
         foreach (CharacterKina c in line.Characters)
         {
-            tip.Append("\n  ").Append(c.Label).Append(' ').Append(CurrencyFormat.Exact(c.Kina))
-               .Append(CurrencyChipViewModel.Observed(c.ObservedAtMs));
+            tip.Append("\n  ").Append(c.Label).Append(' ').Append(CurrencyFormat.Exact(c.Kina));
+            if (c.Partial)
+            {
+                // Half-known (a meter started mid-session learns balances one change at a time): the number is
+                // what is known of this character, not all it holds.
+                tip.Append(" (일부만 기록)");
+                partial++;
+            }
+
+            tip.Append(CurrencyChipViewModel.Observed(c.ObservedAtMs));
         }
 
         tip.Append("\n  서버 창고 ")
@@ -367,6 +381,12 @@ public sealed class ServerKinaViewModel
         {
             tip.Append("\n재화 기록이 없는 캐릭터 ").Append(line.CharactersWithoutRecord)
                .Append("명은 빠져 있습니다 — 그 캐릭터로 접속하면 채워집니다.");
+        }
+
+        if (partial > 0)
+        {
+            tip.Append("\n키나가 일부만 기록된 캐릭터 ").Append(partial)
+               .Append("명은 기록된 만큼만 더했습니다 — 그 캐릭터로 접속하면 채워집니다.");
         }
 
         ToolTip = tip.ToString();

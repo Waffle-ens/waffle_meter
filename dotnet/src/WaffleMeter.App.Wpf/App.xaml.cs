@@ -668,6 +668,9 @@ public partial class App : Application
             // Filing a held balance dump is live bookkeeping too — it must not stall behind the history
             // early-return below, or a zone-in while a saved battle is open would never reach the store.
             FlushPendingAether(services);
+            // The 0x5611 currency snapshot is the same kind of held dump (it beats its naming packet by ~7 s) and
+            // this loop is what files it on a login or same-character relog, where no ExecutorChanged fires.
+            FlushPendingCurrencies(services);
 
             // While viewing a saved battle, hold the overlay until a NEW battle begins (React resets the
             // selected history when isInCombat); the open detail follows the SAME displayed battle (below).
@@ -902,7 +905,6 @@ public partial class App : Application
             FlushPendingWeeklyContent(services);
             FlushPendingAbyssCorridors(services);
             FlushPendingAbyssArtifacts(services);
-            FlushPendingCurrencies(services);
             TickAbyssCorridor(services);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));
