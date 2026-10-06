@@ -379,7 +379,7 @@ public sealed class ServerKinaViewModel
         tip.Append("\n\n캐릭터마다 키나(각인)·키나·캐릭터 창고 키나를 더하고, 서버 창고는 서버당 한 번만 더합니다.");
         if (line.CharactersWithoutRecord > 0)
         {
-            tip.Append("\n재화 기록이 없는 캐릭터 ").Append(line.CharactersWithoutRecord)
+            tip.Append("\n키나 기록이 없는 캐릭터 ").Append(line.CharactersWithoutRecord)
                .Append("명은 빠져 있습니다 — 그 캐릭터로 접속하면 채워집니다.");
         }
 
