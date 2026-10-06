@@ -1141,6 +1141,26 @@ public sealed class DataManager : ICaptureGameData
     public void SaveAbyssCorridor(int ticketId, long remainingMs, bool fromSnapshot) =>
         AbyssCorridorChanged?.Invoke(ticketId, Math.Max(0, remainingMs), Clock(), fromSnapshot);
 
+    // ---- 재화 아이템 (컨텐츠 관리 패널) ----
+    // Stateless for the same reason as the weekly counters above: the durable answer is the app's persisted
+    // per-character record plus its session ledger, and a mirror here would only be a second copy that can drift
+    // from them. Nothing is cached or deduped — the ledger's own upserts are idempotent by item key.
+
+    /// <summary>Raised (packet-consumer thread) when a 0x5611 world-entry snapshot arrives:
+    /// <c>(tracked stacks, exact, arrivedAtMs)</c>. <c>exact</c> = the frame walked completely, so a currency
+    /// absent from the list is zero; false = only the stacks the fallback scan found, the rest unknown.</summary>
+    public event Action<IReadOnlyList<CurrencyItem>, bool, long>? CurrencySnapshotReceived;
+
+    public void SaveCurrencySnapshot(IReadOnlyList<CurrencyItem> items, bool exact) =>
+        CurrencySnapshotReceived?.Invoke(items, exact, Clock());
+
+    /// <summary>Raised (packet-consumer thread) when 0x561B changes tracked currency stacks:
+    /// <c>(changes, arrivedAtMs)</c>. Counts are absolute per item key.</summary>
+    public event Action<IReadOnlyList<CurrencyItemChange>, long>? CurrencyItemsChanged;
+
+    public void SaveCurrencyChanges(IReadOnlyList<CurrencyItemChange> changes) =>
+        CurrencyItemsChanged?.Invoke(changes, Clock());
+
     // ---- field-boss respawn timers (boss code -> target Unix-ms), from the 0x9101 broadcast ----
     // Written on the packet-consumer thread, read (snapshot) on the UI thread → guard with a lock.
     private readonly Dictionary<int, long> _fieldBossTimers = new();

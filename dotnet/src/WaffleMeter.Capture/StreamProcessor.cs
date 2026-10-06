@@ -164,6 +164,12 @@ public sealed class StreamProcessor
     // corridor instance maps it used to rely on never appear on the wire. See AbyssArtifactParser.
     private const int AbyssArtifactZoneKey = 0x05 | (0xE3 << 8);  // 0xE305
     private const int AbyssArtifactAllKey = 0x07 | (0xE3 << 8);   // 0xE307
+    // 아이템 모듈(0x56). 키나·어비스 포인트·몽환의 파편·극복의 증표는 지갑 패킷이 아니라 **아이템 스택**으로만
+    // 오간다(클라 Item 테이블의 EItemType::Currency). 0x5611 = 월드 진입 스냅샷(서버 창고 포함, LZ4 번들 안),
+    // 0x561B = 변경분(절대 수량). 번호는 0x56 모듈 내 상대 순서가 usmap 1.0.46·1.0.50 에서 같고, 10-07 창고
+    // 출고·입고 실험(325,000,000 이 container 2↔1 로 이동)이 내용으로 확정했다. See CurrencyItemParser.
+    private const int ItemDepotListKey = 0x11 | (0x56 << 8);         // 0x5611 ItemDepotList_RS
+    private const int ItemModificationListKey = 0x1B | (0x56 << 8);  // 0x561B ItemModificationList_NT
 
     // 0xE005 UpdateGroggyInfo_NT — 보스 무력화(그로기) 게이지. 본문은 두 모양뿐이다(실측 907프레임):
     //   17B: [entity varint][mask=0x03][state=0x01 GroggyGuard][max u32 LE][cur u32 LE][flags]
@@ -260,6 +266,10 @@ public sealed class StreamProcessor
         // (who holds each artifact right now), so replaying it cannot inflate anything, and it arrives at login
         // — exactly the moment a second server connection is most likely to be the one carrying it.
         AbyssArtifactZoneKey, AbyssArtifactAllKey,
+        // 재화 아이템(2026-10-07)도 0x610x 와 같은 이유다. 0x5611 은 전체 스냅샷이고 0x561B 는 아이템 키별
+        // **절대 수량**을 덮어쓰거나 지우기만 하므로 두 번 처리돼도 부풀 것이 없다. 그리고 스냅샷은 로그인
+        // 묶음에 실려 오는데, 그 순간이 두 번째 서버 연결이 억제 쪽에 서 있을 가능성이 가장 높은 때다.
+        ItemDepotListKey, ItemModificationListKey,
         // 파티 신청 계열(2026-09-27). "신청이 한 명씩 패널에 안 뜬다"의 정체가 이것이었다 — 신청은 늘 같은
         // 서버 연결(실측 .103)을 타는데, 그 연결은 5초만 조용해도 다른 서버 연결이나 **자기 자신의 역방향**
         // (클라→서버)에게 primary 를 뺏긴다. 모집 중 대기는 딱 그 조용한 구간이라, 정적 뒤 첫 패킷인 신청이
@@ -309,6 +319,8 @@ public sealed class StreamProcessor
         [AbyssArtifactZoneKey] = "AbyssArtifact",
         [AbyssArtifactAllKey] = "AbyssArtifact",
         [GroggyKey] = "Groggy",
+        [ItemDepotListKey] = "ItemDepotList",
+        [ItemModificationListKey] = "ItemModificationList",
     };
 
     private static readonly byte[] PowerMarker = { 0xF4, 0xCB, 0x1F };
@@ -567,6 +579,12 @@ public sealed class StreamProcessor
                     break;
                 case GroggyKey:
                     ParseGroggy(packet, opcodeOffset + 2);
+                    break;
+                case ItemDepotListKey:
+                    ParseCurrencyItems(packet, opcodeOffset + 2, snapshot: true);
+                    break;
+                case ItemModificationListKey:
+                    ParseCurrencyItems(packet, opcodeOffset + 2, snapshot: false);
                     break;
             }
         }
@@ -3099,6 +3117,65 @@ public sealed class StreamProcessor
                 ("cycleEnd", zone.EndMs),
                 ("all", wholeAbyss ? 1 : 0));
         }
+    }
+
+    /// <summary>재화 아이템(0x5611 스냅샷 / 0x561B 변경분). 추적하는 다섯 재화의 스택만 걸러 데이터 계층에 넘긴다.
+    /// <para>정확 소진(<see cref="CurrencyParseMode.Exact"/>)만이 "스냅샷에 없음 = 0" 을 말할 수 있다. 소진에
+    /// 실패해 id 스캔으로 건진 값(<see cref="CurrencyParseMode.Fallback"/>)은 찾은 것만 갱신하고 나머지는 모른다로
+    /// 둔다 — 이 구분을 데이터 계층까지 그대로 들고 간다.</para>
+    /// <para>소진 실패는 빠짐없이 한 줄 남긴다. 이 기능의 고장 모양이 <b>조용하다</b> — 패치로 장비 상세가 한 필드만
+    /// 늘어나도 워크가 전부 실패하고, 폴백이 재화를 계속 건지는 동안은 화면상 아무 이상이 없다. 0x561B 는 던전
+    /// 한 판에 300건 넘게 오는 고빈도라, 재화가 실리지 않은 정상 프레임은 아무것도 남기지 않는다.</para></summary>
+    private void ParseCurrencyItems(byte[] packet, int bodyStart, bool snapshot)
+    {
+        CurrencyItemParse parse = snapshot
+            ? CurrencyItemParser.ParseDepotList(packet, bodyStart)
+            : CurrencyItemParser.ParseModificationList(packet, bodyStart);
+
+        if (parse.Mode != CurrencyParseMode.Exact)
+        {
+            _sink.Meta("currency",
+                ("fallback", parse.Mode == CurrencyParseMode.Fallback ? 1 : 0),
+                ("rejected", parse.Mode == CurrencyParseMode.Rejected ? 1 : 0),
+                ("snapshot", snapshot ? 1 : 0),
+                ("declared", parse.DeclaredCount),
+                ("found", parse.Items.Count),
+                ("len", packet.Length));
+        }
+
+        if (parse.Mode == CurrencyParseMode.Rejected)
+        {
+            return; // nothing walked and nothing found — not even a zero may be read off this frame
+        }
+
+        if (snapshot)
+        {
+            // An exact snapshot is forwarded even when it holds no tracked stack at all: that is a character
+            // whose every tracked balance is zero, which is an answer, not silence.
+            var items = new List<CurrencyItem>(parse.Items.Count);
+            foreach (CurrencyItemChange change in parse.Items)
+            {
+                items.Add(change.Item);
+            }
+
+            _data.SaveCurrencySnapshot(items, exact: parse.Mode == CurrencyParseMode.Exact);
+        }
+        else if (parse.Items.Count > 0)
+        {
+            _data.SaveCurrencyChanges(parse.Items);
+        }
+        else
+        {
+            return; // an item change that touched no tracked currency — the common case
+        }
+
+        _sink.Meta("currency",
+            ("snapshot", snapshot ? 1 : 0),
+            ("exact", parse.Mode == CurrencyParseMode.Exact ? 1 : 0),
+            ("declared", parse.DeclaredCount),
+            ("stacks", string.Join(' ', parse.Items.Select(c => string.Create(
+                CultureInfo.InvariantCulture,
+                $"{(int)c.Type}:{c.Item.ItemId}@{c.Item.Container}={c.Item.Count}")))));
     }
 
     /// <summary>
