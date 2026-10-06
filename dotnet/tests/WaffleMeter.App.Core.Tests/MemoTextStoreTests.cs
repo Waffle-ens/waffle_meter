@@ -133,4 +133,90 @@ public sealed class MemoTextStoreTests : IDisposable
 
         Assert.Equal("짧음", new MemoTextStore(_temp).Text);
     }
+
+    [Fact]
+    public void A_missing_file_is_not_a_read_failure_and_leaves_no_side_file()
+    {
+        var store = new MemoTextStore(_temp);
+        Assert.False(store.ReadFailed);
+        store.Update("새 메모");
+        Assert.True(store.Flush());
+
+        Assert.Equal(new[] { store.FilePath }, Directory.GetFiles(_temp));
+    }
+
+    [Fact]
+    public void A_memo_locked_at_startup_is_set_aside_not_overwritten_by_the_first_save()
+    {
+        // 기동 순간 백신·동기화 클라이언트가 memo.txt 를 잡고 있었다 → 빈 메모로 보인다. 사용자가 그걸 보고 새로
+        // 적어 저장해도 못 본 원본은 살아 있어야 한다(전에는 첫 Flush 가 그대로 덮어써 원본이 영구 소실됐다).
+        string path = Path.Combine(_temp, MemoTextStore.FileName);
+        File.WriteAllText(path, "중요한 기존 메모 · 5×3", new UTF8Encoding(false));
+
+        MemoTextStore store;
+        using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            store = new MemoTextStore(_temp);
+            Assert.True(store.ReadFailed);
+            Assert.Equal(string.Empty, store.Text);
+            Assert.False(store.IsDirty);
+
+            // 아직 잠겨 있는 동안의 저장은 원본을 건드리지 못하고 실패한다 — 더러움이 남아 다음에 다시 시도한다.
+            store.Update("새로 친 한 줄");
+            Assert.False(store.Flush());
+            Assert.True(store.IsDirty);
+            Assert.True(store.ReadFailed);
+        }
+
+        Assert.True(store.Flush());
+        Assert.False(store.ReadFailed);
+        Assert.Equal("새로 친 한 줄", new MemoTextStore(_temp).Text);
+
+        string[] setAside = Directory.GetFiles(_temp, MemoTextStore.FileName + MemoTextStore.UnreadSuffix + "*");
+        Assert.Single(setAside);
+        Assert.Equal("중요한 기존 메모 · 5×3", File.ReadAllText(setAside[0], Encoding.UTF8));
+
+        // 치운 뒤의 memo.txt 는 이 세션이 쓴 파일이다 — 이후 저장은 평범한 덮어쓰기이고 더 치우지 않는다.
+        store.Update("두 번째 저장");
+        Assert.True(store.Flush());
+        Assert.Single(Directory.GetFiles(_temp, MemoTextStore.FileName + MemoTextStore.UnreadSuffix + "*"));
+        Assert.Equal("두 번째 저장", new MemoTextStore(_temp).Text);
+    }
+
+    [Fact]
+    public void A_read_failure_without_an_edit_never_touches_the_original()
+    {
+        string path = Path.Combine(_temp, MemoTextStore.FileName);
+        File.WriteAllText(path, "그대로 둔다", new UTF8Encoding(false));
+
+        MemoTextStore store;
+        using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            store = new MemoTextStore(_temp);
+        }
+
+        // 종료 경로의 Flush — 쓸 게 없으니 원본도 그대로, 옆 파일도 없다.
+        Assert.True(store.Flush());
+        Assert.Equal("그대로 둔다", File.ReadAllText(path, Encoding.UTF8));
+        Assert.Equal(new[] { path }, Directory.GetFiles(_temp));
+    }
+
+    [Fact]
+    public void An_unread_original_that_vanished_meanwhile_needs_no_side_file()
+    {
+        string path = Path.Combine(_temp, MemoTextStore.FileName);
+        File.WriteAllText(path, "곧 사라짐", new UTF8Encoding(false));
+
+        MemoTextStore store;
+        using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            store = new MemoTextStore(_temp);
+        }
+
+        File.Delete(path);
+        store.Update("새 메모");
+        Assert.True(store.Flush());
+        Assert.Equal(new[] { path }, Directory.GetFiles(_temp));
+        Assert.Equal("새 메모", new MemoTextStore(_temp).Text);
+    }
 }
