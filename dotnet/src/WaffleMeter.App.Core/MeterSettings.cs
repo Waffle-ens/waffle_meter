@@ -66,7 +66,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         nameof(_meterLayoutId), nameof(_nameFxMode), nameof(_overlayTheme), nameof(_rowDpsMetric), nameof(_targetInfoDisplayMode),
         nameof(_tierEffects),
         nameof(_ttsVoice), nameof(_weeklyContentClears), nameof(_abyssCorridors), nameof(_abyssArtifacts),
-        nameof(_memoTextColor))]
+        nameof(_memoTextColor), nameof(_currencies))]
     public void Reload()
     {
         _displayMode = ReadEnum("displayMode", "dps_percent", DisplayModes);
@@ -171,6 +171,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _weeklyContentClears = _props.GetProperty("content.weeklyClears") ?? "";
         _abyssCorridors = _props.GetProperty("content.abyssCorridors") ?? "";
         _abyssArtifacts = _props.GetProperty("content.abyssArtifacts") ?? "";
+        _currencies = _props.GetProperty("content.currencies") ?? "";
         _dummyTestMode = ReadBool("dummy.testMode", false);
         _dummyDurationSec = ReadInt("dummy.durationSeconds", 60);
         _patchNotesLastShownVersion = _props.GetProperty("patchNotes.lastShownVersion") ?? "";
@@ -789,6 +790,18 @@ public sealed class MeterSettings : INotifyPropertyChanged
     {
         get => _abyssArtifacts;
         set => SetProp(ref _abyssArtifacts, "content.abyssArtifacts", value);
+    }
+
+    private string _currencies;
+    /// <summary>Each character's currency balances plus each server's 서버 창고 kinah, as
+    /// <c>kind,key,slug,count,observedAtMs</c> records (see <see cref="CurrencyStore"/>). Its OWN key for the reason
+    /// the corridor and artifact blobs each have one: an older build DROPS a record it cannot parse, and these blobs
+    /// are rewritten on every broadcast. ASCII only (hash, server id, slug, numbers) — nothing here passes through
+    /// the Latin-1 → EUC-KR re-decode as Korean text.</summary>
+    public string Currencies
+    {
+        get => _currencies;
+        set => SetProp(ref _currencies, "content.currencies", value);
     }
 
     // ---- 허수아비 (training-dummy) test mode ----

@@ -95,7 +95,8 @@ internal static class Program
             // covers all three states a chip can be in — un-cleared, cleared, and a character with no record
             // this week at all (which reads as un-cleared).
             var content = new AetherPanelViewModel(settings);
-            content.SetRows(SampleContentRows(now));
+            content.SetRows(SampleContentRows(now, out IReadOnlyList<ServerKinaLine> serverKina));
+            content.SetServerKina(serverKina);
             Capture(() => new AetherPanel { DataContext = content }, palette, Path.Combine(outDir, $"content_{skin}.png"));
 
             // 메모: 기본 투명도, 그리고 투명도 0(머리줄이 사라지고 슬라이더·글자만 남는다) 두 장. 설정은 임시
@@ -2222,7 +2223,7 @@ internal static class Program
     /// <summary>컨텐츠 관리 rows built through the real <see cref="AetherRoster"/> and
     /// <see cref="WeeklyContentStore"/>, so the preview exercises the same staleness rule the app does — the
     /// last character's clears are stamped before the previous reset and must therefore show as un-cleared.</summary>
-    private static IReadOnlyList<AetherRosterRow> SampleContentRows(long now)
+    private static IReadOnlyList<AetherRosterRow> SampleContentRows(long now, out IReadOnlyList<ServerKinaLine> serverKina)
     {
         var aether = AetherPerCharacterStore.Parse(null);
         aether.Upsert("h1", new AetherSnapshot(220, 635, now - 43_200_000, "콩팡", 1001));
@@ -2273,8 +2274,30 @@ internal static class Program
         corridors.MarkWitness("h5", thisCycle);   // same, but nobody on 1002 has been watched → "기록 없음"
         // h4 has no witness at all and still inherits: never having been watched is not evidence either way
 
+        // 재화: the 2026-10-07 numbers on the current character, a second 1001 character known from changes only
+        // (the meter started mid-session — its unseen balances read "—"), the 1001 서버 창고 counted once in that
+        // server's 총 키나, h4 with nothing on file, and 1002 with a character but no warehouse record.
+        var currencies = CurrencyStore.Parse(null);
+        currencies.UpsertCharacter("h1", CurrencyCatalog.BoundKina, 13_000, now - 60_000);
+        currencies.UpsertCharacter("h1", CurrencyCatalog.Kina, 4_454_882, now - 60_000);
+        currencies.UpsertCharacter("h1", CurrencyCatalog.CharacterStorageKina, 1_200_000, now - 60_000);
+        currencies.UpsertCharacter("h1", CurrencyCatalog.AbyssPoint, 25_611, now - 60_000);
+        currencies.UpsertCharacter("h1", CurrencyCatalog.DreamShard, 18_615, now - 60_000);
+        currencies.UpsertCharacter("h1", CurrencyCatalog.TrialMark, 3_000, now - 60_000);
+        currencies.UpsertCharacter("h2", CurrencyCatalog.Kina, 51_203_244, now - 36_000_000);
+        currencies.UpsertCharacter("h2", CurrencyCatalog.AbyssPoint, 19_649, now - 36_000_000);
+        currencies.UpsertCharacter("h3", CurrencyCatalog.BoundKina, 2_251_000, now - 57_600_000);
+        currencies.UpsertCharacter("h3", CurrencyCatalog.Kina, 8_042_286, now - 57_600_000);
+        currencies.UpsertCharacter("h3", CurrencyCatalog.AbyssPoint, 0, now - 57_600_000);
+        currencies.UpsertCharacter("h3", CurrencyCatalog.DreamShard, 64_030, now - 57_600_000);
+        currencies.UpsertCharacter("h3", CurrencyCatalog.TrialMark, 0, now - 57_600_000);
+        currencies.UpsertCharacter("h5", CurrencyCatalog.Kina, 731_500, now - 1_000);
+        currencies.UpsertServer(1001, CurrencyCatalog.ServerStorageKina, 325_000_000, now - 60_000);
+
+        serverKina = CurrencyRoster.ServerKina(aether, names, currencies, currentHash: "h1");
         return AetherRoster.Build(
-            aether, names, currentHash: "h1", weekly: weekly, nowMs: now, corridors: corridors);
+            aether, names, currentHash: "h1", weekly: weekly, nowMs: now, corridors: corridors,
+            currencies: currencies);
     }
 
     /// <summary>Eight rows, one per tier, so every ring treatment is visible in a single shot.</summary>

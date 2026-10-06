@@ -170,6 +170,22 @@ public interface ICaptureGameData
     /// Default no-op (capture-only mode).</summary>
     void SaveAbyssCorridor(int ticketId, long remainingMs, bool fromSnapshot) { }
 
+    /// <summary>The 0x5611 world-entry item snapshot, narrowed to the tracked currency stacks
+    /// (<see cref="CurrencyItemParser"/>). It describes the character entering the world — and lands ~7 s
+    /// BEFORE the own-load packet that names it, the same trap as the 0x610B dump — so whoever files it under a
+    /// character has to wait for that identity.
+    /// <para><paramref name="exact"/> = the whole frame walked, so a currency missing from
+    /// <paramref name="items"/> really is zero (the game omits empty stacks). False = the walk failed and these are
+    /// only the stacks the id scan could vouch for: a currency missing from them is UNKNOWN and must never be
+    /// zeroed — if a patch ever reassigned the opcode, zeroing what was not found would wipe every balance.</para>
+    /// Default no-op (capture-only mode).</summary>
+    void SaveCurrencySnapshot(IReadOnlyList<CurrencyItem> items, bool exact) { }
+
+    /// <summary>Tracked currency stacks changed (0x561B). Counts are ABSOLUTE and keyed by the stack's item key:
+    /// Add/Update set that stack, Remove drops it. Never a delta to accumulate, so a repeat is harmless.
+    /// Default no-op (capture-only mode).</summary>
+    void SaveCurrencyChanges(IReadOnlyList<CurrencyItemChange> changes) { }
+
     /// <summary>One 어비스 아티팩트 zone's 점령 현황 from 0xE305/0xE307: who holds each of its three artifacts,
     /// and the exact 점령 주기 the answer belongs to.
     /// <para><paramref name="zoneId"/> is 1001 (하층) or 2001 (중층) — the zone's first artifact id, which is

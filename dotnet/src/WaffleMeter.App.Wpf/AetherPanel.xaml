@@ -53,6 +53,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- Header (drag handle) -->
@@ -91,6 +92,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
@@ -239,6 +244,36 @@
                                         <Button x:Name="remove" Grid.Column="2" Style="{StaticResource RowRemoveButton}"
                                                 Margin="8,0,0,0" VerticalAlignment="Top"
                                                 ToolTip="{Binding RemoveTooltip}" Click="OnRemoveClick"/>
+
+                                        <!-- 재화. 키나(각인) · 키나 · 어비스 포인트 · 몽환의 파편 · 극복의 증표, each the
+                                             server's own number from the item packets (0x5611 snapshot / 0x561B
+                                             changes) as last seen on this character. Korean units on the chip, the
+                                             exact figure in the tooltip. Hidden until anything is on file; a
+                                             balance never seen reads "—", never 0. Its own row across the full
+                                             width: five chips do not fit beside the 오드 column. -->
+                                        <ItemsControl Grid.Row="1" Grid.ColumnSpan="3" ItemsSource="{Binding Currencies}"
+                                                      Margin="0,4,0,0" Visibility="{Binding CurrenciesVisibility}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,1,9,0"
+                                                                Background="Transparent"
+                                                                Opacity="{Binding Opacity}"
+                                                                ToolTip="{Binding ToolTip}">
+                                                        <Image Source="{Binding IconSource}" Width="13" Height="13"
+                                                               VerticalAlignment="Center" Margin="0,0,3,0"
+                                                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                        <TextBlock Text="{Binding ValueText}" FontSize="10"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource Skin.Fg}"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
                                     </Grid>
                                 </Border>
                                 <DataTemplate.Triggers>
@@ -252,6 +287,45 @@
                     </ItemsControl>
                 </ScrollViewer>
             </Grid>
+
+            <!-- 서버별 총 키나 — one line per server: every character's own kinah (각인 + 거래 가능 + 캐릭터 창고)
+                 plus the 서버 창고 counted ONCE (it is shared by the server's characters, so summing it per row
+                 would multiply it). Pinned under the list rather than scrolled with it: it is the sum OF the
+                 list. -->
+            <Border Grid.Row="2" Background="{DynamicResource Skin.StatBg}" CornerRadius="0,0,6,6"
+                    BorderBrush="{DynamicResource Skin.Border}" BorderThickness="0,1,0,0"
+                    Visibility="{Binding ServerKinaVisibility}">
+                <ItemsControl ItemsSource="{Binding ServerKina}" Margin="12,5,12,6">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,1" Background="Transparent" ToolTip="{Binding ToolTip}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Image Source="pack://application:,,,/WaffleMeter.App.Wpf;component/Icons/currency_kina_total.png"
+                                           Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <TextBlock Text="총 키나" FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Skin.MutedFg}"/>
+                                    <TextBlock Text="{Binding ServerText}" FontSize="10" Margin="5,0,0,0"
+                                               VerticalAlignment="Center" Opacity="0.8"
+                                               Foreground="{DynamicResource Skin.MutedFg}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="{Binding StorageText}" FontSize="9" Margin="8,0"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" Opacity="0.7"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource Skin.MutedFg}"/>
+                                <TextBlock Grid.Column="2" Text="{Binding TotalText}" FontSize="12"
+                                           FontWeight="SemiBold" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Skin.Fg}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
         </Grid>
     </Border>
 </local:OverlayPanelWindow>

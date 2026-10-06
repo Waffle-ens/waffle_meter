@@ -110,6 +110,12 @@ public partial class App : Application
         (long CycleStartMs, long CycleEndMs, IReadOnlyList<AbyssArtifactHolding> Holdings, long AtMs)>
         _abyssArtifactPending = new();
 
+    /// <summary>This session's currency item stacks (키나·어비스 포인트·몽환의 파편·극복의 증표). The 0x5611 snapshot
+    /// lands ~7 s before the packet naming its character, so the ledger holds it — and any change that arrives
+    /// meanwhile — until <see cref="WeeklyContentOwnership.CanFile"/> says whose it is. See
+    /// <see cref="CurrencyLedger"/>.</summary>
+    private readonly CurrencyLedger _currencyLedger = new();
+
     /// <summary>The corridor map the character is currently standing in, or 0.
     /// <para>Entering one starts the clock and leaving stops it — leaving is the only chance to turn an early
     /// exit into a real number, because the server says nothing more until the budget is gone.</para>
@@ -687,6 +693,9 @@ public partial class App : Application
             // Filing a held balance dump is live bookkeeping too — it must not stall behind the history
             // early-return below, or a zone-in while a saved battle is open would never reach the store.
             FlushPendingAether(services);
+            // The 0x5611 currency snapshot is the same kind of held dump (it beats its naming packet by ~7 s) and
+            // this loop is what files it on a login or same-character relog, where no ExecutorChanged fires.
+            FlushPendingCurrencies(services);
 
             // While viewing a saved battle, hold the overlay until a NEW battle begins (React resets the
             // selected history when isInCombat); the open detail follows the SAME displayed battle (below).
@@ -947,6 +956,10 @@ public partial class App : Application
             // goes on claiming "지금 입장 중" while the user plays someone else.
             StopAbyssCorridorClock(services, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
             _corridorInsideMapId = 0;
+            // The currency ledger keeps a snapshot that just arrived (it is the incoming character's) and drops
+            // anything older (the outgoing one's), then files whatever now has an owner.
+            _currencyLedger.OnCharacterSwitch(services.Data.ExecutorIdentityAtMs);
+            FlushPendingCurrencies(services);
         });
 
         // 설정 파일이 손상/잠김/쓰기불가였다면 그 사실을 **먼저** 말한다. 종전에는 파싱 실패가 기동 중 예외로
@@ -1092,6 +1105,14 @@ public partial class App : Application
             Dispatcher.BeginInvoke(() => OnAbyssArtifactCount(services, zoneId, count, atMs));
         services.Data.InstanceMapChanged += (mapId, atMs) =>
             Dispatcher.BeginInvoke(() => OnInstanceMapChanged(services, mapId, atMs));
+
+        // 재화(키나·어비스 포인트·몽환의 파편·극복의 증표)는 아이템 패킷으로 온다: 월드 진입 스냅샷 0x5611 과 변경분
+        // 0x561B. Persisted per character (and the 서버 창고 per server) ALWAYS, not only while the panel is open —
+        // the point is to know about the characters you aren't looking at.
+        services.Data.CurrencySnapshotReceived += (items, exact, atMs) =>
+            Dispatcher.BeginInvoke(() => OnCurrencySnapshot(services, items, exact, atMs));
+        services.Data.CurrencyItemsChanged += (changes, atMs) =>
+            Dispatcher.BeginInvoke(() => OnCurrencyChanges(services, changes, atMs));
 
         // 보스 무력화(그로기) 임박. 데이터 계층이 현재 타깃의 게이지만 보고 사이클당 한 번만 올려 주므로
         // 여기서는 켜져 있는지만 보고 읽는다. 오버레이는 만들지 않는다 — 게이지 자체는 게임 클라가 이미
@@ -1943,6 +1964,14 @@ public partial class App : Application
                 _settings.AbyssArtifacts = artifacts.Serialize();
             }
 
+            // The character's currency rows go with it. The 서버 창고 row stays — it is the account's on that
+            // server, not this character's.
+            CurrencyStore currencies = CurrencyStore.Parse(_settings.Currencies);
+            if (currencies.RemoveAll([hash]))
+            {
+                _settings.Currencies = currencies.Serialize();
+            }
+
             RefreshAetherRoster(services);
         };
 
@@ -2108,6 +2137,16 @@ public partial class App : Application
         }
 
         _aetherViewModel.SetRows(BuildAetherRows(services));
+
+        // 서버별 총 키나. Built from the same character list as the rows, so a line never counts a character the
+        // panel does not show.
+        _aetherViewModel.SetServerKina(CurrencyRoster.ServerKina(
+            AetherPerCharacterStore.Parse(_settings!.AetherPerCharacter, _settings.AetherCharacterNames),
+            services.Consent.ListCharacters()
+                .Select(c => new AetherRosterName(c.IdentityHash, c.Nickname, c.Server, c.Job))
+                .ToList(),
+            CurrencyStore.Parse(_settings.Currencies),
+            services.Consent.CurrentCharacterHash()));
     }
 
     /// <summary>The 컨텐츠 관리 rows as the persisted stores currently describe them.</summary>
@@ -2124,7 +2163,57 @@ public partial class App : Application
             WeeklyContentStore.Parse(_settings.WeeklyContentClears),
             nowMs: 0,
             corridors: AbyssCorridorStore.Parse(_settings.AbyssCorridors),
-            artifacts: AbyssArtifactStore.Parse(_settings.AbyssArtifacts));
+            artifacts: AbyssArtifactStore.Parse(_settings.AbyssArtifacts),
+            currencies: CurrencyStore.Parse(_settings.Currencies));
+    }
+
+    /// <summary>
+    /// A 0x5611 world-entry item snapshot arrived. It goes into the ledger at once — it is the session's item
+    /// state from here on — but is FILED only once it is known whose it is: it beats the packet naming its
+    /// character by ~7 s, the same race as the 0x610B dump, so it waits on the same rule
+    /// (<see cref="WeeklyContentOwnership.CanFile"/>) from here, the report loop and ExecutorChanged.
+    /// </summary>
+    private void OnCurrencySnapshot(MeterServices services, IReadOnlyList<CurrencyItem> items, bool exact, long atMs)
+    {
+        _currencyLedger.ApplySnapshot(items, exact, atMs);
+        FlushPendingCurrencies(services);
+    }
+
+    /// <summary>0x561B changed tracked stacks. Applied to the ledger at once; filed at once too unless a snapshot
+    /// is still waiting for its character, in which case the change belongs to that character and goes out with
+    /// it.</summary>
+    private void OnCurrencyChanges(MeterServices services, IReadOnlyList<CurrencyItemChange> changes, long atMs)
+    {
+        _currencyLedger.ApplyChanges(changes, atMs);
+        FlushPendingCurrencies(services);
+    }
+
+    /// <summary>File whatever the ledger can now attribute: the character's balances under its identity hash, the
+    /// 서버 창고 under the current character's server. Stamped with when the server stated each balance, never
+    /// with now — a snapshot filed seconds late must not outrank a change that landed in between.</summary>
+    private void FlushPendingCurrencies(MeterServices services)
+    {
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (_settings is null || string.IsNullOrEmpty(hash))
+        {
+            return; // keep it: nobody to file it under yet
+        }
+
+        if (!_currencyLedger.TryTakeFiling(
+                services.Data.ExecutorIdentityAtMs,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                out IReadOnlyList<CurrencyBalance> balances))
+        {
+            return;
+        }
+
+        int server = services.Data.User(services.Data.ExecutorId())?.Server ?? 0;
+        CurrencyStore store = CurrencyStore.Parse(_settings.Currencies);
+        if (store.File(hash, server, balances))
+        {
+            _settings.Currencies = store.Serialize();
+            RefreshAetherRoster(services);
+        }
     }
 
     /// <summary>Persist one weekly 성역 counter under the character that broadcast it. Runs on the UI thread

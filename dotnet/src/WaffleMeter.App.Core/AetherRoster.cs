@@ -48,8 +48,16 @@ public readonly record struct AetherRosterRow(
     IReadOnlyList<WeeklyContentCell>? Weekly = null,
     IReadOnlyList<AbyssCorridorCell>? Corridors = null,
     bool CorridorsKnown = false,
-    bool CorridorsConfirmed = false)
+    bool CorridorsConfirmed = false,
+    IReadOnlyList<CurrencyCell>? Currencies = null)
 {
+    /// <summary>The character's currency balances in catalog order, never null. A cell with no count is one this
+    /// character has never had stated.</summary>
+    public IReadOnlyList<CurrencyCell> CurrencyCells => Currencies ?? [];
+
+    /// <summary>Whether any currency is on file for this character — the panel draws the currency line only then.</summary>
+    public bool CurrenciesKnown => CurrencyCells.Any(c => c.Known);
+
     /// <summary>The weekly raids in catalog order, never null.</summary>
     public IReadOnlyList<WeeklyContentCell> WeeklyCells => Weekly ?? [];
 
@@ -81,7 +89,8 @@ public static class AetherRoster
         WeeklyContentStore? weekly = null,
         long nowMs = 0,
         AbyssCorridorStore? corridors = null,
-        AbyssArtifactStore? artifacts = null)
+        AbyssArtifactStore? artifacts = null,
+        CurrencyStore? currencies = null)
     {
         long at = nowMs > 0 ? nowMs : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -183,7 +192,8 @@ public static class AetherRoster
                 // server's own 점령 현황 is on file and our side in it is settled, so an empty list really is
                 // "우리 진영이 점령한 회랑이 없다". Unconfirmed = we have only watched this character's snapshot,
                 // which cannot tell 미점령 from 미방문.
-                CorridorsConfirmed: server > 0 && heldByServer.ContainsKey(server)));
+                CorridorsConfirmed: server > 0 && heldByServer.ContainsKey(server),
+                Currencies: CurrencyRoster.CellsFor(currencies, hash)));
         }
 
         // Current character first (that's the one the user is looking at), then most-recently-seen. Ordering by

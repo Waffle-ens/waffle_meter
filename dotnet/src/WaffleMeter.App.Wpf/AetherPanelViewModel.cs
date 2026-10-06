@@ -22,6 +22,25 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
 
     public ObservableCollection<AetherRowViewModel> Rows { get; } = new();
 
+    /// <summary>One 총 키나 line per server (see <see cref="CurrencyRoster.ServerKina"/>), shown under the list.</summary>
+    public ObservableCollection<ServerKinaViewModel> ServerKina { get; } = new();
+
+    private Visibility _serverKinaVisibility = Visibility.Collapsed;
+    public Visibility ServerKinaVisibility { get => _serverKinaVisibility; private set => Set(ref _serverKinaVisibility, value); }
+
+    /// <summary>Replace the 총 키나 lines. Kept apart from <see cref="SetRows"/> because the corridor clock rebuilds
+    /// the rows once a second while a visit runs, and that has nothing to do with kinah.</summary>
+    public void SetServerKina(IReadOnlyList<ServerKinaLine> lines)
+    {
+        ServerKina.Clear();
+        foreach (ServerKinaLine line in lines)
+        {
+            ServerKina.Add(new ServerKinaViewModel(line));
+        }
+
+        ServerKinaVisibility = ServerKina.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     /// <summary>Raised when a row's ✕ is clicked, with that character's identity hash (App forgets it and
     /// refreshes). The list is the only place a remembered character can be dropped — a renamed character
     /// keeps its old hash forever otherwise, since the key is a hash of (server, nickname).</summary>
@@ -269,12 +288,136 @@ public sealed class AbyssCorridorCellViewModel : INotifyPropertyChanged
     }
 }
 
+/// <summary>One currency chip on a character row: the game's icon and the balance in Korean units ("3억 2,945만"),
+/// the exact figure in the tooltip.</summary>
+public sealed class CurrencyChipViewModel
+{
+    public CurrencyChipViewModel(CurrencyCell cell, CurrencyCell? characterStorage = null)
+    {
+        IconSource = "pack://application:,,,/WaffleMeter.App.Wpf;component/Icons/" + cell.Currency.IconFile;
+        ValueText = cell.Count is { } count ? CurrencyFormat.Compact(count) : "—";
+
+        // A balance never stated reads as a dash, not a zero — the character may well hold some; the meter has
+        // simply not seen this character's items since it started watching.
+        Opacity = cell.Known ? 1.0 : 0.45;
+
+        string body = cell.Count is { } exact
+            ? $"{cell.Currency.Name} {CurrencyFormat.Exact(exact)}{Observed(cell.ObservedAtMs)}"
+            : $"{cell.Currency.Name} · 기록 없음\n(이 캐릭터로 접속하면 실제 값으로 채워집니다)";
+
+        // 캐릭터 창고 kinah rides the tradeable kinah chip rather than taking a chip of its own — it is empty for
+        // nearly everyone, and the row has no room for a permanent zero.
+        if (characterStorage is { Count: long stored and > 0 })
+        {
+            body += $"\n캐릭터 창고 {CurrencyFormat.Exact(stored)}";
+        }
+
+        ToolTip = body;
+    }
+
+    public string IconSource { get; }
+    public string ValueText { get; }
+    public double Opacity { get; }
+    public string ToolTip { get; }
+
+    /// <summary>" (10-07 00:01 기준)" — when the server last stated this balance. Every row but the current one is
+    /// a memory, so the age is part of the answer.</summary>
+    internal static string Observed(long observedAtMs)
+    {
+        if (observedAtMs <= 0
+            || observedAtMs < DateTimeOffset.MinValue.ToUnixTimeMilliseconds()
+            || observedAtMs > DateTimeOffset.MaxValue.ToUnixTimeMilliseconds())
+        {
+            return string.Empty; // a hand-edited settings file must not throw the panel down
+        }
+
+        return DateTimeOffset.FromUnixTimeMilliseconds(observedAtMs).ToLocalTime()
+            .ToString(" (MM-dd HH:mm '기준')", CultureInfo.InvariantCulture);
+    }
+}
+
+/// <summary>One 총 키나 line: a server's characters' own kinah plus its 서버 창고, counted once.</summary>
+public sealed class ServerKinaViewModel
+{
+    public ServerKinaViewModel(ServerKinaLine line)
+    {
+        ServerText = line.ServerLabel.Length > 0
+            ? line.ServerLabel
+            : line.Server.ToString(CultureInfo.InvariantCulture);
+        TotalText = CurrencyFormat.Compact(line.Total);
+        StorageText = line.ServerStorage is { } storage ? "서버 창고 " + CurrencyFormat.Compact(storage) : "서버 창고 —";
+
+        long characters = line.Characters.Sum(c => c.Kina);
+        var tip = new System.Text.StringBuilder();
+        tip.Append(ServerText).Append(" 총 키나 ").Append(CurrencyFormat.Exact(line.Total));
+        if (line.IsLowerBound)
+        {
+            tip.Append(" 이상"); // an unknown balance counts as nothing, so the real total can only be higher
+        }
+
+        int partial = 0;
+        foreach (CharacterKina c in line.Characters)
+        {
+            tip.Append("\n  ").Append(c.Label).Append(' ').Append(CurrencyFormat.Exact(c.Kina));
+            if (c.Partial)
+            {
+                // Half-known (a meter started mid-session learns balances one change at a time): the number is
+                // what is known of this character, not all it holds.
+                tip.Append(" (일부만 기록)");
+                partial++;
+            }
+
+            tip.Append(CurrencyChipViewModel.Observed(c.ObservedAtMs));
+        }
+
+        tip.Append("\n  서버 창고 ")
+           .Append(line.ServerStorage is { } s
+               ? CurrencyFormat.Exact(s) + CurrencyChipViewModel.Observed(line.ServerStorageObservedAtMs)
+               : "기록 없음");
+        tip.Append("\n= 캐릭터 키나 ").Append(CurrencyFormat.Exact(characters))
+           .Append(" + 서버 창고 ").Append(CurrencyFormat.Exact(line.ServerStorage ?? 0));
+        tip.Append("\n\n캐릭터마다 키나(각인)·키나·캐릭터 창고 키나를 더하고, 서버 창고는 서버당 한 번만 더합니다.");
+        if (line.CharactersWithoutRecord > 0)
+        {
+            tip.Append("\n키나 기록이 없는 캐릭터 ").Append(line.CharactersWithoutRecord)
+               .Append("명은 빠져 있습니다 — 그 캐릭터로 접속하면 채워집니다.");
+        }
+
+        if (partial > 0)
+        {
+            tip.Append("\n키나가 일부만 기록된 캐릭터 ").Append(partial)
+               .Append("명은 기록된 만큼만 더했습니다 — 그 캐릭터로 접속하면 채워집니다.");
+        }
+
+        ToolTip = tip.ToString();
+    }
+
+    public string ServerText { get; }
+    public string TotalText { get; }
+    public string StorageText { get; }
+    public string ToolTip { get; }
+}
+
 /// <summary>One character row in the 컨텐츠 관리 목록.</summary>
 public sealed class AetherRowViewModel
 {
     public AetherRowViewModel(AetherRosterRow row)
     {
         IdentityHash = row.IdentityHash;
+
+        // 재화 한 줄. Drawn only when something is on file for this character; the 캐릭터 창고 balance is folded
+        // into the tradeable kinah chip's tooltip rather than shown as a chip of its own.
+        CurrencyCell? characterStorage = row.CurrencyCells
+            .Where(c => c.Currency.Slug == CurrencyCatalog.CharacterStorageKina)
+            .Select(c => (CurrencyCell?)c)
+            .FirstOrDefault();
+        Currencies = CurrencyCatalog.ChipSlugs
+            .SelectMany(slug => row.CurrencyCells.Where(c => c.Currency.Slug == slug))
+            .Select(c => new CurrencyChipViewModel(
+                c, c.Currency.Slug == CurrencyCatalog.Kina ? characterStorage : null))
+            .ToList();
+        CurrenciesVisibility = row.CurrenciesKnown ? Visibility.Visible : Visibility.Collapsed;
+
         Weekly = row.WeeklyCells
             .Select(c => new WeeklyContentCellViewModel(row.IdentityHash, c))
             .ToList();
@@ -304,6 +447,8 @@ public sealed class AetherRowViewModel
     }
 
     public string IdentityHash { get; }
+    public IReadOnlyList<CurrencyChipViewModel> Currencies { get; }
+    public Visibility CurrenciesVisibility { get; }
     public IReadOnlyList<WeeklyContentCellViewModel> Weekly { get; }
     public IReadOnlyList<AbyssCorridorCellViewModel> Corridors { get; }
     public Visibility CorridorsVisibility { get; }
