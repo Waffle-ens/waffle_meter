@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using WaffleMeter.App.Core;
@@ -86,6 +87,10 @@ public sealed class MemoOverlayViewModel : INotifyPropertyChanged
     /// 다시 흘러 슬라이더가 커서 밑에서 옆으로 튄다. 자리를 지킨 채 안 보이게만 한다.</summary>
     public Visibility ChromeVisibility => ChromeHidden ? Visibility.Hidden : Visibility.Visible;
 
+    /// <summary>투명도 최하에선 넘친 본문의 스크롤바도 숨긴다(슬라이더와 글자만 남긴다는 결정). Hidden 은
+    /// Disabled 와 달리 휠 스크롤은 그대로 받는다.</summary>
+    public ScrollBarVisibility ReadScrollBarVisibility => ChromeHidden ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
+
     private bool _ctrlHover;
 
     /// <summary>Ctrl 을 누른 채 커서가 메모 위에 있는가(창의 40ms 폴이 세운다). 투명도 최하에서 잠금 버튼을
@@ -166,6 +171,7 @@ public sealed class MemoOverlayViewModel : INotifyPropertyChanged
         {
             OnPropertyChanged(nameof(ChromeHidden));
             OnPropertyChanged(nameof(ChromeVisibility));
+            OnPropertyChanged(nameof(ReadScrollBarVisibility));
             OnPropertyChanged(nameof(LockButtonVisibility));
         }
 

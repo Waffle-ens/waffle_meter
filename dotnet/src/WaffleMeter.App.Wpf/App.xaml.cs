@@ -2006,7 +2006,14 @@ public partial class App : Application
         _memoPanel.Park();
         _controller?.RegisterOverlay(_memoPanel);
         AttachScreenClamp(_memoPanel);
-        AttachResize(_memoPanel, services.Props, "memoPanelWidth", "memoPanelHeight");
+        // 좌·상단 가장자리로 키우면 Left/Top 이 바뀌는데 PositionChanged 는 드래그에서만 올라온다. 리사이즈를 끝낸
+        // 자리도 사용자가 정한 자리로 기록해야 다음 표시 때 미터 옆으로 다시 붙지 않는다.
+        AttachResize(_memoPanel, services.Props, "memoPanelWidth", "memoPanelHeight", onResizeEnd: _ =>
+        {
+            _memoPanelPositioned = true;
+            services.Props.SetProperty("memoPanelX", _memoPanel.Left.ToString("0", CultureInfo.InvariantCulture));
+            services.Props.SetProperty("memoPanelY", _memoPanel.Top.ToString("0", CultureInfo.InvariantCulture));
+        });
 
         if (LoadPanelPosition(services.Props, _memoPanel, "memoPanelX", "memoPanelY"))
         {

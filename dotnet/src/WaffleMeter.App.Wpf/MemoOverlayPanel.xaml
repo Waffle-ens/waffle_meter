@@ -156,8 +156,8 @@
                   MouseLeftButtonDown="OnBodyMouseDown" MouseMove="OnDragSurfaceMove" MouseLeftButtonUp="OnDragSurfaceUp">
                 <!-- Focusable=False: ScrollViewer 는 포커스를 잡을 수 있으면 MouseLeftButtonDown 을 Handled 로 삼켜
                      더블클릭이 본문까지 안 온다. -->
-                <ScrollViewer Focusable="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              Visibility="{Binding ReadVisibility}">
+                <ScrollViewer Focusable="False" VerticalScrollBarVisibility="{Binding ReadScrollBarVisibility}"
+                              HorizontalScrollBarVisibility="Disabled" Visibility="{Binding ReadVisibility}">
                     <TextBlock Text="{Binding Text}" TextWrapping="Wrap" FontSize="13" Foreground="{Binding TextBrush}"/>
                 </ScrollViewer>
                 <TextBlock Text="더블클릭해서 메모를 적으세요" TextWrapping="Wrap" FontSize="12"
