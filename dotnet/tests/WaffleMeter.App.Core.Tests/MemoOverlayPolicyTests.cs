@@ -103,4 +103,40 @@ public sealed class MemoOverlayPolicyTests
     [InlineData(true, true, true)]
     public void Poll_runs_only_while_locked_or_at_minimum_opacity(bool locked, bool chromeHidden, bool expected) =>
         Assert.Equal(expected, MemoOverlayPolicy.NeedsPeekPoll(locked, chromeHidden));
+
+    [Fact]
+    public void Esc_hands_the_foreground_back()
+    {
+        Assert.True(MemoOverlayPolicy.ShouldRestoreForeground(requested: true, deactivated: false, memoStillForeground: true, previousAlive: true));
+    }
+
+    [Fact]
+    public void Ending_an_edit_with_the_memos_own_lock_or_close_button_hands_the_foreground_back()
+    {
+        // 잠금 버튼·✕ 는 활성 창 안의 클릭이라 비활성화가 없다 — 메모가 그대로 포그라운드다. 돌려주지 않으면
+        // 게임은 배경에 남고(FPS 하락) 다음 Alt+F4 가 편집이 끝난 메모 창을 닫는다.
+        Assert.True(MemoOverlayPolicy.ShouldRestoreForeground(requested: false, deactivated: false, memoStillForeground: true, previousAlive: true));
+    }
+
+    [Fact]
+    public void A_non_deactivating_end_after_focus_already_moved_leaves_it_alone()
+    {
+        Assert.False(MemoOverlayPolicy.ShouldRestoreForeground(requested: false, deactivated: false, memoStillForeground: false, previousAlive: true));
+    }
+
+    [Fact]
+    public void An_outside_click_keeps_the_foreground_the_user_picked_even_while_it_still_reads_as_the_memo()
+    {
+        // 바깥 클릭(설정 창·브라우저)으로 끝난 편집 — 되돌리면 가로채기다. 같은 UI 스레드의 설정 창이 활성화될
+        // 때는 Deactivated 안에서 GetForegroundWindow 가 아직 메모를 가리킨다(실측) — 그래도 돌려주면 안 된다.
+        Assert.False(MemoOverlayPolicy.ShouldRestoreForeground(requested: false, deactivated: true, memoStillForeground: true, previousAlive: true));
+        Assert.False(MemoOverlayPolicy.ShouldRestoreForeground(requested: false, deactivated: true, memoStillForeground: false, previousAlive: true));
+    }
+
+    [Fact]
+    public void Nothing_to_hand_back_to_when_the_previous_window_is_gone()
+    {
+        Assert.False(MemoOverlayPolicy.ShouldRestoreForeground(requested: true, deactivated: false, memoStillForeground: true, previousAlive: false));
+        Assert.False(MemoOverlayPolicy.ShouldRestoreForeground(requested: false, deactivated: false, memoStillForeground: true, previousAlive: false));
+    }
 }

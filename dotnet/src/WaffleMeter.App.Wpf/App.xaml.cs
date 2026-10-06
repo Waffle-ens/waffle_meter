@@ -1191,9 +1191,11 @@ public partial class App : Application
         // Free the single-instance guard the instant an update-restart commits, so Velopack's relaunched
         // process acquires the mutex as "first" instead of racing this (exiting) process's handle.
         // 메모의 미뤄 둔 저장도 여기서 내려 쓴다 — ApplyUpdatesAndRestart 는 OnExit 를 거치지 않고 프로세스를
-        // 끝낼 수 있어서, 디바운스 0.7초 안에 친 마지막 글자가 업데이트와 함께 사라진다.
+        // 끝낼 수 있어서, 디바운스 0.7초 안에 친 마지막 글자가 업데이트와 함께 사라진다. 오버레이에서 편집 중이면
+        // 편집 상자의 글자를 먼저 본문으로 커밋한다 — 토스트는 NOACTIVATE 라 눌러도 편집이 끝나지 않는다.
         updateService.BeforeRestart = () =>
         {
+            _memoPanel?.CommitPendingEdit();
             _memoViewModel?.Flush();
             Program.ReleaseSingleInstance();
         };

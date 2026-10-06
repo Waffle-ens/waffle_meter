@@ -49,7 +49,7 @@ public partial class MemoOverlayPanel : OverlayPanelWindow
         _peekTimer.Tick += OnPeekTick;
         DataContextChanged += OnDataContextChanged;
         // 바깥을 클릭해 포커스가 넘어갔다 = 편집 끝. 포그라운드는 이미 사용자가 고른 곳이니 되돌리지 않는다.
-        Deactivated += (_, _) => CommitEdit(restoreForeground: false);
+        Deactivated += (_, _) => CommitEdit(restoreForeground: false, deactivated: true);
     }
 
     /// <summary>오버레이 안에서 편집 중인가. 편집하는 동안은 표시 규칙이 메모를 치우지 않는다.</summary>
@@ -261,9 +261,17 @@ public partial class MemoOverlayPanel : OverlayPanelWindow
         }, DispatcherPriority.Input);
     }
 
+    /// <summary>열려 있는 편집을 지금 저장하고 닫는다(없으면 아무것도 안 한다). 업데이트 재시작 직전에 App 이
+    /// 부른다 — 편집 상자의 글자는 커밋 전까지 본문(<see cref="MemoOverlayViewModel.Text"/>)에 없는데, '지금
+    /// 재시작' 토스트는 NOACTIVATE 창이라 눌러도 메모가 비활성화되지 않고(Deactivated 커밋이 안 온다),
+    /// Velopack 재시작은 창 닫기(<see cref="OnClosing"/>)를 거치지 않고 프로세스를 끝낸다.</summary>
+    public void CommitPendingEdit() => CommitEdit(restoreForeground: false);
+
     /// <summary>편집을 끝내고 저장한다. <paramref name="restoreForeground"/> 면 편집 전 포그라운드(대개 게임)로
-    /// 돌려준다 — Esc 경로. 바깥 클릭(비활성화)이면 포그라운드는 이미 사용자가 고른 곳이라 건드리지 않는다.</summary>
-    private void CommitEdit(bool restoreForeground)
+    /// 돌려준다 — Esc 경로. 바깥 클릭(<paramref name="deactivated"/>)이면 이미 사용자가 고른 곳이라 건드리지
+    /// 않는다. 그 밖의 경로는 메모가 아직 포그라운드일 때만 돌려준다 — 잠금 버튼·✕ 는 활성 창 안의 클릭이라
+    /// 비활성화가 없다(<see cref="MemoOverlayPolicy.ShouldRestoreForeground"/>).</summary>
+    private void CommitEdit(bool restoreForeground, bool deactivated = false)
     {
         if (!_editing)
         {
@@ -290,7 +298,12 @@ public partial class MemoOverlayPanel : OverlayPanelWindow
 
         IntPtr previous = _foregroundBeforeEdit;
         _foregroundBeforeEdit = IntPtr.Zero;
-        if (restoreForeground && previous != IntPtr.Zero && IsWindow(previous))
+        IntPtr own = new WindowInteropHelper(this).Handle;
+        if (MemoOverlayPolicy.ShouldRestoreForeground(
+                restoreForeground,
+                deactivated,
+                own != IntPtr.Zero && GetForegroundWindow() == own,
+                previous != IntPtr.Zero && IsWindow(previous)))
         {
             SetForegroundWindow(previous);
         }

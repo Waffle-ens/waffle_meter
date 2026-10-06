@@ -58,4 +58,21 @@ public static class MemoOverlayPolicy
     /// 않는다.</para>
     /// </summary>
     public static bool NeedsPeekPoll(bool locked, bool chromeHidden) => locked || chromeHidden;
+
+    /// <summary>
+    /// 오버레이 안 편집을 끝낼 때 포그라운드를 편집 전 창(대개 게임)으로 돌려줄지.
+    /// <para>Esc·Alt+F4(<paramref name="requested"/>)면 돌려준다. 비활성화(<paramref name="deactivated"/> — 바깥
+    /// 클릭)로 끝났으면 돌려주지 않는다 — 포그라운드는 이미 사용자가 고른 곳이라 되돌리면 가로채기다.</para>
+    /// <para>그 밖의 경로는 메모가 <b>아직 포그라운드일 때만</b> 돌려준다. 메모 자신의 잠금 버튼·✕ 는 활성 창
+    /// <b>안의</b> 클릭이라 비활성화가 일어나지 않는다 — NOACTIVATE 를 되세우거나 투명도 0·클릭 통과로 바꿔도
+    /// 활성 상태는 그대로다. 그대로 두면 안 보이는(✕) 또는 클릭이 통과하는(잠금) 메모가 활성 창으로 남아 게임은
+    /// 배경(FPS 하락)이고 키 입력은 메모로 가며, 이어진 Alt+F4 가 편집이 이미 끝난 메모 창을 닫아 세션 내내
+    /// 되살릴 수 없다.</para>
+    /// <para>⚠️ 비활성화 경로를 "아직 포그라운드인가"로 가리면 안 된다(실측): 같은 UI 스레드의 다른 창(설정
+    /// 창)이 활성화될 때 Deactivated 안에서 GetForegroundWindow 는 <b>아직 메모</b>다 — 비활성화 메시지가 활성
+    /// 창 교체보다 먼저 온다. 그 값을 믿으면 설정 창을 누른 사용자에게서 포커스를 게임으로 빼앗는다.</para>
+    /// <para>편집 전 창이 없거나 사라졌으면(<paramref name="previousAlive"/>) 돌려줄 곳이 없다.</para>
+    /// </summary>
+    public static bool ShouldRestoreForeground(bool requested, bool deactivated, bool memoStillForeground, bool previousAlive) =>
+        previousAlive && (requested || (!deactivated && memoStillForeground));
 }
