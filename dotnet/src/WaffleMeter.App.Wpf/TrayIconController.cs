@@ -18,8 +18,12 @@ public sealed class TrayIconController : IDisposable
     /// <param name="openAetherList">Toggle the 컨텐츠 관리 panel. The footer 오드 badge is its other entry
     /// point, but that badge is hidden while 오드 표시 is off or before the first broadcast of a session — and
     /// the list is about the OTHER characters, so it has to stay reachable when the badge isn't there.</param>
+    /// <param name="recoverInput">'오버레이 입력 복구' 때 미터 말고도 풀어야 할 잠금(메모 잠금). 메모의 Ctrl+클릭
+    /// 해제는 GetAsyncKeyState 에 기대는데, 그게 GameGuard 아래에서 막히면 잠긴 메모를 풀 길이 이 메뉴와 설정
+    /// 탭뿐이다.</param>
     public TrayIconController(OverlayWindow window, OverlayController controller, Action exit,
-        Action? openReplay = null, Action? loadPacketLog = null, Action? openAetherList = null)
+        Action? openReplay = null, Action? loadPacketLog = null, Action? openAetherList = null,
+        Action? recoverInput = null)
     {
         _icon = new WinForms.NotifyIcon
         {
@@ -34,6 +38,7 @@ public sealed class TrayIconController : IDisposable
         {
             window.SetClickThrough(false);
             controller.Present();
+            recoverInput?.Invoke();
         }));
         if (openAetherList is not null)
         {

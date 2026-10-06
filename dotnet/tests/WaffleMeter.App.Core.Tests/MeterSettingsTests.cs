@@ -206,6 +206,58 @@ public sealed class MeterSettingsTests : IDisposable
     }
 
     [Fact]
+    public void Memo_defaults_are_off_unlocked_white_and_sixty_percent()
+    {
+        var s = new MeterSettings(new PropertyHandler(_temp));
+        Assert.False(s.ShowMemo);
+        Assert.False(s.MemoKeepWhenMeterHidden);
+        Assert.False(s.MemoLocked);
+        Assert.Equal("#FFFFFF", s.MemoTextColor);
+        Assert.Equal(0.6, s.MemoOpacity);
+    }
+
+    // 메모 투명도는 미터 투명도와 별개의 키다 — 한쪽 슬라이더가 다른 쪽을 끌고 가면 안 된다.
+    [Fact]
+    public void Memo_opacity_is_its_own_key_and_clamps_on_write_and_on_read()
+    {
+        var props = new PropertyHandler(_temp);
+        var s = new MeterSettings(props) { MemoOpacity = 0.25 };
+        Assert.Equal(0.4, s.MeterOpacity);
+        Assert.Equal("0.25", props.GetProperty("memo.opacity"));
+        Assert.Equal(0.25, new MeterSettings(props).MemoOpacity);
+
+        s.MemoOpacity = 5;
+        Assert.Equal(1.0, s.MemoOpacity);
+        s.MemoOpacity = -1;
+        Assert.Equal(0.0, s.MemoOpacity);
+
+        // 값 검증 없이 심기는 경로(공유코드 적용·수기 편집).
+        props.SetProperty("memo.opacity", "NaN");
+        Assert.Equal(MeterSettings.MemoOpacityDefault, new MeterSettings(props).MemoOpacity);
+        props.SetProperty("memo.opacity", "9");
+        Assert.Equal(1.0, new MeterSettings(props).MemoOpacity);
+    }
+
+    [Fact]
+    public void Memo_toggles_and_color_survive_a_restart()
+    {
+        var s = new MeterSettings(new PropertyHandler(_temp))
+        {
+            ShowMemo = true,
+            MemoKeepWhenMeterHidden = true,
+            MemoLocked = true,
+            MemoTextColor = "rgba(255, 214, 0, 0.8)",
+        };
+
+        var again = new MeterSettings(new PropertyHandler(_temp));
+        Assert.True(again.ShowMemo);
+        Assert.True(again.MemoKeepWhenMeterHidden);
+        Assert.True(again.MemoLocked);
+        Assert.Equal("rgba(255, 214, 0, 0.8)", again.MemoTextColor);
+        Assert.Equal(s.MemoTextColor, again.MemoTextColor);
+    }
+
+    [Fact]
     public void Raises_property_changed_on_csharp_name()
     {
         var s = new MeterSettings(new PropertyHandler(_temp));

@@ -85,6 +85,16 @@ public partial class App : Application
     /// <summary>The 컨텐츠 관리 panel's shipped size, kept so "위치 초기화" can restore it.</summary>
     private (double W, double H) _aetherPanelDefaultSize;
 
+    private MemoOverlayPanel? _memoPanel;
+    private MemoOverlayViewModel? _memoViewModel;
+    private System.Windows.Threading.DispatcherTimer? _memoTimer;
+    private bool _memoPanelPositioned;
+    /// <summary>직전 조정에서 메모가 화면에 있었는가 — 사용자가 자리를 정한 적 없는 메모를 미터 옆에 붙이는 일을
+    /// 숨김→표시로 넘어가는 순간에만 하려고 둔다.</summary>
+    private bool _memoPanelShown;
+    /// <summary>메모 창의 출고 크기. "메모 위치 초기화"가 크기까지 되돌린다(컨텐츠 관리와 같은 이유).</summary>
+    private (double W, double H) _memoPanelDefaultSize;
+
     /// <summary>Weekly 성역 counters from a 0x610B dump, held until the identity they belong to is established.
     /// See <see cref="OnWeeklyContentBroadcast"/> for why filing them on arrival is wrong.</summary>
     private readonly Dictionary<WeeklyContentKind, (int Remaining, long AtMs)> _weeklyContentPending = new();
@@ -441,7 +451,17 @@ public partial class App : Application
             services.Movement != null ? () => OpenReplay(services, window) : null,
             DevPacketLogReplay.IsAvailable(VersionConfig.Resolve().Version) ? () => LoadPacketLog(services) : null,
             // Resolved at click time: WireAetherPanel subscribes later in this same startup.
-            window.RequestAetherList);
+            window.RequestAetherList,
+            // '오버레이 입력 복구'는 메모 잠금도 푼다 — Ctrl+잠금 버튼은 GetAsyncKeyState 에 기대는데, 그게
+            // GameGuard 아래에서 막히면 잠긴 메모를 풀 길이 이 메뉴와 설정 탭뿐이다. 미터의 Ctrl+T 잠금과는
+            // 독립이라 메모 잠금은 여기서 따로 내린다.
+            recoverInput: () =>
+            {
+                if (_settings is { MemoLocked: true } s)
+                {
+                    s.MemoLocked = false;
+                }
+            });
         window.PositionChanged += (left, top) => SavePosition(services.Props, left, top);
 
         // Single-instance: surface this (running) instance when a later launch signals us, so relaunching
@@ -531,6 +551,8 @@ public partial class App : Application
             svm.IsCombatActive = () => _combatActive;
             svm.CheckUpdateRequested = () => _ = _updateService?.CheckAndDownloadAsync(msg => Dispatcher.Invoke(() => viewModel.Status = msg));
             svm.ResetPositionRequested = which => ResetPanelPosition(which, services, window);
+            // 메모 탭의 본문 상자가 오버레이와 같은 뷰모델을 본다 — 한쪽에서 고친 글자가 다른 쪽에 바로 뜬다.
+            svm.Memo = _memoViewModel;
             svm.PlayReplayRequested = () => PlayReplayFromPicker(services, window);
             svm.DummyResetRequested = () => _engine?.RequestDummyReset(); // 허수아비 DPS 초기화 button (settings tab)
             svm.CooldownPickerRequested = () => ToggleCooldownPicker(services);
@@ -597,6 +619,9 @@ public partial class App : Application
 
         // 오드 목록 panel: the footer 오드 badge toggles it.
         WireAetherPanel(services, window);
+
+        // 메모 오버레이: 설정 '메모' 탭의 토글이 켜고 끈다.
+        WireMemoPanel(services, window);
 
         // Capture runs in the elevated CaptureHost; the UI connects over the pipe (no admin here).
         // EnsureServing (below) already launches the helper, absorbs any UAC prompt, and WAITS for the
@@ -1165,7 +1190,15 @@ public partial class App : Application
         UpdateService updateService = _updateService;
         // Free the single-instance guard the instant an update-restart commits, so Velopack's relaunched
         // process acquires the mutex as "first" instead of racing this (exiting) process's handle.
-        updateService.BeforeRestart = Program.ReleaseSingleInstance;
+        // 메모의 미뤄 둔 저장도 여기서 내려 쓴다 — ApplyUpdatesAndRestart 는 OnExit 를 거치지 않고 프로세스를
+        // 끝낼 수 있어서, 디바운스 0.7초 안에 친 마지막 글자가 업데이트와 함께 사라진다. 오버레이에서 편집 중이면
+        // 편집 상자의 글자를 먼저 본문으로 커밋한다 — 토스트는 NOACTIVATE 라 눌러도 편집이 끝나지 않는다.
+        updateService.BeforeRestart = () =>
+        {
+            _memoPanel?.CommitPendingEdit();
+            _memoViewModel?.Flush();
+            Program.ReleaseSingleInstance();
+        };
         _updateToast.RestartRequested += () => updateService.ApplyAndRestart();
         _updateService.StageChanged += (stage, info, percent) => Dispatcher.Invoke(() =>
         {
@@ -1954,6 +1987,117 @@ public partial class App : Application
         };
     }
 
+    /// <summary>
+    /// 메모 오버레이. 창 배선은 <see cref="WireAetherPanel"/> 와 같은 절차(Show→Park, 재선점 등록, 화면 가두기,
+    /// 크기·위치 복원·저장)이고, 표시 여부만 다르다 — 사용자가 여닫는 패널이 아니라 토글로 켜 두는 창이라
+    /// 버프·쿨타임 오버레이처럼 자기 틱(<see cref="RefreshMemoOverlay"/>)에서 미터와 맞춘다.
+    /// <para>⚠️ 컨트롤러의 컴패니언 슬롯은 쓰지 않는다(필드가 하나뿐이고 버프 오버레이가 점유 중이라, 여기
+    /// 끼우면 버프 오버레이가 조용히 자동 숨김에서 빠진다). 미터의 클릭 통과(Ctrl+T)도 미러링하지 않는다 —
+    /// 메모의 통과는 메모 잠금(<c>memo.locked</c>)만이 정한다.</para>
+    /// </summary>
+    private void WireMemoPanel(MeterServices services, OverlayWindow overlay)
+    {
+        // 본문은 설정 파일이 아니라 앱 데이터 폴더(waffle_meter.v1.4)의 memo.txt — 새 폴더를 만들지 않는다.
+        _memoViewModel = new MemoOverlayViewModel(_settings!, new MemoTextStore(services.Props.AppDirectory()));
+        _memoPanel = new MemoOverlayPanel { DataContext = _memoViewModel };
+        _memoPanelDefaultSize = (_memoPanel.Width, _memoPanel.Height);
+        LoadWindowSize(services.Props, "memoPanelWidth", "memoPanelHeight", _memoPanel);
+        _memoPanel.Show();
+        _memoPanel.Park();
+        _controller?.RegisterOverlay(_memoPanel);
+        AttachScreenClamp(_memoPanel);
+        // 좌·상단 가장자리로 키우면 Left/Top 이 바뀌는데 PositionChanged 는 드래그에서만 올라온다. 리사이즈를 끝낸
+        // 자리도 사용자가 정한 자리로 기록해야 다음 표시 때 미터 옆으로 다시 붙지 않는다.
+        AttachResize(_memoPanel, services.Props, "memoPanelWidth", "memoPanelHeight", onResizeEnd: _ =>
+        {
+            _memoPanelPositioned = true;
+            services.Props.SetProperty("memoPanelX", _memoPanel.Left.ToString("0", CultureInfo.InvariantCulture));
+            services.Props.SetProperty("memoPanelY", _memoPanel.Top.ToString("0", CultureInfo.InvariantCulture));
+        });
+
+        if (LoadPanelPosition(services.Props, _memoPanel, "memoPanelX", "memoPanelY"))
+        {
+            _memoPanelPositioned = true;
+        }
+
+        ClampWhenLoaded(_memoPanel);
+
+        _memoPanel.PositionChanged += (left, top) =>
+        {
+            _memoPanelPositioned = true;
+            services.Props.SetProperty("memoPanelX", left.ToString("0", CultureInfo.InvariantCulture));
+            services.Props.SetProperty("memoPanelY", top.ToString("0", CultureInfo.InvariantCulture));
+        };
+        _memoPanel.CloseRequested += () => { _settings!.ShowMemo = false; };
+
+        _settings!.PropertyChanged += (_, e) =>
+        {
+            // 토글을 고르는 즉시 반영한다(틱을 기다리면 "안 먹었다"로 보인다). ⚠️ 빈 이름도 받는다 — 설정 코드
+            // 가져오기(MeterSettings.Reload)는 그것만 발화한다.
+            if (string.IsNullOrEmpty(e.PropertyName)
+                || e.PropertyName is nameof(MeterSettings.ShowMemo)
+                    or nameof(MeterSettings.MemoKeepWhenMeterHidden)
+                    or nameof(MeterSettings.MemoLocked))
+            {
+                Dispatcher.BeginInvoke(() => RefreshMemoOverlay(overlay));
+            }
+        };
+
+        // 400ms: 미터의 300ms 폴이 내리는 포그라운드 판정을 따라가면 되고, 그보다 촘촘할 이유가 없다.
+        _memoTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(400),
+        };
+        _memoTimer.Tick += (_, _) => RefreshMemoOverlay(overlay);
+        _memoTimer.Start();
+        RefreshMemoOverlay(overlay);
+    }
+
+    /// <summary>
+    /// 메모를 미터와 맞춘다 — 판단은 <see cref="MemoOverlayPolicy.IsVisible"/>, 여기선 반영만 한다.
+    /// <para>컨트롤러에서 읽는 값은 <see cref="OverlayController.OverlayForegroundOk"/>(게임 포그라운드 축만)와
+    /// <see cref="OverlayController.IsVisible"/>(Ctrl+H·트레이 숨김)다. <c>CompanionBaseShown</c> 은 전역 '오버레이
+    /// 유지' 토글이 이미 섞여 있어 메모만의 유지 토글과 조합할 수 없다.</para>
+    /// <para>보일 때는 매 틱 최상위 재선점도 직접 부른다. 미터가 트레이로 숨은 동안은 컨트롤러 폴이 등록된
+    /// 오버레이를 재선점하지 않으므로, '미터를 숨겨도 메모 유지' 중에 alt-tab 으로 돌아오면 게임 뒤에 깔린다.
+    /// 숨길 때는 Fade 다(Park 는 매번 HWND_BOTTOM 으로 z-order 를 흔든다) — 쿨타임 오버레이와 같은 선택.</para>
+    /// </summary>
+    private void RefreshMemoOverlay(OverlayWindow overlay)
+    {
+        if (_memoPanel is null || _settings is null)
+        {
+            return;
+        }
+
+        _memoPanel.SetLocked(_settings.MemoLocked);
+        bool show = MemoOverlayPolicy.IsVisible(
+            _settings.ShowMemo,
+            _controller?.OverlayForegroundOk ?? true,
+            _settings.MemoKeepWhenMeterHidden,
+            _controller?.IsVisible ?? true,
+            _memoPanel.IsEditing);
+
+        if (!show)
+        {
+            _memoPanelShown = false;
+            _memoPanel.Fade();
+            return;
+        }
+
+        if (!_memoPanelShown && !_memoPanelPositioned)
+        {
+            // 자리를 정한 적이 없으면 미터 옆에 붙인다. 전투 기록(+0)·컨텐츠 관리(+40)와 같은 자리에서 높이만
+            // 비켜 둔다 — 셋 다 최상위라 같은 좌표면 열린 패널 위에 정확히 겹쳐 "패널이 바뀌었다"로 읽힌다.
+            Window anchor = PanelAnchor(overlay);
+            _memoPanel.Left = anchor.Left + anchor.ActualWidth + 8;
+            _memoPanel.Top = anchor.Top + 80;
+        }
+
+        _memoPanelShown = true;
+        _memoPanel.Present(true);
+        _memoPanel.ReassertTopmostIfBuried();
+    }
+
     /// <summary>Rebuild the 컨텐츠 관리 rows from the persisted stores. Cheap (a few dozen records parsed from two
     /// settings strings), so it simply re-reads instead of maintaining an incremental cache.</summary>
     private void RefreshAetherRoster(MeterServices services)
@@ -2492,6 +2636,29 @@ public partial class App : Application
                 }
 
                 break;
+            case "memo":
+                services.Props.SetProperty("memoPanelX", string.Empty);
+                services.Props.SetProperty("memoPanelY", string.Empty);
+                _memoPanelPositioned = false;
+                if (_memoPanel is { } mp)
+                {
+                    // 크기도 되돌린다 — 가장자리를 끌어 아주 작게 만들어 둔 메모를 찾는 길이 이 버튼뿐이다.
+                    // 대입이 AttachResize 의 SizeChanged 로 다시 저장되므로 다음 기동도 출고 크기로 뜬다.
+                    if (_memoPanelDefaultSize.W > 0)
+                    {
+                        mp.Width = _memoPanelDefaultSize.W;
+                        mp.Height = _memoPanelDefaultSize.H;
+                    }
+
+                    if (_memoPanelShown)
+                    {
+                        Window anchor = PanelAnchor(overlay);
+                        mp.Left = anchor.Left + anchor.ActualWidth + 8;
+                        mp.Top = anchor.Top + 80;
+                    }
+                }
+
+                break;
         }
     }
 
@@ -2591,7 +2758,7 @@ public partial class App : Application
     {
         bool allow = _settings?.MultiMonitorMode ?? false;
         foreach (Window? w in new Window?[]
-                 { _overlayWindow, _splitBoss, _splitRows, _joinPanel, _historyPanel, _aetherPanel, _skillFlyout, _cooldownFlyout, _detailWindow })
+                 { _overlayWindow, _splitBoss, _splitRows, _joinPanel, _historyPanel, _aetherPanel, _memoPanel, _skillFlyout, _cooldownFlyout, _detailWindow })
         {
             if (w != null)
             {
@@ -3512,6 +3679,8 @@ public partial class App : Application
         _controller?.Stop(); // unhook the foreground WinEvent + stop the poll
         _alarms?.Stop();
         _buffPresets?.Dispose();
+        _memoTimer?.Stop();
+        _memoViewModel?.Flush(); // 디바운스 중인 메모 본문(마지막 0.7초)
         _tray?.Dispose();
         _hotkeys?.Dispose();
         _engine?.Services.DebugLogger.Stop(); // finalize the gzip trailer if a packet-log session is running

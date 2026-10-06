@@ -65,7 +65,8 @@ public sealed class MeterSettings : INotifyPropertyChanged
         nameof(_displayMode), nameof(_fieldBossDisabled), nameof(_fontFamily), nameof(_nameDisplay),
         nameof(_meterLayoutId), nameof(_nameFxMode), nameof(_overlayTheme), nameof(_rowDpsMetric), nameof(_targetInfoDisplayMode),
         nameof(_tierEffects),
-        nameof(_ttsVoice), nameof(_weeklyContentClears), nameof(_abyssCorridors), nameof(_abyssArtifacts))]
+        nameof(_ttsVoice), nameof(_weeklyContentClears), nameof(_abyssCorridors), nameof(_abyssArtifacts),
+        nameof(_memoTextColor))]
     public void Reload()
     {
         _displayMode = ReadEnum("displayMode", "dps_percent", DisplayModes);
@@ -159,6 +160,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _cooldownUiPerRow = ReadInt("cooldownUi.perRow", 8);
         _cooldownUiPresets = _props.GetProperty("cooldownUi.presets") ?? "";
         _cooldownUiOrder = _props.GetProperty("cooldownUi.order") ?? "";
+        _showMemo = ReadBool("memo.show", false);
+        _memoKeepWhenMeterHidden = ReadBool("memo.keepWhenMeterHidden", false);
+        _memoOpacity = ReadDouble("memo.opacity", MemoOpacityDefault);
+        _memoTextColor = _props.GetProperty("memo.textColor") ?? "#FFFFFF";
+        _memoLocked = ReadBool("memo.locked", false);
         _aetherLastValue = _props.GetProperty("aether.lastValue") ?? "";
         _aetherPerCharacter = _props.GetProperty("aether.perCharacter") ?? "";
         _aetherCharacterNames = _props.GetProperty("aether.characterNames") ?? "";
@@ -606,6 +612,48 @@ public sealed class MeterSettings : INotifyPropertyChanged
         get => Math.Clamp(_cooldownUiPerRow, 4, 16);
         set => SetInt(ref _cooldownUiPerRow, "cooldownUi.perRow", Math.Clamp(value, 4, 16));
     }
+
+    // ---- 메모 오버레이 (본문은 여기 없다 — MemoTextStore 의 memo.txt) ----
+    private bool _showMemo;
+    /// <summary>게임 화면 위에 메모 창을 띄운다. 기본 꺼짐. 본문은 설정 파일이 아니라 <c>memo.txt</c> 에 있다
+    /// (<see cref="MemoTextStore"/> — Latin-1 기호가 EUC-KR 재디코드로 깨지는 것을 실측했다).</summary>
+    public bool ShowMemo { get => _showMemo; set => SetBool(ref _showMemo, "memo.show", value); }
+
+    private bool _memoKeepWhenMeterHidden;
+    /// <summary>미터를 Ctrl+H·트레이로 숨겨도 메모는 남긴다. 게임이 비활성이면 숨는 것은 미터와 같다 —
+    /// '미터를 숨겨도 오버레이 유지'(<c>keepOverlayWhenMeterHidden</c>)와 같은 축이되 메모만의 스위치다.
+    /// 그 키는 OverlayController 가 버프·쿨타임 두 창을 함께 움직이는 값이라 메모까지 묶으면 따로 못 고른다.
+    /// 기본 꺼짐(미터와 함께 숨는다).</summary>
+    public bool MemoKeepWhenMeterHidden
+    {
+        get => _memoKeepWhenMeterHidden;
+        set => SetBool(ref _memoKeepWhenMeterHidden, "memo.keepWhenMeterHidden", value);
+    }
+
+    /// <summary>메모 배경 투명도 기본값.</summary>
+    public const double MemoOpacityDefault = 0.6;
+
+    private double _memoOpacity;
+    /// <summary>메모 배경 투명도(0..1). <b>배경 브러시에만</b> 걸린다 — <c>OverlayPanelWindow.Present</c> 가
+    /// 부를 때마다 <c>Window.Opacity = 1</c> 을 대입하므로 창 투명도로는 구현할 수 없다. 미터 투명도
+    /// (<see cref="MeterOpacity"/>)와는 별개다. getter 도 클램프하는 이유: 공유코드·수기 편집은 값 검증 없이
+    /// 심긴다.</summary>
+    public double MemoOpacity
+    {
+        get => MemoOverlayPolicy.ClampOpacity(_memoOpacity, MemoOpacityDefault);
+        set => SetDouble(ref _memoOpacity, "memo.opacity", MemoOverlayPolicy.ClampOpacity(value, MemoOpacityDefault));
+    }
+
+    private string _memoTextColor;
+    /// <summary>메모 글씨 색상. 색상 피커는 알파가 1 미만이면 <c>rgba(...)</c> 를 내므로 읽는 쪽은 반드시
+    /// <see cref="ColorString.TryParse"/> 를 쓴다(WPF ColorConverter 는 rgba() 를 못 읽어 흰색으로 떨어진다).</summary>
+    public string MemoTextColor { get => _memoTextColor; set => SetProp(ref _memoTextColor, "memo.textColor", value); }
+
+    private bool _memoLocked;
+    /// <summary>메모 잠금 — 창 전체가 클릭을 게임으로 통과시킨다(WS_EX_TRANSPARENT). 재시작해도 유지한다.
+    /// 미터의 클릭 통과(Ctrl+T)와는 <b>독립</b>이다. 푸는 길은 셋: Ctrl+잠금 버튼 클릭, 설정 '메모' 탭의 잠금
+    /// 토글, 트레이 '오버레이 입력 복구'.</summary>
+    public bool MemoLocked { get => _memoLocked; set => SetBool(ref _memoLocked, "memo.locked", value); }
 
     private bool _buffUiShowLevel;
     /// <summary>버프 아이콘 우하단에 그 버프의 <b>스킬 레벨</b>(어노멀 레벨)을 작게 겹쳐 그린다. 레벨을 못 읽은
