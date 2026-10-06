@@ -286,6 +286,21 @@ public static class AbyssCorridorCycle
     public static bool IsWithin(long savedAtMs, long boundary, long nowMs) =>
         boundary > 0 && savedAtMs >= boundary && savedAtMs <= nowMs + FutureSlackMs;
 
+    /// <summary>The most recent Wednesday or Saturday at or before <paramref name="atMs"/> at the KST time of
+    /// day <paramref name="anchorMs"/> falls on, as Unix ms, or 0 for an unusable timestamp. The same war-day
+    /// calendar as the clock above, carrying a server's OWN war time instead of 22:20 — see
+    /// <see cref="ArtifactWarSchedule.CorridorBoundaryMs(AbyssArtifactWindow?,long)"/>.</summary>
+    public static long LastWarDayAtSameTimeAtOrBefore(long anchorMs, long atMs)
+    {
+        if (anchorMs < MinPlausibleMs || anchorMs > MaxPlausibleMs)
+        {
+            return 0;
+        }
+
+        DateTimeOffset anchor = DateTimeOffset.FromUnixTimeMilliseconds(anchorMs).ToOffset(Kst);
+        return LastWeeklySlotAtOrBefore(atMs, anchor.Hour, anchor.Minute);
+    }
+
     private static long LastWeeklySlotAtOrBefore(long atMs, int hour, int minute)
     {
         if (atMs < MinPlausibleMs || atMs > MaxPlausibleMs)

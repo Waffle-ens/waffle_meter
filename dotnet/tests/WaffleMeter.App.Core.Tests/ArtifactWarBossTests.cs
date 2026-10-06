@@ -180,6 +180,87 @@ public sealed class ArtifactWarBossTests
         Assert.All(timers.Values, t => Assert.Equal(Kst(10, 7, 21, 45), t));
     }
 
+    /// <summary>After Wednesday's war only ONE zone's 0xE305 has been heard — the player went to one floor. The
+    /// other zone's row still holds the spent window, and it must not answer for its floor's bosses: the server's
+    /// newest window already names Saturday's R. Until today's spawn has passed the stale zone still gives today's
+    /// 21:45 (review 2026-10-07: that floor's three bosses got no Saturday alarm at all).</summary>
+    [Theory]
+    [InlineData(Lower)]
+    [InlineData(Middle)]
+    public void A_spent_zone_window_does_not_hide_the_next_war_the_other_zone_names(int refreshedZone)
+    {
+        AbyssArtifactStore store = Measured();
+        store.UpsertOwnership(
+            Server, refreshedZone, Kst(10, 7, 21, 38), Kst(10, 10, 21, 20), Holdings(refreshedZone, 1, 2, 1), Kst(10, 7, 21, 42));
+        int[] staleFloor = refreshedZone == Lower ? MiddleBosses : LowerBosses;
+
+        Assert.All(
+            staleFloor,
+            code => Assert.Equal(Kst(10, 7, 21, 45), ArtifactWarSchedule.BossTargetMs(code, store, Server, Kst(10, 7, 21, 43))));
+
+        foreach (long now in new[] { Kst(10, 7, 21, 48), Kst(10, 8, 12, 0), Kst(10, 10, 21, 0) })
+        {
+            IReadOnlyDictionary<int, long> timers = ArtifactWarSchedule.WithWarBossTargets(NoServerTimers, store, Server, now);
+            Assert.Equal(6, timers.Count);
+            Assert.All(timers.Values, t => Assert.Equal(Kst(10, 10, 21, 45), t));
+        }
+    }
+
+    /// <summary>What the alarm actually rings from <paramref name="fromMs"/> to <paramref name="toMs"/>:
+    /// AlarmController's once-a-second loop — the session supply, <see cref="FieldBossAlarm.DueAlerts"/>, its
+    /// <c>code:target:lead</c> de-dup and the prune of passed targets — one entry per ring.</summary>
+    private static List<FieldBossAlarm.Due> Rings(
+        IReadOnlyDictionary<int, long> serverTimers, AbyssArtifactStore store, long fromMs, long toMs, int[] leads)
+    {
+        var supply = new ArtifactWarBossTimers();
+        var shown = new Dictionary<string, long>();
+        var rang = new List<FieldBossAlarm.Due>();
+        for (long now = fromMs; now <= toMs; now += 1000)
+        {
+            foreach (string key in shown.Where(kv => kv.Value <= now).Select(kv => kv.Key).ToList())
+            {
+                shown.Remove(key);
+            }
+
+            foreach (FieldBossAlarm.Due d in FieldBossAlarm.DueAlerts(supply.Merge(serverTimers, store, Server, now), now, leads))
+            {
+                if (shown.TryAdd(FieldBossAlarm.Key(d), d.TargetMs))
+                {
+                    rang.Add(d);
+                }
+            }
+        }
+
+        return rang;
+    }
+
+    /// <summary>The server's time is the earlier of the two — R + 25 being wrong for a group is exactly what "the
+    /// server wins" is for. Once it has passed, the derived target is the SAME war's spawn, not the next, and must
+    /// not ring a second set of leads for a boss that has already appeared (review 2026-10-07: a server 21:45
+    /// against a derived 22:45 re-rang 30/10/5 at 22:15/22:35/22:40). The bosses the server did not time still
+    /// ring off R + 25.</summary>
+    [Theory]
+    [InlineData(22, 20, 21, 45)] // derived 22:45 — would re-ring 30/10/5
+    [InlineData(21, 50, 21, 45)] // derived 22:15 — would re-ring 10/5
+    [InlineData(21, 50, 22, 5)]  // the server says R + 15 — would re-ring 5
+    public void A_passed_server_time_does_not_hand_its_war_back_to_the_derived_one(int rh, int rm, int sh, int sm)
+    {
+        long r = Kst(10, 7, rh, rm);
+        long sent = Kst(10, 7, sh, sm);
+        var server = new Dictionary<int, long> { [2600096] = sent };
+        AbyssArtifactStore store = Window(Server, r, r);
+
+        List<FieldBossAlarm.Due> rang = Rings(server, store, Kst(10, 7, 21, 0), Kst(10, 7, 23, 0), [30, 10, 5]);
+
+        Assert.Equal([30, 10, 5], rang.Where(d => d.Code == 2600096).Select(d => d.LeadMinutes));
+        Assert.All(rang.Where(d => d.Code == 2600096), d => Assert.Equal(sent, d.TargetMs));
+        Assert.Equal(15, rang.Count(d => d.Code != 2600096));
+        Assert.All(rang.Where(d => d.Code != 2600096), d => Assert.Equal(r + ArtifactWarSchedule.BossSpawnOffsetMs, d.TargetMs));
+
+        // Statelessly too: three minutes after the server's time, its past value stands and nothing is derived.
+        Assert.Equal(sent, ArtifactWarSchedule.WithWarBossTargets(server, store, Server, sent + 180_000)[2600096]);
+    }
+
     /// <summary>The current character's server decides; with no identity yet (the meter started before the game)
     /// the server whose window was filed last stands in.</summary>
     [Fact]
@@ -195,6 +276,25 @@ public sealed class ArtifactWarBossTests
 
         Assert.Equal(1003, ArtifactWarSchedule.ServerFor(0, store));
         Assert.Equal(Kst(10, 7, 22, 45), ArtifactWarSchedule.WithWarBossTargets(NoServerTimers, store, 0, now)[2600096]);
+    }
+
+    /// <summary>With no identity, the stand-in is the server last HEARD, not the one whose occupation changed
+    /// last: the same answer heard again on Wednesday afternoon puts the 21:20 server back in charge of the
+    /// evening's alarm, over a 22:20 server visited once on Saturday night (review 2026-10-07).</summary>
+    [Fact]
+    public void A_repeated_answer_keeps_its_server_in_charge_before_the_identity_is_known()
+    {
+        long r2120 = Kst(10, 7, 21, 20);
+        long r2220 = Kst(10, 7, 22, 20);
+        var store = AbyssArtifactStore.Parse(null);
+        store.UpsertOwnership(1001, Lower, LowerStart, r2120, Holdings(Lower, 1, 2, 1), Kst(10, 3, 21, 40));
+        store.UpsertOwnership(1002, Lower, LowerStart, r2220, Holdings(Lower, 2, 2, 1), Kst(10, 3, 23, 0));
+        store.UpsertOwnership(1001, Lower, LowerStart, r2120, Holdings(Lower, 1, 2, 1), Kst(10, 7, 15, 0));
+
+        AbyssArtifactStore restarted = AbyssArtifactStore.Parse(store.Serialize());
+        Assert.Equal(
+            Kst(10, 7, 21, 45),
+            ArtifactWarSchedule.WithWarBossTargets(NoServerTimers, restarted, 0, Kst(10, 7, 20, 0))[2600096]);
     }
 
     /// <summary>End to end with the alarm: at 21:15 the 30-minute lead is due for all six; a server value equal

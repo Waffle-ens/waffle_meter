@@ -24,6 +24,17 @@ namespace WaffleMeter.App.Core;
 /// next 0xE305/0xE307 (sent from the settle on — the parser only accepts a frame whose event state is End)
 /// brings the new window and its start takes over.</para>
 ///
+/// <para><b>When no new window comes, R moves on by itself.</b> The new window only arrives when the meter
+/// hears it — an abyss zone load or a world-map open, not a plain login — so a stored window can sit past its
+/// end for days. Left at R, the boundary would then stay on that one war for up to
+/// <see cref="AbyssArtifactStore.WindowStaleAfterMs"/>: a witness taken the Thursday after a Wednesday war was
+/// still "this cycle" the following Tuesday, through Saturday's war that had redealt it, where the old clock
+/// had dropped it that Saturday (review 2026-10-07). So once R has passed, R's own KST time of day is carried
+/// onto every later Wednesday and Saturday — the war days, which the 09-30 patch did not move — and the latest
+/// of those at or before now is the boundary. On the day of R itself that is R, exactly the rule above. It is a
+/// guess only in that a 서버 매칭 change could move the time of day; it only ever moves the boundary forward,
+/// so the worst it does is retire evidence a war early, never credit a previous cycle's.</para>
+///
 /// <para><b>No window, the old clock.</b> A server the meter has never heard a window for (an alt's server, a
 /// fresh install), or one whose window ended more than <see cref="AbyssArtifactStore.WindowStaleAfterMs"/>
 /// ago, gets exactly the legacy <see cref="AbyssCorridorCycle"/> behaviour — 0 from
@@ -59,12 +70,20 @@ public static class ArtifactWarSchedule
     private static readonly Dictionary<int, int> WarZoneByBoss = BuildWarZones();
 
     /// <summary>The 회랑 cycle boundary a server's window gives at <paramref name="nowMs"/>: the window's start
-    /// while it is running, its end once the war has started, or 0 when there is no window — which
+    /// while it is running, its end once the war has started — carried onto each later Wed/Sat war at the same
+    /// time of day while no newer window has been heard (see the class doc) — or 0 when there is no window, which
     /// <see cref="AbyssCorridorStore"/> reads as "use the legacy clock".</summary>
-    public static long CorridorBoundaryMs(AbyssArtifactWindow? window, long nowMs) =>
-        window is { } w
-            ? nowMs < w.EndMs ? w.StartMs : w.EndMs
-            : 0;
+    public static long CorridorBoundaryMs(AbyssArtifactWindow? window, long nowMs)
+    {
+        if (window is not { } w)
+        {
+            return 0;
+        }
+
+        return nowMs < w.EndMs
+            ? w.StartMs
+            : Math.Max(w.EndMs, AbyssCorridorCycle.LastWarDayAtSameTimeAtOrBefore(w.EndMs, nowMs));
+    }
 
     /// <summary>As <see cref="CorridorBoundaryMs(AbyssArtifactWindow?,long)"/>, for a server's newest window on
     /// file. 0 for an unknown server (id 0) or one with no usable window.</summary>
@@ -75,7 +94,8 @@ public static class ArtifactWarSchedule
 
     /// <summary>Whose war time the boss alarm follows: the current character's server, or — before any
     /// character has been identified this session (the meter usually starts first) — the server whose window
-    /// was filed most recently. 0 when neither is known.</summary>
+    /// was heard most recently (<see cref="AbyssArtifactStore.LatestObservedServer"/>). 0 when neither is
+    /// known.</summary>
     public static int ServerFor(int currentServer, AbyssArtifactStore? artifacts) =>
         currentServer > 0 ? currentServer : artifacts?.LatestObservedServer() ?? 0;
 
@@ -88,9 +108,12 @@ public static class ArtifactWarSchedule
     /// to say: not a 아티쟁 boss, no server, no usable window, or a spawn more than
     /// <see cref="BossTargetGraceMs"/> in the past (a window from a war already over says nothing about the next
     /// one, and the meter does not guess the next R).
-    /// <para>The boss's own zone answers first. Only when that zone was never filed for this server — a 0xE305
-    /// carries one zone, so a player who only visited 하층 has no 중층 row — does the server's newest window
-    /// stand in: both zones have carried the identical end in every frame measured.</para></summary>
+    /// <para>The boss's own zone answers first. When it has nothing to say, the server's newest window stands in
+    /// — both zones have carried the identical end in every frame measured. That covers two cases: the zone was
+    /// never filed for this server (a 0xE305 carries one zone, so a player who only visited 하층 has no 중층
+    /// row), and the zone's window is already spent while the OTHER zone's 0xE305 since the war already names
+    /// the next R. The second is not a missing row but a stale one, and it used to answer first and silence that
+    /// floor's three bosses for the whole next cycle (review 2026-10-07).</para></summary>
     public static long? BossTargetMs(int bossCode, AbyssArtifactStore? artifacts, int serverId, long nowMs)
     {
         int zone = ZoneFor(bossCode);
@@ -99,13 +122,20 @@ public static class ArtifactWarSchedule
             return null;
         }
 
-        if ((artifacts.LatestWindow(serverId, zone, nowMs) ?? artifacts.LatestWindow(serverId, nowMs))
-            is not { } window)
+        return SpawnFrom(artifacts.LatestWindow(serverId, zone, nowMs), nowMs)
+            ?? SpawnFrom(artifacts.LatestWindow(serverId, nowMs), nowMs);
+    }
+
+    /// <summary>R + <see cref="BossSpawnOffsetMs"/> for one window, or null when there is no window or that
+    /// spawn is more than <see cref="BossTargetGraceMs"/> in the past.</summary>
+    private static long? SpawnFrom(AbyssArtifactWindow? window, long nowMs)
+    {
+        if (window is not { } w)
         {
             return null;
         }
 
-        long target = window.EndMs + BossSpawnOffsetMs;
+        long target = w.EndMs + BossSpawnOffsetMs;
         return nowMs <= target + BossTargetGraceMs ? target : null;
     }
 
@@ -116,7 +146,9 @@ public static class ArtifactWarSchedule
     /// <see cref="BossTargetGraceMs"/>) is kept as is and nothing derived replaces it — one value per boss, so
     /// the alarm's <c>code:targetMs:lead</c> de-dup never sees two targets for one spawn. A server time that is
     /// already past is a spawn that has happened (the table lives for the whole session and is never cleared),
-    /// so the next one derived from the window takes over.</para>
+    /// so the next one derived from the window takes over — the NEXT one only: a derived target within
+    /// <see cref="SameSpawnWindowMs"/> of that past server time is the same war's spawn, which the server
+    /// already timed differently, and stays suppressed (see there).</para>
     /// <para>No window, no alarm — the meter does not invent a time for these six any more than it does for
     /// 감시자 카이라's zeroed record. <see cref="ArtifactWarBossTimers"/> is the session-stateful wrapper the app
     /// actually polls.</para>
@@ -137,17 +169,31 @@ public static class ArtifactWarSchedule
         return Merge(serverTimers, derived, nowMs);
     }
 
-    /// <summary>Lay derived 아티쟁 targets over the server's timers, the server's still-live value winning per
-    /// boss. Returns <paramref name="serverTimers"/> itself when there is nothing to add.</summary>
+    /// <summary>How close a server-sent time and a derived target must be to count as the SAME war's spawn.
+    /// Twelve hours: consecutive wars are at least ~72 h apart (Wed → Sat; the shortest window measured ran
+    /// 71.8 h), while one war's server time and its R + <see cref="BossSpawnMinutesAfterWarStart"/> can differ
+    /// only by the unmeasured group offset — an hour or so.
+    /// <para>Why it exists (review 2026-10-07): "the server wins" used to hold only while the server's time was
+    /// in the future. Two minutes after it passed, the derived target for that same war came back, and when the
+    /// server's time was the earlier of the two — R + 25 wrong for a group, exactly what the rule is there for —
+    /// the alarm rang a second set of leads for a boss that had already spawned: a server 21:45 against a derived
+    /// 22:45 re-fired 30/10/5 at 22:15/22:35/22:40.</para></summary>
+    public const long SameSpawnWindowMs = 12L * 60 * 60 * 1000;
+
+    /// <summary>Lay derived 아티쟁 targets over the server's timers, the server's value winning per boss while it
+    /// is still live or belongs to the same war (<see cref="SameSpawnWindowMs"/>). Returns
+    /// <paramref name="serverTimers"/> itself when there is nothing to add.</summary>
     public static IReadOnlyDictionary<int, long> Merge(
         IReadOnlyDictionary<int, long> serverTimers, IReadOnlyDictionary<int, long> derived, long nowMs)
     {
         Dictionary<int, long>? merged = null;
         foreach ((int code, long target) in derived)
         {
-            if (serverTimers.TryGetValue(code, out long sent) && sent >= nowMs - BossTargetGraceMs)
+            if (serverTimers.TryGetValue(code, out long sent)
+                && (sent >= nowMs - BossTargetGraceMs
+                    || (sent > target - SameSpawnWindowMs && sent < target + SameSpawnWindowMs)))
             {
-                continue; // the server timed this spawn itself
+                continue; // the server timed this spawn itself — still ahead, or already past for this same war
             }
 
             merged ??= new Dictionary<int, long>(serverTimers);

@@ -162,6 +162,27 @@ public sealed class ArtifactWarScheduleTests
         Assert.Equal(1003, store.LatestObservedServer());
     }
 
+    /// <summary>"Last observed" means last HEARD, not last changed. The answer only changes at a war, so a server
+    /// played every day would otherwise lose to one visited once since — and a meter started before the game
+    /// would time the 아티쟁 alarm off that other server (review 2026-10-07). A repeat moves the stamp once it is
+    /// <see cref="AbyssArtifactStore.ObservedRefreshMs"/> newer, and the move survives the blob round trip.</summary>
+    [Fact]
+    public void A_repeated_answer_still_makes_its_server_the_last_observed()
+    {
+        var store = AbyssArtifactStore.Parse(null);
+        store.UpsertOwnership(1001, Lower, LowerStart, WarStart, Holdings(Lower, 1, 2, 1), Kst(10, 3, 21, 40));
+        store.UpsertOwnership(1002, Lower, LowerStart, WarStart, Holdings(Lower, 2, 2, 1), Kst(10, 3, 23, 0));
+        Assert.Equal(1002, store.LatestObservedServer());
+
+        // Wednesday afternoon on 1001: the same answer as Saturday's.
+        Assert.True(store.UpsertOwnership(1001, Lower, LowerStart, WarStart, Holdings(Lower, 1, 2, 1), Kst(10, 7, 15, 0)));
+        Assert.Equal(1001, store.LatestObservedServer());
+        Assert.Equal(1001, AbyssArtifactStore.Parse(store.Serialize()).LatestObservedServer());
+
+        // A repeat inside the refresh interval is still no change — the blob is not rewritten per world-map open.
+        Assert.False(store.UpsertOwnership(1001, Lower, LowerStart, WarStart, Holdings(Lower, 1, 2, 1), Kst(10, 7, 15, 9)));
+    }
+
     /// <summary>The window is read, never rewritten: the blob keeps its seven-field shape, so an older build
     /// rolled back onto it still parses every record.</summary>
     [Fact]
@@ -311,6 +332,75 @@ public sealed class ArtifactWarScheduleTests
         AbyssCorridorCell cell = row.CorridorCells.Single(c => c.Corridor.TicketId == 10_000_004);
         Assert.Equal(AbyssCorridorCatalog.FullGrantMs, cell.RemainingMs);
         Assert.True(cell.Inferred);
+    }
+
+    // ---- Scenario D: no new window is heard, and the next war still ends the cycle ----
+
+    /// <summary><b>Scenario D.</b> The window on file ends Wednesday 21:20, and nothing newer is heard after
+    /// that war — a plain login does not bring a 0xE307. A witness, an entry and a reading taken on Thursday
+    /// belong to the cycle Wednesday's war began, and Saturday's war ends it: from Saturday 21:21 they are last
+    /// cycle's, as the old clock also had it that evening. Pinning the boundary to Wednesday's R instead kept
+    /// them as "this cycle" until the window went stale two weeks later (review 2026-10-07).</summary>
+    [Fact]
+    public void Without_a_new_window_the_next_war_still_ends_the_cycle()
+    {
+        var corridors = AbyssCorridorStore.Parse(null);
+        long thursday = Kst(10, 8, 12, 0);
+        Entered(corridors, Hash, 10_000_002, thursday, 130_000);
+        corridors.Upsert(Hash, 10_000_002, 40_000, thursday, markGranted: false);
+        corridors.MarkWitness(Hash, thursday);
+        AbyssArtifactStore artifacts = MeasuredWindow();
+
+        // Wednesday's war is still the boundary until Saturday's starts.
+        foreach (long now in new[] { Kst(10, 8, 13, 0), Kst(10, 10, 21, 19) })
+        {
+            long boundary = ArtifactWarSchedule.CorridorBoundaryMs(artifacts, Server, now);
+            Assert.Equal(WarStart, boundary);
+            Assert.True(corridors.HasCycleWitness(Hash, now, boundary));
+            Assert.Equal(40_000, corridors.Standing(Hash, 10_000_002, now, boundary));
+        }
+
+        // Saturday's war, and every Wed/Sat war after it at the server's own 21:20.
+        (long Now, long War)[] wars =
+        [
+            (Kst(10, 10, 21, 21), Kst(10, 10, 21, 20)),
+            (Kst(10, 10, 22, 30), Kst(10, 10, 21, 20)),
+            (Kst(10, 11, 12, 0), Kst(10, 10, 21, 20)),
+            (Kst(10, 14, 22, 30), Kst(10, 14, 21, 20)),
+            (Kst(10, 20, 12, 0), Kst(10, 17, 21, 20)),
+        ];
+        foreach ((long now, long war) in wars)
+        {
+            long boundary = ArtifactWarSchedule.CorridorBoundaryMs(artifacts, Server, now);
+            Assert.Equal(war, boundary);
+            Assert.False(corridors.HasCycleWitness(Hash, now, boundary));
+            Assert.False(corridors.EnteredThisCycle(Hash, 10_000_002, now, boundary));
+            Assert.Null(corridors.Reading(Hash, 10_000_002, now, boundary));
+        }
+
+        // On the panel: nothing from Thursday is offered after Saturday's war.
+        AetherRosterRow row = Row(corridors, artifacts, Kst(10, 10, 22, 30));
+        Assert.Empty(row.CorridorCells);
+        Assert.False(row.CorridorsKnown);
+    }
+
+    /// <summary>The carried-forward R is still R: evidence from after Saturday's 21:20 war is that cycle's, and
+    /// survives the old clock's 22:25 — Scenario B without the new window having been heard.</summary>
+    [Fact]
+    public void Evidence_after_the_carried_forward_war_is_this_cycles()
+    {
+        var corridors = AbyssCorridorStore.Parse(null);
+        Entered(corridors, Hash, 10_000_002, Kst(10, 10, 21, 50), 130_000);
+        AbyssArtifactStore artifacts = MeasuredWindow();
+
+        long at2230 = Kst(10, 10, 22, 30);
+        long boundary = ArtifactWarSchedule.CorridorBoundaryMs(artifacts, Server, at2230);
+
+        Assert.Equal(Kst(10, 10, 21, 20), boundary);
+        Assert.Equal(130_000, corridors.Standing(Hash, 10_000_002, at2230, boundary));
+
+        // The old clock, for contrast: 21:50 is before its 22:20, so it is given up at 22:25.
+        Assert.Null(corridors.Standing(Hash, 10_000_002, at2230));
     }
 
     // ---- Scenario C: no window, nothing changes ----

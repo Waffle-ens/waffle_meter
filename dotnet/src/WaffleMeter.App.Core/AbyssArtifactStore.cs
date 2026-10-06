@@ -158,8 +158,20 @@ public sealed class AbyssArtifactStore
         return new AbyssArtifactStore(ownership, counts);
     }
 
+    /// <summary>How much newer a repeat of the SAME answer must be before it moves the stored stamp. The stamp is
+    /// what <see cref="LatestObservedServer"/> reads, so it has to follow the player from server to server; but
+    /// the broadcast repeats verbatim on every world-map open and every rewrite is a synchronous settings-file
+    /// save. Ten minutes keeps "which server was heard last" right for anything but a switch to another server
+    /// and back inside ten minutes, at no more than one save per zone per ten minutes.
+    /// <para>Before this, a repeated answer never moved the stamp at all, so "last observed" really meant "last
+    /// CHANGED" — the server played every day lost to one visited once since its occupation last changed, and a
+    /// meter started before the game timed the 아티쟁 alarm off the wrong server's war (review 2026-10-07).</para></summary>
+    public const long ObservedRefreshMs = 10 * 60_000L;
+
     /// <summary>File one zone's 점령 현황 for a server. Returns false when nothing changed, so the caller can
-    /// skip re-serializing — the broadcast repeats on every world-map open.</summary>
+    /// skip re-serializing — the broadcast repeats on every world-map open. A repeat of the same answer counts as
+    /// a change only once it is <see cref="ObservedRefreshMs"/> newer than the stored stamp, which it then
+    /// moves.</summary>
     public bool UpsertOwnership(
         int serverId,
         int zoneId,
@@ -217,9 +229,10 @@ public sealed class AbyssArtifactStore
         if (existing.ZoneId == zoneId
             && existing.CycleStartMs == cycleStartMs
             && existing.CycleEndMs == cycleEndMs
-            && existing.Owners.SequenceEqual(owners))
+            && existing.Owners.SequenceEqual(owners)
+            && observedAtMs - existing.ObservedAtMs < ObservedRefreshMs)
         {
-            return false; // same answer, same cycle — only the stamp would move
+            return false; // same answer, same cycle — only the stamp would move, and not far enough to matter
         }
 
         forServer[zoneId] = updated;
@@ -469,9 +482,9 @@ public sealed class AbyssArtifactStore
             ? new AbyssArtifactWindow(zone.CycleStartMs, zone.CycleEndMs)
             : null;
 
-    /// <summary>The server whose 점령 현황 was filed most recently, or 0 when nothing is on file. What answers
-    /// "which server" before any character has been identified this session — the meter usually starts before
-    /// the game does.</summary>
+    /// <summary>The server whose 점령 현황 was heard most recently — changed or merely repeated, to within
+    /// <see cref="ObservedRefreshMs"/> — or 0 when nothing is on file. What answers "which server" before any
+    /// character has been identified this session — the meter usually starts before the game does.</summary>
     public int LatestObservedServer()
     {
         int best = 0;
