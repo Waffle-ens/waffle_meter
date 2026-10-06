@@ -134,7 +134,8 @@ public class FieldBossAlarmTests
         Assert.True(FieldBossFixedSchedule.HasFixedSchedule(2600084));   // 수호신장 나흐마 — 요새 공성
         Assert.False(FieldBossFixedSchedule.HasFixedSchedule(2406034));  // 모르헤임은 일반 리스폰 타이머
         Assert.Equal("금·일 22:05", FieldBossFixedSchedule.Describe(2600520));   // 실캡처: 금 22:05
-        Assert.Equal("수·토 22:35", FieldBossFixedSchedule.Describe(2600156));   // 실캡처: 수 22:35
+        // 수·토 그룹은 서버 그룹별 아티쟁 시각을 따라가므로(2026-10-07) 배지에 고정 시각을 적지 않는다.
+        Assert.Equal("수·토 아티쟁 종료 후", FieldBossFixedSchedule.Describe(2600156));
         Assert.Null(FieldBossFixedSchedule.Describe(2406034));
 
         // 감시자 카이라는 리젠 타이머가 아니라 4시간 격자 출현 알림으로 다룬다 — 여기에도, picker에도 없다.
@@ -382,19 +383,24 @@ public class FieldBossAlarmTests
     [Fact]
     public void Weekly_schedule_returns_the_next_matching_day_and_time()
     {
-        // 2026-07-27 is a Monday → the next 수·토 22:35 is Wednesday the 29th. This is the value the real
-        // 2026-07-27 어비스 capture carried for the 수·토 group, so the schedule reproduces the wire.
+        // 2026-07-27 is a Monday → the 금·일 group's next spawn is Friday the 31st 22:05, the value the real
+        // 2026-07-27 어비스 capture carried for that group, so the schedule reproduces the wire.
         long monday = new DateTimeOffset(2026, 7, 27, 9, 0, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
-        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600521, monday, out long next));
-        Assert.Equal(new DateTimeOffset(2026, 7, 29, 22, 35, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), next);
-
-        // …and the 금·일 group's next spawn from that same Monday was Friday the 31st.
         Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600520, monday, out long friday));
         Assert.Equal(new DateTimeOffset(2026, 7, 31, 22, 5, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), friday);
 
         // Same day but past the time → rolls to the pair's other day.
-        long wedLate = new DateTimeOffset(2026, 7, 29, 23, 0, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
-        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600521, wedLate, out long after));
-        Assert.Equal(new DateTimeOffset(2026, 8, 1, 22, 35, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), after);
+        long friLate = new DateTimeOffset(2026, 7, 31, 23, 0, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
+        Assert.True(FieldBossFixedSchedule.TryNextSpawn(2600520, friLate, out long after));
+        Assert.Equal(new DateTimeOffset(2026, 8, 2, 22, 5, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds(), after);
+
+        // The 수·토 group used to answer Wednesday 22:35 here. Since 2026-10-07 it has no clock at all: its spawn
+        // hangs off the server's own war start (21:20 / 21:50 / 22:20 by group), which only App.Core can see —
+        // see ArtifactWarBossTests. A guessed 22:35 would be wrong for two groups out of three.
+        Assert.False(FieldBossFixedSchedule.TryNextSpawn(2600521, monday, out long none));
+        Assert.Equal(0, none);
+        Assert.True(FieldBossFixedSchedule.HasFixedSchedule(2600521));
+        Assert.True(FieldBossFixedSchedule.IsArtifactWarTied(2600521));
+        Assert.False(FieldBossFixedSchedule.IsArtifactWarTied(2600520));
     }
 }

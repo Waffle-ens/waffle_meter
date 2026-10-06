@@ -8,7 +8,8 @@ namespace WaffleMeter.App.Wpf;
 /// <summary>Field-boss alarm picker: the known bosses grouped into one tab per world-map region, each with
 /// an alert on/off toggle. Unchecked bosses go into the persisted disabled set, which the reminder skips.
 /// The timer broadcast is map-scoped, so a region's alarms only ever fire while you are in that region —
-/// the tabs are there so every region can be pre-configured.</summary>
+/// the tabs are there so every region can be pre-configured. (The 수·토 아티쟁 bosses are the exception: their
+/// spawn is derived from the server's war time, so they can fire without the abyss having been visited.)</summary>
 public sealed class FieldBossPickerViewModel
 {
     private readonly MeterSettings _settings;
@@ -112,8 +113,8 @@ public sealed class FieldBossItem : INotifyPropertyChanged
 
     public string Name { get; }
 
-    /// <summary>Fixed-spawn hint ("수·토 22:30") for the 어비스 fortress bosses, null for a normal respawn
-    /// timer. Also disambiguates the abyss rows that share a mob name.</summary>
+    /// <summary>Fixed-spawn hint ("금·일 22:05" / "수·토 아티쟁 종료 후") for the 어비스 fortress bosses, null for a
+    /// normal respawn timer. Also disambiguates the abyss rows that share a mob name.</summary>
     public string? Schedule { get; }
 
     public bool HasSchedule => !string.IsNullOrEmpty(Schedule);

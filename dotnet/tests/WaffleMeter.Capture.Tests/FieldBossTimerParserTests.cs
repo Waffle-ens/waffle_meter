@@ -236,6 +236,37 @@ public class FieldBossTimerParserTests
         Assert.Equal(expected, nahma.TargetMs);
     }
 
+    /// <summary>The 수·토 아티쟁 bosses (하층 slots 2006-2008, 중층 2203-2205) get NO fallback any more: their spawn
+    /// follows the server's own war start, which the parser cannot see, and the fixed 22:35 it used to fill in
+    /// was wrong for two war groups out of three — and invented a same-day ghost alarm for a boss already up.
+    /// The 금·일 나흐마 beside them still falls back.</summary>
+    [Fact]
+    public void An_artifact_war_boss_with_no_usable_time_gets_no_invented_timer()
+    {
+        byte[] lower = Body(FieldBossCatalog.AbyssLowerMapId, (2006, 0), (2007, 0), (2008, 0), (2003, 0));
+        byte[] middle = Body(FieldBossCatalog.AbyssMiddleMapId, (2203, 0), (2204, 0), (2205, 0));
+
+        FieldBossTimerParser.Result low = FieldBossTimerParser.ParseTable(lower, 0, MorheimArrivedAt);
+        FieldBossTimerParser.Result mid = FieldBossTimerParser.ParseTable(middle, 0, MorheimArrivedAt);
+
+        (int Code, long TargetMs) nahma = Assert.Single(low.Timers);
+        Assert.Equal(2600084, nahma.Code);
+        Assert.Empty(mid.Timers);
+    }
+
+    /// <summary>…while a time the server DID send for one of them is taken exactly as sent — the derived time in
+    /// App.Core only ever fills a gap the server left.</summary>
+    [Fact]
+    public void An_artifact_war_boss_with_a_server_time_keeps_it()
+    {
+        long target = MorheimArrivedAt + 2 * 60 * 60_000L;
+        byte[] body = Body(FieldBossCatalog.AbyssLowerMapId, (2006, target));
+
+        FieldBossTimerParser.Result r = FieldBossTimerParser.ParseTable(body, 0, MorheimArrivedAt);
+
+        Assert.Contains(r.Timers, t => t.Code == 2600096 && t.TargetMs == target); // 집행자 타마사
+    }
+
     [Fact]
     public void Rejects_a_target_time_outside_the_sane_window()
     {
