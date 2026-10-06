@@ -2236,13 +2236,21 @@ public partial class App : Application
         AbyssCorridorStore store = AbyssCorridorStore.Parse(_settings.AbyssCorridors);
         bool changed = store.MarkEntered(hash, ticketId, atMs);
 
+        // Which cycle "previous" means is this character's SERVER's call, not the Wed/Sat 22:20 clock's: the war
+        // now starts at 21:20, 21:50 or 22:20 depending on the server group. The server is looked up exactly as
+        // FlushPendingAbyssArtifacts files the window under it; 0 (no server, no window) keeps the old clock.
+        int server = services.Data.User(services.Data.ExecutorId())?.Server ?? 0;
+        long serverBoundary = ArtifactWarSchedule.CorridorBoundaryMs(
+            AbyssArtifactStore.Parse(_settings.AbyssArtifacts), server, atMs);
+
         // A reading from a PREVIOUS cycle is not a starting point — it describes an allocation that has since
         // been re-granted, spent or lost. Reading() answers null for one, and the full grant takes over.
-        long remaining = store.Reading(hash, ticketId, atMs) is { } banked and > 0
+        long remaining = store.Reading(hash, ticketId, atMs, serverBoundary) is { } banked and > 0
             ? banked
             : AbyssCorridorCatalog.FullGrantMs;
 
-        changed |= store.Upsert(hash, ticketId, remaining, atMs, markGranted: false, tickingSinceMs: atMs);
+        changed |= store.Upsert(
+            hash, ticketId, remaining, atMs, markGranted: false, tickingSinceMs: atMs, serverBoundaryMs: serverBoundary);
         _corridorClockHash = hash;
 
         if (changed)

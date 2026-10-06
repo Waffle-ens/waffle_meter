@@ -112,10 +112,15 @@ public static class AetherRoster
             }
         }
 
+        // Where each server's 회랑 cycle begins, from that server's own 점령 window — once per server, not once
+        // per character × corridor. A server with no window on file gets no entry, and its characters keep the
+        // legacy Wed/Sat clock. See ArtifactWarSchedule for why the clock alone is wrong since 2026-10-07.
+        Dictionary<string, long> boundaryByHash = CorridorBoundaries(artifacts, serverByHash, at);
+
         // Every character's corridor standing, resolved once. Both the server-wide union below and each row's
         // own cells need the same answers, and Standing() re-derives the 점령 cycle boundary from scratch each
         // call — six corridors × two callers × once a second is a date calculation nobody needs twice.
-        Dictionary<string, Dictionary<int, long>> standings = StandingsFor(corridors, characters, at);
+        Dictionary<string, Dictionary<int, long>> standings = StandingsFor(corridors, characters, boundaryByHash, at);
         Dictionary<int, HashSet<int>> capturedByServer = CapturedByServer(standings, serverByHash);
 
         // What the server SAYS it holds, which since 2026-08-29 is the primary answer and the entry union above
@@ -132,6 +137,7 @@ public static class AetherRoster
             // name was stored, then to a stable stub so the row still shows its balance.
             string? nickname = FirstNonBlank(snapshot.Nickname, known.Nickname);
             int server = serverByHash.TryGetValue(hash, out int resolvedServer) ? resolvedServer : 0;
+            long serverBoundary = boundaryByHash.GetValueOrDefault(hash);
 
             // GetServerLabel returns "" for an id the table doesn't know (a new server, or a record left by
             // the 2026-07-30 identity corruption) — appending empty brackets would read as a rendering bug.
@@ -169,6 +175,7 @@ public static class AetherRoster
                     heldOnServer: server > 0 && heldByServer.TryGetValue(server, out HashSet<int>? held)
                         ? held
                         : null,
+                    serverBoundaryMs: serverBoundary,
                     nowMs: at),
 
                 // "회랑 없음" may only be printed when the emptiness is a FACT, not a silence. The 점령 현황
@@ -177,7 +184,7 @@ public static class AetherRoster
                 // nothing. The old witness — a 0x610B dump was seen for this character — stays as the fallback
                 // for a server the broadcast has not reached yet.
                 CorridorsKnown: (server > 0 && heldByServer.ContainsKey(server))
-                    || (corridors?.HasCycleWitness(hash, at) ?? false),
+                    || (corridors?.HasCycleWitness(hash, at, serverBoundary) ?? false),
 
                 // The two empty states say different things and must not share a sentence. Confirmed = the
                 // server's own 점령 현황 is on file and our side in it is settled, so an empty list really is
@@ -310,6 +317,41 @@ public static class AetherRoster
         return byServer;
     }
 
+    /// <summary>Each character's 회랑 cycle boundary as its server's own 점령 window gives it
+    /// (<see cref="ArtifactWarSchedule.CorridorBoundaryMs(AbyssArtifactStore?,int,long)"/>), resolved once per
+    /// server. Characters whose server has no usable window are left out, which every reader turns into 0 —
+    /// the legacy clock.
+    /// <para><b>Why this matters most on the fallback path.</b> The broadcast (<see cref="HeldByServer"/>)
+    /// already expires with the server's window. The entry proofs did not: once the window ended at the war's
+    /// start they took over, still dated against the 22:20/22:25 clock, and on a 21:20 server put the previous
+    /// occupation's corridors back on the row for 65 minutes (measured against the live blob,
+    /// 2026-10-07).</para></summary>
+    private static Dictionary<string, long> CorridorBoundaries(
+        AbyssArtifactStore? artifacts, Dictionary<string, int> serverByHash, long nowMs)
+    {
+        var byHash = new Dictionary<string, long>(StringComparer.Ordinal);
+        if (artifacts is null)
+        {
+            return byHash;
+        }
+
+        var byServer = new Dictionary<int, long>();
+        foreach ((string hash, int server) in serverByHash)
+        {
+            if (!byServer.TryGetValue(server, out long boundary))
+            {
+                byServer[server] = boundary = ArtifactWarSchedule.CorridorBoundaryMs(artifacts, server, nowMs);
+            }
+
+            if (boundary > 0)
+            {
+                byHash[hash] = boundary;
+            }
+        }
+
+        return byHash;
+    }
+
     /// <summary>Each character's corridor standings for the current 점령 cycle, keyed by ticket id — the entries
     /// <see cref="AbyssCorridorStore.Standing"/> answers with a value rather than null, i.e. the corridors this
     /// character has been watched walking INTO since the last 점령전.
@@ -320,6 +362,7 @@ public static class AetherRoster
     private static Dictionary<string, Dictionary<int, long>> StandingsFor(
         AbyssCorridorStore? corridors,
         List<KeyValuePair<string, AetherSnapshot>> characters,
+        Dictionary<string, long> boundaryByHash,
         long nowMs)
     {
         var byHash = new Dictionary<string, Dictionary<int, long>>(StringComparer.Ordinal);
@@ -330,9 +373,10 @@ public static class AetherRoster
 
         foreach ((string hash, _) in characters)
         {
+            long serverBoundary = boundaryByHash.GetValueOrDefault(hash);
             foreach (AbyssCorridorInfo corridor in AbyssCorridorCatalog.All)
             {
-                if (corridors.Standing(hash, corridor.TicketId, nowMs) is not { } remainingMs)
+                if (corridors.Standing(hash, corridor.TicketId, nowMs, serverBoundary) is not { } remainingMs)
                 {
                     continue;
                 }
@@ -381,6 +425,7 @@ public static class AetherRoster
         bool isCurrent,
         IReadOnlySet<int>? capturedOnServer,
         IReadOnlySet<int>? heldOnServer,
+        long serverBoundaryMs,
         long nowMs)
     {
         // The 점령 현황 broadcast alone is enough to draw a row: it names the corridors, and the corridor store
@@ -416,7 +461,7 @@ public static class AetherRoster
             // The character's own reading is used wherever there is one, even for a corridor it was the server
             // that proved held — that is how a character sitting on a measured 2:10 stops being drawn as a
             // guess just because it happened to be a sibling that walked in.
-            long? own = corridors?.Reading(hash, corridor.TicketId, nowMs);
+            long? own = corridors?.Reading(hash, corridor.TicketId, nowMs, serverBoundaryMs);
             long remainingMs = own ?? AbyssCorridorCatalog.FullGrantMs;
 
             // "지금 입장 중" is a claim about the character being played, so a record left ticking on anyone
