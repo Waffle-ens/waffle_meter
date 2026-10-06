@@ -32,7 +32,8 @@ public enum CurrencyParseMode
     /// <summary>The walk failed AND the id scan found nothing: nothing may be inferred, not even a zero.</summary>
     Rejected,
 
-    /// <summary>Every record walked and the body ended exactly on the last byte. The list is complete.</summary>
+    /// <summary>Every record walked and the body ended exactly on the last byte. The list is complete. A 0x5611
+    /// snapshot also has to declare at least one record — an empty one walks too easily to be believed.</summary>
     Exact,
 
     /// <summary>The walk failed, but validated id hits were found. The list is a LOWER bound — what is absent
@@ -172,7 +173,8 @@ public static class CurrencyItemParser
     }
 
     /// <summary>The exact walk. True only when the declared count was walked and the body ended on its last byte
-    /// — and no tracked record in it was implausible, because an exact result is what licenses "absent = 0".</summary>
+    /// — and no tracked record in it was implausible, because an exact result is what licenses "absent = 0". An
+    /// EMPTY depot list is never exact (see below).</summary>
     private static bool TryWalk(
         byte[] packet, int bodyStart, bool modification, out List<CurrencyItemChange>? found, out int declared)
     {
@@ -183,6 +185,17 @@ public static class CurrencyItemParser
         if (r.Failed || declared > MaxRecords)
         {
             declared = r.Failed ? -1 : declared;
+            return false;
+        }
+
+        // A depot list that declares no records proves nothing about itself: its whole "walk" is a 0 count byte
+        // and the six-byte trailer, so ANY 9-byte body whose third byte is 0 passes — the 10-07 login burst
+        // carries exactly such a frame on 0x3657 (01 00 | 00 | 00×6). And an exact empty snapshot is the one
+        // reading that zeroes every balance at once, which is the accident the fallback rule exists to prevent.
+        // A real world-entry list is never empty — equipment alone puts hundreds of records in it (409 / 707 /
+        // 711 measured) — so refusing this costs nothing. A change list may still be empty: it zeroes nothing.
+        if (!modification && declared == 0)
+        {
             return false;
         }
 
@@ -424,7 +437,10 @@ public static class CurrencyItemParser
 
         public void Skip(int count)
         {
-            if (Failed || count < 0 || Position + count > _bytes.Length)
+            // Compared as "what is left", never as Position + count: a misread maker length near int.MaxValue
+            // (FF FF FF FF 07) would wrap the sum negative, pass the check and send Position below zero, and the
+            // next read would throw instead of failing the walk over to the id scan.
+            if (Failed || count < 0 || count > _bytes.Length - Position)
             {
                 Fail();
                 return;

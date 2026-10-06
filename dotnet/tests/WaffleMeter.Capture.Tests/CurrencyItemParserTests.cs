@@ -213,6 +213,62 @@ public sealed class CurrencyItemParserTests
         Assert.Empty(p.Items);
     }
 
+    /// <summary>An exact snapshot is the one reading that zeroes every balance, and an EMPTY depot list walks
+    /// "exactly" far too easily: a zero count plus the six-byte trailer is any 9-byte body whose third byte is 0.
+    /// The 10-07 login burst carries such a frame on 0x3657; were a patch to move one onto 0x5611, every login
+    /// would wipe the panel. A real world-entry list always holds hundreds of items, so an empty one is refused —
+    /// and since the scan finds nothing in it either, nothing reaches the data layer at all.</summary>
+    [Fact]
+    public void An_empty_depot_list_is_not_an_exact_snapshot()
+    {
+        byte[] synthesized = DepotFrame([]);
+        byte[] loginShaped = [0x0F, 0x11, 0x56, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]; // 0x3657's body
+
+        foreach (byte[] frame in new[] { synthesized, loginShaped })
+        {
+            CurrencyItemParse p = Depot(frame);
+
+            Assert.Equal(CurrencyParseMode.Rejected, p.Mode);
+            Assert.Equal(0, p.DeclaredCount);
+            Assert.Empty(p.Items);
+        }
+
+        Assert.Empty(Feed(identityOnly: false, synthesized, loginShaped).Snapshots);
+    }
+
+    /// <summary>A maker length misread as 2³¹−1 (FF FF FF FF 07) must fail the walk, not overflow the cursor: the
+    /// bound check once read <c>Position + count</c>, which wraps negative, let the skip through and threw on the
+    /// next byte — losing the frame's currency instead of handing it to the id scan.</summary>
+    [Fact]
+    public void A_maker_length_near_int_max_fails_the_walk_without_throwing()
+    {
+        var w = new WireWriter();
+        w.VarInt(2);
+        w.U8((byte)ItemChangeType.Update);         // record 1: the inventory kinah …
+        w.U8(0);
+        w.I64(InventoryKinaKey);
+        w.I32(CurrencyItemParser.KinaId);
+        w.I64(4_454_882);
+        w.U8(1);
+        w.I32(0);                                  // slot
+        w.Bool(false);                             // _is_locked
+        w.VarInt(int.MaxValue);                    // … with its maker length read as FF FF FF FF 07
+        w.I64(0);
+        w.Bool(false);
+        w.Raw(0, 0, 0);
+        w.U8((byte)ItemChangeType.Update);         // record 2: an untracked item, so the walk has a next record
+        WriteItem(w, new WireItem(9, 930_100_023, 5, 1));
+        w.Raw(0, 0, 0);
+        byte[] frame = Frame(0x561B, w);
+
+        CurrencyItemParse p = CurrencyItemParser.ParseModificationList(frame, BodyStart(frame));
+
+        Assert.Equal(CurrencyParseMode.Fallback, p.Mode);
+        CurrencyItemChange found = Assert.Single(p.Items);
+        Assert.Equal((CurrencyItemParser.KinaId, 4_454_882L), (found.Item.ItemId, found.Item.Count));
+        Assert.Equal(4_454_882, Assert.Single(Assert.Single(Feed(identityOnly: false, frame).Changes)).Item.Count);
+    }
+
     /// <summary>A change record type outside Add/Update/Remove means the layout is not what we think. The exact
     /// walk refuses the frame; the scan refuses that record.</summary>
     [Fact]
