@@ -113,6 +113,7 @@ public sealed class SettingsKeyCatalogTests
             "showJoinPanel", "showPreCombatRoster",
             "dummy.testMode", "closeAction", "isAutoHide", "taskbarMode",
             "lowSpecMode", "refreshIntervalMs", "replay.recordMovement",
+            "memo.show", "memo.keepWhenMeterHidden", "memo.locked",
         };
         string[] inDesign = SettingsKeyCatalog.For(SettingsProfile.Design).Select(k => k.Key).ToArray();
 

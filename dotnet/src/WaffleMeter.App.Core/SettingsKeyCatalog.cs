@@ -219,6 +219,16 @@ public static class SettingsKeyCatalog
         new("cooldownUi.hidden", F, "스킬 쿨타임", "표시할 스킬", CD, External: true),
         new("joinSkills.hidden", F, "버프 오버레이", "표시 스킬", JSK, External: true),
 
+        // ── 메모 ───────────────────────────────────────────────────────────────────
+        // 투명도·글씨 색은 외형이라 디자인에도 싣는다. 표시·유지·잠금은 창을 띄우거나 입력을 바꾸는 기능
+        // 토글이라 전체 백업에만 — 남의 디자인 코드를 받았다고 내 화면에 메모 창이 생기면 안 된다.
+        // 본문(memo.txt)은 설정 키가 아니라 어떤 코드에도 실리지 않는다(개인 메모가 공유 문자열에 섞이면 안 된다).
+        new("memo.show", F, "메모", "메모 표시", S),
+        new("memo.keepWhenMeterHidden", F, "메모", "미터를 숨겨도 메모 유지", S),
+        new("memo.locked", F, "메모", "메모 잠금", S),
+        new("memo.opacity", FD, "메모", "메모 투명도", S),
+        new("memo.textColor", FD, "메모", "메모 글씨 색상", S),
+
         // ── 알림 ───────────────────────────────────────────────────────────────────
         new("alarms.soundEnabled", FA, "알림", "알림 소리", S),
         new("alarms.volume", FA, "알림", "알림 음량", S),
@@ -313,6 +323,8 @@ public static class SettingsKeyCatalog
         ["aetherPanelX"] = "창 위치", ["aetherPanelY"] = "창 위치",
         ["buffOverlayX"] = "창 위치", ["buffOverlayY"] = "창 위치",
         ["cooldownOverlayX"] = "창 위치", ["cooldownOverlayY"] = "창 위치",
+        ["memoPanelWidth"] = "창 크기", ["memoPanelHeight"] = "창 크기",
+        ["memoPanelX"] = "창 위치", ["memoPanelY"] = "창 위치",
         ["server.ip"] = "캡처 환경", ["server.port"] = "캡처 환경",
         ["server.timeout"] = "캡처 환경", ["server.maxSnapshotSize"] = "캡처 환경",
         ["capture.dedupeGameStreams"] = "캡처 환경", ["capture.selfHealGapMs"] = "캡처 환경",
