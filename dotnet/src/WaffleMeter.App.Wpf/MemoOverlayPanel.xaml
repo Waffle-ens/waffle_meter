@@ -165,7 +165,7 @@
                            Visibility="{Binding PlaceholderVisibility}"/>
                 <TextBox x:Name="EditBox" Style="{StaticResource MemoEditBox}" Visibility="{Binding EditVisibility}"
                          FontSize="13" Foreground="{Binding TextBrush}" CaretBrush="{Binding TextBrush}"
-                         AcceptsReturn="True" TextWrapping="Wrap"
+                         AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                          PreviewKeyDown="OnEditKeyDown"
                          GotKeyboardFocus="OnEditGotKeyboardFocus" LostKeyboardFocus="OnEditLostKeyboardFocus"/>

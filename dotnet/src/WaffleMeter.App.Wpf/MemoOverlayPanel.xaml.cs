@@ -162,11 +162,11 @@ public partial class MemoOverlayPanel : OverlayPanelWindow
             _vm.CtrlHover = ctrl && overWindow;
         }
 
-        // 커서가 메모 밖이면(게임 중 대부분의 틱) 버튼 사각형도, 마우스 버튼도 물을 필요가 없다.
+        // Ctrl 이 안 눌렸거나 커서가 메모 밖이면(게임 중 대부분의 틱) 버튼 사각형도, 마우스 버튼도 물을 필요가 없다.
         bool peek = MemoOverlayPolicy.ShouldPeek(
             _locked,
             ctrl,
-            overWindow && IsOver(LockButton, cursor),
+            ctrl && overWindow && IsOver(LockButton, cursor),
             _peeking,
             _peeking && IsDown(PrimaryButtonVk()));
         if (peek != _peeking)
@@ -294,6 +294,20 @@ public partial class MemoOverlayPanel : OverlayPanelWindow
         {
             SetForegroundWindow(previous);
         }
+    }
+
+    /// <summary>편집 중에는 이 창이 활성 창이라 Alt+F4 가 게임이 아니라 메모로 온다. 그대로 닫히면 이 세션 내내
+    /// 메모 창이 사라지므로(다시 만들지 않는다) 편집만 끝내고(저장) 창은 둔다. 앱 종료 경로의 닫기는 WPF 가
+    /// 취소를 무시하므로 종료를 막지 않는다.</summary>
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (_editing)
+        {
+            e.Cancel = true;
+            CommitEdit(restoreForeground: true);
+        }
+
+        base.OnClosing(e);
     }
 
     private void OnEditKeyDown(object sender, KeyEventArgs e)
