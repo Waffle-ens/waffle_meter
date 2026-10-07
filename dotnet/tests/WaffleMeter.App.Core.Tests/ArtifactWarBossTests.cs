@@ -22,9 +22,10 @@ public sealed class ArtifactWarBossTests
     private const long MiddleStart = 1_791_031_302_000; // Sat 10-03 21:41:42 KST
     private const long WarStart = 1_791_375_600_000;    // Wed 10-07 21:20:00 KST
 
-    // 하층 집행자 ×3 (slots 2006-2008) and the three 중층 bosses on slots 2203-2205, as the meter maps them.
+    // 하층 집행자 ×3 (slots 2006-2008) and the three 중층 bosses on slots 2203-2205 — 처형관 드라모스 / 반역자 듀칼 /
+    // 파멸자 마라카, the client's pairing (until 2026-10-07 the catalog had 2600156, a 나흐마, on slot 2204).
     private static readonly int[] LowerBosses = [2600096, 2600097, 2600098];
-    private static readonly int[] MiddleBosses = [2600156, 2600521, 2600522];
+    private static readonly int[] MiddleBosses = [2600520, 2600521, 2600522];
 
     private static readonly IReadOnlyDictionary<int, long> NoServerTimers = new Dictionary<int, long>();
 
@@ -46,19 +47,27 @@ public sealed class ArtifactWarBossTests
     private static AbyssArtifactStore Measured() => Window(Server, WarStart, WarStart);
 
     /// <summary>The war-tied set is exactly the six slots the client ties to the war (2006-2008, 2203-2205) — the
-    /// current WedSat group, middle-floor names as the catalog has them — and nothing else gets a derived time.</summary>
+    /// WedSat group — and nothing else gets a derived time. Checked by wire slot too, since the slot is what the
+    /// client ties to the war: the code list alone stayed "right" while the catalog paired 중층 slots wrongly.</summary>
     [Fact]
     public void Exactly_the_six_war_bosses_are_tied_to_the_war()
     {
         Assert.Equal(
             LowerBosses.Concat(MiddleBosses).Order(),
             FieldBossFixedSchedule.ArtifactWarTiedCodes.Order());
+        Assert.Equal(
+            [2006, 2007, 2008, 2203, 2204, 2205],
+            FieldBossCatalog.All()
+                .Where(b => FieldBossFixedSchedule.ArtifactWarTiedCodes.Contains(b.Code))
+                .Select(b => b.WireCode)
+                .Order());
 
         Assert.All(LowerBosses, code => Assert.Equal(Lower, ArtifactWarSchedule.ZoneFor(code)));
         Assert.All(MiddleBosses, code => Assert.Equal(Middle, ArtifactWarSchedule.ZoneFor(code)));
 
         Assert.Equal(0, ArtifactWarSchedule.ZoneFor(2600084));                          // 수호신장 나흐마 — 금·일
-        Assert.Equal(0, ArtifactWarSchedule.ZoneFor(2600520));                          // 금·일 slot
+        Assert.Equal(0, ArtifactWarSchedule.ZoneFor(2600479));                          // 분노한 수호신장 나흐마 — 금·일 (2201)
+        Assert.Equal(0, ArtifactWarSchedule.ZoneFor(2600480));                          // 분노한 수호신장 나흐마 — 금·일 (2202)
         Assert.Equal(0, ArtifactWarSchedule.ZoneFor(FieldBossCatalog.ScheduledSpawnCode)); // 감시자 카이라
         Assert.Equal(0, ArtifactWarSchedule.ZoneFor(2406034));                          // 모르헤임
     }

@@ -125,10 +125,14 @@ public static class FieldBossCatalog
         new(2600098, "집행자 카이라", 2008, FieldBossRegion.Abyss, AbyssLowerMapId),
 
         // ---- 어비스 중층 (map 22) ----
-        new(2600150, "분노한 수호신장 나흐마", 2201, FieldBossRegion.Abyss, AbyssMiddleMapId),
-        new(2600156, "분노한 수호신장 나흐마", 2204, FieldBossRegion.Abyss, AbyssMiddleMapId),
-        new(2600520, "처형관 드라모스", 2202, FieldBossRegion.Abyss, AbyssMiddleMapId),
-        new(2600521, "반역자 듀칼", 2203, FieldBossRegion.Abyss, AbyssMiddleMapId),
+        // 슬롯 → NPC 는 클라 WorldMapFieldNamed(ID = 0x9101 와이어 슬롯) + NpcData 가 정본이다. 2026-10-07 까지
+        // 이 다섯 줄은 2201→2600150, 2202→2600520, 2203→2600521, 2204→2600156 으로 잘못 짝지어져 2202/2203/2204
+        // 알림이 다른 보스 이름을 말했다(2600150/2600156 은 M_AR2 — 이 맵의 NPC 가 아니다). 옛 코드로 저장된
+        // 알림 제외 설정은 App.Core FieldBossCodeMigration 이 옮긴다.
+        new(2600479, "분노한 수호신장 나흐마", 2201, FieldBossRegion.Abyss, AbyssMiddleMapId),
+        new(2600480, "분노한 수호신장 나흐마", 2202, FieldBossRegion.Abyss, AbyssMiddleMapId),
+        new(2600520, "처형관 드라모스", 2203, FieldBossRegion.Abyss, AbyssMiddleMapId),
+        new(2600521, "반역자 듀칼", 2204, FieldBossRegion.Abyss, AbyssMiddleMapId),
         new(2600522, "파멸자 마라카", 2205, FieldBossRegion.Abyss, AbyssMiddleMapId),
     };
 

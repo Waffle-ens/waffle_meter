@@ -114,7 +114,9 @@ public sealed class FieldBossItem : INotifyPropertyChanged
     public string Name { get; }
 
     /// <summary>Fixed-spawn hint ("금·일 22:05" / "수·토 아티쟁 종료 후") for the 어비스 fortress bosses, null for a
-    /// normal respawn timer. Also disambiguates the abyss rows that share a mob name.</summary>
+    /// normal respawn timer. Rows that share a mob name (수호신장 나흐마 ×3 하층, 분노한 수호신장 나흐마 ×2 중층)
+    /// share the badge too — one boss name on several spawn slots, listed in slot order; the badge does not tell
+    /// them apart and is not meant to.</summary>
     public string? Schedule { get; }
 
     public bool HasSchedule => !string.IsNullOrEmpty(Schedule);

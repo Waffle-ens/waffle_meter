@@ -166,15 +166,53 @@ public class FieldBossTimerParserTests
         Assert.Equal(5, mid.Timers.Count);
         Assert.All(mid.Timers, t => Assert.Equal(FieldBossRegion.Abyss, FieldBossCatalog.Region(t.Code)));
 
-        // The siege groups are what the capture actually carried: 처형관 드라모스 on the 금 window,
-        // 반역자 듀칼 / 파멸자 마라카 / 분노한 나흐마(2600156) on the 수 one.
+        // The siege groups are what the capture actually carried, slot by slot: 2201/2202 (분노한 수호신장 나흐마
+        // ×2) on the 금 window, 2203/2204/2205 (처형관 드라모스 / 반역자 듀칼 / 파멸자 마라카) on the 수 one — the
+        // client's WorldMapFieldNamed + PeriodSpawn say the same. Until 2026-10-07 the catalog put 드라모스 on 2202
+        // and a 나흐마(2600156) on 2204, so this very fixture "showed" 드라모스 on Friday.
         long friday = new DateTimeOffset(2026, 7, 31, 22, 5, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
         long wednesday = new DateTimeOffset(2026, 7, 29, 22, 35, 0, TimeSpan.FromHours(9)).ToUnixTimeMilliseconds();
-        Assert.Contains(mid.Timers, t => t.Code == 2600150 && t.TargetMs == friday);
-        Assert.Contains(mid.Timers, t => t.Code == 2600520 && t.TargetMs == friday);
-        Assert.Contains(mid.Timers, t => t.Code == 2600156 && t.TargetMs == wednesday);
+        Assert.Contains(mid.Timers, t => t.Code == 2600479 && t.TargetMs == friday);
+        Assert.Contains(mid.Timers, t => t.Code == 2600480 && t.TargetMs == friday);
+        Assert.Contains(mid.Timers, t => t.Code == 2600520 && t.TargetMs == wednesday);
         Assert.Contains(mid.Timers, t => t.Code == 2600521 && t.TargetMs == wednesday);
         Assert.Contains(mid.Timers, t => t.Code == 2600522 && t.TargetMs == wednesday);
+    }
+
+    /// <summary>The 중층 slot → NPC pairing is the client's (<c>WorldMapFieldNamed</c> ID = the wire slot, its NPC
+    /// resolved through <c>NpcData</c>, datamine 2026-09-28). Pinned literally: from 2026-07-27 to 10-07 the table
+    /// resolved 2202/2203/2204 to the wrong bosses and every test stayed green, because each one only re-read the
+    /// table.</summary>
+    [Theory]
+    [InlineData(2201, 2600479)] // M_AR3_AbBoss_01_002 분노한 수호신장 나흐마
+    [InlineData(2202, 2600480)] // M_AR3_AbBoss_01_003 분노한 수호신장 나흐마
+    [InlineData(2203, 2600520)] // M_AR3_Kashapa_01_CV02_001 처형관 드라모스
+    [InlineData(2204, 2600521)] // M_AR3_Evspirit_02_CV02_001 반역자 듀칼
+    [InlineData(2205, 2600522)] // M_AR3_Nahid_01_CV02_001 파멸자 마라카
+    public void Middle_floor_slots_resolve_to_the_clients_npc(int slot, int expected)
+    {
+        Assert.True(FieldBossCatalog.TryResolveWireCode(slot, FieldBossCatalog.AbyssMiddleMapId, out int code));
+        Assert.Equal(expected, code);
+    }
+
+    /// <summary>Every 어비스 record in the real 07-27 capture lands on the weekday its schedule group says — the
+    /// 금·일 group on the Friday, the 아티쟁 group on the Wednesday. This is what ties the catalog's slot pairing
+    /// and <see cref="FieldBossFixedSchedule"/>'s grouping to the wire: had either drifted (a 금·일 boss filed under
+    /// the war group or the reverse), a record here would carry the other weekday.</summary>
+    [Fact]
+    public void The_schedule_group_of_every_real_abyss_record_matches_its_weekday()
+    {
+        var kst = TimeSpan.FromHours(9);
+        List<(int Code, long TargetMs)> timers =
+            FieldBossTimerParser.ParseTable(Hex(RealAbyssLowerBody), 0, AbyssArrivedAt).Timers
+                .Concat(FieldBossTimerParser.ParseTable(Hex(RealAbyssMiddleBody), 0, AbyssArrivedAt).Timers)
+                .Where(t => FieldBossFixedSchedule.HasFixedSchedule(t.Code))
+                .ToList();
+
+        Assert.Equal(11, timers.Count); // 13 records − 정령왕 아그로(per-kill) − 감시자 카이라(zeroed)
+        Assert.All(timers, t => Assert.Equal(
+            FieldBossFixedSchedule.IsArtifactWarTied(t.Code) ? DayOfWeek.Wednesday : DayOfWeek.Friday,
+            DateTimeOffset.FromUnixTimeMilliseconds(t.TargetMs).ToOffset(kst).DayOfWeek));
     }
 
     [Fact]
@@ -220,7 +258,7 @@ public class FieldBossTimerParserTests
 
         FieldBossTimerParser.Result r = FieldBossTimerParser.ParseTable(body, 0, MorheimArrivedAt);
 
-        Assert.Contains(r.Timers, t => t.Code == 2600520 && t.TargetMs == sixDaysOut); // 처형관 드라모스
+        Assert.Contains(r.Timers, t => t.Code == 2600480 && t.TargetMs == sixDaysOut); // 분노한 수호신장 나흐마
     }
 
     [Fact]

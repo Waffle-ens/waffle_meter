@@ -124,7 +124,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _kairaLead10 = ReadBool("alarms.kairaLead10", true);
         _kairaLead5 = ReadBool("alarms.kairaLead5", false);
         _kairaLead1 = ReadBool("alarms.kairaLead1", false);
-        _fieldBossDisabled = _props.GetProperty("alarms.fieldBossDisabled") ?? "";
+        _fieldBossDisabled = ReadFieldBossDisabled();
         _refreshIntervalMs = ReadInt("refreshIntervalMs", 500);
         _maxVisibleRows = ReadInt("maxVisibleRows", 10);
         _dimDeadRows = ReadBool("dimDeadRows", true);
@@ -452,6 +452,22 @@ public sealed class MeterSettings : INotifyPropertyChanged
 
     /// <summary>The disabled boss-code set (parsed from <see cref="FieldBossDisabled"/>).</summary>
     public HashSet<int> FieldBossDisabledCodes => ParseCodeSet(_fieldBossDisabled);
+
+    /// <summary>Reads <c>alarms.fieldBossDisabled</c>, moving codes the 2026-10-07 중층 slot fix retired onto the
+    /// codes that replaced them (<see cref="FieldBossCodeMigration"/>). Written back only when something moved, so
+    /// it persists once and every later load is a plain read. Runs on the settings import too — that path writes
+    /// the raw value and comes through <see cref="Reload"/>, so an old backup migrates the same way.</summary>
+    private string ReadFieldBossDisabled()
+    {
+        string stored = _props.GetProperty("alarms.fieldBossDisabled") ?? "";
+        string migrated = FieldBossCodeMigration.MigrateDisabledCsv(stored);
+        if (!string.Equals(migrated, stored, StringComparison.Ordinal))
+        {
+            _props.SetProperty("alarms.fieldBossDisabled", migrated);
+        }
+
+        return migrated;
+    }
 
     private List<CustomAlarm> _customAlarms;
     /// <summary>User-defined recurring reminders. Persisted as one Base64(JSON) value (alarms.custom).</summary>

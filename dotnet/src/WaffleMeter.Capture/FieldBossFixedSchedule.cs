@@ -4,9 +4,10 @@ namespace WaffleMeter.Capture;
 /// Fixed spawn schedules for the 어비스(혼돈의 에레슈란타) fortress bosses. Unlike the open-world regions —
 /// where every boss has its own per-kill respawn — these spawn on a fixed content schedule, in two groups:
 /// 금·일 22:05 KST (수호신장 나흐마 계열), and the 수·토 group that appears <b>after that server's 아티팩트
-/// 점령전</b>. Two things use this: the picker shows the schedule beside the boss (which also tells apart the
-/// rows that share a mob name), and a 금·일 record that arrives with no usable time still gets its next
-/// occurrence.
+/// 점령전</b>. Two things use this: the picker shows the schedule beside the boss, and a 금·일 record that
+/// arrives with no usable time still gets its next occurrence. (The badge does NOT tell apart rows that share
+/// a mob name — 수호신장 나흐마 ×3 and 분노한 수호신장 나흐마 ×2 are one name on several slots, all 금·일.
+/// It only seemed to while the 중층 slots were mis-paired; see <see cref="ByBossCode"/>.)
 /// <para>Pure and side-effect free, and only consulted as a fallback — a server-sent time always wins. In
 /// every capture so far the server DID send real times for these bosses, so the fallback is a safety net
 /// rather than the normal path.</para>
@@ -38,7 +39,11 @@ public static class FieldBossFixedSchedule
 
     // Which boss is in which group was read off a real 하층+중층 capture (2026-07-27, a Monday): the
     // FriSun group's next spawn came back as Fri 22:05 and the WedSat group's as Wed 22:35 (the pre-patch
-    // war time). That fixes the group each boss belongs to; only the 금·일 time of day is still used.
+    // war time). That fixes the group each WIRE SLOT belongs to (하층 2003-2005 / 중층 2201-2202 금·일,
+    // 2006-2008 / 2203-2205 수·토 — the client's PeriodSpawn agrees); only the 금·일 time of day is still used.
+    // The mob codes below are the catalog's for those slots. Until 2026-10-07 the 중층 rows were mis-paired
+    // (2202 처형관 드라모스, 2203 반역자 듀칼, 2204 분노한 나흐마 2600156), so this table carried 드라모스 on 금·일
+    // and a 나흐마 on 수·토 — right slots, wrong bosses. Keep it keyed to the slots FieldBossCatalog gives.
     private static readonly Dictionary<int, Kind> ByBossCode = new()
     {
         // 감시자 카이라(2600089)는 여기 없다 — 서버가 시각을 0으로 보내는 유일한 보스라 리젠 타이머로
@@ -47,15 +52,15 @@ public static class FieldBossFixedSchedule
         [2600084] = Kind.FriSun2205,   // 수호신장 나흐마 ×3 (하층)
         [2600093] = Kind.FriSun2205,
         [2600094] = Kind.FriSun2205,
-        [2600150] = Kind.FriSun2205,   // 분노한 수호신장 나흐마 (중층)
-        [2600520] = Kind.FriSun2205,   // 처형관 드라모스 (중층)
+        [2600479] = Kind.FriSun2205,   // 분노한 수호신장 나흐마 ×2 (중층, 슬롯 2201·2202)
+        [2600480] = Kind.FriSun2205,
 
         [2600096] = Kind.WedSat2235,   // 집행자 타마사 (하층)
         [2600097] = Kind.WedSat2235,   // 정령왕 아그로 (하층, 집행자 슬롯)
         [2600098] = Kind.WedSat2235,   // 집행자 카이라 (하층, 집행자 슬롯)
-        [2600156] = Kind.WedSat2235,   // 분노한 수호신장 나흐마 (중층)
-        [2600521] = Kind.WedSat2235,   // 반역자 듀칼 (중층)
-        [2600522] = Kind.WedSat2235,   // 파멸자 마라카 (중층)
+        [2600520] = Kind.WedSat2235,   // 처형관 드라모스 (중층, 슬롯 2203)
+        [2600521] = Kind.WedSat2235,   // 반역자 듀칼 (중층, 슬롯 2204)
+        [2600522] = Kind.WedSat2235,   // 파멸자 마라카 (중층, 슬롯 2205)
     };
 
     /// <summary>The bosses that spawn after the server's 아티팩트 점령전, as the meter maps them — wire slots
