@@ -270,6 +270,7 @@ public static class SettingsKeyCatalog
         new("dummyResetHotkey", F, "단축키", "허수아비 DPS 초기화", HK, External: true),
         new("splitUiHotkey", F, "단축키", "UI 분리모드 켜기/끄기", HK, External: true),
         new("aetherListHotkey", F, "단축키", "컨텐츠 관리 열기/닫기", HK, External: true),
+        new("currencyTabHotkey", F, "단축키", "재화 관리 열기/닫기", HK, External: true),
     };
 
     /// <summary>

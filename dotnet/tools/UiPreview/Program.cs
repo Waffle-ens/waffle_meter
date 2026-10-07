@@ -852,6 +852,21 @@ internal static class Program
         vm.PendingAetherList = null; vm.Commit();
         Check("컨텐츠 관리 단축키 해제", hotkeys.AetherList is null);
 
+        // 재화 관리 단축키 — 같은 컨텐츠 관리 창을 재화 관리 탭으로 연다. 역시 미지정 출고. (설정 파일 값은 위의
+        // Commit 들이 이미 "none" 으로 써 뒀다 — 미지정 칸도 저장은 되므로 null 이 아니라 "none" 이 맞다.)
+        Check("재화 관리 단축키는 기본 미지정",
+            hotkeys.CurrencyTab is null && vm.PendingCurrencyTab is null
+            && props.GetProperty("currencyTabHotkey") is null or "none");
+        vm.PendingCurrencyTab = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4A); // Ctrl+Shift+J
+        vm.Commit();
+        Check("재화 관리 단축키 저장",
+            hotkeys.CurrencyTab is { VkCode: 0x4A } && props.GetProperty("currencyTabHotkey") == "modifiers=6,vkCode=74");
+        hotkeys.Reload(); // 설정 가져오기가 타는 경로 — 파일에서 다시 읽어도 살아 있어야 한다
+        Check("재화 관리 단축키가 Reload 를 넘어 살아남는다", hotkeys.CurrencyTab is { VkCode: 0x4A });
+        Check("재화 관리 단축키가 이웃 칸을 건드리지 않는다", hotkeys.AetherList is null && hotkeys.SplitUi is null);
+        vm.PendingCurrencyTab = null; vm.Commit();
+        Check("재화 관리 단축키 해제", hotkeys.CurrencyTab is null && props.GetProperty("currencyTabHotkey") == "none");
+
         // 중복 지정. 일곱 칸이 같은 조합을 들면 RegisterHotKey 는 먼저 등록되는 쪽만 성공하고 나중 것은
         // 조용히 죽는다 — 그래서 방금 고른 쪽이 이기고 먼저 쓰던 칸이 '미지정'으로 비워져야 한다.
         vm.PendingVisibility = new HotkeyCombo(HotkeyHandler.ModControl, 0x48); // Ctrl+H (표시/숨김 기본 조합)
@@ -866,6 +881,21 @@ internal static class Program
         Check("되돌려 지정하면 이번엔 컨텐츠 관리가 비워진다",
             vm.PendingAetherList is null && vm.PendingVisibility is { VkCode: 0x48 });
         vm.Commit();
+
+        // 두 진입 단축키끼리도 같은 규칙 — 같은 창을 여는 둘이라 한 조합을 나눠 갖기 쉽다.
+        vm.PendingAetherList = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4B);
+        vm.PendingCurrencyTab = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4B);
+        Check("재화 관리에 같은 조합을 주면 컨텐츠 관리가 비워진다",
+            vm.PendingAetherList is null && vm.PendingCurrencyTab is { VkCode: 0x4B });
+        vm.PendingAetherList = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4B);
+        Check("되돌려 지정하면 재화 관리가 비워진다",
+            vm.PendingCurrencyTab is null && vm.PendingAetherList is { VkCode: 0x4B });
+        vm.PendingVisibility = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4B);
+        Check("다른 칸이 가져가도 재화 관리는 미지정 그대로", vm.PendingCurrencyTab is null && vm.PendingAetherList is null);
+        vm.PendingVisibility = new HotkeyCombo(HotkeyHandler.ModControl, 0x48);
+        vm.Commit();
+        Check("정리 후 저장 상태",
+            hotkeys.Visibility is { VkCode: 0x48 } && hotkeys.AetherList is null && hotkeys.CurrencyTab is null);
 
         // 닉네임 효과. The property that must never regress: with the feature off the row is painted with the
         // SAME brush instance as before the feature existed, so "off" is pixel-identical rather than merely similar.
@@ -1463,6 +1493,22 @@ internal static class Program
                     // 메모도 같은 규칙 — 메모 머리줄 슬라이더와 설정 '메모' 탭 슬라이더가 한 값을 봐야 한다.
                     Check("설정창 메모 투명도 슬라이더가 메모 머리줄과 같은 경로(Settings.MemoOpacity)를 쓴다",
                         sliderPaths.Contains("Settings.MemoOpacity", StringComparer.Ordinal));
+
+                    // 단축키 칸 ↔ 설정창 줄. 뷰모델에 Pending* 단축키를 더하고 줄을 빠뜨리면 저장·중복 정리는
+                    // 다 되는데 사용자가 지정할 곳이 없다 — 컴파일도 렌더도 멀쩡해서 여기 말고는 못 잡는다.
+                    string[] boxPaths = Descendants(window)
+                        .OfType<HotkeyCaptureBox>()
+                        .Select(b => BindingOperations.GetBinding(b, HotkeyCaptureBox.ComboProperty)?.Path?.Path ?? "")
+                        .ToArray();
+                    string[] pendingHotkeys = typeof(SettingsViewModel).GetProperties()
+                        .Where(p => p.PropertyType == typeof(HotkeyCombo) && p.Name.StartsWith("Pending", StringComparison.Ordinal))
+                        .Select(p => p.Name)
+                        .ToArray();
+                    string[] rowless = pendingHotkeys.Except(boxPaths, StringComparer.Ordinal).ToArray();
+                    Check($"단축키 {pendingHotkeys.Length}칸이 전부 설정창에 줄이 있다{(rowless.Length > 0 ? " — 빠진 것: " + string.Join(", ", rowless) : "")}",
+                        pendingHotkeys.Length >= 8 && rowless.Length == 0);
+                    Check("재화 관리 단축키 줄이 PendingCurrencyTab 에 묶여 있다",
+                        boxPaths.Contains("PendingCurrencyTab", StringComparer.Ordinal));
                 }
 
                 foreach (string key in navKeys)

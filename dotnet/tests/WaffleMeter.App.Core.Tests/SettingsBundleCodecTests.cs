@@ -56,6 +56,10 @@ public sealed class SettingsBundleCodecTests
     {
         // A full backup has to fit in a chat message. Settings are repetitive text, which is exactly what gzip
         // is good at — without it the same content ran to five figures.
+        // The ceiling is a Discord message (2,000자) with room left for a line of text around the code. It is
+        // not a fixed size: every catalogue key costs this probe about ten characters, and the 재화 관리 hotkey
+        // (2026-10-07) took it from 1,191 to 1,206 — past the first ceiling of 1,200, which the catalogue had
+        // grown into one key at a time.
         var big = Sample();
         foreach (SettingsKey k in SettingsKeyCatalog.All)
         {
@@ -63,7 +67,7 @@ public sealed class SettingsBundleCodecTests
         }
 
         string code = SettingsBundleCodec.Encode(big);
-        Assert.True(code.Length < 1200, $"전체 백업 코드가 {code.Length}자로 너무 깁니다");
+        Assert.True(code.Length < 1500, $"전체 백업 코드가 {code.Length}자로 너무 깁니다");
     }
 
     [Theory]

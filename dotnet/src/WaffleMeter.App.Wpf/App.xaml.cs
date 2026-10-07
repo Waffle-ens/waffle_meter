@@ -508,6 +508,8 @@ public partial class App : Application
             //    이고 토글 로직은 AetherListRequested 핸들러 한 곳뿐이라, 직접 만지면 트레이·오드 배지와
             //    상태가 갈린다.
             OnAetherList = () => Dispatcher.BeginInvoke(() => window.RequestAetherList(AetherPanelTab.Content)),
+            // 재화 관리 탭으로 바로. 같은 진입점에 탭만 실어 보낸다 — 열기/탭 전환/닫기 판단도 그 핸들러가 한다.
+            OnCurrencyTab = () => Dispatcher.BeginInvoke(() => window.RequestAetherList(AetherPanelTab.Currency)),
         };
         _hotkeys.Start();
 
