@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
+using WaffleMeter.App.Core;
 using WaffleMeter.Data;
 
 namespace WaffleMeter.App.Wpf;
@@ -34,7 +35,8 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
     public Brush TextBrush { get => _textBrush; private set => Set(ref _textBrush, value); }
 
     private string _textColorHex = "";
-    /// <summary>Set the countdown-text color from a hex string; falls back to white on a bad value.</summary>
+    /// <summary>Set the countdown-text color from a hex or <c>rgba()</c> string; falls back to white on an empty
+    /// or bad value.</summary>
     public void SetTextColor(string hex)
     {
         if (_textColorHex == hex)
@@ -43,14 +45,15 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
         }
 
         _textColorHex = hex;
-        try
+        // ColorString 으로 읽는다 — 색 피커는 알파가 1 미만이면 rgba(...) 를 내는데 WPF ColorConverter 는 그걸 못 읽어
+        // 예외 → 흰색으로 조용히 떨어졌다(반투명 글씨색을 고르면 설정 칩은 그 색인데 오버레이만 흰색).
+        if (ColorString.TryParse(hex, out ColorRgba c))
         {
-            var c = (Color)ColorConverter.ConvertFromString(string.IsNullOrWhiteSpace(hex) ? "#FFFFFF" : hex)!;
-            var b = new SolidColorBrush(c);
+            var b = new SolidColorBrush(Color.FromArgb(c.A, c.R, c.G, c.B));
             b.Freeze();
             TextBrush = b;
         }
-        catch
+        else
         {
             TextBrush = Brushes.White;
         }

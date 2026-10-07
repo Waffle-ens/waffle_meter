@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
+using WaffleMeter.App.Core;
 using WaffleMeter.Data;
 
 namespace WaffleMeter.App.Wpf;
@@ -35,7 +36,8 @@ public sealed class CooldownOverlayViewModel : INotifyPropertyChanged
     public Brush TextBrush { get => _textBrush; private set => Set(ref _textBrush, value); }
 
     private string _textColorHex = string.Empty;
-    /// <summary>Set the countdown-text color from a hex string; falls back to white on a bad value.</summary>
+    /// <summary>Set the countdown-text color from a hex or <c>rgba()</c> string; falls back to white on an empty
+    /// or bad value.</summary>
     public void SetTextColor(string hex)
     {
         if (_textColorHex == hex)
@@ -44,14 +46,14 @@ public sealed class CooldownOverlayViewModel : INotifyPropertyChanged
         }
 
         _textColorHex = hex;
-        try
+        // 버프 오버레이와 같은 결함·같은 해법: 피커의 rgba(...) 를 ColorConverter 가 못 읽어 흰색으로 떨어졌다.
+        if (ColorString.TryParse(hex, out ColorRgba c))
         {
-            var c = (Color)ColorConverter.ConvertFromString(string.IsNullOrWhiteSpace(hex) ? "#FFFFFF" : hex)!;
-            var b = new SolidColorBrush(c);
+            var b = new SolidColorBrush(Color.FromArgb(c.A, c.R, c.G, c.B));
             b.Freeze();
             TextBrush = b;
         }
-        catch
+        else
         {
             TextBrush = Brushes.White;
         }

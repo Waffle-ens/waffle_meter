@@ -57,4 +57,19 @@ public class ColorStringTests
         Assert.Equal("rgba(0, 0, 0, 0.124)", ColorString.Serialize(0, 0, 0, 0.1236, preferHex: true));
         Assert.Equal("rgba(0, 0, 0, 0.37)", ColorString.Serialize(0, 0, 0, 0.37, preferHex: true));
     }
+
+    [Theory]
+    [InlineData(0x15, 0xC9, 0x8F, 1.0)]   // opaque -> #RRGGBB
+    [InlineData(255, 0, 0, 0.5)]          // translucent -> rgba()
+    [InlineData(0, 0, 0, 0.37)]
+    [InlineData(255, 255, 255, 0.0)]
+    public void Picker_output_parses_back(int r, int g, int b, double alpha)
+    {
+        // 피커가 저장한 문자열은 색 설정을 읽는 쪽(오버레이 글씨색 등)이 그대로 읽어야 한다. WPF ColorConverter 는
+        // rgba() 를 못 읽어 흰색으로 떨어졌다 — 그래서 사용자 색 설정 소비자는 전부 TryParse 로 읽는다.
+        string s = ColorString.Serialize((byte)r, (byte)g, (byte)b, alpha, preferHex: true);
+        Assert.True(ColorString.TryParse(s, out ColorRgba c));
+        Assert.Equal(((byte)r, (byte)g, (byte)b), (c.R, c.G, c.B));
+        Assert.Equal((byte)Math.Round(alpha * 255, MidpointRounding.AwayFromZero), c.A);
+    }
 }

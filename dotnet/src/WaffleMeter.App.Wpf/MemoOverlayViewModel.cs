@@ -69,7 +69,7 @@ public sealed class MemoOverlayViewModel : INotifyPropertyChanged
     private Brush _textBrush;
 
     /// <summary>글씨 색. <see cref="ColorString.TryParse"/> 로 읽는다 — 피커가 내는 <c>rgba()</c> 를 WPF
-    /// ColorConverter 는 못 읽어 조용히 흰색으로 떨어진다(버프·쿨타임 쪽에 남아 있는 잠복 결함).</summary>
+    /// ColorConverter 는 못 읽어 조용히 흰색으로 떨어진다(버프·쿨타임 오버레이도 같은 이유로 ColorString 을 쓴다).</summary>
     public Brush TextBrush
     {
         get => _textBrush;
