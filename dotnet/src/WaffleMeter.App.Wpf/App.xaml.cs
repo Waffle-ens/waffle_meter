@@ -699,6 +699,15 @@ public partial class App : Application
             // The 0x5611 currency snapshot is the same kind of held dump (it beats its naming packet by ~7 s) and
             // this loop is what files it on a login or same-character relog, where no ExecutorChanged fires.
             FlushPendingCurrencies(services);
+            // The 성역 counters and 회랑 이용 시간 riding the 오드 balance's 0x610B dump, and the 0xE305/0xE307
+            // 점령 현황, are held under the same rule (WeeklyContentOwnership.CanFile), so they are filed up here
+            // too. Below the early-return they sat out the whole saved-battle view — which only ends at the next
+            // fight or a reset — so closing the meter meanwhile lost them, and a character switch either overwrote
+            // them with the next character's dump or filed them under the next character, whose identity also
+            // postdates the dump. All three read only the data layer and the stores, never the battle on screen.
+            FlushPendingWeeklyContent(services);
+            FlushPendingAbyssCorridors(services);
+            FlushPendingAbyssArtifacts(services);
 
             // While viewing a saved battle, hold the overlay until a NEW battle begins (React resets the
             // selected history when isInCombat); the open detail follows the SAME displayed battle (below).
@@ -930,9 +939,6 @@ public partial class App : Application
             }
 
             MaybePromptConsent(services, window);
-            FlushPendingWeeklyContent(services);
-            FlushPendingAbyssCorridors(services);
-            FlushPendingAbyssArtifacts(services);
             TickAbyssCorridor(services);
         });
         _engine.CaptureError += message => Dispatcher.Invoke(() => viewModel.Status = CaptureErrorMessage(message));
