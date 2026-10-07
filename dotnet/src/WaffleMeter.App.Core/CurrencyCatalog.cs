@@ -73,8 +73,8 @@ public static class CurrencyCatalog
             CurrencyScope.Server, "키나 (서버 창고)", "currency_kina.png"),
     ];
 
-    /// <summary>The character-row chips, in display order. 캐릭터 창고 kinah is not a chip of its own — it rides
-    /// the tradeable kinah chip's tooltip.</summary>
+    /// <summary>The 재화 관리 tab's cells, in display order. 캐릭터 창고 kinah is not a cell of its own — it rides
+    /// the tradeable kinah cell's tooltip.</summary>
     public static IReadOnlyList<string> ChipSlugs { get; } = [BoundKina, Kina, AbyssPoint, DreamShard, TrialMark];
 
     /// <summary>A character's own kinah, the part of a server's 총 키나 that is per character.</summary>

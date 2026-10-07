@@ -246,6 +246,74 @@ public sealed class CurrencyRosterTests
         Assert.Null(row.CurrencyCells.Single(c => c.Currency.Slug == CurrencyCatalog.BoundKina).Count);
     }
 
+    /// <summary>The 재화 관리 tab draws five cells in display order — the kinah pair, then the three point
+    /// currencies. 캐릭터 창고 kinah is not a cell (it rides the 키나 cell's tooltip), but it is still on the row
+    /// for that tooltip to find.</summary>
+    [Fact]
+    public void The_currency_tab_shows_five_cells_with_character_storage_set_aside()
+    {
+        AetherPerCharacterStore characters = Characters(("h1", "밀피", Trinity));
+        CurrencyStore currencies = Kina(
+            ("h1", CurrencyCatalog.Kina, 4_454_882),
+            ("h1", CurrencyCatalog.CharacterStorageKina, 1_200_000));
+
+        AetherRosterRow row = Assert.Single(AetherRoster.Build(characters, currencies: currencies));
+        IReadOnlyList<CurrencyCell> cells = CurrencyRoster.ChipCells(row);
+
+        Assert.Equal(
+            [CurrencyCatalog.BoundKina, CurrencyCatalog.Kina, CurrencyCatalog.AbyssPoint, CurrencyCatalog.DreamShard, CurrencyCatalog.TrialMark],
+            cells.Select(c => c.Currency.Slug));
+        Assert.Equal([true, true, false, false, false], cells.Select(CurrencyRoster.IsKina));
+        Assert.Null(cells[0].Count); // never stated — a dash on screen, never a zero
+        Assert.Equal(1_200_000, CurrencyRoster.CharacterStorageOf(row)?.Count);
+    }
+
+    [Fact]
+    public void A_row_without_cells_has_no_character_storage_and_no_age()
+    {
+        AetherRosterRow row = Assert.Single(AetherRoster.Build(Characters(("h1", "밀피", Trinity))));
+
+        Assert.Empty(CurrencyRoster.ChipCells(row));
+        Assert.Null(CurrencyRoster.CharacterStorageOf(row));
+        Assert.Equal(0, CurrencyRoster.NewestObservedAtMs(row));
+    }
+
+    /// <summary>The age beside the name is the NEWEST balance the server stated for the character — a change that
+    /// landed after the login snapshot makes the whole row that recent, and an unknown balance does not count.</summary>
+    [Fact]
+    public void The_row_age_is_its_newest_stated_balance()
+    {
+        AetherPerCharacterStore characters = Characters(("h1", "밀피", Trinity));
+        var currencies = CurrencyStore.Parse(null);
+        currencies.UpsertCharacter("h1", CurrencyCatalog.Kina, 4_454_882, At);
+        currencies.UpsertCharacter("h1", CurrencyCatalog.AbyssPoint, 25_611, At + 90_000);
+
+        AetherRosterRow row = Assert.Single(AetherRoster.Build(characters, currencies: currencies));
+
+        Assert.Equal(At + 90_000, CurrencyRoster.NewestObservedAtMs(row));
+    }
+
+    /// <summary>The tab's empty state is for "nothing at all on file". A single balance on any character, or a
+    /// 서버 창고 alone (which still makes a 총 키나 line), is something to show.</summary>
+    [Fact]
+    public void The_currency_tab_is_empty_only_when_nothing_is_on_file()
+    {
+        AetherPerCharacterStore characters = Characters(("h1", "밀피", Trinity), ("h2", "콘팡", Trinity));
+
+        IReadOnlyList<AetherRosterRow> bare = AetherRoster.Build(characters, currencies: CurrencyStore.Parse(null));
+        Assert.False(CurrencyRoster.AnyOnFile(bare, []));
+        Assert.False(CurrencyRoster.AnyOnFile([], []));
+
+        CurrencyStore one = Kina(("h2", CurrencyCatalog.TrialMark, 0)); // a stated zero is a record
+        Assert.True(CurrencyRoster.AnyOnFile(AetherRoster.Build(characters, currencies: one), []));
+
+        var warehouseOnly = CurrencyStore.Parse(null);
+        warehouseOnly.UpsertServer(Trinity, CurrencyCatalog.ServerStorageKina, 325_000_000, At);
+        IReadOnlyList<ServerKinaLine> lines = CurrencyRoster.ServerKina(characters, currencies: warehouseOnly);
+        Assert.Single(lines);
+        Assert.True(CurrencyRoster.AnyOnFile(AetherRoster.Build(characters, currencies: warehouseOnly), lines));
+    }
+
     [Theory]
     [InlineData(0L, "0")]
     [InlineData(3_000L, "3,000")]
