@@ -46,4 +46,30 @@ public sealed class AetherPanelEntryTests
     {
         Assert.Equal(AetherPanelAction.Switch, AetherPanelEntry.Decide(visible: true, shown, requested));
     }
+
+    /// <summary>컨텐츠 탭의 머리줄은 탭이 생기기 전 그대로 — 오드 열 바로 위라 '합계'가 오드 합계로 읽힌다.</summary>
+    [Fact]
+    public void The_content_tab_header_keeps_the_aether_total()
+    {
+        Assert.Equal("캐릭터 5명 · 합계 5,740", AetherPanelSummary.Format(AetherPanelTab.Content, 5, 5_740));
+    }
+
+    /// <summary>재화 관리 탭에서는 이름 없는 오드 합계가 키나 목록 위에서 재화 합계로 읽힌다 — 캐릭터 수만 남긴다.</summary>
+    [Fact]
+    public void The_currency_tab_header_drops_the_aether_total()
+    {
+        string text = AetherPanelSummary.Format(AetherPanelTab.Currency, 5, 5_740);
+
+        Assert.Equal("캐릭터 5명", text);
+        Assert.DoesNotContain("합계", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("5,740", text, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(AetherPanelTab.Content)]
+    [InlineData(AetherPanelTab.Currency)]
+    public void No_characters_means_no_summary(AetherPanelTab tab)
+    {
+        Assert.Equal(string.Empty, AetherPanelSummary.Format(tab, 0, 0));
+    }
 }

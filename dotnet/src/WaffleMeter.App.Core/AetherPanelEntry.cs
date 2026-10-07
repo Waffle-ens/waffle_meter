@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace WaffleMeter.App.Core;
 
 /// <summary>컨텐츠 관리 패널의 탭. 위에서부터 컨텐츠(오드·주간 성역·어비스 회랑) / 재화 관리(키나·포인트·서버별 총 키나).</summary>
@@ -35,4 +37,18 @@ public static class AetherPanelEntry
         !visible ? AetherPanelAction.Open
         : shown == requested ? AetherPanelAction.Close
         : AetherPanelAction.Switch;
+}
+
+/// <summary>
+/// 컨텐츠 관리 머리줄의 요약("캐릭터 5명 · 합계 5,740"). 머리줄은 탭 줄 위라 두 탭이 같이 쓰는 자리다.
+/// <para>합계는 <b>오드</b> 합계다. 컨텐츠 탭에서는 바로 아래 오드 열이 문맥이 되지만, 재화 관리 탭에서는 그 아래가
+/// 키나·포인트 목록과 '총 키나'라 이름 없는 '합계'가 재화 합계로 읽힌다 — 그래서 재화 관리 탭에서는 캐릭터 수만 둔다.</para>
+/// </summary>
+public static class AetherPanelSummary
+{
+    public static string Format(AetherPanelTab tab, int characters, long aetherTotal) =>
+        characters <= 0 ? string.Empty
+        : tab == AetherPanelTab.Currency
+            ? string.Format(CultureInfo.InvariantCulture, "캐릭터 {0}명", characters)
+            : string.Format(CultureInfo.InvariantCulture, "캐릭터 {0}명 · 합계 {1:N0}", characters, aetherTotal);
 }

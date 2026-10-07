@@ -115,11 +115,13 @@
                              IsChecked="{Binding IsCurrencyTab, Mode=TwoWay}"/>
             </StackPanel>
 
-            <!-- Body: 컨텐츠 탭 -->
+            <!-- Body: 컨텐츠 탭. 빈 안내의 여백(0,12)은 최소 높이(140)에서 둘째 줄까지 들어가는 값이다 — 탭 줄이
+                 본문 높이를 가져간 뒤로 0,26 이면 '…자동으로 쌓입니다'가 잘린다. MinHeight 를 올리는 대신 여백을
+                 줄인 건, 저장된 높이가 MinHeight 보다 작으면 LoadWindowSize 가 저장된 크기를 통째로 버리기 때문. -->
             <Grid Grid.Row="2" Visibility="{Binding ContentTabVisibility}">
                 <TextBlock Text="아직 기록된 캐릭터가 없습니다&#x0a;캐릭터로 접속하면 자동으로 쌓입니다"
                            Foreground="{DynamicResource Skin.MutedFg}" FontSize="12" TextAlignment="Center"
-                           HorizontalAlignment="Center" Margin="0,26" Visibility="{Binding EmptyVisibility}"/>
+                           HorizontalAlignment="Center" Margin="0,12" Visibility="{Binding EmptyVisibility}"/>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,4">
                     <ItemsControl ItemsSource="{Binding Rows}">
                         <ItemsControl.ItemTemplate>
@@ -301,10 +303,11 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- 아무 재화도 기록되지 않았으면 대시만 줄줄이 찍힌 목록 대신 이것 하나를 띄운다. -->
+                <!-- 아무 재화도 기록되지 않았으면 대시만 줄줄이 찍힌 목록 대신 이것 하나를 띄운다. 여백은 컨텐츠 탭
+                     빈 안내와 같은 이유로 0,12. -->
                 <TextBlock Text="아직 기록된 재화가 없습니다&#x0a;캐릭터를 선택해 접속하면 채워집니다"
                            Foreground="{DynamicResource Skin.MutedFg}" FontSize="12" TextAlignment="Center"
-                           HorizontalAlignment="Center" Margin="0,26" Visibility="{Binding CurrencyEmptyVisibility}"/>
+                           HorizontalAlignment="Center" Margin="0,12" Visibility="{Binding CurrencyEmptyVisibility}"/>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,4"
                               Visibility="{Binding CurrencyListVisibility}">
                     <ItemsControl ItemsSource="{Binding CurrencyRows}">

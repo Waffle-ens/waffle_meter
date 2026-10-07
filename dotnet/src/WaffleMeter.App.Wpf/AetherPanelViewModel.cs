@@ -44,6 +44,7 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCurrencyTab)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ContentTabVisibility)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrencyTabVisibility)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SummaryText)));
         }
     }
 
@@ -153,8 +154,12 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
     private Visibility _emptyVisibility = Visibility.Visible;
     public Visibility EmptyVisibility { get => _emptyVisibility; private set => Set(ref _emptyVisibility, value); }
 
-    private string _summaryText = string.Empty;
-    public string SummaryText { get => _summaryText; private set => Set(ref _summaryText, value); }
+    private int _characterCount;
+    private long _aetherTotal;
+
+    /// <summary>머리줄 요약. 탭 줄 위라 두 탭이 같이 보므로 탭마다 다르다(<see cref="AetherPanelSummary"/>) — 재화 관리
+    /// 탭에서 오드 합계를 '합계'로 띄우면 키나 목록의 합계로 읽힌다.</summary>
+    public string SummaryText => AetherPanelSummary.Format(_selectedTab, _characterCount, _aetherTotal);
 
     /// <summary>Advance only the corridor clocks, leaving the row objects (and therefore the scroll position,
     /// hover state and any open tooltip) alone. Falls back to a full rebuild the moment the shape of the list
@@ -203,13 +208,13 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
         UpdateCurrencyEmpty();
 
         EmptyVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        SummaryText = Rows.Count == 0
-            ? string.Empty
-            : string.Format(
-                CultureInfo.InvariantCulture,
-                "캐릭터 {0}명 · 합계 {1:N0}",
-                Rows.Count,
-                rows.Sum(r => (long)r.Total));
+        long aetherTotal = rows.Sum(r => (long)r.Total);
+        if (_characterCount != Rows.Count || _aetherTotal != aetherTotal)
+        {
+            _characterCount = Rows.Count;
+            _aetherTotal = aetherTotal;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SummaryText)));
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

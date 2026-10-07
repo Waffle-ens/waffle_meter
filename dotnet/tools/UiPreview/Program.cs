@@ -2306,10 +2306,20 @@ internal static class Program
             && vm.ContentTabVisibility == Visibility.Visible && vm.CurrencyTabVisibility == Visibility.Collapsed);
         vm.IsContentTab = false; // RadioButton 이 해제되며 밀어 넣는 false — 탭을 바꾸면 안 된다
         Check("알약 해제 신호(false)는 탭을 바꾸지 않는다", vm.SelectedTab == AetherPanelTab.Content);
+        string contentSummary = vm.SummaryText;
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
         vm.IsCurrencyTab = true;
         Check("재화 관리 알약이 탭을 바꾼다",
             vm.SelectedTab == AetherPanelTab.Currency
             && vm.CurrencyTabVisibility == Visibility.Visible && vm.ContentTabVisibility == Visibility.Collapsed);
+
+        // 머리줄 요약은 탭 줄 위라 두 탭이 같이 본다. 그 '합계'는 오드 합계라, 재화 관리 탭(키나 목록 바로 위)에서
+        // 그대로 두면 재화 합계로 읽힌다 — 재화 관리 탭은 캐릭터 수만, 그리고 탭을 바꾸면 바인딩이 다시 읽어야 한다.
+        Check($"머리줄: 컨텐츠 '{contentSummary}' → 재화 관리 '{vm.SummaryText}' (오드 합계는 컨텐츠 탭에만)",
+            contentSummary.Contains("합계", StringComparison.Ordinal)
+            && vm.SummaryText == $"캐릭터 {vm.Rows.Count}명"
+            && raised.Contains(nameof(AetherPanelViewModel.SummaryText)));
 
         Check("재화 관리 줄이 컨텐츠 줄과 같은 캐릭터·같은 순서",
             vm.CurrencyRows.Select(r => r.IdentityHash).SequenceEqual(vm.Rows.Select(r => r.IdentityHash)));
@@ -2414,6 +2424,54 @@ internal static class Program
         finally
         {
             longPanel?.Close();
+        }
+
+        // 최소 크기(MinWidth × MinHeight)에서 두 탭의 빈 안내가 둘째 줄까지 보이는지. 탭 줄이 본문 높이를 37px 가량
+        // 가져가므로 안내문 여백이 탭 이전 그대로면 무엇을 하면 채워지는지 말하는 둘째 줄이 잘린다. 잘림은 레이아웃
+        // 클립으로만 드러난다 — 잘려도 TextBlock 의 ActualHeight 는 글자 높이 그대로다.
+        var none = new AetherPanelViewModel(settings);
+        none.SetRows([]);
+        none.SetServerKina([]);
+        foreach (AetherPanelTab tab in new[] { AetherPanelTab.Content, AetherPanelTab.Currency })
+        {
+            none.SelectedTab = tab;
+            string emptyPath = tab == AetherPanelTab.Content
+                ? nameof(AetherPanelViewModel.EmptyVisibility)
+                : nameof(AetherPanelViewModel.CurrencyEmptyVisibility);
+            AetherPanel? minPanel = null;
+            try
+            {
+                minPanel = new AetherPanel { DataContext = none };
+                minPanel.Width = minPanel.MinWidth;
+                minPanel.Height = minPanel.MinHeight;
+                minPanel.Resources.MergedDictionaries.Insert(0, palette);
+                minPanel.Left = -10000;
+                minPanel.Top = -10000;
+                minPanel.Show();
+                Drain(minPanel.Dispatcher);
+                minPanel.UpdateLayout();
+
+                TextBlock? hint = Descendants(minPanel)
+                    .OfType<TextBlock>()
+                    .FirstOrDefault(t => BindingOperations.GetBinding(t, UIElement.VisibilityProperty)?.Path?.Path == emptyPath);
+                Geometry? clip = hint is null ? null : System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(hint);
+                double needed = hint is null ? 0 : hint.DesiredSize.Height - hint.Margin.Top - hint.Margin.Bottom;
+                double shown = hint is null ? 0 : clip?.Bounds.Height ?? hint.ActualHeight;
+                bool whole = hint is { IsVisible: true } && needed > 0 && shown + 0.5 >= needed;
+                Check($"최소 크기 {minPanel.MinWidth:0}x{minPanel.MinHeight:0}: {(tab == AetherPanelTab.Content ? "컨텐츠" : "재화 관리")} 탭 빈 안내가 두 줄 다 보인다"
+                    + (hint is null ? " — 안내를 못 찾음" : $" (글자 {needed:0.#}, 보이는 높이 {shown:0.#})"),
+                    whole);
+                RenderToPng(minPanel, Path.Combine(outDir, $"content_minsize_{tab}_Dark.png"), fixedSize: true);
+            }
+            catch (Exception ex)
+            {
+                Check($"최소 크기: {tab} 탭 빈 안내 측정", false);
+                Console.WriteLine($"         {ex.Message}");
+            }
+            finally
+            {
+                minPanel?.Close();
+            }
         }
 
         Console.WriteLine($"=== content panel tabs: {pass} passed, {fail} failed ===");
