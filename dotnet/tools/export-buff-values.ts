@@ -18,10 +18,9 @@
  *
  * ⚠️ This table is a SNAPSHOT and it is NOT the authority for the party-synergy buffs. Those scale with
  * the caster's skill level, which the table has no room for — it holds one fixed number per buff code —
- * so 불패의 진언 at level 25 reads here as its level-1 value, 질풍의 권능's rank-5 code is missing outright,
- * and 흡혈의 검 has no entry at all. `PartySynergyCatalog` overrides those from the level the wire gives us
- * and wins wherever both have an opinion. Everything else (consumables, other classes' incidental buffs)
- * comes from here.
+ * so 불패의 진언 at level 25 reads here as its level-1 value and 흡혈의 검 has no entry at all.
+ * `PartySynergyCatalog` overrides those from the level the wire gives us and wins wherever both have an
+ * opinion. Everything else (consumables, other classes' incidental buffs) comes from here.
  */
 import { writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";

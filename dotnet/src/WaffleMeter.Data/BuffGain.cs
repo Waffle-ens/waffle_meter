@@ -159,7 +159,7 @@ public readonly record struct BuffGainContext(
 /// buffs.
 /// <para><b>It is deliberately NOT the authority for the party-synergy buffs.</b> The table holds one fixed
 /// number per buff code and has no room for the caster's skill level, so it reads 불패의 진언 at level 25 as
-/// its level-1 value, has no row at all for 질풍의 권능's rank-5 code, and none for 흡혈의 검.
+/// its level-1 value and has no row at all for 흡혈의 검.
 /// <see cref="PartySynergyCatalog"/> overrides those from the level the wire gives us.</para>
 /// </summary>
 public sealed class BuffValueCatalog
