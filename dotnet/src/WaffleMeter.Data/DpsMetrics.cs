@@ -514,8 +514,7 @@ public static class DpsMetrics
         Math.Max(0.0, Math.Min(points / 100.0, 1.0 - Math.Clamp(rate, 0.0, 1.0)));
 
     /// <summary>Snapshot lookup: the exact runtime code first, then the display base — the site's table is
-    /// keyed by runtime code and a rank the snapshot predates (질풍의 권능's rank-5, 불패의 진언's rank-5) has
-    /// no row of its own.</summary>
+    /// keyed by runtime code and a rank newer than the snapshot has no row of its own.</summary>
     private static IReadOnlyList<BuffGainEffect> Snapshot(MetricBuffInput buff, BuffValueCatalog catalog)
     {
         IReadOnlyList<BuffGainEffect> direct = catalog.Get(buff.Code);

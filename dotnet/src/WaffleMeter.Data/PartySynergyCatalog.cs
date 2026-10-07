@@ -6,9 +6,9 @@ namespace WaffleMeter.Data;
 /// <para>Every buff here scales linearly (or in level breakpoints) with the level its caster put into the
 /// skill, and the wire tells us that level on every application (어노멀 레벨, see <see cref="UseBuff.Level"/>).
 /// The shipped <see cref="BuffValueCatalog"/> snapshot cannot express that — one row per buff code, no level —
-/// which is why it credits 불패의 진언 at level 25 with its level-1 value (10.5% instead of 22.5%), has no row
-/// for 질풍의 권능's rank-5 code (so it credits nothing at all), and no row for 흡혈의 검. This catalog wins
-/// wherever both have an opinion; everything not listed here still comes from the snapshot.</para>
+/// which is why it credits 불패의 진언 at level 25 with its level-1 value (10.5% instead of 22.5%) and has no
+/// row for 흡혈의 검. This catalog wins wherever both have an opinion; everything not listed here still comes
+/// from the snapshot.</para>
 ///
 /// <para><b>Two of these do not multiply anything.</b> 흡혈의 검's 착취 and 대지의 축복's 공격 적중 시 추가 피해
 /// arrive as REAL DAMAGE PACKETS on each party member, carrying the granting class's skill code — measured
@@ -32,10 +32,10 @@ public static class PartySynergyCatalog
     /// (only then does the caller fall back to the shipped snapshot).
     ///
     /// <para><b>A modelled base NEVER falls through to the snapshot</b>, not even when the level is unreadable.
-    /// Two reasons. First, the snapshot has no row at all for several of these — 보호의 빛, 흡혈의 검, and
-    /// 질풍의 권능's and 불패의 진언's rank-5 codes are simply absent, and its second-tier lookup by 8-digit base
-    /// cannot help because the table is keyed by 9-digit runtime codes only. Falling through would price them at
-    /// ZERO, silently erasing a support's entire contribution. Second, where a row does exist it is not on the
+    /// Two reasons. First, the snapshot can have no row at all — 흡혈의 검 has none, and neither does a rank
+    /// newer than the snapshot — and its second-tier lookup by 8-digit base cannot help because the table is
+    /// keyed by 9-digit runtime codes only. Falling through would price them at ZERO, silently erasing a
+    /// support's entire contribution. Second, where a row does exist it is not on the
     /// same scale: 질풍의 권능's snapshot rows carry <c>offense_crit: 200</c> — a flat 치명타 rating that the gain
     /// model would read as +200%, clamp to +100%, and hand out as a doubling.</para>
     ///
@@ -78,8 +78,8 @@ public static class PartySynergyCatalog
             ClericEarthBlessing => EarthBlessing(level),
 
             // 보호의 빛: 레벨별 계수 실측이 아직 없다. 사이트가 쓰는 고정값(강타 5%)을 그대로 쓰되, 여기에
-            // 명시적으로 적는다 — 예전처럼 null 로 두고 "스냅샷이 받아 주겠지" 하면 안 된다. 출하 스냅샷에는
-            // 이 버프의 행이 아예 없어서(1741 로 시작하는 키 0개) 기여가 통째로 0이 된다.
+            // 명시적으로 적는다 — 예전처럼 null 로 두고 "스냅샷이 받아 주겠지" 하면 안 된다. 2026-09-28 갱신 전
+            // 출하 스냅샷에는 이 버프의 행이 아예 없어서(1741 로 시작하는 키 0개) 기여가 통째로 0이 됐다.
             // ⚠️ 레벨식이 실측되면 여기를 고친다. 그 전까지 이 값은 레벨과 무관하다.
             ClericProtectLight => [new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0)],
 
