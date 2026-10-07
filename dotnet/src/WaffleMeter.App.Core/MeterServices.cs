@@ -311,6 +311,15 @@ public sealed class MeterServices
                 props.SetProperty("content.abyssCorridors", corridors.Serialize());
             }
 
+            // 아티팩트 점령 개수('c' 행)도 캐릭터 해시로 남고, 브로드캐스트의 두 슬롯 중 어느 쪽이 우리 편인지를
+            // 그 행이 정한다 — 남겨 두면 존재할 수 없는 캐릭터가 계속 편을 고른다. 패널 ✕와 같은 처리다.
+            // 서버 점령 현황('o' 행)은 캐릭터가 아니라 서버 것이라 그대로 둔다.
+            AbyssArtifactStore artifacts = AbyssArtifactStore.Parse(props.GetProperty("content.abyssArtifacts"));
+            if (artifacts.RemoveAll(purgedCharacters))
+            {
+                props.SetProperty("content.abyssArtifacts", artifacts.Serialize());
+            }
+
             // 재화 기록도 같은 해시로 남는다. 서버 창고 행은 캐릭터가 아니라 서버 것이라 그대로 둔다.
             CurrencyStore currencies = CurrencyStore.Parse(props.GetProperty("content.currencies"));
             if (currencies.RemoveAll(purgedCharacters))

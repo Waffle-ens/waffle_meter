@@ -299,6 +299,60 @@ public sealed class MeterServicesTests : IDisposable
         Assert.DoesNotContain(lines, l => l.Contains("stream_self_heal"));
     }
 
+    [Fact]
+    public void Startup_purge_drops_an_impossible_identitys_artifact_counts_but_keeps_server_ownership()
+    {
+        // 기동 시 위생 정리는 동의 레코드에서 지운 해시를 캐릭터별 스토어 전부에서 치운다 — content.abyssArtifacts
+        // 만 빠져 있었다. 그 'c' 행(점령 개수)이 브로드캐스트의 어느 슬롯이 우리 편인지를 정하므로, 남겨 두면
+        // 존재할 수 없는 캐릭터가 계속 편을 고른다. 서버 점령 현황('o' 행)은 서버 것이라 남아야 하고, 다른
+        // 캐릭터의 행도 그대로여야 한다. 패널 ✕(App.xaml.cs RemoveRequested)와 같은 처리다.
+        const string garbageHash = "d044f8703709a3fb402e82271849f2998d2fd5ef9c01c450c088dfae5f446b70"; // "I" / 47200
+        const string realHash = "0291206ee0f826ce22f3340aebcb21702c31cba93df21876011ded2de2734e23";
+        const int server = 2003;
+        const int lower = AbyssArtifactBuffCatalog.LowerZoneId;
+        const int middle = AbyssArtifactBuffCatalog.MiddleZoneId;
+        const long cycleStart = 1_787_750_154_000; // the real 2026-08-28 window
+        const long cycleEnd = 1_788_008_700_000;
+        const long now = 1_787_928_471_518;
+
+        string dir = Path.Combine(_temp, "purge_artifacts");
+        Directory.CreateDirectory(dir);
+        var props = new PropertyHandler(dir);
+        props.SetProperty("statsConsentCharacters",
+            "{" + ConsentRecord(realHash, "콘팡", server) + "," + ConsentRecord(garbageHash, "I", 47200) + "}");
+        string lowerOwnership = $"o,{server},{lower},212,{now - 1000},{cycleStart},{cycleEnd}";
+        string middleOwnership = $"o,{server},{middle},212,{now - 1000},{cycleStart},{cycleEnd}";
+        string realCount = $"c,{realHash},{lower},2,{now},0,0";
+        props.SetProperty("content.abyssArtifacts", string.Join(';',
+            lowerOwnership,
+            middleOwnership,
+            realCount,
+            $"c,{garbageHash},{lower},1,{now + 1},0,0",
+            $"c,{garbageHash},{middle},1,{now + 1},0,0"));
+
+        using var services = new ServicesScope(new MeterServices(props));
+
+        string[] records = props.GetProperty("content.abyssArtifacts")!.Split(';');
+        // 필드 수가 형식 판별자다 — 구 빌드는 읽지 못하는 레코드를 버리므로 7필드 모양은 절대 바뀌면 안 된다.
+        Assert.All(records, record => Assert.Equal(7, record.Split(',').Length));
+        Assert.DoesNotContain(records, record => record.Contains(garbageHash, StringComparison.Ordinal));
+        Assert.Contains(lowerOwnership, records);
+        Assert.Contains(middleOwnership, records);
+        Assert.Contains(realCount, records);
+        Assert.Equal(3, records.Length);
+
+        AbyssArtifactStore reloaded = AbyssArtifactStore.Parse(props.GetProperty("content.abyssArtifacts"));
+        Assert.True(reloaded.HasOwnership(server, now));
+        Assert.Equal(2, reloaded.SideFor(server, realHash, now));
+        Assert.Null(reloaded.SideFor(server, garbageHash, now));
+    }
+
+    private static string ConsentRecord(string hash, string nickname, int server) =>
+        $"\"{hash}\":{{\"state\":\"accepted\",\"uploadEnabled\":true,\"publicCharacter\":true," +
+        $"\"consentVersion\":\"2026-06-04\",\"updatedAt\":1," +
+        $"\"nickname\":\"{nickname}\",\"server\":{server}," +
+        $"\"job\":null,\"grant\":false,\"pendingPublic\":false}}";
+
     // Declares a 30MB frame and then feeds 5MB of contiguous body, so the framer sits on a multi-MB buffer
     // without ever completing a packet. withGameSignalFirst prefixes one real game packet, which is the only
     // thing separating the two cases above.
