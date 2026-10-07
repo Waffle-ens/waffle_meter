@@ -60,12 +60,17 @@ public partial class OverlayWindow : Window
     public event Action? ThemeRequested;
     public event Action? JoinRequested;
 
-    /// <summary>Footer 오드 badge clicked (App toggles the per-character 오드 panel).</summary>
-    public event Action? AetherListRequested;
+    /// <summary>Footer 오드 badge clicked (App toggles the per-character 오드 panel), with the tab the entry point
+    /// asks for — the badge always asks for 컨텐츠. App decides open / switch / close in one place
+    /// (<see cref="WaffleMeter.App.Core.AetherPanelEntry"/>).</summary>
+    public event Action<WaffleMeter.App.Core.AetherPanelTab>? AetherListRequested;
 
     /// <summary>Raise <see cref="AetherListRequested"/> from outside — the tray menu offers the same toggle,
     /// because the badge is hidden while 오드 표시 is off or before this session's first broadcast.</summary>
-    public void RequestAetherList() => AetherListRequested?.Invoke();
+    public void RequestAetherList() => AetherListRequested?.Invoke(WaffleMeter.App.Core.AetherPanelTab.Content);
+
+    /// <summary>Same entry, on a given tab — the '재화 관리' hotkey opens the panel straight on 재화 관리.</summary>
+    public void RequestAetherList(WaffleMeter.App.Core.AetherPanelTab tab) => AetherListRequested?.Invoke(tab);
 
     /// <summary>
     /// 전투 기록 / 설정을 바깥에서 요청한다 — 분리모드의 보스칸 창이 헤더를 대신해 쓴다.
@@ -322,7 +327,7 @@ public partial class OverlayWindow : Window
     // The footer badge, not a header button: mark it handled so the click can't bubble on to anything else.
     private void OnAetherBadgeClick(object sender, MouseButtonEventArgs e)
     {
-        AetherListRequested?.Invoke();
+        AetherListRequested?.Invoke(WaffleMeter.App.Core.AetherPanelTab.Content);
         e.Handled = true;
     }
 

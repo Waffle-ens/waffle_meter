@@ -61,6 +61,32 @@ public sealed class SettingsKeyCatalogTests
         Assert.True(KeysUsedByMeterSettings().Count() > 60);
     }
 
+    /// <summary>
+    /// 단축키는 <c>MeterSettings</c> 가 아니라 <see cref="HotkeyHandler"/> 가 직접 읽고 쓰는 키라 위의 소스 스캔에
+    /// 안 걸린다. 그래서 그 클래스의 <c>Key*</c> 상수를 직접 읽어, 칸 하나하나가 '전체 백업'에 단축키로 실리는지
+    /// 본다 — 칸을 새로 만들고 카탈로그를 빠뜨리면 백업에서 그 단축키만 조용히 사라진다.
+    /// </summary>
+    [Fact]
+    public void Every_hotkey_key_is_carried_as_a_hotkey()
+    {
+        string[] keys = typeof(HotkeyHandler)
+            .GetFields(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string) && f.Name.StartsWith("Key", StringComparison.Ordinal))
+            .Select(f => (string)f.GetRawConstantValue()!)
+            .ToArray();
+
+        Assert.Contains("currencyTabHotkey", keys);
+        Assert.True(keys.Length >= 8, $"단축키 키를 {keys.Length}개만 찾았습니다 — 상수 이름 규칙이 바뀌었나요?");
+        Assert.All(keys, k =>
+        {
+            SettingsKey? entry = SettingsKeyCatalog.Find(k);
+            Assert.True(entry is not null, $"단축키 '{k}' 가 SettingsKeyCatalog 에 없습니다.");
+            Assert.Equal(SettingsCatchUp.Hotkeys, entry!.CatchUp);
+            Assert.True(entry.External);
+            Assert.Equal("단축키", entry.Group);
+        });
+    }
+
     [Fact]
     public void No_key_is_both_carried_and_excluded()
     {

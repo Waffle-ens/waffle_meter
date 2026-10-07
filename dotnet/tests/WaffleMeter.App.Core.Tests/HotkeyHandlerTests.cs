@@ -117,6 +117,62 @@ public sealed class HotkeyHandlerTests : IDisposable
         Assert.Null(new HotkeyHandler(new PropertyHandler(_temp)).AetherList);
     }
 
+    /// <summary>
+    /// 재화 관리 단축키(컨텐츠 관리 창을 재화 관리 탭으로 연다)도 <b>조합 없이</b> 출고된다 — 기본값이 비어 있으면
+    /// 아무것도 등록되지 않는다(<c>Register</c> 가 null 칸을 건너뛴다). 사용자가 고른 조합은 자기 키로 저장되고
+    /// 다시 읽혀야 하며, 이웃 칸(같은 창을 여는 컨텐츠 관리 단축키)을 건드리지 않아야 한다.
+    /// </summary>
+    [Fact]
+    public void The_currency_tab_hotkey_ships_unassigned_and_round_trips_on_its_own_key()
+    {
+        var props = new PropertyHandler(_temp);
+        var handler = new HotkeyHandler(props);
+        Assert.Null(handler.CurrencyTab);
+        Assert.Equal(HotkeyIssue.None, handler.CurrencyTabIssue);
+        Assert.Null(props.GetProperty("currencyTabHotkey")); // 출고 상태에서는 파일에 키조차 없다
+
+        handler.SetCurrencyTab(new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4A)); // Ctrl+Shift+J
+        Assert.Equal("modifiers=6,vkCode=74", props.GetProperty("currencyTabHotkey"));
+
+        var reopened = new HotkeyHandler(new PropertyHandler(_temp));
+        Assert.Equal(new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4A), reopened.CurrencyTab);
+        Assert.Null(reopened.AetherList); // 같은 창을 여는 이웃 칸이 따라 지정되지 않는다
+
+        reopened.SetCurrencyTab(null);
+        Assert.Equal("none", new PropertyHandler(_temp).GetProperty("currencyTabHotkey"));
+        Assert.Null(new HotkeyHandler(new PropertyHandler(_temp)).CurrencyTab);
+    }
+
+    /// <summary>옛 쓰레기 조합(수식키 단독)은 재화 관리 칸에서도 은퇴로 보고된다 — 다른 칸과 같은 경로를 탄다.</summary>
+    [Fact]
+    public void A_retired_currency_tab_combo_is_reported_and_cleared_by_reassigning()
+    {
+        var props = new PropertyHandler(_temp);
+        props.SetProperty("currencyTabHotkey", "modifiers=2,vkCode=162"); // CTRL + VK_LCONTROL
+
+        var handler = new HotkeyHandler(props);
+        Assert.Null(handler.CurrencyTab);
+        Assert.Equal(HotkeyIssue.Retired, handler.CurrencyTabIssue);
+        Assert.Equal(HotkeyIssue.None, handler.AetherListIssue); // 이웃 칸의 경고로 번지지 않는다
+
+        handler.SetCurrencyTab(new HotkeyCombo(HotkeyHandler.ModControl, 0x7A)); // 리스너 미기동 → 등록 없음
+        Assert.Equal(HotkeyIssue.None, handler.CurrencyTabIssue);
+    }
+
+    /// <summary>설정 가져오기가 타는 경로(<see cref="HotkeyHandler.Reload"/>)도 새 칸을 다시 읽는다.</summary>
+    [Fact]
+    public void Reload_picks_up_a_currency_tab_combo_written_to_the_file()
+    {
+        var props = new PropertyHandler(_temp);
+        var handler = new HotkeyHandler(props);
+        Assert.Null(handler.CurrencyTab);
+
+        props.SetProperty("currencyTabHotkey", "modifiers=1,vkCode=75"); // Alt+K
+        handler.Reload();
+
+        Assert.Equal(new HotkeyCombo(HotkeyHandler.ModAlt, 0x4B), handler.CurrencyTab);
+    }
+
     [Fact]
     public void Unassigned_marker_does_not_fall_back_to_default()
     {

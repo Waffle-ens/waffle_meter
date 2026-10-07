@@ -55,7 +55,8 @@ public readonly record struct AetherRosterRow(
     /// character has never had stated.</summary>
     public IReadOnlyList<CurrencyCell> CurrencyCells => Currencies ?? [];
 
-    /// <summary>Whether any currency is on file for this character — the panel draws the currency line only then.</summary>
+    /// <summary>Whether any currency is on file for this character — when no row has one, the 재화 관리 tab shows its
+    /// empty state (<see cref="CurrencyRoster.AnyOnFile"/>).</summary>
     public bool CurrenciesKnown => CurrencyCells.Any(c => c.Known);
 
     /// <summary>The weekly raids in catalog order, never null.</summary>

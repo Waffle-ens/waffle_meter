@@ -229,6 +229,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _pendingDummyReset = hotkeys.DummyReset;
         _pendingSplitUi = hotkeys.SplitUi;
         _pendingAetherList = hotkeys.AetherList;
+        _pendingCurrencyTab = hotkeys.CurrencyTab;
 
         IReadOnlyList<string> presetNames = _presets.Names;
         for (int i = 0; i < BuffPresetManager.SlotCount; i++)
@@ -827,9 +828,10 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public string DummyResetHotkeyWarning => WarningFor(_hotkeys.DummyResetIssue);
     public string SplitUiHotkeyWarning => WarningFor(_hotkeys.SplitUiIssue);
     public string AetherListHotkeyWarning => WarningFor(_hotkeys.AetherListIssue);
+    public string CurrencyTabHotkeyWarning => WarningFor(_hotkeys.CurrencyTabIssue);
 
     /// <summary>
-    /// 경고 일곱 칸을 다시 읽는다. ⚠️ <see cref="HotkeyHandler.IssuesChanged"/> 는 <b>리스너 스레드</b>에서
+    /// 경고 여덟 칸을 다시 읽는다. ⚠️ <see cref="HotkeyHandler.IssuesChanged"/> 는 <b>리스너 스레드</b>에서
     /// 올 수 있으므로 UI 스레드로 마셜한다. Application 이 없는 컨텍스트(단위 테스트·UiPreview)에서는
     /// 그 자리에서 바로 올린다.
     /// </summary>
@@ -854,6 +856,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(DummyResetHotkeyWarning));
         OnPropertyChanged(nameof(SplitUiHotkeyWarning));
         OnPropertyChanged(nameof(AetherListHotkeyWarning));
+        OnPropertyChanged(nameof(CurrencyTabHotkeyWarning));
     }
 
     public void Detach()
@@ -1815,7 +1818,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     // ---- hotkey rebinding (buffered, committed on Save; null = 미지정/unassigned) ----
     //
-    // 🔑 일곱 칸은 서로 **배타적**이다. 같은 조합을 둘이 들고 있으면 RegisterHotKey 는 먼저 등록되는
+    // 🔑 여덟 칸은 서로 **배타적**이다. 같은 조합을 둘이 들고 있으면 RegisterHotKey 는 먼저 등록되는
     //    쪽만 성공하고 나중 것은 조용히 실패한다 — 반환값을 보는 곳도 없고 UI 에 남는 단서도 없어서,
     //    사용자에겐 "설정엔 분명히 들어가 있는데 그 동작만 안 먹는다"로만 보인다. 그래서 세터마다
     //    방금 고른 조합을 쓰고 있던 **다른 칸을 비운다**(DropDuplicateHotkeys): 마지막에 고른 의도가
@@ -1869,6 +1872,14 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set { Set(ref _pendingAetherList, value); DropDuplicateHotkeys(value, nameof(PendingAetherList)); }
     }
 
+    /// <summary>컨텐츠 관리를 재화 관리 탭으로 여는 단축키. 기본 미지정 — 컨텐츠 관리 단축키와 같은 이유다.</summary>
+    private HotkeyCombo? _pendingCurrencyTab;
+    public HotkeyCombo? PendingCurrencyTab
+    {
+        get => _pendingCurrencyTab;
+        set { Set(ref _pendingCurrencyTab, value); DropDuplicateHotkeys(value, nameof(PendingCurrencyTab)); }
+    }
+
     /// <summary>
     /// 방금 지정한 조합을 쓰고 있던 <b>다른</b> 단축키 칸을 비운다. 충돌을 거절하는 게 아니라 먼저
     /// 쓰던 쪽을 놓아 주는 방향인 이유: 거절은 "왜 안 들어가지"가 되고, 그대로 두면 둘 중 하나가
@@ -1882,7 +1893,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     /// 실제로 다시 지정할 때만 정리한다.</para>
     /// </summary>
     /// <summary>
-    /// 저장된 일곱 조합을 편집 버퍼로 다시 읽어 온다(가져오기·취소). 중복 정리를 <b>끄고</b> 도는 것이
+    /// 저장된 여덟 조합을 편집 버퍼로 다시 읽어 온다(가져오기·취소). 중복 정리를 <b>끄고</b> 도는 것이
     /// 이 메서드의 존재 이유다 — <see cref="DropDuplicateHotkeys"/> 의 주석 참고.
     /// </summary>
     private void SeedPendingHotkeys()
@@ -1897,6 +1908,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             PendingDummyReset = _hotkeys.DummyReset;
             PendingSplitUi = _hotkeys.SplitUi;
             PendingAetherList = _hotkeys.AetherList;
+            PendingCurrencyTab = _hotkeys.CurrencyTab;
         }
         finally
         {
@@ -1924,6 +1936,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             (nameof(PendingDummyReset), () => PendingDummyReset, v => PendingDummyReset = v),
             (nameof(PendingSplitUi), () => PendingSplitUi, v => PendingSplitUi = v),
             (nameof(PendingAetherList), () => PendingAetherList, v => PendingAetherList = v),
+            (nameof(PendingCurrencyTab), () => PendingCurrencyTab, v => PendingCurrencyTab = v),
         ];
 
         foreach ((string name, Func<HotkeyCombo?> get, Action<HotkeyCombo?> set) in slots)
@@ -2870,6 +2883,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _hotkeys.SetDummyReset(PendingDummyReset);
         _hotkeys.SetSplitUi(PendingSplitUi);
         _hotkeys.SetAetherList(PendingAetherList);
+        _hotkeys.SetCurrencyTab(PendingCurrencyTab);
     }
 
     /// <summary>Revert live-applied settings + pending hotkeys (Cancel).</summary>

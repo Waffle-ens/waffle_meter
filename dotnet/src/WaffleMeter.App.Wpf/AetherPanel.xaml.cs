@@ -3,8 +3,9 @@ using System.Windows;
 namespace WaffleMeter.App.Wpf;
 
 /// <summary>The 컨텐츠 관리 overlay panel: every character this install has seen, the 오드 it last held, and its
-/// weekly 성역 clears. Opened from the meter's 오드 badge or the tray menu. Reuses
-/// <see cref="OverlayPanelWindow"/> windowing (drag, park/present, topmost re-assert).</summary>
+/// weekly 성역 clears (컨텐츠 tab), and its currencies with the per-server 총 키나 (재화 관리 tab). Opened from the
+/// meter's 오드 badge, the tray menu or a hotkey. Reuses <see cref="OverlayPanelWindow"/> windowing (drag,
+/// park/present, topmost re-assert).</summary>
 public partial class AetherPanel : OverlayPanelWindow
 {
     public AetherPanel()

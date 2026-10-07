@@ -507,7 +507,9 @@ public partial class App : Application
             // ⚠️ 여기서 패널을 직접 Park/Present 하지 마라. 표시 상태의 주인은 App 의 _aetherPanelVisible
             //    이고 토글 로직은 AetherListRequested 핸들러 한 곳뿐이라, 직접 만지면 트레이·오드 배지와
             //    상태가 갈린다.
-            OnAetherList = () => Dispatcher.BeginInvoke(window.RequestAetherList),
+            OnAetherList = () => Dispatcher.BeginInvoke(() => window.RequestAetherList(AetherPanelTab.Content)),
+            // 재화 관리 탭으로 바로. 같은 진입점에 탭만 실어 보낸다 — 열기/탭 전환/닫기 판단도 그 핸들러가 한다.
+            OnCurrencyTab = () => Dispatcher.BeginInvoke(() => window.RequestAetherList(AetherPanelTab.Currency)),
         };
         _hotkeys.Start();
 
@@ -2009,15 +2011,22 @@ public partial class App : Application
             RefreshAetherRoster(services);
         };
 
-        overlay.AetherListRequested += () =>
+        // 진입점 넷(오드 배지·트레이·'컨텐츠 관리' 단축키 → 컨텐츠 탭, '재화 관리' 단축키 → 재화 관리 탭)이 모두
+        // 여기로 온다. 자기 탭이 떠 있으면 닫고, 다른 탭이 떠 있으면 탭만 바꾸고, 닫혀 있으면 그 탭으로 연다.
+        overlay.AetherListRequested += tab =>
         {
-            if (_aetherPanelVisible)
+            switch (AetherPanelEntry.Decide(_aetherPanelVisible, _aetherViewModel.SelectedTab, tab))
             {
-                _aetherPanelVisible = false;
-                _aetherPanel.Park();
-                return;
+                case AetherPanelAction.Close:
+                    _aetherPanelVisible = false;
+                    _aetherPanel.Park();
+                    return;
+                case AetherPanelAction.Switch:
+                    _aetherViewModel.SelectedTab = tab;
+                    return;
             }
 
+            _aetherViewModel.SelectedTab = tab;
             if (!_aetherPanelPositioned)
             {
                 // Offset from the history panel's dock spot: both are topmost, so identical defaults would

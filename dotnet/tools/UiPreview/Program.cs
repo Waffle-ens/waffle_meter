@@ -99,6 +99,19 @@ internal static class Program
             content.SetServerKina(serverKina);
             Capture(() => new AetherPanel { DataContext = content }, palette, Path.Combine(outDir, $"content_{skin}.png"));
 
+            // 재화 관리 탭: 같은 행·같은 순서로 재화 다섯 칸과 서버별 총 키나. 기본 폭(320)과 최소 폭(260) 두 장 —
+            // 한 칸에 들어갈 가장 긴 값("13억 2,945만")이 최소 폭에서도 잘리지 않아야 한다.
+            content.SelectedTab = AetherPanelTab.Currency;
+            Capture(() => new AetherPanel { DataContext = content }, palette, Path.Combine(outDir, $"currency_{skin}.png"));
+            Capture(() => new AetherPanel { DataContext = content, Width = 260 }, palette, Path.Combine(outDir, $"currency_min_{skin}.png"));
+            content.SelectedTab = AetherPanelTab.Content;
+
+            // 빈 상태: 캐릭터는 있는데 재화는 하나도 기록되지 않은 설치본(재화 기능 이전부터 쓰던 사람의 첫 화면).
+            var noCurrency = new AetherPanelViewModel(settings) { SelectedTab = AetherPanelTab.Currency };
+            noCurrency.SetRows(SampleContentRows(now, out _, withCurrencies: false));
+            noCurrency.SetServerKina([]);
+            Capture(() => new AetherPanel { DataContext = noCurrency }, palette, Path.Combine(outDir, $"currency_empty_{skin}.png"));
+
             // 메모: 기본 투명도, 그리고 투명도 0(머리줄이 사라지고 슬라이더·글자만 남는다) 두 장. 설정은 임시
             // 폴더에 따로 둔다 — 위의 settings 는 실제 %APPDATA% 를 읽고 쓰므로 투명도를 바꿔 찍으면 사용자
             // 설정이 바뀐다.
@@ -429,6 +442,7 @@ internal static class Program
         }
 
         VerifySettingsTabs(skins, outDir);
+        VerifyContentPanelTabs(skins["Dark"], settings, now, outDir);
 
         CaptureReplay(LoadRealOrSynthetic(now), Path.Combine(outDir, "replay.png"), "replay.png");
         CaptureReplay(SampleMapReplay(now), Path.Combine(outDir, "replay-map.png"), "replay-map.png");
@@ -838,6 +852,21 @@ internal static class Program
         vm.PendingAetherList = null; vm.Commit();
         Check("컨텐츠 관리 단축키 해제", hotkeys.AetherList is null);
 
+        // 재화 관리 단축키 — 같은 컨텐츠 관리 창을 재화 관리 탭으로 연다. 역시 미지정 출고. (설정 파일 값은 위의
+        // Commit 들이 이미 "none" 으로 써 뒀다 — 미지정 칸도 저장은 되므로 null 이 아니라 "none" 이 맞다.)
+        Check("재화 관리 단축키는 기본 미지정",
+            hotkeys.CurrencyTab is null && vm.PendingCurrencyTab is null
+            && props.GetProperty("currencyTabHotkey") is null or "none");
+        vm.PendingCurrencyTab = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4A); // Ctrl+Shift+J
+        vm.Commit();
+        Check("재화 관리 단축키 저장",
+            hotkeys.CurrencyTab is { VkCode: 0x4A } && props.GetProperty("currencyTabHotkey") == "modifiers=6,vkCode=74");
+        hotkeys.Reload(); // 설정 가져오기가 타는 경로 — 파일에서 다시 읽어도 살아 있어야 한다
+        Check("재화 관리 단축키가 Reload 를 넘어 살아남는다", hotkeys.CurrencyTab is { VkCode: 0x4A });
+        Check("재화 관리 단축키가 이웃 칸을 건드리지 않는다", hotkeys.AetherList is null && hotkeys.SplitUi is null);
+        vm.PendingCurrencyTab = null; vm.Commit();
+        Check("재화 관리 단축키 해제", hotkeys.CurrencyTab is null && props.GetProperty("currencyTabHotkey") == "none");
+
         // 중복 지정. 일곱 칸이 같은 조합을 들면 RegisterHotKey 는 먼저 등록되는 쪽만 성공하고 나중 것은
         // 조용히 죽는다 — 그래서 방금 고른 쪽이 이기고 먼저 쓰던 칸이 '미지정'으로 비워져야 한다.
         vm.PendingVisibility = new HotkeyCombo(HotkeyHandler.ModControl, 0x48); // Ctrl+H (표시/숨김 기본 조합)
@@ -852,6 +881,21 @@ internal static class Program
         Check("되돌려 지정하면 이번엔 컨텐츠 관리가 비워진다",
             vm.PendingAetherList is null && vm.PendingVisibility is { VkCode: 0x48 });
         vm.Commit();
+
+        // 두 진입 단축키끼리도 같은 규칙 — 같은 창을 여는 둘이라 한 조합을 나눠 갖기 쉽다.
+        vm.PendingAetherList = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4B);
+        vm.PendingCurrencyTab = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4B);
+        Check("재화 관리에 같은 조합을 주면 컨텐츠 관리가 비워진다",
+            vm.PendingAetherList is null && vm.PendingCurrencyTab is { VkCode: 0x4B });
+        vm.PendingAetherList = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4B);
+        Check("되돌려 지정하면 재화 관리가 비워진다",
+            vm.PendingCurrencyTab is null && vm.PendingAetherList is { VkCode: 0x4B });
+        vm.PendingVisibility = new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4B);
+        Check("다른 칸이 가져가도 재화 관리는 미지정 그대로", vm.PendingCurrencyTab is null && vm.PendingAetherList is null);
+        vm.PendingVisibility = new HotkeyCombo(HotkeyHandler.ModControl, 0x48);
+        vm.Commit();
+        Check("정리 후 저장 상태",
+            hotkeys.Visibility is { VkCode: 0x48 } && hotkeys.AetherList is null && hotkeys.CurrencyTab is null);
 
         // 닉네임 효과. The property that must never regress: with the feature off the row is painted with the
         // SAME brush instance as before the feature existed, so "off" is pixel-identical rather than merely similar.
@@ -1449,6 +1493,22 @@ internal static class Program
                     // 메모도 같은 규칙 — 메모 머리줄 슬라이더와 설정 '메모' 탭 슬라이더가 한 값을 봐야 한다.
                     Check("설정창 메모 투명도 슬라이더가 메모 머리줄과 같은 경로(Settings.MemoOpacity)를 쓴다",
                         sliderPaths.Contains("Settings.MemoOpacity", StringComparer.Ordinal));
+
+                    // 단축키 칸 ↔ 설정창 줄. 뷰모델에 Pending* 단축키를 더하고 줄을 빠뜨리면 저장·중복 정리는
+                    // 다 되는데 사용자가 지정할 곳이 없다 — 컴파일도 렌더도 멀쩡해서 여기 말고는 못 잡는다.
+                    string[] boxPaths = Descendants(window)
+                        .OfType<HotkeyCaptureBox>()
+                        .Select(b => BindingOperations.GetBinding(b, HotkeyCaptureBox.ComboProperty)?.Path?.Path ?? "")
+                        .ToArray();
+                    string[] pendingHotkeys = typeof(SettingsViewModel).GetProperties()
+                        .Where(p => p.PropertyType == typeof(HotkeyCombo) && p.Name.StartsWith("Pending", StringComparison.Ordinal))
+                        .Select(p => p.Name)
+                        .ToArray();
+                    string[] rowless = pendingHotkeys.Except(boxPaths, StringComparer.Ordinal).ToArray();
+                    Check($"단축키 {pendingHotkeys.Length}칸이 전부 설정창에 줄이 있다{(rowless.Length > 0 ? " — 빠진 것: " + string.Join(", ", rowless) : "")}",
+                        pendingHotkeys.Length >= 8 && rowless.Length == 0);
+                    Check("재화 관리 단축키 줄이 PendingCurrencyTab 에 묶여 있다",
+                        boxPaths.Contains("PendingCurrencyTab", StringComparer.Ordinal));
                 }
 
                 foreach (string key in navKeys)
@@ -2220,10 +2280,220 @@ internal static class Program
         Battle(2, "그림자 추적자", true, now - 120_000, now - 120_000 + 92_000, 4_200_000, 3_800_000),
     };
 
+    /// <summary>
+    /// 컨텐츠 관리 패널의 두 탭. 탭 알약이 뷰모델에 닿는지, 재화 관리 탭이 컨텐츠 탭과 같은 캐릭터를 같은 순서로
+    /// 그리는지, 빈 상태가 언제 뜨는지, 그리고 가장 긴 값이 기본 폭(320)과 최소 폭(260) 어디서도 잘리지 않는지.
+    /// <para>잘림은 PNG 를 눈으로 보는 것만으로는 놓친다 — 칸에 TextTrimming 이 걸려 있어 "13억 2,9…" 처럼 조용히
+    /// 줄어든다. 그래서 칸마다 글자의 실제 폭을 칸 폭과 잰다.</para>
+    /// </summary>
+    private static void VerifyContentPanelTabs(ResourceDictionary palette, MeterSettings settings, long now, string outDir)
+    {
+        Console.WriteLine("=== content panel tabs ===");
+
+        int pass = 0, fail = 0;
+        void Check(string name, bool ok)
+        {
+            Console.WriteLine($"  [{(ok ? "ok  " : "FAIL")}] {name}");
+            if (ok) { pass++; } else { fail++; }
+        }
+
+        var vm = new AetherPanelViewModel(settings);
+        vm.SetRows(SampleContentRows(now, out IReadOnlyList<ServerKinaLine> serverKina));
+        vm.SetServerKina(serverKina);
+
+        Check("기본 탭은 컨텐츠",
+            vm.SelectedTab == AetherPanelTab.Content
+            && vm.ContentTabVisibility == Visibility.Visible && vm.CurrencyTabVisibility == Visibility.Collapsed);
+        vm.IsContentTab = false; // RadioButton 이 해제되며 밀어 넣는 false — 탭을 바꾸면 안 된다
+        Check("알약 해제 신호(false)는 탭을 바꾸지 않는다", vm.SelectedTab == AetherPanelTab.Content);
+        string contentSummary = vm.SummaryText;
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+        vm.IsCurrencyTab = true;
+        Check("재화 관리 알약이 탭을 바꾼다",
+            vm.SelectedTab == AetherPanelTab.Currency
+            && vm.CurrencyTabVisibility == Visibility.Visible && vm.ContentTabVisibility == Visibility.Collapsed);
+
+        // 머리줄 요약은 탭 줄 위라 두 탭이 같이 본다. 그 '합계'는 오드 합계라, 재화 관리 탭(키나 목록 바로 위)에서
+        // 그대로 두면 재화 합계로 읽힌다 — 재화 관리 탭은 캐릭터 수만, 그리고 탭을 바꾸면 바인딩이 다시 읽어야 한다.
+        Check($"머리줄: 컨텐츠 '{contentSummary}' → 재화 관리 '{vm.SummaryText}' (오드 합계는 컨텐츠 탭에만)",
+            contentSummary.Contains("합계", StringComparison.Ordinal)
+            && vm.SummaryText == $"캐릭터 {vm.Rows.Count}명"
+            && raised.Contains(nameof(AetherPanelViewModel.SummaryText)));
+
+        Check("재화 관리 줄이 컨텐츠 줄과 같은 캐릭터·같은 순서",
+            vm.CurrencyRows.Select(r => r.IdentityHash).SequenceEqual(vm.Rows.Select(r => r.IdentityHash)));
+        Check("접속 중 캐릭터가 맨 위",
+            vm.CurrencyRows.Count > 0 && vm.CurrencyRows[0].CurrentBadgeVisibility == Visibility.Visible);
+        Check("줄마다 키나 두 칸 + 포인트 세 칸",
+            vm.CurrencyRows.All(r => r.KinaCells.Count == 2 && r.PointCells.Count == 3));
+        Check("기록 없는 캐릭터는 대시와 '기록 없음'",
+            vm.CurrencyRows.Single(r => r.IdentityHash == "h4") is { SeenText: "기록 없음" } h4
+            && h4.KinaCells.Concat(h4.PointCells).All(c => c.ValueText == "—"));
+        Check("캐릭터 창고 키나는 키나 칸 툴팁에 (각인 칸에는 없다)",
+            vm.CurrencyRows[0].KinaCells[1].ToolTip.Contains("캐릭터 창고 1,200,000", StringComparison.Ordinal)
+            && !vm.CurrencyRows[0].KinaCells[0].ToolTip.Contains("캐릭터 창고", StringComparison.Ordinal));
+        Check("기록이 있으면 목록을, 빈 안내는 숨긴다",
+            vm.CurrencyListVisibility == Visibility.Visible && vm.CurrencyEmptyVisibility == Visibility.Collapsed
+            && vm.ServerKinaVisibility == Visibility.Visible);
+
+        var empty = new AetherPanelViewModel(settings);
+        empty.SetRows(SampleContentRows(now, out _, withCurrencies: false));
+        empty.SetServerKina([]);
+        Check("재화가 하나도 없으면 빈 안내만",
+            empty.CurrencyEmptyVisibility == Visibility.Visible && empty.CurrencyListVisibility == Visibility.Collapsed
+            && empty.ServerKinaVisibility == Visibility.Collapsed && empty.CurrencyRows.Count == empty.Rows.Count);
+
+        foreach (double width in new[] { 320.0, 260.0 })
+        {
+            AetherPanel? panel = null;
+            try
+            {
+                panel = new AetherPanel { DataContext = vm, Width = width };
+                panel.Resources.MergedDictionaries.Insert(0, palette);
+                panel.Left = -10000;
+                panel.Top = -10000;
+                panel.Show();
+                Drain(panel.Dispatcher);
+                panel.UpdateLayout();
+
+                double pixelsPerDip = VisualTreeHelper.GetDpi(panel).PixelsPerDip;
+                List<TextBlock> cells = Descendants(panel)
+                    .OfType<TextBlock>()
+                    .Where(t => BindingOperations.GetBinding(t, TextBlock.TextProperty)?.Path?.Path == "ValueText")
+                    .ToList();
+                string[] clipped = cells
+                    .Where(t => TextWidth(t, pixelsPerDip) > t.ActualWidth + 0.5)
+                    .Select(t => $"{t.Text}({TextWidth(t, pixelsPerDip):0.#}>{t.ActualWidth:0.#})")
+                    .ToArray();
+                Check($"{width:0}px: 재화 칸 {cells.Count}개가 하나도 잘리지 않는다{(clipped.Length > 0 ? " — " + string.Join(", ", clipped) : "")}",
+                    cells.Count == vm.CurrencyRows.Count * CurrencyCatalog.ChipSlugs.Count && clipped.Length == 0);
+            }
+            catch (Exception ex)
+            {
+                Check($"{width:0}px: 재화 관리 탭 측정", false);
+                Console.WriteLine($"         {ex.Message}");
+            }
+            finally
+            {
+                panel?.Close();
+            }
+        }
+
+        // 이름 줄: 긴 이름은 잘려야지 오른쪽의 'n시간 전' 밑으로 파고들면 안 된다 — 최소 폭에서, 접속 중 배지까지 붙은
+        // 가장 나쁜 경우로.
+        var longStore = AetherPerCharacterStore.Parse(null);
+        longStore.Upsert("long", new AetherSnapshot(10, 0, now - 1_000, "가나다라마바사아자차카", 1001));
+        var longCurrencies = CurrencyStore.Parse(null);
+        longCurrencies.UpsertCharacter("long", CurrencyCatalog.Kina, 1_329_454_882, now - 36_000_000);
+        var longVm = new AetherPanelViewModel(settings) { SelectedTab = AetherPanelTab.Currency };
+        longVm.SetRows(AetherRoster.Build(longStore, currentHash: "long", nowMs: now, currencies: longCurrencies));
+        AetherPanel? longPanel = null;
+        try
+        {
+            longPanel = new AetherPanel { DataContext = longVm, Width = 260 };
+            longPanel.Resources.MergedDictionaries.Insert(0, palette);
+            longPanel.Left = -10000;
+            longPanel.Top = -10000;
+            longPanel.Show();
+            Drain(longPanel.Dispatcher);
+            longPanel.UpdateLayout();
+
+            TextBlock? Bound(string path) => Descendants(longPanel)
+                .OfType<TextBlock>()
+                .FirstOrDefault(t => BindingOperations.GetBinding(t, TextBlock.TextProperty)?.Path?.Path == path);
+            Rect BoundsOf(FrameworkElement e) =>
+                e.TransformToAncestor(longPanel).TransformBounds(new Rect(0, 0, e.ActualWidth, e.ActualHeight));
+
+            TextBlock? label = Bound("Label");
+            TextBlock? seen = Bound("SeenText");
+            TextBlock? badge = Descendants(longPanel).OfType<TextBlock>().FirstOrDefault(t => t.Text == "접속 중");
+            bool laidOut = label is not null && seen is not null && badge is not null && label.ActualWidth > 0;
+            Check($"260px: 긴 이름은 잘리고 배지·'{seen?.Text}'와 겹치지 않는다",
+                laidOut
+                && BoundsOf(label!).Right <= BoundsOf(badge!).Left + 0.5
+                && BoundsOf(badge!).Right <= BoundsOf(seen!).Left + 0.5
+                && TextWidth(label!, VisualTreeHelper.GetDpi(longPanel).PixelsPerDip) > label!.ActualWidth);
+            RenderToPng(longPanel, Path.Combine(outDir, "currency_longname_Dark.png"), fixedSize: false);
+        }
+        catch (Exception ex)
+        {
+            Check("260px: 긴 이름 줄 측정", false);
+            Console.WriteLine($"         {ex.Message}");
+        }
+        finally
+        {
+            longPanel?.Close();
+        }
+
+        // 최소 크기(MinWidth × MinHeight)에서 두 탭의 빈 안내가 둘째 줄까지 보이는지. 탭 줄이 본문 높이를 37px 가량
+        // 가져가므로 안내문 여백이 탭 이전 그대로면 무엇을 하면 채워지는지 말하는 둘째 줄이 잘린다. 잘림은 레이아웃
+        // 클립으로만 드러난다 — 잘려도 TextBlock 의 ActualHeight 는 글자 높이 그대로다.
+        var none = new AetherPanelViewModel(settings);
+        none.SetRows([]);
+        none.SetServerKina([]);
+        foreach (AetherPanelTab tab in new[] { AetherPanelTab.Content, AetherPanelTab.Currency })
+        {
+            none.SelectedTab = tab;
+            string emptyPath = tab == AetherPanelTab.Content
+                ? nameof(AetherPanelViewModel.EmptyVisibility)
+                : nameof(AetherPanelViewModel.CurrencyEmptyVisibility);
+            AetherPanel? minPanel = null;
+            try
+            {
+                minPanel = new AetherPanel { DataContext = none };
+                minPanel.Width = minPanel.MinWidth;
+                minPanel.Height = minPanel.MinHeight;
+                minPanel.Resources.MergedDictionaries.Insert(0, palette);
+                minPanel.Left = -10000;
+                minPanel.Top = -10000;
+                minPanel.Show();
+                Drain(minPanel.Dispatcher);
+                minPanel.UpdateLayout();
+
+                TextBlock? hint = Descendants(minPanel)
+                    .OfType<TextBlock>()
+                    .FirstOrDefault(t => BindingOperations.GetBinding(t, UIElement.VisibilityProperty)?.Path?.Path == emptyPath);
+                Geometry? clip = hint is null ? null : System.Windows.Controls.Primitives.LayoutInformation.GetLayoutClip(hint);
+                double needed = hint is null ? 0 : hint.DesiredSize.Height - hint.Margin.Top - hint.Margin.Bottom;
+                double shown = hint is null ? 0 : clip?.Bounds.Height ?? hint.ActualHeight;
+                bool whole = hint is { IsVisible: true } && needed > 0 && shown + 0.5 >= needed;
+                Check($"최소 크기 {minPanel.MinWidth:0}x{minPanel.MinHeight:0}: {(tab == AetherPanelTab.Content ? "컨텐츠" : "재화 관리")} 탭 빈 안내가 두 줄 다 보인다"
+                    + (hint is null ? " — 안내를 못 찾음" : $" (글자 {needed:0.#}, 보이는 높이 {shown:0.#})"),
+                    whole);
+                RenderToPng(minPanel, Path.Combine(outDir, $"content_minsize_{tab}_Dark.png"), fixedSize: true);
+            }
+            catch (Exception ex)
+            {
+                Check($"최소 크기: {tab} 탭 빈 안내 측정", false);
+                Console.WriteLine($"         {ex.Message}");
+            }
+            finally
+            {
+                minPanel?.Close();
+            }
+        }
+
+        Console.WriteLine($"=== content panel tabs: {pass} passed, {fail} failed ===");
+    }
+
+    /// <summary>The width a TextBlock's text needs unconstrained — compared against its laid-out width to tell
+    /// "fits" from "trimmed", which the control itself does not report.</summary>
+    private static double TextWidth(TextBlock t, double pixelsPerDip) =>
+        new FormattedText(
+            t.Text,
+            System.Globalization.CultureInfo.CurrentUICulture,
+            t.FlowDirection,
+            new Typeface(t.FontFamily, t.FontStyle, t.FontWeight, t.FontStretch),
+            t.FontSize,
+            Brushes.Black,
+            pixelsPerDip).WidthIncludingTrailingWhitespace;
+
     /// <summary>컨텐츠 관리 rows built through the real <see cref="AetherRoster"/> and
     /// <see cref="WeeklyContentStore"/>, so the preview exercises the same staleness rule the app does — the
     /// last character's clears are stamped before the previous reset and must therefore show as un-cleared.</summary>
-    private static IReadOnlyList<AetherRosterRow> SampleContentRows(long now, out IReadOnlyList<ServerKinaLine> serverKina)
+    private static IReadOnlyList<AetherRosterRow> SampleContentRows(
+        long now, out IReadOnlyList<ServerKinaLine> serverKina, bool withCurrencies = true)
     {
         var aether = AetherPerCharacterStore.Parse(null);
         aether.Upsert("h1", new AetherSnapshot(220, 635, now - 43_200_000, "콩팡", 1001));
@@ -2276,7 +2546,8 @@ internal static class Program
 
         // 재화: the 2026-10-07 numbers on the current character, a second 1001 character known from changes only
         // (the meter started mid-session — its unseen balances read "—"), the 1001 서버 창고 counted once in that
-        // server's 총 키나, h4 with nothing on file, and 1002 with a character but no warehouse record.
+        // server's 총 키나, h4 with nothing on file, and 1002 with a character but no warehouse record. h3 carries
+        // the widest value a 재화 관리 cell has to hold ("13억 2,945만"), so the layout is checked at its worst.
         var currencies = CurrencyStore.Parse(null);
         currencies.UpsertCharacter("h1", CurrencyCatalog.BoundKina, 13_000, now - 60_000);
         currencies.UpsertCharacter("h1", CurrencyCatalog.Kina, 4_454_882, now - 60_000);
@@ -2287,12 +2558,17 @@ internal static class Program
         currencies.UpsertCharacter("h2", CurrencyCatalog.Kina, 51_203_244, now - 36_000_000);
         currencies.UpsertCharacter("h2", CurrencyCatalog.AbyssPoint, 19_649, now - 36_000_000);
         currencies.UpsertCharacter("h3", CurrencyCatalog.BoundKina, 2_251_000, now - 57_600_000);
-        currencies.UpsertCharacter("h3", CurrencyCatalog.Kina, 8_042_286, now - 57_600_000);
+        currencies.UpsertCharacter("h3", CurrencyCatalog.Kina, 1_329_454_882, now - 57_600_000);
         currencies.UpsertCharacter("h3", CurrencyCatalog.AbyssPoint, 0, now - 57_600_000);
         currencies.UpsertCharacter("h3", CurrencyCatalog.DreamShard, 64_030, now - 57_600_000);
         currencies.UpsertCharacter("h3", CurrencyCatalog.TrialMark, 0, now - 57_600_000);
         currencies.UpsertCharacter("h5", CurrencyCatalog.Kina, 731_500, now - 1_000);
         currencies.UpsertServer(1001, CurrencyCatalog.ServerStorageKina, 325_000_000, now - 60_000);
+
+        if (!withCurrencies)
+        {
+            currencies = CurrencyStore.Parse(null);
+        }
 
         serverKina = CurrencyRoster.ServerKina(aether, names, currencies, currentHash: "h1");
         return AetherRoster.Build(

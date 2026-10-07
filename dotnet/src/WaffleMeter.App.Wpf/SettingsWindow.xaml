@@ -1989,6 +1989,21 @@
                                         Click="OnClearHotkey" Tag="{Binding ElementName=AetherListHotkeyBox}"/>
                             </Grid>
                         </Grid>
+                        <!-- 재화 관리. 같은 컨텐츠 관리 창을 재화 관리 탭으로 연다(이미 그 탭이 떠 있으면 닫는다).
+                             역시 기본 미지정. -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="재화 관리 열기/닫기" Style="{StaticResource SettingTitle}"/>
+                                <TextBlock Style="{StaticResource HotkeyWarning}" Text="{Binding CurrencyTabHotkeyWarning}"/>
+                            </StackPanel>
+                            <Grid Grid.Column="1">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <local:HotkeyCaptureBox x:Name="CurrencyTabHotkeyBox" Grid.Column="0" Combo="{Binding PendingCurrencyTab, Mode=TwoWay}"/>
+                                <Button Grid.Column="1" Style="{StaticResource HotkeyClearButton}"
+                                        Click="OnClearHotkey" Tag="{Binding ElementName=CurrencyTabHotkeyBox}"/>
+                            </Grid>
+                        </Grid>
                         <Grid Margin="0,0,0,10">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="200"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" VerticalAlignment="Center">

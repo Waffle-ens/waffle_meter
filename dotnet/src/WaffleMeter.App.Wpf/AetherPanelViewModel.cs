@@ -9,7 +9,8 @@ namespace WaffleMeter.App.Wpf;
 
 /// <summary>
 /// View model for the 컨텐츠 관리 panel — every character this install has seen, with the 오드 it was last
-/// holding and its weekly 성역 clears. Rows come from <see cref="AetherRoster"/> (pure); this type only turns
+/// holding and its weekly 성역 clears (컨텐츠 tab), and its currencies (재화 관리 tab). Rows come from
+/// <see cref="AetherRoster"/> (pure); this type only turns
 /// them into bindable strings. UI-thread only; rebuilt each time the panel is opened and whenever the active
 /// character's balance or a weekly counter changes while it is on screen.
 /// </summary>
@@ -21,6 +22,86 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
     public MeterSettings Settings { get; }
 
     public ObservableCollection<AetherRowViewModel> Rows { get; } = new();
+
+    // ── 탭 ─────────────────────────────────────────────────────────────────────
+    private AetherPanelTab _selectedTab = AetherPanelTab.Content;
+
+    /// <summary>보고 있는 탭. 진입점이 정해서 연다(<see cref="AetherPanelEntry"/>) — 오드 배지·트레이·'컨텐츠
+    /// 관리' 단축키는 컨텐츠, '재화 관리' 단축키는 재화 관리. 열린 뒤에는 탭 알약으로 자유롭게 오간다.</summary>
+    public AetherPanelTab SelectedTab
+    {
+        get => _selectedTab;
+        set
+        {
+            if (_selectedTab == value)
+            {
+                return;
+            }
+
+            _selectedTab = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedTab)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsContentTab)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCurrencyTab)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ContentTabVisibility)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CurrencyTabVisibility)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SummaryText)));
+        }
+    }
+
+    /// <summary>탭 알약의 IsChecked 바인딩. RadioButton 은 해제될 때도 false 를 밀어 넣으므로 참일 때만 반응한다
+    /// (전투 기록 패널의 IsBattleTab 과 같은 규칙).</summary>
+    public bool IsContentTab
+    {
+        get => _selectedTab == AetherPanelTab.Content;
+        set
+        {
+            if (value)
+            {
+                SelectedTab = AetherPanelTab.Content;
+            }
+        }
+    }
+
+    public bool IsCurrencyTab
+    {
+        get => _selectedTab == AetherPanelTab.Currency;
+        set
+        {
+            if (value)
+            {
+                SelectedTab = AetherPanelTab.Currency;
+            }
+        }
+    }
+
+    public Visibility ContentTabVisibility =>
+        _selectedTab == AetherPanelTab.Content ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility CurrencyTabVisibility =>
+        _selectedTab == AetherPanelTab.Currency ? Visibility.Visible : Visibility.Collapsed;
+
+    // ── 재화 관리 탭 ───────────────────────────────────────────────────────────
+    /// <summary>재화 관리 탭의 캐릭터 줄. <see cref="Rows"/> 와 같은 행에서 같은 순서로 만든다 — 두 탭이 다른
+    /// 캐릭터 목록을 보여 주면 한쪽에서 지운(✕) 캐릭터가 다른 쪽에 남는다.</summary>
+    public ObservableCollection<CurrencyRowViewModel> CurrencyRows { get; } = new();
+
+    private IReadOnlyList<AetherRosterRow> _lastRows = [];
+    private IReadOnlyList<ServerKinaLine> _lastServerKina = [];
+
+    private Visibility _currencyEmptyVisibility = Visibility.Visible;
+
+    /// <summary>재화가 하나도 기록돼 있지 않을 때의 안내. 그때는 대시만 찍힌 줄을 늘어놓지 않는다.</summary>
+    public Visibility CurrencyEmptyVisibility { get => _currencyEmptyVisibility; private set => Set(ref _currencyEmptyVisibility, value); }
+
+    private Visibility _currencyListVisibility = Visibility.Collapsed;
+    public Visibility CurrencyListVisibility { get => _currencyListVisibility; private set => Set(ref _currencyListVisibility, value); }
+
+    private void UpdateCurrencyEmpty()
+    {
+        bool any = CurrencyRoster.AnyOnFile(_lastRows, _lastServerKina);
+        CurrencyEmptyVisibility = any ? Visibility.Collapsed : Visibility.Visible;
+        CurrencyListVisibility = any ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     /// <summary>One 총 키나 line per server (see <see cref="CurrencyRoster.ServerKina"/>), shown under the list.</summary>
     public ObservableCollection<ServerKinaViewModel> ServerKina { get; } = new();
@@ -39,6 +120,8 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
         }
 
         ServerKinaVisibility = ServerKina.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _lastServerKina = lines;
+        UpdateCurrencyEmpty();
     }
 
     /// <summary>Raised when a row's ✕ is clicked, with that character's identity hash (App forgets it and
@@ -71,8 +154,12 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
     private Visibility _emptyVisibility = Visibility.Visible;
     public Visibility EmptyVisibility { get => _emptyVisibility; private set => Set(ref _emptyVisibility, value); }
 
-    private string _summaryText = string.Empty;
-    public string SummaryText { get => _summaryText; private set => Set(ref _summaryText, value); }
+    private int _characterCount;
+    private long _aetherTotal;
+
+    /// <summary>머리줄 요약. 탭 줄 위라 두 탭이 같이 보므로 탭마다 다르다(<see cref="AetherPanelSummary"/>) — 재화 관리
+    /// 탭에서 오드 합계를 '합계'로 띄우면 키나 목록의 합계로 읽힌다.</summary>
+    public string SummaryText => AetherPanelSummary.Format(_selectedTab, _characterCount, _aetherTotal);
 
     /// <summary>Advance only the corridor clocks, leaving the row objects (and therefore the scroll position,
     /// hover state and any open tooltip) alone. Falls back to a full rebuild the moment the shape of the list
@@ -110,19 +197,24 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
     public void SetRows(IReadOnlyList<AetherRosterRow> rows)
     {
         Rows.Clear();
+        CurrencyRows.Clear();
         foreach (AetherRosterRow row in rows)
         {
             Rows.Add(new AetherRowViewModel(row));
+            CurrencyRows.Add(new CurrencyRowViewModel(row));
         }
 
+        _lastRows = rows;
+        UpdateCurrencyEmpty();
+
         EmptyVisibility = Rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        SummaryText = Rows.Count == 0
-            ? string.Empty
-            : string.Format(
-                CultureInfo.InvariantCulture,
-                "캐릭터 {0}명 · 합계 {1:N0}",
-                Rows.Count,
-                rows.Sum(r => (long)r.Total));
+        long aetherTotal = rows.Sum(r => (long)r.Total);
+        if (_characterCount != Rows.Count || _aetherTotal != aetherTotal)
+        {
+            _characterCount = Rows.Count;
+            _aetherTotal = aetherTotal;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SummaryText)));
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -288,7 +380,7 @@ public sealed class AbyssCorridorCellViewModel : INotifyPropertyChanged
     }
 }
 
-/// <summary>One currency chip on a character row: the game's icon and the balance in Korean units ("3억 2,945만"),
+/// <summary>One currency cell on a 재화 관리 row: the game's icon and the balance in Korean units ("3억 2,945만"),
 /// the exact figure in the tooltip.</summary>
 public sealed class CurrencyChipViewModel
 {
@@ -398,26 +490,58 @@ public sealed class ServerKinaViewModel
     public string ToolTip { get; }
 }
 
+/// <summary>One character on the 재화 관리 tab: its name, how old its balances are, and the five currency cells.
+/// Read-only — forgetting a character is the 컨텐츠 tab's ✕, which drops its currency rows too.</summary>
+public sealed class CurrencyRowViewModel
+{
+    public CurrencyRowViewModel(AetherRosterRow row)
+    {
+        IdentityHash = row.IdentityHash;
+        Label = row.Label;
+        CurrentBadgeVisibility = row.IsCurrent ? Visibility.Visible : Visibility.Collapsed;
+
+        // The 캐릭터 창고 balance is folded into the tradeable kinah cell's tooltip rather than shown as a cell of
+        // its own — it is empty for nearly everyone.
+        CurrencyCell? characterStorage = CurrencyRoster.CharacterStorageOf(row);
+        CurrencyChipViewModel Cell(CurrencyCell c) =>
+            new(c, c.Currency.Slug == CurrencyCatalog.Kina ? characterStorage : null);
+
+        // Two lines: the kinah pair, then the three point currencies. Kinah is the only balance that runs into
+        // 억 ("13억 2,945만"), so it gets half the row per cell; the points never pass six digits and fit a third.
+        IReadOnlyList<CurrencyCell> chips = CurrencyRoster.ChipCells(row);
+        KinaCells = chips.Where(CurrencyRoster.IsKina).Select(Cell).ToList();
+        PointCells = chips.Where(c => !CurrencyRoster.IsKina(c)).Select(Cell).ToList();
+
+        // Every row but the current one is a memory, so its age sits beside the name — the same "12시간 전" the
+        // 컨텐츠 tab gives the 오드, here counted from the newest balance the server stated for this character.
+        long newest = CurrencyRoster.NewestObservedAtMs(row);
+        SeenText = newest > 0 ? AetherRowViewModel.FormatSeen(newest) : "기록 없음";
+        string observed = CurrencyChipViewModel.Observed(newest);
+        SeenToolTip = newest > 0
+            ? "마지막 재화 기록" + observed
+            : "이 캐릭터의 재화가 아직 기록되지 않았습니다\n(이 캐릭터로 접속하면 실제 값으로 채워집니다)";
+    }
+
+    public string IdentityHash { get; }
+    public string Label { get; }
+    public Visibility CurrentBadgeVisibility { get; }
+
+    /// <summary>키나(각인) · 키나 — the first line, two to a row.</summary>
+    public IReadOnlyList<CurrencyChipViewModel> KinaCells { get; }
+
+    /// <summary>어비스 포인트 · 몽환의 파편 · 극복의 증표 — the second line, three to a row.</summary>
+    public IReadOnlyList<CurrencyChipViewModel> PointCells { get; }
+
+    public string SeenText { get; }
+    public string SeenToolTip { get; }
+}
+
 /// <summary>One character row in the 컨텐츠 관리 목록.</summary>
 public sealed class AetherRowViewModel
 {
     public AetherRowViewModel(AetherRosterRow row)
     {
         IdentityHash = row.IdentityHash;
-
-        // 재화 한 줄. Drawn only when something is on file for this character; the 캐릭터 창고 balance is folded
-        // into the tradeable kinah chip's tooltip rather than shown as a chip of its own.
-        CurrencyCell? characterStorage = row.CurrencyCells
-            .Where(c => c.Currency.Slug == CurrencyCatalog.CharacterStorageKina)
-            .Select(c => (CurrencyCell?)c)
-            .FirstOrDefault();
-        Currencies = CurrencyCatalog.ChipSlugs
-            .SelectMany(slug => row.CurrencyCells.Where(c => c.Currency.Slug == slug))
-            .Select(c => new CurrencyChipViewModel(
-                c, c.Currency.Slug == CurrencyCatalog.Kina ? characterStorage : null))
-            .ToList();
-        CurrenciesVisibility = row.CurrenciesKnown ? Visibility.Visible : Visibility.Collapsed;
-
         Weekly = row.WeeklyCells
             .Select(c => new WeeklyContentCellViewModel(row.IdentityHash, c))
             .ToList();
@@ -447,8 +571,6 @@ public sealed class AetherRowViewModel
     }
 
     public string IdentityHash { get; }
-    public IReadOnlyList<CurrencyChipViewModel> Currencies { get; }
-    public Visibility CurrenciesVisibility { get; }
     public IReadOnlyList<WeeklyContentCellViewModel> Weekly { get; }
     public IReadOnlyList<AbyssCorridorCellViewModel> Corridors { get; }
     public Visibility CorridorsVisibility { get; }
@@ -468,7 +590,7 @@ public sealed class AetherRowViewModel
 
     /// <summary>How stale this balance is. The packet only ever carries the ACTIVE character's 오드, so every
     /// row but the current one is a memory — saying how old it is, is the whole point.</summary>
-    private static string FormatSeen(long savedAtMs)
+    internal static string FormatSeen(long savedAtMs)
     {
         // The store parses any long that TryParse accepts, so a hand-edited settings file can carry a value
         // outside DateTimeOffset's range — which would throw here and take the whole list down.
