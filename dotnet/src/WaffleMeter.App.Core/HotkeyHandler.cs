@@ -111,6 +111,7 @@ public sealed class HotkeyHandler : IDisposable
     private const int SplitUiId = 6;
     private const int AetherListId = 7;
     private const int CurrencyTabId = 8;
+    private const int MemoLockId = 9;
 
     // A held global hotkey auto-repeats: while the combo stays down Windows posts WM_HOTKEY at the keyboard
     // repeat RATE (up to ~30/s, i.e. ~33ms apart), and there is no key-up message to mark the release. Collapse
@@ -134,6 +135,7 @@ public sealed class HotkeyHandler : IDisposable
     private const string KeySplitUi = "splitUiHotkey";
     private const string KeyAetherList = "aetherListHotkey";
     private const string KeyCurrencyTab = "currencyTabHotkey";
+    private const string KeyMemoLock = "memoLockHotkey";
 
     // Persisted marker for an explicitly-unassigned hotkey. Distinct from "property never set" (→ default)
     // and from a corrupt/unparseable value (→ default): an unassigned combo registers no global hotkey.
@@ -152,6 +154,7 @@ public sealed class HotkeyHandler : IDisposable
     private volatile HotkeyCombo? _splitUi;
     private volatile HotkeyCombo? _aetherList;
     private volatile HotkeyCombo? _currencyTab;
+    private volatile HotkeyCombo? _memoLock;
     private Thread? _listener;
     private volatile bool _running;
     private readonly Dictionary<int, long> _lastHotkeyTick = new(); // per-id leading-edge debounce; listener-thread-only
@@ -170,6 +173,7 @@ public sealed class HotkeyHandler : IDisposable
     public HotkeyIssue SplitUiIssue => IssueOf(SplitUiId);
     public HotkeyIssue AetherListIssue => IssueOf(AetherListId);
     public HotkeyIssue CurrencyTabIssue => IssueOf(CurrencyTabId);
+    public HotkeyIssue MemoLockIssue => IssueOf(MemoLockId);
 
     private HotkeyIssue IssueOf(int id) => _issues.TryGetValue(id, out HotkeyIssue v) ? v : HotkeyIssue.None;
 
@@ -209,6 +213,10 @@ public sealed class HotkeyHandler : IDisposable
     /// <summary>컨텐츠 관리 창을 <b>재화 관리 탭</b>으로 열기/닫기. 역시 기본 미지정.</summary>
     public Action? OnCurrencyTab { get; set; }
 
+    /// <summary>메모 잠금/해제. 기본 미지정. 잠긴 메모는 클릭이 통과하므로 Ctrl+잠금 버튼 말고 키보드만으로
+    /// 풀 수 있는 길이다.</summary>
+    public Action? OnMemoLock { get; set; }
+
     public HotkeyHandler(PropertyHandler props)
     {
         _props = props;
@@ -241,6 +249,7 @@ public sealed class HotkeyHandler : IDisposable
         _splitUi = LoadOptional(KeySplitUi, SplitUiId); // 분리모드도 UNASSIGNED 출고 — 사용자가 단축키 탭에서 고른다
         _aetherList = LoadOptional(KeyAetherList, AetherListId); // 컨텐츠 관리도 UNASSIGNED 출고
         _currencyTab = LoadOptional(KeyCurrencyTab, CurrencyTabId); // 재화 관리도 UNASSIGNED 출고
+        _memoLock = LoadOptional(KeyMemoLock, MemoLockId); // 메모 잠금도 UNASSIGNED 출고
     }
 
     public HotkeyCombo? Reset => _reset;
@@ -251,6 +260,7 @@ public sealed class HotkeyHandler : IDisposable
     public HotkeyCombo? SplitUi => _splitUi;
     public HotkeyCombo? AetherList => _aetherList;
     public HotkeyCombo? CurrencyTab => _currencyTab;
+    public HotkeyCombo? MemoLock => _memoLock;
 
     /// <summary>Set (or with <c>null</c>, unassign) the reset hotkey; persists and re-registers live.</summary>
     public void SetReset(HotkeyCombo? combo) => Update(v => _reset = v, KeyReset, ResetId, combo);
@@ -261,6 +271,7 @@ public sealed class HotkeyHandler : IDisposable
     public void SetSplitUi(HotkeyCombo? combo) => Update(v => _splitUi = v, KeySplitUi, SplitUiId, combo);
     public void SetAetherList(HotkeyCombo? combo) => Update(v => _aetherList = v, KeyAetherList, AetherListId, combo);
     public void SetCurrencyTab(HotkeyCombo? combo) => Update(v => _currencyTab = v, KeyCurrencyTab, CurrencyTabId, combo);
+    public void SetMemoLock(HotkeyCombo? combo) => Update(v => _memoLock = v, KeyMemoLock, MemoLockId, combo);
 
     private void Update(Action<HotkeyCombo?> assign, string key, int id, HotkeyCombo? value)
     {
@@ -346,6 +357,7 @@ public sealed class HotkeyHandler : IDisposable
         Register(SplitUiId, _splitUi);
         Register(AetherListId, _aetherList);
         Register(CurrencyTabId, _currencyTab);
+        Register(MemoLockId, _memoLock);
 
         try
         {
@@ -381,6 +393,9 @@ public sealed class HotkeyHandler : IDisposable
                             case CurrencyTabId:
                                 OnCurrencyTab?.Invoke();
                                 break;
+                            case MemoLockId:
+                                OnMemoLock?.Invoke();
+                                break;
                         }
                     }
                 }
@@ -400,6 +415,7 @@ public sealed class HotkeyHandler : IDisposable
             UnregisterHotKey(IntPtr.Zero, SplitUiId);
             UnregisterHotKey(IntPtr.Zero, AetherListId);
             UnregisterHotKey(IntPtr.Zero, CurrencyTabId);
+            UnregisterHotKey(IntPtr.Zero, MemoLockId);
         }
     }
 

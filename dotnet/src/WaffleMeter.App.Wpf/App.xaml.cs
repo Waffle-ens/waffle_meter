@@ -510,6 +510,8 @@ public partial class App : Application
             OnAetherList = () => Dispatcher.BeginInvoke(() => window.RequestAetherList(AetherPanelTab.Content)),
             // 재화 관리 탭으로 바로. 같은 진입점에 탭만 실어 보낸다 — 열기/탭 전환/닫기 판단도 그 핸들러가 한다.
             OnCurrencyTab = () => Dispatcher.BeginInvoke(() => window.RequestAetherList(AetherPanelTab.Currency)),
+            // 메모 잠금 토글. 트레이 '오버레이 입력 복구'처럼 설정값만 뒤집는다 — 창 반영은 설정 변경 경로가 한다.
+            OnMemoLock = () => Dispatcher.BeginInvoke(() => _settings.MemoLocked = !_settings.MemoLocked),
         };
         _hotkeys.Start();
 
