@@ -234,7 +234,12 @@ public sealed class DpsMetricsTests
         Assert.Equal(BuffEffectKind.DamageAmp, BuffValueCatalog.ParseKind("PvEAmplifyDamage", "offense_amp"));
         Assert.Equal(BuffEffectKind.FrontAmp, BuffValueCatalog.ParseKind("AmplifyFrontAttack", "offense_amp"));
         Assert.Equal(BuffEffectKind.AttackRatio, BuffValueCatalog.ParseKind("DamageRatio", "offense_atk"));
-        Assert.Equal(BuffEffectKind.BossResistDown, BuffValueCatalog.ParseKind("DefenseRatio", "defense"));
+
+        // 피해 내성(PvE·전체)이 보스 내성 감소다. 방어력은 단위가 달라 매기지 않는다.
+        Assert.Equal(BuffEffectKind.BossResistDown, BuffValueCatalog.ParseKind("PvEDecreaseDamage", "mitigation"));
+        Assert.Equal(BuffEffectKind.BossResistDown, BuffValueCatalog.ParseKind("DecreaseDamage", "mitigation"));
+        Assert.Equal(BuffEffectKind.None, BuffValueCatalog.ParseKind("DefenseRatio", "defense"));
+        Assert.Equal(BuffEffectKind.None, BuffValueCatalog.ParseKind("Defense", "defense"));
 
         // PvP 계열과 아직 모르는 스탯은 아무것도 기여하지 않는다 — 버킷을 추측하지 않는다.
         Assert.Equal(BuffEffectKind.None, BuffValueCatalog.ParseKind("PvPAmplifyDamage", "offense_amp_pvp"));
@@ -282,7 +287,7 @@ public sealed class DpsMetricsTests
         // 노련한 반격 (검성) and 격앙 (수호성) never stack in game — but the server broadcasts both, overlapping
         // for their whole duration. Counting both would credit a support for a buff that did nothing.
         var counter = Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 25);   // 15.0%
-        var fervor = Buff(PartySynergyCatalog.GuardianFervor, actorId: 3, rate: 100, level: 10);  // 9.5%
+        var fervor = Buff(PartySynergyCatalog.GuardianFervor, actorId: 3, rate: 100, level: 10);  // 10.0%
 
         Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
             [Player(1, 1150, [counter, fervor]), Player(2, 0), Player(3, 0)], [], EmptyCatalog(), Duration);
@@ -435,15 +440,28 @@ public sealed class DpsMetricsTests
     // ---- regressions from the 2026-08-31 adversarial review ----
 
     [Fact]
-    public void Protect_light_is_priced_even_though_the_shipped_snapshot_has_no_row_for_it()
+    public void Protect_light_is_priced_from_the_level_even_without_a_snapshot_row()
     {
-        // The synergy catalog used to return null here and lean on "the snapshot will cover it". It does not:
-        // buff_values.json has no 1741 key, and its second-tier lookup by 8-digit base is dead for every job
-        // buff, so the healer's whole contribution priced at zero.
-        double gain = DpsMetrics.Gain(
-            Buff(PartySynergyCatalog.ClericProtectLight, actorId: 2, rate: 100, level: 25), EmptyCatalog(), Bare);
+        // The synergy catalog used to return null here and lean on "the snapshot will cover it". It must not:
+        // the healer's contribution would then hinge on whatever the table happens to hold.
+        double Gain(int level) => DpsMetrics.Gain(
+            Buff(PartySynergyCatalog.ClericProtectLight, actorId: 2, rate: 100, level: level), EmptyCatalog(), Bare);
 
-        Assert.Equal(0.05, gain, 9);
+        // PvE 피해 증폭 10.5 + 0.5/레벨, 20레벨 완벽 +10, 25레벨 강타 +5. Bare 기준선이라 %p 가 곧 이득이다.
+        Assert.Equal(0.105, Gain(1), 9);
+        Assert.Equal(0.195, Gain(19), 9);
+        Assert.Equal(1.20 * 1.10 - 1.0, Gain(20), 9);
+        Assert.Equal(1.225 * 1.10 * 1.05 - 1.0, Gain(25), 9);
+    }
+
+    [Fact]
+    public void Fervor_follows_the_client_ladder()
+    {
+        // 127800011: PvE 피해 증폭 550 + 레벨당 50 (2026-09-01 이후). 사이트와 같은 식이다.
+        Assert.Equal(0.055, DpsMetrics.Gain(
+            Buff(PartySynergyCatalog.GuardianFervor, actorId: 2, rate: 100, level: 1), EmptyCatalog(), Bare), 9);
+        Assert.Equal(0.10, DpsMetrics.Gain(
+            Buff(PartySynergyCatalog.GuardianFervor, actorId: 2, rate: 100, level: 10), EmptyCatalog(), Bare), 9);
     }
 
     [Fact]

@@ -16,6 +16,10 @@
  * measure a relative gain, and `category` alone cannot say which bucket. `offense_crit` covers 치명타(수치),
  * 강타(%p), 완벽(%p) and 치명타 피해 증폭(%p) — four different places in the formula.
  *
+ * Values keep the client's SIGN: a '감소' row is negative. The seed must be built that way — a seed that stores
+ * absolute values turns a debuff that weakens the boss into a party gain (see BuffValueCatalog.ParseKind and
+ * ShippedBuffValuesSignTests, which fail on such a table).
+ *
  * ⚠️ This table is a SNAPSHOT and it is NOT the authority for the party-synergy buffs. Those scale with
  * the caster's skill level, which the table has no room for — it holds one fixed number per buff code —
  * so 불패의 진언 at level 25 reads here as its level-1 value and 흡혈의 검 has no entry at all.

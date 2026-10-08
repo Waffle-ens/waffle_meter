@@ -57,8 +57,9 @@ public static class PartySynergyCatalog
             // 1레벨 PvE 피해 증폭 5.4%, 이후 레벨당 +0.4%p.
             SwordCounter => [Amp(5.4 + 0.4 * (level - 1))],
 
-            // 1레벨 PvE 피해 증폭 5%, 이후 레벨당 +0.5%p.
-            GuardianFervor => [Amp(5.0 + 0.5 * (level - 1))],
+            // 1레벨 PvE 피해 증폭 5.5%, 이후 레벨당 +0.5%p. 2026-09-01 이후 클라 데이터(127800011 의 550,
+            // 레벨당 +50)이자 사이트가 쓰는 식이다.
+            GuardianFervor => [Amp(5.5 + 0.5 * (level - 1))],
 
             // 1레벨 PvE 피해 증폭 10.5%, 레벨당 +0.5%p, 그 위에 레벨 breakpoint 3개가 얹힌다.
             ChanterMantra => Mantra(level),
@@ -68,8 +69,8 @@ public static class PartySynergyCatalog
             // 스킬의 저레벨 구간 값은 실측이 없어 넣지 않는다 — 없는 숫자를 지어내지 않는다).
             ChanterGale => Gale(level),
 
-            // 보스의 PvE 피해 내성을 1레벨 5.4%, 레벨당 +0.4%p 깎는다. 보스에게 걸리는 디버프이므로 Defense
-            // 계열에 음수로 싣는다 — site 모델이 "boss scope + 음수 Defense = 모두에게 이득"으로 읽는 관례다.
+            // 보스의 PvE 피해 내성을 1레벨 5.4%, 레벨당 +0.4%p 깎는다. 보스에게 걸리는 디버프이므로 보스 내성
+            // 감소에 음수로 싣는다 — site 모델과 같이 "boss scope + 음수 = 모두에게 이득"으로 읽힌다.
             ChanterEarthPromise =>
                 [new BuffGainEffect(BuffEffectKind.BossResistDown, -(5.4 + 0.4 * (level - 1)))],
 
@@ -77,11 +78,10 @@ public static class PartySynergyCatalog
             // 25에서 공격 적중 시 추가 피해(= 배수가 아니라 실제 데미지 패킷, GrantedDamageSource 참조).
             ClericEarthBlessing => EarthBlessing(level),
 
-            // 보호의 빛: 레벨별 계수 실측이 아직 없다. 사이트가 쓰는 고정값(강타 5%)을 그대로 쓰되, 여기에
-            // 명시적으로 적는다 — 예전처럼 null 로 두고 "스냅샷이 받아 주겠지" 하면 안 된다. 2026-09-28 갱신 전
-            // 출하 스냅샷에는 이 버프의 행이 아예 없어서(1741 로 시작하는 키 0개) 기여가 통째로 0이 됐다.
-            // ⚠️ 레벨식이 실측되면 여기를 고친다. 그 전까지 이 값은 레벨과 무관하다.
-            ClericProtectLight => [new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0)],
+            // 보호의 빛: 불패의 진언과 같은 사다리(PvE 피해 증폭 10.5% + 레벨당 0.5%p)에 20레벨 완벽, 25레벨
+            // 강타가 얹힌다. 딜에 직접 들어가는 항만 싣는다 — 같은 버프의 피해 내성·받는 치유량·명중·최대
+            // 생명력은 넣지 않는다.
+            ClericProtectLight => ProtectLight(level),
 
             // 흡혈의 검: 배수가 아니라 실제 피해로만 기여한다(GrantedDamageSource 참조). 빈 목록을 돌려
             // "모델링됐고 배수는 0"임을 분명히 한다 — null 이면 스냅샷으로 떨어지는데, 거기에도 행이 없다.
@@ -102,6 +102,17 @@ public static class PartySynergyCatalog
         if (level >= 15) effects.Add(new BuffGainEffect(BuffEffectKind.CritDamageAmp, 5.0));
         if (level >= 20) effects.Add(new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0));
         if (level >= 25) effects.Add(new BuffGainEffect(BuffEffectKind.PerfectRate, 10.0));
+        return effects;
+    }
+
+    private static IReadOnlyList<BuffGainEffect> ProtectLight(int level)
+    {
+        // 클라 데이터(2026-09-28): 1741000111 PvE 피해 증폭 1050 + 레벨당 50, 4랭크(174100411, 20레벨) 완벽
+        // 1000, 5랭크(174100511, 25레벨) 강타 500. 랭크 n 은 5n 레벨에서 열린다 — 와이어에서도 lv15 가 3랭크,
+        // lv25 가 5랭크 코드로 온다.
+        var effects = new List<BuffGainEffect> { Amp(10.5 + 0.5 * (level - 1)) };
+        if (level >= 20) effects.Add(new BuffGainEffect(BuffEffectKind.PerfectRate, 10.0));
+        if (level >= 25) effects.Add(new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0));
         return effects;
     }
 

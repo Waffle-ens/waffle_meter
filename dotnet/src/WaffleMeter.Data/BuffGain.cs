@@ -220,6 +220,9 @@ public sealed class BuffValueCatalog
     /// Map a snapshot row onto the damage formula's bucket. The STAT decides — the category cannot, because
     /// <c>offense_crit</c> covers 치명타 수치 and 강타, which land in different places and on different scales,
     /// and <c>offense_amp</c> covers both the all-damage bucket and the 전방-only one.
+    /// <para>The table keeps the client's SIGN: a '감소' row is negative. So a debuff that lowers the boss's own
+    /// 증폭·공격력·속도 arrives negative and prices to nothing, and a debuff that lowers the boss's 피해 내성 arrives
+    /// negative on a resist stat and becomes everyone's gain (<see cref="BuffEffectKind.BossResistDown"/>).</para>
     /// </summary>
     public static BuffEffectKind ParseKind(string? stat, string? category) => stat switch
     {
@@ -230,10 +233,13 @@ public sealed class BuffValueCatalog
         "Critical" => BuffEffectKind.CritRating,
         "CombatSpeed" => BuffEffectKind.CombatSpeed,
 
-        // 방어 계열은 보스에게 걸린 음수일 때만 이득이다 (판정은 Gain 에서).
-        _ when category == "defense" => BuffEffectKind.BossResistDown,
+        // 피해 내성(PvE·전체)은 보스에게 걸린 음수일 때만 이득이다 — 판정은 RelativeGain 에서. 플레이어에게
+        // 걸린 양수(받는 피해 감소)는 생존이지 딜이 아니라 0 이다.
+        "PvEDecreaseDamage" or "DecreaseDamage" => BuffEffectKind.BossResistDown,
 
-        // utility / healing / mitigation / PvP 계열, 그리고 아직 모르는 스탯.
+        // 방어력 감소는 매기지 않는다. 방어력은 공격력에서 빠지는 양이라 증폭 버킷과 단위가 달라서,
+        // 피해 내성처럼 매기면 크기가 틀린다.
+        // utility / healing / PvP 계열, 그리고 아직 모르는 스탯도 0 이다.
         _ => BuffEffectKind.None,
     };
 }
