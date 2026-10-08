@@ -143,6 +143,31 @@ public sealed class HotkeyHandlerTests : IDisposable
         Assert.Null(new HotkeyHandler(new PropertyHandler(_temp)).CurrencyTab);
     }
 
+    /// <summary>
+    /// 메모 잠금 단축키도 <b>조합 없이</b> 출고된다. 사용자가 고른 조합은 자기 키로 저장되고 다시 읽혀야 하며,
+    /// 미터의 클릭 통과(Ctrl+T)와는 독립이다 — 메모 잠금과 미터 잠금은 서로 다른 설정이다.
+    /// </summary>
+    [Fact]
+    public void The_memo_lock_hotkey_ships_unassigned_and_round_trips_on_its_own_key()
+    {
+        var props = new PropertyHandler(_temp);
+        var handler = new HotkeyHandler(props);
+        Assert.Null(handler.MemoLock);
+        Assert.Equal(HotkeyIssue.None, handler.MemoLockIssue);
+        Assert.Null(props.GetProperty("memoLockHotkey")); // 출고 상태에서는 파일에 키조차 없다
+
+        handler.SetMemoLock(new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4D)); // Ctrl+Shift+M
+        Assert.Equal("modifiers=6,vkCode=77", props.GetProperty("memoLockHotkey"));
+
+        var reopened = new HotkeyHandler(new PropertyHandler(_temp));
+        Assert.Equal(new HotkeyCombo(HotkeyHandler.ModControl | HotkeyHandler.ModShift, 0x4D), reopened.MemoLock);
+        Assert.Equal(new HotkeyCombo(HotkeyHandler.ModControl, 0x54), reopened.ClickThrough); // 미터 잠금은 기본값 그대로
+
+        reopened.SetMemoLock(null);
+        Assert.Equal("none", new PropertyHandler(_temp).GetProperty("memoLockHotkey"));
+        Assert.Null(new HotkeyHandler(new PropertyHandler(_temp)).MemoLock);
+    }
+
     /// <summary>옛 쓰레기 조합(수식키 단독)은 재화 관리 칸에서도 은퇴로 보고된다 — 다른 칸과 같은 경로를 탄다.</summary>
     [Fact]
     public void A_retired_currency_tab_combo_is_reported_and_cleared_by_reassigning()
