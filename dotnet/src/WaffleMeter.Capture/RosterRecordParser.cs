@@ -7,17 +7,25 @@ namespace WaffleMeter.Capture;
 /// <param name="Slot">파티 안 자리(<c>_number</c>, 1~5).</param>
 /// <param name="EntityUid">현재 존의 엔티티 uid(<c>_key</c>). <b>다른 존에 있으면 0</b>이고, 존을 옮길 때마다 바뀐다
 /// (실측 콘팡 2851 → 12208 → 7376). 그래서 사람을 지목하는 키는 이게 아니라 <see cref="Dbid"/> 다.</param>
-/// <param name="Dbid">캐릭터 고정 id(<c>_dbid</c>, i64) = 하위 48비트 캐릭터 번호 + 상위 16비트 서버. 존·세션이 바뀌어도
-/// 그대로다. 0x9702/0x9622 의 로스터 key 는 이 값의 하위 32비트다.</param>
+/// <param name="Dbid">캐릭터 고정 id(<c>_dbid</c>, i64) = 하위 48비트 캐릭터 번호 + 상위 16비트 <b>생성 서버</b>. 존·세션이
+/// 바뀌어도, 서버를 이전해도 그대로다. 0x9702/0x9622 의 로스터 key 는 이 값의 하위 32비트다.</param>
 /// <param name="PcId">직업 코드(<c>_pc_id</c>). <c>JobClassInfo.ConvertFromCode</c> 의 입력과 같은 공간이다.</param>
 /// <param name="CombatPower">전투력(<c>_combat_power</c>). <see cref="WaffleMeter.Capture.CombatPower.IsPlausible"/> 밖이면 0.</param>
 /// <param name="Login">접속 중인가(<c>_login</c>).</param>
+/// <param name="BornServer">소속 서버(<c>_born_server_id</c>). 서버 대역 밖이거나 모르면 0.</param>
 public readonly record struct WireRosterMember(
-    int Slot, int EntityUid, long Dbid, string Nickname, int PcId, long CombatPower, bool Login)
+    int Slot, int EntityUid, long Dbid, string Nickname, int PcId, long CombatPower, bool Login, int BornServer = 0)
 {
-    /// <summary>캐릭터 서버 = dbid 상위 16비트. 0x3645·0x9702 가 싣는 그 서버다(<c>_born_server_id</c> 가 아니다 —
-    /// 실측 20인 포스 전원이 born 2003 인데 박태평 dbid 서버는 2016, 핀셔는 2020 이다).</summary>
-    public int Server => (int)((ulong)Dbid >> 48);
+    /// <summary>캐릭터 서버 = <c>_born_server_id</c>(지금 소속된 서버, 게임이 이름 옆에 붙이는 그 서버). 모를 때만 dbid 상위
+    /// 16비트로 물러선다.
+    /// <para>🔴 dbid 상위 16비트는 <b>생성 서버</b>라 서버 이전 뒤에도 옛 서버로 남는다. 실측 20인 포스(20261027-205641)에서
+    /// 서버를 이전한 넷은 dbid 서버가 2001·2016·2016·2020 이지만 공식 캐릭터 검색에는 넷 다 트리니엘(2003)에만 있고, 그 2003 이
+    /// 바로 born 이다. 제보(2026-11-01)에서는 인게임 [시엘] 캐릭터가 dbid 서버(네자칸)로 [네자]가 떴다.
+    /// <c>_current_server_id</c> 는 지금 접속해 있는 서버 프로세스라 인스턴스 안에서는 3004·4012 같은 값이다 — 표시용이 아니다.</para></summary>
+    public int Server => IsServerBand(BornServer) ? BornServer : (int)((ulong)Dbid >> 48);
+
+    /// <summary>캐릭터 서버 id 대역(천족 1001~, 마족 2001~).</summary>
+    internal static bool IsServerBand(int server) => server is (>= 1001 and < 2000) or (>= 2001 and < 3000);
 }
 
 /// <summary>포스 안 파티 하나(<c>Common_ForcePartyInfo</c>).</summary>
@@ -321,7 +329,7 @@ public static class RosterRecordParser
     /// <summary>Common_ForceMemberInfo, 선언 순서 그대로.</summary>
     private static WireRosterMember? ReadForceMember(ref Reader r)
     {
-        if (!ReadMemberHead(ref r, out int slot, out int uid, out long dbid, out string? nick, out int pcId))
+        if (!ReadMemberHead(ref r, out int slot, out int uid, out int born, out long dbid, out string? nick, out int pcId))
         {
             return null;
         }
@@ -340,13 +348,13 @@ public static class RosterRecordParser
         r.Skip(12);      // _pos
         long power = r.I64();
         r.U8();          // _network_latency_state
-        return MemberOrFail(ref r, slot, uid, dbid, nick!, pcId, power, login);
+        return MemberOrFail(ref r, slot, uid, born, dbid, nick!, pcId, power, login);
     }
 
     /// <summary>Common_PartyMemberInfo, 선언 순서 그대로(마스크 0x03 = <c>_rebirth_skill_list</c> 없음).</summary>
     private static WireRosterMember? ReadPartyMember(ref Reader r)
     {
-        if (!ReadMemberHead(ref r, out int slot, out int uid, out long dbid, out string? nick, out int pcId))
+        if (!ReadMemberHead(ref r, out int slot, out int uid, out int born, out long dbid, out string? nick, out int pcId))
         {
             return null;
         }
@@ -367,15 +375,15 @@ public static class RosterRecordParser
         bool login = r.Bool();
         long power = r.I64();
         r.U8();          // _network_latency_state
-        return MemberOrFail(ref r, slot, uid, dbid, nick!, pcId, power, login);
+        return MemberOrFail(ref r, slot, uid, born, dbid, nick!, pcId, power, login);
     }
 
     /// <summary>두 멤버 구조체가 공유하는 앞부분:
     /// <c>[mask=03][_number u8][_key u32][_born_server_id u16][_current_server_id u16][_game_account_id str][_dbid i64][_nickname str][_pc_id u32]</c>.
-    /// 계정 id 문자열은 읽어 넘기기만 한다(보관하지 않는다).</summary>
-    private static bool ReadMemberHead(ref Reader r, out int slot, out int uid, out long dbid, out string? nick, out int pcId)
+    /// 계정 id 문자열은 읽어 넘기기만 한다(보관하지 않는다). <paramref name="born"/> 은 대역 밖이면 0 — 그때 서버는 dbid 로 물러선다.</summary>
+    private static bool ReadMemberHead(ref Reader r, out int slot, out int uid, out int born, out long dbid, out string? nick, out int pcId)
     {
-        slot = uid = pcId = 0;
+        slot = uid = born = pcId = 0;
         dbid = 0;
         nick = null;
         if (r.U8() != MemberMask)
@@ -386,8 +394,12 @@ public static class RosterRecordParser
 
         slot = r.U8();
         long key = r.U32();
-        r.U16();         // _born_server_id
-        r.U16();         // _current_server_id
+        born = r.U16();  // _born_server_id — 소속 서버(표시·신원에 쓰는 서버)
+        r.U16();         // _current_server_id — 지금 접속한 서버 프로세스(인스턴스면 3xxx·4xxx). 쓰지 않는다
+        if (!WireRosterMember.IsServerBand(born))
+        {
+            born = 0;
+        }
         r.SkipString();  // _game_account_id
         dbid = r.I64();
         nick = r.String();
@@ -402,17 +414,17 @@ public static class RosterRecordParser
         return true;
     }
 
-    private static WireRosterMember? MemberOrFail(ref Reader r, int slot, int uid, long dbid, string nick, int pcId, long power, bool login)
+    private static WireRosterMember? MemberOrFail(ref Reader r, int slot, int uid, int born, long dbid, string nick, int pcId, long power, bool login)
     {
         if (r.Failed)
         {
             return null;
         }
 
-        return new WireRosterMember(slot, uid, dbid, nick, pcId, CombatPower.IsPlausible(power) ? power : 0, login);
+        return new WireRosterMember(slot, uid, dbid, nick, pcId, CombatPower.IsPlausible(power) ? power : 0, login, born);
     }
 
-    /// <summary>dbid = 하위 48비트 캐릭터 번호(&gt; 0) + 상위 16비트 서버(1001~2999 대역).</summary>
+    /// <summary>dbid = 하위 48비트 캐릭터 번호(&gt; 0) + 상위 16비트 생성 서버(1001~2999 대역).</summary>
     private static bool IsPlausibleDbid(long dbid)
     {
         int server = (int)((ulong)dbid >> 48);

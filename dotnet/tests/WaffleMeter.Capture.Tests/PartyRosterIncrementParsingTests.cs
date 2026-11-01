@@ -15,7 +15,8 @@ namespace WaffleMeter.Capture.Tests;
 /// </summary>
 public sealed class PartyRosterIncrementParsingTests
 {
-    // 0x971F — 마이농(2003) 슬롯 3. [len][1F 97][mask 7E][slot 03][key u32][born u16][srv u16][len][name][tail]
+    // 0x971F — 마이농(2003) 슬롯 3. [len][1F 97][mask 7E][slot 03][_member_dbid i64 = key u32 · 00 00 · 생성 서버 u16][len][name]
+    // [pc u32][level u32][equip u32][bool 비트 바이트 03][_born_server_id u16 = D3 07][_current_server_id u16 = B8 0F (4024)][04]…
     private const string MemberUpdateMaiNong =
         "43 1F 97 7E 03 E7 FF 02 00 00 00 D3 07 09 EB A7 88 EC 9D B4 EB 86 8D 24 00 00 00 32 00 00 00 " +
         "E5 10 00 00 03 D3 07 B8 0F 04 6A D1 07 00 00 00 00 00 01 02 01 00 00 00 C8 00 00 00 00 00 00 00 01";
@@ -117,6 +118,20 @@ public sealed class PartyRosterIncrementParsingTests
         Assert.Equal(2001, server);
         Assert.Equal(8, slot);
         Assert.Equal(112_415, key);
+    }
+
+    /// <summary>서버를 이전한 멤버: 머리의 dbid 서버(생성 서버)는 2003 그대로 두고 꼬리의 born 만 2009 로 바꾼다 → 서버는 born.
+    /// 슬롯·key 는 머리에서 그대로 온다(사람을 지목하는 key 는 dbid 하위 32비트라 이전과 무관하다).</summary>
+    [Fact]
+    public void A_transferred_member_update_carries_its_born_server_not_the_dbid_server()
+    {
+        byte[] frame = Hex(MemberUpdateMaiNong);
+        Assert.Equal((0xD3, 0x07, 0xB8, 0x0F), (frame[36], frame[37], frame[38], frame[39])); // 꼬리 [born][current] 위치 고정
+        frame[36] = 0xD9; // 2009
+        RecordingData data = new();
+        new StreamProcessor(new NullSink(), data, null).OnPacketReceived(frame, 1000);
+
+        Assert.Equal(("마이농", 2009, 3, 196_583), Assert.Single(data.Updates));
     }
 
     [Fact]
