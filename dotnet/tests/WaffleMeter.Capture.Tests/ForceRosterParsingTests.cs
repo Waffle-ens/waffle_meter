@@ -83,7 +83,7 @@ public sealed class ForceRosterParsingTests
     }
 
     [Fact]
-    public void The_current_server_is_the_instance_process_not_the_character_server()
+    public void The_current_server_id_field_is_the_instance_process_not_the_character_server()
     {
         // _current_server_id 는 지금 접속해 있는 서버 프로세스다 — 20인 공대 인스턴스 안에서는 3004. 표시 서버로 쓰면 안 된다.
         byte[] p = F.Bytes(F.ForceInfo205829);

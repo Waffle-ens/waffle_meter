@@ -2362,11 +2362,11 @@ public sealed class StreamProcessor
     /// <para>🔴 <b>왜 종전 스캔을 그대로 쓰지 않는가.</b> 종전 스캔은 "서버 대역 u16 + 길이 2..24 + 숫자 아닌 문자열"을 프레임
     /// <b>끝까지</b> 훑어 <b>마지막</b> 적중을 썼다. 그런데 프레임 뒤쪽 <c>_dbid</c>(i64)의 상위 16비트가 바로 뒤 <c>_stats</c>
     /// 배열 길이와 함께 그 모양을 만들어서, 마지막 적중은 사실상 언제나 dbid 서버 = <b>생성 서버</b>였다. 서버를 이전한 캐릭터는
-    /// 그래서 옛 서버로 떴다(제보 2026-11-01: 인게임 두시반[시엘] → 미터 [네자]). 실측 20261027-205641 재생: 0x3645 3,156건 중
+    /// 그래서 옛 서버로 떴다(제보 2026-11-01: 인게임 [시엘] 캐릭터가 미터에서 [네자]). 실측 20261027-205641 재생: 0x3645 3,156건 중
     /// 715건(181명, 23%)의 서버가 이 수정으로 바뀌었다. 공식 캐릭터 검색 대조(2026-11-01)는 새 값만 맞음 23명 · 옛 값만 맞음 0명 ·
     /// 양쪽 다 동명이 있어 판정 불가 7명이었다. 같은 세션의 파티·포스 레코드 <c>_born_server_id</c> 와도 일치한다.</para>
     /// <para><b>레이아웃.</b> <c>[_desc CharDesc][_state CharState][_server_id u16][_guild_desc CharGuildDesc?][_abnormals …]</c>.
-    /// CharState 는 선택 필드 마스크 때문에 길이가 변해서(이름 끝 기준 +95..+129) 고정 오프셋으로는 못 읽는다. 대신 <c>_server_id</c>
+    /// CharState 는 선택 필드 마스크 때문에 길이가 변해서(실측 이름 끝 기준 +89..+119) 고정 오프셋으로는 못 읽는다. 대신 <c>_server_id</c>
     /// <b>바로 뒤</b>에 오는 것으로 짚는다:</para>
     /// <list type="bullet">
     /// <item><b>길드 있음</b>: <c>_guild_id</c> i64(하위 48비트 &gt; 0 · 상위 16비트 = 길드 서버 대역) + 길드명(varint 길이 1..72 ·
@@ -2374,18 +2374,24 @@ public sealed class StreamProcessor
     /// <item><b>길드 없음</b>: 길드 구조체가 통째로 빠지고 <c>_abnormals</c> 가 온다 — 개수(1바이트 varint 1..64) + 첫 레코드의 선택
     /// 필드 마스크 <c>0x10..0x13</c>.</item>
     /// </list>
-    /// <para>처음으로 둘 중 하나를 만족하는 위치를 쓴다. 실측(205641, 3,153프레임): 길드형 2,817 · 길드 없음 336 · 못 짚음 0,
-    /// 길드형 정답과의 불일치 0. 마스크를 <c>0x10..0x1F</c> 로 넓히면 CharState 안(이름 끝 +30..+49)에서 오탐 42건이 나므로
-    /// 좁게 둔다. 버프가 하나도 없는 길드 없는 캐릭터처럼 둘 다 아니면 0 을 돌려주고 호출자는 종전 스캔으로 물러선다.</para>
+    /// <para><b>처음으로</b> 둘 중 하나를 만족하는 위치를 쓴다 — 뒤쪽(버프·장비 블록)에서도 길드·버프 모양이 우연히 또 나온다.
+    /// 실측(205641): 길드형 2,817 · 길드 없음 336 · 못 짚음 0.</para>
+    /// <para>⚠️ <b>CharState 안의 함정</b>: <c>[_hp varint][_hp_max varint][_mp u32][_mp_max u32]</c>. 3바이트 varint 인 <c>_hp_max</c> 의
+    /// 끝 두 바이트가 서버 대역 u16 이 되고(62592..65279 → 1001..1021 · 125056..127743 → 2001..2021, 코퍼스 프레임의 8%) 바로 뒤
+    /// 현재 MP 가 버프 배열 머리처럼 읽히면(MP 4097..4928 안의 64값 구간들) 진짜 서버보다 앞에서 걸린다 — 서버를 이전하지 않은
+    /// 캐릭터에게도 엉뚱한 서버를 붙이는 오탐이다(적대적 리뷰 재현). 그래서 ① 후보 <b>바로 앞 바이트가 varint 연속 바이트</b>(≥ 0x80)면
+    /// 버린다 — 진짜 <c>_server_id</c> 앞은 CharState 마지막 u32 의 상위 바이트(실측 0x01·0x02)다. ② 버프 마스크를 0x10..0x13 으로
+    /// 좁게 둔다 — 0x1F 까지 넓히면 같은 자리에서 실제 코퍼스 오탐이 난다.</para>
+    /// <para>버프가 하나도 없는 길드 없는 캐릭터처럼 둘 다 아니면 0 을 돌려주고 호출자는 종전 스캔으로 물러선다.</para>
     /// </summary>
     private static int SnapshotServerId(byte[] packet, int from)
     {
         for (int q = from; q + 4 <= packet.Length; q++)
         {
             int server = PacketPrimitives.ParseUInt16Le(packet, q);
-            if (!IsPartyServer(server))
+            if (!IsPartyServer(server) || (q > 0 && packet[q - 1] >= 0x80))
             {
-                continue;
+                continue; // 서버 대역이 아니거나, varint(_hp_max 등)의 꼬리 바이트다
             }
 
             if (LooksLikeGuildDesc(packet, q + 2) || LooksLikeAbnormalList(packet, q + 2))

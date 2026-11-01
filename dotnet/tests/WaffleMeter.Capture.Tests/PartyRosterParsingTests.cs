@@ -326,17 +326,20 @@ public sealed class PartyRosterParsingTests
 
     /// <summary>
     /// 레코드 머리의 "서버"는 <c>_member_dbid</c> 의 상위 16비트 = <b>생성 서버</b>다. 서버를 이전한 캐릭터는 그게 옛 서버라
-    /// 인게임 표기(소속 서버 = 이름 뒤 꼬리의 <c>_born_server_id</c>)와 다르다(제보 2026-11-01: 인게임 두시반[시엘] → 미터 [네자]).
-    /// 콘팡의 꼬리 born 만 2009 로 바꾸면 그 멤버의 서버는 2009 가 되고, 슬롯·다른 멤버는 그대로다. 주리오는 꼬리에 bool 비트
-    /// 바이트가 하나 끼어 born 이 한 칸 뒤에 있다 — 그 레코드도 그대로 읽힌다.
+    /// 인게임 표기(소속 서버 = 이름 뒤 꼬리의 <c>_born_server_id</c>)와 다르다(제보 2026-11-01: 인게임 [시엘] 캐릭터가 미터에서 [네자]).
+    /// 콘팡·주리오의 꼬리 born 만 2009 로 바꾸면 두 멤버의 서버는 2009 가 되고, 슬롯·다른 멤버는 그대로다. 주리오는 꼬리에 bool 비트
+    /// 바이트(<c>01</c>)가 하나 끼어 born 이 한 칸 뒤(+13)에 있다 — 그 자리도 읽는다.
     /// </summary>
     [Fact]
     public void ParsePartyRoster_takes_the_server_from_the_born_field_in_the_tail()
     {
         byte[] packet = RealRaidPacket();
-        int born = BornServerAt(packet, "콘팡");
+        int born = BornServerAt(packet, "콘팡", 12);
         Assert.Equal((0xD3, 0x07, 0xA1, 0x0F), (packet[born], packet[born + 1], packet[born + 2], packet[born + 3]));
         packet[born] = 0xD9; // 2009 — dbid(머리) 쪽은 2003 그대로
+        int juriBorn = BornServerAt(packet, "주리오", 13);
+        Assert.Equal((0x01, 0xD5, 0x07, 0xA1, 0x0F), (packet[juriBorn - 1], packet[juriBorn], packet[juriBorn + 1], packet[juriBorn + 2], packet[juriBorn + 3]));
+        packet[juriBorn] = 0xD9; // 2009 — dbid(머리) 쪽은 2005 그대로
 
         var data = new RecordingData();
         new StreamProcessor(new NullSink(), data, null).OnPacketReceived(packet, 1000);
@@ -346,18 +349,19 @@ public sealed class PartyRosterParsingTests
             new (string, int, int)[]
             {
                 ("에이", 2003, 1), ("콘팡", 2009, 2), ("꼬북", 1019, 3), ("몽몽", 2003, 4),
-                ("유꾸", 2003, 5), ("용성", 2001, 6), ("무좀", 2003, 7), ("주리오", 2005, 8),
+                ("유꾸", 2003, 5), ("용성", 2001, 6), ("무좀", 2003, 7), ("주리오", 2009, 8),
             },
             data.Last);
     }
 
-    /// <summary>이름 끝 + 12 = <c>[pc u32][level u32][equip u32]</c> 뒤 born 자리(이 표본의 마스크 0x7A, bool 바이트 없음).</summary>
-    private static int BornServerAt(byte[] packet, string name)
+    /// <summary>이름 끝 + <paramref name="offset"/> = born 자리. <c>[pc u32][level u32][equip u32]</c> 뒤 +12, 그 사이에 bool 비트 바이트가
+    /// 끼면 +13.</summary>
+    private static int BornServerAt(byte[] packet, string name, int offset)
     {
         byte[] nm = Encoding.UTF8.GetBytes(name);
         int at = packet.AsSpan().IndexOf(nm);
         Assert.True(at > 0 && packet[at - 1] == nm.Length);
-        return at + nm.Length + 12;
+        return at + nm.Length + offset;
     }
 
     private static byte[] RealRaidPacket()

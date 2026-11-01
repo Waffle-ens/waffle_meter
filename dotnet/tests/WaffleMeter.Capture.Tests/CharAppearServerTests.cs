@@ -7,7 +7,7 @@ namespace WaffleMeter.Capture.Tests;
 
 /// <summary>
 /// 0x3645(<c>CharAppear_NT</c>) 가 남의 캐릭터 서버로 <c>_server_id</c>(소속 서버)를 내는가.
-/// <para>제보(2026-11-01): 인게임 파티 창 딘[젠카] · 두시반[시엘] 인데 미터는 [오다] · [네자]. 두 사람 다 서버를 이전한 캐릭터였다.
+/// <para>제보(2026-11-01): 인게임 파티 창에서 [젠카] · [시엘] 인 두 캐릭터가 미터에서는 [오다] · [네자]. 둘 다 서버를 이전한 캐릭터였다.
 /// 종전 스캔은 "서버 대역 u16 + 길이 2..24 + 숫자 아닌 문자열"의 <b>마지막</b> 적중을 써서, 프레임 뒤쪽 <c>_dbid</c> 의 상위 16비트
 /// (= 생성 서버)를 읽고 있었다. 이전한 캐릭터는 그게 옛 서버다.</para>
 /// <para>실프레임 둘은 각각 "길드 있음"(서버 바로 뒤 길드 구조체)·"길드 없음"(서버 바로 뒤 버프 배열) 레이아웃이고, 둘 다 프레임
@@ -62,7 +62,7 @@ public sealed class CharAppearServerTests
     // ---- 실프레임 ----
 
     [Fact]
-    public void A_transferred_character_in_a_guild_gets_its_current_server_not_its_creation_server()
+    public void A_transferred_character_in_a_guild_gets_the_server_it_belongs_to_now_not_its_creation_server()
     {
         byte[] frame = F.Bytes(F.GuildedTransferred);
         Assert.Contains("2C4D01000000D10705", Convert.ToHexString(frame)); // 대조: 뒤쪽 _dbid(상위 = 2001) + _stats 개수 5 — 종전 스캔이 고르던 자리
@@ -71,12 +71,33 @@ public sealed class CharAppearServerTests
     }
 
     [Fact]
-    public void A_transferred_character_without_a_guild_gets_its_current_server_not_its_creation_server()
+    public void A_transferred_character_without_a_guild_gets_the_server_it_belongs_to_now_not_its_creation_server()
     {
         byte[] frame = F.Bytes(F.GuildlessTransferred);
         Assert.Contains("0AE801000000DF0705", Convert.ToHexString(frame)); // 대조: 뒤쪽 _dbid(상위 = 2015) + _stats 개수 5
 
         Assert.Equal((14848, "다라마", 2009), Parse(frame));
+    }
+
+    /// <summary>
+    /// CharState 의 <c>[_hp_max 3바이트 varint][_mp u32]</c> 함정(적대적 리뷰 재현). 두 실프레임 다 _hp_max 끝 두 바이트가 서버 대역이다
+    /// (63366 → <c>EF 03</c> = 1007, 63490 → <c>F0 03</c> = 1008). 현재 MP 만 4128(<c>20 10 00 00</c>)로 바꾸면 그 자리가 "개수 32 + 마스크
+    /// 0x10" 버프 배열 머리처럼 읽혀 진짜 서버보다 70바이트쯤 앞에서 걸렸다 — 서버를 이전하지 않은 캐릭터도 똑같이 당한다.
+    /// 후보 바로 앞이 varint 연속 바이트면 버리는 가드가 막는다.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(F.GuildedTransferred), "86EF0386EF03C21D0000", 1044, "가나", 2003)]
+    [InlineData(nameof(F.GuildlessTransferred), "AEEA0382F003A11C0000", 14848, "다라마", 2009)]
+    public void A_current_mp_that_reads_like_a_buff_list_header_does_not_steal_the_anchor(
+        string fixture, string hpMpBlock, int uid, string nickname, int server)
+    {
+        string hex = fixture == nameof(F.GuildedTransferred) ? F.GuildedTransferred : F.GuildlessTransferred;
+        int at = hex.IndexOf(hpMpBlock, StringComparison.Ordinal);
+        Assert.True(at >= 0 && at % 2 == 0);
+        int mpAt = at + hpMpBlock.Length - 8; // [_hp varint][_hp_max varint] 뒤 _mp u32
+        string patched = hex[..mpAt] + "20100000" + hex[(mpAt + 8)..];
+
+        Assert.Equal((uid, nickname, server), Parse(F.Bytes(patched)));
     }
 
     // ---- 합성 프레임 — 규칙 하나씩 ----
@@ -140,6 +161,30 @@ public sealed class CharAppearServerTests
         Assert.Equal((322, "검증", 2009), Parse(frame));
     }
 
+    /// <summary><b>첫</b> 앵커가 이긴다 — 뒤쪽 장비·버프 블록에서도 길드 모양이 우연히 또 나온다(코퍼스 실측: 첫 적중 2003 · 뒤 길드 모양 2011).</summary>
+    [Fact]
+    public void A_later_guild_shaped_run_does_not_override_the_first_anchor()
+    {
+        byte[] frame = Frame(325, "검증",
+            new byte[24],
+            U16(2003), GuildId(2003, 7), Str("숲"), new byte[16],
+            U16(2011), GuildId(2011, 9), Str("길드"), new byte[8]);
+
+        Assert.Equal((325, "검증", 2003), Parse(frame));
+    }
+
+    /// <summary>버프 마스크는 0x10..0x13 만 앵커다 — 0x1F 까지 넓히면 CharState 안에서 실제 코퍼스 오탐이 난다.</summary>
+    [Fact]
+    public void A_buff_mask_outside_0x10_to_0x13_is_not_an_anchor()
+    {
+        byte[] frame = Frame(326, "검증",
+            new byte[8],
+            U16(2011), [0x05, 0x18], new byte[14],
+            U16(2009), [0x11, 0x11, 0x5A, 0xE1, 0xAB, 0xCA, 0x08], new byte[16]);
+
+        Assert.Equal((326, "검증", 2009), Parse(frame));
+    }
+
     /// <summary>길드도 버프 배열도 아니면 종전 느슨한 스캔으로 물러선다 — 레이아웃이 바뀌어도 서버를 통째로 잃지는 않는다.</summary>
     [Fact]
     public void Without_either_anchor_the_loose_scan_still_supplies_a_server()
@@ -155,6 +200,7 @@ public sealed class CharAppearServerTests
     {
         byte[] frame = Frame(324, "검증",
             U16(2011), GuildId(2003, 0), Str("숲"),
+            [0xEE, 0x17, 0x53, 0x02],          // CharState 마지막 u32(_title_id 실측값) — 진짜 _server_id 앞자리
             U16(2009), [0x11, 0x10, 0x00, 0x00]);
 
         Assert.Equal((324, "검증", 2009), Parse(frame));

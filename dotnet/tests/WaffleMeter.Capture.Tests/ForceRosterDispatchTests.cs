@@ -123,7 +123,7 @@ public sealed class ForceRosterDispatchTests
     }
 
     [Fact]
-    public void A_transferred_party_member_is_kept_and_labelled_with_its_current_server()
+    public void A_transferred_party_member_is_kept_and_labelled_with_the_server_it_belongs_to_now()
     {
         // 0x9200 의 쉰 레코드를 서버를 이전한 캐릭터로 바꾼다 — dbid 상위 16비트(생성 서버)만 2016. born(소속 서버)은 2003 그대로다.
         // 종전 바이트스캔은 born == dbid 서버를 구조 검증으로 써서 이런 멤버(실측 20인 포스의 박태평·핀셔·롤형)를 버렸고,
