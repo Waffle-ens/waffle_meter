@@ -1530,13 +1530,22 @@ public sealed class StreamProcessor
                 continue;
             }
 
+            // n 의 u16 은 _member_dbid 상위 16비트 = 생성 서버다. 레코드를 찾는 구조 앵커로는 그대로 쓰되(슬롯·key 가 그
+            // 앞에 고정 폭으로 붙는다), 표시·신원에 쓰는 서버는 이름 뒤 꼬리의 _born_server_id 다 — 서버를 이전한 캐릭터는
+            // 둘이 다르다(WireRosterMember.Server 참조). 꼬리를 못 읽으면 종전대로 dbid 서버.
+            int nameEnd = n + 3 + len;
+            int bornServer = RoomMemberBornServer(packet, nameEnd);
+            if (bornServer > 0)
+            {
+                server = bornServer;
+            }
+
             if (seen.Add(name + " " + server.ToString(CultureInfo.InvariantCulture)))
             {
                 // 0x9702는 이름 뒤에 직업(job u32 LE 하위바이트 @ nameEnd)·전투력(0x04 마커 뒤 u32 LE)도 싣는다 —
                 // 전투 전 파티 프리뷰의 직업 아이콘·전투력 채움용(0x3645는 근접 멤버만 와 로스터 전원 못 채움).
                 // power는 고정 오프셋이 아니라 "뒤 u32가 [1,1000만]인 0x04 마커"를 좁은 창에서 스캔(레코드별 여분
                 // 1바이트 때문에 +17 고정은 일부 power를 오독).
-                int nameEnd = n + 3 + len;
                 int jobCode = nameEnd < packet.Length ? packet[nameEnd] : 0;
                 int power = 0;
                 int scanEnd = nameEnd + 24;
@@ -1674,7 +1683,9 @@ public sealed class StreamProcessor
             : 0;
 
     /// <summary>0x9702 / 0x971F 가 공유하는 멤버 레코드. 코퍼스 실측으로 확정한 고정 헤더다 —
-    /// <c>[mask u8][slot u8][key u32 LE][born srv u16][cur srv u16][nameLen u8]</c> 다음에 UTF-8 이름.
+    /// <c>[mask u8][slot u8][_member_dbid i64 = key u32 LE · 00 00 · 생성 서버 u16][nameLen u8]</c> 다음에 UTF-8 이름.
+    /// <see cref="Server"/> 는 이름 뒤 꼬리의 <c>_born_server_id</c>(소속 서버)이고, 꼬리를 못 읽을 때만 dbid 의 생성 서버다
+    /// (<see cref="RoomMemberBornServer"/>).
     /// <para><b>key 는 엔티티 uid 가 아니다.</b> 세션이 바뀌어도 같은 값이 오는 캐릭터 고정 id 이고,
     /// 전투 패킷의 uid 공간과 겹치지 않는다(코퍼스 대조 0/8). 그래서 신원 결합에는 못 쓰고,
     /// 제거 패킷(0x9622)이 이 key 하나만 싣기 때문에 <b>로스터 안에서 사람을 지목하는 용도</b>로만 쓴다.</para></summary>
@@ -1721,8 +1732,47 @@ public sealed class StreamProcessor
             return null;
         }
 
-        return new PartyMemberRecord(mask, slot, key, server, name, start + 11 + len);
+        // start+8 의 서버는 _member_dbid 상위 16비트(생성 서버)다 — 표시·신원 서버는 꼬리의 _born_server_id(0x9702 와 같은 규칙).
+        int bornServer = RoomMemberBornServer(packet, start + 11 + len);
+        return new PartyMemberRecord(mask, slot, key, bornServer > 0 ? bornServer : server, name, start + 11 + len);
     }
+
+    /// <summary>
+    /// 0x9702 / 0x971F 멤버 레코드(<c>Common_DungeonRoomMemberInfo</c>)의 <c>_born_server_id</c> — 캐릭터가 지금 소속된 서버.
+    /// 못 찾으면 0(호출자가 dbid 서버로 물러선다).
+    /// <para>🔴 레코드 머리의 서버(<c>[mask][slot][key u32][00 00][server u16]</c>)는 사실 <c>_member_dbid</c>(i64)의 상위 16비트,
+    /// 즉 <b>생성 서버</b>라 서버를 이전한 캐릭터는 옛 서버로 남는다. 인게임 파티 창·공식 캐릭터 검색이 쓰는 서버는 born 이다.</para>
+    /// <para>꼬리 레이아웃(스키마 선언 순서): <c>[_pc_id u32][_level u32][_conqueror_level u32][_equip_item_level u32]</c>(선택 필드
+    /// 마스크에 따라 하나가 빠진다) <c>[bool 비트 바이트 — 메시지 공유라 레코드에 따라 있다 없다]</c>
+    /// <c>[_born_server_id u16][_current_server_id u16][_party_role u8][_combat_power …]</c>. 그래서 고정 오프셋이 아니라 좁은 창을
+    /// 훑는다. 실측(08-08 · 07-27): 3 u32 뒤 <c>+12</c>(0x9702) · bool 바이트 하나 끼어 <c>+13</c>(0x971F).</para>
+    /// <para>오탐 방어: born 은 서버 대역, 바로 뒤 current 는 <c>[1001, 9999]</c>(소속 서버 그대로이거나 인스턴스 3xxx·4xxx)여야 한다.
+    /// 앞쪽 u32 들은 상위 2바이트가 00 00 이라 current 자리에서 걸린다(장비 레벨이 우연히 서버 대역이어도 통과 못 한다).</para>
+    /// </summary>
+    private static int RoomMemberBornServer(byte[] packet, int nameEnd)
+    {
+        int last = Math.Min(nameEnd + RoomBornScanLastOffset, packet.Length - 4);
+        for (int k = nameEnd + 4; k <= last; k++)
+        {
+            int born = PacketPrimitives.ParseUInt16Le(packet, k);
+            if (!IsPartyServer(born))
+            {
+                continue;
+            }
+
+            int current = PacketPrimitives.ParseUInt16Le(packet, k + 2);
+            if (current is >= 1001 and <= 9999)
+            {
+                return born;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary><see cref="RoomMemberBornServer"/> 가 born 시작으로 보는 마지막 오프셋(이름 끝 기준). u32 넷 + bool 바이트
+    /// = +17 이 스키마상 최대다.</summary>
+    private const int RoomBornScanLastOffset = 17;
 
     /// <summary>
     /// 0x971F — 멤버 한 명의 레코드. 0x9702 스냅샷이 <b>부분</b>으로 오는 것이 정상이라(코퍼스 45%),
@@ -1897,9 +1947,9 @@ public sealed class StreamProcessor
         int found = 0;
 
         // 현행 클라: 스키마 워크(PartyInfo_NT). 아래 바이트스캔과 같은 레코드에서 같은 (uid, 이름, 서버)를 내되, 두 가지가
-        // 다르다 — ① 다른 존에 있는 멤버(uid 0)도 버리지 않고 ② born 서버 ≠ 캐릭터 서버인 타서버 파티원을 떨구지 않는다
-        // (스캔은 born == dbid 서버를 구조 검증으로 썼는데, 실측 20인 포스는 전원이 born 2003 이고 dbid 서버는 2001·2016·2020
-        // 이 섞여 있었다). 워크가 실패하는 구세대 프레임(멤버 끝 latency 필드 없음)은 종전 스캔이 그대로 읽는다.
+        // 다르다 — ① 다른 존에 있는 멤버(uid 0)도 버리지 않고 ② 서버를 이전한 파티원(born ≠ dbid 서버)을 떨구지 않는다.
+        // 서버는 born(소속 서버)이다 — dbid 상위 16비트는 생성 서버라 이전 뒤에도 옛 서버로 남는다(WireRosterMember.Server).
+        // 워크가 실패하는 구세대 프레임(멤버 끝 latency 필드 없음)은 종전 스캔이 그대로 읽는다.
         if (RosterRecordParser.TryReadPartyInfo(packet, offset + 2, out PartySnapshot? party))
         {
             foreach (WireRosterMember m in party!.Members)
@@ -2262,26 +2312,31 @@ public sealed class StreamProcessor
         if (packet.Length < offset) return;
         int serverBase = offset;
 
-        int server = -1;
-        int i2 = 0;
-        while (true)
+        // 1순위: _server_id(소속 서버)를 그 뒤에 오는 구조로 짚는다(SnapshotServerId). 못 짚을 때만 종전 느슨한 스캔.
+        int server = SnapshotServerId(packet, serverBase);
+        if (server <= 0)
         {
-            offset = serverBase + i2;
-            i2++;
-            if (packet.Length < offset + 2) break;
-            int serverCandidate = PacketPrimitives.ParseUInt16Le(packet, offset);
-            if (!IsPartyServer(serverCandidate)) continue; // 같은 범위가 세 군데 흩어져 있던 것을 한 곳으로
-            offset += 2;
-            if (packet.Length < offset) continue;
-            VarIntOutput legionNameLengthInfo = PacketPrimitives.ReadVarInt(packet, offset);
-            if (legionNameLengthInfo.Value < 2 || legionNameLengthInfo.Value > 24) continue;
-            offset += legionNameLengthInfo.Length;
-            if (packet.Length < offset + legionNameLengthInfo.Value) continue;
-            byte[] lnp = packet[offset..(offset + legionNameLengthInfo.Value)];
-            string legionNameCandidate = Encoding.UTF8.GetString(lnp);
-            if (legionNameCandidate.Any(c => !char.IsDigit(c)))
+            server = -1;
+            int i2 = 0;
+            while (true)
             {
-                server = serverCandidate;
+                offset = serverBase + i2;
+                i2++;
+                if (packet.Length < offset + 2) break;
+                int serverCandidate = PacketPrimitives.ParseUInt16Le(packet, offset);
+                if (!IsPartyServer(serverCandidate)) continue; // 같은 범위가 세 군데 흩어져 있던 것을 한 곳으로
+                offset += 2;
+                if (packet.Length < offset) continue;
+                VarIntOutput legionNameLengthInfo = PacketPrimitives.ReadVarInt(packet, offset);
+                if (legionNameLengthInfo.Value < 2 || legionNameLengthInfo.Value > 24) continue;
+                offset += legionNameLengthInfo.Length;
+                if (packet.Length < offset + legionNameLengthInfo.Value) continue;
+                byte[] lnp = packet[offset..(offset + legionNameLengthInfo.Value)];
+                string legionNameCandidate = Encoding.UTF8.GetString(lnp);
+                if (legionNameCandidate.Any(c => !char.IsDigit(c)))
+                {
+                    server = serverCandidate;
+                }
             }
         }
 
@@ -2301,6 +2356,86 @@ public sealed class StreamProcessor
 
         _sink.Meta("nickname", ("own", false), ("uid", userInfo.Value), ("nickname", nickname), ("server", server), ("job", job), ("power", power ?? 0));
     }
+
+    /// <summary>
+    /// 0x3645(<c>CharAppear_NT</c>)의 <c>_server_id</c> — 캐릭터가 지금 소속된 서버. 못 짚으면 0.
+    /// <para>🔴 <b>왜 종전 스캔을 그대로 쓰지 않는가.</b> 종전 스캔은 "서버 대역 u16 + 길이 2..24 + 숫자 아닌 문자열"을 프레임
+    /// <b>끝까지</b> 훑어 <b>마지막</b> 적중을 썼다. 그런데 프레임 뒤쪽 <c>_dbid</c>(i64)의 상위 16비트가 바로 뒤 <c>_stats</c>
+    /// 배열 길이와 함께 그 모양을 만들어서, 마지막 적중은 사실상 언제나 dbid 서버 = <b>생성 서버</b>였다. 서버를 이전한 캐릭터는
+    /// 그래서 옛 서버로 떴다(제보 2026-11-01: 인게임 두시반[시엘] → 미터 [네자]). 실측 20261027-205641 재생: 0x3645 3,156건 중
+    /// 715건(181명, 23%)의 서버가 이 수정으로 바뀌었다. 공식 캐릭터 검색 대조(2026-11-01)는 새 값만 맞음 23명 · 옛 값만 맞음 0명 ·
+    /// 양쪽 다 동명이 있어 판정 불가 7명이었다. 같은 세션의 파티·포스 레코드 <c>_born_server_id</c> 와도 일치한다.</para>
+    /// <para><b>레이아웃.</b> <c>[_desc CharDesc][_state CharState][_server_id u16][_guild_desc CharGuildDesc?][_abnormals …]</c>.
+    /// CharState 는 선택 필드 마스크 때문에 길이가 변해서(이름 끝 기준 +95..+129) 고정 오프셋으로는 못 읽는다. 대신 <c>_server_id</c>
+    /// <b>바로 뒤</b>에 오는 것으로 짚는다:</para>
+    /// <list type="bullet">
+    /// <item><b>길드 있음</b>: <c>_guild_id</c> i64(하위 48비트 &gt; 0 · 상위 16비트 = 길드 서버 대역) + 길드명(varint 길이 1..72 ·
+    /// 올바른 UTF-8).</item>
+    /// <item><b>길드 없음</b>: 길드 구조체가 통째로 빠지고 <c>_abnormals</c> 가 온다 — 개수(1바이트 varint 1..64) + 첫 레코드의 선택
+    /// 필드 마스크 <c>0x10..0x13</c>.</item>
+    /// </list>
+    /// <para>처음으로 둘 중 하나를 만족하는 위치를 쓴다. 실측(205641, 3,153프레임): 길드형 2,817 · 길드 없음 336 · 못 짚음 0,
+    /// 길드형 정답과의 불일치 0. 마스크를 <c>0x10..0x1F</c> 로 넓히면 CharState 안(이름 끝 +30..+49)에서 오탐 42건이 나므로
+    /// 좁게 둔다. 버프가 하나도 없는 길드 없는 캐릭터처럼 둘 다 아니면 0 을 돌려주고 호출자는 종전 스캔으로 물러선다.</para>
+    /// </summary>
+    private static int SnapshotServerId(byte[] packet, int from)
+    {
+        for (int q = from; q + 4 <= packet.Length; q++)
+        {
+            int server = PacketPrimitives.ParseUInt16Le(packet, q);
+            if (!IsPartyServer(server))
+            {
+                continue;
+            }
+
+            if (LooksLikeGuildDesc(packet, q + 2) || LooksLikeAbnormalList(packet, q + 2))
+            {
+                return server;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary><c>[_guild_id i64: 하위 48비트 &gt; 0 · 상위 16비트 서버 대역][_guild_name: varint 길이 1..72 · 엄격 UTF-8]</c>.</summary>
+    private static bool LooksLikeGuildDesc(byte[] packet, int at)
+    {
+        if (at < 0 || at + 9 > packet.Length)
+        {
+            return false;
+        }
+
+        ulong guildId = (ulong)PacketPrimitives.ReadUInt64Le(packet, at);
+        if ((guildId & 0xFFFF_FFFF_FFFFUL) == 0 || !IsPlausibleServerBand((int)(guildId >> 48)))
+        {
+            return false;
+        }
+
+        VarIntOutput nameLen = PacketPrimitives.ReadVarInt(packet, at + 8);
+        int nameAt = at + 8 + nameLen.Length;
+        if (nameLen.Length <= 0 || nameLen.Value is < 1 or > 72 || nameAt + nameLen.Value > packet.Length)
+        {
+            return false;
+        }
+
+        try
+        {
+            _ = StrictUtf8.GetString(packet, nameAt, nameLen.Value);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary><c>_abnormals</c> 배열 머리: 개수(1바이트 varint 1..64) + 첫 <c>Common_Abnormal</c> 의 선택 필드 마스크 0x10..0x13.</summary>
+    private static bool LooksLikeAbnormalList(byte[] packet, int at) =>
+        at >= 0 && at + 1 < packet.Length
+        && packet[at] is >= 1 and <= 64
+        && packet[at + 1] is >= 0x10 and <= 0x13;
+
+    private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     /// <summary>Snapshot combat-power scan. Kotlin parseSnapshotPower (810-822).</summary>
     private static int? ParseSnapshotPower(byte[] packet)

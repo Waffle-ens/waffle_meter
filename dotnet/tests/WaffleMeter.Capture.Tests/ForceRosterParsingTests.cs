@@ -72,10 +72,32 @@ public sealed class ForceRosterParsingTests
         WireRosterMember self = force.Parties[1].Members.Single(m => m.Nickname == "콘팡");
         Assert.Equal(12208, self.EntityUid); // 2851 → 12208 : uid 는 존마다 바뀐다, dbid 는 그대로
         Assert.Equal(Dbid(Server2003, 45996), self.Dbid);
-        // 캐릭터 서버는 dbid 상위 16비트다(born 은 전원 2003).
-        Assert.Equal(2001, force.Parties[0].Members.Single(m => m.Nickname == "롤형").Server);
-        Assert.Equal(2016, force.Parties[2].Members.Single(m => m.Nickname == "박태평").Server);
-        Assert.Equal(2020, force.Parties[2].Members.Single(m => m.Nickname == "핀셔").Server);
+        // 캐릭터 서버는 _born_server_id(소속 서버)다 — dbid 상위 16비트는 생성 서버라 서버를 이전한 캐릭터는 옛 서버로 남는다.
+        // 이 셋은 dbid 서버가 2001·2016·2020 이지만 공식 캐릭터 검색에는 트리니엘(2003)에만 있다(2026-11-01 대조).
+        WireRosterMember rolhyung = force.Parties[0].Members.Single(m => m.Nickname == "롤형");
+        WireRosterMember taepyung = force.Parties[2].Members.Single(m => m.Nickname == "박태평");
+        WireRosterMember pinscher = force.Parties[2].Members.Single(m => m.Nickname == "핀셔");
+        Assert.Equal((2003, 2001), (rolhyung.Server, (int)((ulong)rolhyung.Dbid >> 48)));
+        Assert.Equal((2003, 2016), (taepyung.Server, (int)((ulong)taepyung.Dbid >> 48)));
+        Assert.Equal((2003, 2020), (pinscher.Server, (int)((ulong)pinscher.Dbid >> 48)));
+    }
+
+    [Fact]
+    public void The_current_server_is_the_instance_process_not_the_character_server()
+    {
+        // _current_server_id 는 지금 접속해 있는 서버 프로세스다 — 20인 공대 인스턴스 안에서는 3004. 표시 서버로 쓰면 안 된다.
+        byte[] p = F.Bytes(F.ForceInfo205829);
+        Assert.True(RosterRecordParser.TryReadForceInfo(p, Body(p), out ForceSnapshot? force));
+        Assert.All(force!.Parties.SelectMany(x => x.Members), m => Assert.Equal(Server2003, m.Server));
+    }
+
+    [Fact]
+    public void An_out_of_band_born_server_falls_back_to_the_dbid_server()
+    {
+        var m = new WireRosterMember(1, 100, Dbid(2016, 47), "박태평", 8, 0, true, BornServer: 0);
+        Assert.Equal(2016, m.Server);
+        Assert.Equal(2016, (m with { BornServer = 3004 }).Server); // 인스턴스 서버 값은 소속 서버가 아니다
+        Assert.Equal(2003, (m with { BornServer = 2003 }).Server);
     }
 
     [Fact]

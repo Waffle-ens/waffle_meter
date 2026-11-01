@@ -123,14 +123,31 @@ public sealed class ForceRosterDispatchTests
     }
 
     [Fact]
-    public void A_cross_server_party_member_is_no_longer_dropped()
+    public void A_transferred_party_member_is_kept_and_labelled_with_its_current_server()
     {
-        // 0x9200 의 쉰 레코드를 다른 서버(2016) 캐릭터로 바꾼다 — dbid 상위 16비트만. born 서버는 2003 그대로다.
-        // 종전 바이트스캔은 born == dbid 서버를 구조 검증으로 써서 이런 멤버(실측 20인 포스의 박태평·핀셔·롤형)를 버렸다.
+        // 0x9200 의 쉰 레코드를 서버를 이전한 캐릭터로 바꾼다 — dbid 상위 16비트(생성 서버)만 2016. born(소속 서버)은 2003 그대로다.
+        // 종전 바이트스캔은 born == dbid 서버를 구조 검증으로 써서 이런 멤버(실측 20인 포스의 박태평·핀셔·롤형)를 버렸고,
+        // 3.3.9 의 스키마 워크는 받아들이되 dbid 서버(옛 서버)를 붙였다. 인게임·공식 검색이 쓰는 건 born 이다.
         byte[] p = F.Bytes(F.PartyInfo205829);
         int dbidHigh = IndexOfDbidServer(p, "쉰");
         p[dbidHigh] = 0xE0; // 2016 = 0x07E0
         p[dbidHigh + 1] = 0x07;
+        var data = new RecordingData();
+        new StreamProcessor(new Sink(), data, null).OnPacketReceived(p, 1000);
+        Assert.Contains((5565, "쉰", 2003), data.Profiles);
+        Assert.Contains((5565, "쉰", 2003), data.Binds);
+        Assert.DoesNotContain(data.Profiles, x => x.Server == 2016);
+    }
+
+    [Fact]
+    public void The_profile_server_follows_the_born_server()
+    {
+        // 반대 방향 대조군: born 만 2016 으로 바꾸면(dbid 는 2003) 프로필 서버가 2016 을 따른다 — born 을 실제로 읽는다는 고정.
+        byte[] p = F.Bytes(F.PartyInfo205829);
+        int born = IndexOfBornServer(p, "쉰");
+        Assert.Equal(2003, p[born] | (p[born + 1] << 8));
+        p[born] = 0xE0;
+        p[born + 1] = 0x07;
         var data = new RecordingData();
         new StreamProcessor(new Sink(), data, null).OnPacketReceived(p, 1000);
         Assert.Contains((5565, "쉰", 2016), data.Profiles);
@@ -167,4 +184,8 @@ public sealed class ForceRosterDispatchTests
 
         throw new InvalidOperationException(name);
     }
+
+    /// <summary>멤버 머리 <c>[mask][_number][_key u32][_born u16][_current u16][0x24 + GUID 36][_dbid i64][nameLen][name]</c> 에서
+    /// born 위치 = 이름 앞 1(nameLen) + 8(dbid) + 37(GUID 문자열) + 2(current) + 2(born).</summary>
+    private static int IndexOfBornServer(byte[] p, string name) => IndexOfDbidServer(p, name) + 3 - 1 - 8 - 37 - 4;
 }
