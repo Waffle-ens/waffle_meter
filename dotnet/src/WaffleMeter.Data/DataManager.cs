@@ -1459,6 +1459,11 @@ public sealed class DataManager : ICaptureGameData
     /// 외치는 것을 막는 용도다(사망으로 인한 초기화에는 종료 알림을 내지 않는다).</para></summary>
     public void SaveEntityDeath(int entityId, long arrivedAt)
     {
+        // A dead summon is gone; its id is free to be reissued. Ending the mapping here means a recycled id whose
+        // new spawn is lost (or has no usable owner record) is no longer folded into the dead summon's owner —
+        // the one recycle shape the class-history guard cannot see (same class, e.g. another 정령성's spirit).
+        _summonRepository.Remove(entityId);
+
         int owner = _userRepository.Executor();
         if (owner == 0 || entityId != owner)
         {

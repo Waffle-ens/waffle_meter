@@ -158,7 +158,7 @@ public sealed class DpsCalculator
 
         if (IsSummonDamageSkill(packet.SkillCode))
         {
-            return LoneContributorOfJob(candidates, JobClass.ELEMENTALIST);
+            return LoneElementalistInFight(candidates);
         }
 
         if (_dm.IsMobInstance(packet.ActorId)) return null;
@@ -215,6 +215,42 @@ public sealed class DpsCalculator
         a != null && b != null
         && string.Equals(a.Nickname, b.Nickname, StringComparison.Ordinal)
         && (a.Server <= 0 || b.Server <= 0 || a.Server == b.Server);
+
+    /// <summary>The 정령성 an UNMAPPED spirit hit ("불의 정령: …" by name) can be credited to: the single 정령성
+    /// contributor, and only when the party/raid roster holds no OTHER 정령성. Counting contributors alone made the
+    /// credit a time-of-first-hit accident — in a 2-정령성 party, B's spirit opening before B's own first hit was
+    /// credited to A, permanently (the cache is incremental). The roster's job codes (0x9702) and its resolved
+    /// users expose the second 정령성 before they deal damage. Without a roster (field boss, solo) the
+    /// contributor-only rule stands as before.</summary>
+    private int? LoneElementalistInFight(ICollection<User> candidates)
+    {
+        int? lone = LoneContributorOfJob(candidates, JobClass.ELEMENTALIST);
+        if (lone == null) return null;
+        User? loneUser = _dm.User(lone.Value);
+
+        foreach ((string nick, int server, int jobCode, int _) in _dm.PartyRosterJobPower(RosterRecoveryWindowMs))
+        {
+            if (JobClassInfo.ConvertFromCode(jobCode) == JobClass.ELEMENTALIST && !IsIdentityOf(loneUser, nick, server))
+            {
+                return null;
+            }
+        }
+
+        foreach (User member in _dm.PartyRoster(RosterRecoveryWindowMs))
+        {
+            if (member.Job == JobClass.ELEMENTALIST && member.Id != lone.Value && !SameIdentity(member, loneUser))
+            {
+                return null;
+            }
+        }
+
+        return lone;
+    }
+
+    private static bool IsIdentityOf(User? user, string nickname, int server) =>
+        user != null
+        && string.Equals(user.Nickname, nickname, StringComparison.Ordinal)
+        && (user.Server <= 0 || server <= 0 || user.Server == server);
 
     /// <summary>The single contributor of <paramref name="job"/> in this fight, or null when there is none or
     /// more than one (ambiguous — the hit is dropped rather than guessed).</summary>
