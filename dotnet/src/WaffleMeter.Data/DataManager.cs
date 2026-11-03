@@ -973,6 +973,16 @@ public sealed class DataManager : ICaptureGameData
             user.Server = server;
         }
 
+        // Entity ids are recycled, and the summon map outlives the summon. A nickname observed for this uid AFTER
+        // a summon mapping means the id now belongs to a player, so the mapping is stale: drop it here, where the
+        // later assertion lands. This is what lets DpsCalculator.ResolveActor fold ANY still-mapped uid — a
+        // mapping that survives is by construction newer than the uid's last identity observation. (The reverse
+        // order — a 0x3641 after the nickname — keeps the user record for identity lookups but folds the damage.)
+        if (!string.IsNullOrWhiteSpace(nickname))
+        {
+            _summonRepository.Remove(uid);
+        }
+
         // Snapshot jobByte (ConvertFromCode) is an Authoritative source (the byte right after a probed
         // nickname): it fills a missing job and isn't overwritten by a later same-tier source (e.g. the
         // official lookup), but the player's own job-locked damage skills (OwnSkill) outrank it and can

@@ -113,38 +113,48 @@ public sealed class DpsCalculator
 
     private int? ResolveActor(ParsedDamagePacket packet, ICollection<User> candidates)
     {
-        // Fold a summon's damage into its summoner — BUT never when the actor is itself a known player.
-        // The summon map persists across battles (only HardReset flushes it) and entity ids get reused,
-        // so a stale summonId->owner mapping could otherwise steal a FOREIGN player's skill (e.g. a 검성's
-        // 흡혈의 검) into another player's breakdown. A real player is never a summon, so attribute a known
-        // user's damage to that user directly. (Hardening over the original Kotlin's unconditional fold.)
+        // Fold a summon's damage into its summoner. The summon→owner map outlives the summon (only HardReset
+        // flushes it) and the game recycles entity ids, so "this uid is mapped" must mean "mapped MORE RECENTLY
+        // than any player identity seen on it": DataManager.SaveNickname drops the mapping when a nickname lands
+        // on the uid afterwards (the original hardening — a stale mapping must never steal a FOREIGN player's
+        // skill, e.g. a 검성's 흡혈의 검, into another player's breakdown), and a 0x3641 landing on a RETIRED
+        // player uid (a player who left the scene) is the game telling us the id is a summon now. A provisional
+        // nickname-less record (EnsureUser, created by this very entity's pre-spawn hits) is no evidence of a
+        // player and must not block the fold — it previously did, so a summon that raced its own spawn packet
+        // lost ALL its post-reveal damage (the row was retracted, then every later hit was dropped as a mob).
+        // The current executor uid is the one exception: it is never a summon.
         int? summoner = _dm.SummonerId(packet.ActorId);
-        if (summoner != null && _dm.User(packet.ActorId) == null)
+        if (summoner != null && packet.ActorId != _dm.ExecutorId())
         {
             // A summon casts its OWNER's job-locked skills, so a mapped owner whose class is known and cannot cast
-            // this skill exposes a STALE mapping: the map outlives the entity (only HardReset flushes it) and the
-            // game recycles entity ids, so a 마도성's 불의 장벽 object that spawned on a 정령성's retired spirit id
+            // this skill exposes a STALE mapping that the spawn-side guards could not catch (the recycled id's
+            // spawn never re-mapped it): a 마도성's 불의 장벽 object that spawned on a 정령성's retired spirit id
             // was folded into the 정령성 — and because folded packets never feed the job inference, the row kept
             // its 정령성 icon with a 마도성 skill in its breakdown (the "마도성 스킬이 정령에 잡힌다" report).
             // Re-home such a hit to the one contributor who CAN cast it (the same lone-candidate rule the 정령
-            // skills use below); with zero or several candidates it is dropped rather than mis-credited.
-            // Summon-own skills (불의 정령: … are 100xxx codes) are not job-locked, so they never trip this.
+            // skills use below); with zero or several candidates it is dropped rather than mis-credited. A 정령성
+            // spirit's own skills are 16xx (job-locked to 정령성) or 100xxx (not job-locked), so a correctly mapped
+            // spirit never trips this.
+            int owner = LiveUidOf(summoner.Value);
             JobClass? skillJob = JobClassInfo.ConvertFromSkill(packet.SkillCode);
-            JobClass? ownerJob = _dm.User(summoner.Value)?.Job;
+            JobClass? ownerJob = _dm.User(owner)?.Job;
             if (skillJob != null && ownerJob != null && ownerJob != skillJob)
             {
                 return LoneContributorOfJob(candidates, skillJob.Value);
             }
 
-            if (ContainsUid(candidates, summoner.Value) || IsFreshPartyMember(summoner.Value))
+            if (ContainsUid(candidates, owner) || IsFreshPartyMember(owner))
             {
                 // Bug 1: fold a summon into its owner ONLY when the owner is attributable to THIS fight — a current
                 // damaging contributor, or a fresh (0x9702) party member. At a shared field boss the client also
                 // receives non-party players' summons, whose owner id is a STALE known user (last seen in an earlier
-                // scene); the old unconditional fold surfaced that stranger as a phantom low-DPS row. An un-attributable
-                // owner leaves the summon unfolded → it drops as a mob-instance / stays a trace row the filter hides.
-                return summoner;
+                // scene); the old unconditional fold surfaced that stranger as a phantom low-DPS row.
+                return owner;
             }
+
+            // Mapped to an owner who is NOT in this fight: drop. Falling through used to hand a stranger's spirit
+            // to the name-prefix rule below, which credited it to OUR lone 정령성 at every shared field boss.
+            return null;
         }
 
         if (IsSummonDamageSkill(packet.SkillCode))
@@ -154,6 +164,22 @@ public sealed class DpsCalculator
 
         if (_dm.IsMobInstance(packet.ActorId)) return null;
         return packet.ActorId;
+    }
+
+    /// <summary>The uid a fold should land on for the owner <paramref name="uid"/>: the NEWEST uid registered
+    /// for that owner's (nickname, server) identity. The summon map stores the owner uid as of the spawn, but a
+    /// player re-registers under a fresh uid on every zone/instance load, so an older mapping pointed at a retired
+    /// uid of the same character and the fold opened a SECOND row with the same nickname (summon damage only)
+    /// next to the live one. Falls back to <paramref name="uid"/> when the owner has no identity yet.</summary>
+    private int LiveUidOf(int uid)
+    {
+        User? owner = _dm.User(uid);
+        if (owner?.Nickname is not { Length: > 0 } || owner.Server <= 0)
+        {
+            return uid;
+        }
+
+        return _dm.FindUserByNicknameAndServer(owner.Nickname, owner.Server)?.Id ?? uid;
     }
 
     /// <summary>The single contributor of <paramref name="job"/> in this fight, or null when there is none or
