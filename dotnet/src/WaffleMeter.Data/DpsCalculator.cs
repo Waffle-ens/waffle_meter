@@ -136,7 +136,7 @@ public sealed class DpsCalculator
             // (fresh-id, ownerless spawn) path the wall is dropped as a mob anyway, so a drop is the consistent
             // outcome. A 정령성 spirit's own skills are 16xx (job-locked to 정령성) or 100xxx (not job-locked),
             // so a correctly mapped spirit never trips this.
-            int owner = LiveUidOf(summoner.Value);
+            int owner = LiveUidOf(summoner.Value, candidates);
             if (IsStaleMappingByJob(packet, owner))
             {
                 return null;
@@ -165,42 +165,56 @@ public sealed class DpsCalculator
         return packet.ActorId;
     }
 
-    /// <summary>True when the mapped <paramref name="owner"/>'s known class cannot cast the packet's job-locked
-    /// skill AND that contradiction is trustworthy. The owner's job can itself be wrong — a mis-read snapshot
-    /// jobByte or a same-name official lookup (both <see cref="JobProvenance.Authoritative"/>) — and a healer who
-    /// never lands an own damage skill is never corrected, so treating every mismatch as stale would silently
-    /// drop a real summon's damage for the whole fight. The contradiction is accepted when either
-    /// (a) the owner's job came from their OWN un-folded damage skill (ground truth), or
-    /// (b) the mapping predates the current battle — a recycled id inherits its mapping from an earlier fight,
-    /// whereas a summon mapped during this fight with a merely mis-labelled owner keeps folding as before.</summary>
+    /// <summary>True when the hit from the mapped entity cannot be its owner's: either the owner's class — known
+    /// from the owner's OWN un-folded damage skill (ground truth) — cannot cast this job-locked skill, or the
+    /// entity itself has already cast another class's skills under this mapping (a summon never changes class, so
+    /// its id was recycled; see <see cref="DataManager.IsSummonContradicted"/>). A mismatch against a merely
+    /// Authoritative owner job (snapshot jobByte / same-name official lookup, both known to mis-read) with no
+    /// class history is NOT trusted: a healer who never lands an own damage skill is never corrected, and a
+    /// persistent summon is kept across pulls, so treating that mismatch as stale would drop a real summon's
+    /// damage for every fight. Deliberately independent of battle clocks — a pet mapped before the pull is the
+    /// normal case, not a recycled id.</summary>
     private bool IsStaleMappingByJob(ParsedDamagePacket packet, int owner)
     {
+        if (_dm.IsSummonContradicted(packet.ActorId, packet.Timestamp)) return true;
         JobClass? skillJob = JobClassInfo.ConvertFromSkill(packet.SkillCode);
         if (skillJob == null) return false;
         User? ownerUser = _dm.User(owner);
-        if (ownerUser?.Job is not { } ownerJob || ownerJob == skillJob) return false;
-        if (ownerUser.JobSource == JobProvenance.OwnSkill) return true;
-
-        long battleStart = _dm.CurrentBattleStart();
-        long? mappedAt = _dm.SummonMappedAt(packet.ActorId);
-        return battleStart > 0L && mappedAt is { } at && at < battleStart;
+        return ownerUser?.Job is { } ownerJob && ownerJob != skillJob
+               && ownerUser.JobSource == JobProvenance.OwnSkill;
     }
 
-    /// <summary>The uid a fold should land on for the owner <paramref name="uid"/>: the NEWEST uid registered
-    /// for that owner's (nickname, server) identity. The summon map stores the owner uid as of the spawn, but a
-    /// player re-registers under a fresh uid on every zone/instance load, so an older mapping pointed at a retired
-    /// uid of the same character and the fold opened a SECOND row with the same nickname (summon damage only)
-    /// next to the live one. Falls back to <paramref name="uid"/> when the owner has no identity yet.</summary>
-    private int LiveUidOf(int uid)
+    /// <summary>The uid a fold should land on for the mapped owner <paramref name="uid"/>. The summon map stores
+    /// the owner uid as of the spawn, but a player re-registers under a fresh uid on every zone/instance load, so
+    /// an older mapping pointed at a retired uid of the same character and the fold opened a SECOND row with the
+    /// same nickname (summon damage only) next to the live one. Resolution order mirrors
+    /// DataManager.ResolveRosterMemberUid: the mapped uid itself when it is a contributor; the live executor when
+    /// the identity is ours; a contributor of the same identity; else the mapped uid. "Newest saved uid" is NOT
+    /// used — the repository re-touches a retired uid on any late save (own-power, official lookup), so it does
+    /// not mean "live".</summary>
+    private int LiveUidOf(int uid, ICollection<User> candidates)
     {
+        if (ContainsUid(candidates, uid)) return uid;
         User? owner = _dm.User(uid);
-        if (owner?.Nickname is not { Length: > 0 } || owner.Server <= 0)
+        if (owner?.Nickname is not { Length: > 0 }) return uid;
+
+        int executor = _dm.ExecutorId();
+        if (executor > 0 && SameIdentity(_dm.User(executor), owner)) return executor;
+
+        foreach (User c in candidates)
         {
-            return uid;
+            if (SameIdentity(c, owner)) return c.Id;
         }
 
-        return _dm.FindUserByNicknameAndServer(owner.Nickname, owner.Server)?.Id ?? uid;
+        return uid;
     }
+
+    /// <summary>Same character: same nickname, and the same server when both are known (a 0x3645 record can
+    /// carry Server == -1 when the legion heuristic did not resolve it).</summary>
+    private static bool SameIdentity(User? a, User? b) =>
+        a != null && b != null
+        && string.Equals(a.Nickname, b.Nickname, StringComparison.Ordinal)
+        && (a.Server <= 0 || b.Server <= 0 || a.Server == b.Server);
 
     /// <summary>The single contributor of <paramref name="job"/> in this fight, or null when there is none or
     /// more than one (ambiguous — the hit is dropped rather than guessed).</summary>

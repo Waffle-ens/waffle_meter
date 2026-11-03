@@ -147,6 +147,7 @@ public sealed class SummonFoldOccupancyTests
         dm.SaveNickname(OldOwnerUid, "힐러", isExecutor: false, server: Server, jobByte: 29);
         dm.SaveSummon(Summon, OldOwnerUid);
         dm.SaveNickname(NewOwnerUid, "힐러", isExecutor: false, server: Server, jobByte: 29); // zone reload: new uid
+        dm.SaveUserPower(OldOwnerUid, 12345); // a late save re-touches the RETIRED uid as the repository's "newest"
         dm.SavePartyRoster([("나", Server, 1), ("힐러", Server, 2)]);
         Open(dm);
 
@@ -158,6 +159,48 @@ public sealed class SummonFoldOccupancyTests
         Assert.Equal(1, report.Contributors.Count(u => u.Nickname == "힐러")); // previously two 힐러 rows
         Assert.Equal(1900d, Amount(report, NewOwnerUid));
         Assert.DoesNotContain(report.Contributors, u => u.Id == OldOwnerUid);
+    }
+
+    [Fact]
+    public void Fold_lands_on_the_live_executor_when_the_owner_identity_is_ours()
+    {
+        // Executor E1 re-instanced to E2 via the name anchor (0x3633 lost); my pet is mapped to E2 but a late
+        // own-power packet re-touches E1. The fold must land on the live executor, never open a second "me".
+        (DataManager dm, DpsCalculator calc) = Boss();
+        const int E2 = 5100, Pet = 18066;
+        dm.SaveNickname(E2, "나", isExecutor: true, server: Server, jobByte: 25); // executor moved to E2
+        dm.SaveSummon(Pet, E2);
+        dm.SaveUserPower(Me, 999); // stale E1 touched after E2 registered
+        dm.SavePartyRoster([("나", Server, 1)]);
+        Open(dm);
+
+        Hit(dm, Pet, 1_001_100, 900, FlameBolt);
+        DpsReport report = calc.GetDps();
+
+        Assert.Equal(E2, dm.ExecutorId());
+        Assert.Equal(900d, Amount(report, E2));
+        Assert.Equal(1, report.Contributors.Count(u => u.Nickname == "나"));
+    }
+
+    [Fact]
+    public void Spirit_of_an_owner_record_without_a_server_folds_to_the_same_named_contributor()
+    {
+        // A 0x3645 record can carry Server == -1; the spirit's mapping points at that record while the 정령성's
+        // damaging uid carries the server. Identity match ignores an unknown server.
+        (DataManager dm, DpsCalculator calc) = Boss();
+        const int OldUid = 6000, LiveUid = 6001, Spirit = 18066;
+        dm.SaveNickname(OldUid, "우리정령성", isExecutor: false, server: -1, jobByte: 21);
+        dm.SaveSummon(Spirit, OldUid);
+        dm.SaveNickname(LiveUid, "우리정령성", isExecutor: false, server: Server, jobByte: 21);
+        dm.LoadSkills([new Skill(16400010, "불의 정령: 화염 타격")]);
+        Open(dm);
+
+        Hit(dm, LiveUid, 1_001_050, 3000, 16010000);
+        Hit(dm, Spirit, 1_001_100, 900, 16400010);
+        DpsReport report = calc.GetDps();
+
+        Assert.Equal(3900d, Amount(report, LiveUid));
+        Assert.DoesNotContain(report.Contributors, u => u.Id == OldUid);
     }
 
     [Fact]

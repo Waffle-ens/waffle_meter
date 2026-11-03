@@ -540,12 +540,13 @@ public sealed class DataManager : ICaptureGameData
 
     // ---- summon ----
 
-    public void SaveSummon(int summonId, int summonerId) => _summonRepository.Save(summonId, summonerId, Clock());
+    public void SaveSummon(int summonId, int summonerId) => _summonRepository.Save(summonId, summonerId);
     public int? SummonerId(int summonId) => _summonRepository.Get(summonId);
 
-    /// <summary>When the summon→owner mapping for <paramref name="summonId"/> was asserted (0x3641 arrival
-    /// wall-clock), or null when unmapped.</summary>
-    public long? SummonMappedAt(int summonId) => _summonRepository.MappedAt(summonId);
+    /// <summary>True when the mapped entity <paramref name="summonId"/> had cast job-locked skills of two
+    /// different classes by packet time <paramref name="atMs"/>: a summon never changes class, so its id was
+    /// recycled and the mapping is stale from the first contradicting hit on.</summary>
+    public bool IsSummonContradicted(int summonId, long atMs) => _summonRepository.IsContradicted(summonId, atMs);
 
     // ---- user ----
 
@@ -1903,6 +1904,13 @@ public sealed class DataManager : ICaptureGameData
         // 바인드 이후 그 uid가 다시는 등장하지 않는 진짜 사장된 uid라 승격되지 않는 게 맞다.
         PromotePendingAnchorIfActive(pdp.ActorId);
         PromotePendingAnchorIfActive(pdp.TargetId);
+        // Summon skill-class history (recycled-id detection for the fold): a mapped entity casting a job-locked
+        // skill outside the class it was first seen casting has been reissued to a different object. Recorded
+        // here, before the packet is resolved, so the contradiction gates this very hit.
+        if (JobClassInfo.ConvertFromSkill(pdp.SkillCode) is { } skillJob && SummonerId(pdp.ActorId) != null)
+        {
+            _summonRepository.NoteSkillJob(pdp.ActorId, skillJob, pdp.Timestamp);
+        }
         // Training-dummy test mode: a hit on a dummy drives (and is gated by) the dummy battle machine. Drop it —
         // never record — when test mode is off or the duration cut has fired, so an idle/finished dummy shows no
         // combat and post-cut damage can't inflate the frozen result. Non-dummy targets take the plain path.
