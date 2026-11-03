@@ -540,8 +540,12 @@ public sealed class DataManager : ICaptureGameData
 
     // ---- summon ----
 
-    public void SaveSummon(int summonId, int summonerId) => _summonRepository.Save(summonId, summonerId);
+    public void SaveSummon(int summonId, int summonerId) => _summonRepository.Save(summonId, summonerId, Clock());
     public int? SummonerId(int summonId) => _summonRepository.Get(summonId);
+
+    /// <summary>When the summon→owner mapping for <paramref name="summonId"/> was asserted (0x3641 arrival
+    /// wall-clock), or null when unmapped.</summary>
+    public long? SummonMappedAt(int summonId) => _summonRepository.MappedAt(summonId);
 
     // ---- user ----
 

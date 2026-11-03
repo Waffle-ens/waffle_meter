@@ -126,21 +126,20 @@ public sealed class DpsCalculator
         int? summoner = _dm.SummonerId(packet.ActorId);
         if (summoner != null && packet.ActorId != _dm.ExecutorId())
         {
-            // A summon casts its OWNER's job-locked skills, so a mapped owner whose class is known and cannot cast
-            // this skill exposes a STALE mapping that the spawn-side guards could not catch (the recycled id's
-            // spawn never re-mapped it): a 마도성's 불의 장벽 object that spawned on a 정령성's retired spirit id
-            // was folded into the 정령성 — and because folded packets never feed the job inference, the row kept
-            // its 정령성 icon with a 마도성 skill in its breakdown (the "마도성 스킬이 정령에 잡힌다" report).
-            // Re-home such a hit to the one contributor who CAN cast it (the same lone-candidate rule the 정령
-            // skills use below); with zero or several candidates it is dropped rather than mis-credited. A 정령성
-            // spirit's own skills are 16xx (job-locked to 정령성) or 100xxx (not job-locked), so a correctly mapped
-            // spirit never trips this.
+            // A summon casts its OWNER's job-locked skills, so a mapped owner whose class cannot cast this skill
+            // exposes a STALE mapping that the spawn-side guards could not catch (the recycled id's spawn never
+            // re-mapped it): a 마도성's 불의 장벽 object that spawned on a 정령성's retired spirit id was folded
+            // into the 정령성 — and because folded packets never feed the job inference, the row kept its 정령성
+            // icon with a 마도성 skill in its breakdown (the "마도성 스킬이 정령에 잡힌다" report). Such a hit is
+            // DROPPED, not re-homed: guessing "the lone 마도성 in this fight" would hand a stranger's wall to a
+            // party member at a shared field boss and depends on who happened to hit first, and on the normal
+            // (fresh-id, ownerless spawn) path the wall is dropped as a mob anyway, so a drop is the consistent
+            // outcome. A 정령성 spirit's own skills are 16xx (job-locked to 정령성) or 100xxx (not job-locked),
+            // so a correctly mapped spirit never trips this.
             int owner = LiveUidOf(summoner.Value);
-            JobClass? skillJob = JobClassInfo.ConvertFromSkill(packet.SkillCode);
-            JobClass? ownerJob = _dm.User(owner)?.Job;
-            if (skillJob != null && ownerJob != null && ownerJob != skillJob)
+            if (IsStaleMappingByJob(packet, owner))
             {
-                return LoneContributorOfJob(candidates, skillJob.Value);
+                return null;
             }
 
             if (ContainsUid(candidates, owner) || IsFreshPartyMember(owner))
@@ -164,6 +163,27 @@ public sealed class DpsCalculator
 
         if (_dm.IsMobInstance(packet.ActorId)) return null;
         return packet.ActorId;
+    }
+
+    /// <summary>True when the mapped <paramref name="owner"/>'s known class cannot cast the packet's job-locked
+    /// skill AND that contradiction is trustworthy. The owner's job can itself be wrong — a mis-read snapshot
+    /// jobByte or a same-name official lookup (both <see cref="JobProvenance.Authoritative"/>) — and a healer who
+    /// never lands an own damage skill is never corrected, so treating every mismatch as stale would silently
+    /// drop a real summon's damage for the whole fight. The contradiction is accepted when either
+    /// (a) the owner's job came from their OWN un-folded damage skill (ground truth), or
+    /// (b) the mapping predates the current battle — a recycled id inherits its mapping from an earlier fight,
+    /// whereas a summon mapped during this fight with a merely mis-labelled owner keeps folding as before.</summary>
+    private bool IsStaleMappingByJob(ParsedDamagePacket packet, int owner)
+    {
+        JobClass? skillJob = JobClassInfo.ConvertFromSkill(packet.SkillCode);
+        if (skillJob == null) return false;
+        User? ownerUser = _dm.User(owner);
+        if (ownerUser?.Job is not { } ownerJob || ownerJob == skillJob) return false;
+        if (ownerUser.JobSource == JobProvenance.OwnSkill) return true;
+
+        long battleStart = _dm.CurrentBattleStart();
+        long? mappedAt = _dm.SummonMappedAt(packet.ActorId);
+        return battleStart > 0L && mappedAt is { } at && at < battleStart;
     }
 
     /// <summary>The uid a fold should land on for the owner <paramref name="uid"/>: the NEWEST uid registered

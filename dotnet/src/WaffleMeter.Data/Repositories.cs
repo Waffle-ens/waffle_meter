@@ -193,11 +193,15 @@ public sealed class MobHpRepository
 /// <summary>Kotlin SummonRepository: summonId -> owner.</summary>
 public sealed class SummonRepository
 {
-    private readonly Dictionary<int, int> _storage = new();
-    public void Save(int summonId, int summonerId) => _storage[summonId] = summonerId;
-    public int? Get(int summonId) => _storage.TryGetValue(summonId, out int v) ? v : null;
+    private readonly Dictionary<int, (int Owner, long AtMs)> _storage = new();
+
+    /// <param name="atMs">Wall-clock of the 0x3641 that asserted the mapping — lets the fold tell a mapping
+    /// inherited from an earlier fight (a recycled entity id) from one made in the current one.</param>
+    public void Save(int summonId, int summonerId, long atMs = 0L) => _storage[summonId] = (summonerId, atMs);
+    public int? Get(int summonId) => _storage.TryGetValue(summonId, out (int Owner, long AtMs) v) ? v.Owner : null;
+    public long? MappedAt(int summonId) => _storage.TryGetValue(summonId, out (int Owner, long AtMs) v) ? v.AtMs : null;
     public bool Remove(int summonId) => _storage.Remove(summonId);
-    public IReadOnlyDictionary<int, int> GetAll() => _storage;
+    public IReadOnlyDictionary<int, int> GetAll() => _storage.ToDictionary(kv => kv.Key, kv => kv.Value.Owner);
     public void Flush() => _storage.Clear();
 }
 
