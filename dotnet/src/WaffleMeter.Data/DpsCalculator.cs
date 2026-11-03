@@ -119,29 +119,56 @@ public sealed class DpsCalculator
         // 흡혈의 검) into another player's breakdown. A real player is never a summon, so attribute a known
         // user's damage to that user directly. (Hardening over the original Kotlin's unconditional fold.)
         int? summoner = _dm.SummonerId(packet.ActorId);
-        if (summoner != null && _dm.User(packet.ActorId) == null
-            && (ContainsUid(candidates, summoner.Value) || IsFreshPartyMember(summoner.Value)))
+        if (summoner != null && _dm.User(packet.ActorId) == null)
         {
-            // Bug 1: fold a summon into its owner ONLY when the owner is attributable to THIS fight — a current
-            // damaging contributor, or a fresh (0x9702) party member. At a shared field boss the client also
-            // receives non-party players' summons, whose owner id is a STALE known user (last seen in an earlier
-            // scene); the old unconditional fold surfaced that stranger as a phantom low-DPS row. An un-attributable
-            // owner leaves the summon unfolded → it drops as a mob-instance / stays a trace row the filter hides.
-            return summoner;
+            // A summon casts its OWNER's job-locked skills, so a mapped owner whose class is known and cannot cast
+            // this skill exposes a STALE mapping: the map outlives the entity (only HardReset flushes it) and the
+            // game recycles entity ids, so a 마도성's 불의 장벽 object that spawned on a 정령성's retired spirit id
+            // was folded into the 정령성 — and because folded packets never feed the job inference, the row kept
+            // its 정령성 icon with a 마도성 skill in its breakdown (the "마도성 스킬이 정령에 잡힌다" report).
+            // Re-home such a hit to the one contributor who CAN cast it (the same lone-candidate rule the 정령
+            // skills use below); with zero or several candidates it is dropped rather than mis-credited.
+            // Summon-own skills (불의 정령: … are 100xxx codes) are not job-locked, so they never trip this.
+            JobClass? skillJob = JobClassInfo.ConvertFromSkill(packet.SkillCode);
+            JobClass? ownerJob = _dm.User(summoner.Value)?.Job;
+            if (skillJob != null && ownerJob != null && ownerJob != skillJob)
+            {
+                return LoneContributorOfJob(candidates, skillJob.Value);
+            }
+
+            if (ContainsUid(candidates, summoner.Value) || IsFreshPartyMember(summoner.Value))
+            {
+                // Bug 1: fold a summon into its owner ONLY when the owner is attributable to THIS fight — a current
+                // damaging contributor, or a fresh (0x9702) party member. At a shared field boss the client also
+                // receives non-party players' summons, whose owner id is a STALE known user (last seen in an earlier
+                // scene); the old unconditional fold surfaced that stranger as a phantom low-DPS row. An un-attributable
+                // owner leaves the summon unfolded → it drops as a mob-instance / stays a trace row the filter hides.
+                return summoner;
+            }
         }
 
         if (IsSummonDamageSkill(packet.SkillCode))
         {
-            List<int> elementalists = candidates
-                .Where(u => u.Job == JobClass.ELEMENTALIST)
-                .Select(u => u.Id)
-                .Distinct()
-                .ToList();
-            return elementalists.Count == 1 ? elementalists[0] : null;
+            return LoneContributorOfJob(candidates, JobClass.ELEMENTALIST);
         }
 
         if (_dm.IsMobInstance(packet.ActorId)) return null;
         return packet.ActorId;
+    }
+
+    /// <summary>The single contributor of <paramref name="job"/> in this fight, or null when there is none or
+    /// more than one (ambiguous — the hit is dropped rather than guessed).</summary>
+    private static int? LoneContributorOfJob(ICollection<User> candidates, JobClass job)
+    {
+        int? found = null;
+        foreach (User c in candidates)
+        {
+            if (c.Job != job) continue;
+            if (found != null && found.Value != c.Id) return null;
+            found = c.Id;
+        }
+
+        return found;
     }
 
     private static bool ContainsUid(ICollection<User> candidates, int uid)

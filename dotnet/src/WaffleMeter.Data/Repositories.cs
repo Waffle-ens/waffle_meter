@@ -196,6 +196,7 @@ public sealed class SummonRepository
     private readonly Dictionary<int, int> _storage = new();
     public void Save(int summonId, int summonerId) => _storage[summonId] = summonerId;
     public int? Get(int summonId) => _storage.TryGetValue(summonId, out int v) ? v : null;
+    public bool Remove(int summonId) => _storage.Remove(summonId);
     public IReadOnlyDictionary<int, int> GetAll() => _storage;
     public void Flush() => _storage.Clear();
 }

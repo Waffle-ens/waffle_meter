@@ -380,6 +380,12 @@ public sealed class DataManager : ICaptureGameData
             {
                 _pendingStart = null; // this instance id was recycled to a different mob — drop the stale retry
             }
+
+            // The summon→owner map is only flushed by HardReset, so a recycled id would keep pointing at the
+            // OLD entity's owner: a 마도성's 불의 장벽 object spawning on a 정령성's retired spirit id had its
+            // damage folded into the 정령성 (the "마도성 스킬이 정령에 잡힌다" report). A spawn under a different
+            // mob code means the old entity is gone — forget its owner; the new spawn re-maps if it has one.
+            _summonRepository.Remove(mid);
         }
 
         _mobIdRepository.Save(mid, code);

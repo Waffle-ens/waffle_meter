@@ -65,6 +65,35 @@ public sealed class SummonOwnerParseTests
         // contain 07 02 01) to a fixed garbage owner.
         Assert.Null(dm.SummonerId(18066));
     }
+
+    [Fact]
+    public void Respawn_of_a_mapped_id_under_a_different_mob_code_forgets_the_stale_owner()
+    {
+        // Entity ids are recycled and the summon map outlives the entity, so a 마도성's 불의 장벽 object that
+        // spawned on a 정령성's retired spirit id inherited the 정령성 as its "owner" (the "마도성 스킬이 정령에
+        // 잡힌다" report). A spawn of that id under a DIFFERENT mob code is the old entity being replaced.
+        DataManager dm = NewDm();
+        var processor = new StreamProcessor(NullStreamProcessorSink.Instance, dm);
+
+        processor.OnPacketReceived(Convert.FromHexString(Summon22744_0702_06), 0);
+        Assert.Equal(11651, dm.SummonerId(22744));
+        Assert.Equal(2920874, dm.GetMobId(22744));
+
+        // The same entity re-broadcast (same mob code) keeps its owner.
+        processor.OnPacketReceived(Convert.FromHexString(Summon22744_0702_06), 0);
+        Assert.Equal(11651, dm.SummonerId(22744));
+
+        // The real 18066 packet re-targeted at instance 22744 (varint 928D01 → D8B101) with its mob code bumped
+        // (2920874 → 2920875); its 07 02 01 owner record is rejected (owner unknown), so nothing re-maps it —
+        // exactly the "spawn without a usable owner record" shape that left the stale mapping in place.
+        string recycled = Summon18066_0702_01
+            .Replace("928D01", "D8B101", StringComparison.Ordinal)
+            .Replace("AA912C004002", "AB912C004002", StringComparison.Ordinal);
+        processor.OnPacketReceived(Convert.FromHexString(recycled), 0);
+
+        Assert.Equal(2920875, dm.GetMobId(22744));
+        Assert.Null(dm.SummonerId(22744));
+    }
 }
 
 /// <summary>
