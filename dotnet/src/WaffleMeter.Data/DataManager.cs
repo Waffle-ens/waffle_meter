@@ -1043,7 +1043,8 @@ public sealed class DataManager : ICaptureGameData
     private const long SummonDeathDirectGraceMs = 500;
 
     /// <summary>죽은 소환수의 DoT 를 주인 것으로 인정하는 한도. 실측(2026-10-27 어비스 군중전)에서 보스에 찍힌 다른
-    /// 직업 틱은 사망 후 15초 이내 3건, 15초 초과 17건이라 그 너머부터는 id 재사용이 섞인다.</summary>
+    /// 직업 틱은 사망 후 15초 이내 대 초과가 3 대 17(그 시점의 주인 직업 기준), 0 대 10(최종 직업 기준)이라 그
+    /// 너머부터는 id 재사용이 섞인다.</summary>
     private const long SummonDeathDotTailMs = 15_000;
 
     /// <summary>이 타격의 시각에 이 id 를 소유한 주인. 전투 종료 재누적이 전 패킷을 다시 묻기 때문에, 답이 묻는 시점에
@@ -2028,7 +2029,9 @@ public sealed class DataManager : ICaptureGameData
         // a summon mapping means the id belongs to a player from now on, so the mapping ends here. This is what
         // lets DpsCalculator.ResolveActor fold ANY still-mapped uid — a mapping that has not ended is by
         // construction newer than the uid's last identity observation. (The reverse order — a 0x3641 after the
-        // nickname — keeps the user record for identity lookups but folds the damage.)
+        // nickname — keeps the user record for identity lookups but folds the damage.) The mob id stays, so an id
+        // that ever spawned as a mob keeps reading as one; measured player uids (≤16362) and mob ids (≥16387) do
+        // not overlap, so this does not cost a player their damage today.
         if (!string.IsNullOrWhiteSpace(nickname))
         {
             _summonRepository.MarkEnded(uid, Clock());
@@ -3832,14 +3835,25 @@ public sealed class DataManager : ICaptureGameData
         // 살아 있는 딕셔너리를 그대로 열거하지 않는다 — 이 메서드는 행 클릭 시 UI 스레드에서도 불린다.
         foreach (SummonMapping summon in _summonRepository.Mappings())
         {
-            // ResolveSummonOwner 와 같은 가드: 그 엔티티 id 를 물려받은 실제 플레이어의 시전을
-            // 옛 주인의 타임라인으로 끌어오지 않는다.
-            if (summon.Owner == uid && summon.SummonId != uid && ResolveSummonOwner(summon.SummonId) == uid)
+            if (summon.Owner != uid || summon.SummonId == uid || summon.SummonId == ExecutorId())
             {
-                // 끝난 뒤의 시전은 그 id 를 물려받은 다른 것의 시전이다. 끝나기 전의 시전은 그대로 접는다.
-                long lastCast = summon.EndedAtMs ?? (summon.DiedAtMs + SummonDeathDirectGraceMs) ?? end;
-                casts.AddRange(_skillCastRepository.FindInWindow(summon.SummonId, start, Math.Min(end, lastCast)));
+                continue;
             }
+
+            // 소유 구간을 시각으로 자른다. 끝난 뒤의 시전은 그 id 를 물려받은 실제 플레이어나 다른 소환수의 것이고,
+            // 끝나기 전의 시전은 피해 경로(SummonOwnerAt)와 똑같이 주인의 것이다.
+            long lastCast = end;
+            if (summon.EndedAtMs is { } endedAt)
+            {
+                lastCast = Math.Min(lastCast, endedAt);
+            }
+
+            if (summon.DiedAtMs is { } diedAt)
+            {
+                lastCast = Math.Min(lastCast, diedAt + SummonDeathDirectGraceMs);
+            }
+
+            casts.AddRange(_skillCastRepository.FindInWindow(summon.SummonId, start, lastCast));
         }
 
         int band = User(uid)?.Job is { } job ? JobClassInfo.BasicSkillCode(job) / 1_000_000 : 0;

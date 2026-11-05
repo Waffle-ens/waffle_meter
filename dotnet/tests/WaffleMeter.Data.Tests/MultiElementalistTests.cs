@@ -153,7 +153,7 @@ public sealed class MultiElementalistTests
     }
 
     [Fact]
-    public void An_elementalist_who_left_the_party_no_longer_blocks_the_prefix_rule()
+    public void An_elementalist_from_a_previous_party_no_longer_blocks_the_prefix_rule()
     {
         (DataManager dm, DpsCalculator calc) = Setup(secondElementalist: false, roster: false);
         dm.SavePartyRoster([("나", Server, 1), ("정령A", Server, 2), ("떠난정령", Server, 3)], partyId: 111);
@@ -164,6 +164,23 @@ public sealed class MultiElementalistTests
         Hit(dm, SpiritA, 1_001_050, 700, SpiritStrike);
 
         Assert.Equal(1700d, Amount(calc.GetDps(), ElemA));
+    }
+
+    [Fact]
+    public void A_member_who_left_under_the_same_party_id_still_blocks_the_prefix_rule()
+    {
+        // 현재 동작을 그대로 적어 둔다. 파티 id 는 입·퇴장에 유지되고 슬롯 병합은 떠난 사람의 슬롯을 지우지 않아서,
+        // 0x9622 를 놓치면 그 사람은 로스터에 남는다. 보수적으로(추측하지 않고) 드롭하는 쪽이다.
+        (DataManager dm, DpsCalculator calc) = Setup(secondElementalist: false, roster: false);
+        dm.SavePartyRoster([("나", Server, 1), ("정령A", Server, 2), ("떠난정령", Server, 3)], partyId: 111);
+        dm.SavePartyRosterJobPower([("나", Server, 25, 1), ("정령A", Server, 21, 1), ("떠난정령", Server, 21, 1)]);
+        dm.SavePartyRoster([("나", Server, 1), ("정령A", Server, 2)], partyId: 111);
+
+        Hit(dm, ElemA, 1_001_000, 1000, ColdShock);
+        Hit(dm, SpiritA, 1_001_050, 700, SpiritStrike);
+
+        Assert.Contains(dm.CurrentRosterJobCodes(60_000), m => m.Nickname == "떠난정령");
+        Assert.Equal(1000d, Amount(calc.GetDps(), ElemA));
     }
 
     [Theory]

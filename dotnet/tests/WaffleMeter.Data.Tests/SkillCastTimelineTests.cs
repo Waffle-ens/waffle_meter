@@ -118,6 +118,38 @@ public sealed class SkillCastTimelineTests
     }
 
     [Fact]
+    public void A_cast_between_a_death_and_a_later_respawn_is_not_the_dead_summons()
+    {
+        // 피해 경로는 사망 후 직격을 500ms 까지만 인정한다. 시전도 같은 답을 내야 한다.
+        (DataManager dm, _, long[] clock) = Setup();
+        dm.SaveMobId(Summon, 2920874);
+        dm.SaveSummon(Summon, Dealer);
+        dm.SaveEntityDeath(Summon, clock[0] + 600);
+        dm.SaveSkillCast(Summon, 16020000, clock[0] + 3_000);
+        long start = clock[0] - 1;
+        clock[0] += 5_000;
+        dm.SaveMobId(Summon, 2930001);
+
+        Assert.Empty(dm.BattleSkillCasts(Dealer, start, clock[0] + 1_000));
+    }
+
+    [Fact]
+    public void A_nickname_splits_the_casts_at_that_moment()
+    {
+        (DataManager dm, _, long[] clock) = Setup();
+        dm.SaveSummon(Summon, Dealer);
+        dm.SaveSkillCast(Summon, 16030000, clock[0] + 500);
+        long start = clock[0] - 1;
+        clock[0] += 1_000;
+        dm.SaveNickname(Summon, "남", isExecutor: false, server: 2003, jobByte: ElementalistJobByte);
+        dm.SaveSkillCast(Summon, 16020000, clock[0] + 500);
+
+        List<SkillCastRow> casts = dm.BattleSkillCasts(Dealer, start, clock[0] + 1_000);
+
+        Assert.Equal(["대지 진동"], casts.Select(c => c.Name).ToArray());
+    }
+
+    [Fact]
     public void A_respawned_ids_earlier_casts_stay_on_the_owner()
     {
         (DataManager dm, _, long[] clock) = Setup();

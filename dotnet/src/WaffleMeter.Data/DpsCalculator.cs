@@ -191,7 +191,8 @@ public sealed class DpsCalculator
     /// <summary>이 타격이 매핑된 주인의 것일 수 없는가. 스킬 직업과 주인 직업을 둘 다 알면 그 둘이 곧 답이다.
     /// <para>주인 직업의 출처는 가리지 않는다. 제보된 모양(본인 타격 없이 불의 장벽만 있는 정령성 행)의 주인은 자기
     /// 스킬을 쓴 적이 없어 직업이 Authoritative 이기 때문이다. 직업이 오독된 주인의 소환수 타격은 여기서 빠지지만, 본인
-    /// 스킬이 한 번이라도 나오면 직업이 교정되고 전투 종료 재누적이 그 타격을 되돌린다.</para>
+    /// 스킬이 한 번이라도 나오면 직업이 교정되고 전투 종료 재누적이 그 타격을 되돌린다. 재누적이 없는 저장 경로(타깃
+    /// 전환, 드레인)에서는 되돌아오지 않는다.</para>
     /// <para>주인 직업을 모를 때만 이 id 의 직업 이력을 본다(<see cref="DataManager.IsSummonContradicted"/>).
     /// 전투 시계와는 무관하다 — 풀 전에 매핑된 상주 펫은 정상이고 재사용된 id 가 아니다.</para></summary>
     private bool IsStaleMappingByJob(ParsedDamagePacket packet, int owner)

@@ -14,8 +14,9 @@ namespace WaffleMeter.Data.Tests;
 public sealed class SummonMappingTimeTests
 {
     private const int Instance = 100, BossCode = 2301722, Server = 2003;
-    private const int Me = 5001, Sorcerer = 5002, Cleric = 5003, Stranger = 5004, Pet = 18066;
+    private const int Me = 5001, Sorcerer = 5002, Cleric = 5003, Stranger = 5004, Unknown = 5005, Elementalist = 5006, Pet = 18066;
     private const int FlameBolt = 15210000, WallOfFire = 15390000, ClericHit = 17060000, ClericSummonSkill = 17153450;
+    private const int ColdShock = 16010000, SpiritStrike = 16400010;
     private const int ShieldFrame = 12320000;       // 네자칸의 방패: 군중전에서 소환수 actor 로 플레이어 대상에 찍힌다
     private const int GrantedProc = 11340028;       // 흡혈의 검 착취: 수혜자가 actor 로 찍힌다
     private const int PetCode = 2920874, OtherCode = 2930001;
@@ -27,6 +28,7 @@ public sealed class SummonMappingTimeTests
         long[] now = { T0 };
         var dm = new DataManager { Clock = () => now[0] };
         dm.LoadMobs(new Dictionary<int, Mob> { [BossCode] = new Mob(BossCode, "그리오사", Boss: true) });
+        dm.LoadSkills([new Skill(SpiritStrike, "불의 정령: 화염 타격")]);
         dm.SaveMobId(Instance, BossCode);
         dm.SaveNickname(Me, "나", isExecutor: true, server: Server, jobByte: SorcererJobByte);
         dm.SaveNickname(Sorcerer, "마도", isExecutor: false, server: Server, jobByte: SorcererJobByte);
@@ -140,6 +142,94 @@ public sealed class SummonMappingTimeTests
     }
 
     [Fact]
+    public void A_spirit_dot_on_a_dead_pets_id_goes_to_the_lone_elementalist()
+    {
+        // 다른 직업 DoT 는 죽은 소환수의 것이 아니다. 매핑이 끝난 것으로 보므로 이름 접두 규칙이 판단한다.
+        (DataManager dm, DpsCalculator calc, long[] now, List<DpsLog> saved) = Setup();
+        dm.SaveNickname(Elementalist, "정령", isExecutor: false, server: Server, jobByte: 21);
+        dm.SavePartyRoster([("나", Server, 1), ("마도", Server, 2), ("힐러", Server, 3), ("정령", Server, 4)]);
+        dm.SaveMobId(Pet, PetCode);
+        dm.SaveSummon(Pet, Cleric);
+        Hit(dm, Cleric, T0 + 100, 1000, ClericHit);
+        Hit(dm, Elementalist, T0 + 110, 1000, ColdShock);
+        now[0] = T0 + 1_000;
+        dm.SaveEntityDeath(Pet, now[0]);
+        Hit(dm, Pet, now[0] + 2_000, 700, SpiritStrike, dot: true);
+
+        DpsReport report = Finish(dm, calc, saved);
+        Assert.Equal(1700d, Amount(report, Elementalist));
+        Assert.Equal(1000d, Amount(report, Cleric));
+    }
+
+    [Fact]
+    public void Class_history_keeps_counting_after_the_death()
+    {
+        (DataManager dm, DpsCalculator calc, long[] now, List<DpsLog> saved) = Setup();
+        dm.SaveNickname(Unknown, "미상", isExecutor: false, server: Server, jobByte: 0);
+        dm.SavePartyRoster([("나", Server, 1), ("미상", Server, 2)]);
+        dm.SaveMobId(Pet, PetCode);
+        dm.SaveSummon(Pet, Unknown);
+        Hit(dm, Me, T0 + 100, 5000, FlameBolt);
+        Hit(dm, Pet, T0 + 200, 700, ClericSummonSkill);
+        now[0] = T0 + 1_000;
+        dm.SaveEntityDeath(Pet, now[0]);
+        Hit(dm, Pet, now[0] + 2_000, 900, WallOfFire, dot: true);
+
+        Assert.True(dm.IsSummonContradicted(Pet, now[0] + 2_000));
+        Assert.Equal(700d, Amount(Finish(dm, calc, saved), Unknown));
+    }
+
+    [Fact]
+    public void A_late_hit_of_a_dead_pet_without_a_mob_id_leaves_no_row()
+    {
+        // 코드 마커 없는 0x3641 은 몹 id 를 남기지 않는다. 죽은 항목이 소환수로 답해야 임시 행이 철회된다.
+        (DataManager dm, DpsCalculator calc, long[] now, List<DpsLog> saved) = Setup();
+        dm.SaveSummon(Pet, Cleric);
+        Hit(dm, Cleric, T0 + 100, 1000, ClericHit);
+        now[0] = T0 + 1_000;
+        dm.SaveEntityDeath(Pet, now[0]);
+        Hit(dm, Pet, now[0] + 600, 700, ClericSummonSkill);
+
+        DpsReport report = Finish(dm, calc, saved);
+        Assert.Equal(1000d, Amount(report, Cleric));
+        Assert.DoesNotContain(report.Contributors, u => u.Id == Pet);
+    }
+
+    [Fact]
+    public void A_second_death_does_not_move_the_stamp()
+    {
+        (DataManager dm, DpsCalculator calc, long[] now, List<DpsLog> saved) = Setup();
+        dm.SaveMobId(Pet, PetCode);
+        dm.SaveSummon(Pet, Cleric);
+        Hit(dm, Cleric, T0 + 100, 1000, ClericHit);
+        now[0] = T0 + 1_000;
+        dm.SaveEntityDeath(Pet, now[0]);
+        Hit(dm, Pet, T0 + 3_000, 700, ClericSummonSkill);
+        now[0] = T0 + 5_000;
+        dm.SaveEntityDeath(Pet, now[0]);
+
+        Assert.Equal(1000d, Amount(Finish(dm, calc, saved), Cleric));
+    }
+
+    [Fact]
+    public void A_repeated_nickname_does_not_move_the_end()
+    {
+        // 플레이어 신원 패킷은 반복된다. 끝난 시각이 뒤로 밀리면 그 사이 타격이 옛 주인에게 접힌다.
+        (DataManager dm, DpsCalculator calc, long[] now, List<DpsLog> saved) = Setup();
+        dm.SaveSummon(Pet, Cleric);
+        Hit(dm, Cleric, T0 + 100, 1000, ClericHit);
+        now[0] = T0 + 1_000;
+        dm.SaveNickname(Pet, "남", isExecutor: false, server: Server, jobByte: ClericJobByte);
+        Hit(dm, Pet, T0 + 1_100, 900, ClericHit);
+        now[0] = T0 + 5_000;
+        dm.SaveNickname(Pet, "남", isExecutor: false, server: Server, jobByte: ClericJobByte);
+
+        DpsReport report = Finish(dm, calc, saved);
+        Assert.Equal(1000d, Amount(report, Cleric));
+        Assert.Equal(900d, Amount(report, Pet));
+    }
+
+    [Fact]
     public void A_respawn_under_another_mob_code_keeps_the_earlier_hits_and_refuses_the_later_ones()
     {
         (DataManager dm, DpsCalculator calc, long[] now, List<DpsLog> saved) = Setup();
@@ -160,8 +250,30 @@ public sealed class SummonMappingTimeTests
     }
 
     [Fact]
+    public void A_nickname_on_a_spawned_id_still_reads_as_a_mob_for_later_hits()
+    {
+        // 현재 동작을 그대로 적어 둔다. 닉네임은 소환 매핑만 끝내고 몹 id 는 남긴다. 실측상 플레이어 uid(≤16362)와
+        // 몹 id(≥16387)가 겹치지 않아 실제 트래픽에는 없는 모양이다.
+        (DataManager dm, DpsCalculator calc, long[] now, List<DpsLog> saved) = Setup();
+        dm.SaveMobId(Pet, PetCode);
+        dm.SaveSummon(Pet, Cleric);
+        Hit(dm, Cleric, T0 + 100, 1000, ClericHit);
+        Hit(dm, Pet, T0 + 200, 700, ClericSummonSkill);
+        calc.GetDps();
+
+        now[0] = T0 + 1_000;
+        dm.SaveNickname(Pet, "남", isExecutor: false, server: Server, jobByte: SorcererJobByte);
+        Hit(dm, Pet, now[0] + 100, 900, FlameBolt);
+
+        DpsReport report = Finish(dm, calc, saved);
+        Assert.Equal(1700d, Amount(report, Cleric));
+        Assert.Equal(0d, Amount(report, Pet));
+    }
+
+    [Fact]
     public void A_nickname_landing_on_the_id_splits_the_hits_at_that_moment()
     {
+        // 몹 id 가 없는 id 에서 매핑이 끝나는 규칙만 본다(바로 위 테스트 참조).
         (DataManager dm, DpsCalculator calc, long[] now, List<DpsLog> saved) = Setup();
         dm.SaveSummon(Pet, Cleric);
         Hit(dm, Cleric, T0 + 100, 1000, ClericHit);
@@ -196,9 +308,39 @@ public sealed class SummonMappingTimeTests
     }
 
     [Fact]
+    public void Player_target_frames_do_not_poison_an_unknown_owners_summon()
+    {
+        (DataManager dm, DpsCalculator calc, _, List<DpsLog> saved) = Setup();
+        dm.SaveNickname(Stranger, "남", isExecutor: false, server: Server, jobByte: 0);
+        dm.SaveNickname(Unknown, "미상", isExecutor: false, server: Server, jobByte: 0);
+        dm.SavePartyRoster([("나", Server, 1), ("미상", Server, 2)]);
+        dm.SaveMobId(Pet, PetCode);
+        dm.SaveSummon(Pet, Unknown);
+        Hit(dm, Me, T0 + 100, 5000, FlameBolt);
+        Hit(dm, Pet, T0 + 200, 500, ShieldFrame, dot: true, target: Stranger);
+        Hit(dm, Pet, T0 + 300, 500, WallOfFire, dot: true);
+
+        Assert.Equal(500d, Amount(Finish(dm, calc, saved), Unknown));
+    }
+
+    [Fact]
+    public void A_granted_proc_does_not_poison_an_unknown_owners_summon()
+    {
+        (DataManager dm, DpsCalculator calc, _, List<DpsLog> saved) = Setup();
+        dm.SaveNickname(Unknown, "미상", isExecutor: false, server: Server, jobByte: 0);
+        dm.SavePartyRoster([("나", Server, 1), ("미상", Server, 2)]);
+        dm.SaveMobId(Pet, PetCode);
+        dm.SaveSummon(Pet, Unknown);
+        Hit(dm, Me, T0 + 100, 5000, FlameBolt);
+        Hit(dm, Pet, T0 + 200, 300, GrantedProc);
+        Hit(dm, Pet, T0 + 300, 700, ClericSummonSkill);
+
+        Assert.Equal(1000d, Amount(Finish(dm, calc, saved), Unknown));
+    }
+
+    [Fact]
     public void Another_class_code_on_a_mob_still_marks_the_id_as_recycled_when_the_owner_job_is_unknown()
     {
-        const int Unknown = 5005;
         (DataManager dm, DpsCalculator calc, _, List<DpsLog> saved) = Setup();
         dm.SaveNickname(Unknown, "미상", isExecutor: false, server: Server, jobByte: 0);
         dm.SavePartyRoster([("나", Server, 1), ("미상", Server, 2)]);
@@ -288,6 +430,65 @@ public sealed class SummonMappingTimeTests
 
         // 모르는 id 는 받은 그대로다.
         Assert.Equal(7777, dm.ResolveSummonOwner(7777));
+    }
+
+    [Fact]
+    public void A_stale_roster_lists_nobody()
+    {
+        (DataManager dm, _, long[] now, _) = Setup();
+        dm.SavePartyRoster([("정령", Server, 4), ("옛정령", Server, 5)]);
+        dm.SavePartyRosterJobPower([("정령", Server, 21, 1), ("옛정령", Server, 21, 1)]);
+        now[0] = T0 + 3_600_000;
+
+        Assert.Empty(dm.CurrentRosterJobCodes(60_000));
+    }
+
+    [Fact]
+    public void Summon_mapping_snapshots_survive_new_spawns_from_the_parser_thread()
+    {
+        // 행 클릭의 시전 조회는 UI 스레드에서 돈다. 파서가 그동안 새 키를 꽂아도 열거가 깨지면 안 된다.
+        var repository = new SummonRepository();
+        for (int i = 0; i < 4_000; i++)
+        {
+            repository.Save(i, 1);
+        }
+
+        Exception? failure = null;
+        var done = new ManualResetEventSlim(false);
+        var parser = new Thread(() =>
+        {
+            int id = 4_000;
+            while (!done.IsSet)
+            {
+                repository.Save(id++, 1);
+                if (id >= 8_000)
+                {
+                    repository.Flush();
+                    id = 0;
+                }
+            }
+        }) { IsBackground = true };
+
+        parser.Start();
+        try
+        {
+            for (int round = 0; round < 3_000; round++)
+            {
+                repository.Mappings();
+                repository.GetAll();
+            }
+        }
+        catch (Exception e)
+        {
+            failure = e;
+        }
+        finally
+        {
+            done.Set();
+        }
+
+        parser.Join();
+        Assert.Null(failure);
     }
 
     [Fact]

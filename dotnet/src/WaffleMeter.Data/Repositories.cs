@@ -321,8 +321,9 @@ public sealed class SummonRepository
 
         /// <summary>Packet timestamp of the first hit that contradicted <see cref="ObservedJob"/>: from then on
         /// the mapping is known-stale. Kept (not removed) so the entity still reads as "a summon" for phantom-row
-        /// retraction, while the fold refuses hits at or after this time. Hits BEFORE it (the old entity's own,
-        /// still unresolved in the same read window) keep folding — resolution runs later than recording.</summary>
+        /// retraction, while the fold refuses hits at or after this time when the owner's job cannot answer for
+        /// itself (see DpsCalculator.IsStaleMappingByJob). Hits BEFORE it (the old entity's own, still unresolved
+        /// in the same read window) keep folding — resolution runs later than recording.</summary>
         public long? ContradictedAtMs { get; set; }
 
         /// <summary>0x8D04: 이 엔티티가 죽은 시각. 그 뒤로도 죽기 전에 걸어 둔 DoT 는 이 id 로 틱한다.</summary>
@@ -335,8 +336,19 @@ public sealed class SummonRepository
 
     private readonly Dictionary<int, Entry> _storage = new();
 
+    /// <summary>쓰기와 열거만 잠근다. <see cref="Mappings"/>는 행 클릭 때 UI 스레드에서 돌고(리포트 틱의 펜스 밖이다)
+    /// 파서는 그동안 새 키를 꽂으므로, 잠그지 않으면 상세창이 오류 대화상자로 끝난다 — <see cref="UseBuffRepository"/>와
+    /// 같은 사유다. 피해마다 도는 단건 조회는 잠그지 않는다.</summary>
+    private readonly Lock _gate = new();
+
     /// <summary>A (re)assertion of the mapping by a 0x3641 — a new entity, so the skill history starts over.</summary>
-    public void Save(int summonId, int summonerId) => _storage[summonId] = new Entry(summonerId);
+    public void Save(int summonId, int summonerId)
+    {
+        lock (_gate)
+        {
+            _storage[summonId] = new Entry(summonerId);
+        }
+    }
 
     /// <summary>시각을 묻지 않는 조회. 다른 것이 물려받은 id 는 null 이지만, 죽은 소환수는 주인을 그대로 답한다 —
     /// 스폰보다 먼저 때려 생긴 임시 행을 소환수가 죽은 뒤에도 철회할 수 있어야 하기 때문이다.
@@ -346,12 +358,18 @@ public sealed class SummonRepository
 
     public void MarkDead(int summonId, long atMs)
     {
-        if (_storage.TryGetValue(summonId, out Entry? e)) e.DiedAtMs ??= atMs;
+        lock (_gate)
+        {
+            if (_storage.TryGetValue(summonId, out Entry? e)) e.DiedAtMs ??= atMs;
+        }
     }
 
     public void MarkEnded(int summonId, long atMs)
     {
-        if (_storage.TryGetValue(summonId, out Entry? e)) e.EndedAtMs ??= atMs;
+        lock (_gate)
+        {
+            if (_storage.TryGetValue(summonId, out Entry? e)) e.EndedAtMs ??= atMs;
+        }
     }
 
     public bool TryGetMapping(int summonId, out SummonMapping mapping)
@@ -366,11 +384,29 @@ public sealed class SummonRepository
         return false;
     }
 
-    public List<SummonMapping> Mappings() =>
-        _storage.Select(kv => new SummonMapping(kv.Key, kv.Value.Owner, kv.Value.DiedAtMs, kv.Value.EndedAtMs)).ToList();
+    public List<SummonMapping> Mappings()
+    {
+        lock (_gate)
+        {
+            return _storage.Select(kv => new SummonMapping(kv.Key, kv.Value.Owner, kv.Value.DiedAtMs, kv.Value.EndedAtMs)).ToList();
+        }
+    }
 
-    public IReadOnlyDictionary<int, int> GetAll() => _storage.ToDictionary(kv => kv.Key, kv => kv.Value.Owner);
-    public void Flush() => _storage.Clear();
+    public IReadOnlyDictionary<int, int> GetAll()
+    {
+        lock (_gate)
+        {
+            return _storage.ToDictionary(kv => kv.Key, kv => kv.Value.Owner);
+        }
+    }
+
+    public void Flush()
+    {
+        lock (_gate)
+        {
+            _storage.Clear();
+        }
+    }
 
     /// <summary>Record that the mapped <paramref name="summonId"/> cast a skill of class <paramref name="job"/>
     /// at packet time <paramref name="atMs"/>. Returns true when this contradicts the class it was first seen
