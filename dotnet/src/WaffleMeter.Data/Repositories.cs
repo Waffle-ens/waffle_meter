@@ -299,14 +299,135 @@ public sealed class MobHpRepository
     public void Flush() => _storage.Clear();
 }
 
-/// <summary>Kotlin SummonRepository: summonId -> owner.</summary>
+/// <summary>소환 매핑 한 건의 상태. <see cref="DataManager.SummonOwnerAt"/>가 타격 시각과 비교한다.</summary>
+public readonly record struct SummonMapping(int SummonId, int Owner, long? DiedAtMs, long? EndedAtMs);
+
+/// <summary>Kotlin SummonRepository: summonId -> owner.
+/// <para><b>🔑 항목을 지우지 않는다.</b> 전투가 끝나면 <c>DpsCalculator</c> 가 그 전투의 패킷 전체를 이 맵으로
+/// 다시 해석한다. 지우면 그 소환수가 지우기 전에 넣은 피해까지 저장·업로드에서 사라진다(2026-10-27 카이라 실측
+/// 마도성 행 −43%). 끝난 시각만 남기고 타격 시각과 비교한다. 비우는 건 <see cref="Flush"/> 뿐이다.</para></summary>
 public sealed class SummonRepository
 {
-    private readonly Dictionary<int, int> _storage = new();
-    public void Save(int summonId, int summonerId) => _storage[summonId] = summonerId;
-    public int? Get(int summonId) => _storage.TryGetValue(summonId, out int v) ? v : null;
-    public IReadOnlyDictionary<int, int> GetAll() => _storage;
-    public void Flush() => _storage.Clear();
+    private sealed class Entry(int owner)
+    {
+        public int Owner { get; } = owner;
+
+        /// <summary>The class band of the first job-locked skill this entity cast ON A MOB while mapped. A LATER
+        /// job-locked skill from another band means the entity id was recycled to a different object (e.g. a 마도성
+        /// 불의 장벽 landing on a retired 정령 id) while the mapping lived on. Frames on a player target do not count:
+        /// they carry another class's shield/redirect codes under a live summon (1,154 of the 1,162 foreign-class
+        /// frames in the 2026-10-27 abyss crowd), so they say nothing about the actor's class.</summary>
+        public JobClass? ObservedJob { get; set; }
+
+        /// <summary>Packet timestamp of the first hit that contradicted <see cref="ObservedJob"/>: from then on
+        /// the mapping is known-stale. Kept (not removed) so the entity still reads as "a summon" for phantom-row
+        /// retraction, while the fold refuses hits at or after this time when the owner's job cannot answer for
+        /// itself (see DpsCalculator.IsStaleMappingByJob). Hits BEFORE it (the old entity's own, still unresolved
+        /// in the same read window) keep folding — resolution runs later than recording.</summary>
+        public long? ContradictedAtMs { get; set; }
+
+        /// <summary>0x8D04: 이 엔티티가 죽은 시각. 그 뒤로도 죽기 전에 걸어 둔 DoT 는 이 id 로 틱한다.</summary>
+        public long? DiedAtMs { get; set; }
+
+        /// <summary>이 id 가 더 이상 이 소환수가 아니게 된 시각(그 위로 닉네임이 들어왔거나 다른 몹 코드로 다시
+        /// 스폰됐다). 이 시각 이전의 타격은 계속 이 소환수의 것이다.</summary>
+        public long? EndedAtMs { get; set; }
+    }
+
+    private readonly Dictionary<int, Entry> _storage = new();
+
+    /// <summary>쓰기와 열거만 잠근다. <see cref="Mappings"/>는 행 클릭 때 UI 스레드에서 돌고(리포트 틱의 펜스 밖이다)
+    /// 파서는 그동안 새 키를 꽂으므로, 잠그지 않으면 상세창이 오류 대화상자로 끝난다 — <see cref="UseBuffRepository"/>와
+    /// 같은 사유다. 피해마다 도는 단건 조회는 잠그지 않는다.</summary>
+    private readonly Lock _gate = new();
+
+    /// <summary>A (re)assertion of the mapping by a 0x3641 — a new entity, so the skill history starts over.</summary>
+    public void Save(int summonId, int summonerId)
+    {
+        lock (_gate)
+        {
+            _storage[summonId] = new Entry(summonerId);
+        }
+    }
+
+    /// <summary>시각을 묻지 않는 조회. 다른 것이 물려받은 id 는 null 이지만, 죽은 소환수는 주인을 그대로 답한다 —
+    /// 스폰보다 먼저 때려 생긴 임시 행을 소환수가 죽은 뒤에도 철회할 수 있어야 하기 때문이다.
+    /// 타격을 귀속할 때는 <see cref="DataManager.SummonOwnerAt"/>를 쓴다.</summary>
+    public int? Get(int summonId) =>
+        _storage.TryGetValue(summonId, out Entry? e) && e.EndedAtMs == null ? e.Owner : null;
+
+    public void MarkDead(int summonId, long atMs)
+    {
+        lock (_gate)
+        {
+            if (_storage.TryGetValue(summonId, out Entry? e)) e.DiedAtMs ??= atMs;
+        }
+    }
+
+    public void MarkEnded(int summonId, long atMs)
+    {
+        lock (_gate)
+        {
+            if (_storage.TryGetValue(summonId, out Entry? e)) e.EndedAtMs ??= atMs;
+        }
+    }
+
+    public bool TryGetMapping(int summonId, out SummonMapping mapping)
+    {
+        if (_storage.TryGetValue(summonId, out Entry? e))
+        {
+            mapping = new SummonMapping(summonId, e.Owner, e.DiedAtMs, e.EndedAtMs);
+            return true;
+        }
+
+        mapping = default;
+        return false;
+    }
+
+    public List<SummonMapping> Mappings()
+    {
+        lock (_gate)
+        {
+            return _storage.Select(kv => new SummonMapping(kv.Key, kv.Value.Owner, kv.Value.DiedAtMs, kv.Value.EndedAtMs)).ToList();
+        }
+    }
+
+    public IReadOnlyDictionary<int, int> GetAll()
+    {
+        lock (_gate)
+        {
+            return _storage.ToDictionary(kv => kv.Key, kv => kv.Value.Owner);
+        }
+    }
+
+    public void Flush()
+    {
+        lock (_gate)
+        {
+            _storage.Clear();
+        }
+    }
+
+    /// <summary>Record that the mapped <paramref name="summonId"/> cast a skill of class <paramref name="job"/>
+    /// at packet time <paramref name="atMs"/>. Returns true when this contradicts the class it was first seen
+    /// casting (the entity id was recycled).</summary>
+    public bool NoteSkillJob(int summonId, JobClass job, long atMs)
+    {
+        if (!_storage.TryGetValue(summonId, out Entry? e)) return false;
+        if (e.ObservedJob == null)
+        {
+            e.ObservedJob = job;
+            return false;
+        }
+
+        if (e.ObservedJob != job) e.ContradictedAtMs ??= atMs;
+        return e.ContradictedAtMs != null;
+    }
+
+    /// <summary>True when a hit at packet time <paramref name="atMs"/> from <paramref name="summonId"/> falls at or
+    /// after the entity's observed class change.</summary>
+    public bool IsContradicted(int summonId, long atMs) =>
+        _storage.TryGetValue(summonId, out Entry? e) && e.ContradictedAtMs is { } at && atMs >= at;
 }
 
 /// <summary>Kotlin UseBuffRepository: actor/target -> applied buff intervals.
