@@ -1,4 +1,5 @@
 using WaffleMeter.App.Core;
+using WaffleMeter.Capture;
 using WaffleMeter.Data;
 using Xunit;
 
