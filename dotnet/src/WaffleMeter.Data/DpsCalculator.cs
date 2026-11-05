@@ -135,35 +135,158 @@ public sealed class DpsCalculator
 
     private int? ResolveActor(ParsedDamagePacket packet, ICollection<User> candidates)
     {
-        // Fold a summon's damage into its summoner — BUT never when the actor is itself a known player.
-        // The summon map persists across battles (only HardReset flushes it) and entity ids get reused,
-        // so a stale summonId->owner mapping could otherwise steal a FOREIGN player's skill (e.g. a 검성's
-        // 흡혈의 검) into another player's breakdown. A real player is never a summon, so attribute a known
-        // user's damage to that user directly. (Hardening over the original Kotlin's unconditional fold.)
+        // Fold a summon's damage into its summoner. The summon→owner map outlives the summon (only HardReset
+        // flushes it) and the game recycles entity ids, so "this uid is mapped" must mean "mapped MORE RECENTLY
+        // than any player identity seen on it": DataManager.SaveNickname drops the mapping when a nickname lands
+        // on the uid afterwards (the original hardening — a stale mapping must never steal a FOREIGN player's
+        // skill, e.g. a 검성's 흡혈의 검, into another player's breakdown), and a 0x3641 landing on a RETIRED
+        // player uid (a player who left the scene) is the game telling us the id is a summon now. A provisional
+        // nickname-less record (EnsureUser, created by this very entity's pre-spawn hits) is no evidence of a
+        // player and must not block the fold — it previously did, so a summon that raced its own spawn packet
+        // lost ALL its post-reveal damage (the row was retracted, then every later hit was dropped as a mob).
+        // The current executor uid is the one exception: it is never a summon.
         int? summoner = _dm.SummonerId(packet.ActorId);
-        if (summoner != null && _dm.User(packet.ActorId) == null
-            && (ContainsUid(candidates, summoner.Value) || IsFreshPartyMember(summoner.Value)))
+        if (summoner != null && packet.ActorId != _dm.ExecutorId())
         {
-            // Bug 1: fold a summon into its owner ONLY when the owner is attributable to THIS fight — a current
-            // damaging contributor, or a fresh (0x9702) party member. At a shared field boss the client also
-            // receives non-party players' summons, whose owner id is a STALE known user (last seen in an earlier
-            // scene); the old unconditional fold surfaced that stranger as a phantom low-DPS row. An un-attributable
-            // owner leaves the summon unfolded → it drops as a mob-instance / stays a trace row the filter hides.
-            return summoner;
+            // A summon casts its OWNER's job-locked skills, so a mapped owner whose class cannot cast this skill
+            // exposes a STALE mapping that the spawn-side guards could not catch (the recycled id's spawn never
+            // re-mapped it): a 마도성's 불의 장벽 object that spawned on a 정령성's retired spirit id was folded
+            // into the 정령성 — and because folded packets never feed the job inference, the row kept its 정령성
+            // icon with a 마도성 skill in its breakdown (the "마도성 스킬이 정령에 잡힌다" report). Such a hit is
+            // DROPPED, not re-homed: guessing "the lone 마도성 in this fight" would hand a stranger's wall to a
+            // party member at a shared field boss and depends on who happened to hit first, and on the normal
+            // (fresh-id, ownerless spawn) path the wall is dropped as a mob anyway, so a drop is the consistent
+            // outcome. A 정령성 spirit's own skills are 16xx (job-locked to 정령성) or 100xxx (not job-locked),
+            // so a correctly mapped spirit never trips this.
+            int owner = LiveUidOf(summoner.Value, candidates);
+            if (IsStaleMappingByJob(packet, owner))
+            {
+                return null;
+            }
+
+            if (ContainsUid(candidates, owner) || IsFreshPartyMember(owner))
+            {
+                // Bug 1: fold a summon into its owner ONLY when the owner is attributable to THIS fight — a current
+                // damaging contributor, or a fresh (0x9702) party member. At a shared field boss the client also
+                // receives non-party players' summons, whose owner id is a STALE known user (last seen in an earlier
+                // scene); the old unconditional fold surfaced that stranger as a phantom low-DPS row.
+                return owner;
+            }
+
+            // Mapped to an owner who is NOT in this fight: drop. Falling through used to hand a stranger's spirit
+            // to the name-prefix rule below, which credited it to OUR lone 정령성 at every shared field boss.
+            return null;
         }
 
         if (IsSummonDamageSkill(packet.SkillCode))
         {
-            List<int> elementalists = candidates
-                .Where(u => u.Job == JobClass.ELEMENTALIST)
-                .Select(u => u.Id)
-                .Distinct()
-                .ToList();
-            return elementalists.Count == 1 ? elementalists[0] : null;
+            return LoneElementalistInFight(candidates);
         }
 
         if (_dm.IsMobInstance(packet.ActorId)) return null;
         return packet.ActorId;
+    }
+
+    /// <summary>True when the hit from the mapped entity cannot be its owner's: either the owner's class — known
+    /// from the owner's OWN un-folded damage skill (ground truth) — cannot cast this job-locked skill, or the
+    /// entity itself has already cast another class's skills under this mapping (a summon never changes class, so
+    /// its id was recycled; see <see cref="DataManager.IsSummonContradicted"/>). A mismatch against a merely
+    /// Authoritative owner job (snapshot jobByte / same-name official lookup, both known to mis-read) with no
+    /// class history is NOT trusted: a healer who never lands an own damage skill is never corrected, and a
+    /// persistent summon is kept across pulls, so treating that mismatch as stale would drop a real summon's
+    /// damage for every fight. Deliberately independent of battle clocks — a pet mapped before the pull is the
+    /// normal case, not a recycled id.</summary>
+    private bool IsStaleMappingByJob(ParsedDamagePacket packet, int owner)
+    {
+        if (_dm.IsSummonContradicted(packet.ActorId, packet.Timestamp)) return true;
+        JobClass? skillJob = JobClassInfo.ConvertFromSkill(packet.SkillCode);
+        if (skillJob == null) return false;
+        User? ownerUser = _dm.User(owner);
+        return ownerUser?.Job is { } ownerJob && ownerJob != skillJob
+               && ownerUser.JobSource == JobProvenance.OwnSkill;
+    }
+
+    /// <summary>The uid a fold should land on for the mapped owner <paramref name="uid"/>. The summon map stores
+    /// the owner uid as of the spawn, but a player re-registers under a fresh uid on every zone/instance load, so
+    /// an older mapping pointed at a retired uid of the same character and the fold opened a SECOND row with the
+    /// same nickname (summon damage only) next to the live one. Resolution order mirrors
+    /// DataManager.ResolveRosterMemberUid: the mapped uid itself when it is a contributor; the live executor when
+    /// the identity is ours; a contributor of the same identity; else the mapped uid. "Newest saved uid" is NOT
+    /// used — the repository re-touches a retired uid on any late save (own-power, official lookup), so it does
+    /// not mean "live".</summary>
+    private int LiveUidOf(int uid, ICollection<User> candidates)
+    {
+        if (ContainsUid(candidates, uid)) return uid;
+        User? owner = _dm.User(uid);
+        if (owner?.Nickname is not { Length: > 0 }) return uid;
+
+        int executor = _dm.ExecutorId();
+        if (executor > 0 && SameIdentity(_dm.User(executor), owner)) return executor;
+
+        foreach (User c in candidates)
+        {
+            if (SameIdentity(c, owner)) return c.Id;
+        }
+
+        return uid;
+    }
+
+    /// <summary>Same character: same nickname, and the same server when both are known (a 0x3645 record can
+    /// carry Server == -1 when the legion heuristic did not resolve it).</summary>
+    private static bool SameIdentity(User? a, User? b) =>
+        a != null && b != null
+        && string.Equals(a.Nickname, b.Nickname, StringComparison.Ordinal)
+        && (a.Server <= 0 || b.Server <= 0 || a.Server == b.Server);
+
+    /// <summary>The 정령성 an UNMAPPED spirit hit ("불의 정령: …" by name) can be credited to: the single 정령성
+    /// contributor, and only when the party/raid roster holds no OTHER 정령성. Counting contributors alone made the
+    /// credit a time-of-first-hit accident — in a 2-정령성 party, B's spirit opening before B's own first hit was
+    /// credited to A, permanently (the cache is incremental). The roster's job codes (0x9702) and its resolved
+    /// users expose the second 정령성 before they deal damage. Without a roster (field boss, solo) the
+    /// contributor-only rule stands as before.</summary>
+    private int? LoneElementalistInFight(ICollection<User> candidates)
+    {
+        int? lone = LoneContributorOfJob(candidates, JobClass.ELEMENTALIST);
+        if (lone == null) return null;
+        User? loneUser = _dm.User(lone.Value);
+
+        foreach ((string nick, int server, int jobCode, int _) in _dm.PartyRosterJobPower(RosterRecoveryWindowMs))
+        {
+            if (JobClassInfo.ConvertFromCode(jobCode) == JobClass.ELEMENTALIST && !IsIdentityOf(loneUser, nick, server))
+            {
+                return null;
+            }
+        }
+
+        foreach (User member in _dm.PartyRoster(RosterRecoveryWindowMs))
+        {
+            if (member.Job == JobClass.ELEMENTALIST && member.Id != lone.Value && !SameIdentity(member, loneUser))
+            {
+                return null;
+            }
+        }
+
+        return lone;
+    }
+
+    private static bool IsIdentityOf(User? user, string nickname, int server) =>
+        user != null
+        && string.Equals(user.Nickname, nickname, StringComparison.Ordinal)
+        && (user.Server <= 0 || server <= 0 || user.Server == server);
+
+    /// <summary>The single contributor of <paramref name="job"/> in this fight, or null when there is none or
+    /// more than one (ambiguous — the hit is dropped rather than guessed).</summary>
+    private static int? LoneContributorOfJob(ICollection<User> candidates, JobClass job)
+    {
+        int? found = null;
+        foreach (User c in candidates)
+        {
+            if (c.Job != job) continue;
+            if (found != null && found.Value != c.Id) return null;
+            found = c.Id;
+        }
+
+        return found;
     }
 
     private static bool ContainsUid(ICollection<User> candidates, int uid)

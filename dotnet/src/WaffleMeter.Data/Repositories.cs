@@ -302,11 +302,51 @@ public sealed class MobHpRepository
 /// <summary>Kotlin SummonRepository: summonId -> owner.</summary>
 public sealed class SummonRepository
 {
-    private readonly Dictionary<int, int> _storage = new();
-    public void Save(int summonId, int summonerId) => _storage[summonId] = summonerId;
-    public int? Get(int summonId) => _storage.TryGetValue(summonId, out int v) ? v : null;
-    public IReadOnlyDictionary<int, int> GetAll() => _storage;
+    private sealed class Entry(int owner)
+    {
+        public int Owner { get; } = owner;
+
+        /// <summary>The class band of the first job-locked skill this entity cast while mapped. A summon never
+        /// changes class, so a LATER job-locked skill from another band means the entity id was recycled to a
+        /// different object (e.g. a 마도성 불의 장벽 landing on a retired 정령 id) while the mapping lived on.</summary>
+        public JobClass? ObservedJob { get; set; }
+
+        /// <summary>Packet timestamp of the first hit that contradicted <see cref="ObservedJob"/>: from then on
+        /// the mapping is known-stale. Kept (not removed) so the entity still reads as "a summon" for phantom-row
+        /// retraction, while the fold refuses hits at or after this time. Hits BEFORE it (the old entity's own,
+        /// still unresolved in the same read window) keep folding — resolution runs later than recording.</summary>
+        public long? ContradictedAtMs { get; set; }
+    }
+
+    private readonly Dictionary<int, Entry> _storage = new();
+
+    /// <summary>A (re)assertion of the mapping by a 0x3641 — a new entity, so the skill history starts over.</summary>
+    public void Save(int summonId, int summonerId) => _storage[summonId] = new Entry(summonerId);
+    public int? Get(int summonId) => _storage.TryGetValue(summonId, out Entry? e) ? e.Owner : null;
+    public bool Remove(int summonId) => _storage.Remove(summonId);
+    public IReadOnlyDictionary<int, int> GetAll() => _storage.ToDictionary(kv => kv.Key, kv => kv.Value.Owner);
     public void Flush() => _storage.Clear();
+
+    /// <summary>Record that the mapped <paramref name="summonId"/> cast a skill of class <paramref name="job"/>
+    /// at packet time <paramref name="atMs"/>. Returns true when this contradicts the class it was first seen
+    /// casting (the entity id was recycled).</summary>
+    public bool NoteSkillJob(int summonId, JobClass job, long atMs)
+    {
+        if (!_storage.TryGetValue(summonId, out Entry? e)) return false;
+        if (e.ObservedJob == null)
+        {
+            e.ObservedJob = job;
+            return false;
+        }
+
+        if (e.ObservedJob != job) e.ContradictedAtMs ??= atMs;
+        return e.ContradictedAtMs != null;
+    }
+
+    /// <summary>True when a hit at packet time <paramref name="atMs"/> from <paramref name="summonId"/> falls at or
+    /// after the entity's observed class change.</summary>
+    public bool IsContradicted(int summonId, long atMs) =>
+        _storage.TryGetValue(summonId, out Entry? e) && e.ContradictedAtMs is { } at && atMs >= at;
 }
 
 /// <summary>Kotlin UseBuffRepository: actor/target -> applied buff intervals.

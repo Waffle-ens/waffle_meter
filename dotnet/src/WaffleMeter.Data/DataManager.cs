@@ -718,6 +718,12 @@ public sealed class DataManager : ICaptureGameData
             {
                 _pendingStart = null; // this instance id was recycled to a different mob — drop the stale retry
             }
+
+            // The summon→owner map is only flushed by HardReset, so a recycled id would keep pointing at the
+            // OLD entity's owner: a 마도성's 불의 장벽 object spawning on a 정령성's retired spirit id had its
+            // damage folded into the 정령성 (the "마도성 스킬이 정령에 잡힌다" report). A spawn under a different
+            // mob code means the old entity is gone — forget its owner; the new spawn re-maps if it has one.
+            _summonRepository.Remove(mid);
         }
 
         _mobIdRepository.Save(mid, code);
@@ -1022,6 +1028,11 @@ public sealed class DataManager : ICaptureGameData
 
         return SummonerId(actorId) ?? actorId;
     }
+
+    /// <summary>True when the mapped entity <paramref name="summonId"/> had cast job-locked skills of two
+    /// different classes by packet time <paramref name="atMs"/>: a summon never changes class, so its id was
+    /// recycled and the mapping is stale from the first contradicting hit on.</summary>
+    public bool IsSummonContradicted(int summonId, long atMs) => _summonRepository.IsContradicted(summonId, atMs);
 
     // ---- user ----
 
@@ -1941,6 +1952,16 @@ public sealed class DataManager : ICaptureGameData
             user.Server = server;
         }
 
+        // Entity ids are recycled, and the summon map outlives the summon. A nickname observed for this uid AFTER
+        // a summon mapping means the id now belongs to a player, so the mapping is stale: drop it here, where the
+        // later assertion lands. This is what lets DpsCalculator.ResolveActor fold ANY still-mapped uid — a
+        // mapping that survives is by construction newer than the uid's last identity observation. (The reverse
+        // order — a 0x3641 after the nickname — keeps the user record for identity lookups but folds the damage.)
+        if (!string.IsNullOrWhiteSpace(nickname))
+        {
+            _summonRepository.Remove(uid);
+        }
+
         // Snapshot jobByte (ConvertFromCode) is an Authoritative source (the byte right after a probed
         // nickname): it fills a missing job and isn't overwritten by a later same-tier source (e.g. the
         // official lookup), but the player's own job-locked damage skills (OwnSkill) outrank it and can
@@ -2695,6 +2716,11 @@ public sealed class DataManager : ICaptureGameData
         {
             MarkDead(entityId, arrivedAt);
         }
+
+        // A dead summon is gone; its id is free to be reissued. Ending the mapping here means a recycled id whose
+        // new spawn is lost (or has no usable owner record) is no longer folded into the dead summon's owner —
+        // the one recycle shape the class-history guard cannot see (same class, e.g. another 정령성's spirit).
+        _summonRepository.Remove(entityId);
 
         int owner = _userRepository.Executor();
         if (owner == 0 || entityId != owner)
@@ -3867,6 +3893,13 @@ public sealed class DataManager : ICaptureGameData
             }
         }
 
+        // Summon skill-class history (recycled-id detection for the fold): a mapped entity casting a job-locked
+        // skill outside the class it was first seen casting has been reissued to a different object. Recorded
+        // here, before the packet is resolved, so the contradiction gates this very hit.
+        if (JobClassInfo.ConvertFromSkill(pdp.SkillCode) is { } skillJob && SummonerId(pdp.ActorId) != null)
+        {
+            _summonRepository.NoteSkillJob(pdp.ActorId, skillJob, pdp.Timestamp);
+        }
         // Training-dummy test mode: a hit on a dummy drives (and is gated by) the dummy battle machine. Drop it —
         // never record — when test mode is off or the duration cut has fired, so an idle/finished dummy shows no
         // combat and post-cut damage can't inflate the frozen result. Non-dummy targets take the plain path.
