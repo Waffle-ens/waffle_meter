@@ -13,14 +13,12 @@ namespace WaffleMeter.Data.Tests;
 /// fold guard keeps the job inference from correcting the owner's icon, so the row kept its 정령성 icon).
 ///
 /// Two layers:
-///  - DataManager: a 0x3641 spawn that registers a recycled instance id under a DIFFERENT mob code drops the
+///  - DataManager: a 0x3641 spawn that registers a recycled instance id under a DIFFERENT mob code ends the
 ///    stale summon→owner mapping (the old entity is gone).
-///  - DpsCalculator: a summon fold is rejected (the hit is dropped, not re-homed) when the contradiction is
-///    trustworthy: the entity has already cast another class's job-locked skills under this mapping (a summon
-///    never changes class — the recycled-id signature), or the owner's job is their OWN un-folded skill's. A
-///    mismatch against a merely Authoritative (jobByte / official lookup, both known to mis-read) owner with no
-///    class history keeps folding, so a real summon of a mis-labelled owner is never silently dropped — including
-///    on later pulls, since the rule is independent of battle clocks.
+///  - DpsCalculator: a summon fold is rejected (the hit is dropped, not re-homed) when the skill's class and the
+///    owner's known class disagree, whatever the owner's job came from: the reported row had no own damage, so its
+///    job was Authoritative. When the owner's job is unknown, the entity's own class history on mobs decides. A
+///    mis-labelled owner gets the summon's hits back at the battle-end recount once an own skill corrects the job.
 /// </summary>
 public sealed class StaleSummonMapAttributionTests
 {
@@ -173,12 +171,31 @@ public sealed class StaleSummonMapAttributionTests
     }
 
     [Fact]
-    public void Mismatch_against_an_authoritative_job_without_history_still_folds_across_pulls()
+    public void The_reported_wall_only_row_does_not_appear_even_without_any_class_history()
     {
-        // Reviewer finding: a 치유성 whose snapshot jobByte was mis-read as 호법성 (Authoritative) and who never
-        // lands an own damage skill is never corrected, and their summon is kept alive across pulls. The
-        // mismatch alone must not drop that summon's damage — on the first pull or any later one.
-        const int Healer = 5003, HealerSummon = 18070;
+        // 제보 스크린샷의 모양: 정령성의 본인 타격이 하나도 없고 옛 정령도 이 id 로 때린 적이 없다. 직업은
+        // Authoritative, 이력도 없다 — 그래도 이 행은 나오면 안 된다.
+        (DataManager dm, DpsCalculator calc) = Setup();
+        dm.SaveSummon(RecycledId, Elementalist);
+        Open(dm);
+        Hit(dm, Sorcerer, 1_001_000, 5000, FlameBolt);
+        Hit(dm, RecycledId, 1_001_100, 900, WallOfFire);
+        Hit(dm, RecycledId, 1_001_200, 400, WallOfFire, dot: true);
+
+        DpsReport live = calc.GetDps();
+        Assert.Equal(JobProvenance.Authoritative, dm.User(Elementalist)!.JobSource);
+        Assert.DoesNotContain(live.Contributors, u => u.Id == Elementalist);
+
+        Leash(dm, calc);
+        Assert.DoesNotContain(calc.GetDps().Contributors, u => u.Id == Elementalist);
+    }
+
+    [Fact]
+    public void A_mislabelled_owner_gets_the_summon_back_once_an_own_skill_corrects_the_job()
+    {
+        // 직업이 오독된 주인의 소환수 타격은 교정 전까지 빠지지만, 본인 스킬이 한 번이라도 나오면 전투 종료
+        // 재누적이 되돌린다.
+        const int Healer = 5003, HealerSummon = 18070, ClericHit = 17060000;
         (DataManager dm, DpsCalculator calc) = Setup();
         dm.SaveNickname(Healer, "힐러", isExecutor: false, server: Server, jobByte: ChanterJobByte); // mis-read
         dm.SavePartyRoster([("마도", Server, 1), ("펭모", Server, 2), ("힐러", Server, 3)]);
@@ -187,17 +204,14 @@ public sealed class StaleSummonMapAttributionTests
         Open(dm);
         Hit(dm, Sorcerer, 1_001_000, 5000, FlameBolt);
         Hit(dm, HealerSummon, 1_001_100, 700, ClericSummonSkill);
-        Assert.Equal(700d, Amount(calc.GetDps(), Healer));
-        Leash(dm, calc);
+        Assert.Equal(0d, Amount(calc.GetDps(), Healer));
 
-        Open(dm); // pull 2, same summon, mapping older than this battle
-        Hit(dm, Sorcerer, 2_001_000, 5000, FlameBolt);
-        Hit(dm, HealerSummon, 2_001_100, 700, ClericSummonSkill);
-        Hit(dm, HealerSummon, 2_001_200, 700, ClericSummonSkill);
+        Hit(dm, Healer, 1_001_200, 1000, ClericHit);
+        Assert.Equal(1000d, Amount(calc.GetDps(), Healer));
+        Assert.Equal(JobClass.CLERIC, dm.User(Healer)!.Job);
 
-        DpsReport report = calc.GetDps();
-        Assert.Equal(JobClass.CHANTER, dm.User(Healer)!.Job);
-        Assert.Equal(1400d, Amount(report, Healer));
+        dm.EndBattle(Instance);
+        Assert.Equal(1700d, Amount(calc.GetDps(), Healer));
     }
 
     [Fact]

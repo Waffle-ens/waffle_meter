@@ -152,6 +152,12 @@ public static class PartySynergyCatalog
         return skillCode / 10_000 * 10_000 == SwordBloodBlade ? SwordBloodBlade : 0;
     }
 
+    /// <summary>이 코드로 시전자의 직업을 말할 수 있으면 그 직업, 아니면 null. 시너지가 준 피해는
+    /// <b>수혜자</b>가 actor 로 찍히는데 코드는 준 사람의 직업 대역이라(<see cref="GrantedDamageSource"/>) 직업
+    /// 증거가 아니다.</summary>
+    public static JobClass? CasterClassOf(int skillCode) =>
+        GrantedDamageSource(skillCode) != 0 ? null : JobClassInfo.ConvertFromSkill(skillCode);
+
     /// <summary>
     /// 이 시너지를 <b>줄 수 있는 직업</b>의 접두(11 검성 … 19 권성), 아니면 0.
     ///

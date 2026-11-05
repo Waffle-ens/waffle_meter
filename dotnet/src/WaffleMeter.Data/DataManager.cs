@@ -722,8 +722,8 @@ public sealed class DataManager : ICaptureGameData
             // The summon→owner map is only flushed by HardReset, so a recycled id would keep pointing at the
             // OLD entity's owner: a 마도성's 불의 장벽 object spawning on a 정령성's retired spirit id had its
             // damage folded into the 정령성 (the "마도성 스킬이 정령에 잡힌다" report). A spawn under a different
-            // mob code means the old entity is gone — forget its owner; the new spawn re-maps if it has one.
-            _summonRepository.Remove(mid);
+            // mob code means the old entity is gone from this moment on; the new spawn re-maps if it has an owner.
+            _summonRepository.MarkEnded(mid, Clock());
         }
 
         _mobIdRepository.Save(mid, code);
@@ -1014,25 +1014,76 @@ public sealed class DataManager : ICaptureGameData
     public void SaveSummon(int summonId, int summonerId) => _summonRepository.Save(summonId, summonerId);
     public int? SummonerId(int summonId) => _summonRepository.Get(summonId);
 
-    /// <summary>소환수 엔티티면 주인 uid, 아니면 받은 그대로.
+    /// <summary>소환수 엔티티면 주인 uid, 아니면 받은 그대로. 시각이 없는 소비자(상세창 버프 분류, 시전 접기)용이다.
     /// <para><b>재사용 방어가 핵심이다.</b> 소환수 맵은 전투를 넘어 살아남고(비우는 건 <see cref="HardReset"/>
     /// 뿐이다) 엔티티 id 는 서버가 재발급한다. 그래서 낡은 <c>summonId→owner</c> 항목이, 그 id 를 물려받은
-    /// <b>다른 플레이어</b>의 것을 통째로 옛 주인에게 끌어올 수 있다. 이미 아는 플레이어면 접지 않는다 —
-    /// 피해 경로의 <c>ResolveActor</c>가 같은 이유로 같은 가드를 들고 있다.</para></summary>
+    /// <b>다른 플레이어</b>의 것을 통째로 옛 주인에게 끌어올 수 있다. 매핑보다 나중에 닉네임을 받은 id 와 본인은
+    /// 접지 않는다. 닉네임 없는 임시 레코드와 죽은 소환수는 피해 경로(<see cref="SummonOwnerAt"/>)처럼 주인에게
+    /// 접는다.</para></summary>
     public int ResolveSummonOwner(int actorId)
     {
-        if (actorId <= 0 || User(actorId) != null)
+        if (actorId <= 0 || actorId == ExecutorId()
+            || !_summonRepository.TryGetMapping(actorId, out SummonMapping mapping))
         {
             return actorId;
         }
 
-        return SummonerId(actorId) ?? actorId;
+        return mapping.EndedAtMs != null && !string.IsNullOrWhiteSpace(User(actorId)?.Nickname)
+            ? actorId
+            : mapping.Owner;
     }
 
     /// <summary>True when the mapped entity <paramref name="summonId"/> had cast job-locked skills of two
-    /// different classes by packet time <paramref name="atMs"/>: a summon never changes class, so its id was
-    /// recycled and the mapping is stale from the first contradicting hit on.</summary>
+    /// different classes on mobs by packet time <paramref name="atMs"/>: its id was recycled and the mapping is
+    /// stale from the first contradicting hit on.</summary>
     public bool IsSummonContradicted(int summonId, long atMs) => _summonRepository.IsContradicted(summonId, atMs);
+
+    /// <summary>사망 패킷 뒤에 도착한 직격을 같은 엔티티의 것으로 인정하는 한도. 사망 패킷과 마지막 타격의 도착
+    /// 순서가 뒤집힐 뿐이다 — 실측(2026-10-27) 사망 후 직격은 최대 301ms 였고 그보다 늦은 직격은 0건이다.</summary>
+    private const long SummonDeathDirectGraceMs = 500;
+
+    /// <summary>죽은 소환수의 DoT 를 주인 것으로 인정하는 한도. 실측(2026-10-27 어비스 군중전)에서 보스에 찍힌 다른
+    /// 직업 틱은 사망 후 15초 이내 3건, 15초 초과 17건이라 그 너머부터는 id 재사용이 섞인다.</summary>
+    private const long SummonDeathDotTailMs = 15_000;
+
+    /// <summary>이 타격의 시각에 이 id 를 소유한 주인. 전투 종료 재누적이 전 패킷을 다시 묻기 때문에, 답이 묻는 시점에
+    /// 따라 달라지면 안 된다 — 그래서 "지금 매핑이 있나"가 아니라 타격 시각으로 판정한다.
+    /// <para>죽은 뒤에는 새 엔티티(재사용된 id)와 죽은 소환수의 DoT 를 가른다. 직격은
+    /// <see cref="SummonDeathDirectGraceMs"/>까지만, DoT 는 <see cref="SummonDeathDotTailMs"/>까지 주인 직업과 맞을
+    /// 때만 인정한다.</para></summary>
+    public int? SummonOwnerAt(ParsedDamagePacket hit)
+    {
+        if (!_summonRepository.TryGetMapping(hit.ActorId, out SummonMapping m))
+        {
+            return null;
+        }
+
+        if (m.EndedAtMs is { } ended && hit.Timestamp > ended)
+        {
+            return null;
+        }
+
+        if (m.DiedAtMs is { } died && hit.Timestamp > died)
+        {
+            if (!hit.Dot)
+            {
+                return hit.Timestamp <= died + SummonDeathDirectGraceMs ? m.Owner : null;
+            }
+
+            if (hit.Timestamp > died + SummonDeathDotTailMs)
+            {
+                return null;
+            }
+
+            if (PartySynergyCatalog.CasterClassOf(hit.SkillCode) is { } skillJob
+                && User(m.Owner)?.Job is { } ownerJob && ownerJob != skillJob)
+            {
+                return null;
+            }
+        }
+
+        return m.Owner;
+    }
 
     // ---- user ----
 
@@ -1651,6 +1702,27 @@ public sealed class DataManager : ICaptureGameData
             .ToList();
     }
 
+    /// <summary>지금 로스터에 있는 사람들의 직업코드만. <see cref="PartyRosterJobPower"/>는 세션 동안 본 전원을 들고
+    /// 있는 표시용 사전이라, 이미 떠난 사람까지 근거가 되는 판정에는 쓸 수 없다.</summary>
+    public IReadOnlyList<(string Nickname, int Server, int JobCode)> CurrentRosterJobCodes(long withinMs)
+    {
+        if (_partyRoster.Count == 0 || Clock() - _partyRosterAtMs > withinMs)
+        {
+            return Array.Empty<(string, int, int)>();
+        }
+
+        var current = new List<(string Nickname, int Server, int JobCode)>(_partyRoster.Count);
+        foreach ((string nickname, int server, int _) in _partyRoster)
+        {
+            if (_partyRosterJobPower.TryGetValue((nickname, server), out (int JobCode, int Power) member))
+            {
+                current.Add((nickname, server, member.JobCode));
+            }
+        }
+
+        return current;
+    }
+
     /// <summary>0x9702 로스터가 실어 온 그 캐릭터의 전투력(없거나 스냅샷이 오래됐으면 0).
     /// <para>본인 전투력은 0x3656이 <b>바뀔 때만</b> 오므로 평범한 세션에서는 거의 오지 않는다(실측 본인 행의
     /// 5.3%). 그 공백을 지금까지 공식 웹 조회가 메워 왔는데, 그건 업로드 워커에서 동기 HTTP로 돌고 실패를 10분간
@@ -1953,13 +2025,13 @@ public sealed class DataManager : ICaptureGameData
         }
 
         // Entity ids are recycled, and the summon map outlives the summon. A nickname observed for this uid AFTER
-        // a summon mapping means the id now belongs to a player, so the mapping is stale: drop it here, where the
-        // later assertion lands. This is what lets DpsCalculator.ResolveActor fold ANY still-mapped uid — a
-        // mapping that survives is by construction newer than the uid's last identity observation. (The reverse
-        // order — a 0x3641 after the nickname — keeps the user record for identity lookups but folds the damage.)
+        // a summon mapping means the id belongs to a player from now on, so the mapping ends here. This is what
+        // lets DpsCalculator.ResolveActor fold ANY still-mapped uid — a mapping that has not ended is by
+        // construction newer than the uid's last identity observation. (The reverse order — a 0x3641 after the
+        // nickname — keeps the user record for identity lookups but folds the damage.)
         if (!string.IsNullOrWhiteSpace(nickname))
         {
-            _summonRepository.Remove(uid);
+            _summonRepository.MarkEnded(uid, Clock());
         }
 
         // Snapshot jobByte (ConvertFromCode) is an Authoritative source (the byte right after a probed
@@ -2717,10 +2789,11 @@ public sealed class DataManager : ICaptureGameData
             MarkDead(entityId, arrivedAt);
         }
 
-        // A dead summon is gone; its id is free to be reissued. Ending the mapping here means a recycled id whose
-        // new spawn is lost (or has no usable owner record) is no longer folded into the dead summon's owner —
-        // the one recycle shape the class-history guard cannot see (same class, e.g. another 정령성's spirit).
-        _summonRepository.Remove(entityId);
+        // A dead summon is gone; its id is free to be reissued. Stamping the death means a recycled id whose new
+        // spawn is lost (or has no usable owner record) is no longer folded into the dead summon's owner — the one
+        // recycle shape the class-history guard cannot see (same class, e.g. another 정령성's spirit). It is a stamp
+        // and not a removal: the battle-end recount must still credit what the summon did before it died.
+        _summonRepository.MarkDead(entityId, arrivedAt);
 
         int owner = _userRepository.Executor();
         if (owner == 0 || entityId != owner)
@@ -3757,13 +3830,15 @@ public sealed class DataManager : ICaptureGameData
 
         List<SkillCast> casts = _skillCastRepository.FindInWindow(uid, start, end);
         // 살아 있는 딕셔너리를 그대로 열거하지 않는다 — 이 메서드는 행 클릭 시 UI 스레드에서도 불린다.
-        foreach (KeyValuePair<int, int> summon in _summonRepository.GetAll().ToList())
+        foreach (SummonMapping summon in _summonRepository.Mappings())
         {
             // ResolveSummonOwner 와 같은 가드: 그 엔티티 id 를 물려받은 실제 플레이어의 시전을
             // 옛 주인의 타임라인으로 끌어오지 않는다.
-            if (summon.Value == uid && summon.Key != uid && ResolveSummonOwner(summon.Key) == uid)
+            if (summon.Owner == uid && summon.SummonId != uid && ResolveSummonOwner(summon.SummonId) == uid)
             {
-                casts.AddRange(_skillCastRepository.FindInWindow(summon.Key, start, end));
+                // 끝난 뒤의 시전은 그 id 를 물려받은 다른 것의 시전이다. 끝나기 전의 시전은 그대로 접는다.
+                long lastCast = summon.EndedAtMs ?? (summon.DiedAtMs + SummonDeathDirectGraceMs) ?? end;
+                casts.AddRange(_skillCastRepository.FindInWindow(summon.SummonId, start, Math.Min(end, lastCast)));
             }
         }
 
@@ -3895,8 +3970,10 @@ public sealed class DataManager : ICaptureGameData
 
         // Summon skill-class history (recycled-id detection for the fold): a mapped entity casting a job-locked
         // skill outside the class it was first seen casting has been reissued to a different object. Recorded
-        // here, before the packet is resolved, so the contradiction gates this very hit.
-        if (JobClassInfo.ConvertFromSkill(pdp.SkillCode) is { } skillJob && SummonerId(pdp.ActorId) != null)
+        // here, before the packet is resolved, so the contradiction gates this very hit. Only hits on a mob count:
+        // frames on a player target carry another class's codes under a live summon (see SummonRepository.Entry).
+        if (IsMobInstance(pdp.TargetId) && PartySynergyCatalog.CasterClassOf(pdp.SkillCode) is { } skillJob
+            && SummonerId(pdp.ActorId) != null)
         {
             _summonRepository.NoteSkillJob(pdp.ActorId, skillJob, pdp.Timestamp);
         }

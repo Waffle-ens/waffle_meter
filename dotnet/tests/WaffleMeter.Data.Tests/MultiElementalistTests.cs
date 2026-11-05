@@ -142,9 +142,52 @@ public sealed class MultiElementalistTests
         Hit(dm, SpiritA, 1_003_000, 700, SpiritStrike); // spawn was lost → same class, so only the death can tell
 
         DpsReport r = calc.GetDps();
-        Assert.Null(dm.SummonerId(SpiritA));
         Assert.Equal(1500d, Amount(r, ElemA));     // previously 2200
         Assert.Equal(2000d, Amount(r, ElemB));     // two 정령성 in the roster → not guessed either
+
+        // The battle end re-resolves every packet: the spirit's hit before its death must survive that recount.
+        dm.EndBattle(Instance);
+        DpsReport final = calc.GetDps();
+        Assert.Equal(1500d, Amount(final, ElemA));
+        Assert.Equal(2000d, Amount(final, ElemB));
+    }
+
+    [Fact]
+    public void An_elementalist_who_left_the_party_no_longer_blocks_the_prefix_rule()
+    {
+        (DataManager dm, DpsCalculator calc) = Setup(secondElementalist: false, roster: false);
+        dm.SavePartyRoster([("나", Server, 1), ("정령A", Server, 2), ("떠난정령", Server, 3)], partyId: 111);
+        dm.SavePartyRosterJobPower([("나", Server, 25, 1), ("정령A", Server, 21, 1), ("떠난정령", Server, 21, 1)]);
+        dm.SavePartyRoster([("나", Server, 1), ("정령A", Server, 2)], partyId: 222); // 새 파티
+
+        Hit(dm, ElemA, 1_001_000, 1000, ColdShock);
+        Hit(dm, SpiritA, 1_001_050, 700, SpiritStrike);
+
+        Assert.Equal(1700d, Amount(calc.GetDps(), ElemA));
+    }
+
+    [Theory]
+    [InlineData(false, 1700d)] // 로스터의 정령성이 자기 한 명뿐이면 신원을 몰라도 그 사람이다
+    [InlineData(true, 1000d)]  // 두 명이면 어느 쪽 정령인지 모른다
+    public void A_nameless_lone_elementalist_is_judged_by_the_roster_count(bool secondInRoster, double expected)
+    {
+        const int Nameless = 5009;
+        (DataManager dm, DpsCalculator calc) = Setup(secondElementalist: false, roster: false);
+        var members = new List<(string, int, int)> { ("나", Server, 1), ("이름모름", Server, 2) };
+        var jobs = new List<(string, int, int, int)> { ("나", Server, 25, 1), ("이름모름", Server, 21, 1) };
+        if (secondInRoster)
+        {
+            members.Add(("정령C", Server, 3));
+            jobs.Add(("정령C", Server, 21, 1));
+        }
+
+        dm.SavePartyRoster(members);
+        dm.SavePartyRosterJobPower(jobs);
+
+        Hit(dm, Nameless, 1_001_000, 1000, ColdShock); // 닉네임 없는 임시 행, 직업은 본인 스킬로 정해진다
+        Hit(dm, SpiritB, 1_001_050, 700, SpiritStrike);
+
+        Assert.Equal(expected, Amount(calc.GetDps(), Nameless));
     }
 
     [Fact]

@@ -103,6 +103,37 @@ public sealed class SkillCastTimelineTests
     }
 
     [Fact]
+    public void A_dead_summons_casts_stay_on_the_owner_and_a_recycled_ids_later_casts_do_not()
+    {
+        (DataManager dm, _, long[] clock) = Setup();
+        dm.SaveSummon(Summon, Dealer);
+        dm.SaveSkillCast(Dealer, 16010000, clock[0]);
+        dm.SaveSkillCast(Summon, 16030000, clock[0] + 500);
+        dm.SaveEntityDeath(Summon, clock[0] + 600);
+        dm.SaveSkillCast(Summon, 16020000, clock[0] + 5_000); // 사망 후 재사용된 id 의 시전
+
+        List<SkillCastRow> casts = dm.BattleSkillCasts(Dealer, clock[0] - 1, clock[0] + 10_000);
+
+        Assert.Equal(["냉기 충격", "대지 진동"], casts.Select(c => c.Name).ToArray());
+    }
+
+    [Fact]
+    public void A_respawned_ids_earlier_casts_stay_on_the_owner()
+    {
+        (DataManager dm, _, long[] clock) = Setup();
+        dm.SaveMobId(Summon, 2920874);
+        dm.SaveSummon(Summon, Dealer);
+        dm.SaveSkillCast(Summon, 16030000, clock[0] + 500);
+        clock[0] += 1_000;
+        dm.SaveMobId(Summon, 2930001);                        // 다른 몹 코드로 다시 스폰
+        dm.SaveSkillCast(Summon, 16020000, clock[0] + 500);
+
+        List<SkillCastRow> casts = dm.BattleSkillCasts(Dealer, clock[0] - 2_000, clock[0] + 1_000);
+
+        Assert.Equal(["대지 진동"], casts.Select(c => c.Name).ToArray());
+    }
+
+    [Fact]
     public void A_party_grant_proc_is_not_counted_as_this_players_cast()
     {
         // 🔑 실제 코퍼스 재생 실측(5인 파티, 직업 밴드 44,178 프레임): 검성의 흡혈의 검 착취(11340028)가
