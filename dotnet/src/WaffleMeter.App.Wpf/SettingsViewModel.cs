@@ -1432,6 +1432,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     public bool BuffTtsOnStart { get => _settings.BuffTtsOnStart; set { _settings.BuffTtsOnStart = value; OnPropertyChanged(); } }
     public bool BuffTtsOnEnd { get => _settings.BuffTtsOnEnd; set { _settings.BuffTtsOnEnd = value; OnPropertyChanged(); } }
     public bool BuffEndWarning3s { get => _settings.BuffEndWarning3s; set { _settings.BuffEndWarning3s = value; OnPropertyChanged(); } }
+    public bool BuffTtsAbbrev { get => _settings.BuffTtsAbbrev; set { _settings.BuffTtsAbbrev = value; OnPropertyChanged(); } }
     public bool BuffUiGrayOnCooldown { get => _settings.BuffUiGrayOnCooldown; set { _settings.BuffUiGrayOnCooldown = value; OnPropertyChanged(); } }
 
     // ---- 스킬 쿨타임 오버레이 ----
@@ -1541,6 +1542,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(BuffTtsOnStart));
         OnPropertyChanged(nameof(BuffTtsOnEnd));
         OnPropertyChanged(nameof(BuffEndWarning3s));
+        OnPropertyChanged(nameof(BuffTtsAbbrev));
         OnPropertyChanged(nameof(BuffUiGrayOnCooldown));
         OnPropertyChanged(nameof(BuffUiShowLevel));
         OnPropertyChanged(nameof(ShowOtherPlayerBuffs));

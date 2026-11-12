@@ -3538,11 +3538,15 @@ public partial class App : Application
                 continue; // overlay-only (or off) buff — no voice
             }
 
+            // 스킬명 축약 알림: 읽는 문구만 바꾼다(툴팁·목록은 b.Name 그대로). 종료 문구는 예약 시점에 만들어지므로
+            // 토글을 바꿔도 이미 예약된 경고는 예약 당시 문구로 나간다.
+            string spoken = s.BuffTtsAbbrev ? BuffAbbreviation.Of(b.Name) : b.Name;
+
             // Start once per buff. A same-buff re-cast (base already announced) does NOT re-announce — the later
             // cast silently takes over the earlier one.
             if (s.BuffTtsOnStart && _buffStartAnnounced.Add(b.Code))
             {
-                TtsSpeech.Speak($"{b.Name} 온", s.AlarmVolume, durable: true, chimeFallback: false);
+                TtsSpeech.Speak($"{spoken} 온", s.AlarmVolume, durable: true, chimeFallback: false);
             }
 
             // Pre-warn the end once inside the lead window (skip very short buffs so it doesn't double up with
@@ -3563,7 +3567,7 @@ public partial class App : Application
                 && (!_buffEndAnnouncedFor.TryGetValue(b.Code, out long warnedEnd) || warnedEnd != b.EndMs))
             {
                 _buffEndAnnouncedFor[b.Code] = b.EndMs;
-                string text = warnEarly ? $"{b.Name} 오프 예정" : $"{b.Name} 오프";
+                string text = warnEarly ? $"{spoken} 오프 예정" : $"{spoken} 오프";
                 // Claimed on the tick that spotted it, but spoken at the lead — the tick lands anywhere in the
                 // scan window, so speaking immediately would put the voice up to half a second early.
                 SpeakBuffEnd(b.Code, b.EndMs, text, s.AlarmVolume, b.RemainingMs - lead);

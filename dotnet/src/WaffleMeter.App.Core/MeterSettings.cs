@@ -141,6 +141,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffTtsOnStart = ReadBool("buffUi.ttsOnStart", false);
         _buffTtsOnEnd = ReadBool("buffUi.ttsOnEnd", false);
         _buffEndWarning3s = ReadBool("buffUi.endWarning3s", false);
+        _buffTtsAbbrev = ReadBool("buffUi.ttsAbbrev", false);
         _buffUiGrayOnCooldown = ReadBool("buffUi.grayOnCooldown", false);
         _buffUiShowLevel = ReadBool("buffUi.showLevel", true);
         _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
@@ -577,6 +578,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// 2.8초 간격으로 두 번 말하게 된다). 끄면 종전 동작 그대로다.</para>
     /// <para>점멸은 음성 설정과 무관하게, 오버레이에 그려지는 버프면 모두 적용된다.</para></summary>
     public bool BuffEndWarning3s { get => _buffEndWarning3s; set => SetBool(ref _buffEndWarning3s, "buffUi.endWarning3s", value); }
+
+    private bool _buffTtsAbbrev;
+    /// <summary>스킬명 축약 알림 — 버프 음성(온/오프/오프 예정)에서 4글자 이상 이름을 <see cref="BuffAbbreviation"/>
+    /// 표의 축약어로 읽는다(예: 빙설의 갑주 → 빙갑). 오버레이 툴팁·버프 목록의 표시 이름은 그대로다. 기본 꺼짐.</summary>
+    public bool BuffTtsAbbrev { get => _buffTtsAbbrev; set => SetBool(ref _buffTtsAbbrev, "buffUi.ttsAbbrev", value); }
 
     private bool _buffUiGrayOnCooldown;
     /// <summary>Gray out a buff overlay icon while the skill that grants it is still on cooldown (from the live

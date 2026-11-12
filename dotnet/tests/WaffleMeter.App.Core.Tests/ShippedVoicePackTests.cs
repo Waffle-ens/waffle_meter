@@ -24,6 +24,11 @@ namespace WaffleMeter.App.Core.Tests;
 /// had been baked from, so the test re-confirmed the bake instead of checking it and 살성 '환영 분신' plus
 /// 300-odd others fell through to the network. The same read is correct now only because the two sets were
 /// made one.</para>
+///
+/// <para>The <b>names</b> on that list are resolved the way the app resolves them: buff_names.json first, the
+/// catalogue only filling the gaps (<c>MeterServices</c> loads them in that order). Reading the catalogue's
+/// <c>n</c> alone once let 19200000 ask for "폭렬권[폭주] 온" — a line the app never spoke, because it said
+/// "폭렬권 온" — and the test stayed green over a line with no clip.</para>
 /// </summary>
 public sealed class ShippedVoicePackTests
 {
@@ -82,6 +87,15 @@ public sealed class ShippedVoicePackTests
             // 구워져 있어야 한다. 리드 값(3초)은 문구에 넣지 않는다: 넣으면 리드를 바꾸는 순간 클립 전체가
             // 키를 잃는다(파일명이 sha256(문구)다).
             yield return $"{buff} 오프 예정";
+
+            // '스킬명 축약 알림'(buffUi.ttsAbbrev)을 켜면 같은 세 문구를 축약어로 읽는다 — 런타임 선택이라 두 세트
+            // 모두 앱이 말할 수 있는 문구다(App.AnnounceBuffTransitions).
+            if (BuffAbbreviation.All.TryGetValue(buff, out string? abbrev))
+            {
+                yield return $"{abbrev} 온";
+                yield return $"{abbrev} 오프";
+                yield return $"{abbrev} 오프 예정";
+            }
         }
     }
 
@@ -165,16 +179,24 @@ public sealed class ShippedVoicePackTests
         return Regex.Matches(body, @"\[\d{7,9}\]\s*=\s*(\d{7,9})").Select(m => int.Parse(m.Groups[1].Value)).ToHashSet();
     }
 
-    /// <summary>Every buff name that can be given a voice — read through the app's own loader so a change in
-    /// how the catalogue parses cannot drift from what the test believes. Names repeat across jobs (회생의
-    /// 계약 and its 회계·회복 rider exist for five, 균형의 갑옷 for two), and the spoken line is the name, so
-    /// they collapse to one clip.</summary>
-    private static IEnumerable<string> BuffNames() =>
-        ReferenceJson.LoadBuffCatalog(RepoPath("dotnet", "Assets", "json", "buff_catalog.json")).Catalog
+    /// <summary>Every buff name that can be given a voice — read through the app's own loaders, in the order
+    /// <c>MeterServices</c> calls them (buff_names.json, then the catalogue), and taken from
+    /// <see cref="DataManager.BuffPickerCatalog"/> — the very list the picker shows and the overlay names its
+    /// slots from. Names repeat across jobs (회생의 계약 and its 회계·회복 rider exist for five, 균형의 갑옷 for
+    /// two), and the spoken line is the name, so they collapse to one clip.</summary>
+    internal static IReadOnlyList<string> BuffNames()
+    {
+        var dm = new DataManager();
+        dm.LoadBuffNames(ReferenceJson.LoadBuffNames(RepoPath("dotnet", "Assets", "json", "buff_names.json")));
+        (var catalog, var defaultOff, var stackMax) =
+            ReferenceJson.LoadBuffCatalog(RepoPath("dotnet", "Assets", "json", "buff_catalog.json"));
+        dm.LoadBuffCatalog(catalog, defaultOff, stackMax);
+        return dm.BuffPickerCatalog()
             .Select(x => x.Name)
             .Where(n => !string.IsNullOrEmpty(n))
             .Distinct(StringComparer.Ordinal)
             .ToList();
+    }
 
     /// <summary>The picker drops any row whose code has no bundled icon, so a catalogued buff without one is
     /// invisible — no row to switch on, and (since the overlay now follows the catalogue) a slot drawn with a

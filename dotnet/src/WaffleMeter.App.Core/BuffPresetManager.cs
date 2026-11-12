@@ -28,6 +28,7 @@ public sealed class BuffPresetManager : IDisposable
         nameof(MeterSettings.BuffTtsOnStart),
         nameof(MeterSettings.BuffTtsOnEnd),
         nameof(MeterSettings.BuffEndWarning3s),
+        nameof(MeterSettings.BuffTtsAbbrev),
         nameof(MeterSettings.BuffUiGrayOnCooldown),
         nameof(MeterSettings.ShowOtherPlayerBuffs),
         nameof(MeterSettings.BuffUiHidden),
@@ -134,6 +135,7 @@ public sealed class BuffPresetManager : IDisposable
             _settings.BuffTtsOnStart = preset.TtsOnStart;
             _settings.BuffTtsOnEnd = preset.TtsOnEnd;
             _settings.BuffEndWarning3s = preset.EndWarning3s;
+            _settings.BuffTtsAbbrev = preset.TtsAbbrev;
             _settings.BuffUiGrayOnCooldown = preset.GrayOnCooldown;
             _settings.ShowOtherPlayerBuffs = preset.ShowOther;
             _settings.BuffUiHidden = preset.Hidden;
@@ -180,6 +182,7 @@ public sealed class BuffPresetManager : IDisposable
         TtsOnStart = _settings.BuffTtsOnStart,
         TtsOnEnd = _settings.BuffTtsOnEnd,
         EndWarning3s = _settings.BuffEndWarning3s,
+        TtsAbbrev = _settings.BuffTtsAbbrev,
         GrayOnCooldown = _settings.BuffUiGrayOnCooldown,
         ShowOther = _settings.ShowOtherPlayerBuffs,
         Hidden = _settings.BuffUiHidden,
