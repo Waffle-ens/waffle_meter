@@ -8722,6 +8722,11 @@
     "boss": true
   },
   {
+    "code": 2300792,
+    "name": "폭군 울마르",
+    "boss": true
+  },
+  {
     "code": 2300801,
     "name": "바위 정령",
     "boss": false
@@ -8825,6 +8830,31 @@
     "code": 2300818,
     "name": "부유 전기석",
     "boss": false
+  },
+  {
+    "code": 2300830,
+    "name": "기록하는 자 리피카",
+    "boss": true
+  },
+  {
+    "code": 2300831,
+    "name": "탐식의 쿠르바스",
+    "boss": true
+  },
+  {
+    "code": 2300890,
+    "name": "폭군 울마르",
+    "boss": true
+  },
+  {
+    "code": 2300891,
+    "name": "기록하는 자 리피카",
+    "boss": true
+  },
+  {
+    "code": 2300892,
+    "name": "탐식의 쿠르바스",
+    "boss": true
   },
   {
     "code": 2300900,
@@ -8936,6 +8966,41 @@
     "code": 2300921,
     "name": "심연의 루필리니",
     "boss": false
+  },
+  {
+    "code": 2300924,
+    "name": "폭군 울마르",
+    "boss": true
+  },
+  {
+    "code": 2300925,
+    "name": "기록하는 자 리피카",
+    "boss": true
+  },
+  {
+    "code": 2300926,
+    "name": "탐식의 쿠르바스",
+    "boss": true
+  },
+  {
+    "code": 2300948,
+    "name": "부활한 아울도르",
+    "boss": true
+  },
+  {
+    "code": 2300950,
+    "name": "이단처형관 라우르",
+    "boss": true
+  },
+  {
+    "code": 2300970,
+    "name": "부활한 아울도르",
+    "boss": true
+  },
+  {
+    "code": 2300972,
+    "name": "이단처형관 라우르",
+    "boss": true
   },
   {
     "code": 2301001,
@@ -22613,6 +22678,11 @@
   {
     "code": 2600098,
     "name": "집행자 카이라",
+    "boss": true
+  },
+  {
+    "code": 2600099,
+    "name": "감시자 카이라",
     "boss": true
   },
   {
@@ -40103,6 +40173,16 @@
     "boss": false
   },
   {
+    "code": 2702854,
+    "name": "잊혀진 자 레코른",
+    "boss": true
+  },
+  {
+    "code": 2702861,
+    "name": "잊혀진 자 레코른",
+    "boss": true
+  },
+  {
     "code": 2920018,
     "name": "결박의 덫",
     "boss": false
@@ -40465,6 +40545,156 @@
   {
     "code": 2980309,
     "name": "부관 히브란",
+    "boss": true
+  },
+  {
+    "code": 2980310,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980311,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980312,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980313,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980314,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980315,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980316,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980317,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980318,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980319,
+    "name": "추격자 스토프",
+    "boss": true
+  },
+  {
+    "code": 2980320,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980321,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980322,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980323,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980324,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980325,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980326,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980327,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980328,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980329,
+    "name": "얼어붙은 집행자 에른",
+    "boss": true
+  },
+  {
+    "code": 2980330,
+    "name": "대필자 벨룸",
+    "boss": true
+  },
+  {
+    "code": 2980331,
+    "name": "대필자 벨룸",
+    "boss": true
+  },
+  {
+    "code": 2980332,
+    "name": "대필자 벨룸",
+    "boss": true
+  },
+  {
+    "code": 2980333,
+    "name": "대필자 벨룸",
+    "boss": true
+  },
+  {
+    "code": 2980334,
+    "name": "대필자 벨룸",
+    "boss": true
+  },
+  {
+    "code": 2980335,
+    "name": "대필자 벨룸",
+    "boss": true
+  },
+  {
+    "code": 2980336,
+    "name": "대필자 벨룸",
+    "boss": true
+  },
+  {
+    "code": 2980337,
+    "name": "대필자 벨룸",
+    "boss": true
+  },
+  {
+    "code": 2980338,
+    "name": "대필자 벨룸",
+    "boss": true
+  },
+  {
+    "code": 2980339,
+    "name": "대필자 벨룸",
     "boss": true
   },
   {

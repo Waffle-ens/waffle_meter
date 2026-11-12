@@ -14,12 +14,12 @@ public class FieldBossAlarmTests
     public void Catalog_lists_every_boss_split_by_region()
     {
         var all = FieldBossCatalog.All();
-        Assert.Equal(85, all.Count);
+        Assert.Equal(86, all.Count);   // 85 + 감시자 카이라의 둘째 개체 2600099 (클라 125)
         Assert.Equal(24, FieldBossCatalog.InRegion(FieldBossRegion.Verteron).Count);
         Assert.Equal(24, FieldBossCatalog.InRegion(FieldBossRegion.Altgard).Count);
         Assert.Equal(12, FieldBossCatalog.InRegion(FieldBossRegion.Eltnen).Count);
         Assert.Equal(12, FieldBossCatalog.InRegion(FieldBossRegion.Morheim).Count);
-        Assert.Equal(13, FieldBossCatalog.InRegion(FieldBossRegion.Abyss).Count);
+        Assert.Equal(14, FieldBossCatalog.InRegion(FieldBossRegion.Abyss).Count);
         Assert.All(all, b => Assert.False(string.IsNullOrWhiteSpace(b.Name)));
         Assert.Equal(all.Count, all.Select(b => b.Code).Distinct().Count());
         Assert.Equal(all.Count, all.Select(b => b.WireCode).Distinct().Count());
@@ -142,6 +142,27 @@ public class FieldBossAlarmTests
         Assert.False(FieldBossFixedSchedule.HasFixedSchedule(FieldBossCatalog.ScheduledSpawnCode));
         Assert.True(FieldBossCatalog.HasOwnAlarm(FieldBossCatalog.ScheduledSpawnCode));
         Assert.False(FieldBossCatalog.HasOwnAlarm(2600098));   // 집행자 슬롯 카이라는 일반 알림 대상
+    }
+
+    /// <summary>클라 125(2026-11-11)의 두 번째 감시자 카이라(2600099). 첫째와 같은 전용 알림에 묶여
+    /// picker·타이머 알림·고정 스케줄 어디에도 따로 서지 않는다 — 한 보스가 두 번 울리면 안 된다.</summary>
+    [Fact]
+    public void The_second_kaira_shares_the_firsts_own_alarm()
+    {
+        Assert.Equal(2600099, FieldBossCatalog.ScheduledSpawnTwinCode);
+        Assert.True(FieldBossCatalog.IsKnown(2600099));
+        Assert.Equal(FieldBossCatalog.Name(FieldBossCatalog.ScheduledSpawnCode), FieldBossCatalog.Name(2600099));
+        Assert.True(FieldBossCatalog.HasOwnAlarm(2600099));
+        Assert.False(FieldBossFixedSchedule.HasFixedSchedule(2600099));
+        Assert.True(FieldBossCatalog.IsAbyss(2600099));
+        Assert.DoesNotContain(
+            FieldBossCatalog.InRegion(FieldBossRegion.Abyss).Where(b => !FieldBossCatalog.HasOwnAlarm(b.Code)),
+            b => b.Name == FieldBossCatalog.Name(2600099));
+
+        // 0x9101 슬롯 코드는 아직 모른다. 2002 는 여전히 첫째만 가리키고, 2009 는 지어내지 않았다.
+        Assert.True(FieldBossCatalog.TryResolveWireCode(2002, out int first));
+        Assert.Equal(FieldBossCatalog.ScheduledSpawnCode, first);
+        Assert.False(FieldBossCatalog.TryResolveWireCode(2009, out _));
     }
 
     private static readonly TimeSpan Kst = TimeSpan.FromHours(9);
