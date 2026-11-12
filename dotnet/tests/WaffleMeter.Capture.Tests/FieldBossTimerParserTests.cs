@@ -220,7 +220,7 @@ public class FieldBossTimerParserTests
     public void The_zeroed_kaira_record_produces_no_timer()
     {
         // 감시자 카이라 is the one boss the server never times, so there is nothing to remind against here —
-        // it is driven by its own 4-hour-grid alarm instead, and must not appear as a respawn timer.
+        // it is driven by its own clock alarm instead, and must not appear as a respawn timer.
         FieldBossTimerParser.Result low =
             FieldBossTimerParser.ParseTable(Hex(RealAbyssLowerBody), 0, AbyssArrivedAt);
 

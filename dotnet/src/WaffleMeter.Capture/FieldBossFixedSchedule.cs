@@ -26,7 +26,9 @@ namespace WaffleMeter.Capture;
 /// <see cref="DailySpawnHoursKst"/> 고정 출현</b>이 됐다(오너 전달, 패치 공지 기준). 이 그룹만 시계가 하루
 /// 단위라 App.Core 가 어비스에 가지 않아도 다음 출현을 계산해 알림에 얹는다(<c>DailyFieldBossTimers</c>).
 /// ⚠️ 시각의 출처는 <b>패치 문구</b>이지 실캡처가 아니다 — 감시자 카이라는 같은 경로로 앵커가 한 시간
-/// 틀렸었다. 0x9101 이 다른 시각을 보내면 그쪽이 이기고, 실측으로 어긋남이 확인되면 이 상수만 고쳐라.</para>
+/// 틀렸었다. 0x9101 이 다른 시각을 보내면 그쪽이 이기고, 실측으로 어긋남이 확인되면 이 상수만 고쳐라.
+/// (2026-11-12 대조: 클라 <c>PeriodSpawn</c> 의 <c>FieldBoss_AR1_DayBoss_07</c> 이 09:00 / Cycle 720 =
+/// 09·21시로 같은 값을 적는다 — 10-28·11-11 덤프 둘 다. 실캡처는 여전히 없다.)</para>
 /// </summary>
 public static class FieldBossFixedSchedule
 {
@@ -47,7 +49,7 @@ public static class FieldBossFixedSchedule
 
     /// <summary>매일 고정 출현 그룹의 출현 정각(KST 시, 오름차순) — 09·21시. ⚠️ 이 값이 유일한 정본이다:
     /// 피커 배지 문구도, 파서 폴백도, App.Core 의 시계 알림도 여기서 파생된다. 실측이 다르면 <b>여기만</b>
-    /// 고쳐라(카이라 앵커 정정 선례 — <c>KairaAlarm.SpawnAnchorHourKst</c>).</summary>
+    /// 고쳐라(카이라 시각 정정 선례 — <c>KairaAlarm.Spawners</c>).</summary>
     public static IReadOnlyList<int> DailySpawnHoursKst { get; } = new[] { 9, 21 };
 
     // Which boss is in which group was read off a real 하층+중층 capture (2026-07-27, a Monday): the
@@ -60,7 +62,7 @@ public static class FieldBossFixedSchedule
     private static readonly Dictionary<int, Kind> ByBossCode = new()
     {
         // 감시자 카이라(2600089)는 여기 없다 — 서버가 시각을 0으로 보내는 유일한 보스라 리젠 타이머로
-        // 다룰 수가 없고, KST 1시 기준 4시간 격자 별도 알림(KairaAlarm)으로 뺐다.
+        // 다룰 수가 없고, 시계로 도는 별도 알림(KairaAlarm, KST 01·09·13·21시)으로 뺐다.
         // ⚠️ 확정 출현이 됐다고 여기로 옮기지 마라 — FieldBossCatalog.ScheduledSpawnCode 의 doc 참고.
         [2600084] = Kind.FriSun2205,   // 수호신장 나흐마 ×3 (하층)
         [2600093] = Kind.FriSun2205,
