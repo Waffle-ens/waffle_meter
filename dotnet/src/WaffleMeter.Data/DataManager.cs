@@ -518,8 +518,10 @@ public sealed class DataManager : ICaptureGameData
     // '보호의 방패'의 공격력 효과, 살성 '회피 자세'의 후방 피해 효과. 셋 다 같은 base에 지속이 더 짧은 숨김
     // 상태(심판 시전 상태, 방패·회피의 막기·회피 상태)가 함께 오고, base 하나로 접으면 마지막에 온 쪽이 슬롯을
     // 덮어써 10초 버프의 남은 시간이 1초짜리 상태로 바뀌거나 사라진다. 보이는 효과 코드만 떼어 낸다.
-    // 표시 코드는 Skill 표·skills.json에 없는 같은 base의 빈 번호다(실제 시전 코드와 겹치면 쿨 오버레이·스킬
-    // 상세에 섞인다). 이름은 buff_catalog·buff_names, 아이콘은 base PNG(바닥 접기)를 쓴다.
+    // 표시 코드: 심판의 권능은 따로 거는 시스템 스킬이 없어 Skill 표·skills.json에 없는 같은 base의 빈 번호를
+    // 썼다(실제 시전 코드와 겹치면 쿨 오버레이·스킬 상세에 섞인다). 보호의 방패·회피 자세는 그 버프를 거는
+    // 시스템 트리거 스킬 코드다(대지의 축복과 같은 관례 — 플레이어가 시전하지 않으므로 쿨 오버레이에 안 섞인다).
+    // 이름은 buff_catalog·buff_names, 아이콘은 base PNG(바닥 접기)를 쓴다.
     private static readonly Dictionary<int, int> BuffDisplayBaseOverrides = new()
     {
         [174000271] = 17400058,   // A2 자신 (Cleric_Skill040_LvUp_A2_Buff_Self)
