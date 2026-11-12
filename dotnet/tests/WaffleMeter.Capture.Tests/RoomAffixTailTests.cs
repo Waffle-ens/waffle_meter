@@ -167,14 +167,18 @@ public sealed class RoomAffixTailTests
     // 🔴 값은 "축*10+레벨" 공식이 아니라 DungeonTrialAffix.dat 의 ID 다. 바크론(1~4/11~14/21~24/31~34)은 우연히
     // 공식과 같은 모양이었을 뿐이고, 불의 신전은 37~52 에 축 순서도 섞여 붙었다. 공식으로 풀면 제한 시간
     // (47~49)이 "축 4"로 읽혀 방 전체가 버려졌다 — v3.2.5 의 불의 신전 시련 102런이 전부 시련 블록 없이 올라갔다.
+    //
+    // 🔴 클라 125(2026-11-11): 보스 강화가 8→16레벨로 늘면서 뒤 세 축의 ID 가 밀렸다.
+    //    BossBuff_2 37~52 · Pc_debuff_1 53~54 · Timelimit_2 55~57 · Rebirthlimit_2 58~60.
+    //    옛 45~52(Pc·제한시간·부활제한)는 이제 전부 보스 강화 9~16 이다.
 
     private const int FireTempleDungeonId = 600025;
 
     [Fact]
     public void Fire_temple_sixteen_is_three_three_eight_two_off_the_tail()
     {
-        // Timelimit_2 3=49 · Rebirthlimit_2 3=52 · BossBuff_2 8=44 · Pc_debuff_1 2=46
-        RecordingData data = Feed(RoomSnapshot([49, 52, 44, 46], dungeonId: FireTempleDungeonId));
+        // Timelimit_2 3=57 · Rebirthlimit_2 3=60 · BossBuff_2 8=44 · Pc_debuff_1 2=54
+        RecordingData data = Feed(RoomSnapshot([57, 60, 44, 54], dungeonId: FireTempleDungeonId));
 
         (int dungeonId, int roomKey, int[] levels) = Assert.Single(data.Affixes);
         Assert.Equal(FireTempleDungeonId, dungeonId);
@@ -185,9 +189,29 @@ public sealed class RoomAffixTailTests
     [Fact]
     public void Fire_temple_four_is_the_first_id_of_every_axis()
     {
-        RecordingData data = Feed(RoomSnapshot([47, 50, 37, 45], dungeonId: FireTempleDungeonId));
+        RecordingData data = Feed(RoomSnapshot([55, 58, 37, 53], dungeonId: FireTempleDungeonId));
 
         Assert.Equal([1, 1, 1, 1], Assert.Single(data.Affixes).Levels);
+    }
+
+    [Fact]
+    public void Fire_temple_twenty_four_is_three_three_sixteen_two_off_the_tail()
+    {
+        // 클라 125 의 새 꼭대기: Timelimit_2 3=57 · Rebirthlimit_2 3=60 · BossBuff_2 16=52 · Pc_debuff_1 2=54
+        RecordingData data = Feed(RoomSnapshot([57, 60, 52, 54], dungeonId: FireTempleDungeonId));
+
+        Assert.Equal([3, 3, 16, 2], Assert.Single(data.Affixes).Levels);
+    }
+
+    [Theory]
+    [InlineData(new[] { 49, 52, 44, 46 })]   // 클라 124 까지의 16단계(3/3/8/2)
+    [InlineData(new[] { 47, 50, 37, 45 })]   // 클라 124 까지의 4단계(1/1/1/1)
+    [InlineData(new[] { 48, 50, 41, 45 })]   // 클라 124 까지의 9단계(2/1/5/1)
+    public void A_quad_in_the_pre_125_id_layout_is_thrown_away_not_misread(int[] affixes)
+    {
+        // 옛 ID 45~52 는 이제 전부 보스 강화다. 옛 모양의 쿼드는 새 표에서 보스 강화가 여러 번 나오는 꼴이라
+        // 축 중복으로 거부된다 — 패치 전 패킷 로그를 다시 틀어도 틀린 단계가 붙지 않는다.
+        Assert.Empty(Feed(RoomSnapshot(affixes, dungeonId: FireTempleDungeonId)).Affixes);
     }
 
     [Theory]
@@ -199,9 +223,17 @@ public sealed class RoomAffixTailTests
     [InlineData(42, 6)]
     [InlineData(43, 7)]
     [InlineData(44, 8)]
-    public void Fire_temple_boss_buff_reads_all_eight_levels(int raw, int expected)
+    [InlineData(45, 9)]     // 여기부터 클라 125 신설 — 종전에는 Pc_debuff_1 1 이던 ID
+    [InlineData(46, 10)]
+    [InlineData(47, 11)]    // 종전 Timelimit_2 1
+    [InlineData(48, 12)]
+    [InlineData(49, 13)]
+    [InlineData(50, 14)]    // 종전 Rebirthlimit_2 1
+    [InlineData(51, 15)]
+    [InlineData(52, 16)]
+    public void Fire_temple_boss_buff_reads_all_sixteen_levels(int raw, int expected)
     {
-        RecordingData data = Feed(RoomSnapshot([47, 50, raw, 45], dungeonId: FireTempleDungeonId));
+        RecordingData data = Feed(RoomSnapshot([55, 58, raw, 53], dungeonId: FireTempleDungeonId));
 
         Assert.Equal(expected, Assert.Single(data.Affixes).Levels[(int)TrialAffixGroup.BossBuff]);
     }
@@ -210,14 +242,14 @@ public sealed class RoomAffixTailTests
     public void The_axis_comes_from_the_id_not_from_the_position()
     {
         // 와이어 순서가 슬롯 순서라는 보장은 없다 — 불의 신전은 ID 자체가 보스 강화부터 매겨져 있다.
-        RecordingData data = Feed(RoomSnapshot([44, 46, 49, 51], dungeonId: FireTempleDungeonId));
+        RecordingData data = Feed(RoomSnapshot([44, 54, 57, 59], dungeonId: FireTempleDungeonId));
 
         Assert.Equal([3, 2, 8, 2], Assert.Single(data.Affixes).Levels);
     }
 
     [Theory]
-    [InlineData(new[] { 4, 52, 44, 46 })]     // 바크론 제한시간 + 불의 신전 셋
-    [InlineData(new[] { 49, 52, 24, 46 })]    // 불의 신전 셋 + 바크론 보스강화
+    [InlineData(new[] { 4, 60, 44, 54 })]     // 바크론 제한시간 + 불의 신전 셋
+    [InlineData(new[] { 57, 60, 24, 54 })]    // 불의 신전 셋 + 바크론 보스강화
     public void A_quad_mixing_two_trials_is_thrown_away(int[] affixes)
     {
         // 한 방이 두 시련의 어픽스를 함께 실을 수는 없다. 섞였다면 어픽스 배열이 아니다.
@@ -228,7 +260,7 @@ public sealed class RoomAffixTailTests
     [InlineData(new[] { 4, 14, 24, 44 })]    // 바크론 셋 + 불의 신전 보스강화 8 — 두 시련이 섞임
     [InlineData(new[] { 4, 14, 24, 30 })]    // 레벨 0
     [InlineData(new[] { 4, 14, 24, 35 })]    // 35 — 표에 없는 ID (34 와 37 사이 빈칸)
-    [InlineData(new[] { 49, 52, 44, 53 })]   // 53 — 표 끝 너머
+    [InlineData(new[] { 57, 60, 44, 61 })]   // 61 — 표 끝 너머
     [InlineData(new[] { 4, 14, 14, 34 })]    // 축1 중복 · 축2 누락
     [InlineData(new[] { 0, 14, 24, 34 })]    // 축0 레벨 0
     public void A_quad_that_is_not_four_distinct_axes_is_thrown_away(int[] affixes)

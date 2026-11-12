@@ -89,12 +89,21 @@ public static class TrialAffixCatalog
         AddIds(map, BakronTrial, TrialAffixGroup.Rebirthlimit, [11, 12, 13, 14]);
         AddIds(map, BakronTrial, TrialAffixGroup.BossBuff, [21, 22, 23, 24]);
         AddIds(map, BakronTrial, TrialAffixGroup.BakronSkillUpgrade, [31, 32, 33, 34]);
-        // 불의 신전 — Timelimit_2 1~3 / Rebirthlimit_2 1~3 / BossBuff_2 1~8 / Pc_debuff_1 1~2.
+        // 불의 신전 — Timelimit_2 1~3 / Rebirthlimit_2 1~3 / BossBuff_2 1~16 / Pc_debuff_1 1~2.
         // 네 번째 축은 슬롯 3(skillUpgrade)을 재사용한다(웹과 합의 — 축 정체는 맵 id 로 가른다).
-        AddIds(map, FireTempleTrial, TrialAffixGroup.Timelimit, [47, 48, 49]);
-        AddIds(map, FireTempleTrial, TrialAffixGroup.Rebirthlimit, [50, 51, 52]);
-        AddIds(map, FireTempleTrial, TrialAffixGroup.BossBuff, [37, 38, 39, 40, 41, 42, 43, 44]);
-        AddIds(map, FireTempleTrial, TrialAffixGroup.BakronSkillUpgrade, [45, 46]);
+        //
+        // 🔴 클라 125(2026-11-11)에서 BossBuff_2 가 8→16레벨로 늘면서 **뒤 세 축의 ID 가 통째로 밀렸다.**
+        // 종전(클라 112~124): BossBuff_2 37~44 · Pc_debuff_1 45~46 · Timelimit_2 47~49 · Rebirthlimit_2 50~52.
+        // 지금: BossBuff_2 37~52 · Pc_debuff_1 53~54 · Timelimit_2 55~57 · Rebirthlimit_2 58~60.
+        // 즉 옛 45~52 는 이제 전부 보스 강화 9~16 이다. 옛 표를 그대로 두면 패치 후의 방은 53 이상을 몰라
+        // 전부 버려지고(= 불의 신전 시련 블록 100% 누락), 옛 모양의 쿼드(예: 49·52·44·46)는 새 표에서 보스
+        // 강화가 네 번 나오는 꼴이라 축 중복으로 거부된다 — 어느 쪽도 틀린 단계를 만들지는 않는다.
+        // 게임이 같은 ID 의 뜻을 바꾼 것이므로 이 행들은 "추가"가 아니라 교체가 맞다.
+        AddIds(map, FireTempleTrial, TrialAffixGroup.Timelimit, [55, 56, 57]);
+        AddIds(map, FireTempleTrial, TrialAffixGroup.Rebirthlimit, [58, 59, 60]);
+        AddIds(map, FireTempleTrial, TrialAffixGroup.BossBuff,
+            [37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52]);
+        AddIds(map, FireTempleTrial, TrialAffixGroup.BakronSkillUpgrade, [53, 54]);
         return map;
     }
 
