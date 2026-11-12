@@ -287,7 +287,7 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
     /// 활처럼 실제로 레벨을 투자하는 스킬이 아닌 것들이 전부 1 로 온다. 그 줄에 "Lv.1"을 붙이면 레벨이 낮은
     /// 것처럼 읽혀 오히려 틀린 정보가 된다.</para>
     /// <para>표시에서만 뺀다 — 계산(<see cref="Data.PartySynergyCatalog"/>)과 통계 payload 에는 1 이 그대로
-    /// 간다. 노련한 반격 1레벨 5.4% 처럼 1 이 진짜 의미를 갖는 자리가 있기 때문이다.</para>
+    /// 간다. 노련한 반격 1레벨 0.4% 처럼 1 이 진짜 의미를 갖는 자리가 있기 때문이다.</para>
     /// </summary>
     public void SetLevel(int level, bool show)
     {

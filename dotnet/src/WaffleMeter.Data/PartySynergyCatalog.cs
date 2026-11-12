@@ -6,9 +6,14 @@ namespace WaffleMeter.Data;
 /// <para>Every buff here scales linearly (or in level breakpoints) with the level its caster put into the
 /// skill, and the wire tells us that level on every application (어노멀 레벨, see <see cref="UseBuff.Level"/>).
 /// The shipped <see cref="BuffValueCatalog"/> snapshot cannot express that — one row per buff code, no level —
-/// which is why it credits 불패의 진언 at level 25 with its level-1 value (10.5% instead of 22.5%) and has no
+/// which is why it credits 불패의 진언 at level 25 with its level-1 value and has no
 /// row for 흡혈의 검. This catalog wins wherever both have an opinion; everything not listed here still comes
 /// from the snapshot.</para>
+///
+/// <para><b>클라 125 (2026-11-11) — 파티 피해 증폭이 일괄 5%p 내려갔다.</b> 노련한 반격·격앙·보호의 빛·불패의
+/// 진언의 1레벨 기본값이 5%p 씩 깎였고(레벨당 증가폭은 그대로), 불패의 진언은 랭크 효과의 순서도 바뀌었다.
+/// 아래 식의 숫자는 전부 <c>SkillAbnormalEffect.Values[1]</c>(1레벨) + <c>SkillAbnormalEffectLv</c>(2레벨~)에서
+/// 읽은 것이다(단위 ×0.01%). 통계 사이트가 같은 식을 쓰므로 한쪽만 고치면 두 화면의 수치가 갈린다.</para>
 ///
 /// <para><b>Two of these do not multiply anything.</b> 흡혈의 검's 착취 and 대지의 축복's 공격 적중 시 추가 피해
 /// arrive as REAL DAMAGE PACKETS on each party member, carrying the granting class's skill code — measured
@@ -54,19 +59,21 @@ public static class PartySynergyCatalog
 
         return displayBase switch
         {
-            // 1레벨 PvE 피해 증폭 5.4%, 이후 레벨당 +0.4%p.
-            SwordCounter => [Amp(5.4 + 0.4 * (level - 1))],
+            // PvE 피해 증폭 레벨당 0.4%p — 1레벨 0.4%, 40레벨 16%. 클라 125 의 117800071: 1레벨 40, 레벨당 +40.
+            // (클라 124 까지는 1레벨 540 = 5.4% + 0.4%p×(레벨−1), 40레벨 21% 였다.)
+            SwordCounter => [Amp(0.4 * level)],
 
-            // 1레벨 PvE 피해 증폭 5.5%, 이후 레벨당 +0.5%p. 2026-09-01 이후 클라 데이터(127800011 의 550,
-            // 레벨당 +50)이자 사이트가 쓰는 식이다.
-            GuardianFervor => [Amp(5.5 + 0.5 * (level - 1))],
+            // PvE 피해 증폭 레벨당 0.5%p — 1레벨 0.5%, 40레벨 20%. 클라 125 의 127800011: 1레벨 50, 레벨당 +50.
+            // (클라 124 까지는 1레벨 550 = 5.5% + 0.5%p×(레벨−1), 40레벨 25% 였다.)
+            GuardianFervor => [Amp(0.5 * level)],
 
-            // 1레벨 PvE 피해 증폭 10.5%, 레벨당 +0.5%p, 그 위에 레벨 breakpoint 3개가 얹힌다.
+            // 1레벨 PvE 피해 증폭 5.5%, 레벨당 +0.5%p, 그 위에 레벨 breakpoint 3개가 얹힌다.
             ChanterMantra => Mantra(level),
 
             // 20레벨부터 파티원 공격력 +10%, 25레벨에서 무기 피해 증폭 +5%. 그 아래 레벨에서는 전투 속도/명중
             // 계열만 올려 주므로 피해 이득이 0이다 (전투 속도는 site 모델에서도 별도 family로 잡히지만, 이
             // 스킬의 저레벨 구간 값은 실측이 없어 넣지 않는다 — 없는 숫자를 지어내지 않는다).
+            // 클라 125 에서 파티 전투 속도가 20% → 10% 로 내려갔지만 그 항은 여기서 매기지 않으므로 식은 그대로다.
             ChanterGale => Gale(level),
 
             // 보스의 PvE 피해 내성을 1레벨 5.4%, 레벨당 +0.4%p 깎는다. 보스에게 걸리는 디버프이므로 보스 내성
@@ -78,7 +85,7 @@ public static class PartySynergyCatalog
             // 25에서 공격 적중 시 추가 피해(= 배수가 아니라 실제 데미지 패킷, GrantedDamageSource 참조).
             ClericEarthBlessing => EarthBlessing(level),
 
-            // 보호의 빛: 불패의 진언과 같은 사다리(PvE 피해 증폭 10.5% + 레벨당 0.5%p)에 20레벨 완벽, 25레벨
+            // 보호의 빛: 불패의 진언과 같은 사다리(PvE 피해 증폭 5.5% + 레벨당 0.5%p)에 20레벨 완벽, 25레벨
             // 강타가 얹힌다. 딜에 직접 들어가는 항만 싣는다 — 같은 버프의 피해 내성·받는 치유량·명중·최대
             // 생명력은 넣지 않는다.
             ClericProtectLight => ProtectLight(level),
@@ -98,19 +105,28 @@ public static class PartySynergyCatalog
         // 세 breakpoint 가 전부 `offense_crit` 한 덩어리였을 때는 셋 다 데미지 %로 곱해져 L25 가 48.6% 로
         // 값이 매겨졌다. 셋은 사실 서로 다른 버킷이다 — 치명타 피해 증폭은 치명타가 터졌을 때만, 강타·완벽은
         // 발동률이라 이미 높은 발동률 위에서는 값이 줄어든다.
-        var effects = new List<BuffGainEffect> { Amp(10.5 + 0.5 * (level - 1)) };
-        if (level >= 15) effects.Add(new BuffGainEffect(BuffEffectKind.CritDamageAmp, 5.0));
-        if (level >= 20) effects.Add(new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0));
-        if (level >= 25) effects.Add(new BuffGainEffect(BuffEffectKind.PerfectRate, 10.0));
+        //
+        // 클라 125 (2026-11-11): 1819000x11 의 PvE 피해 증폭이 1050 → 550(레벨당 +50 그대로, 25레벨 1750),
+        // 그리고 랭크 효과가 재배치됐다 — 랭크 n 은 5n 레벨에서 열린다.
+        //   랭크 2 (10레벨): 명중 100          → 치명타 피해 증폭 500   (종전엔 15레벨)
+        //   랭크 3 (15레벨): 치명타 피해 증폭  → 이동 속도 1000         (피해와 무관)
+        //   랭크 4 (20레벨): 강타 500          → 완벽 1000              (종전엔 25레벨)
+        //   랭크 5 (25레벨): 완벽 1000         → 강타 500               (종전엔 20레벨)
+        // 25레벨에서 얹히는 세 항의 합은 같고(치피 5 · 완벽 10 · 강타 5), 달라지는 것은 10~24레벨 구간이다.
+        // 이제 완벽·강타의 순서가 보호의 빛과 같다.
+        var effects = new List<BuffGainEffect> { Amp(5.5 + 0.5 * (level - 1)) };
+        if (level >= 10) effects.Add(new BuffGainEffect(BuffEffectKind.CritDamageAmp, 5.0));
+        if (level >= 20) effects.Add(new BuffGainEffect(BuffEffectKind.PerfectRate, 10.0));
+        if (level >= 25) effects.Add(new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0));
         return effects;
     }
 
     private static IReadOnlyList<BuffGainEffect> ProtectLight(int level)
     {
-        // 클라 데이터(2026-09-28): 1741000111 PvE 피해 증폭 1050 + 레벨당 50, 4랭크(174100411, 20레벨) 완벽
-        // 1000, 5랭크(174100511, 25레벨) 강타 500. 랭크 n 은 5n 레벨에서 열린다 — 와이어에서도 lv15 가 3랭크,
-        // lv25 가 5랭크 코드로 온다.
-        var effects = new List<BuffGainEffect> { Amp(10.5 + 0.5 * (level - 1)) };
+        // 클라 125 (2026-11-11): 1741000x11 PvE 피해 증폭 550 + 레벨당 50(25레벨 1750 — 종전 1050, 25레벨
+        // 2250). 4랭크(174100411, 20레벨) 완벽 1000, 5랭크(174100511, 25레벨) 강타 500 은 그대로다. 랭크 n 은
+        // 5n 레벨에서 열린다 — 와이어에서도 lv15 가 3랭크, lv25 가 5랭크 코드로 온다.
+        var effects = new List<BuffGainEffect> { Amp(5.5 + 0.5 * (level - 1)) };
         if (level >= 20) effects.Add(new BuffGainEffect(BuffEffectKind.PerfectRate, 10.0));
         if (level >= 25) effects.Add(new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0));
         return effects;

@@ -371,8 +371,8 @@ public sealed record StatsSkillPayload(
 /// <param name="Level">
 /// The CASTER's skill level for this buff — the 어노멀 레벨 (1..40) the apply packet carries, or null when the
 /// wire did not give one (consumables/scrolls have no level, and the tail self-validation can decline).
-/// <para>Why it matters: a support buff's magnitude is linear in this level (노련한 반격 = 5.4% + 0.4%/level,
-/// 불패의 진언 = 10.5% + 0.5%/level), so uptime alone cannot say how much a buffer contributed. The site's own
+/// <para>Why it matters: a support buff's magnitude is linear in this level (노련한 반격 = 0.4%/level,
+/// 불패의 진언 = 5.5% + 0.5%/level), so uptime alone cannot say how much a buffer contributed. The site's own
 /// rDPS model says as much in <c>dps-metrics.ts</c> — "the payload has no skill level with which to make this
 /// rDPS approximation exact" — and it currently credits a level-25 불패의 진언 with its level-1 value.</para>
 /// </param>
