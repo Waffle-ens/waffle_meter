@@ -487,6 +487,10 @@ public sealed class DataManager : ICaptureGameData
     private bool _buffCatalogLoaded;
     // Bases that should default to Off (toggle/aura buffs that stay on indefinitely) — applied on first run.
     private readonly HashSet<int> _defaultOffBuffBases = new();
+    // 표시 base → 최대 중첩 수(buff_catalog.json 의 "s", 클라 AbnormalOverlapCount). 여기 있는 base 만 중첩 수를
+    // 센다(BuffStackTracker). 락 없이 읽도록 통째로 바꿔 끼운다 — _ownerBuffGate 안에서 읽히므로 _buffPickerGate 를
+    // 잡으면 두 락의 순서를 하나 더 늘리게 된다.
+    private volatile IReadOnlyDictionary<int, int> _buffStackMax = new Dictionary<int, int>();
     // Base skill codes the user unchecked — the overlay suppresses these.
     private readonly HashSet<int> _hiddenBuffBases = new();
     // Base skill codes set to voice ("오버레이+음성" or "음성만") — the store keeps these even when hidden so a
@@ -608,9 +612,19 @@ public sealed class DataManager : ICaptureGameData
     }
 
     /// <summary>buff_catalog.json: curated self-buff bases (datamine-verified) that the picker lists even
-    /// before they're observed, plus the default-off (toggle/aura) subset. Names are merged into the table.</summary>
-    public void LoadBuffCatalog(IEnumerable<(int Code, string Name, string Job)> catalog, IEnumerable<int> defaultOff)
+    /// before they're observed, plus the default-off (toggle/aura) subset. Names are merged into the table.
+    /// <para><paramref name="stackMax"/> = 표시 base → 최대 중첩 수(카탈로그 <c>"s"</c>). 여기 있는 base 만 오버레이에
+    /// 중첩 수를 싣는다(<see cref="OwnerBuffView.Stacks"/>).</para></summary>
+    public void LoadBuffCatalog(
+        IEnumerable<(int Code, string Name, string Job)> catalog,
+        IEnumerable<int> defaultOff,
+        IReadOnlyDictionary<int, int>? stackMax = null)
     {
+        if (stackMax is not null)
+        {
+            _buffStackMax = stackMax.Where(kv => kv.Value > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
+        }
+
         lock (_buffPickerGate)
         {
             // Tracked separately from _knownBuffBases being non-empty: the revival-heal path also adds to that
@@ -632,6 +646,9 @@ public sealed class DataManager : ICaptureGameData
             }
         }
     }
+
+    /// <summary>표시 base 의 최대 중첩 수. 카탈로그에 <c>"s"</c>가 없으면 0 — 그 버프는 중첩 수를 세지 않는다.</summary>
+    public int BuffStackMax(int displayBase) => _buffStackMax.TryGetValue(displayBase, out int max) ? max : 0;
 
     /// <summary>The toggle/aura buffs that should default to Off (applied once on first run by the app).</summary>
     public IReadOnlyCollection<int> DefaultOffBuffBases()
@@ -2571,6 +2588,7 @@ public sealed class DataManager : ICaptureGameData
                     // Key by BASE code so the SAME buff re-cast by a different player/rank refreshes the one slot
                     // in place (no duplicate icon, no duplicate start alert) — the later cast takes over.
                     PutOwnerBuffLocked(baseCode, entry, buffStart);
+                    RecordStackLocked(owner, baseCode, skillCode, entry, buffStart);
                 }
 
                 LiveBuffsChanged?.Invoke();
@@ -2644,6 +2662,30 @@ public sealed class DataManager : ICaptureGameData
         _ownerBuffs[baseCode] = entry;
     }
 
+    /// <summary>중첩 버프(카탈로그 <c>"s"</c>가 있는 base)의 slot 을 기록하고, 대표 엔트리의 만료를 <b>살아 있는 slot
+    /// 중 가장 늦은 만료</b>로 맞춘다.
+    /// <para>만료를 마지막 패킷 그대로 두면 안 되는 이유: 새 중첩이 오면 기존 slot 들의 0x382B 가 같은 틱에 뒤따르는데,
+    /// 광분처럼 slot 마다 만료가 다른 버프(OverlapTimeType=Longer)는 그 뒤따르는 0x382B 가 대표 만료를 <b>앞당긴다</b>.
+    /// 그러면 링·남은 시간이 먼저 끝날 slot 을 따라가고, 그 slot 이 지면 아이콘이 다른 slot 이 살아 있는데도 꺼지며,
+    /// 종료 음성도 그 이른 시각에 "오프"를 외친다. 가장 늦은 만료를 대표로 두면 이른 slot 이 끝나도 수만 줄어든다.
+    /// 종료 음성은 <c>EndMs</c>로 키잉돼 있어 대표 만료가 바뀌면 예약을 버리고 새 만료로 다시 잡는다.</para>
+    /// <para>_ownerBuffGate를 이미 잡은 상태에서 호출된다.</para></summary>
+    private void RecordStackLocked(
+        int owner, int baseCode, int skillCode,
+        (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot) entry, long nowMs)
+    {
+        if (BuffStackMax(baseCode) <= 0)
+        {
+            return; // 중첩을 세지 않는 버프 — 종전 그대로 base 하나에 slot 하나
+        }
+
+        _buffStacks.Record(owner, baseCode, skillCode, entry.Slot, entry.End, nowMs);
+        if (_buffStacks.Latest(baseCode, nowMs) is { } latest && latest.End > entry.End)
+        {
+            _ownerBuffs[baseCode] = entry with { End = latest.End };
+        }
+    }
+
     // A uid that could plausibly be the local player before its own-load packet is recognized: inside the entity
     // id space, not a known mob, not a summon. Bounds the staging set to player-ish entities (~party size).
     private bool CouldBeSelfEntity(int uid) =>
@@ -2682,7 +2724,9 @@ public sealed class DataManager : ICaptureGameData
         {
             // on/off 오라는 제거로 지우지 않고 유예가 끝낼 때까지 둔다. 서버가 인스턴스를 지웠다가 1초 안에 새
             // 펄스를 보내는 일이 흔해서(실측 세션당 수~수십 회) 여기서 지우면 그게 곧 깜빡임이다.
+            changed = RemoveStackSlotsLocked(slots, arrivedAt);
             foreach (int baseCode in _ownerBuffs
+                         .Where(kv => BuffStackMax(kv.Key) <= 0)
                          .Where(kv => kv.Value.Slot != 0 && slots.Contains(kv.Value.Slot)
                                       && !ToggleAuraBaseCodes.Contains(kv.Key))
                          .Select(kv => kv.Key)
@@ -2697,6 +2741,42 @@ public sealed class DataManager : ICaptureGameData
         {
             LiveBuffsChanged?.Invoke();
         }
+    }
+
+    /// <summary>중첩 버프(카탈로그 <c>"s"</c>가 있는 base)의 제거. <b>지목된 slot 만</b> 빼고, 같은 버프의 slot 이 아직
+    /// 살아 있으면 아이콘을 남긴 채 대표 만료를 남은 slot 중 가장 늦은 것으로 옮긴다. 하나도 안 남을 때만 지운다.
+    /// <para>종전 규칙(대표 slot 이 지목되면 엔트리째 지움)은 base 하나에 slot 을 하나만 들고 있던 탓에, 여러 겹 중 대표
+    /// 하나만 먼저 풀려도 아이콘이 통째로 사라졌다. 이 규칙은 중첩 버프에만 쓴다 — 다른 버프는 같은 base 의 숨김 상태
+    /// 분리·스테이징 재생과 얽혀 있어 종전 규칙을 그대로 둔다.</para>
+    /// <para>tracker 에 기록이 없는 대표 slot(스테이징 재생으로 들어온 엔트리)이 지목되면 남은 slot 이 없으므로 지운다.</para>
+    /// <para>_ownerBuffGate를 이미 잡은 상태에서 호출된다.</para></summary>
+    private bool RemoveStackSlotsLocked(IReadOnlyList<int> slots, long nowMs)
+    {
+        bool changed = false;
+        foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)> kv in _ownerBuffs
+                     .Where(kv => BuffStackMax(kv.Key) > 0 && !ToggleAuraBaseCodes.Contains(kv.Key))
+                     .ToList())
+        {
+            (int Slot, long End)? latest = _buffStacks.Remove(kv.Key, slots, nowMs, out bool touched);
+            bool representativeHit = kv.Value.Slot != 0 && slots.Contains(kv.Value.Slot);
+            if (!touched && !representativeHit)
+            {
+                continue;
+            }
+
+            if (latest is { } l)
+            {
+                _ownerBuffs[kv.Key] = kv.Value with { End = l.End, Slot = l.Slot };
+            }
+            else
+            {
+                _ownerBuffs.Remove(kv.Key);
+            }
+
+            changed = true;
+        }
+
+        return changed;
     }
 
     /// <summary>엔티티 사망(0x8D04). <b>본인</b>이 죽었을 때만 버프 오버레이 스토어를 비운다 — 사망 후
@@ -2833,6 +2913,7 @@ public sealed class DataManager : ICaptureGameData
         lock (_ownerBuffGate)
         {
             _ownerBuffs.Clear();
+            _buffStacks.Clear(); // 부활 뒤 첫 적용이 1부터 다시 센다
             _ownerBuffClearRevision++;
         }
 
@@ -3050,6 +3131,9 @@ public sealed class DataManager : ICaptureGameData
     // ---- live owner-buff store (for the combat-assist overlay) ----
     // Keyed by BASE skill code (level-independent) so a re-cast of the same buff refreshes one entry.
     private readonly Dictionary<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)> _ownerBuffs = new(); // baseCode -> (expiry, applier, duration, indefinite, abnormal level)
+
+    // 중첩 버프(카탈로그 "s")의 살아 있는 slot 집합. _ownerBuffs 와 같은 _ownerBuffGate 로 보호하고, 같은 지점에서 비운다.
+    private readonly BuffStackTracker _buffStacks = new();
 
     // Self job-buffs seen for an entity uid BEFORE the executor was confirmed (owner==0 / stale), keyed by uid
     // then base code (last-write-wins). Replayed onto _ownerBuffs the instant SaveExecutorId confirms that uid is
@@ -3705,6 +3789,8 @@ public sealed class DataManager : ICaptureGameData
                     : Buff(kv.Key)?.Name ?? Skill(kv.Key)?.Name ?? $"버프 {kv.Key}";
                 bool onCooldown = IsVeiledByCooldown(kv.Key, nowMs);
                 bool toggle = ToggleAuraBaseCodes.Contains(kv.Key);
+                int stackMax = BuffStackMax(kv.Key);
+                int stacks = stackMax > 0 ? _buffStacks.Count(kv.Key, nowMs, stackMax) : 0;
                 result.Add(new OwnerBuffView(
                     kv.Key, name, kv.Value.End - nowMs, kv.Value.Duration, kv.Value.End,
                     owner != 0 && kv.Value.Actor != owner,
@@ -3713,7 +3799,8 @@ public sealed class DataManager : ICaptureGameData
                     kv.Value.Indefinite,
                     kv.Value.Level,
                     toggle,
-                    toggle && _toggleHeldSince.TryGetValue(kv.Key, out long heldSince) ? heldSince : 0));
+                    toggle && _toggleHeldSince.TryGetValue(kv.Key, out long heldSince) ? heldSince : 0,
+                    stacks));
             }
 
             SuppressExclusiveLosers(result, nowMs);
@@ -3780,6 +3867,7 @@ public sealed class DataManager : ICaptureGameData
         lock (_ownerBuffGate)
         {
             _ownerBuffs.Clear();
+            _buffStacks.Clear();
             _cooldowns.Clear();
         }
     }

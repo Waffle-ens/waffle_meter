@@ -156,6 +156,7 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
             {
                 var slot = new BuffSlotVM(b.Code, b.Name, b.RemainingMs, dur, b.ByOther, onCooldown, b.Level, showLevel);
                 slot.SetExpiring(expiring);
+                slot.SetStacks(b);
                 Slots.Insert(Math.Min(target, Slots.Count), slot);
                 continue;
             }
@@ -166,6 +167,7 @@ public sealed class BuffOverlayViewModel : INotifyPropertyChanged
             // 같은 슬롯을 다른 사람이 이어받으면(_ownerBuffs 가 base 코드로 키잉되므로) 레벨도 시전자도 바뀐다.
             Slots[current].SetLevel(b.Level, showLevel);
             Slots[current].SetByOther(b.ByOther);
+            Slots[current].SetStacks(b);
             int destination = Math.Min(target, Slots.Count - 1);
             if (current != destination)
             {
@@ -276,6 +278,23 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
 
     private Visibility _levelVisibility = Visibility.Collapsed;
     public Visibility LevelVisibility { get => _levelVisibility; private set => Set(ref _levelVisibility, value); }
+
+    private string _stacksText = string.Empty;
+    /// <summary>아이콘 좌하단 배지에 찍히는 중첩 수. 그리지 않을 때는 빈 문자열이고 <see cref="StacksVisibility"/>가
+    /// 배지를 접는다.</summary>
+    public string StacksText { get => _stacksText; private set => Set(ref _stacksText, value); }
+
+    private Visibility _stacksVisibility = Visibility.Collapsed;
+    public Visibility StacksVisibility { get => _stacksVisibility; private set => Set(ref _stacksVisibility, value); }
+
+    /// <summary>중첩 배지. 그릴지는 <see cref="OwnerBuffView.ShowsStackBadge"/>가 정한다(2겹 이상, 카탈로그에 최대
+    /// 중첩 수가 적힌 버프만). 설정 토글은 없다.</summary>
+    public void SetStacks(OwnerBuffView b)
+    {
+        bool visible = b.ShowsStackBadge;
+        StacksText = visible ? b.Stacks.ToString(Inv) : string.Empty;
+        StacksVisibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     /// <summary>Update whether a party member (rather than the local player) applied this buff.</summary>
     public void SetByOther(bool byOther) => ByOther = byOther;

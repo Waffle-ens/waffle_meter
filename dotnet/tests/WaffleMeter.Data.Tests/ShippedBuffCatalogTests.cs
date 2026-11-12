@@ -30,7 +30,7 @@ public sealed class ShippedBuffCatalogTests
         throw new DirectoryNotFoundException("Assets/json/buff_catalog.json not found above " + AppContext.BaseDirectory);
     }
 
-    private static (List<(int Code, string Name, string Job)> Catalog, List<int> DefaultOff) Catalog() =>
+    private static (List<(int Code, string Name, string Job)> Catalog, List<int> DefaultOff, Dictionary<int, int> StackMax) Catalog() =>
         ReferenceJson.LoadBuffCatalog(Path.Combine(FindAssetsJsonDir(), "buff_catalog.json"));
 
     private static Dictionary<int, string> Names() =>
@@ -53,6 +53,22 @@ public sealed class ShippedBuffCatalogTests
     {
         // 폭풍의 주문(구 질주의 진언)은 2026-11-11부터 토글이 아니라 기본으로 켜진다.
         Assert.Equal(new[] { 17410000, 18190000 }, Catalog().DefaultOff.OrderBy(c => c));
+    }
+
+    /// <summary>최대 중첩 수 <c>"s"</c>는 손으로 정한 값이 아니라 2026-11-11 클라 <c>SkillAbnormal.AbnormalOverlapCount</c>를
+    /// 옮겨 적은 것이다. 이 넷만 중첩 배지를 그린다 — 늘리거나 바꾸려면 클라 값을 다시 확인하고 여기를 함께 고친다.</summary>
+    [Fact]
+    public void The_shipped_stack_caps_are_the_client_overlap_counts()
+    {
+        Assert.Equal(
+            new Dictionary<int, int>
+            {
+                [11100000] = 2,  // 광분
+                [14330000] = 10, // 난사
+                [15110000] = 3,  // 겨울의 파편
+                [16030000] = 2,  // 원소의 흐름
+            },
+            Catalog().StackMax);
     }
 
     [Theory]

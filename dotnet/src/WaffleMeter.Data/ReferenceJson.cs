@@ -130,13 +130,16 @@ public static class ReferenceJson
         return result;
     }
 
-    /// <summary>buff_catalog.json: { "buffs": { code: { "n": name, "j": job } }, "defaultOff": [code, ...] }.
-    /// Curated self-buff bases (datamine-verified) the picker lists up front + the default-off toggle subset.</summary>
-    public static (List<(int Code, string Name, string Job)> Catalog, List<int> DefaultOff) LoadBuffCatalog(string path)
+    /// <summary>buff_catalog.json: { "buffs": { code: { "n": name, "j": job, "s"?: maxStacks } }, "defaultOff": [code, ...] }.
+    /// Curated self-buff bases (datamine-verified) the picker lists up front + the default-off toggle subset.
+    /// <para>선택 키 <c>"s"</c> = 그 버프의 최대 중첩 수(클라 <c>SkillAbnormal.AbnormalOverlapCount</c>에서 옮겨 적은 값).
+    /// 있는 행만 <c>StackMax</c>에 담기고, 그 버프만 오버레이에 중첩 수를 그린다.</para></summary>
+    public static (List<(int Code, string Name, string Job)> Catalog, List<int> DefaultOff, Dictionary<int, int> StackMax) LoadBuffCatalog(string path)
     {
         using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
         var catalog = new List<(int, string, string)>();
         var defaultOff = new List<int>();
+        var stackMax = new Dictionary<int, int>();
         JsonElement root = doc.RootElement;
         if (root.TryGetProperty("buffs", out JsonElement buffs) && buffs.ValueKind == JsonValueKind.Object)
         {
@@ -150,6 +153,11 @@ public static class ReferenceJson
                 string name = prop.Value.TryGetProperty("n", out JsonElement n) && n.ValueKind == JsonValueKind.String ? n.GetString() ?? "" : "";
                 string job = prop.Value.TryGetProperty("j", out JsonElement j) && j.ValueKind == JsonValueKind.String ? j.GetString() ?? "" : "";
                 catalog.Add((code, name, job));
+                if (prop.Value.TryGetProperty("s", out JsonElement st) && st.ValueKind == JsonValueKind.Number
+                    && st.TryGetInt32(out int max) && max > 0)
+                {
+                    stackMax[code] = max;
+                }
             }
         }
 
@@ -164,7 +172,7 @@ public static class ReferenceJson
             }
         }
 
-        return (catalog, defaultOff);
+        return (catalog, defaultOff, stackMax);
     }
 
     /// <summary>buff_values.json: <c>{ "&lt;buffCode&gt;": [ { "c": category, "v": value } ] }</c>, exported from the
