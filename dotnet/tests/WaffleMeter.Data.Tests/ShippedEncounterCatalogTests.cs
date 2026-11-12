@@ -184,10 +184,21 @@ public sealed class ShippedEncounterCatalogTests
             }
         }
 
+        // 2026-11-11: 웹이 기존 초월 여섯 가문을 '(레거시)'로 돌리고 노이란을 3단계 구성의 새 가문(-v2)으로
+        // 옮겼다. 겹치는 id 는 그대로 넷인데 짝이 달라졌다 — 610031 은 게임에서 사라진 옛 노이란 2단계라
+        // 레거시끼리 겹치고, 나머지 셋은 새 노이란(1·2·3단계 = 610030·610032·610033)과 겹친다.
+        var expected = new Dictionary<int, string[]>
+        {
+            [610030] = ["노이란의 숨겨진 유산", "심연의 뿔 암굴 (레거시)"],
+            [610031] = ["노이란의 숨겨진 유산 (레거시)", "심연의 뿔 암굴 (레거시)"],
+            [610032] = ["노이란의 숨겨진 유산", "심연의 뿔 암굴 (레거시)"],
+            [610033] = ["노이란의 숨겨진 유산", "심연의 뿔 암굴 (레거시)"],
+        };
+
         Assert.Equal(KnownDungeonIdClashes.Count, byId.Count);
         foreach ((int id, List<string> names) in byId)
         {
-            Assert.Equal(["노이란의 숨겨진 유산", "심연의 뿔 암굴"], names.OrderBy(n => n, StringComparer.Ordinal).ToList());
+            Assert.Equal(expected[id], names.OrderBy(n => n, StringComparer.Ordinal).ToList());
         }
     }
 
@@ -226,13 +237,49 @@ public sealed class ShippedEncounterCatalogTests
     [InlineData(2300555, "잠식된 데우스 연구기지", "어려움", "연구소장 자일러스")]
     [InlineData(2300481, "잠식된 데우스 연구기지", "어려움", "오만의 아티엘")]
     // 노이란의 숨겨진 유산 (초월) — map LegacyNoiran_G_01~04, 단계는 PartyDungeonLevel.DungeonLevel
+    // 🔴 2026-11-11 패치로 4단계 → 3단계 구성이 됐다(게임 던전 610031 삭제). 옛 3·4단계의 코드가 새 2·3단계고,
+    // 옛 2단계(2300439~441)만 '(레거시)' 가문에 남는다 — 코드는 그대로인데 단계 라벨이 한 칸씩 당겨진다.
     [InlineData(2300437, "노이란의 숨겨진 유산", "1단계", "불완전한 브라운트")]
     [InlineData(2300438, "노이란의 숨겨진 유산", "1단계", "광기의 클로민스터")]
     [InlineData(2300436, "노이란의 숨겨진 유산", "1단계", "아스크란")]
-    [InlineData(2300441, "노이란의 숨겨진 유산", "2단계", "광기의 클로민스터")]
-    [InlineData(2300444, "노이란의 숨겨진 유산", "3단계", "광기의 클로민스터")]
-    [InlineData(2300445, "노이란의 숨겨진 유산", "4단계", "아스크란")]
+    [InlineData(2300441, "노이란의 숨겨진 유산 (레거시)", "2단계", "광기의 클로민스터")]
+    [InlineData(2300444, "노이란의 숨겨진 유산", "2단계", "광기의 클로민스터")]
+    [InlineData(2300445, "노이란의 숨겨진 유산", "3단계", "아스크란")]
     public void The_2026_08_12_dungeons_are_catalogued(int mobCode, string dungeon, string variant, string boss)
+    {
+        EncounterInfo? info = Shipped().Lookup(mobCode);
+
+        Assert.NotNull(info);
+        Assert.Equal(dungeon, info!.Value.DungeonName);
+        Assert.Equal(variant, info.Value.VariantLabel);
+        Assert.Equal(boss, info.Value.BossName);
+    }
+
+    /// <summary>2026-11-11 패치(클라 125)의 던전들. 코드는 각 맵 <c>MapData.SpawnInfoList</c> 의 보스 스포너
+    /// (<c>Single_Boss</c>·<c>MidBoss</c>·<c>SubBoss_n</c>)에서, 이름은 <c>NpcData</c>(전부 HeroMonster)에서 읽었다.
+    /// <para>에라쿠스 유적은 주 보스 폭군 울마르가 <b>마지막</b>(3넴)이다 — 코드 번호가 가장 작다고 1넴이 아니다.
+    /// 가라앉은 생명의 신전은 같은 이름·같은 보스로 새 묶음(610014~610017)이 생겨 기존 묶음이 '(레거시)'가 됐다.</para></summary>
+    [Theory]
+    // 광신의 우루구구 협곡 (원정, 탐험 없음) — 600192 보통 / 600193 어려움
+    [InlineData(2300950, "광신의 우루구구 협곡", "보통", "이단처형관 라우르")]
+    [InlineData(2300948, "광신의 우루구구 협곡", "보통", "부활한 아울도르")]
+    [InlineData(2300972, "광신의 우루구구 협곡", "어려움", "이단처형관 라우르")]
+    [InlineData(2300970, "광신의 우루구구 협곡", "어려움", "부활한 아울도르")]
+    // 에라쿠스 유적 (초월 1~3단계) — 610110 / 610111 / 610112
+    [InlineData(2300830, "에라쿠스 유적", "1단계", "기록하는 자 리피카")]
+    [InlineData(2300831, "에라쿠스 유적", "1단계", "탐식의 쿠르바스")]
+    [InlineData(2300792, "에라쿠스 유적", "1단계", "폭군 울마르")]
+    [InlineData(2300890, "에라쿠스 유적", "2단계", "폭군 울마르")]
+    [InlineData(2300926, "에라쿠스 유적", "3단계", "탐식의 쿠르바스")]
+    // 가라앉은 생명의 신전 새 묶음 (초월 1~4단계) — 610014~610017
+    [InlineData(2300047, "가라앉은 생명의 신전", "1단계", "노래하는 엘라이드")]
+    [InlineData(2300061, "가라앉은 생명의 신전", "2단계", "심해의 파이디온")]
+    [InlineData(2300075, "가라앉은 생명의 신전", "3단계", "가라앉은 에몬")]
+    [InlineData(2300092, "가라앉은 생명의 신전", "4단계", "노래하는 엘라이드")]
+    // …그리고 기존 묶음은 같은 보스 이름으로 '(레거시)' 가문에 남는다
+    [InlineData(2301503, "가라앉은 생명의 신전 (레거시)", "1단계", "노래하는 엘라이드")]
+    [InlineData(2300030, "가라앉은 생명의 신전 (레거시)", "4단계", "가라앉은 에몬")]
+    public void The_2026_11_11_dungeons_are_catalogued(int mobCode, string dungeon, string variant, string boss)
     {
         EncounterInfo? info = Shipped().Lookup(mobCode);
 

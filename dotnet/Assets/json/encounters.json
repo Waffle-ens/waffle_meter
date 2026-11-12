@@ -1039,10 +1039,61 @@
    ]
   },
   {
+   "key": "expedition-urugugu-fanaticism",
+   "category": "원정",
+   "categoryOrd": 1,
+   "name": "광신의 우루구구 협곡",
+   "variantType": "difficulty",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "이단처형관 라우르"
+    },
+    {
+     "index": 2,
+     "name": "부활한 아울도르"
+    }
+   ],
+   "variants": [
+    {
+     "label": "보통",
+     "dungeonId": 600192,
+     "difficulty": "보통",
+     "stage": null,
+     "mobs": [
+      [
+       2300950,
+       1
+      ],
+      [
+       2300948,
+       2
+      ]
+     ]
+    },
+    {
+     "label": "어려움",
+     "dungeonId": 600193,
+     "difficulty": "어려움",
+     "stage": null,
+     "mobs": [
+      [
+       2300972,
+       1
+      ],
+      [
+       2300970,
+       2
+      ]
+     ]
+    }
+   ]
+  },
+  {
    "key": "transcend-deus-research-base",
    "category": "초월",
    "categoryOrd": 2,
-   "name": "데우스 연구기지",
+   "name": "데우스 연구기지 (레거시)",
    "variantType": "stage",
    "bosses": [
     {
@@ -1145,7 +1196,7 @@
    "key": "transcend-shattered-arcanis",
    "category": "초월",
    "categoryOrd": 2,
-   "name": "조각난 아르카니스",
+   "name": "조각난 아르카니스 (레거시)",
    "variantType": "stage",
    "bosses": [
     {
@@ -1248,7 +1299,7 @@
    "key": "transcend-sunken-life-temple",
    "category": "초월",
    "categoryOrd": 2,
-   "name": "가라앉은 생명의 신전",
+   "name": "가라앉은 생명의 신전 (레거시)",
    "variantType": "stage",
    "bosses": [
     {
@@ -1363,7 +1414,7 @@
    "key": "transcend-abyss-horn-cavern",
    "category": "초월",
    "categoryOrd": 2,
-   "name": "심연의 뿔 암굴",
+   "name": "심연의 뿔 암굴 (레거시)",
    "variantType": "stage",
    "bosses": [
     {
@@ -1466,7 +1517,7 @@
    "key": "transcend-mirror-of-crimson-love",
    "category": "초월",
    "categoryOrd": 2,
-   "name": "붉은 연심의 거울",
+   "name": "붉은 연심의 거울 (레거시)",
    "variantType": "stage",
    "bosses": [
     {
@@ -1569,6 +1620,132 @@
    "key": "transcend-noiran-hidden-legacy",
    "category": "초월",
    "categoryOrd": 2,
+   "name": "노이란의 숨겨진 유산 (레거시)",
+   "variantType": "stage",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "불완전한 브라운트"
+    },
+    {
+     "index": 2,
+     "name": "광기의 클로민스터"
+    },
+    {
+     "index": 3,
+     "name": "아스크란"
+    }
+   ],
+   "variants": [
+    {
+     "label": "2단계",
+     "dungeonId": 610031,
+     "difficulty": null,
+     "stage": "2",
+     "mobs": [
+      [
+       2300440,
+       1
+      ],
+      [
+       2300441,
+       2
+      ],
+      [
+       2300439,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "transcend-eracus-ruins",
+   "category": "초월",
+   "categoryOrd": 2,
+   "name": "에라쿠스 유적",
+   "variantType": "stage",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "기록하는 자 리피카"
+    },
+    {
+     "index": 2,
+     "name": "탐식의 쿠르바스"
+    },
+    {
+     "index": 3,
+     "name": "폭군 울마르"
+    }
+   ],
+   "variants": [
+    {
+     "label": "1단계",
+     "dungeonId": 610110,
+     "difficulty": null,
+     "stage": "1",
+     "mobs": [
+      [
+       2300830,
+       1
+      ],
+      [
+       2300831,
+       2
+      ],
+      [
+       2300792,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "2단계",
+     "dungeonId": 610111,
+     "difficulty": null,
+     "stage": "2",
+     "mobs": [
+      [
+       2300891,
+       1
+      ],
+      [
+       2300892,
+       2
+      ],
+      [
+       2300890,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "3단계",
+     "dungeonId": 610112,
+     "difficulty": null,
+     "stage": "3",
+     "mobs": [
+      [
+       2300925,
+       1
+      ],
+      [
+       2300926,
+       2
+      ],
+      [
+       2300924,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "transcend-noiran-hidden-legacy-v2",
+   "category": "초월",
+   "categoryOrd": 2,
    "name": "노이란의 숨겨진 유산",
    "variantType": "stage",
    "bosses": [
@@ -1608,29 +1785,9 @@
     },
     {
      "label": "2단계",
-     "dungeonId": 610031,
-     "difficulty": null,
-     "stage": "2",
-     "mobs": [
-      [
-       2300440,
-       1
-      ],
-      [
-       2300441,
-       2
-      ],
-      [
-       2300439,
-       3
-      ]
-     ]
-    },
-    {
-     "label": "3단계",
      "dungeonId": 610032,
      "difficulty": null,
-     "stage": "3",
+     "stage": "2",
      "mobs": [
       [
        2300443,
@@ -1647,10 +1804,10 @@
      ]
     },
     {
-     "label": "4단계",
+     "label": "3단계",
      "dungeonId": 610033,
      "difficulty": null,
-     "stage": "4",
+     "stage": "3",
      "mobs": [
       [
        2300446,
@@ -1662,6 +1819,109 @@
       ],
       [
        2300445,
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "key": "transcend-sunken-life-temple-v2",
+   "category": "초월",
+   "categoryOrd": 2,
+   "name": "가라앉은 생명의 신전",
+   "variantType": "stage",
+   "bosses": [
+    {
+     "index": 1,
+     "name": "노래하는 엘라이드"
+    },
+    {
+     "index": 2,
+     "name": "심해의 파이디온"
+    },
+    {
+     "index": 3,
+     "name": "가라앉은 에몬"
+    }
+   ],
+   "variants": [
+    {
+     "label": "1단계",
+     "dungeonId": 610014,
+     "difficulty": null,
+     "stage": "1",
+     "mobs": [
+      [
+       2300047,
+       1
+      ],
+      [
+       2300046,
+       2
+      ],
+      [
+       2300045,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "2단계",
+     "dungeonId": 610015,
+     "difficulty": null,
+     "stage": "2",
+     "mobs": [
+      [
+       2300062,
+       1
+      ],
+      [
+       2300061,
+       2
+      ],
+      [
+       2300060,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "3단계",
+     "dungeonId": 610016,
+     "difficulty": null,
+     "stage": "3",
+     "mobs": [
+      [
+       2300077,
+       1
+      ],
+      [
+       2300076,
+       2
+      ],
+      [
+       2300075,
+       3
+      ]
+     ]
+    },
+    {
+     "label": "4단계",
+     "dungeonId": 610017,
+     "difficulty": null,
+     "stage": "4",
+     "mobs": [
+      [
+       2300092,
+       1
+      ],
+      [
+       2300091,
+       2
+      ],
+      [
+       2300090,
        3
       ]
      ]
