@@ -31,7 +31,7 @@ public sealed record DetailSkillGroup(DetailSkillRow Merged, IReadOnlyList<Detai
 /// "N회" instead — see <see cref="DetailProcRow"/>.</summary>
 /// <param name="Level">시전자가 이 버프의 스킬을 가진 레벨(어노멀 레벨 1~40). 0 = 모름(소모품·주문서처럼
 /// 레벨 개념이 없는 버프이거나 적용 패킷이 레벨을 안 실은 경우)이고, 그때 표시 계층은 칸을 비운다.
-/// 시너지 버프의 효과량이 레벨 선형이라(노련한 반격 = 5.4% + 0.4%/레벨) 가동률만으로는 기여를 못 읽는다.</param>
+/// 시너지 버프의 효과량이 레벨 선형이라(노련한 반격 = 0.4%/레벨) 가동률만으로는 기여를 못 읽는다.</param>
 public sealed record DetailBuffRow(
     int Code, string Name, double Rate, string Description, int? Count = null, int Level = 0,
     /// <summary>이 버프를 <b>나에게 걸어 준 다른 사람</b>의 이름(내가 올린 버프면 null). 「남이 준 버프」 섹션의

@@ -83,16 +83,16 @@ public sealed class DpsMetricsTests
     [Fact]
     public void A_party_buff_is_divided_out_of_the_recipient_and_credited_to_its_caster()
     {
-        // 노련한 반격 at level 25 = 5.4 + 0.4×24 = 15.0% PvE amp, at 100% uptime → gain 0.15.
+        // 노련한 반격 at level 25 = 0.4×25 = 10.0% PvE amp, at 100% uptime → gain 0.10.
         var fromTwo = Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 25);
 
         Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
-            [Player(1, 1150, [fromTwo]), Player(2, 500)], [], EmptyCatalog(), Duration);
+            [Player(1, 1100, [fromTwo]), Player(2, 500)], [], EmptyCatalog(), Duration);
 
-        Assert.Equal(1150 / 1.15, r[1].Ndps, 6);
-        Assert.Equal(1150 - 1150 / 1.15, r[1].TakenBuffDps, 6);
+        Assert.Equal(1100 / 1.10, r[1].Ndps, 6);
+        Assert.Equal(1100 - 1100 / 1.10, r[1].TakenBuffDps, 6);
         // The buffer keeps their own nDPS and gains the share of the recipient's normalized rate they explain.
-        Assert.Equal(500 + 1150 / 1.15 * 0.15, r[2].Rdps, 6);
+        Assert.Equal(500 + 1100 / 1.10 * 0.10, r[2].Rdps, 6);
         Assert.Equal(500, r[2].Ndps, 6);
     }
 
@@ -104,14 +104,16 @@ public sealed class DpsMetricsTests
         Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
             [Player(1, 1000, [half]), Player(2, 0)], [], EmptyCatalog(), Duration);
 
-        Assert.Equal(1000 / 1.075, r[1].Ndps, 6); // 15% × 0.5 uptime
+        Assert.Equal(1000 / 1.05, r[1].Ndps, 6); // 10% × 0.5 uptime
     }
 
     [Theory]
-    // 노련한 반격 = 5.4% + 0.4%/level. The site's snapshot says a flat 10.7% for every level.
-    [InlineData(1, 5.4)]
-    [InlineData(22, 13.8)]
-    [InlineData(25, 15.0)]
+    // 노련한 반격 = 0.4%/level since client 125 (2026-11-11; it was 5.4% + 0.4%/level before — the patch took
+    // 5%p off the base and left the per-level step alone). The site's snapshot says a flat 10.7% for every level.
+    [InlineData(1, 0.4)]
+    [InlineData(22, 8.8)]
+    [InlineData(25, 10.0)]
+    [InlineData(40, 16.0)]   // 최대 레벨 — 클라 표의 1600
     public void Level_prices_the_synergy_buff_instead_of_the_snapshot(int level, double expectedPercent)
     {
         // The snapshot deliberately carries a WRONG number here so the test proves the level path wins.
@@ -136,7 +138,7 @@ public sealed class DpsMetricsTests
         double gain = DpsMetrics.Gain(
             Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 0), snapshot, Bare);
 
-        Assert.Equal(0.054, gain, 9); // level 1 노련한 반격
+        Assert.Equal(0.004, gain, 9); // level 1 노련한 반격
     }
 
     [Fact]
@@ -150,24 +152,61 @@ public sealed class DpsMetricsTests
     [Fact]
     public void Mantra_prices_each_breakpoint_in_its_own_bucket_instead_of_multiplying_them_all()
     {
-        // 불패의 진언 L25 = 증폭 22.5%p + 치명타 피해 증폭 5%p + 강타 5%p + 완벽 10%p.
+        // 불패의 진언 L25 = 증폭 17.5%p + 치명타 피해 증폭 5%p + 강타 5%p + 완벽 10%p.
+        // (클라 124 까지는 증폭이 22.5%p 였다 — 2026-11-11 패치가 파티 피해 증폭을 일괄 5%p 내렸다.)
         //
-        // 🔑 이 테스트가 이 커밋의 이유다. 종전 모델은 넷을 전부 데미지 배수로 읽어
+        // 🔑 이 테스트가 버킷 모델의 이유다. 종전 모델은 넷을 전부 데미지 배수로 읽어
         //     1.225 × 1.05 × 1.05 × 1.10 − 1 = 48.6%
         // 를 냈고, 그 값으로 5인 파티에서 호법성 한 명이 파티 전체 딜의 26%를 자기 기여로 가져갔다.
         // 넷은 사실 데미지 공식의 서로 다른 자리에 들어간다 (BuffEffectKind 참조):
-        //   증폭 22.5%p     → 이미 175%p 인 가산 버킷 위 → 22.5/275   =  8.18%
+        //   증폭 17.5%p     → 이미 175%p 인 가산 버킷 위 → 17.5/275   =  6.36%
         //   치명타 피해 5%p → 치명타가 터진 타격에만      → c·0.05/mCrit =  2.04%
         //   강타 5%p        → 발동률, mSmite = 1 + p      → 0.05/1.468  =  3.41%
         //   완벽 10%p       → 구간 상단으로만 옮김        → 0.1·β/…     =  0.76%
-        // 합성 15.0%. 같은 스킬, 같은 레벨, 3분의 1 이하다.
+        // 합성 13.1% (증폭이 22.5%p 이던 때는 15.0%). 증폭 항만 바뀌었으므로 두 값의 비는 정확히
+        // (1 + 17.5/275) / (1 + 22.5/275) 여야 한다 — 나머지 세 항이 패치로 움직이지 않았다는 그물이다.
         double gain = DpsMetrics.Gain(
             Buff(PartySynergyCatalog.ChanterMantra, actorId: 2, rate: 100, level: 25),
             EmptyCatalog(),
             BuffGainContext.Default);
 
-        Assert.Equal(0.1502, gain, 4);
+        Assert.Equal(0.1309, gain, 4);
+        Assert.Equal(1.1502 * (1 + 17.5 / 275) / (1 + 22.5 / 275) - 1, gain, 4);
         Assert.True(gain < 0.20, $"불패의 진언 L25 는 20%를 넘을 수 없다 (측정 {gain:P2})");
+    }
+
+    /// <summary>
+    /// 클라 125 (2026-11-11) 의 불패의 진언 랭크 재배치. 랭크 n 은 5n 레벨에서 열리고, 딜에 들어가는 세 항이
+    /// 열리는 레벨이 바뀌었다: 치명타 피해 증폭 15 → <b>10</b>, 완벽 25 → <b>20</b>, 강타 20 → <b>25</b>.
+    /// 15레벨에 새로 붙은 이동 속도는 피해와 무관해 싣지 않는다.
+    /// <para>출처: <c>SkillAbnormalEffect</c> 1819002x1(AmplifyCriticalDamage 500) · 1819004x1(Perfect 1000) ·
+    /// 1819005x1(HardHit 500). 25레벨의 합은 종전과 같고, 달라지는 것은 10~24레벨 구간이다.</para>
+    /// </summary>
+    [Theory]
+    [InlineData(1, 5.5, false, false, false)]
+    [InlineData(9, 9.5, false, false, false)]
+    [InlineData(10, 10.0, true, false, false)]    // 치명타 피해 증폭이 여기서 열린다 (종전 15)
+    [InlineData(15, 12.5, true, false, false)]    // 15레벨은 이제 이동 속도뿐 — 딜 항은 그대로
+    [InlineData(19, 14.5, true, false, false)]
+    [InlineData(20, 15.0, true, true, false)]     // 완벽 (종전엔 강타가 여기 있었다)
+    [InlineData(24, 17.0, true, true, false)]
+    [InlineData(25, 17.5, true, true, true)]      // 강타 (종전엔 완벽이 여기 있었다)
+    public void Mantra_opens_its_rank_effects_at_the_levels_the_client_table_gives(
+        int level, double amp, bool critDamage, bool perfect, bool smite)
+    {
+        IReadOnlyList<BuffGainEffect> effects = PartySynergyCatalog.Effects(PartySynergyCatalog.ChanterMantra, level)!;
+
+        var expected = new List<BuffGainEffect> { new(BuffEffectKind.DamageAmp, amp) };
+        if (critDamage) expected.Add(new BuffGainEffect(BuffEffectKind.CritDamageAmp, 5.0));
+        if (perfect) expected.Add(new BuffGainEffect(BuffEffectKind.PerfectRate, 10.0));
+        if (smite) expected.Add(new BuffGainEffect(BuffEffectKind.SmiteRate, 5.0));
+
+        Assert.Equal(expected.Count, effects.Count);
+        for (int i = 0; i < expected.Count; i++)
+        {
+            Assert.Equal(expected[i].Kind, effects[i].Kind);
+            Assert.Equal(expected[i].Value, effects[i].Value, 9);
+        }
     }
 
     [Fact]
@@ -175,14 +214,14 @@ public sealed class DpsMetricsTests
     {
         // 증폭은 가산 버킷이라 %p 하나의 값어치가 "이미 얼마나 갖고 있나"에 반비례한다. 이 관계가 없으면
         // 지원 직업의 기여가 파티원 장비와 무관하게 고정돼 버린다.
-        var counter = Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 25); // 15.0%p
+        var counter = Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 25); // 10.0%p
 
         double onEmpty = DpsMetrics.Gain(counter, EmptyCatalog(), Bare);
         double onFull = DpsMetrics.Gain(
             counter, EmptyCatalog(), Bare with { AmpBucketPercent = 175.0 });
 
-        Assert.Equal(0.150, onEmpty, 9);                 // 15/100
-        Assert.Equal(15.0 / 275.0, onFull, 9);           // 15/(100+175) = 5.45%
+        Assert.Equal(0.100, onEmpty, 9);                 // 10/100
+        Assert.Equal(10.0 / 275.0, onFull, 9);           // 10/(100+175) = 3.64%
         Assert.True(onFull < onEmpty / 2.0);
     }
 
@@ -286,14 +325,14 @@ public sealed class DpsMetricsTests
     {
         // 노련한 반격 (검성) and 격앙 (수호성) never stack in game — but the server broadcasts both, overlapping
         // for their whole duration. Counting both would credit a support for a buff that did nothing.
-        var counter = Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 25);   // 15.0%
-        var fervor = Buff(PartySynergyCatalog.GuardianFervor, actorId: 3, rate: 100, level: 10);  // 10.0%
+        var counter = Buff(PartySynergyCatalog.SwordCounter, actorId: 2, rate: 100, level: 25);   // 10.0%
+        var fervor = Buff(PartySynergyCatalog.GuardianFervor, actorId: 3, rate: 100, level: 10);  // 5.0%
 
         Dictionary<int, DpsMetricResult> r = DpsMetrics.Compute(
-            [Player(1, 1150, [counter, fervor]), Player(2, 0), Player(3, 0)], [], EmptyCatalog(), Duration);
+            [Player(1, 1100, [counter, fervor]), Player(2, 0), Player(3, 0)], [], EmptyCatalog(), Duration);
 
-        // Higher level wins: only 노련한 반격's 15% applies, and only its caster is credited.
-        Assert.Equal(1150 / 1.15, r[1].Ndps, 6);
+        // Higher level wins: only 노련한 반격's 10% applies, and only its caster is credited.
+        Assert.Equal(1100 / 1.10, r[1].Ndps, 6);
         Assert.True(r[2].GivenBuffDps > 0);
         Assert.Equal(0, r[3].GivenBuffDps, 6);
     }
@@ -447,21 +486,25 @@ public sealed class DpsMetricsTests
         double Gain(int level) => DpsMetrics.Gain(
             Buff(PartySynergyCatalog.ClericProtectLight, actorId: 2, rate: 100, level: level), EmptyCatalog(), Bare);
 
-        // PvE 피해 증폭 10.5 + 0.5/레벨, 20레벨 완벽 +10, 25레벨 강타 +5. Bare 기준선이라 %p 가 곧 이득이다.
-        Assert.Equal(0.105, Gain(1), 9);
-        Assert.Equal(0.195, Gain(19), 9);
-        Assert.Equal(1.20 * 1.10 - 1.0, Gain(20), 9);
-        Assert.Equal(1.225 * 1.10 * 1.05 - 1.0, Gain(25), 9);
+        // PvE 피해 증폭 5.5 + 0.5/레벨(클라 125 — 종전 10.5), 20레벨 완벽 +10, 25레벨 강타 +5. Bare 기준선이라
+        // %p 가 곧 이득이다. 클라 표: 1741000x11 의 550 → 25레벨 1750, 4랭크 Perfect 1000, 5랭크 HardHit 500.
+        Assert.Equal(0.055, Gain(1), 9);
+        Assert.Equal(0.145, Gain(19), 9);
+        Assert.Equal(1.15 * 1.10 - 1.0, Gain(20), 9);
+        Assert.Equal(1.175 * 1.10 * 1.05 - 1.0, Gain(25), 9);
     }
 
     [Fact]
     public void Fervor_follows_the_client_ladder()
     {
-        // 127800011: PvE 피해 증폭 550 + 레벨당 50 (2026-09-01 이후). 사이트와 같은 식이다.
-        Assert.Equal(0.055, DpsMetrics.Gain(
+        // 127800011: PvE 피해 증폭 레벨당 50 — 1레벨 50, 40레벨 2000 (클라 125, 2026-11-11). 종전에는 1레벨이
+        // 550 이었다(5.5% + 0.5%p×(레벨−1), 40레벨 25%). 사이트와 같은 식이다.
+        Assert.Equal(0.005, DpsMetrics.Gain(
             Buff(PartySynergyCatalog.GuardianFervor, actorId: 2, rate: 100, level: 1), EmptyCatalog(), Bare), 9);
-        Assert.Equal(0.10, DpsMetrics.Gain(
+        Assert.Equal(0.05, DpsMetrics.Gain(
             Buff(PartySynergyCatalog.GuardianFervor, actorId: 2, rate: 100, level: 10), EmptyCatalog(), Bare), 9);
+        Assert.Equal(0.20, DpsMetrics.Gain(
+            Buff(PartySynergyCatalog.GuardianFervor, actorId: 2, rate: 100, level: 40), EmptyCatalog(), Bare), 9);
     }
 
     [Fact]

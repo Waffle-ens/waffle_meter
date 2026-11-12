@@ -10,7 +10,7 @@ namespace WaffleMeter.Data.Tests;
 /// rows, the combat-detail chip, the stats payload) got nothing.
 ///
 /// <para>Why the level has to reach those places: a support buff's magnitude is LINEAR in it (노련한 반격 =
-/// 5.4% + 0.4%/level, 불패의 진언 = 10.5% + 0.5%/level), so uptime alone cannot say how much a buffer
+/// 0.4%/level, 불패의 진언 = 5.5% + 0.5%/level), so uptime alone cannot say how much a buffer
 /// contributed. The buff CODE only carries the 5-step rank, not the level — a 검성 at level 22 and one at 25
 /// both broadcast 117800072 — so the code can never substitute for it.</para>
 /// </summary>
