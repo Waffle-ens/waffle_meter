@@ -220,7 +220,7 @@ public sealed class BuffSlotVM : INotifyPropertyChanged
     {
         Code = code;
         Name = name;
-        IconSource = JoinIcons.Skill(code);
+        IconSource = JoinIcons.BuffSlot(code); // 인게임 버프 아이콘 우선, 없으면 스킬 아이콘
         SetByOther(byOther);
         SetRemaining(remainingMs, durationMs);
         SetCooldown(onCooldown);

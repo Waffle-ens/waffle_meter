@@ -153,6 +153,18 @@ public sealed class ShippedVoicePackTests
         return Regex.Matches(body, @"\b(\d{7,9})\b").Select(m => int.Parse(m.Groups[1].Value)).ToHashSet();
     }
 
+    /// <summary>
+    /// The display bases that ship an in-game buff icon (<c>Assets/BuffIcons</c>) — the values of
+    /// <c>BuffIconManifest.ByAbnormal</c>, read out of the source for the same reason as <see cref="IconCodes"/>.
+    /// The buff picker asks for these first (<c>JoinIcons.BuffSlot</c>), so they count as icons too.
+    /// </summary>
+    private static HashSet<int> BuffIconBases()
+    {
+        string src = ReadSource("dotnet", "src", "WaffleMeter.App.Wpf", "BuffIconManifest.cs");
+        string body = Regex.Replace(src[src.IndexOf("ByAbnormal = new()", StringComparison.Ordinal)..], @"//[^\n]*", string.Empty);
+        return Regex.Matches(body, @"\[\d{7,9}\]\s*=\s*(\d{7,9})").Select(m => int.Parse(m.Groups[1].Value)).ToHashSet();
+    }
+
     /// <summary>Every buff name that can be given a voice — read through the app's own loader so a change in
     /// how the catalogue parses cannot drift from what the test believes. Names repeat across jobs (회생의
     /// 계약 and its 회계·회복 rider exist for five, 균형의 갑옷 for two), and the spoken line is the name, so
@@ -171,8 +183,11 @@ public sealed class ShippedVoicePackTests
     public void Every_catalogued_buff_has_an_icon()
     {
         HashSet<int> icons = IconCodes();
+        HashSet<int> buffIcons = BuffIconBases();
+        // JoinIcons.BuffSlot 과 같은 순서: 버프 아이콘(표시 base) → 정확한 스킬 아이콘 → 8자리 바닥.
         bool HasIcon(int code) =>
-            icons.Contains(code)
+            buffIcons.Contains(code)
+            || icons.Contains(code)
             || (code is >= 11_000_000 and <= 19_999_999 && icons.Contains(code / 10_000 * 10_000));
 
         int[] blind = ReferenceJson.LoadBuffCatalog(RepoPath("dotnet", "Assets", "json", "buff_catalog.json")).Catalog

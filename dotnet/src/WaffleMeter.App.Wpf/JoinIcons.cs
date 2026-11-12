@@ -13,6 +13,8 @@ public static class JoinIcons
 {
     private static readonly Dictionary<string, BitmapImage?> JobCache = new();
     private static readonly Dictionary<int, BitmapImage?> SkillCache = new();
+    // 버프 아이콘 캐시는 따로 둔다: 같은 코드가 스킬 아이콘(SkillCache)과 버프 아이콘을 동시에 가진다.
+    private static readonly Dictionary<int, BitmapImage?> BuffCache = new();
 
     private static BitmapImage? _bossIcon;
     private static bool _bossLoaded;
@@ -52,6 +54,34 @@ public static class JoinIcons
             ? TryLoad($"pack://application:,,,/WaffleMeter.App.Wpf;component/SkillIcons/{r}.png")
             : null;
         SkillCache[code] = image;
+        return image;
+    }
+
+    /// <summary>Icon for a buff-overlay slot or a buff-picker row, keyed by the display base: the in-game
+    /// buff icon when <see cref="BuffIconManifest"/> ships one for that base, else the skill icon
+    /// (<see cref="Skill"/>). Cooldown and skill screens keep using <see cref="Skill"/>. Cached separately.</summary>
+    public static BitmapImage? BuffSlot(int displayBase)
+    {
+        if (displayBase <= 0)
+        {
+            return null;
+        }
+
+        if (BuffCache.TryGetValue(displayBase, out BitmapImage? cached))
+        {
+            return cached;
+        }
+
+        // 규칙과 테스트는 Data 의 IconKey.BuffSlot 에 있다(8자리 표시 base 만 버프 아이콘을 받는다).
+        BitmapImage? image = WaffleMeter.Data.IconKey.BuffSlot(
+                displayBase, BuffIconManifest.Bases.Contains, SkillIconManifest.Codes.Contains) switch
+            {
+                { Set: WaffleMeter.Data.IconSet.Buff, Code: int b } =>
+                    TryLoad($"pack://application:,,,/WaffleMeter.App.Wpf;component/BuffIcons/{b}.png"),
+                { Code: int s } => Skill(s),
+                null => null,
+            };
+        BuffCache[displayBase] = image;
         return image;
     }
 

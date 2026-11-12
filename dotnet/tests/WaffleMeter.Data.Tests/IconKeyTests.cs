@@ -58,4 +58,42 @@ public sealed class IconKeyTests
         Assert.Null(IconKey.Skill(0, Shipped(0)));
         Assert.Null(IconKey.Skill(-5, Shipped()));
     }
+
+    // ── 버프 오버레이 슬롯·버프 picker (IconKey.BuffSlot) ─────────────────────────────────────────
+
+    [Theory]
+    [InlineData(11100000)] // 광분: 스킬(파멸의 맹타) 아이콘이 있어도 버프 아이콘이 이긴다
+    [InlineData(19090000)] // 투기
+    [InlineData(12240052)] // 심판의 권능: 스킬 PNG가 없는 표시 코드
+    public void A_display_base_with_a_buff_png_draws_the_buff_icon(int displayBase)
+    {
+        IconRef? icon = IconKey.BuffSlot(displayBase, Shipped(displayBase), Shipped(11100000, 19090000, 12240000));
+        Assert.Equal(new IconRef(IconSet.Buff, displayBase), icon);
+    }
+
+    [Fact]
+    public void Without_a_buff_png_the_slot_uses_the_skill_icon_rule()
+    {
+        Func<int, bool> buff = Shipped(11100000);
+        Func<int, bool> skill = Shipped(18160000, 12110000, 19790000);
+        Assert.Equal(new IconRef(IconSet.Skill, 18160000), IconKey.BuffSlot(18160000, buff, skill)); // 폭풍의 주문
+        Assert.Equal(new IconRef(IconSet.Skill, 12110000), IconKey.BuffSlot(12110037, buff, skill)); // 보호의 방패 → 바닥
+        Assert.Equal(new IconRef(IconSet.Skill, 19790000), IconKey.BuffSlot(19790007, buff, skill)); // 회계·회복 합성
+    }
+
+    [Fact]
+    public void A_runtime_code_never_gets_a_buff_icon_through_its_base()
+    {
+        // 당기기(투기 base로 접히는 디버프)가 9자리로 들어와도 투기 버프 아이콘은 받지 않는다.
+        IconRef? icon = IconKey.BuffSlot(190900311, Shipped(19090000), Shipped(19090000));
+        Assert.Equal(new IconRef(IconSet.Skill, 19090000), icon);
+    }
+
+    [Fact]
+    public void A_buff_slot_with_no_png_anywhere_is_null()
+    {
+        Assert.Null(IconKey.BuffSlot(12240052, Shipped(), Shipped()));
+        Assert.Null(IconKey.BuffSlot(0, Shipped(0), Shipped(0)));
+        Assert.Null(IconKey.BuffSlot(22100000, Shipped(22100000), Shipped()));
+    }
 }

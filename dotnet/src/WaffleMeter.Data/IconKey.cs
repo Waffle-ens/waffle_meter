@@ -34,6 +34,23 @@ public static class IconKey
     }
 
     /// <summary>
+    /// 버프 오버레이 슬롯·버프 picker 행의 아이콘: 표시 base(8자리)에 인게임 <b>버프</b> 아이콘 PNG가 있으면 그것,
+    /// 없으면 <see cref="Skill"/>과 같은 스킬 아이콘, 둘 다 없으면 null.
+    /// <para>버프 아이콘은 8자리 표시 base로만 찾는다. 9자리 런타임 코드가 들어오면 스킬 아이콘 규칙으로만
+    /// 떨어진다 — 같은 base로 접히는 디버프(투기 base의 당기기 등)가 버프 아이콘을 받지 않게 하려는 것이다.
+    /// 그 구분은 런타임 코드 단위 매니페스트를 보는 쪽(상세 행)이 따로 해야 한다.</para>
+    /// </summary>
+    public static IconRef? BuffSlot(int displayBase, Func<int, bool> hasBuffIcon, Func<int, bool> hasSkillIcon)
+    {
+        if (displayBase is >= 11_000_000 and <= 19_999_999 && hasBuffIcon(displayBase))
+        {
+            return new IconRef(IconSet.Buff, displayBase);
+        }
+
+        return Skill(displayBase, hasSkillIcon) is int skill ? new IconRef(IconSet.Skill, skill) : null;
+    }
+
+    /// <summary>
     /// 정확한 코드에 PNG가 없을 때 차례로 볼 코드들.
     /// <list type="bullet">
     /// <item>스킬 코드(8자리 직업 대역): 바닥 base(<c>/10000*10000</c>).</item>
@@ -74,3 +91,13 @@ public static class IconKey
         }
     }
 }
+
+/// <summary>아이콘 PNG 묶음: 스킬 아이콘(<c>Assets/SkillIcons</c>) 또는 인게임 버프 아이콘(<c>Assets/BuffIcons</c>).</summary>
+public enum IconSet
+{
+    Skill,
+    Buff,
+}
+
+/// <summary>어느 묶음의 어느 PNG(파일명 = 코드)를 그릴지.</summary>
+public readonly record struct IconRef(IconSet Set, int Code);
