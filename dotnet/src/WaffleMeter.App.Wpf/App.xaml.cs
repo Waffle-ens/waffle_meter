@@ -3260,7 +3260,7 @@ public partial class App : Application
         PlayAlert(_alarmToastVm.SpokenText);
     }
 
-    /// <summary>Show the 감시자 카이라 4-hour-grid reminder toast + alert sound/voice. Unlike the respawn-timer
+    /// <summary>Show the 감시자 카이라 clock reminder toast + alert sound/voice. Unlike the respawn-timer
     /// alerts this is not gated on being in the abyss — the reminder exists to get you there in time.</summary>
     private void ShowKairaAlarm(int lead, DateTime spawn)
     {

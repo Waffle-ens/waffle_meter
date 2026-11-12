@@ -63,7 +63,7 @@ public static class WeeklyContentCatalog
 /// is set to another timezone, and Korea has no DST so an offset is as correct as a timezone database (same
 /// reasoning as <c>FieldBossFixedSchedule</c> and <c>KairaAlarm</c>). 슈고 페스타·커스텀 알람은 여전히
 /// <c>DateTime.Now</c> 를 쓰는데, 그건 사용자가 자기 벽시계로 고른 리마인더라 다른 얘기다 — 서버 일정을
-/// 겨냥하는 알람(<c>KairaAlarm</c> 의 4시간 격자)은 여기와 같은 이유로 KST 에 고정한다.</para>
+/// 겨냥하는 알람(<c>KairaAlarm</c> 의 KST 출현 시각)은 여기와 같은 이유로 KST 에 고정한다.</para>
 /// </summary>
 public static class WeeklyContentReset
 {

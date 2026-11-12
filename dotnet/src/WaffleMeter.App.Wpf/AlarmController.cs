@@ -85,9 +85,9 @@ public sealed class AlarmController
         }
 
         // 감시자 카이라: 서버가 리젠 시각을 안 보내는 유일한 보스라 슈고 페스타처럼 시계로 돈다. 다만
-        // 주기가 다르다 — 2026-09-02 패치로 4시간 확정 출현이 됐고(앵커는 KST 1시 — KairaAlarm 참고),
+        // 주기가 다르다 — 정해진 KST 시각에만 확정 출현한다(지금은 01·09·13·21시 — KairaAlarm 이 정본),
         // 그래서 슈고와 달리 서버 시간대에 고정한다. ⚠️ HourlyAlarm.DueLead 로 되돌리지 마라 — 그건 슈고의
-        // 매시 정각용이고, 로컬 시로 4시간 격자를 재면 UTC+8 사용자는 여섯 슬롯이 전부 어긋난다.
+        // 매시 정각용이고, 로컬 시로 재면 UTC+8 사용자는 모든 슬롯이 한 시간 어긋난다.
         if (_settings.KairaAlarmEnabled && _onKaira is not null
             && KairaAlarm.DueLead(nowMs, KairaAlarm.EnabledLeads(_settings)) is int kairaLead)
         {
@@ -130,7 +130,7 @@ public sealed class AlarmController
         {
             if (FieldBossCatalog.HasOwnAlarm(d.Code))
             {
-                continue; // 감시자 카이라 has its own 4-hour-grid reminder — never double-fire here
+                continue; // 감시자 카이라 has its own clock reminder — never double-fire here
             }
 
             if (disabled.Contains(d.Code))

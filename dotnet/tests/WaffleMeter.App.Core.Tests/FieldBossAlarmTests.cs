@@ -138,7 +138,7 @@ public class FieldBossAlarmTests
         Assert.Equal("수·토 아티쟁 종료 후", FieldBossFixedSchedule.Describe(2600520)); // 처형관 드라모스, 슬롯 2203
         Assert.Null(FieldBossFixedSchedule.Describe(2406034));
 
-        // 감시자 카이라는 리젠 타이머가 아니라 4시간 격자 출현 알림으로 다룬다 — 여기에도, picker에도 없다.
+        // 감시자 카이라는 리젠 타이머가 아니라 시계로 도는 출현 알림으로 다룬다 — 여기에도, picker에도 없다.
         Assert.False(FieldBossFixedSchedule.HasFixedSchedule(FieldBossCatalog.ScheduledSpawnCode));
         Assert.True(FieldBossCatalog.HasOwnAlarm(FieldBossCatalog.ScheduledSpawnCode));
         Assert.False(FieldBossCatalog.HasOwnAlarm(2600098));   // 집행자 슬롯 카이라는 일반 알림 대상
@@ -172,17 +172,51 @@ public class FieldBossAlarmTests
     private static long KstMs(int h, int m, int day = 2) =>
         new DateTimeOffset(2026, 9, day, h, m, 0, Kst).ToUnixTimeMilliseconds();
 
-    /// <summary>격자의 정본은 <see cref="KairaAlarm.SpawnAnchorHourKst"/> 하나다. 시각을 어딘가에 또 적으면
-    /// 그 사본이 로직과 갈라진다 — 2026-09-22 에 실제로 갈라졌다(로직은 0시 앵커, 실제 출현은 1시 앵커).</summary>
+    /// <summary>일정의 정본은 <see cref="KairaAlarm.Spawners"/> 하나다. 시각을 어딘가에 또 적으면 그 사본이
+    /// 로직과 갈라진다 — 2026-09-22 에 실제로 갈라졌다(로직은 0시 앵커, 실제 출현은 1시 앵커).
+    /// <para>값은 클라 125(2026-11-11) <c>PeriodSpawn</c> 의 두 행이다: <c>FieldBoss_AR1_CycleBoss_01</c>
+    /// (M_AR1_BeritraD_01_001 = 2600089) 01:00 / Cycle 720, <c>FieldBoss_AR1_CycleBoss_02</c>
+    /// (M_AR1_BeritraD_01_003 = 2600099) 09:00 / Cycle 720. 직전 패치까지는 첫 행 하나가 01:00 / 240 이었다.</para></summary>
     [Fact]
-    public void The_grid_is_anchored_at_kst_one_oclock_every_four_hours()
+    public void The_two_kairas_spawn_twelve_hours_apart_each_at_one_nine_thirteen_twenty_one()
     {
-        Assert.Equal(1, KairaAlarm.SpawnAnchorHourKst);
-        Assert.Equal(4, KairaAlarm.SpawnIntervalHours);
-        Assert.Equal(new[] { 1, 5, 9, 13, 17, 21 }, KairaAlarm.SpawnHoursKst);
+        Assert.Equal(
+            new[]
+            {
+                new KairaSpawner(2600089, FirstHourKst: 1, IntervalHours: 12),
+                new KairaSpawner(2600099, FirstHourKst: 9, IntervalHours: 12),
+            },
+            KairaAlarm.Spawners);
+        Assert.Equal(new[] { 1, 9, 13, 21 }, KairaAlarm.SpawnHoursKst);
 
         // 설정 화면 문구도 같은 목록에서 나온다 — 손으로 적어 두면 거기만 옛 시각이 남는다.
-        Assert.Equal("1·5·9·13·17·21", KairaAlarm.SpawnHoursText);
+        Assert.Equal("1·9·13·21", KairaAlarm.SpawnHoursText);
+    }
+
+    /// <summary>2026-11-11 변경의 핵심 회귀 그물. 4시간마다이던 시절의 05시·17시 슬롯은 이제 없다 — 거기서
+    /// 울리면 아무도 없는 어비스로 사람을 보낸다.</summary>
+    [Fact]
+    public void The_five_and_seventeen_oclock_slots_of_the_four_hour_grid_are_gone()
+    {
+        var leads = new[] { 10, 5, 1 };
+
+        foreach ((int h, int m) in new[] { (4, 50), (4, 55), (4, 59), (16, 50), (16, 55), (16, 59) })
+        {
+            Assert.Null(KairaAlarm.DueLead(KstMs(h, m), leads));
+        }
+
+        // 남은 네 슬롯은 그대로 울린다.
+        Assert.Equal(10, KairaAlarm.DueLead(KstMs(0, 50), leads));    // 01시 — 첫째
+        Assert.Equal(10, KairaAlarm.DueLead(KstMs(8, 50), leads));    // 09시 — 둘째
+        Assert.Equal(10, KairaAlarm.DueLead(KstMs(12, 50), leads));   // 13시 — 첫째
+        Assert.Equal(10, KairaAlarm.DueLead(KstMs(20, 50), leads));   // 21시 — 둘째
+
+        // 05시·17시를 건너뛴 다음 출현: 01시 뒤는 09시, 13시 뒤는 21시(8시간 간격).
+        Assert.Equal(KstMs(9, 0), KairaAlarm.NextSpawnMs(KstMs(1, 1)));
+        Assert.Equal(KstMs(9, 0), KairaAlarm.NextSpawnMs(KstMs(5, 0)));
+        Assert.Equal(KstMs(21, 0), KairaAlarm.NextSpawnMs(KstMs(13, 1)));
+        Assert.Equal(KstMs(21, 0), KairaAlarm.NextSpawnMs(KstMs(17, 0)));
+        Assert.Equal(KstMs(13, 0), KairaAlarm.NextSpawnMs(KstMs(9, 1)));   // 09시 뒤는 4시간 간격
     }
 
     /// <summary>이번 수정의 핵심 회귀 그물. 종전 구현은 0시 앵커라 여섯 슬롯이 전부 <b>한 시간 일찍</b>
@@ -197,14 +231,13 @@ public class FieldBossAlarmTests
         Assert.Null(KairaAlarm.DueLead(KstMs(3, 50), leads));            // 옛 4시 슬롯
         Assert.Null(KairaAlarm.DueLead(KstMs(19, 50), leads));           // 옛 20시 슬롯
 
-        // 새 격자(1·5·9·13·17·21시) — 정확히 한 시간 뒤가 슬롯이다.
+        // 1시 앵커 쪽 — 정확히 한 시간 뒤가 슬롯이다(5시 슬롯은 2026-11-11 에 없어져 여기서 뺐다).
         Assert.Equal(10, KairaAlarm.DueLead(KstMs(0, 50), leads));       // 1시 슬롯
-        Assert.Equal(10, KairaAlarm.DueLead(KstMs(4, 50), leads));       // 5시 슬롯
         Assert.Equal(10, KairaAlarm.DueLead(KstMs(20, 50), leads));      // 21시 슬롯
     }
 
     [Fact]
-    public void Kaira_leads_are_due_only_before_a_four_hour_slot()
+    public void Kaira_leads_are_due_only_before_a_spawn_slot()
     {
         var leads = new[] { 10, 5, 1 };
 
@@ -222,8 +255,8 @@ public class FieldBossAlarmTests
     }
 
     /// <summary>하루 24시간을 전부 훑어 슬롯 집합이 <see cref="KairaAlarm.SpawnHoursKst"/> 와 정확히 같음을
-    /// 확인한다. 00:00~00:59 는 앵커(01:00)보다 <b>이전</b>이라 나머지 연산이 음수로 가는 유일한 구간이다 —
-    /// C# 의 % 는 음수 피연산자에 음수를 그대로 내므로, 감싸지 않으면 이 한 시간만 조용히 틀린다.</summary>
+    /// 확인한다. 00:00~00:59 는 첫 슬롯(01:00)보다 <b>이전</b>이고 21:01~23:59 는 마지막 슬롯 <b>이후</b>라
+    /// 답이 자정을 넘는다 — 하루 중 계산 경로가 갈리는 두 구간이 다 여기 걸린다.</summary>
     [Fact]
     public void Every_hour_of_the_day_matches_the_declared_slot_list()
     {
@@ -245,9 +278,8 @@ public class FieldBossAlarmTests
         }
     }
 
-    /// <summary>앵커가 0시가 아니게 되면서 자정 횡단이 <b>정상 경로</b>가 됐다: 21시 슬롯 다음은 익일 1시다.
-    /// NextSpawnMs 는 날짜를 만지지 않고 "이번 분 + 남은 분"으로 더하므로 여기서 끊기기 쉽다
-    /// (1440 % 240 == 0 이라 실제로는 끊기지 않는다는 것을 못박는다).</summary>
+    /// <summary>첫 슬롯이 0시가 아니므로 자정 횡단이 <b>정상 경로</b>다: 21시 슬롯 다음은 익일 1시다.
+    /// NextSpawnMs 는 날짜를 만지지 않고 "이번 분 + 남은 분"으로 더하므로 여기서 끊기기 쉽다.</summary>
     [Fact]
     public void The_first_slot_of_the_day_rolls_over_from_the_previous_evening()
     {
@@ -257,15 +289,15 @@ public class FieldBossAlarmTests
         Assert.Equal(firstSlot, KairaAlarm.NextSpawnMs(KstMs(21, 1, day: 1)));    // 전날 21시 슬롯 직후
         Assert.Equal(firstSlot, KairaAlarm.NextSpawnMs(KstMs(23, 59, day: 1)));   // 자정 직전
         Assert.Equal(firstSlot, KairaAlarm.NextSpawnMs(KstMs(0, 0)));             // 자정 직후
-        Assert.Equal(firstSlot, KairaAlarm.NextSpawnMs(KstMs(0, 50)));            // 앵커 이전(나머지가 음수인 구간)
+        Assert.Equal(firstSlot, KairaAlarm.NextSpawnMs(KstMs(0, 50)));            // 그날 첫 슬롯 이전
 
         // 리드도 자정을 넘겨 이어진다 — 00:50 은 같은 날 01:00 의 10분 전이다.
         Assert.Equal(10, KairaAlarm.DueLead(KstMs(0, 50), leads));
         Assert.Equal(1, KairaAlarm.DueLead(KstMs(0, 59), leads));
     }
 
-    /// <summary>격자는 머신 시간대가 아니라 서버(KST)에 걸려 있다. 로컬 시로 재면 UTC+8 사용자는 여섯
-    /// 슬롯이 전부 한 시간 어긋난다 — timeBasis 결정 전체를 지키는 그물이다.</summary>
+    /// <summary>격자는 머신 시간대가 아니라 서버(KST)에 걸려 있다. 로컬 시로 재면 UTC+8 사용자는 모든
+    /// 슬롯이 한 시간 어긋난다 — timeBasis 결정 전체를 지키는 그물이다.</summary>
     [Fact]
     public void The_grid_is_anchored_to_kst_not_to_the_machine_timezone()
     {
@@ -284,13 +316,13 @@ public class FieldBossAlarmTests
     }
 
     /// <summary>하루치를 분 단위로 훑어 두 스케줄이 실제로 갈렸음을 고정한다. 슈고는 매시 정각 그대로
-    /// (24슬롯 × 3리드 = 72회), 카이라는 4시간 격자(6슬롯 × 3리드 = 18회).
-    /// <para>⚠️ <b>개수만 세면 앵커를 못 잡는다.</b> 1440 = 6 × 240 이라 앵커가 0시든 1시든 하루 큐는
-    /// 똑같이 18회다 — 2026-09-02 의 틀린 앵커를 그린으로 통과시킨 게 정확히 이 착시였다. 그래서 개수가
-    /// 아니라 <b>큐가 뜬 분의 집합</b>을 고정한다. 기댓값은 상수에서 파생시키지 않고 리터럴로 적는다
-    /// (파생시키면 앵커가 틀릴 때 기댓값도 같이 틀려 계속 그린이다).</para></summary>
+    /// (24슬롯 × 3리드 = 72회), 카이라는 01·09·13·21시(4슬롯 × 3리드 = 12회).
+    /// <para>⚠️ <b>개수만 세면 시각을 못 잡는다.</b> 4시간마다이던 시절엔 1440 = 6 × 240 이라 앵커가 0시든
+    /// 1시든 하루 큐가 똑같이 18회였다 — 2026-09-02 의 틀린 앵커를 그린으로 통과시킨 게 정확히 이 착시였다.
+    /// 그래서 개수가 아니라 <b>큐가 뜬 분의 집합</b>을 고정한다. 기댓값은 상수에서 파생시키지 않고 리터럴로
+    /// 적는다(파생시키면 표가 틀릴 때 기댓값도 같이 틀려 계속 그린이다).</para></summary>
     [Fact]
-    public void A_full_day_gives_kaira_eighteen_cues_at_exactly_these_minutes()
+    public void A_full_day_gives_kaira_twelve_cues_at_exactly_these_minutes()
     {
         var leads = new[] { 10, 5, 1 };
         var kairaAt = new List<int>();   // KST 자정으로부터 몇 분째에 큐가 떴나
@@ -315,12 +347,10 @@ public class FieldBossAlarmTests
         Assert.Equal(
             new[]
             {
-                50, 55, 59,           // 00:50/00:55/00:59 → 01시 슬롯
-                290, 295, 299,        // 04:50…           → 05시
-                530, 535, 539,        // 08:50…           → 09시
-                770, 775, 779,        // 12:50…           → 13시
-                1010, 1015, 1019,     // 16:50…           → 17시
-                1250, 1255, 1259,     // 20:50…           → 21시
+                50, 55, 59,           // 00:50/00:55/00:59 → 01시 슬롯 (첫째 2600089)
+                530, 535, 539,        // 08:50…           → 09시 (둘째 2600099)
+                770, 775, 779,        // 12:50…           → 13시 (첫째)
+                1250, 1255, 1259,     // 20:50…           → 21시 (둘째)
             },
             kairaAt);
         Assert.Equal(72, shugo);
@@ -333,19 +363,25 @@ public class FieldBossAlarmTests
         long spawn21 = new DateTimeOffset(2026, 9, 2, 21, 0, 0, Kst).ToUnixTimeMilliseconds();
         Assert.Equal(spawn21, KairaAlarm.NextSpawnMs(KstMs(20, 50)));
         Assert.Equal(spawn21, KairaAlarm.NextSpawnMs(KstMs(20, 59)));
-        Assert.Equal(spawn21, KairaAlarm.NextSpawnMs(KstMs(17, 1)));   // 17시 슬롯 직후 → 다음은 21시
+        Assert.Equal(spawn21, KairaAlarm.NextSpawnMs(KstMs(13, 1)));   // 13시 슬롯 직후 → 다음은 21시
         Assert.Equal(spawn21, KairaAlarm.NextSpawnMs(KstMs(21, 0)));   // 정각 자신
     }
 
-    /// <summary>격자 수학이 말없이 기대는 두 전제. 누가 주기를 5시간으로 바꾸면 <c>1440 % 300 != 0</c> 이라
-    /// 자정에서 격자가 점프하고(23:59 는 "익일 02:00", 2분 뒤인 00:01 은 "01:00" 이라 답한다),
-    /// <see cref="KairaAlarm.SpawnHoursText"/> 는 모듈러 결과와 다른 목록을 인쇄한다. 조용히 깨지는 자리라
-    /// 전제를 그물로 세워 둔다.</summary>
+    /// <summary>시각 목록이 말없이 기대는 전제. 개체의 주기가 24시간을 나누어떨어뜨리지 않으면(예: 5시간)
+    /// 출현 시각이 날마다 밀려 "하루의 시각 목록"이라는 것 자체가 없어지고, 설정 화면은 첫날의 시각만 계속
+    /// 인쇄한다. 조용히 깨지는 자리라 전제를 그물로 세워 둔다.</summary>
     [Fact]
-    public void The_grid_math_assumes_the_interval_divides_both_the_day_and_the_hour_count()
+    public void Every_spawner_interval_divides_the_day_so_the_hours_repeat_daily()
     {
-        Assert.Equal(0, 24 * 60 % (KairaAlarm.SpawnIntervalHours * 60));
-        Assert.Equal(24 / KairaAlarm.SpawnIntervalHours, KairaAlarm.SpawnHoursKst.Count);
+        Assert.All(KairaAlarm.Spawners, s =>
+        {
+            Assert.InRange(s.IntervalHours, 1, 24);
+            Assert.Equal(0, 24 % s.IntervalHours);
+            Assert.InRange(s.FirstHourKst, 0, 23);
+        });
+
+        // 두 개체의 슬롯이 겹치지 않는다 — 겹치면 한 시각에 알림은 하나만 울리고 목록도 줄어든다.
+        Assert.Equal(KairaAlarm.Spawners.Sum(s => 24 / s.IntervalHours), KairaAlarm.SpawnHoursKst.Count);
     }
 
     /// <summary>화면 문구가 상수에서 파생된다는 이번 설계의 유일한 실효 그물. App.Wpf 엔 테스트 프로젝트가
@@ -358,7 +394,7 @@ public class FieldBossAlarmTests
         string xaml = RepoFile("dotnet", "src", "WaffleMeter.App.Wpf", "SettingsWindow.xaml");
 
         Assert.Contains("{Binding KairaScheduleDesc}", xaml, StringComparison.Ordinal);
-        foreach (string literal in new[] { "0·4·8", "1·5·9", "00·04·08", "01·05·09" })
+        foreach (string literal in new[] { "0·4·8", "1·5·9", "00·04·08", "01·05·09", "1·9·13", "01·09·13" })
         {
             Assert.DoesNotContain(literal, xaml, StringComparison.Ordinal);
         }

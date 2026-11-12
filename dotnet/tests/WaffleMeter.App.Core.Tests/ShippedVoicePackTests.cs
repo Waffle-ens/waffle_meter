@@ -85,7 +85,7 @@ public sealed class ShippedVoicePackTests
         }
     }
 
-    /// <summary>감시자 카이라 — 리젠 타이머가 아니라 4시간 격자 전용 큐(<c>SetKaira</c>)를 쓰므로 리젠
+    /// <summary>감시자 카이라 — 리젠 타이머가 아니라 시계로 도는 전용 큐(<c>SetKaira</c>)를 쓰므로 리젠
     /// 문구 목록에서는 빠지지만, 그 전용 문구를 만들 때 <b>이름은 여기서 가져와야 한다</b>. 손으로 다시
     /// 적어 두면 몹 이름이 교정돼도 테스트와 앱이 같은 옛 이름을 공유해 그린인 채로 팩만 고아가 된다.</summary>
     private const string ScheduledSpawnCode = "2600089";
