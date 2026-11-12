@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using WaffleMeter.App.Core;
+using WaffleMeter.Capture;
 using WaffleMeter.Data;
 using Xunit;
 
@@ -106,11 +108,39 @@ public sealed class ShippedVoicePackTests
 
     private static string KairaName() => CatalogueNamesByCode()[ScheduledSpawnCode];
 
+    // 전용 알림을 쓰는 보스는 리젠 문구를 말하지 않는다. 코드 하나(2600089)와 비교하던 것을 앱이 실제로 쓰는
+    // 술어(AlarmController 가 타이머 알림에서 건너뛰는 바로 그 판정)로 바꿨다 — 클라 125 에서 감시자 카이라가
+    // 두 개체(2600089·2600099)가 됐고, 코드 비교로는 둘째가 "감시자 카이라, N분 뒤 리젠" 을 요구하게 된다.
     private static IEnumerable<string> FieldBossNames() =>
         CatalogueNamesByCode()
-            .Where(kv => kv.Key != ScheduledSpawnCode)
+            .Where(kv => !FieldBossCatalog.HasOwnAlarm(int.Parse(kv.Key, CultureInfo.InvariantCulture)))
             .Select(kv => kv.Value)
             .Distinct(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 감시자 카이라의 두 번째 개체(2600099, 클라 125)는 <b>새 클립 없이</b> 기존 감시자 카이라 알림음을 쓴다.
+    /// 그게 성립하는 조건은 둘이다: 전용 알림으로 분류될 것(아니면 은퇴시킨 "…분 뒤 리젠" 을 찾는다), 그리고
+    /// 이름이 2600089 와 글자 하나까지 같을 것(발화가 이름으로 만들어지고 클립은 그 문구의 해시로 찾는다).
+    /// 둘 중 하나가 어긋나면 알림은 여전히 울리지만 구운 목소리 대신 네트워크 TTS 나 차임으로 조용히 떨어진다.
+    /// </summary>
+    [Fact]
+    public void The_second_kaira_speaks_the_clips_already_baked_for_the_first()
+    {
+        Dictionary<string, string> byCode = CatalogueNamesByCode();
+        string twin = FieldBossCatalog.ScheduledSpawnTwinCode.ToString(CultureInfo.InvariantCulture);
+
+        Assert.True(byCode.ContainsKey(twin), "FieldBossCatalog 에 2600099 행이 없습니다.");
+        Assert.Equal(KairaName(), byCode[twin]);
+        Assert.True(FieldBossCatalog.HasOwnAlarm(FieldBossCatalog.ScheduledSpawnTwinCode));
+
+        foreach (int lead in new[] { 10, 5, 1 })
+        {
+            string line = $"{SpokenName.Of(byCode[twin])}, {lead}분 뒤 출현합니다";
+            Assert.All(BakedVoicePack.All, pack => Assert.True(HasClip(pack, line), $"{pack} / {line}"));
+            // 그리고 리젠 문구는 말하지 않는다 — 그 클립은 팩에 없다.
+            Assert.DoesNotContain($"{SpokenName.Of(byCode[twin])}, {lead}분 뒤 리젠", ExpectedLines());
+        }
+    }
 
     /// <summary>
     /// The skill-icon codes that ship as PNGs. Read out of the source because <c>SkillIconManifest</c> is

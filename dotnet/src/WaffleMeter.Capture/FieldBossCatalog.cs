@@ -123,6 +123,11 @@ public static class FieldBossCatalog
         new(2600096, "집행자 타마사", 2006, FieldBossRegion.Abyss, AbyssLowerMapId),
         new(2600097, "집행자 아그로", 2007, FieldBossRegion.Abyss, AbyssLowerMapId),
         new(2600098, "집행자 카이라", 2008, FieldBossRegion.Abyss, AbyssLowerMapId),
+        // 클라 125(2026-11-11) 신설 — 감시자 카이라의 두 번째 개체(M_AR1_BeritraD_01_003). 2600089 와 이름이
+        // 같고 알림도 같은 것을 쓴다(OwnAlarmCodes). ⚠️ 0x9101 슬롯 코드는 아직 모른다: 슬롯의 정본인
+        // WorldMapFieldNamed 를 못 풀었고 실캡처도 없다. 2009 로 "이어 붙이지" 마라 — 중층 다섯 줄이 그렇게
+        // 짝지어졌다가 다른 보스 이름을 말했다. 확인되면 0 을 그 값으로 바꾼다(그때까지 타이머는 안 잡힌다).
+        new(2600099, "감시자 카이라", 0, FieldBossRegion.Abyss, AbyssLowerMapId),
 
         // ---- 어비스 중층 (map 22) ----
         // 슬롯 → NPC 는 클라 WorldMapFieldNamed(ID = 0x9101 와이어 슬롯) + NpcData 가 정본이다. 2026-10-07 까지
@@ -155,8 +160,18 @@ public static class FieldBossCatalog
     /// 충돌한다.</para></summary>
     public const int ScheduledSpawnCode = 2600089;
 
+    /// <summary>감시자 카이라의 두 번째 개체 (클라 125, 2026-11-11). 같은 어비스 하층에 같은 이름으로 서고,
+    /// 클라 <c>PeriodSpawn</c> 표가 둘 다 시계 주기 출현(<c>FieldBoss_AR1_CycleBoss_01</c>/<c>_02</c>)으로 적는다.
+    /// 그래서 리젠 타이머 알림이 아니라 <see cref="ScheduledSpawnCode"/> 와 <b>같은 전용 알림</b>에 묶는다 —
+    /// 발화가 이름으로 만들어지므로("감시자 카이라, N분 뒤 출현합니다") 이미 구워 둔 클립이 그대로 쓰인다.
+    /// <para>⚠️ 일반 행으로 두면 "감시자 카이라, N분 뒤 리젠" 을 말하게 되는데 그 클립은 은퇴시킨 것이라
+    /// (<c>Assets/voice-retired</c>) 팩에 없다.</para></summary>
+    public const int ScheduledSpawnTwinCode = 2600099;
+
+    private static readonly HashSet<int> OwnAlarmCodes = [ScheduledSpawnCode, ScheduledSpawnTwinCode];
+
     /// <summary>True when this boss is driven by its own alarm instead of the shared respawn-timer one.</summary>
-    public static bool HasOwnAlarm(int code) => code == ScheduledSpawnCode;
+    public static bool HasOwnAlarm(int code) => OwnAlarmCodes.Contains(code);
 
     /// <summary>Wire codes the boss table does not list directly, kept so a record that still carries the old
     /// value resolves. 2101349는 옛 표가 쓰던 "맹목적인 니호그" 코드인데 현행 데이터마인엔 보스가 아니고,

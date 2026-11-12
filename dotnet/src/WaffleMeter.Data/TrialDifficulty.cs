@@ -34,14 +34,16 @@ public readonly record struct TrialDifficulty(
 
     /// <summary>Highest displayed level consistent with what is known (unknown knobs assumed at their
     /// ceiling).
-    /// <para>⚠️ The ceiling is per-axis, not a flat 4. 불의 신전's knobs top out at 3/3/8/2, so an unread
-    /// 보스 강화 there widens the range by 7 where 바크론 widens it by 3 — a range label from one dungeon
-    /// says nothing about how coarse the other's is.</para></summary>
+    /// <para>⚠️ The ceiling is per-axis, not a flat 4. 불의 신전's knobs top out at 3/3/16/2 (보스 강화 was 8
+    /// until client 125), so an unread 보스 강화 there widens the range by 15 where 바크론 widens it by 3 — a
+    /// range label from one dungeon says nothing about how coarse the other's is.</para></summary>
     public int LevelMax
     {
         get
         {
-            int[] max = AxisMax;
+            // ⚠️ 범위의 위쪽은 게임이 지금 허용하는 상한으로 잰다 — 16단계 게이트의 축(AxisMax)이 아니다.
+            // 불의 신전은 클라 125 부터 보스 강화가 16까지라, 그 축을 못 읽은 런은 24단계까지 열려 있다.
+            int[] max = TrialDungeonAxes.CeilingFor(MapId);
             int[] levels = Levels;
             int sum = 0;
             for (int i = 0; i < levels.Length; i++)
@@ -117,20 +119,35 @@ public static class TrialDungeonAxes
     private static readonly int[] BakronMax = [4, 4, 4, 4];
     private static readonly int[] FireTempleMax = [3, 3, 8, 2];
 
+    /// <summary>불의 신전의 <b>현재</b> 축 상한 — 클라 125(2026-11-11)에서 보스 강화가 8→16 으로 늘어 합이
+    /// 4~24 가 됐다(<c>DungeonTrial.dat</c> <c>Fire_Temple_T_01</c>: TotalMaxLv 24, BossBuff_2 MaxLevel 16).
+    /// <para>⚠️ <see cref="FireTempleMax"/> 를 고치지 않고 <b>옆에 더했다.</b> 저 행은 "16단계 = 3/3/8/2" 라는
+    /// 판정의 축이고 웹도 16단계 게이트를 그 값으로 유지한다. 상한이 올랐다고 그 행을 16으로 바꾸면
+    /// <see cref="TrialDifficulty.IsTop16Difficulty"/> 가 말없이 "24단계"를 뜻하게 된다.</para></summary>
+    private static readonly int[] FireTempleCeiling = [3, 3, 16, 2];
+
     /// <summary>True when this map is a 시련 whose knobs the meter knows how to read.</summary>
     public static bool IsTrialMap(int mapId) =>
         mapId == BakronIslandMapId || mapId == FireTempleMapId;
 
-    /// <summary>The map's per-axis ceilings, in <see cref="TrialAffixGroup"/> order. Unknown maps fall back
-    /// to 바크론's so a caller that skipped <see cref="IsTrialMap"/> degrades to the old behaviour rather
-    /// than throwing.</summary>
+    /// <summary>The axes that make a run "16단계" in this map, in <see cref="TrialAffixGroup"/> order — each
+    /// dungeon's ceilings as of its launch. Unknown maps fall back to 바크론's so a caller that skipped
+    /// <see cref="IsTrialMap"/> degrades to the old behaviour rather than throwing.
+    /// <para>⚠️ This is what the Top predicates measure against, NOT what the game currently allows — ask
+    /// <see cref="CeilingFor"/> for that. The two are the same for 바크론 and parted for 불의 신전 when its
+    /// 보스 강화 grew past 8.</para></summary>
     public static int[] For(int mapId) =>
         mapId == FireTempleMapId ? FireTempleMax : BakronMax;
 
-    /// <summary>The ceiling for one axis, or 0 when the axis index is out of range.</summary>
+    /// <summary>The highest level the game currently lets each axis take in this map. This is the ruler for
+    /// "is this a value the dungeon can produce" and for how far an unread axis can widen a range.</summary>
+    public static int[] CeilingFor(int mapId) =>
+        mapId == FireTempleMapId ? FireTempleCeiling : BakronMax;
+
+    /// <summary>The current ceiling for one axis, or 0 when the axis index is out of range.</summary>
     public static int Max(int mapId, int axis)
     {
-        int[] m = For(mapId);
+        int[] m = CeilingFor(mapId);
         return axis >= 0 && axis < m.Length ? m[axis] : 0;
     }
 }

@@ -68,8 +68,8 @@ public sealed class TrialRoomAffixEndToEndTests
     [Fact]
     public void A_fire_temple_sixteen_room_reaches_the_tracker_as_sixteen()
     {
-        // Timelimit_2 3=49 · Rebirthlimit_2 3=52 · BossBuff_2 8=44 · Pc_debuff_1 2=46
-        TrialDifficulty trial = Feed(TrialDungeonAxes.FireTempleMapId, [49, 52, 44, 46]);
+        // Timelimit_2 3=57 · Rebirthlimit_2 3=60 · BossBuff_2 8=44 · Pc_debuff_1 2=54 (클라 125 ID)
+        TrialDifficulty trial = Feed(TrialDungeonAxes.FireTempleMapId, [57, 60, 44, 54]);
 
         Assert.True(trial.IsTrial);
         Assert.Equal(16, trial.Level);
@@ -82,10 +82,35 @@ public sealed class TrialRoomAffixEndToEndTests
     public void A_mid_fire_temple_room_is_a_point_value_not_a_range()
     {
         // 2+1+5+1 = 9. 보스 강화 5는 바크론 공식으로는 존재할 수 없는 값이다.
-        TrialDifficulty trial = Feed(TrialDungeonAxes.FireTempleMapId, [48, 50, 41, 45]);
+        TrialDifficulty trial = Feed(TrialDungeonAxes.FireTempleMapId, [56, 58, 41, 53]);
 
         Assert.Equal(9, trial.Level);
         Assert.False(trial.IsTopDifficulty);
+    }
+
+    /// <summary>클라 125(2026-11-11)의 새 꼭대기. 보스 강화 16은 종전 상한(8)을 넘으므로, 디코더가 ID 를 알아도
+    /// 트래커의 상한이 8에 머물면 그 축만 조용히 빠져 "시련 9~24단계" 범위가 된다 — 두 계층을 함께 지나야 한다.</summary>
+    [Fact]
+    public void A_fire_temple_twenty_four_room_reaches_the_tracker_as_twenty_four()
+    {
+        // Timelimit_2 3=57 · Rebirthlimit_2 3=60 · BossBuff_2 16=52 · Pc_debuff_1 2=54
+        TrialDifficulty trial = Feed(TrialDungeonAxes.FireTempleMapId, [57, 60, 52, 54]);
+
+        Assert.Equal(24, trial.Level);
+        Assert.Equal(16, trial.BossBuff);
+        Assert.Equal(24, trial.LevelMin);
+        Assert.Equal(24, trial.LevelMax);
+        Assert.Equal("시련 24단계", trial.Label);
+        Assert.False(trial.IsTop16Difficulty);   // 16단계 게이트(3/3/8/2)는 그대로다 — 24단계는 거기 안 든다
+    }
+
+    /// <summary>패치 전 모양의 방(옛 ID)은 시련 블록을 만들지 않는다 — 틀린 단계를 붙이느니 비운다.</summary>
+    [Fact]
+    public void A_pre_125_fire_temple_room_leaves_the_tracker_empty()
+    {
+        TrialDifficulty trial = Feed(TrialDungeonAxes.FireTempleMapId, [49, 52, 44, 46]);
+
+        Assert.False(trial.IsTrial);
     }
 
     [Fact]
