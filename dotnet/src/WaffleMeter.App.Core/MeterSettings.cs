@@ -152,6 +152,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffUiSortMode = _props.GetProperty("buffUi.sortMode") ?? BuffOverlayOrder.Applied;
         _buffUiPinned = _props.GetProperty("buffUi.pinned") ?? "";
         _buffUiDefaultsApplied = ReadBool("buffUi.defaultsApplied", false);
+        _buffUiDefaultsVersion = ReadInt("buffUi.defaultsVersion", 0);
         _buffUiPresets = _props.GetProperty("buffUi.presets") ?? "";
         _showCooldownUi = ReadBool("cooldownUi.show", false);
         _cooldownUiIconSize = ReadInt("cooldownUi.iconSize", 40);
@@ -740,6 +741,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Set once the catalog's default-off toggle buffs have been merged into the hidden set, so the
     /// one-time default isn't re-applied over the user's later choices.</summary>
     public bool BuffUiDefaultsApplied { get => _buffUiDefaultsApplied; set => SetBool(ref _buffUiDefaultsApplied, "buffUi.defaultsApplied", value); }
+
+    private int _buffUiDefaultsVersion;
+    /// <summary>버프 오버레이 기본값을 어느 버전까지 들였는가(<see cref="BuffUiDefaultsMigration"/>). 0 = 그 이전 출하본.
+    /// 단계가 한 번만 돌게 하는 표식이라 사용자가 나중에 다시 끈 버프를 기동마다 되돌리지 않는다.</summary>
+    public int BuffUiDefaultsVersion { get => _buffUiDefaultsVersion; set => SetInt(ref _buffUiDefaultsVersion, "buffUi.defaultsVersion", value); }
 
     private string _buffUiPresets;
     /// <summary>The three buff-overlay preset slots + the active index, as one Base64(JSON) blob (see

@@ -33,7 +33,7 @@ public static class JoinIcons
     }
 
     /// <summary>Skill icon for a code (port of getSkillIconSrc): exact manifest hit, else the floor base
-    /// for a skill/buff code, else null. Cached.</summary>
+    /// for a skill code / the display base then its floor for a buff code, else null. Cached.</summary>
     public static BitmapImage? Skill(int code)
     {
         if (code <= 0)
@@ -46,27 +46,8 @@ public static class JoinIcons
             return cached;
         }
 
-        int? resolved = null;
-        if (SkillIconManifest.Codes.Contains(code))
-        {
-            resolved = code;
-        }
-        else
-        {
-            int? baseCode = code switch
-            {
-                >= 11_000_000 and <= 19_999_999 => code / 10_000 * 10_000,        // skill code
-                // 버프 코드(권성 19x 포함). BuffDisplayBase를 거쳐야 한 스킬이 이름 다른 두 효과를 뿌리는
-                // 경우(대지의 징벌 → 대지의 축복)에 상세/그래프 레인도 오버레이와 같은 아이콘을 쓴다.
-                >= 110_000_000 and <= 199_999_999 => WaffleMeter.Data.DataManager.BuffDisplayBase(code),
-                _ => null,
-            };
-            if (baseCode is int b && SkillIconManifest.Codes.Contains(b))
-            {
-                resolved = b;
-            }
-        }
-
+        // 정확한 코드 → 바닥 base(스킬) / 표시 base → 그 바닥(버프). 규칙과 테스트는 Data 의 IconKey 에 있다.
+        int? resolved = WaffleMeter.Data.IconKey.Skill(code, SkillIconManifest.Codes.Contains);
         BitmapImage? image = resolved is int r
             ? TryLoad($"pack://application:,,,/WaffleMeter.App.Wpf;component/SkillIcons/{r}.png")
             : null;

@@ -18,8 +18,8 @@ public sealed class BuffPresetManager : IDisposable
 
     // The settings a preset owns. Absent on purpose: buffUi.show (the master toggle — switching a preset
     // must not turn the overlay off), buffUi.observed (the catalog is shared across slots and churns as new
-    // buffs are seen), buffUi.defaultsApplied (a one-time global migration flag), and buffUi.presets itself
-    // — capturing that last one would make Persist() re-enter this handler forever.
+    // buffs are seen), buffUi.defaultsApplied / buffUi.defaultsVersion (one-time global migration flags), and
+    // buffUi.presets itself — capturing that last one would make Persist() re-enter this handler forever.
     private static readonly HashSet<string> PresetProps = new()
     {
         nameof(MeterSettings.BuffUiTransparent),

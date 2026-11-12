@@ -52,7 +52,6 @@ public sealed class OwnerBuffMaintainedStanceTests
     [Theory]
     // 실측 와이어 모양 그대로: 코드는 세션에서 본 런타임 코드, 지속시간은 펄스마다 실리는 값.
     [InlineData(174100511, 17410000, 1250)] // 치유성 보호의 빛
-    [InlineData(181600411, 18160000, 2400)] // 호법성 질주의 진언
     [InlineData(181900511, 18190000, 2400)] // 호법성 불패의 진언
     public void A_toggle_aura_is_flagged_and_outlives_a_late_pulse_by_the_grace(int runtimeCode, int baseCode, long pulseMs)
     {
@@ -70,6 +69,28 @@ public sealed class OwnerBuffMaintainedStanceTests
 
         Assert.Single(dm.ActiveOwnerBuffs(start + pulseMs + 2_999)); // 늦은 펄스 구간 — 아직 떠 있다
         Assert.Empty(dm.ActiveOwnerBuffs(start + pulseMs + 3_000));  // 유예가 끝나면 사라진다
+    }
+
+    [Fact]
+    public void Storm_spell_is_an_ordinary_timed_buff_not_a_toggle()
+    {
+        // 2026-11-11 클래스 패치: 호법성 '질주의 진언'(1초마다 2.4초를 다시 보내는 on/off 오라)이 남은 시간이 있는
+        // 자기 버프 '폭풍의 주문'(18160000, 10초)이 됐다. 토글로 남겨 두면 링·타이머를 안 그리고, 만료 뒤 3초를 더
+        // 떠 있으며, 서버가 인스턴스를 지워도 버티고, 종료 3초 전 알림도 못 받는다.
+        long start = 1_000_000;
+        DataManager dm = WithExecutor(7);
+        dm.SaveUseBuff(7, 181600001, start, start + 10_000, 10_000, actorId: 7, level: 0, slot: 12);
+
+        OwnerBuffView b = Assert.Single(dm.ActiveOwnerBuffs(start + 500));
+        Assert.Equal(18160000, b.Code);
+        Assert.False(b.Toggle);
+        Assert.False(b.Indefinite);
+        Assert.Equal(start + 10_000, b.EndMs);
+        Assert.Empty(dm.ActiveOwnerBuffs(start + 10_001)); // 유예 없이 제때 사라진다
+
+        dm.SaveUseBuff(7, 181600001, start + 20_000, start + 30_000, 10_000, actorId: 7, level: 0, slot: 12);
+        dm.RemoveBuffSlots(7, new[] { 12 }, start + 21_000);
+        Assert.Empty(dm.ActiveOwnerBuffs(start + 21_100)); // 서버가 지우면 바로 지운다
     }
 
     [Fact]
@@ -112,14 +133,14 @@ public sealed class OwnerBuffMaintainedStanceTests
         // 용도가 아니다. 부활 뒤 다시 온 펄스는 새로 켠 것으로 잡혀야 자리도 새로 받는다.
         long t = 1_000_000;
         DataManager dm = WithExecutor(7);
-        dm.SaveUseBuff(7, 181600411, t, t + 2_400, 2_400, actorId: 3);           // 질주의 진언
+        dm.SaveUseBuff(7, 181900511, t, t + 2_400, 2_400, actorId: 3);           // 불패의 진언
         dm.SaveUseBuff(7, NormalBuffCode, t, t + 30_000, 30_000, actorId: 7);
 
         dm.SaveEntityDeath(7, t + 500);
         Assert.Empty(dm.ActiveOwnerBuffs(t + 600));
 
         long revived = t + 3_500; // 실측: 사망 뒤 첫 펄스는 빨라야 +3.0초
-        dm.SaveUseBuff(7, 181600411, revived, revived + 2_400, 2_400, actorId: 3);
+        dm.SaveUseBuff(7, 181900511, revived, revived + 2_400, 2_400, actorId: 3);
         Assert.Equal(revived, Assert.Single(dm.ActiveOwnerBuffs(revived + 100)).HeldSinceMs);
     }
 

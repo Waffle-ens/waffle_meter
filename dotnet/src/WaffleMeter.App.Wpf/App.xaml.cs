@@ -944,19 +944,11 @@ public partial class App : Application
         // Per-job buff picker: seed the observed catalog + hidden selection from persisted settings, and
         // persist the growing catalog back as new buffs are seen.
         services.Data.SeedObservedBuffBases(MeterSettings.ParseCodeSet(_settings.BuffUiObserved));
+        // First run: hide the catalog's toggle/aura buffs (불패의 진언 등) by default — they stay on indefinitely,
+        // so they're noise in the overlay until the user opts them back in. Existing users get each later change
+        // of those defaults once (live hidden + every preset slot) — see BuffUiDefaultsMigration.
+        BuffUiDefaultsMigration.Apply(_settings, services.Data.DefaultOffBuffBases());
         HashSet<int> hidden = MeterSettings.ParseCodeSet(_settings.BuffUiHidden);
-        if (!_settings.BuffUiDefaultsApplied)
-        {
-            // First run: hide the catalog's toggle/aura buffs (질주의 진언 / 불패의 진언 등) by default — they
-            // stay on indefinitely, so they're noise in the overlay until the user opts them back in.
-            foreach (int c in services.Data.DefaultOffBuffBases())
-            {
-                hidden.Add(c);
-            }
-
-            _settings.BuffUiHidden = string.Join(",", hidden);
-            _settings.BuffUiDefaultsApplied = true;
-        }
 
         services.Data.SetHiddenBuffBases(hidden);
         services.Data.SetVoiceBuffBases(MeterSettings.ParseCodeSet(_settings.BuffUiVoice)); // 음성만/오버레이+음성 buffs the store must keep

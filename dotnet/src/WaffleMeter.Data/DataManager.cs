@@ -494,6 +494,12 @@ public sealed class DataManager : ICaptureGameData
     // 버려졌던 탓에 이 표에 없었다. 이름이 들어온 지금 빠뜨리면 파티원의 축복이 base 17400000('대지의 징벌')으로
     // 접혀 ①오버레이/음성이 틀린 이름·아이콘을 쓰고 ②PartySynergyCatalog.Effects(DisplayBase)가 null을 돌려줘
     // 파티원 이득이 0으로 계산되며 ③질풍의 권능과의 배타쌍이 파티원에게 안 걸린다.
+    // 2026-11-11 클래스 패치로 같은 사정의 버프가 셋 더 생겼다: 수호성 '심판의 권능'(심판 5회 연속 시전 끝),
+    // '보호의 방패'의 공격력 효과, 살성 '회피 자세'의 후방 피해 효과. 셋 다 같은 base에 지속이 더 짧은 숨김
+    // 상태(심판 시전 상태, 방패·회피의 막기·회피 상태)가 함께 오고, base 하나로 접으면 마지막에 온 쪽이 슬롯을
+    // 덮어써 10초 버프의 남은 시간이 1초짜리 상태로 바뀌거나 사라진다. 보이는 효과 코드만 떼어 낸다.
+    // 표시 코드는 Skill 표·skills.json에 없는 같은 base의 빈 번호다(실제 시전 코드와 겹치면 쿨 오버레이·스킬
+    // 상세에 섞인다). 이름은 buff_catalog·buff_names, 아이콘은 base PNG(바닥 접기)를 쓴다.
     private static readonly Dictionary<int, int> BuffDisplayBaseOverrides = new()
     {
         [174000271] = 17400058,   // A2 자신 (Cleric_Skill040_LvUp_A2_Buff_Self)
@@ -502,6 +508,9 @@ public sealed class DataManager : ICaptureGameData
         [174000381] = 17400058,   // A3 파티
         [174000571] = 17400058,   // A5 자신
         [174000591] = 17400058,   // A5 파티
+        [122400502] = 12240052,   // 수호성 심판의 권능
+        [121100371] = 12110037,   // 수호성 보호의 방패 (공격력 증가)
+        [130800371] = 13080037,   // 살성 회피 자세 (후방 피해 증폭)
     };
 
     // 인게임에서 서로 중복 적용되지 않는 버프 쌍. 둘 다 활성으로 보이면 지는 쪽을 오버레이에서 감춘다.
@@ -526,8 +535,9 @@ public sealed class DataManager : ICaptureGameData
         new(17400058, 18250000, FixedWinner: 18250000, TieWinner: 0),   // 치유성 대지의 축복 ↔ 호법성 질풍의 권능
     };
 
-    /// <summary>오버레이/음성/picker가 쓰는 표시용 base 코드. 한 스킬이 이름이 다른 두 효과를 뿌리는 경우만
-    /// <see cref="BuffBaseCode"/>와 갈라진다. 집계·통계 경로는 <see cref="BuffBaseCode"/>를 그대로 쓴다.</summary>
+    /// <summary>오버레이/음성/picker가 쓰는 표시용 base 코드. 한 스킬이 이름이 다른 두 효과를 뿌리거나, 보이는
+    /// 버프와 지속이 더 짧은 숨김 상태가 한 base로 접혀 슬롯을 덮어쓰는 경우만 <see cref="BuffBaseCode"/>와
+    /// 갈라진다. 집계·통계 경로는 <see cref="BuffBaseCode"/>를 그대로 쓴다.</summary>
     public static int BuffDisplayBase(int code) =>
         BuffDisplayBaseOverrides.TryGetValue(code, out int mapped) ? mapped : BuffBaseCode(code);
 
@@ -3041,13 +3051,13 @@ public sealed class DataManager : ICaptureGameData
     private const long IndefiniteStanceOverlayKeepAliveMs = 20_000;
 
     // 켜 두는 동안 짧은 지속시간을 약 1초마다 다시 보내는 on/off 오라. 실측(2026-08-07~09-25 7세션): 보호의 빛은
-    // 1,250ms 를 996ms 간격으로, 두 진언은 2,400ms 를 997ms 간격으로 보낸다. 남은 시간이 1~0초를 계속 오가서
+    // 1,250ms 를 996ms 간격으로, 불패의 진언은 2,400ms 를 997ms 간격으로 보낸다. 남은 시간이 1~0초를 계속 오가서
     // 카운트다운이 그냥 떨리는 숫자로 읽힌다 — 시간·링을 그리지 않는다(OwnerBuffView.Toggle).
-    // 현재 다른 직업에는 이런 버프가 없다(같은 7세션 전 직업 버프 스캔으로도 이 셋뿐).
+    // 현재 다른 직업에는 이런 버프가 없다(같은 7세션 전 직업 버프 스캔으로도 보호의 빛·두 진언뿐이었고, 그중
+    // 질주의 진언은 2026-11-11 패치로 남은 시간이 있는 자기 버프 '폭풍의 주문'이 되어 빠졌다).
     private static readonly HashSet<int> ToggleAuraBaseCodes =
     [
         17410000, // 치유성 보호의 빛
-        18160000, // 호법성 질주의 진언
         18190000, // 호법성 불패의 진언
     ];
 

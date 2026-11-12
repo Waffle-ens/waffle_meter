@@ -343,6 +343,7 @@ public static class SettingsKeyCatalog
         ["meterWidthTierChipMigrated"] = "1회성 마이그레이션",
         ["joinPanelWidthTierChipMigrated"] = "1회성 마이그레이션",
         ["buffUi.defaultsApplied"] = "1회성 기본값 적용",
+        ["buffUi.defaultsVersion"] = "1회성 마이그레이션",
 
         // 세션·표시 이력.
         ["patchNotes.lastShownVersion"] = "패치노트 표시 이력",
