@@ -61,6 +61,10 @@ public sealed class DataManager : ICaptureGameData
     // 로스터 구제의 '여기는 파티 씬이다' 증거로 쓰인다 — 인스턴스에는 외부인이 없다.
     private readonly Dictionary<int, string> _contentTypes = new();
     private readonly HashSet<int> _buffBlacklist = new();
+    // 본인 오버레이·음성에서만 뺄 코드(buff_blacklist.json "overlayOnly"). _buffBlacklist 와 달리 집계·상세
+    // 가동률·업로드 BossDebuffs 에는 그대로 남는다 — 징벌·타박상·지연 피해처럼 보스에게 의미 있는 디버프가
+    // 본인 버프 base 로 접혀 '버프 온'으로 오점등되는 것만 막는다.
+    private readonly HashSet<int> _buffOverlayExclude = new();
 
     private readonly PacketRepository _packetRepository = new();
     private readonly UserRepository _userRepository = new();
@@ -393,6 +397,18 @@ public sealed class DataManager : ICaptureGameData
     }
 
     public bool IsBuffBlacklisted(int code) => _buffBlacklist.Contains(code);
+
+    public void LoadBuffOverlayExclude(IEnumerable<int> codes)
+    {
+        foreach (int c in codes)
+        {
+            _buffOverlayExclude.Add(c);
+        }
+    }
+
+    /// <summary>본인 오버레이·음성·셀프 스테이징에서만 빼는 코드인가(<c>overlayOnly</c>). 가동률·업로드 경로는
+    /// 이걸 보지 않는다.</summary>
+    public bool IsBuffOverlayExcluded(int code) => _buffOverlayExclude.Contains(code);
 
     private readonly HashSet<int> _passiveSkills = [];
     private readonly HashSet<int> _activeSkillOverrides = [];
@@ -2519,7 +2535,7 @@ public sealed class DataManager : ICaptureGameData
         // whether it was accepted onto the self-overlay (uid==owner), or lost because the executor is unknown
         // (owner==0, e.g. a self-recognition 0x3633 dropped on a flooded instance entry). Single-consumer
         // thread, so plain increments. Read via BuffDiagSnapshot on the same thread.
-        if (IsJobBuffCode(skillCode) && !IsBuffBlacklisted(skillCode))
+        if (IsJobBuffCode(skillCode) && !IsBuffBlacklisted(skillCode) && !IsBuffOverlayExcluded(skillCode))
         {
             _diagJobBuffSeen++;
             if (owner == 0)
@@ -2536,9 +2552,9 @@ public sealed class DataManager : ICaptureGameData
             // counter's job is to discriminate executor-gate failures, not picker settings.)
         }
 
-        if (!IsJobBuffCode(skillCode) || IsBuffBlacklisted(skillCode))
+        if (!IsJobBuffCode(skillCode) || IsBuffBlacklisted(skillCode) || IsBuffOverlayExcluded(skillCode))
         {
-            return; // item/consumable/blacklisted — never on the job-buff overlay
+            return; // item/consumable/blacklisted/overlayOnly — never on the job-buff overlay
         }
 
         // Store unless fully Off (hidden AND not voice). A "음성만" buff (hidden + voice) is still stored so the
@@ -3297,6 +3313,20 @@ public sealed class DataManager : ICaptureGameData
         && nowMs >= cd.ProvisionalUntil
         && cd.Charges <= 0;
 
+    // 원천 스킬이 여럿인 효과 버프. 회색은 "이 버프를 거는 스킬이 쿨이라 다시 못 건다"는 뜻인데, 이 둘은
+    // base 스킬(파멸의 맹타·지면 강타) 말고도 돌진 일격·격노 폭발·집중 막기 / 폭주 변형 그룹이 같은 코드로
+    // 건다 — base 쿨이 돌아도 다른 스킬로 곧바로 다시 걸린다. 회색 판정에서만 뺀다(스킬 쿨 칸은 그대로).
+    private static readonly HashSet<int> NoCooldownVeilBases =
+    [
+        11100000, // 검성 광분
+        19090000, // 권성 투기
+    ];
+
+    /// <summary>오버레이 회색 판정: 그 버프를 거는 스킬이 지금 쿨인가. <see cref="NoCooldownVeilBases"/>는 항상
+    /// false. Caller holds <see cref="_ownerBuffGate"/>.</summary>
+    private bool IsVeiledByCooldown(int baseCode, long nowMs) =>
+        !NoCooldownVeilBases.Contains(baseCode) && IsOnCooldown(CooldownGroupId(baseCode), nowMs);
+
     // Hold a cast from an unconfirmed uid. Bounded like _pendingSelfBuffs: prune buffers whose every entry has
     // expired, then refuse to grow — a dropped cast costs one icon until the skill is used again.
     private void StageSelfCooldownCandidate(int uid, int groupId, (long End, long ProvisionalUntil, long TotalMs, int DisplayCode, int Charges, int MaxCharges) entry)
@@ -3629,7 +3659,7 @@ public sealed class DataManager : ICaptureGameData
             // Same rule the overlay uses, so a gap between this counter and the screen is never the rule itself.
             foreach (KeyValuePair<int, (long End, int Actor, long Duration, bool Indefinite, int Level, int Slot)> kv in _ownerBuffs)
             {
-                if (kv.Value.End > nowMs && IsOnCooldown(CooldownGroupId(kv.Key), nowMs))
+                if (kv.Value.End > nowMs && IsVeiledByCooldown(kv.Key, nowMs))
                 {
                     buffsOnCd++;
                 }
@@ -3673,7 +3703,7 @@ public sealed class DataManager : ICaptureGameData
                 string name = _buffNames.TryGetValue(BuffBaseCode(kv.Key), out (string Name, string Job) bn)
                     ? bn.Name
                     : Buff(kv.Key)?.Name ?? Skill(kv.Key)?.Name ?? $"버프 {kv.Key}";
-                bool onCooldown = IsOnCooldown(CooldownGroupId(kv.Key), nowMs);
+                bool onCooldown = IsVeiledByCooldown(kv.Key, nowMs);
                 bool toggle = ToggleAuraBaseCodes.Contains(kv.Key);
                 result.Add(new OwnerBuffView(
                     kv.Key, name, kv.Value.End - nowMs, kv.Value.Duration, kv.Value.End,
@@ -4671,7 +4701,7 @@ public sealed class DataManager : ICaptureGameData
         // PRESERVE (do NOT flush): _userRepository (recognized chars + executor), _mobIdRepository (boss
         // instance→code, needed for the next StartBattle in a no-respawn dungeon), _mobHpRepository,
         // _summonRepository, _useBuffRepository, _officialLookupAttempts, and the load-once catalogs
-        // (_mobs/_skillRepository/_buffRepository/_buffBlacklist).
+        // (_mobs/_skillRepository/_buffRepository/_buffBlacklist/_buffOverlayExclude).
     }
 
     /// <summary>Current 0x9702 roster mapped to the uids the stats payload tags (uid -&gt; slot 1-8), frozen into

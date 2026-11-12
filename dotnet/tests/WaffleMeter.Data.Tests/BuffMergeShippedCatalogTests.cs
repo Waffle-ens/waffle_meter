@@ -44,6 +44,11 @@ public sealed class BuffMergeShippedCatalogTests
         }
 
         dm.LoadSkills(ReferenceJson.LoadSkills(Path.Combine(jsonDir, "skills.json")));
+        // 앱과 같은 출하 블랙리스트. 이게 없으면 누가 보스 디버프(지연 피해·징벌)를 "blacklist"에 넣어 상세
+        // 가동률·업로드에서 지워도 이 클래스가 그린으로 지나간다.
+        string blacklist = Path.Combine(jsonDir, "buff_blacklist.json");
+        dm.LoadBuffBlacklist(ReferenceJson.LoadBuffBlacklist(blacklist));
+        dm.LoadBuffOverlayExclude(ReferenceJson.LoadBuffOverlayExclude(blacklist));
         return dm;
     }
 

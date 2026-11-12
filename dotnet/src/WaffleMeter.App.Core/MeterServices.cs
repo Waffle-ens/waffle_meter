@@ -577,6 +577,7 @@ public sealed class MeterServices
         if (File.Exists(blacklist))
         {
             Data.LoadBuffBlacklist(ReferenceJson.LoadBuffBlacklist(blacklist));
+            Data.LoadBuffOverlayExclude(ReferenceJson.LoadBuffOverlayExclude(blacklist));
         }
 
         string buffValues = Path.Combine(jsonDir, "buff_values.json");

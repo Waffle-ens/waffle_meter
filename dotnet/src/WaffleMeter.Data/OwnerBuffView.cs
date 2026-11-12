@@ -9,7 +9,8 @@ namespace WaffleMeter.Data;
 /// <para><see cref="EndMs"/> is the absolute expiry (same clock as the caller's <c>nowMs</c>), used to re-arm
 /// the end alert when a re-cast extends the buff.</para>
 /// <para><see cref="OnCooldown"/> is true when the skill granting this buff is still on cooldown (from the
-/// 0x3847 snapshot) — the overlay grays the icon when the user enables that option.</para>
+/// 0x3847 snapshot) — the overlay grays the icon when the user enables that option.
+/// 원천 스킬이 여럿인 효과 버프(광분·투기, DataManager.NoCooldownVeilBases)는 항상 false.</para>
 /// <para><see cref="Indefinite"/> is true for an actively-maintained stance with no packet-declared expiry
 /// (폭주/권성): its <see cref="RemainingMs"/>/<see cref="EndMs"/> are a synthetic keep-alive, not a real
 /// countdown, so the overlay draws no ring/timer and the voice alert never pre-warns its (guessed) end.</para>

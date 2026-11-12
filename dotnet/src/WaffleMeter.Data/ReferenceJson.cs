@@ -209,4 +209,12 @@ public static class ReferenceJson
 
         return result;
     }
+
+    /// <summary>buff_blacklist.json 의 <c>"overlayOnly"</c>: 본인 오버레이·음성에서만 뺄 코드. 키가 없으면 빈 목록.
+    /// <see cref="LoadBuffBlacklist"/>는 이 키를 읽지 않는다.</summary>
+    public static List<int> LoadBuffOverlayExclude(string path)
+    {
+        using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
+        return ReadIntArray(doc.RootElement, "overlayOnly");
+    }
 }
