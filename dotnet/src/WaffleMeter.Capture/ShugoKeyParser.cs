@@ -23,7 +23,7 @@ public readonly record struct ShugoKeyParse(bool Ok, int Base, int Bonus)
 /// 0x01, so it would have added an unrelated counter into the badge as "(+N)". It never fired (every one of
 /// the 101 parses across the 28-session corpus reported bonus 0), but the shape was wrong.</para>
 ///
-/// <para>Both pools are bounded by the stack cap rather than a loose sanity limit: the group id here is three
+/// <para>Each pool is bounded by its own game cap (base 14, bonus 30) rather than a loose sanity limit: the group id here is three
 /// zero bytes, which is far less distinctive than aether's, so the cap is what keeps a coincidental byte run
 /// inside an unrelated record from being read as a key count. A count past the cap is ignored (the badge holds
 /// its previous value) rather than displayed.</para>
@@ -37,7 +37,11 @@ public static class ShugoKeyParser
     private const byte MaskBase = 0x04;   // 자동 충전분만 (보너스 = 0)
     private const byte MaskBonus = 0x08;  // 보너스만 (자동 충전분 = 0)
     private const byte MaskBoth = 0x0C;   // 둘 다, 자동 충전분 먼저
-    private const int MaxKeys = 14;       // 열쇠 보유 상한 (일일 2개씩 자동 충전)
+    // 풀마다 상한이 다르다 — 클라 ContentsTicket ID 1(Contents_Ticket_FieldEvent):
+    // SubscribeRechargeMaxCount 14 = 자동 충전분 상한, ItemChargeMaxCount 30 = 아이템으로 채운 보너스 상한.
+    // 보너스에 14 를 걸면 보너스를 30 까지 채운 계정의 레코드(0C 01 00 00 00 0E 1E)를 통째로 버려 배지가 사라진다.
+    private const int MaxBase = 14;
+    private const int MaxBonus = 30;
 
     /// <summary>Scan <paramref name="packet"/> from <paramref name="bodyStart"/> for a shugo-key record.</summary>
     public static ShugoKeyParse TryParse(byte[] packet, int bodyStart)
@@ -54,16 +58,16 @@ public static class ShugoKeyParser
             byte mask = packet[g - 2];
             if (mask == MaskBoth)
             {
-                if (TryReadPool(packet, o, out int b, out int next) && TryReadPool(packet, next, out int bonus, out _))
+                if (TryReadPool(packet, o, MaxBase, out int b, out int next) && TryReadPool(packet, next, MaxBonus, out int bonus, out _))
                 {
                     return new ShugoKeyParse(true, b, bonus);
                 }
             }
-            else if (mask == MaskBase && TryReadPool(packet, o, out int baseOnly, out _))
+            else if (mask == MaskBase && TryReadPool(packet, o, MaxBase, out int baseOnly, out _))
             {
                 return new ShugoKeyParse(true, baseOnly, 0);
             }
-            else if (mask == MaskBonus && TryReadPool(packet, o, out int bonusOnly, out _))
+            else if (mask == MaskBonus && TryReadPool(packet, o, MaxBonus, out int bonusOnly, out _))
             {
                 return new ShugoKeyParse(true, 0, bonusOnly);
             }
@@ -74,12 +78,12 @@ public static class ShugoKeyParser
         return ShugoKeyParse.None;
     }
 
-    private static bool TryReadPool(byte[] packet, int at, out int value, out int next)
+    private static bool TryReadPool(byte[] packet, int at, int cap, out int value, out int next)
     {
         VarIntOutput v = PacketPrimitives.ReadVarInt(packet, at);
         value = v.Value;
         next = at + v.Length;
-        return v.Length > 0 && v.Value >= 0 && v.Value <= MaxKeys;
+        return v.Length > 0 && v.Value >= 0 && v.Value <= cap;
     }
 
     private static int IndexOf(byte[] hay, int start, byte[] needle)
