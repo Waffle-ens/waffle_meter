@@ -57,6 +57,32 @@ public class ShugoKeyParserTests
         Assert.Equal(10, s.Total);
     }
 
+    /// <summary>Real capture 2026-11-13 (0x610B at world entry): an account that filled the item-charged bonus
+    /// pool to its cap. Base 14 + bonus 30 = 44. Until 2026-11-13 the bonus pool was held to the base cap 14,
+    /// so this whole record was rejected and the badge never appeared for that account.</summary>
+    [Fact]
+    public void Bonus_pool_filled_to_its_own_cap_of_30_is_read()
+    {
+        byte[] p = { 0x0F, 0x0B, 0x61, 0x4F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x0E, 0x1E, 0x03, 0x03, 0x00, 0x00, 0x00, 0x00 };
+        ShugoKeyParse s = ShugoKeyParser.TryParse(p, BodyStart);
+
+        Assert.True(s.Ok);
+        Assert.Equal(14, s.Base);
+        Assert.Equal(30, s.Bonus);
+        Assert.Equal(44, s.Total);
+    }
+
+    /// <summary>Each pool keeps its own cap: bonus past 30 is still rejected, and the base pool stays at 14
+    /// even though the bonus pool may go higher.</summary>
+    [Theory]
+    [InlineData(new byte[] { 0x0E, 0x0B, 0x61, 0x4F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x0E, 0x1F, 0x03, 0x03 })] // bonus 31
+    [InlineData(new byte[] { 0x0E, 0x0B, 0x61, 0x4F, 0x08, 0x01, 0x00, 0x00, 0x00, 0x1F, 0x03, 0x03, 0x00 })] // bonus-only 31
+    [InlineData(new byte[] { 0x0E, 0x0B, 0x61, 0x4F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x0F, 0x01, 0x03, 0x03 })] // base 15
+    public void A_pool_past_its_own_cap_is_rejected(byte[] packet)
+    {
+        Assert.False(ShugoKeyParser.TryParse(packet, BodyStart).Ok);
+    }
+
     /// <summary>Bonus pool alone (mask 0x08) — the base pool is omitted because it is zero, never because it is
     /// unchanged. Constructed; the aether corpus is what establishes this reading.</summary>
     [Fact]
