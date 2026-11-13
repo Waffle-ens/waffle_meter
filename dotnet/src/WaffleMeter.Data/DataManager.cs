@@ -1428,6 +1428,14 @@ public sealed class DataManager : ICaptureGameData
     public void SaveCurrencySnapshot(IReadOnlyList<CurrencyItem> items, bool exact) =>
         CurrencySnapshotReceived?.Invoke(items, exact, Clock());
 
+    /// <summary>Raised (packet-consumer thread) when a character-select roster arrives: <c>(nicknames, arrivedAtMs)</c>
+    /// — every character of the logging-in account on that server. Stateless like the currency events: the app holds
+    /// it until the character that enters the world is known.</summary>
+    public event Action<IReadOnlyList<string>, long>? LobbyRosterReceived;
+
+    public void SaveLobbyRoster(IReadOnlyList<string> nicknames) =>
+        LobbyRosterReceived?.Invoke(nicknames, Clock());
+
     /// <summary>Raised (packet-consumer thread) when 0x561B changes tracked currency stacks:
     /// <c>(changes, arrivedAtMs)</c>. Counts are absolute per item key.</summary>
     public event Action<IReadOnlyList<CurrencyItemChange>, long>? CurrencyItemsChanged;

@@ -433,9 +433,11 @@ public sealed class ServerKinaViewModel
 {
     public ServerKinaViewModel(ServerKinaLine line)
     {
-        ServerText = line.ServerLabel.Length > 0
+        string server = line.ServerLabel.Length > 0
             ? line.ServerLabel
             : line.Server.ToString(CultureInfo.InvariantCulture);
+        // Two accounts on one server: each gets its own line, named "서버 · 계정 N".
+        ServerText = line.AccountLabel is { } account ? server + " · " + account : server;
         TotalText = CurrencyFormat.Compact(line.Total);
         StorageText = line.ServerStorage is { } storage ? "서버 창고 " + CurrencyFormat.Compact(storage) : "서버 창고 —";
 
@@ -465,10 +467,21 @@ public sealed class ServerKinaViewModel
         tip.Append("\n  서버 창고 ")
            .Append(line.ServerStorage is { } s
                ? CurrencyFormat.Exact(s) + CurrencyChipViewModel.Observed(line.ServerStorageObservedAtMs)
-               : "기록 없음");
+               : line.IsUnplacedAccount ? "어느 계정 것인지 몰라 빼 두었습니다" : "기록 없음");
         tip.Append("\n= 캐릭터 키나 ").Append(CurrencyFormat.Exact(characters))
            .Append(" + 서버 창고 ").Append(CurrencyFormat.Exact(line.ServerStorage ?? 0));
-        tip.Append("\n\n캐릭터마다 키나(각인)·키나·캐릭터 창고 키나를 더하고, 서버 창고는 서버당 한 번만 더합니다.");
+        tip.Append(line.AccountLabel is null
+            ? "\n\n캐릭터마다 키나(각인)·키나·캐릭터 창고 키나를 더하고, 서버 창고는 서버당 한 번만 더합니다."
+            : "\n\n캐릭터마다 키나(각인)·키나·캐릭터 창고 키나를 더하고, 서버 창고는 계정마다 한 번만 더합니다.");
+        if (line.IsUnplacedAccount)
+        {
+            tip.Append("\n이 서버에 계정이 둘 이상 있는데, 이 캐릭터들은 아직 어느 계정인지 모릅니다 — 다른 계정이거나")
+               .Append("\n삭제·이름 변경된 캐릭터입니다. 그 계정으로 로그인하면(캐릭터 선택창) 자동으로 묶입니다.");
+        }
+        else if (line.AccountLabel is not null)
+        {
+            tip.Append("\n계정은 로그인할 때 받는 캐릭터 선택 목록으로 자동으로 나눕니다.");
+        }
         if (line.CharactersWithoutRecord > 0)
         {
             tip.Append("\n키나 기록이 없는 캐릭터 ").Append(line.CharactersWithoutRecord)
