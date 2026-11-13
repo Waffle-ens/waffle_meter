@@ -24,6 +24,22 @@ public readonly record struct CharacterKina(
 /// <see cref="CharacterKina.Partial"/> ones, which add only what is known of them.</param>
 /// <param name="CharactersWithoutRecord">Characters on this server the panel lists but whose kinah has never been
 /// stated — counted as nothing.</param>
+/// <summary>A character on a 총 키나 line, as the line's account-correction list shows it.</summary>
+/// <param name="Manual">The user placed it in this account (it wins over the character-select list until handed back).</param>
+public readonly record struct AccountMember(string IdentityHash, string Label, bool Manual);
+
+/// <summary>What the user can do with one character on an account line: move it to another account on the same
+/// server, give it an account of its own, or hand a manual placement back to the character-select list.</summary>
+public enum AccountMoveKind
+{
+    ToAccount,
+    NewAccount,
+    BackToAutomatic,
+}
+
+/// <param name="TargetGroupId">The account to move into, for <see cref="AccountMoveKind.ToAccount"/>.</param>
+public readonly record struct AccountMove(AccountMoveKind Kind, string? TargetGroupId, string Text);
+
 /// <param name="AccountLabel">"계정 N" (or "계정 미확인") when this server's characters belong to more than one
 /// account and the line is one account's share; null on the ordinary one-line-per-server case.</param>
 /// <param name="AccountGroupId">The account group the line sums, or null (one line for the server, or the
@@ -38,8 +54,13 @@ public readonly record struct ServerKinaLine(
     int CharactersWithoutRecord,
     bool IsCurrentServer,
     string? AccountLabel = null,
-    string? AccountGroupId = null)
+    string? AccountGroupId = null,
+    IReadOnlyList<AccountMember>? Members = null)
 {
+    /// <summary>Every character the line sums, kinah known or not — the list the line unfolds into for correcting
+    /// which account a character belongs to.</summary>
+    public IReadOnlyList<AccountMember> AccountMembers => Members ?? [];
+
     /// <summary>This line sums characters no character-select list has placed in an account, on a server where
     /// another account has been told apart — their 서버 창고 cannot be told apart, so it is left out.</summary>
     public bool IsUnplacedAccount => AccountLabel != null && AccountGroupId == null;
@@ -177,7 +198,13 @@ public static class CurrencyRoster
                 kina = new CharacterKina(hash, label, k.Amount, k.ObservedAtMs, k.Partial);
             }
 
-            entries.Add(new KinaEntry(hash, kina, groups?.GroupOf(hash)?.GroupId));
+            AccountMembership? membership = groups?.GroupOf(hash);
+            entries.Add(new KinaEntry(
+                hash,
+                kina,
+                membership?.GroupId,
+                FirstNonBlank(snapshot.Nickname, known.Nickname) ?? "이름 없는 캐릭터",
+                membership?.Source == AccountGroupSource.Manual));
         }
 
         var lines = new List<ServerKinaLine>();
@@ -223,7 +250,46 @@ public static class CurrencyRoster
         return lines.OrderByDescending(l => l.IsCurrentServer).ThenBy(l => l.Server).ToList();
     }
 
-    private readonly record struct KinaEntry(string Hash, CharacterKina? Kina, string? GroupId);
+    private readonly record struct KinaEntry(string Hash, CharacterKina? Kina, string? GroupId, string Label, bool Manual);
+
+    /// <summary>
+    /// The moves offered for <paramref name="member"/> on <paramref name="line"/>, given every line on the panel:
+    /// into each OTHER account on the same server ("계정 2로"), into an account of its own, and — for a character the
+    /// user placed — back to automatic. Only account lines (a split server) offer anything: a one-account server has
+    /// nothing to correct.
+    /// </summary>
+    public static IReadOnlyList<AccountMove> MovesFor(
+        ServerKinaLine line, AccountMember member, IReadOnlyList<ServerKinaLine> allLines)
+    {
+        if (line.AccountLabel is null)
+        {
+            return [];
+        }
+
+        var moves = new List<AccountMove>();
+        foreach (ServerKinaLine other in allLines)
+        {
+            if (other.Server == line.Server
+                && other.AccountGroupId is { } target
+                && !string.Equals(target, line.AccountGroupId, StringComparison.Ordinal))
+            {
+                moves.Add(new AccountMove(AccountMoveKind.ToAccount, target, other.AccountLabel + ToParticle(other.AccountLabel!)));
+            }
+        }
+
+        moves.Add(new AccountMove(AccountMoveKind.NewAccount, null, "새 계정으로 분리"));
+        if (member.Manual)
+        {
+            moves.Add(new AccountMove(AccountMoveKind.BackToAutomatic, null, "자동으로 되돌리기"));
+        }
+
+        return moves;
+    }
+
+    /// <summary>로/으로 after a label ending in a digit read the Korean way: 3(삼)·6(육)·0(영/십) take 으로, the rest
+    /// (1 일, 7 칠 with ㄹ, 2 이, …) take 로.</summary>
+    private static string ToParticle(string label) =>
+        label.Length > 0 && label[^1] is '3' or '6' or '0' ? "으로" : "로";
 
     private static void AddLine(
         List<ServerKinaLine> lines,
@@ -251,7 +317,11 @@ public static class CurrencyRoster
             entries.Count - known.Count,
             IsCurrentServer: isCurrent,
             AccountLabel: accountLabel,
-            AccountGroupId: groupId));
+            AccountGroupId: groupId,
+            Members: entries
+                .Select(e => new AccountMember(e.Hash, e.Label, e.Manual))
+                .OrderBy(m => m.Label, StringComparer.Ordinal)
+                .ToList()));
     }
 
     /// <summary>The newest 서버 창고 reading any of <paramref name="entries"/> saw, or null.</summary>

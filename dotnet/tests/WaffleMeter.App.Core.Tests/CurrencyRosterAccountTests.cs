@@ -203,6 +203,36 @@ public sealed class CurrencyRosterAccountTests
         Assert.True(confirmed);
     }
 
+    /// <summary>Correction (시안 C): an unfolded account line offers each character a move into every OTHER account on
+    /// the same server, an account of its own, and — only for a character the user placed — a way back to automatic.
+    /// A one-account line offers nothing.</summary>
+    [Fact]
+    public void Account_lines_offer_moves_to_the_other_accounts_on_the_same_server()
+    {
+        AetherPerCharacterStore characters = Characters(
+            ("a1", "가", Trinity), ("b1", "다", Trinity), ("x1", "라", Trinity), ("s1", "마", 1001));
+        CurrencyStore currencies = Kina(("a1", 1), ("b1", 2), ("x1", 3), ("s1", 4));
+        AccountGroupStore groups = Groups(["a1"], ["b1"], ["s1"]);
+        groups.AssignManual("x1", "g0", At + 10, () => "unused"); // the user put x1 in account 1
+
+        IReadOnlyList<ServerKinaLine> lines = CurrencyRoster.ServerKina(
+            characters, currencies: currencies, groups: groups, observed: Observed());
+        ServerKinaLine first = lines.Single(l => l.AccountGroupId == "g0");
+        ServerKinaLine other = lines.Single(l => l.Server == 1001);
+
+        Assert.Equal(["가", "라"], first.AccountMembers.Select(m => m.Label));
+        AccountMember x1 = first.AccountMembers.Single(m => m.IdentityHash == "x1");
+        Assert.True(x1.Manual);
+        Assert.Equal(
+            [(AccountMoveKind.ToAccount, "g1", "계정 2로"), (AccountMoveKind.NewAccount, null, "새 계정으로 분리"),
+             (AccountMoveKind.BackToAutomatic, null, "자동으로 되돌리기")],
+            CurrencyRoster.MovesFor(first, x1, lines).Select(m => (m.Kind, m.TargetGroupId, m.Text)));
+        Assert.Equal(
+            [AccountMoveKind.ToAccount, AccountMoveKind.NewAccount],
+            CurrencyRoster.MovesFor(first, first.AccountMembers.Single(m => m.IdentityHash == "a1"), lines).Select(m => m.Kind));
+        Assert.Empty(CurrencyRoster.MovesFor(other, other.AccountMembers[0], lines)); // one account on 1001
+    }
+
     /// <summary>The 서버 창고 half of a filing goes under the character that saw it; character balances do not.</summary>
     [Fact]
     public void Observed_store_files_only_the_account_scope_balance()

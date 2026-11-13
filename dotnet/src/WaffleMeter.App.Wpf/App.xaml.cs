@@ -1892,6 +1892,31 @@ public partial class App : Application
             RefreshAetherRoster(services);
         };
 
+        // A move from an unfolded 총 키나 line: the user puts a character in another account (or one of its own), or
+        // hands a manual placement back to the character-select list. Manual placements win over later lists.
+        _aetherViewModel.AccountMoveRequested += (hash, move) =>
+        {
+            if (_settings is null)
+            {
+                return;
+            }
+
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            AccountGroupStore groups = AccountGroupStore.Parse(_settings.AccountGroups);
+            bool changed = move.Kind switch
+            {
+                AccountMoveKind.ToAccount => groups.AssignManual(hash, move.TargetGroupId, nowMs, NewAccountGroupId),
+                AccountMoveKind.NewAccount => groups.AssignManual(hash, groupId: null, nowMs, NewAccountGroupId),
+                AccountMoveKind.BackToAutomatic => groups.ClearManual(hash),
+                _ => false,
+            };
+            if (changed)
+            {
+                _settings.AccountGroups = groups.Serialize();
+                RefreshAetherRoster(services);
+            }
+        };
+
         // Clicking a weekly chip flips it. The counter is normally the server's, but the meter only hears the
         // broadcast while it is running — a raid cleared with the meter closed reads as un-cleared until that
         // character next logs in, and this is the way out. Stamped with 'now' so it expires at the same weekly
@@ -2160,6 +2185,9 @@ public partial class App : Application
         }
     }
 
+    /// <summary>A fresh local account-group id: 8 hex digits, opaque, never derived from anything about the account.</summary>
+    private static string NewAccountGroupId() => Guid.NewGuid().ToString("N")[..8];
+
     /// <summary>Apply a held character-select list once the character picked from it has entered the world and is
     /// in it (<see cref="LobbyRosterGate"/>): its characters become one account (<see cref="AccountGroupStore"/>).
     /// Runs from the list's arrival, the report loop and ExecutorChanged, like the other held dumps.</summary>
@@ -2192,7 +2220,7 @@ public partial class App : Application
         if (groups.ApplyLobby(
                 decision.IdentityHashes,
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                () => Guid.NewGuid().ToString("N")[..8]))
+                NewAccountGroupId))
         {
             _settings.AccountGroups = groups.Serialize();
             RefreshAetherRoster(services);
