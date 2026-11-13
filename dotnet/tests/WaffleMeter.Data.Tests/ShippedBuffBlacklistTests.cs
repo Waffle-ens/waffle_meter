@@ -32,6 +32,9 @@ public sealed class ShippedBuffBlacklistTests
         111900171, 113900001, 113900201, 113900501,
         120900201, 120900202, 120900203, 120900204, 120900211, 120900212, 120900213, 120900214,
         120900221, 120900222, 120900223, 120900224, 120900231, 120900232, 120900233, 120900234,
+        // 원소 융합 행은 걸리는 버프 '4원소'(163000002) 하나만 그린다(오너 2026-11-13). 같은 base 의 다른 본인 효과가
+        // 마지막 수신으로 슬롯을 덮어 4원소의 남은 시간을 엉뚱한 효과로 바꾸지 않게 오버레이에서만 뺀다(가동률은 유지).
+        163000003, 163000004, 163000005, 163000006, 163000007,
         163000008,
         190700201, 190700202,
     ];
@@ -44,6 +47,7 @@ public sealed class ShippedBuffBlacklistTests
         113900081, 113900481, // 격노
         111900471, // 도약 찍기(본인)
         111000071, // 광분
+        163000002, // 4원소
     ];
 
     private static string BlacklistPath()
@@ -130,7 +134,8 @@ public sealed class ShippedBuffBlacklistTests
     [Theory]
     [InlineData(120900201, 12090000)] // 징벌 → 집행자 slot
     [InlineData(113900001, 11390000)] // 타박상 → 격노 폭발 slot
-    [InlineData(163000008, 16300000)] // 지연 피해 → 원소 융합 slot
+    [InlineData(163000008, 16300000)] // 지연 피해 → 4원소 slot
+    [InlineData(163000007, 16300000)] // 모든 속성 증폭 → 4원소 slot 을 덮지 않는다
     public void An_overlay_only_debuff_stays_off_the_self_overlay(int code, int baseCode)
     {
         long t = 1_000_000;
