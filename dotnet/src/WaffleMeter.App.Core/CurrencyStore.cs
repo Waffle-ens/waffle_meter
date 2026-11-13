@@ -217,6 +217,22 @@ public sealed class CurrencyStore
         return changed;
     }
 
+    /// <summary>File a 슈고 열쇠 reading (both pools, one observation time) under the character that saw it — the
+    /// other account-scope value, kept the same way as the 서버 창고 (<see cref="FileObservedAccountScope"/>). The
+    /// two pools are always written together, so a reader takes them from one character at one moment. Returns
+    /// whether anything changed.</summary>
+    public bool FileObservedShugoKey(string? identityHash, int baseKeys, int bonusKeys, long observedAtMs)
+    {
+        if (baseKeys < 0 || bonusKeys < 0)
+        {
+            return false;
+        }
+
+        bool changed = UpsertCharacter(identityHash, CurrencyCatalog.ShugoKeyBase, baseKeys, observedAtMs);
+        changed |= UpsertCharacter(identityHash, CurrencyCatalog.ShugoKeyBonus, bonusKeys, observedAtMs);
+        return changed;
+    }
+
     /// <summary>Drop every character row for the given characters. Wired to the panel's per-row ✕ and the startup
     /// purge of impossible identities, the same as the other per-character stores. Server rows stay: the 서버 창고
     /// belongs to the account, not to the character being forgotten.</summary>

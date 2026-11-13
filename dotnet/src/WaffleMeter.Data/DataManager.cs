@@ -1316,6 +1316,14 @@ public sealed class DataManager : ICaptureGameData
         get { lock (_shugoKeyGate) { return (_shugoKeyBase, _shugoKeyBonus, _shugoKeyTotal, _shugoKeyHasValue); } }
     }
 
+    /// <summary>When the current shugo-key reading arrived and whether it came from the 0x610B login/zone-in dump —
+    /// the dump beats the packet naming its character, so whoever files it under a character must wait for that
+    /// identity, exactly like <see cref="AetherOrigin"/>. <c>(0, false)</c> until a reading has been seen.</summary>
+    public (long AtMs, bool FromSnapshot) ShugoKeyOrigin
+    {
+        get { lock (_shugoKeyGate) { return (_shugoKeyAtMs, _shugoKeyFromSnapshot); } }
+    }
+
     /// <summary>Record the shugo-festa key count. Like aether, every broadcast carries both pools
     /// authoritatively, so there is nothing to back-compute. (The old total-only branch here was unreachable —
     /// the parser never produced one — but it kept alive the same wrong premise that broke aether.)</summary>

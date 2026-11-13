@@ -123,6 +123,11 @@ public partial class App : Application
     /// (<see cref="LobbyRosterGate"/>). UI thread only.</summary>
     private (IReadOnlyList<string> Nicknames, long AtMs)? _pendingLobbyRoster;
 
+    /// <summary>The 0x610B login/zone-in 슈고 열쇠 reading, held until the character it belongs to is identified
+    /// (<see cref="FlushPendingShugoKey"/>). <c>GateAtMs</c> is when the dump arrived — what the identity must not
+    /// predate; <c>ObservedAtMs</c> moves on if a change notice updates the count meanwhile. UI thread only.</summary>
+    private (int Base, int Bonus, long GateAtMs, long ObservedAtMs)? _pendingShugoKey;
+
     /// <summary>The corridor map the character is currently standing in, or 0.
     /// <para>Entering one starts the clock and leaving stops it — leaving is the only chance to turn an early
     /// exit into a real number, because the server says nothing more until the budget is gone.</para>
@@ -716,8 +721,10 @@ public partial class App : Application
             // The 0x5611 currency snapshot is the same kind of held dump (it beats its naming packet by ~7 s) and
             // this loop is what files it on a login or same-character relog, where no ExecutorChanged fires.
             FlushPendingCurrencies(services);
-            // The character-select list waits for the character picked from it in the same way.
+            // The character-select list waits for the character picked from it in the same way, and so does the
+            // 슈고 열쇠 dump riding the 오드 packet.
             FlushPendingLobbyRoster(services);
+            FlushPendingShugoKey(services);
             // The 성역 counters and 회랑 이용 시간 riding the 오드 balance's 0x610B dump, and the 0xE305/0xE307
             // 점령 현황, are held under the same rule (WeeklyContentOwnership.CanFile), so they are filed up here
             // too. Below the early-return they sat out the whole saved-battle view — which only ends at the next
@@ -848,8 +855,10 @@ public partial class App : Application
             // anything older (the outgoing one's), then files whatever now has an owner.
             _currencyLedger.OnCharacterSwitch(services.Data.ExecutorIdentityAtMs);
             FlushPendingCurrencies(services);
-            // The incoming character is the one picked from a held character-select list.
+            // The incoming character is the one picked from a held character-select list, and the one a held 슈고
+            // 열쇠 dump describes.
             FlushPendingLobbyRoster(services);
+            FlushPendingShugoKey(services);
         });
 
         // 설정 파일이 손상/잠김/쓰기불가였다면 그 사실을 **먼저** 말한다. 종전에는 파싱 실패가 기동 중 예외로
@@ -1014,6 +1023,9 @@ public partial class App : Application
 
         // 캐릭터 선택 목록 = 그 계정이 그 서버에 가진 캐릭터 전원. 같은 서버의 두 계정이 서버 창고를 덮어쓰지 않게
         // 계정을 가르는 근거다. 고른 캐릭터가 월드에 들어올 때까지 들고 있다가 FlushPendingLobbyRoster 가 적용한다.
+        // 슈고 열쇠 = 계정×서버 공유(오너 확인 2026-11-13). 본 캐릭터 기준으로 남겨, 총 키나 줄이 계정마다 보여 준다.
+        services.Data.ShugoKeyChanged += () => Dispatcher.BeginInvoke(() => PersistShugoKey(services));
+
         services.Data.LobbyRosterReceived += (nicknames, atMs) =>
             Dispatcher.BeginInvoke(() =>
             {
@@ -1886,13 +1898,22 @@ public partial class App : Application
             // left under the forgotten hash, nothing would read it and a re-created name could inherit it.
             AccountGroupStore groups = AccountGroupStore.Parse(_settings.AccountGroups);
             CurrencyStore observed = CurrencyStore.Parse(_settings.AccountObservations);
-            if (groups.GroupOf(hash) is { } membership
-                && observed.Character(hash, CurrencyCatalog.ServerStorageKina) is { } seen)
+            if (groups.GroupOf(hash) is { } membership)
             {
                 var onPanel = new HashSet<string>(store.All().Select(kv => kv.Key), StringComparer.Ordinal);
                 if (groups.MembersOf(membership.GroupId).FirstOrDefault(h => h != hash && onPanel.Contains(h)) is { } heir)
                 {
-                    observed.UpsertCharacter(heir, CurrencyCatalog.ServerStorageKina, seen.Count, seen.ObservedAtMs);
+                    // The 슈고 열쇠 pools are the account's too, and travel together (one reading, one time).
+                    foreach (string slug in new[]
+                             {
+                                 CurrencyCatalog.ServerStorageKina, CurrencyCatalog.ShugoKeyBase, CurrencyCatalog.ShugoKeyBonus,
+                             })
+                    {
+                        if (observed.Character(hash, slug) is { } seen)
+                        {
+                            observed.UpsertCharacter(heir, slug, seen.Count, seen.ObservedAtMs);
+                        }
+                    }
                 }
             }
 
@@ -2198,6 +2219,79 @@ public partial class App : Application
 
         if (changed)
         {
+            RefreshAetherRoster(services);
+        }
+    }
+
+    /// <summary>
+    /// Remember the current 슈고 열쇠 count under the character that saw it (the account-scope observation store), so
+    /// each account's 총 키나 line can show its own. The key count is per account per server, which is exactly why it
+    /// must never be filed under the wrong character: the 0x610B dump lands BEFORE the packet naming its character,
+    /// so it is held until an identity established at or after it (<see cref="FlushPendingShugoKey"/>); a 0x610C
+    /// change notice belongs to whoever is playing — unless a dump is still waiting, in which case it updates the
+    /// waiting reading rather than jumping the queue.
+    /// </summary>
+    private void PersistShugoKey(MeterServices services)
+    {
+        (int b, int bonus, int _, bool has) = services.Data.CurrentShugoKey;
+        (long atMs, bool fromSnapshot) = services.Data.ShugoKeyOrigin;
+        if (!has || atMs <= 0)
+        {
+            _pendingShugoKey = null; // cleared on a character switch: whatever was waiting was the previous one's
+            return;
+        }
+
+        if (fromSnapshot)
+        {
+            _pendingShugoKey = (b, bonus, atMs, atMs);
+        }
+        else if (_pendingShugoKey is { } waiting)
+        {
+            _pendingShugoKey = (b, bonus, waiting.GateAtMs, atMs);
+        }
+        else
+        {
+            FileShugoKey(services, b, bonus, atMs);
+            return;
+        }
+
+        FlushPendingShugoKey(services);
+    }
+
+    /// <summary>File a held 슈고 열쇠 dump once the identity it belongs to is established. Unlike the item snapshot it
+    /// has no 30 s fallback: an account-scope count filed under the previous account's character would show on the
+    /// wrong 총 키나 line, while a dropped one only waits for the next reading.</summary>
+    private void FlushPendingShugoKey(MeterServices services)
+    {
+        if (_pendingShugoKey is not { } pending)
+        {
+            return;
+        }
+
+        long identityAtMs = services.Data.ExecutorIdentityAtMs;
+        if (identityAtMs > 0 && identityAtMs >= pending.GateAtMs)
+        {
+            _pendingShugoKey = null;
+            FileShugoKey(services, pending.Base, pending.Bonus, pending.ObservedAtMs);
+        }
+        else if (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - pending.GateAtMs >= WeeklyContentOwnership.SettleMs)
+        {
+            _pendingShugoKey = null; // nobody was named for it: better no reading than one under the wrong account
+        }
+    }
+
+    private void FileShugoKey(MeterServices services, int baseKeys, int bonusKeys, long observedAtMs)
+    {
+        string? hash = services.Consent.CurrentCharacterHash();
+        if (_settings is null || string.IsNullOrEmpty(hash))
+        {
+            return;
+        }
+
+        CurrencyStore observed = CurrencyStore.Parse(_settings.AccountObservations);
+        if (observed.FileObservedShugoKey(hash, baseKeys, bonusKeys, observedAtMs))
+        {
+            _settings.AccountObservations = observed.Serialize();
             RefreshAetherRoster(services);
         }
     }

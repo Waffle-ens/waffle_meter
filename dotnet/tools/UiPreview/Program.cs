@@ -2946,6 +2946,8 @@ internal static class Program
             var observed = CurrencyStore.Parse(null);
             observed.UpsertCharacter("h1", CurrencyCatalog.ServerStorageKina, 325_000_000, now - 60_000);
             observed.UpsertCharacter("h3", CurrencyCatalog.ServerStorageKina, 0, now - 30_000);
+            observed.FileObservedShugoKey("h1", 14, 0, now - 60_000);
+            observed.FileObservedShugoKey("h3", 14, 30, now - 30_000);
             serverKina = CurrencyRoster.ServerKina(aether, names, currencies, currentHash: "h1", groups, observed);
         }
 
