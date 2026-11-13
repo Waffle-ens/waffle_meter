@@ -119,6 +119,10 @@ public partial class App : Application
     /// <see cref="CurrencyLedger"/>.</summary>
     private readonly CurrencyLedger _currencyLedger = new();
 
+    /// <summary>The last character-select list, held until the character picked from it enters the world
+    /// (<see cref="LobbyRosterGate"/>). UI thread only.</summary>
+    private (IReadOnlyList<string> Nicknames, long AtMs)? _pendingLobbyRoster;
+
     /// <summary>The corridor map the character is currently standing in, or 0.
     /// <para>Entering one starts the clock and leaving stops it — leaving is the only chance to turn an early
     /// exit into a real number, because the server says nothing more until the budget is gone.</para>
@@ -712,6 +716,8 @@ public partial class App : Application
             // The 0x5611 currency snapshot is the same kind of held dump (it beats its naming packet by ~7 s) and
             // this loop is what files it on a login or same-character relog, where no ExecutorChanged fires.
             FlushPendingCurrencies(services);
+            // The character-select list waits for the character picked from it in the same way.
+            FlushPendingLobbyRoster(services);
             // The 성역 counters and 회랑 이용 시간 riding the 오드 balance's 0x610B dump, and the 0xE305/0xE307
             // 점령 현황, are held under the same rule (WeeklyContentOwnership.CanFile), so they are filed up here
             // too. Below the early-return they sat out the whole saved-battle view — which only ends at the next
@@ -842,6 +848,8 @@ public partial class App : Application
             // anything older (the outgoing one's), then files whatever now has an owner.
             _currencyLedger.OnCharacterSwitch(services.Data.ExecutorIdentityAtMs);
             FlushPendingCurrencies(services);
+            // The incoming character is the one picked from a held character-select list.
+            FlushPendingLobbyRoster(services);
         });
 
         // 설정 파일이 손상/잠김/쓰기불가였다면 그 사실을 **먼저** 말한다. 종전에는 파싱 실패가 기동 중 예외로
@@ -1003,6 +1011,15 @@ public partial class App : Application
             Dispatcher.BeginInvoke(() => OnCurrencySnapshot(services, items, exact, atMs));
         services.Data.CurrencyItemsChanged += (changes, atMs) =>
             Dispatcher.BeginInvoke(() => OnCurrencyChanges(services, changes, atMs));
+
+        // 캐릭터 선택 목록 = 그 계정이 그 서버에 가진 캐릭터 전원. 같은 서버의 두 계정이 서버 창고를 덮어쓰지 않게
+        // 계정을 가르는 근거다. 고른 캐릭터가 월드에 들어올 때까지 들고 있다가 FlushPendingLobbyRoster 가 적용한다.
+        services.Data.LobbyRosterReceived += (nicknames, atMs) =>
+            Dispatcher.BeginInvoke(() =>
+            {
+                _pendingLobbyRoster = (nicknames, atMs);
+                FlushPendingLobbyRoster(services);
+            });
 
         // 보스 무력화(그로기) 임박. 데이터 계층이 현재 타깃의 게이지만 보고 사이클당 한 번만 올려 주므로
         // 여기서는 켜져 있는지만 보고 읽는다. 오버레이는 만들지 않는다 — 게이지 자체는 게임 클라가 이미
@@ -1863,7 +1880,58 @@ public partial class App : Application
                 _settings.Currencies = currencies.Serialize();
             }
 
+            // Its account membership goes too — a forgotten character must not keep an account of its own on the
+            // 총 키나 lines. The 서버 창고 reading it saw describes the ACCOUNT's warehouse, not this character, so it is
+            // handed to a character of the same account still on the panel (the newer reading wins) before it goes;
+            // left under the forgotten hash, nothing would read it and a re-created name could inherit it.
+            AccountGroupStore groups = AccountGroupStore.Parse(_settings.AccountGroups);
+            CurrencyStore observed = CurrencyStore.Parse(_settings.AccountObservations);
+            if (groups.GroupOf(hash) is { } membership
+                && observed.Character(hash, CurrencyCatalog.ServerStorageKina) is { } seen)
+            {
+                var onPanel = new HashSet<string>(store.All().Select(kv => kv.Key), StringComparer.Ordinal);
+                if (groups.MembersOf(membership.GroupId).FirstOrDefault(h => h != hash && onPanel.Contains(h)) is { } heir)
+                {
+                    observed.UpsertCharacter(heir, CurrencyCatalog.ServerStorageKina, seen.Count, seen.ObservedAtMs);
+                }
+            }
+
+            if (observed.RemoveAll([hash]))
+            {
+                _settings.AccountObservations = observed.Serialize();
+            }
+
+            if (groups.RemoveAll([hash]))
+            {
+                _settings.AccountGroups = groups.Serialize();
+            }
+
             RefreshAetherRoster(services);
+        };
+
+        // A move from an unfolded 총 키나 line: the user puts a character in another account (or one of its own), or
+        // hands a manual placement back to the character-select list. Manual placements win over later lists.
+        _aetherViewModel.AccountMoveRequested += (hash, move) =>
+        {
+            if (_settings is null)
+            {
+                return;
+            }
+
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            AccountGroupStore groups = AccountGroupStore.Parse(_settings.AccountGroups);
+            bool changed = move.Kind switch
+            {
+                AccountMoveKind.ToAccount => groups.AssignManual(hash, move.TargetGroupId, nowMs, NewAccountGroupId),
+                AccountMoveKind.NewAccount => groups.AssignManual(hash, groupId: null, nowMs, NewAccountGroupId),
+                AccountMoveKind.BackToAutomatic => groups.ClearManual(hash),
+                _ => false,
+            };
+            if (changed)
+            {
+                _settings.AccountGroups = groups.Serialize();
+                RefreshAetherRoster(services);
+            }
         };
 
         // Clicking a weekly chip flips it. The counter is normally the server's, but the meter only hears the
@@ -2044,7 +2112,9 @@ public partial class App : Application
                 .Select(c => new AetherRosterName(c.IdentityHash, c.Nickname, c.Server, c.Job))
                 .ToList(),
             CurrencyStore.Parse(_settings.Currencies),
-            services.Consent.CurrentCharacterHash()));
+            services.Consent.CurrentCharacterHash(),
+            AccountGroupStore.Parse(_settings.AccountGroups),
+            CurrencyStore.Parse(_settings.AccountObservations)));
     }
 
     /// <summary>The 컨텐츠 관리 rows as the persisted stores currently describe them.</summary>
@@ -2100,16 +2170,76 @@ public partial class App : Application
         if (!_currencyLedger.TryTakeFiling(
                 services.Data.ExecutorIdentityAtMs,
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                out IReadOnlyList<CurrencyBalance> balances))
+                out IReadOnlyList<CurrencyBalance> balances,
+                out bool identityConfirmed))
         {
             return;
         }
 
         int server = services.Data.User(services.Data.ExecutorId())?.Server ?? 0;
         CurrencyStore store = CurrencyStore.Parse(_settings.Currencies);
+        bool changed = false;
         if (store.File(hash, server, balances))
         {
             _settings.Currencies = store.Serialize();
+            changed = true;
+        }
+
+        // The 서버 창고 again, under the character that saw it: the server-keyed row above is overwritten by
+        // whichever account on that server logged in last, this is not (see CurrencyStore.FileObservedAccountScope).
+        // Only when the reading is known to be this character's: a snapshot filed by the 30 s fallback before its
+        // naming packet may be the NEXT account's warehouse, and filed here it would show on the previous one's line.
+        CurrencyStore observed = CurrencyStore.Parse(_settings.AccountObservations);
+        if (identityConfirmed && observed.FileObservedAccountScope(hash, balances))
+        {
+            _settings.AccountObservations = observed.Serialize();
+            changed = true;
+        }
+
+        if (changed)
+        {
+            RefreshAetherRoster(services);
+        }
+    }
+
+    /// <summary>A fresh local account-group id: 8 hex digits, opaque, never derived from anything about the account.</summary>
+    private static string NewAccountGroupId() => Guid.NewGuid().ToString("N")[..8];
+
+    /// <summary>Apply a held character-select list once the character picked from it has entered the world and is
+    /// in it (<see cref="LobbyRosterGate"/>): its characters become one account (<see cref="AccountGroupStore"/>).
+    /// Runs from the list's arrival, the report loop and ExecutorChanged, like the other held dumps.</summary>
+    private void FlushPendingLobbyRoster(MeterServices services)
+    {
+        if (_settings is null || _pendingLobbyRoster is not { } pending)
+        {
+            return;
+        }
+
+        LobbyRosterDecision decision = LobbyRosterGate.Evaluate(
+            pending.Nicknames,
+            pending.AtMs,
+            services.Data.ExecutorIdentityAtMs,
+            services.Consent.CurrentCharacterHash(),
+            services.Data.User(services.Data.ExecutorId())?.Server ?? 0,
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        if (decision.Verdict == LobbyRosterVerdict.Wait)
+        {
+            return;
+        }
+
+        _pendingLobbyRoster = null;
+        if (decision.Verdict != LobbyRosterVerdict.Apply)
+        {
+            return;
+        }
+
+        AccountGroupStore groups = AccountGroupStore.Parse(_settings.AccountGroups);
+        if (groups.ApplyLobby(
+                decision.IdentityHashes,
+                DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                NewAccountGroupId))
+        {
+            _settings.AccountGroups = groups.Serialize();
             RefreshAetherRoster(services);
         }
     }

@@ -190,6 +190,14 @@ public sealed class StreamProcessor
     // 출고·입고 실험(325,000,000 이 container 2↔1 로 이동)이 내용으로 확정했다. See CurrencyItemParser.
     private const int ItemDepotListKey = 0x11 | (0x56 << 8);         // 0x5611 ItemDepotList_RS
     private const int ItemModificationListKey = 0x1B | (0x56 << 8);  // 0x561B ItemModificationList_NT
+    // 캐릭터 선택 목록 = 그 계정이 그 서버에 가진 캐릭터 전원. 같은 서버의 두 계정을 가르는 유일한 근거다
+    // (서버 창고·슈고 열쇠는 계정×서버 공유). 0x3615 = 새 로그인마다(2026-11-13 오너 캡처 2/2, 서버 이동 재접속은
+    // 빈 목록), 0x3626 = 게임 안 캐릭터 변경(2026-10-07 1건). 0x36 하단 대역은 패치마다 밀린 전례가 있어
+    // 파서가 인원수 일치로 닫히고, 앱이 '이어서 접속한 본인이 목록 안에 있다'로 한 번 더 닫는다. See LobbyRosterParser.
+    // OpcodeNames 등록이 디스패치 스위치다(OpcodeRegistrationTests). 게임 스트림 판정에 미치는 영향은 작다 — 실제
+    // 목록은 LZ4 번들 안이라 바깥 프레임이 이미 FF FF 로 판정되고, 평문 노이즈는 텍스트 가드·히트 3건 규칙이 막는다.
+    private const int LoginRosterKey = 0x15 | (0x36 << 8);   // 0x3615 Login_RS
+    private const int LobbyRosterKey = 0x26 | (0x36 << 8);   // 0x3626 Lobby_RS
 
     // 0xE005 UpdateGroggyInfo_NT — 보스 무력화(그로기) 게이지. 본문은 두 모양뿐이다(실측 907프레임):
     //   17B: [entity varint][mask=0x03][state=0x01 GroggyGuard][max u32 LE][cur u32 LE][flags]
@@ -358,6 +366,8 @@ public sealed class StreamProcessor
         [GroggyKey] = "Groggy",
         [ItemDepotListKey] = "ItemDepotList",
         [ItemModificationListKey] = "ItemModificationList",
+        [LoginRosterKey] = "LoginRoster",
+        [LobbyRosterKey] = "LobbyRoster",
     };
 
     private static readonly byte[] PowerMarker = { 0xF4, 0xCB, 0x1F };
@@ -697,6 +707,10 @@ public sealed class StreamProcessor
                     break;
                 case ItemModificationListKey:
                     ParseCurrencyItems(packet, opcodeOffset + 2, snapshot: false);
+                    break;
+                case LoginRosterKey:
+                case LobbyRosterKey:
+                    ParseLobbyRoster(packet, opcodeOffset + 2, opcodeKey);
                     break;
             }
         }
@@ -3785,6 +3799,24 @@ public sealed class StreamProcessor
 
         _data.SaveShugoKey(s.Base, s.Bonus, fromSnapshot);
         _sink.Meta("shugokey", ("base", s.Base), ("bonus", s.Bonus), ("total", s.Total));
+    }
+
+    /// <summary>캐릭터 선택 목록(0x3615 Login_RS / 0x3626 Lobby_RS). 인원수가 맞을 때만 넘긴다 — 빈 목록(서버 이동
+    /// 재접속)과 모양이 다른 프레임은 아무것도 안 남긴다. 진단에는 <b>개수만</b> 남긴다: 같은 프레임에 계정 세션
+    /// 토큰이 평문으로 실려 있고, 닉네임은 남의 PC 로그로 흘러가면 안 되는 개인 정보다.</summary>
+    private void ParseLobbyRoster(byte[] packet, int bodyStart, int opcodeKey)
+    {
+        LobbyRosterParse roster = LobbyRosterParser.TryParse(packet, bodyStart);
+        if (!roster.Ok)
+        {
+            return;
+        }
+
+        _data.SaveLobbyRoster(roster.Nicknames);
+        _sink.Meta("lobbyroster",
+            ("opcode", opcodeKey),
+            ("records", roster.Records),
+            ("characters", roster.Nicknames.Count));
     }
 
     /// <summary>주간 성역 '최종 보스 처치 횟수' 4종, 오드·슈고 열쇠와 같은 0x610B/0x610C 패킷에 실려 온다

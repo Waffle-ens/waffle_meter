@@ -112,6 +112,18 @@ internal static class Program
             Capture(() => new AetherPanel { DataContext = content, Width = 260 }, palette, Path.Combine(outDir, $"currency_min_{skin}.png"));
             content.SelectedTab = AetherPanelTab.Content;
 
+            // 같은 서버에 계정 둘: 총 키나 줄이 계정마다 하나씩, 서버 창고도 계정마다 따로.
+            var accounts = new AetherPanelViewModel(settings) { SelectedTab = AetherPanelTab.Currency };
+            accounts.SetRows(SampleContentRows(now, out IReadOnlyList<ServerKinaLine> accountKina, twoAccounts: true));
+            accounts.SetServerKina(accountKina);
+            Capture(() => new AetherPanel { DataContext = accounts }, palette, Path.Combine(outDir, $"currency_accounts_{skin}.png"));
+            Capture(() => new AetherPanel { DataContext = accounts, Width = 260 }, palette, Path.Combine(outDir, $"currency_accounts_min_{skin}.png"));
+            // 시안 C: 계정 줄을 눌러 펼친 모습 — 구성 캐릭터와 옮기기 버튼.
+            accounts.ToggleServerKina(accounts.ServerKina[0]);
+            accounts.ToggleServerKina(accounts.ServerKina[2]); // 계정 3 = 직접 넣은 마이농: 버튼 4개가 줄바꿈되는지
+            Capture(() => new AetherPanel { DataContext = accounts }, palette, Path.Combine(outDir, $"currency_accounts_open_{skin}.png"));
+            Capture(() => new AetherPanel { DataContext = accounts, Width = 260 }, palette, Path.Combine(outDir, $"currency_accounts_open_min_{skin}.png"));
+
             // 빈 상태: 캐릭터는 있는데 재화는 하나도 기록되지 않은 설치본(재화 기능 이전부터 쓰던 사람의 첫 화면).
             var noCurrency = new AetherPanelViewModel(settings) { SelectedTab = AetherPanelTab.Currency };
             noCurrency.SetRows(SampleContentRows(now, out _, withCurrencies: false));
@@ -2845,7 +2857,7 @@ internal static class Program
     /// <see cref="WeeklyContentStore"/>, so the preview exercises the same staleness rule the app does — the
     /// last character's clears are stamped before the previous reset and must therefore show as un-cleared.</summary>
     private static IReadOnlyList<AetherRosterRow> SampleContentRows(
-        long now, out IReadOnlyList<ServerKinaLine> serverKina, bool withCurrencies = true)
+        long now, out IReadOnlyList<ServerKinaLine> serverKina, bool withCurrencies = true, bool twoAccounts = false)
     {
         var aether = AetherPerCharacterStore.Parse(null);
         aether.Upsert("h1", new AetherSnapshot(220, 635, now - 43_200_000, "콩팡", 1001));
@@ -2923,6 +2935,20 @@ internal static class Program
         }
 
         serverKina = CurrencyRoster.ServerKina(aether, names, currencies, currentHash: "h1");
+        if (twoAccounts)
+        {
+            // 같은 서버(1001)에 계정 둘: 콩팡·마이농 = 계정 1(서버 창고 3.25억), 하아앙·헤로롱 = 계정 2(빈 창고, 마지막 접속).
+            var groups = AccountGroupStore.Empty();
+            groups.ApplyLobby(["h1", "h2"], now - 90_000_000, () => "ga");
+            groups.ApplyLobby(["h3", "h4"], now - 80_000_000, () => "gb");
+            groups.ApplyLobby(["h5"], now - 70_000_000, () => "gc");
+            groups.AssignManual("h2", groupId: null, now - 60_000_000, () => "gd"); // 마이농을 직접 세 번째 계정으로
+            var observed = CurrencyStore.Parse(null);
+            observed.UpsertCharacter("h1", CurrencyCatalog.ServerStorageKina, 325_000_000, now - 60_000);
+            observed.UpsertCharacter("h3", CurrencyCatalog.ServerStorageKina, 0, now - 30_000);
+            serverKina = CurrencyRoster.ServerKina(aether, names, currencies, currentHash: "h1", groups, observed);
+        }
+
         return AetherRoster.Build(
             aether, names, currentHash: "h1", weekly: weekly, nowMs: now, corridors: corridors,
             currencies: currencies);

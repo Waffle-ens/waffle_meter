@@ -430,6 +430,20 @@ public sealed class MeterServices
             {
                 props.SetProperty("content.currencies", currencies.Serialize());
             }
+
+            // 계정 묶음과 '본 캐릭터 기준' 서버 창고 기록도 같은 해시다. 남겨 두면 존재할 수 없는 캐릭터가 계정 하나를
+            // 차지해 총 키나 줄을 쪼갠다.
+            AccountGroupStore groups = AccountGroupStore.Parse(props.GetProperty("content.accountGroups"));
+            if (groups.RemoveAll(purgedCharacters))
+            {
+                props.SetProperty("content.accountGroups", groups.Serialize());
+            }
+
+            CurrencyStore observed = CurrencyStore.Parse(props.GetProperty("content.accountObservations"));
+            if (observed.RemoveAll(purgedCharacters))
+            {
+                props.SetProperty("content.accountObservations", observed.Serialize());
+            }
         }
 
         UploadQueue = new StatsUploadQueue(consent, StatsBuilder, StatsApi, Data, props);

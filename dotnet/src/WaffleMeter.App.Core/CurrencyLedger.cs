@@ -106,9 +106,20 @@ public sealed class CurrencyLedger
     /// filing is filed at once. Filing hands back every KNOWN balance; the store skips the ones that did not
     /// move.</para>
     /// </summary>
-    public bool TryTakeFiling(long identityAtMs, long nowMs, out IReadOnlyList<CurrencyBalance> balances)
+    public bool TryTakeFiling(long identityAtMs, long nowMs, out IReadOnlyList<CurrencyBalance> balances) =>
+        TryTakeFiling(identityAtMs, nowMs, out balances, out _);
+
+    /// <inheritdoc cref="TryTakeFiling(long, long, out IReadOnlyList{CurrencyBalance})"/>
+    /// <param name="identityConfirmed">The current identity was established at or after the latest snapshot this
+    /// session (or there was none), so these balances are known to be ITS. False when a snapshot is filed by the
+    /// <see cref="WeeklyContentOwnership.SettleMs"/> fallback before its naming packet came: the store still takes
+    /// it as before, but nothing that tells one account from another may be learned from it — it may be the next
+    /// account's warehouse filed under the previous account's character.</param>
+    public bool TryTakeFiling(
+        long identityAtMs, long nowMs, out IReadOnlyList<CurrencyBalance> balances, out bool identityConfirmed)
     {
         balances = [];
+        identityConfirmed = identityAtMs > 0 && identityAtMs >= _lastSnapshotAtMs;
         if (_pendingSnapshotAtMs > 0)
         {
             if (!WeeklyContentOwnership.CanFile(_pendingSnapshotAtMs, identityAtMs, nowMs))

@@ -116,12 +116,45 @@ public sealed class AetherPanelViewModel : INotifyPropertyChanged
         ServerKina.Clear();
         foreach (ServerKinaLine line in lines)
         {
-            ServerKina.Add(new ServerKinaViewModel(line));
+            ServerKina.Add(new ServerKinaViewModel(line, lines, _expandedKina.Contains(ServerKinaViewModel.KeyOf(line))));
         }
 
         ServerKinaVisibility = ServerKina.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         _lastServerKina = lines;
         UpdateCurrencyEmpty();
+    }
+
+    /// <summary>Which account lines are unfolded, by <see cref="ServerKinaViewModel.KeyOf"/> — kept here because the
+    /// lines are rebuilt on every refresh, and a correction refreshes them.</summary>
+    private readonly HashSet<string> _expandedKina = new(StringComparer.Ordinal);
+
+    /// <summary>An account line was clicked: unfold it into its characters (or fold it back). Only account lines —
+    /// a server split between two accounts — unfold; a one-account line has nothing to correct.</summary>
+    public void ToggleServerKina(ServerKinaViewModel line)
+    {
+        if (!line.Expandable)
+        {
+            return;
+        }
+
+        if (!_expandedKina.Remove(line.Key))
+        {
+            _expandedKina.Add(line.Key);
+        }
+
+        SetServerKina(_lastServerKina);
+    }
+
+    /// <summary>Raised when the user moves a character between accounts from an unfolded 총 키나 line:
+    /// <c>(identityHash, move)</c>. App records it as a manual placement (or hands it back) and refreshes.</summary>
+    public event Action<string, AccountMove>? AccountMoveRequested;
+
+    public void RequestAccountMove(AccountMoveViewModel move)
+    {
+        if (!string.IsNullOrWhiteSpace(move.IdentityHash))
+        {
+            AccountMoveRequested?.Invoke(move.IdentityHash, move.Move);
+        }
     }
 
     /// <summary>Raised when a row's ✕ is clicked, with that character's identity hash (App forgets it and
@@ -431,11 +464,35 @@ public sealed class CurrencyChipViewModel
 /// <summary>One 총 키나 line: a server's characters' own kinah plus its 서버 창고, counted once.</summary>
 public sealed class ServerKinaViewModel
 {
-    public ServerKinaViewModel(ServerKinaLine line)
+    /// <summary>A line's identity across refreshes: its server and account (or the unplaced share).</summary>
+    public static string KeyOf(ServerKinaLine line) =>
+        line.Server.ToString(CultureInfo.InvariantCulture) + "|" + (line.AccountGroupId ?? (line.AccountLabel is null ? "" : "-"));
+
+    public ServerKinaViewModel(ServerKinaLine line) : this(line, [line], expanded: false)
     {
-        ServerText = line.ServerLabel.Length > 0
+    }
+
+    public ServerKinaViewModel(ServerKinaLine line, IReadOnlyList<ServerKinaLine> allLines, bool expanded)
+    {
+        Key = KeyOf(line);
+        // An account line unfolds; so does a one-account line holding a character the user placed, so that placement
+        // can always be handed back.
+        Expandable = line.AccountLabel is not null || line.AccountMembers.Any(m => m.Manual);
+        IsExpanded = Expandable && expanded;
+        Glyph = !Expandable ? "" : IsExpanded ? "▾" : "▸";
+        GlyphVisibility = Expandable ? Visibility.Visible : Visibility.Collapsed;
+        MembersVisibility = IsExpanded ? Visibility.Visible : Visibility.Collapsed;
+        Members = IsExpanded
+            ? line.AccountMembers
+                .Select(m => new AccountMemberViewModel(m, CurrencyRoster.MovesFor(line, m, allLines)))
+                .ToList()
+            : [];
+
+        string server = line.ServerLabel.Length > 0
             ? line.ServerLabel
             : line.Server.ToString(CultureInfo.InvariantCulture);
+        // Two accounts on one server: each gets its own line, named "서버 · 계정 N".
+        ServerText = line.AccountLabel is { } account ? server + " · " + account : server;
         TotalText = CurrencyFormat.Compact(line.Total);
         StorageText = line.ServerStorage is { } storage ? "서버 창고 " + CurrencyFormat.Compact(storage) : "서버 창고 —";
 
@@ -465,10 +522,22 @@ public sealed class ServerKinaViewModel
         tip.Append("\n  서버 창고 ")
            .Append(line.ServerStorage is { } s
                ? CurrencyFormat.Exact(s) + CurrencyChipViewModel.Observed(line.ServerStorageObservedAtMs)
-               : "기록 없음");
+               : line.IsUnplacedAccount ? "어느 계정 것인지 몰라 빼 두었습니다" : "기록 없음");
         tip.Append("\n= 캐릭터 키나 ").Append(CurrencyFormat.Exact(characters))
            .Append(" + 서버 창고 ").Append(CurrencyFormat.Exact(line.ServerStorage ?? 0));
-        tip.Append("\n\n캐릭터마다 키나(각인)·키나·캐릭터 창고 키나를 더하고, 서버 창고는 서버당 한 번만 더합니다.");
+        tip.Append(line.AccountLabel is null
+            ? "\n\n캐릭터마다 키나(각인)·키나·캐릭터 창고 키나를 더하고, 서버 창고는 서버당 한 번만 더합니다."
+            : "\n\n캐릭터마다 키나(각인)·키나·캐릭터 창고 키나를 더하고, 서버 창고는 계정마다 한 번만 더합니다.");
+        if (line.IsUnplacedAccount)
+        {
+            tip.Append("\n이 서버에 계정이 둘 이상 있는데, 이 캐릭터들은 아직 어느 계정인지 모릅니다 — 다른 계정이거나")
+               .Append("\n삭제·이름 변경된 캐릭터입니다. 그 계정으로 로그인하면(캐릭터 선택창) 자동으로 묶입니다.")
+               .Append("\n줄을 누르면 캐릭터를 직접 계정에 넣을 수 있습니다.");
+        }
+        else if (line.AccountLabel is not null)
+        {
+            tip.Append("\n계정은 로그인할 때 받는 캐릭터 선택 목록으로 자동으로 나눕니다. 틀렸으면 줄을 눌러 고치세요.");
+        }
         if (line.CharactersWithoutRecord > 0)
         {
             tip.Append("\n키나 기록이 없는 캐릭터 ").Append(line.CharactersWithoutRecord)
@@ -488,6 +557,46 @@ public sealed class ServerKinaViewModel
     public string TotalText { get; }
     public string StorageText { get; }
     public string ToolTip { get; }
+
+    public string Key { get; }
+    public bool Expandable { get; }
+    public bool IsExpanded { get; }
+    public string Glyph { get; }
+    public Visibility GlyphVisibility { get; }
+    public Visibility MembersVisibility { get; }
+    public IReadOnlyList<AccountMemberViewModel> Members { get; }
+}
+
+/// <summary>One character under an unfolded account line, with the moves it can make.</summary>
+public sealed class AccountMemberViewModel
+{
+    public AccountMemberViewModel(AccountMember member, IReadOnlyList<AccountMove> moves)
+    {
+        Label = member.Label;
+        ManualVisibility = member.Manual ? Visibility.Visible : Visibility.Collapsed;
+        Moves = moves.Select(m => new AccountMoveViewModel(member.IdentityHash, m)).ToList();
+    }
+
+    public string Label { get; }
+
+    /// <summary>A small "수동" tag: the user placed this character, so the next character-select list leaves it be.</summary>
+    public Visibility ManualVisibility { get; }
+
+    public IReadOnlyList<AccountMoveViewModel> Moves { get; }
+}
+
+/// <summary>One move button ("계정 2로", "새 계정으로 분리", "자동으로 되돌리기").</summary>
+public sealed class AccountMoveViewModel
+{
+    public AccountMoveViewModel(string identityHash, AccountMove move)
+    {
+        IdentityHash = identityHash;
+        Move = move;
+    }
+
+    public string IdentityHash { get; }
+    public AccountMove Move { get; }
+    public string Text => Move.Text;
 }
 
 /// <summary>One character on the 재화 관리 tab: its name, how old its balances are, and the five currency cells.

@@ -246,6 +246,13 @@ public interface ICaptureGameData
     /// Default no-op (capture-only mode).</summary>
     void SaveCurrencyChanges(IReadOnlyList<CurrencyItemChange> changes) { }
 
+    /// <summary>A character-select roster (0x3615 / 0x3626): the nicknames of every character the logging-in account
+    /// holds on the server it connected to, reserved slots left out (<see cref="LobbyRosterParser"/>). It arrives
+    /// BEFORE the character is picked, so whoever acts on it must wait for the identity that enters the world
+    /// next — and that identity being in this list is the proof the list is ours.
+    /// Default no-op (capture-only mode).</summary>
+    void SaveLobbyRoster(IReadOnlyList<string> nicknames) { }
+
     /// <summary>One 어비스 아티팩트 zone's 점령 현황 from 0xE305/0xE307: who holds each of its three artifacts,
     /// and the exact 점령 주기 the answer belongs to.
     /// <para><paramref name="zoneId"/> is 1001 (하층) or 2001 (중층) — the zone's first artifact id, which is

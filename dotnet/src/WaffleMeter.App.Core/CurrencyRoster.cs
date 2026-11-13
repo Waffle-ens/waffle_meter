@@ -24,6 +24,26 @@ public readonly record struct CharacterKina(
 /// <see cref="CharacterKina.Partial"/> ones, which add only what is known of them.</param>
 /// <param name="CharactersWithoutRecord">Characters on this server the panel lists but whose kinah has never been
 /// stated — counted as nothing.</param>
+/// <summary>A character on a 총 키나 line, as the line's account-correction list shows it.</summary>
+/// <param name="Manual">The user placed it in this account (it wins over the character-select list until handed back).</param>
+public readonly record struct AccountMember(string IdentityHash, string Label, bool Manual);
+
+/// <summary>What the user can do with one character on an account line: move it to another account on the same
+/// server, give it an account of its own, or hand a manual placement back to the character-select list.</summary>
+public enum AccountMoveKind
+{
+    ToAccount,
+    NewAccount,
+    BackToAutomatic,
+}
+
+/// <param name="TargetGroupId">The account to move into, for <see cref="AccountMoveKind.ToAccount"/>.</param>
+public readonly record struct AccountMove(AccountMoveKind Kind, string? TargetGroupId, string Text);
+
+/// <param name="AccountLabel">"계정 N" (or "계정 미확인") when this server's characters belong to more than one
+/// account and the line is one account's share; null on the ordinary one-line-per-server case.</param>
+/// <param name="AccountGroupId">The account group the line sums, or null (one line for the server, or the
+/// characters no list has placed yet).</param>
 public readonly record struct ServerKinaLine(
     int Server,
     string ServerLabel,
@@ -32,8 +52,19 @@ public readonly record struct ServerKinaLine(
     long ServerStorageObservedAtMs,
     IReadOnlyList<CharacterKina> Characters,
     int CharactersWithoutRecord,
-    bool IsCurrentServer)
+    bool IsCurrentServer,
+    string? AccountLabel = null,
+    string? AccountGroupId = null,
+    IReadOnlyList<AccountMember>? Members = null)
 {
+    /// <summary>Every character the line sums, kinah known or not — the list the line unfolds into for correcting
+    /// which account a character belongs to.</summary>
+    public IReadOnlyList<AccountMember> AccountMembers => Members ?? [];
+
+    /// <summary>This line sums characters no character-select list has placed in an account, on a server where
+    /// another account has been told apart — their 서버 창고 cannot be told apart, so it is left out.</summary>
+    public bool IsUnplacedAccount => AccountLabel != null && AccountGroupId == null;
+
     /// <summary><see cref="Total"/> is only a lower bound: some listed character's kinah is unknown in whole
     /// (<see cref="CharactersWithoutRecord"/>) or in part (<see cref="CharacterKina.Partial"/>), or the 서버 창고
     /// has never been stated. Every unknown balance counts as nothing, so the real total can only be higher.</summary>
@@ -108,12 +139,22 @@ public static class CurrencyRoster
     /// themselves (<paramref name="characters"/>), resolved to a server the same way the rows are; a server shows
     /// a line only when something about its kinah is actually on file.
     /// <para>Current character's server first, then by server id — the order does not move as balances do.</para>
+    /// <para><b>Two accounts on one server.</b> When <paramref name="groups"/> places this server's characters in
+    /// more than one account, the server gets one line per account ("계정 1", "계정 2" in the order the accounts were
+    /// first told apart), each counting its OWN 서버 창고: the newest reading any of its characters saw
+    /// (<paramref name="observed"/>). Characters no list has placed then share a "계정 미확인" line with no 서버 창고,
+    /// because whose it would be cannot be told. One account plus unplaced characters does NOT split: a stale entry (a
+    /// deleted alt, a renamed character's old name) and a second account not yet seen look the same, and splitting on
+    /// the former would turn every one-account user's line into "계정 1" + "계정 미확인" (adversarial review
+    /// 2026-11-13). Such a server keeps its single line exactly as before until a second account's list arrives.</para>
     /// </summary>
     public static IReadOnlyList<ServerKinaLine> ServerKina(
         AetherPerCharacterStore characters,
         IEnumerable<AetherRosterName>? names = null,
         CurrencyStore? currencies = null,
-        string? currentHash = null)
+        string? currentHash = null,
+        AccountGroupStore? groups = null,
+        CurrencyStore? observed = null)
     {
         if (currencies is null)
         {
@@ -129,7 +170,7 @@ public static class CurrencyRoster
             }
         }
 
-        var perServer = new SortedDictionary<int, (List<CharacterKina> Known, int Unknown)>();
+        var perServer = new SortedDictionary<int, List<KinaEntry>>();
         int currentServer = 0;
         foreach ((string hash, AetherSnapshot snapshot) in characters.All())
         {
@@ -145,47 +186,166 @@ public static class CurrencyRoster
                 currentServer = server;
             }
 
-            if (!perServer.TryGetValue(server, out (List<CharacterKina> Known, int Unknown) entry))
+            if (!perServer.TryGetValue(server, out List<KinaEntry>? entries))
             {
-                entry = (new List<CharacterKina>(), 0);
+                perServer[server] = entries = new List<KinaEntry>();
             }
 
-            if (KinaOf(currencies, hash) is { } kina)
+            CharacterKina? kina = null;
+            if (KinaOf(currencies, hash) is { } k)
             {
                 string label = FirstNonBlank(snapshot.Nickname, known.Nickname) ?? "이름 없는 캐릭터";
-                entry.Known.Add(new CharacterKina(hash, label, kina.Amount, kina.ObservedAtMs, kina.Partial));
-            }
-            else
-            {
-                entry.Unknown++;
+                kina = new CharacterKina(hash, label, k.Amount, k.ObservedAtMs, k.Partial);
             }
 
-            perServer[server] = entry;
+            AccountMembership? membership = groups?.GroupOf(hash);
+            entries.Add(new KinaEntry(
+                hash,
+                kina,
+                membership?.GroupId,
+                FirstNonBlank(snapshot.Nickname, known.Nickname) ?? "이름 없는 캐릭터",
+                membership?.Source == AccountGroupSource.Manual));
         }
 
         var lines = new List<ServerKinaLine>();
-        foreach ((int server, (List<CharacterKina> known, int unknown)) in perServer)
+        foreach ((int server, List<KinaEntry> entries) in perServer)
         {
-            CurrencyRecord? storage = currencies.Server(server, CurrencyCatalog.ServerStorageKina);
-            if (known.Count == 0 && storage is null)
+            List<string> accountIds = entries
+                .Where(e => e.GroupId != null)
+                .Select(e => e.GroupId!)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(id => groups!.CreatedAt(id))
+                .ThenBy(id => id, StringComparer.Ordinal)
+                .ToList();
+            bool unplaced = entries.Any(e => e.GroupId == null);
+            bool split = accountIds.Count >= 2;
+            bool isCurrent = server == currentServer;
+
+            if (!split)
             {
-                continue; // nothing about this server's kinah is on file: no line beats a line of zeros
+                // One account: the server-keyed row and every reading its characters saw describe the same
+                // 서버 창고, so the newest of them is it.
+                CurrencyRecord? storage = Newest(
+                    currencies.Server(server, CurrencyCatalog.ServerStorageKina),
+                    ObservedStorage(observed, entries));
+                AddLine(lines, server, entries, storage, isCurrent, accountLabel: null, groupId: null);
+                continue;
             }
 
-            long total = (storage?.Count ?? 0) + known.Sum(c => c.Kina);
-            lines.Add(new ServerKinaLine(
-                server,
-                ServerNames.GetServerLabel(server),
-                total,
-                storage?.Count,
-                storage?.ObservedAtMs ?? 0,
-                known.OrderByDescending(c => c.Kina).ThenBy(c => c.Label, StringComparer.Ordinal).ToList(),
-                unknown,
-                IsCurrentServer: server == currentServer));
+            for (int i = 0; i < accountIds.Count; i++)
+            {
+                List<KinaEntry> members = entries.Where(e => e.GroupId == accountIds[i]).ToList();
+                AddLine(lines, server, members, ObservedStorage(observed, members), isCurrent,
+                    accountLabel: $"계정 {i + 1}", groupId: accountIds[i]);
+            }
+
+            if (unplaced)
+            {
+                AddLine(lines, server, entries.Where(e => e.GroupId == null).ToList(), storage: null, isCurrent,
+                    accountLabel: "계정 미확인", groupId: null);
+            }
         }
 
+        // Stable: within a server the lines keep the account order they were added in.
         return lines.OrderByDescending(l => l.IsCurrentServer).ThenBy(l => l.Server).ToList();
     }
+
+    private readonly record struct KinaEntry(string Hash, CharacterKina? Kina, string? GroupId, string Label, bool Manual);
+
+    /// <summary>
+    /// The moves offered for <paramref name="member"/> on <paramref name="line"/>, given every line on the panel:
+    /// into each OTHER account on the same server ("계정 2로"), into an account of its own, and — for a character the
+    /// user placed — back to automatic. On a one-account line only a character the user placed has a move (back to
+    /// automatic): moving the last character out of an account folds the server back into one line, and its manual
+    /// placement must stay reachable (second review 2026-11-13).
+    /// </summary>
+    public static IReadOnlyList<AccountMove> MovesFor(
+        ServerKinaLine line, AccountMember member, IReadOnlyList<ServerKinaLine> allLines)
+    {
+        if (line.AccountLabel is null)
+        {
+            return member.Manual
+                ? [new AccountMove(AccountMoveKind.BackToAutomatic, null, "자동으로 되돌리기")]
+                : [];
+        }
+
+        var moves = new List<AccountMove>();
+        foreach (ServerKinaLine other in allLines)
+        {
+            if (other.Server == line.Server
+                && other.AccountGroupId is { } target
+                && !string.Equals(target, line.AccountGroupId, StringComparison.Ordinal))
+            {
+                moves.Add(new AccountMove(AccountMoveKind.ToAccount, target, other.AccountLabel + ToParticle(other.AccountLabel!)));
+            }
+        }
+
+        moves.Add(new AccountMove(AccountMoveKind.NewAccount, null, "새 계정으로 분리"));
+        if (member.Manual)
+        {
+            moves.Add(new AccountMove(AccountMoveKind.BackToAutomatic, null, "자동으로 되돌리기"));
+        }
+
+        return moves;
+    }
+
+    /// <summary>로/으로 after a label ending in a digit read the Korean way: 3(삼)·6(육)·0(영/십) take 으로, the rest
+    /// (1 일, 7 칠 with ㄹ, 2 이, …) take 로.</summary>
+    private static string ToParticle(string label) =>
+        label.Length > 0 && label[^1] is '3' or '6' or '0' ? "으로" : "로";
+
+    private static void AddLine(
+        List<ServerKinaLine> lines,
+        int server,
+        IReadOnlyList<KinaEntry> entries,
+        CurrencyRecord? storage,
+        bool isCurrent,
+        string? accountLabel,
+        string? groupId)
+    {
+        List<CharacterKina> known = entries.Where(e => e.Kina.HasValue).Select(e => e.Kina!.Value).ToList();
+        if (known.Count == 0 && storage is null)
+        {
+            return; // nothing about this kinah is on file: no line beats a line of zeros
+        }
+
+        long total = (storage?.Count ?? 0) + known.Sum(c => c.Kina);
+        lines.Add(new ServerKinaLine(
+            server,
+            ServerNames.GetServerLabel(server),
+            total,
+            storage?.Count,
+            storage?.ObservedAtMs ?? 0,
+            known.OrderByDescending(c => c.Kina).ThenBy(c => c.Label, StringComparer.Ordinal).ToList(),
+            entries.Count - known.Count,
+            IsCurrentServer: isCurrent,
+            AccountLabel: accountLabel,
+            AccountGroupId: groupId,
+            Members: entries
+                .Select(e => new AccountMember(e.Hash, e.Label, e.Manual))
+                .OrderBy(m => m.Label, StringComparer.Ordinal)
+                .ToList()));
+    }
+
+    /// <summary>The newest 서버 창고 reading any of <paramref name="entries"/> saw, or null.</summary>
+    private static CurrencyRecord? ObservedStorage(CurrencyStore? observed, IEnumerable<KinaEntry> entries)
+    {
+        CurrencyRecord? newest = null;
+        if (observed is null)
+        {
+            return null;
+        }
+
+        foreach (KinaEntry e in entries)
+        {
+            newest = Newest(newest, observed.Character(e.Hash, CurrencyCatalog.ServerStorageKina));
+        }
+
+        return newest;
+    }
+
+    private static CurrencyRecord? Newest(CurrencyRecord? a, CurrencyRecord? b) =>
+        a is null ? b : b is null ? a : (b.Value.ObservedAtMs > a.Value.ObservedAtMs ? b : a);
 
     /// <summary>A character's own kinah — 각인 + 거래 가능 + 캐릭터 창고 — or null when none of the three has ever been
     /// stated for it. A balance never stated counts as nothing; that is what keeps a half-known character from

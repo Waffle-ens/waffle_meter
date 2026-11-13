@@ -193,6 +193,30 @@ public sealed class CurrencyStore
         return changed;
     }
 
+    /// <summary>
+    /// File the ACCOUNT-scope balances (the 서버 창고) under the character that saw them — for the
+    /// <c>content.accountObservations</c> store, a second instance of this class that holds only <c>c</c> rows.
+    /// <para>The <c>s</c> row keys the 서버 창고 on the server alone, so two accounts on one server overwrite each
+    /// other's (an empty one writes 0 over the other's). Who saw a reading is a fact that never goes stale: which
+    /// characters share an account can be learned — or corrected — later, and every reading already on file is
+    /// then counted for the right account without being re-observed. The <c>s</c> row is still written, so an older
+    /// build reads what it always did.</para>
+    /// Returns whether anything changed.
+    /// </summary>
+    public bool FileObservedAccountScope(string? identityHash, IEnumerable<CurrencyBalance> balances)
+    {
+        bool changed = false;
+        foreach (CurrencyBalance balance in balances)
+        {
+            if (CurrencyCatalog.For(balance.ItemId, balance.Container) is { Scope: CurrencyScope.Server } info)
+            {
+                changed |= UpsertCharacter(identityHash, info.Slug, balance.Count, balance.ObservedAtMs);
+            }
+        }
+
+        return changed;
+    }
+
     /// <summary>Drop every character row for the given characters. Wired to the panel's per-row ✕ and the startup
     /// purge of impossible identities, the same as the other per-character stores. Server rows stay: the 서버 창고
     /// belongs to the account, not to the character being forgotten.</summary>

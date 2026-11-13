@@ -66,7 +66,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         nameof(_meterLayoutId), nameof(_nameFxMode), nameof(_overlayTheme), nameof(_rowDpsMetric), nameof(_targetInfoDisplayMode),
         nameof(_tierEffects),
         nameof(_ttsVoice), nameof(_weeklyContentClears), nameof(_abyssCorridors), nameof(_abyssArtifacts),
-        nameof(_memoTextColor), nameof(_currencies))]
+        nameof(_memoTextColor), nameof(_currencies), nameof(_accountGroups), nameof(_accountObservations))]
     public void Reload()
     {
         _displayMode = ReadEnum("displayMode", "dps_percent", DisplayModes);
@@ -174,6 +174,8 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _abyssCorridors = _props.GetProperty("content.abyssCorridors") ?? "";
         _abyssArtifacts = _props.GetProperty("content.abyssArtifacts") ?? "";
         _currencies = _props.GetProperty("content.currencies") ?? "";
+        _accountGroups = _props.GetProperty("content.accountGroups") ?? "";
+        _accountObservations = _props.GetProperty("content.accountObservations") ?? "";
         _dummyTestMode = ReadBool("dummy.testMode", false);
         _dummyDurationSec = ReadInt("dummy.durationSeconds", 60);
         _patchNotesLastShownVersion = _props.GetProperty("patchNotes.lastShownVersion") ?? "";
@@ -830,6 +832,26 @@ public sealed class MeterSettings : INotifyPropertyChanged
     {
         get => _currencies;
         set => SetProp(ref _currencies, "content.currencies", value);
+    }
+
+    private string _accountGroups;
+    /// <summary>Which characters share a game account, learned from the character-select list (see
+    /// <see cref="AccountGroupStore"/>): <c>m,hash,groupId,source,atMs</c> and <c>g,groupId,createdAtMs</c>. Local
+    /// opaque group ids only — the game's account id is never read. ASCII only.</summary>
+    public string AccountGroups
+    {
+        get => _accountGroups;
+        set => SetProp(ref _accountGroups, "content.accountGroups", value);
+    }
+
+    private string _accountObservations;
+    /// <summary>Each account-scope balance (the 서버 창고) under the character that saw it, so two accounts on one
+    /// server are each counted with their own (<see cref="CurrencyStore.FileObservedAccountScope"/>). Same record
+    /// format as <see cref="Currencies"/>, <c>c</c> rows only. ASCII only.</summary>
+    public string AccountObservations
+    {
+        get => _accountObservations;
+        set => SetProp(ref _accountObservations, "content.accountObservations", value);
     }
 
     // ---- 허수아비 (training-dummy) test mode ----

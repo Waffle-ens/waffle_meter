@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 
 namespace WaffleMeter.App.Wpf;
 
@@ -18,6 +19,28 @@ public partial class AetherPanel : OverlayPanelWindow
         if (sender is FrameworkElement { DataContext: AetherRowViewModel row } && DataContext is AetherPanelViewModel vm)
         {
             vm.RequestRemove(row.IdentityHash);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>A 총 키나 line was clicked: an account line (a server split between accounts) unfolds into its
+    /// characters for correcting; any other line ignores it.</summary>
+    private void OnServerKinaClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ServerKinaViewModel line } && DataContext is AetherPanelViewModel vm
+            && line.Expandable)
+        {
+            vm.ToggleServerKina(line);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>A move button under an unfolded account line ("계정 2로", "새 계정으로 분리", "자동으로 되돌리기").</summary>
+    private void OnAccountMoveClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: AccountMoveViewModel move } && DataContext is AetherPanelViewModel vm)
+        {
+            vm.RequestAccountMove(move);
             e.Handled = true;
         }
     }
