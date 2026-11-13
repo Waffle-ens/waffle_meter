@@ -24,6 +24,12 @@ public readonly record struct CharacterKina(
 /// <see cref="CharacterKina.Partial"/> ones, which add only what is known of them.</param>
 /// <param name="CharactersWithoutRecord">Characters on this server the panel lists but whose kinah has never been
 /// stated — counted as nothing.</param>
+/// <summary>The account's 슈고 열쇠 as one of its characters last saw it: both pools, from one reading.</summary>
+public readonly record struct ShugoKeyReading(int Base, int Bonus, long ObservedAtMs)
+{
+    public int Total => Base + Bonus;
+}
+
 /// <summary>A character on a 총 키나 line, as the line's account-correction list shows it.</summary>
 /// <param name="Manual">The user placed it in this account (it wins over the character-select list until handed back).</param>
 public readonly record struct AccountMember(string IdentityHash, string Label, bool Manual);
@@ -55,7 +61,8 @@ public readonly record struct ServerKinaLine(
     bool IsCurrentServer,
     string? AccountLabel = null,
     string? AccountGroupId = null,
-    IReadOnlyList<AccountMember>? Members = null)
+    IReadOnlyList<AccountMember>? Members = null,
+    ShugoKeyReading? ShugoKey = null)
 {
     /// <summary>Every character the line sums, kinah known or not — the list the line unfolds into for correcting
     /// which account a character belongs to.</summary>
@@ -228,7 +235,8 @@ public static class CurrencyRoster
                 CurrencyRecord? storage = Newest(
                     currencies.Server(server, CurrencyCatalog.ServerStorageKina),
                     ObservedStorage(observed, entries));
-                AddLine(lines, server, entries, storage, isCurrent, accountLabel: null, groupId: null);
+                AddLine(lines, server, entries, storage, isCurrent, accountLabel: null, groupId: null,
+                    ObservedShugoKey(observed, entries));
                 continue;
             }
 
@@ -236,7 +244,7 @@ public static class CurrencyRoster
             {
                 List<KinaEntry> members = entries.Where(e => e.GroupId == accountIds[i]).ToList();
                 AddLine(lines, server, members, ObservedStorage(observed, members), isCurrent,
-                    accountLabel: $"계정 {i + 1}", groupId: accountIds[i]);
+                    accountLabel: $"계정 {i + 1}", groupId: accountIds[i], ObservedShugoKey(observed, members));
             }
 
             if (unplaced)
@@ -301,7 +309,8 @@ public static class CurrencyRoster
         CurrencyRecord? storage,
         bool isCurrent,
         string? accountLabel,
-        string? groupId)
+        string? groupId,
+        ShugoKeyReading? shugoKey = null)
     {
         List<CharacterKina> known = entries.Where(e => e.Kina.HasValue).Select(e => e.Kina!.Value).ToList();
         if (known.Count == 0 && storage is null)
@@ -324,7 +333,8 @@ public static class CurrencyRoster
             Members: entries
                 .Select(e => new AccountMember(e.Hash, e.Label, e.Manual))
                 .OrderBy(m => m.Label, StringComparer.Ordinal)
-                .ToList()));
+                .ToList(),
+            ShugoKey: shugoKey));
     }
 
     /// <summary>The newest 서버 창고 reading any of <paramref name="entries"/> saw, or null.</summary>
@@ -339,6 +349,31 @@ public static class CurrencyRoster
         foreach (KinaEntry e in entries)
         {
             newest = Newest(newest, observed.Character(e.Hash, CurrencyCatalog.ServerStorageKina));
+        }
+
+        return newest;
+    }
+
+    /// <summary>The newest 슈고 열쇠 reading any of <paramref name="entries"/> saw, both pools from that one
+    /// character's reading, or null. One account per line, so every character on it saw the same key count — the
+    /// newest is the current one.</summary>
+    private static ShugoKeyReading? ObservedShugoKey(CurrencyStore? observed, IEnumerable<KinaEntry> entries)
+    {
+        if (observed is null)
+        {
+            return null;
+        }
+
+        ShugoKeyReading? newest = null;
+        foreach (KinaEntry e in entries)
+        {
+            if (observed.Character(e.Hash, CurrencyCatalog.ShugoKeyBase) is { } b
+                && (newest is null || b.ObservedAtMs > newest.Value.ObservedAtMs))
+            {
+                long bonus = observed.Character(e.Hash, CurrencyCatalog.ShugoKeyBonus) is { } x
+                             && x.ObservedAtMs == b.ObservedAtMs ? x.Count : 0;
+                newest = new ShugoKeyReading((int)b.Count, (int)bonus, b.ObservedAtMs);
+            }
         }
 
         return newest;

@@ -254,6 +254,60 @@ public sealed class CurrencyRosterAccountTests
         Assert.Empty(CurrencyRoster.MovesFor(line, line.AccountMembers.Single(m => m.IdentityHash == "a1"), lines));
     }
 
+    /// <summary>The 슈고 열쇠 is per account per server (owner-confirmed 2026-11-13). Each account's line shows the
+    /// newest reading one of its characters saw — both pools from that one reading — and a one-account server's line
+    /// shows its own. The owner's capture: account A 14, account B 14 + 30 bonus.</summary>
+    [Fact]
+    public void Each_account_line_shows_its_own_shugo_key()
+    {
+        AetherPerCharacterStore characters = Characters(
+            ("a1", "가", Trinity), ("a2", "나", Trinity), ("b1", "다", Trinity), ("s1", "마", 1001));
+        CurrencyStore currencies = Kina(("a1", 1), ("a2", 1), ("b1", 1), ("s1", 1));
+        CurrencyStore observed = Observed();
+        observed.FileObservedShugoKey("a1", 12, 0, At + 100);
+        observed.FileObservedShugoKey("a2", 14, 0, At + 200); // newer reading of the same account wins
+        observed.FileObservedShugoKey("b1", 14, 30, At + 300);
+        observed.FileObservedShugoKey("s1", 7, 2, At + 400);
+
+        IReadOnlyList<ServerKinaLine> lines = CurrencyRoster.ServerKina(
+            characters, currencies: currencies, groups: Groups(["a1", "a2"], ["b1"], ["s1"]), observed: observed);
+
+        Assert.Equal(new ShugoKeyReading(14, 0, At + 200), lines.Single(l => l.AccountGroupId == "g0").ShugoKey);
+        Assert.Equal(new ShugoKeyReading(14, 30, At + 300), lines.Single(l => l.AccountGroupId == "g1").ShugoKey);
+        Assert.Equal(44, lines.Single(l => l.AccountGroupId == "g1").ShugoKey!.Value.Total);
+        Assert.Equal(new ShugoKeyReading(7, 2, At + 400), lines.Single(l => l.Server == 1001).ShugoKey);
+    }
+
+    /// <summary>Characters no list has placed show no 슈고 열쇠 — whose it would be cannot be told — and a line nobody
+    /// has seen a key on shows none.</summary>
+    [Fact]
+    public void Unplaced_and_unseen_lines_show_no_shugo_key()
+    {
+        AetherPerCharacterStore characters = Characters(("a1", "가", Trinity), ("b1", "다", Trinity), ("x1", "라", Trinity));
+        CurrencyStore currencies = Kina(("a1", 1), ("b1", 1), ("x1", 1));
+        CurrencyStore observed = Observed();
+        observed.FileObservedShugoKey("x1", 5, 0, At);
+
+        IReadOnlyList<ServerKinaLine> lines = CurrencyRoster.ServerKina(
+            characters, currencies: currencies, groups: Groups(["a1"], ["b1"]), observed: observed);
+
+        Assert.All(lines, l => Assert.Null(l.ShugoKey));
+    }
+
+    /// <summary>Both pools go in together with one time; an older reading never overwrites a newer one.</summary>
+    [Fact]
+    public void Shugo_key_pools_are_filed_together_and_never_rewound()
+    {
+        var observed = CurrencyStore.Parse(null);
+        Assert.True(observed.FileObservedShugoKey("a1", 14, 30, At + 10));
+        Assert.False(observed.FileObservedShugoKey("a1", 3, 0, At)); // older
+        Assert.False(observed.FileObservedShugoKey("a1", -1, 0, At + 20));
+
+        Assert.Equal(14, observed.Character("a1", CurrencyCatalog.ShugoKeyBase)!.Value.Count);
+        Assert.Equal(30, observed.Character("a1", CurrencyCatalog.ShugoKeyBonus)!.Value.Count);
+        Assert.Equal(observed.Serialize(), CurrencyStore.Parse(observed.Serialize()).Serialize()); // unknown slugs survive
+    }
+
     /// <summary>The 서버 창고 half of a filing goes under the character that saw it; character balances do not.</summary>
     [Fact]
     public void Observed_store_files_only_the_account_scope_balance()

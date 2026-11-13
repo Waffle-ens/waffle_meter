@@ -43,7 +43,154 @@ public static class ShugoKeyParser
     private const int MaxBase = 14;
     private const int MaxBonus = 30;
 
-    /// <summary>Scan <paramref name="packet"/> from <paramref name="bodyStart"/> for a shugo-key record.</summary>
+    /// <summary>
+    /// Decode the shugo key from a 0x610B snapshot (<paramref name="fromSnapshot"/>) or 0x610C change notice by
+    /// WALKING the frame record by record (<c>[u8 mask][u32 currencyId][fields…]</c>, the layout
+    /// <see cref="AbyssCorridorParser"/> documents), and only falling back to the byte scan when the walk fails.
+    /// <para><b>Why the walk: zero.</b> The game omits a pool that is zero, so spending the last key arrives as a
+    /// currency-1 record with NO fields (mask 0x00) — the same convention the weekly and corridor counters were
+    /// measured on. The byte scan cannot accept that shape (<c>00 01 00 00 00</c> is far too weak a needle), so the
+    /// count used to stick at 1 forever; with the per-account 총 키나 line that became a persisted wrong answer
+    /// (third review 2026-11-13). Inside a walk that consumed the frame EXACTLY, a mask-0 record is a proven
+    /// record boundary, so it is read as 0.</para>
+    /// <para>Measured on the local corpus: 10/10 0x610B snapshots and 14/14 0x610C notices walk cleanly, and every
+    /// snapshot carries a currency-1 record (masks 0x04 and 0x0C seen; 10+16, 12, 14, 14+30). A clean walk with no
+    /// currency-1 record says nothing (a notice about another resource, or a character without 슈고 페스타).</para>
+    /// </summary>
+    public static ShugoKeyParse TryParse(byte[] packet, int bodyStart, bool fromSnapshot)
+    {
+        switch (WalkForShugoKey(packet, bodyStart, fromSnapshot, out ShugoKeyParse walked))
+        {
+            case WalkResult.Found:
+                return walked;
+            case WalkResult.Absent:
+                return ShugoKeyParse.None;
+            default:
+                return TryParse(packet, bodyStart); // the frame did not walk: the old scan, which never invents a 0
+        }
+    }
+
+    private enum WalkResult
+    {
+        Failed,
+        Absent,
+        Found,
+    }
+
+    private const uint ShugoCurrencyId = 1;
+
+    private static WalkResult WalkForShugoKey(byte[] packet, int bodyStart, bool fromSnapshot, out ShugoKeyParse result)
+    {
+        result = ShugoKeyParse.None;
+        if (packet is null || bodyStart < 0 || bodyStart >= packet.Length)
+        {
+            return WalkResult.Failed;
+        }
+
+        int offset;
+        int records;
+        int tail;
+        if (fromSnapshot)
+        {
+            VarIntOutput count = PacketPrimitives.ReadVarInt(packet, bodyStart);
+            if (count.Length <= 0 || count.Value <= 0 || count.Value > 4096)
+            {
+                return WalkResult.Failed;
+            }
+
+            offset = bodyStart + count.Length;
+            records = count.Value;
+            tail = 0;
+        }
+        else
+        {
+            byte optMask = packet[bodyStart];
+            if (optMask > 0x01)
+            {
+                return WalkResult.Failed;
+            }
+
+            offset = bodyStart + 1;
+            records = 1;
+            tail = 1 + ((optMask & 0x01) == 0 ? 0 : 4); // reason byte, plus the optional u32
+        }
+
+        ShugoKeyParse found = ShugoKeyParse.None;
+        bool any = false;
+        for (int i = 0; i < records; i++)
+        {
+            if (offset + 5 > packet.Length)
+            {
+                return WalkResult.Failed;
+            }
+
+            byte mask = packet[offset];
+            if ((mask & 0xF0) != 0)
+            {
+                return WalkResult.Failed;
+            }
+
+            uint currencyId = (uint)PacketPrimitives.ParseUInt32Le(packet, offset + 1);
+            int o = offset + 5;
+            long baseKeys = 0;
+            long bonusKeys = 0;
+            for (int bit = 0; bit < 4; bit++)
+            {
+                if ((mask & (1 << bit)) == 0)
+                {
+                    continue;
+                }
+
+                if (bit < 2)
+                {
+                    if (o + 8 > packet.Length)
+                    {
+                        return WalkResult.Failed;
+                    }
+
+                    o += 8; // 0x01 / 0x02 = fixed u64 fields (times), not key counts
+                    continue;
+                }
+
+                VarIntOutput v = PacketPrimitives.ReadVarInt(packet, o);
+                if (v.Length <= 0 || v.Value < 0)
+                {
+                    return WalkResult.Failed;
+                }
+
+                if (bit == 2)
+                {
+                    baseKeys = v.Value;
+                }
+                else
+                {
+                    bonusKeys = v.Value;
+                }
+
+                o += v.Length;
+            }
+
+            offset = o;
+            if (currencyId == ShugoCurrencyId && !any)
+            {
+                any = true;
+                found = baseKeys <= MaxBase && bonusKeys <= MaxBonus
+                    ? new ShugoKeyParse(true, (int)baseKeys, (int)bonusKeys)
+                    : ShugoKeyParse.None; // past the game's caps: not a reading we can vouch for
+            }
+        }
+
+        if (packet.Length - offset != tail)
+        {
+            return WalkResult.Failed; // the frame does not end where the records do: nothing it said counts
+        }
+
+        result = found;
+        return any && found.Ok ? WalkResult.Found : WalkResult.Absent;
+    }
+
+    /// <summary>Scan <paramref name="packet"/> from <paramref name="bodyStart"/> for a shugo-key record. The
+    /// fallback for a frame that does not walk; it cannot read a zero (see the walking overload).</summary>
     public static ShugoKeyParse TryParse(byte[] packet, int bodyStart)
     {
         int from = Math.Max(0, bodyStart);

@@ -493,8 +493,19 @@ public sealed class ServerKinaViewModel
             : line.Server.ToString(CultureInfo.InvariantCulture);
         // Two accounts on one server: each gets its own line, named "서버 · 계정 N".
         ServerText = line.AccountLabel is { } account ? server + " · " + account : server;
+        // Split for the line itself: the server name may truncate at the minimum width, the account never — two
+        // lines both reading "시엘 · …" could not be told apart (third review 2026-11-13).
+        ServerNameText = server;
+        AccountText = line.AccountLabel is { } label ? " · " + label : "";
         TotalText = CurrencyFormat.Compact(line.Total);
-        StorageText = line.ServerStorage is { } storage ? "서버 창고 " + CurrencyFormat.Compact(storage) : "서버 창고 —";
+        // "창고" rather than "서버 창고" on the line: the line now also carries the account's 슈고 열쇠, and the tooltip
+        // spells the warehouse out.
+        StorageText = line.ServerStorage is { } storage ? "창고 " + CurrencyFormat.Compact(storage) : "창고 —";
+        ShugoText = line.ShugoKey is { } key
+            ? key.Bonus > 0
+                ? $"{key.Base.ToString(CultureInfo.InvariantCulture)}(+{key.Bonus.ToString(CultureInfo.InvariantCulture)})"
+                : key.Base.ToString(CultureInfo.InvariantCulture)
+            : "—";
 
         long characters = line.Characters.Sum(c => c.Kina);
         var tip = new System.Text.StringBuilder();
@@ -523,6 +534,10 @@ public sealed class ServerKinaViewModel
            .Append(line.ServerStorage is { } s
                ? CurrencyFormat.Exact(s) + CurrencyChipViewModel.Observed(line.ServerStorageObservedAtMs)
                : line.IsUnplacedAccount ? "어느 계정 것인지 몰라 빼 두었습니다" : "기록 없음");
+        tip.Append("\n  슈고 열쇠 ")
+           .Append(line.ShugoKey is { } key2
+               ? ShugoText + CurrencyChipViewModel.Observed(key2.ObservedAtMs)
+               : line.IsUnplacedAccount ? "어느 계정 것인지 몰라 빼 두었습니다" : "기록 없음 — 이 계정으로 접속하면 채워집니다");
         tip.Append("\n= 캐릭터 키나 ").Append(CurrencyFormat.Exact(characters))
            .Append(" + 서버 창고 ").Append(CurrencyFormat.Exact(line.ServerStorage ?? 0));
         tip.Append(line.AccountLabel is null
@@ -554,8 +569,15 @@ public sealed class ServerKinaViewModel
     }
 
     public string ServerText { get; }
+    public string ServerNameText { get; }
+    public string AccountText { get; }
     public string TotalText { get; }
     public string StorageText { get; }
+
+    /// <summary>The account's 슈고 열쇠 as last seen ("14", "14(+30)"), or "—" when no character of it has been seen
+    /// with one. Shown beside the 창고 — both are per account per server.</summary>
+    public string ShugoText { get; }
+
     public string ToolTip { get; }
 
     public string Key { get; }

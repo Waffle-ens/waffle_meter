@@ -46,6 +46,15 @@ public static class CurrencyCatalog
 
     public const string ServerStorageKina = "kinaServerStorage";
 
+    /// <summary>The 슈고 열쇠 pools, filed only in the account-scope observation store
+    /// (<see cref="CurrencyStore.FileObservedShugoKey"/>). Not catalog rows: the key is not an item stack, it rides
+    /// the 0x610x resource family (ContentsTicket ID 1, <c>OwnerType::Server</c> = one count per account per
+    /// server, owner-confirmed 2026-11-13).</summary>
+    public const string ShugoKeyBase = "shugoKey";
+
+    /// <inheritdoc cref="ShugoKeyBase"/>
+    public const string ShugoKeyBonus = "shugoKeyBonus";
+
     public const string AbyssPoint = "abyssPoint";
 
     public const string DreamShard = "dreamShard";
