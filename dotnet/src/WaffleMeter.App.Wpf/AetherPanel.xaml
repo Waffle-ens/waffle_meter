@@ -49,7 +49,7 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="{DynamicResource Skin.Accent}"/>
             <Setter Property="FontSize" Value="10"/>
-            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="Margin" Value="4,0,0,2"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -450,6 +450,9 @@
                 <Border Grid.Row="1" Background="{DynamicResource Skin.StatBg}" CornerRadius="0,0,6,6"
                         BorderBrush="{DynamicResource Skin.Border}" BorderThickness="0,1,0,0"
                         Visibility="{Binding ServerKinaVisibility}">
+                    <!-- 펼친 계정 줄은 캐릭터 수만큼 자란다. 상한 없이 두면 위 목록(*)을 0 높이로 밀고 창 아래로 잘리므로
+                         (2차 리뷰 2026-11-13) 푸터는 이 높이까지만 자라고 그 뒤로는 스크롤한다. 접힌 줄만 있을 때는 닿지 않는다. -->
+                    <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <ItemsControl ItemsSource="{Binding ServerKina}" Margin="12,5,12,6">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -488,25 +491,31 @@
                                               Margin="16,1,0,4">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid Margin="0,1">
+                                            <!-- 이름 줄 아래에 버튼 줄. 버튼(최대 4개)을 이름 옆 Auto 열에 두면 WrapPanel 이 무한 폭으로
+                                                 재어져 줄바꿈을 못 하고 최소 폭에서 이름과 마지막 버튼이 잘린다(2차 리뷰). 아래 줄은 행 폭을
+                                                 그대로 받으므로 넘치면 줄을 바꾼다. -->
+                                            <Grid Margin="0,1,0,3">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
-                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Label}" FontSize="11"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               Foreground="{DynamicResource Skin.Fg}"/>
-                                                    <TextBlock Text="수동" FontSize="9" Margin="5,0,0,0"
-                                                               VerticalAlignment="Center" Opacity="0.7"
-                                                               Visibility="{Binding ManualVisibility}"
-                                                               ToolTip="직접 넣은 계정입니다. 로그인 목록보다 우선합니다."
-                                                               Foreground="{DynamicResource Skin.MutedFg}"/>
-                                                </StackPanel>
-                                                <ItemsControl Grid.Column="1" ItemsSource="{Binding Moves}">
+                                                <TextBlock Text="{Binding Label}" FontSize="11" ToolTip="{Binding Label}"
+                                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource Skin.Fg}"/>
+                                                <TextBlock Grid.Column="1" Text="수동" FontSize="9" Margin="5,0,0,0"
+                                                           VerticalAlignment="Center" Opacity="0.7"
+                                                           Visibility="{Binding ManualVisibility}"
+                                                           ToolTip="직접 넣은 계정입니다. 로그인 목록보다 우선합니다."
+                                                           Foreground="{DynamicResource Skin.MutedFg}"/>
+                                                <ItemsControl Grid.Row="1" Grid.ColumnSpan="2" ItemsSource="{Binding Moves}"
+                                                              Margin="-4,1,0,0">
                                                     <ItemsControl.ItemsPanel>
                                                         <ItemsPanelTemplate>
-                                                            <WrapPanel HorizontalAlignment="Right"/>
+                                                            <WrapPanel/>
                                                         </ItemsPanelTemplate>
                                                     </ItemsControl.ItemsPanel>
                                                     <ItemsControl.ItemTemplate>
@@ -529,6 +538,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    </ScrollViewer>
                 </Border>
             </Grid>
         </Grid>

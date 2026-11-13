@@ -475,7 +475,9 @@ public sealed class ServerKinaViewModel
     public ServerKinaViewModel(ServerKinaLine line, IReadOnlyList<ServerKinaLine> allLines, bool expanded)
     {
         Key = KeyOf(line);
-        Expandable = line.AccountLabel is not null;
+        // An account line unfolds; so does a one-account line holding a character the user placed, so that placement
+        // can always be handed back.
+        Expandable = line.AccountLabel is not null || line.AccountMembers.Any(m => m.Manual);
         IsExpanded = Expandable && expanded;
         Glyph = !Expandable ? "" : IsExpanded ? "▾" : "▸";
         GlyphVisibility = Expandable ? Visibility.Visible : Visibility.Collapsed;

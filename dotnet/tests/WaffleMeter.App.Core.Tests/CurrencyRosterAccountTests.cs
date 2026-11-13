@@ -233,6 +233,27 @@ public sealed class CurrencyRosterAccountTests
         Assert.Empty(CurrencyRoster.MovesFor(other, other.AccountMembers[0], lines)); // one account on 1001
     }
 
+    /// <summary>Second review 2026-11-13: moving an account's last character into the other account folds the
+    /// server back into one line. The manual placement must stay reachable there — "자동으로 되돌리기" is offered.</summary>
+    [Fact]
+    public void A_manual_placement_on_a_folded_server_can_still_be_handed_back()
+    {
+        AetherPerCharacterStore characters = Characters(("a1", "가", Trinity), ("b1", "다", Trinity));
+        CurrencyStore currencies = Kina(("a1", 1), ("b1", 2));
+        AccountGroupStore groups = Groups(["a1"], ["b1"]);
+        groups.AssignManual("b1", "g0", At + 10, () => "unused"); // g1 empties and goes
+
+        IReadOnlyList<ServerKinaLine> lines = CurrencyRoster.ServerKina(
+            characters, currencies: currencies, groups: groups, observed: Observed());
+
+        ServerKinaLine line = Assert.Single(lines);
+        Assert.Null(line.AccountLabel);
+        Assert.Equal(
+            [AccountMoveKind.BackToAutomatic],
+            CurrencyRoster.MovesFor(line, line.AccountMembers.Single(m => m.IdentityHash == "b1"), lines).Select(m => m.Kind));
+        Assert.Empty(CurrencyRoster.MovesFor(line, line.AccountMembers.Single(m => m.IdentityHash == "a1"), lines));
+    }
+
     /// <summary>The 서버 창고 half of a filing goes under the character that saw it; character balances do not.</summary>
     [Fact]
     public void Observed_store_files_only_the_account_scope_balance()

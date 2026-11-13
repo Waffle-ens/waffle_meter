@@ -255,15 +255,18 @@ public static class CurrencyRoster
     /// <summary>
     /// The moves offered for <paramref name="member"/> on <paramref name="line"/>, given every line on the panel:
     /// into each OTHER account on the same server ("계정 2로"), into an account of its own, and — for a character the
-    /// user placed — back to automatic. Only account lines (a split server) offer anything: a one-account server has
-    /// nothing to correct.
+    /// user placed — back to automatic. On a one-account line only a character the user placed has a move (back to
+    /// automatic): moving the last character out of an account folds the server back into one line, and its manual
+    /// placement must stay reachable (second review 2026-11-13).
     /// </summary>
     public static IReadOnlyList<AccountMove> MovesFor(
         ServerKinaLine line, AccountMember member, IReadOnlyList<ServerKinaLine> allLines)
     {
         if (line.AccountLabel is null)
         {
-            return [];
+            return member.Manual
+                ? [new AccountMove(AccountMoveKind.BackToAutomatic, null, "자동으로 되돌리기")]
+                : [];
         }
 
         var moves = new List<AccountMove>();

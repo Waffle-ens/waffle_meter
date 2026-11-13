@@ -120,6 +120,7 @@ internal static class Program
             Capture(() => new AetherPanel { DataContext = accounts, Width = 260 }, palette, Path.Combine(outDir, $"currency_accounts_min_{skin}.png"));
             // 시안 C: 계정 줄을 눌러 펼친 모습 — 구성 캐릭터와 옮기기 버튼.
             accounts.ToggleServerKina(accounts.ServerKina[0]);
+            accounts.ToggleServerKina(accounts.ServerKina[2]); // 계정 3 = 직접 넣은 마이농: 버튼 4개가 줄바꿈되는지
             Capture(() => new AetherPanel { DataContext = accounts }, palette, Path.Combine(outDir, $"currency_accounts_open_{skin}.png"));
             Capture(() => new AetherPanel { DataContext = accounts, Width = 260 }, palette, Path.Combine(outDir, $"currency_accounts_open_min_{skin}.png"));
 
@@ -2941,6 +2942,7 @@ internal static class Program
             groups.ApplyLobby(["h1", "h2"], now - 90_000_000, () => "ga");
             groups.ApplyLobby(["h3", "h4"], now - 80_000_000, () => "gb");
             groups.ApplyLobby(["h5"], now - 70_000_000, () => "gc");
+            groups.AssignManual("h2", groupId: null, now - 60_000_000, () => "gd"); // 마이농을 직접 세 번째 계정으로
             var observed = CurrencyStore.Parse(null);
             observed.UpsertCharacter("h1", CurrencyCatalog.ServerStorageKina, 325_000_000, now - 60_000);
             observed.UpsertCharacter("h3", CurrencyCatalog.ServerStorageKina, 0, now - 30_000);

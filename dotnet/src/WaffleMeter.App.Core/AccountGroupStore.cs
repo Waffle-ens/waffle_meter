@@ -103,16 +103,26 @@ public sealed class AccountGroupStore
     public AccountMembership? GroupOf(string? identityHash) =>
         !string.IsNullOrEmpty(identityHash) && _members.TryGetValue(identityHash!, out AccountMembership m) ? m : null;
 
+    /// <summary>Every character placed in <paramref name="groupId"/>.</summary>
+    public IReadOnlyList<string> MembersOf(string groupId) =>
+        _members.Where(kv => string.Equals(kv.Value.GroupId, groupId, StringComparison.Ordinal))
+            .Select(kv => kv.Key)
+            .OrderBy(h => h, StringComparer.Ordinal)
+            .ToList();
+
     /// <summary>When the group was first made — the order "계정 1, 계정 2 …" follows, so the numbers do not move
     /// as characters are played. 0 for a group this store does not know.</summary>
     public long CreatedAt(string groupId) => _groups.TryGetValue(groupId, out long at) ? at : 0;
 
     /// <summary>
     /// Apply a character-select list: <paramref name="identityHashes"/> are every character of one account on one
-    /// server. They all go to the group already holding most of them (oldest group on a tie), or to a new group
-    /// from <paramref name="newGroupId"/> when none holds any. The group's other list-placed characters, which the
-    /// list no longer names, are let go. Characters the user placed are never moved. Returns whether anything
-    /// changed.
+    /// server. They all go to the group whose LIST-placed characters hold most of them (oldest group on a tie). Only
+    /// list placements vote: one character the user put in another account must not steer the whole list there and
+    /// let go of that account's characters (second review 2026-11-13). With no list votes, a group the user built
+    /// takes them (a "새 계정으로 분리" its siblings then join) — without letting anyone go, since no list ever spoke
+    /// for it — else a new group from <paramref name="newGroupId"/>. The chosen group's other list-placed
+    /// characters, which the list no longer names, are let go. Characters the user placed are never moved. Returns
+    /// whether anything changed.
     /// </summary>
     public bool ApplyLobby(IReadOnlyCollection<string> identityHashes, long atMs, Func<string> newGroupId)
     {
@@ -122,8 +132,8 @@ public sealed class AccountGroupStore
             return false;
         }
 
-        string? target = listed
-            .Select(h => _members.TryGetValue(h, out AccountMembership m) ? m.GroupId : null)
+        string? Vote(AccountGroupSource source) => listed
+            .Select(h => _members.TryGetValue(h, out AccountMembership m) && m.Source == source ? m.GroupId : null)
             .Where(g => g != null)
             .GroupBy(g => g!, StringComparer.Ordinal)
             .OrderByDescending(g => g.Count())
@@ -131,6 +141,10 @@ public sealed class AccountGroupStore
             .ThenBy(g => g.Key, StringComparer.Ordinal)
             .Select(g => g.Key)
             .FirstOrDefault();
+
+        string? target = Vote(AccountGroupSource.Lobby);
+        bool letGo = target != null;
+        target ??= Vote(AccountGroupSource.Manual);
 
         bool changed = false;
         if (target is null)
@@ -165,7 +179,8 @@ public sealed class AccountGroupStore
         // The list is the account's WHOLE roster on that server: a list-placed character of this group that it no
         // longer names has left the account (deleted, renamed, transferred).
         foreach (string hash in _members
-                     .Where(kv => kv.Value.GroupId == target
+                     .Where(kv => letGo
+                                  && kv.Value.GroupId == target
                                   && kv.Value.Source == AccountGroupSource.Lobby
                                   && !listed.Contains(kv.Key))
                      .Select(kv => kv.Key)

@@ -133,6 +133,40 @@ public sealed class AccountGroupStoreTests
         Assert.Equal("ga", store.GroupOf("a2")!.Value.GroupId);
     }
 
+    /// <summary>Second review 2026-11-13: one character the user (mis)placed in account A must not steer account B's
+    /// next list into A and let go of all of A's characters. Only list placements vote.</summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void A_manual_placement_does_not_steer_another_accounts_list(int bCount)
+    {
+        string[] bList = Enumerable.Range(1, bCount).Select(i => "b" + i).ToArray();
+        var store = AccountGroupStore.Empty();
+        store.ApplyLobby(["a1", "a2"], At, Ids("ga"));
+        store.ApplyLobby(bList, At + 1, Ids("gb"));
+        store.AssignManual("b1", "ga", At + 2, Ids("unused")); // the user put b1 in account A
+
+        store.ApplyLobby(bList, At + 3, Ids("gnew"));
+
+        Assert.Equal("ga", store.GroupOf("a1")!.Value.GroupId);
+        Assert.Equal("ga", store.GroupOf("a2")!.Value.GroupId);
+        Assert.Equal(AccountGroupSource.Manual, store.GroupOf("b1")!.Value.Source);
+    }
+
+    /// <summary>With no list votes at all, an account the user built takes the list's other characters — the
+    /// "새 계정으로 분리" its siblings then join — and nobody is let go.</summary>
+    [Fact]
+    public void A_user_built_account_takes_its_siblings_when_no_list_has_spoken()
+    {
+        var store = AccountGroupStore.Empty();
+        store.AssignManual("b1", groupId: null, At, Ids("gm"));
+
+        store.ApplyLobby(["b1", "b2"], At + 1, Ids("unused"));
+
+        Assert.Equal(new AccountMembership("gm", AccountGroupSource.Lobby, At + 1), store.GroupOf("b2"));
+        Assert.Equal(AccountGroupSource.Manual, store.GroupOf("b1")!.Value.Source);
+    }
+
     [Fact]
     public void Manual_assignment_into_an_unknown_group_is_refused()
     {

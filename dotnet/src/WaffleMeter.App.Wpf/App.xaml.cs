@@ -1881,9 +1881,26 @@ public partial class App : Application
             }
 
             // Its account membership goes too — a forgotten character must not keep an account of its own on the
-            // 총 키나 lines. The 서버 창고 readings it saw STAY, for the reason the server row does: they describe the
-            // account's warehouse, not this character, and its account's line would otherwise lose its warehouse.
+            // 총 키나 lines. The 서버 창고 reading it saw describes the ACCOUNT's warehouse, not this character, so it is
+            // handed to a character of the same account still on the panel (the newer reading wins) before it goes;
+            // left under the forgotten hash, nothing would read it and a re-created name could inherit it.
             AccountGroupStore groups = AccountGroupStore.Parse(_settings.AccountGroups);
+            CurrencyStore observed = CurrencyStore.Parse(_settings.AccountObservations);
+            if (groups.GroupOf(hash) is { } membership
+                && observed.Character(hash, CurrencyCatalog.ServerStorageKina) is { } seen)
+            {
+                var onPanel = new HashSet<string>(store.All().Select(kv => kv.Key), StringComparer.Ordinal);
+                if (groups.MembersOf(membership.GroupId).FirstOrDefault(h => h != hash && onPanel.Contains(h)) is { } heir)
+                {
+                    observed.UpsertCharacter(heir, CurrencyCatalog.ServerStorageKina, seen.Count, seen.ObservedAtMs);
+                }
+            }
+
+            if (observed.RemoveAll([hash]))
+            {
+                _settings.AccountObservations = observed.Serialize();
+            }
+
             if (groups.RemoveAll([hash]))
             {
                 _settings.AccountGroups = groups.Serialize();
