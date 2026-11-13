@@ -1880,18 +1880,13 @@ public partial class App : Application
                 _settings.Currencies = currencies.Serialize();
             }
 
-            // Its account membership and the 서버 창고 readings it saw go too — a forgotten character must not keep
-            // an account of its own on the 총 키나 lines.
+            // Its account membership goes too — a forgotten character must not keep an account of its own on the
+            // 총 키나 lines. The 서버 창고 readings it saw STAY, for the reason the server row does: they describe the
+            // account's warehouse, not this character, and its account's line would otherwise lose its warehouse.
             AccountGroupStore groups = AccountGroupStore.Parse(_settings.AccountGroups);
             if (groups.RemoveAll([hash]))
             {
                 _settings.AccountGroups = groups.Serialize();
-            }
-
-            CurrencyStore observed = CurrencyStore.Parse(_settings.AccountObservations);
-            if (observed.RemoveAll([hash]))
-            {
-                _settings.AccountObservations = observed.Serialize();
             }
 
             RefreshAetherRoster(services);
@@ -2133,7 +2128,8 @@ public partial class App : Application
         if (!_currencyLedger.TryTakeFiling(
                 services.Data.ExecutorIdentityAtMs,
                 DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                out IReadOnlyList<CurrencyBalance> balances))
+                out IReadOnlyList<CurrencyBalance> balances,
+                out bool identityConfirmed))
         {
             return;
         }
@@ -2149,8 +2145,10 @@ public partial class App : Application
 
         // The 서버 창고 again, under the character that saw it: the server-keyed row above is overwritten by
         // whichever account on that server logged in last, this is not (see CurrencyStore.FileObservedAccountScope).
+        // Only when the reading is known to be this character's: a snapshot filed by the 30 s fallback before its
+        // naming packet may be the NEXT account's warehouse, and filed here it would show on the previous one's line.
         CurrencyStore observed = CurrencyStore.Parse(_settings.AccountObservations);
-        if (observed.FileObservedAccountScope(hash, balances))
+        if (identityConfirmed && observed.FileObservedAccountScope(hash, balances))
         {
             _settings.AccountObservations = observed.Serialize();
             changed = true;

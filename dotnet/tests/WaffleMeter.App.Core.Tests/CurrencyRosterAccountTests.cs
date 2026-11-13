@@ -133,27 +133,43 @@ public sealed class CurrencyRosterAccountTests
         Assert.Equal(22, line.Total);
     }
 
-    /// <summary>A server whose account roster is known but which also holds characters no list has placed: those
-    /// are NOT that account's (its list is complete), so they get a "계정 미확인" line of their own — with no 서버 창고,
-    /// since whose it would be cannot be told — and the known account counts only its own.</summary>
+    /// <summary>On a server already split between two accounts, characters no list has placed share a "계정 미확인"
+    /// line of their own — with no 서버 창고, since whose it would be cannot be told.</summary>
     [Fact]
     public void Characters_no_list_placed_share_an_unplaced_line_without_a_warehouse()
     {
-        AetherPerCharacterStore characters = Characters(("a1", "가", Trinity), ("x1", "라", Trinity));
-        CurrencyStore currencies = Kina(("a1", 10), ("x1", 4));
+        AetherPerCharacterStore characters = Characters(("a1", "가", Trinity), ("b1", "다", Trinity), ("x1", "라", Trinity));
+        CurrencyStore currencies = Kina(("a1", 10), ("b1", 1), ("x1", 4));
         CurrencyStore observed = Observed(("a1", 300, At), ("x1", 999, At + 1));
 
         IReadOnlyList<ServerKinaLine> lines = CurrencyRoster.ServerKina(
-            characters, currencies: currencies, groups: Groups(["a1"]), observed: observed);
+            characters, currencies: currencies, groups: Groups(["a1"], ["b1"]), observed: observed);
 
-        Assert.Equal(2, lines.Count);
+        Assert.Equal(3, lines.Count);
         Assert.Equal(310, lines[0].Total);
         Assert.False(lines[0].IsUnplacedAccount);
-        Assert.Equal("계정 미확인", lines[1].AccountLabel);
-        Assert.True(lines[1].IsUnplacedAccount);
-        Assert.Null(lines[1].ServerStorage);
-        Assert.Equal(4, lines[1].Total);
-        Assert.True(lines[1].IsLowerBound);
+        Assert.Equal("계정 미확인", lines[2].AccountLabel);
+        Assert.True(lines[2].IsUnplacedAccount);
+        Assert.Null(lines[2].ServerStorage);
+        Assert.Equal(4, lines[2].Total);
+        Assert.True(lines[2].IsLowerBound);
+    }
+
+    /// <summary>Adversarial review 2026-11-13: a one-account user with a stale entry on the server (a deleted alt, a
+    /// renamed character's old name) must keep the ordinary single line — a stale entry and a second account not yet
+    /// seen cannot be told apart, so one account plus unplaced characters does not split.</summary>
+    [Fact]
+    public void One_account_with_a_stale_character_keeps_one_line()
+    {
+        AetherPerCharacterStore characters = Characters(("a1", "가", Trinity), ("old", "옛이름", Trinity));
+        CurrencyStore currencies = Kina(("a1", 10), ("old", 4));
+        currencies.UpsertServer(Trinity, CurrencyCatalog.ServerStorageKina, 300, At);
+
+        ServerKinaLine line = Assert.Single(CurrencyRoster.ServerKina(
+            characters, currencies: currencies, groups: Groups(["a1"]), observed: Observed()));
+
+        Assert.Null(line.AccountLabel);
+        Assert.Equal(314, line.Total);
     }
 
     /// <summary>Accounts on DIFFERENT servers never split anything: each server is one account.</summary>
@@ -168,6 +184,23 @@ public sealed class CurrencyRosterAccountTests
 
         Assert.Equal(2, lines.Count);
         Assert.All(lines, l => Assert.Null(l.AccountLabel));
+    }
+
+    /// <summary>Adversarial review 2026-11-13: a snapshot filed by the 30 s fallback, before its naming packet, may be
+    /// the NEXT account's warehouse under the previous account's character — so the ledger says it is unconfirmed and
+    /// the app learns nothing account-scoped from it. Once the naming packet has come, it is confirmed.</summary>
+    [Fact]
+    public void A_fallback_filing_is_not_identity_confirmed()
+    {
+        var fallback = new CurrencyLedger();
+        fallback.ApplySnapshot([new CurrencyItem(1, CurrencyItemParser.KinaId, 0, 2)], exact: true, At);
+        Assert.True(fallback.TryTakeFiling(At - 60_000, At + WeeklyContentOwnership.SettleMs, out _, out bool early));
+        Assert.False(early);
+
+        var named = new CurrencyLedger();
+        named.ApplySnapshot([new CurrencyItem(1, CurrencyItemParser.KinaId, 0, 2)], exact: true, At);
+        Assert.True(named.TryTakeFiling(At + 7_000, At + 7_000, out _, out bool confirmed));
+        Assert.True(confirmed);
     }
 
     /// <summary>The 서버 창고 half of a filing goes under the character that saw it; character balances do not.</summary>

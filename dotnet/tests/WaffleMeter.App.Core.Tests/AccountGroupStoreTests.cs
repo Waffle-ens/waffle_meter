@@ -34,16 +34,37 @@ public sealed class AccountGroupStoreTests
         Assert.True(store.CreatedAt("ga") < store.CreatedAt("gb"));
     }
 
-    /// <summary>The same account's list again keeps its group (no churn, no new id), and reports no change when
-    /// nothing moved.</summary>
+    /// <summary>The same account's list again keeps its group (no new id) and only re-stamps its members — AtMs is
+    /// what the cap evicts by, so an account still logging in never loses characters to it. The same list at the same
+    /// moment changes nothing.</summary>
     [Fact]
-    public void The_same_list_again_changes_nothing()
+    public void The_same_list_again_keeps_the_group_and_restamps_it()
     {
         var store = AccountGroupStore.Empty();
         store.ApplyLobby(["a1", "a2"], At, Ids("ga"));
 
-        Assert.False(store.ApplyLobby(["a2", "a1"], At + 10, () => throw new InvalidOperationException("no new group")));
-        Assert.Equal("ga", store.GroupOf("a1")!.Value.GroupId);
+        Assert.False(store.ApplyLobby(["a2", "a1"], At, () => throw new InvalidOperationException("no new group")));
+        Assert.True(store.ApplyLobby(["a2", "a1"], At + 10, () => throw new InvalidOperationException("no new group")));
+        Assert.Equal(new AccountMembership("ga", AccountGroupSource.Lobby, At + 10), store.GroupOf("a1"));
+        Assert.Equal(At, store.CreatedAt("ga"));
+    }
+
+    /// <summary>At the cap, the account that logged in long ago loses characters, not the one still in use.</summary>
+    [Fact]
+    public void The_cap_evicts_the_account_not_seen_for_longest()
+    {
+        var store = AccountGroupStore.Empty();
+        string[] main = Enumerable.Range(0, 40).Select(i => "m" + i).ToArray();
+        string[] old = Enumerable.Range(0, 40).Select(i => "o" + i).ToArray();
+        string[] alt = Enumerable.Range(0, 20).Select(i => "n" + i).ToArray();
+        store.ApplyLobby(main, At, Ids("gm"));
+        store.ApplyLobby(old, At + 1, Ids("go"));
+        store.ApplyLobby(main, At + 2, Ids("unused")); // main logs in again
+
+        store.ApplyLobby(alt, At + 3, Ids("gn"));      // 100 members > 96
+
+        Assert.All(main, h => Assert.Equal("gm", store.GroupOf(h)!.Value.GroupId));
+        Assert.Equal(36, old.Count(h => store.GroupOf(h) != null));
     }
 
     /// <summary>A list is the account's WHOLE roster: a character it no longer names (renamed — the owner's 10-07

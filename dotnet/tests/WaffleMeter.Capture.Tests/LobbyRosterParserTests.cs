@@ -92,6 +92,28 @@ public sealed class LobbyRosterParserTests
         Assert.Equal(["꼬마"], p.Nicknames);
     }
 
+    /// <summary>Adversarial review 2026-11-13, reproduced on the owner's frames: a record ends
+    /// <c>[slot][_combat_power u32][4 zero bytes]</c>, so ten bytes before the next head a power whose byte 2 is the
+    /// next name's length + 10 lines up as a "head" ending exactly on the real one's tail. Taken, it would swallow the
+    /// real head with the count still matching and drop that character without a trace.</summary>
+    [Theory]
+    [InlineData("가나", 0x10)]  // 2 syllables (6 B) after power 1,048,576–1,114,111
+    [InlineData("가나다", 0x13)] // 3 syllables (9 B) after power 1,245,184–1,310,719
+    public void A_power_that_lines_up_as_a_head_does_not_swallow_the_next_character(string next, byte powerByte2)
+    {
+        byte[] first = Record(15062, "앞캐릭");
+        byte[] tail = [0x01, 0x84, 0x52, powerByte2, 0x00, 0x00, 0x00, 0x00, 0x00]; // slot, power, 4 zero bytes
+        byte[] f = Frame(LoginPrefix, 3,
+            Record(11262, "$gbArGbhGgkX", pcId: 44, level: 1),
+            [.. first, .. tail],
+            Record(9054, next)); // key 5E 23 00 00 — ASCII-range bytes, so the swallowing "name" is valid UTF-8
+
+        LobbyRosterParse p = LobbyRosterParser.TryParse(f, BodyStart);
+
+        Assert.True(p.Ok);
+        Assert.Equal(["앞캐릭", next], p.Nicknames);
+    }
+
     /// <summary>Fail closed: a declared count that the heads found do not match yields nothing — no grouping beats
     /// two accounts wrongly joined.</summary>
     [Theory]

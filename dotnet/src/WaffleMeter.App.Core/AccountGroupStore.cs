@@ -148,13 +148,18 @@ public sealed class AccountGroupStore
         foreach (string hash in listed)
         {
             if (_members.TryGetValue(hash, out AccountMembership existing)
-                && (existing.Source == AccountGroupSource.Manual || existing.GroupId == target))
+                && existing.Source == AccountGroupSource.Manual)
             {
-                continue; // the user's placement stands; one already here stays as it was
+                continue; // the user's placement stands
             }
 
-            _members[hash] = new AccountMembership(target, AccountGroupSource.Lobby, atMs);
-            changed = true;
+            // Re-confirmed members are re-stamped too: AtMs is what the cap evicts by, and an account still logging
+            // in must never be the one losing characters to it (adversarial review 2026-11-13).
+            if (existing.GroupId != target || existing.AtMs < atMs)
+            {
+                _members[hash] = new AccountMembership(target, AccountGroupSource.Lobby, Math.Max(atMs, existing.AtMs));
+                changed = true;
+            }
         }
 
         // The list is the account's WHOLE roster on that server: a list-placed character of this group that it no

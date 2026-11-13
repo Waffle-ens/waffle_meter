@@ -23,6 +23,14 @@ public readonly record struct LobbyRosterParse(bool Ok, IReadOnlyList<string> Ni
 /// Measured on the owner's 2026-11-13 capture (two fresh logins, two accounts on one server) and the 2026-10-07
 /// in-game switch: every record matched, nothing else did.</para>
 ///
+/// <para><b>A head's name must be a name.</b> A record ends <c>[… slot u8][_combat_power u32][4 zero bytes]</c>
+/// right before the next head, so ten bytes before a real head the previous character's power can line up as a
+/// "head" whose length byte is power byte 2 and whose tail is the real head's <c>_pc_id/_race/_gender/_level</c>
+/// (adversarial review 2026-11-13, reproduced on the owner's frames: power 1,048,576–1,114,111 before a 2-syllable
+/// name). Its "name" swallows the real key and nickname. Taking it would skip the real head with the count still
+/// matching, silently dropping a character — so a candidate whose name is neither a character name nor the reserved
+/// slot's shape is not a head, and the scan goes on byte by byte.</para>
+///
 /// <para><b>Fail closed.</b> The byte before the first head is the array count, and the list is accepted only when
 /// exactly that many heads are found. A stray match inside a record, or a patch that moved the opcode onto another
 /// message, makes the counts disagree and the frame yields nothing — no grouping at all is far better than two
@@ -130,7 +138,34 @@ public static class LobbyRosterParser
             return false;
         }
 
+        if (!IsCharacterName(name) && !IsReservedSlot(name))
+        {
+            name = null;
+            return false; // not a name: a run of the previous record that happens to line up (see the class notes)
+        }
+
         next = o + HeadTail;
+        return true;
+    }
+
+    /// <summary>The reserved slot every account's list opens with: <c>$</c> and ASCII letters/digits (11 of them in
+    /// both 2026-11-13 lists). Counted as a record, never returned as a character.</summary>
+    private static bool IsReservedSlot(string s)
+    {
+        if (s.Length is < 2 or > 24 || s[0] != '$')
+        {
+            return false;
+        }
+
+        for (int k = 1; k < s.Length; k++)
+        {
+            char c = s[k];
+            if (c is not ((>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9')))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 

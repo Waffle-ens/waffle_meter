@@ -119,12 +119,13 @@ public static class CurrencyRoster
     /// a line only when something about its kinah is actually on file.
     /// <para>Current character's server first, then by server id — the order does not move as balances do.</para>
     /// <para><b>Two accounts on one server.</b> When <paramref name="groups"/> places this server's characters in
-    /// more than one account — or places some and leaves others out, which on a server whose account roster is
-    /// known means the rest are NOT that account's — the server gets one line per account ("계정 1", "계정 2" in the
-    /// order the accounts were first told apart), each counting its OWN 서버 창고: the newest reading any of its
-    /// characters saw (<paramref name="observed"/>). Characters no list has placed share a "계정 미확인" line with
-    /// no 서버 창고, because whose it would be cannot be told. A server whose characters are all one account — the
-    /// ordinary case — keeps its single line exactly as before.</para>
+    /// more than one account, the server gets one line per account ("계정 1", "계정 2" in the order the accounts were
+    /// first told apart), each counting its OWN 서버 창고: the newest reading any of its characters saw
+    /// (<paramref name="observed"/>). Characters no list has placed then share a "계정 미확인" line with no 서버 창고,
+    /// because whose it would be cannot be told. One account plus unplaced characters does NOT split: a stale entry (a
+    /// deleted alt, a renamed character's old name) and a second account not yet seen look the same, and splitting on
+    /// the former would turn every one-account user's line into "계정 1" + "계정 미확인" (adversarial review
+    /// 2026-11-13). Such a server keeps its single line exactly as before until a second account's list arrives.</para>
     /// </summary>
     public static IReadOnlyList<ServerKinaLine> ServerKina(
         AetherPerCharacterStore characters,
@@ -190,7 +191,7 @@ public static class CurrencyRoster
                 .ThenBy(id => id, StringComparer.Ordinal)
                 .ToList();
             bool unplaced = entries.Any(e => e.GroupId == null);
-            bool split = accountIds.Count >= 2 || (accountIds.Count == 1 && unplaced);
+            bool split = accountIds.Count >= 2;
             bool isCurrent = server == currentServer;
 
             if (!split)
