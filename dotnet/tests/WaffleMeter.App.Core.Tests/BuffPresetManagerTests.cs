@@ -152,6 +152,28 @@ public sealed class BuffPresetManagerTests : IDisposable
         Assert.Equal(new HashSet<int> { 30 }, Assert.Single(_voiceApplied));
     }
 
+    // 스킬명 축약 알림도 다른 버프 음성 토글처럼 프리셋 소유다 — 슬롯마다 따로 두고, 슬롯을 바꾸면 따라 바뀐다.
+    [Fact]
+    public void The_abbreviation_toggle_is_captured_per_slot_and_applied_on_switch()
+    {
+        MeterSettings s = OpenSettings();
+        Assert.False(s.BuffTtsAbbrev); // 기본 꺼짐
+        using BuffPresetManager m = Manage(s);
+
+        m.SelectSlot(1);
+        s.BuffTtsAbbrev = true;
+
+        BuffPresetSet blob = Blob(s);
+        Assert.True(blob.Slots[1].TtsAbbrev);
+        Assert.False(blob.Slots[0].TtsAbbrev);
+
+        m.SelectSlot(0);
+        Assert.False(s.BuffTtsAbbrev);
+
+        m.SelectSlot(1);
+        Assert.True(s.BuffTtsAbbrev);
+    }
+
     // 설정창의 취소가 되돌리는 키 중 프리셋이 소유한 것은 아이콘 크기 하나다. 취소가 창을 연 시점의 px 를
     // 무조건 되쓰면, 그 사이 사용자가 다른 슬롯을 골랐을 때 그 값이 새 슬롯에 캡처돼 저장된다 — 이 테스트는
     // 매니저 쪽 사실(활성 슬롯에 즉시 캡처된다)을 못 박아, SettingsViewModel.SelectPreset 이 취소 스냅샷의

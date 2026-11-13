@@ -25,6 +25,9 @@ public sealed record BuffPreset
     /// <summary>버프 종료 3초 전 알림(점멸 + "이름 오프 예정").</summary>
     public bool EndWarning3s { get; init; }
 
+    /// <summary>스킬명 축약 알림(buffUi.ttsAbbrev). 이 필드가 없는 옛 프리셋 JSON 은 false(꺼짐)로 읽힌다.</summary>
+    public bool TtsAbbrev { get; init; }
+
     public bool GrayOnCooldown { get; init; }
 
     public bool ShowOther { get; init; } = true;

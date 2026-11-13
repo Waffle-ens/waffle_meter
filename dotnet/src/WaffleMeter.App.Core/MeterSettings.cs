@@ -141,6 +141,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffTtsOnStart = ReadBool("buffUi.ttsOnStart", false);
         _buffTtsOnEnd = ReadBool("buffUi.ttsOnEnd", false);
         _buffEndWarning3s = ReadBool("buffUi.endWarning3s", false);
+        _buffTtsAbbrev = ReadBool("buffUi.ttsAbbrev", false);
         _buffUiGrayOnCooldown = ReadBool("buffUi.grayOnCooldown", false);
         _buffUiShowLevel = ReadBool("buffUi.showLevel", true);
         _showOtherPlayerBuffs = ReadBool("buffUi.showOther", true);
@@ -152,6 +153,7 @@ public sealed class MeterSettings : INotifyPropertyChanged
         _buffUiSortMode = _props.GetProperty("buffUi.sortMode") ?? BuffOverlayOrder.Applied;
         _buffUiPinned = _props.GetProperty("buffUi.pinned") ?? "";
         _buffUiDefaultsApplied = ReadBool("buffUi.defaultsApplied", false);
+        _buffUiDefaultsVersion = ReadInt("buffUi.defaultsVersion", 0);
         _buffUiPresets = _props.GetProperty("buffUi.presets") ?? "";
         _showCooldownUi = ReadBool("cooldownUi.show", false);
         _cooldownUiIconSize = ReadInt("cooldownUi.iconSize", 40);
@@ -577,6 +579,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <para>점멸은 음성 설정과 무관하게, 오버레이에 그려지는 버프면 모두 적용된다.</para></summary>
     public bool BuffEndWarning3s { get => _buffEndWarning3s; set => SetBool(ref _buffEndWarning3s, "buffUi.endWarning3s", value); }
 
+    private bool _buffTtsAbbrev;
+    /// <summary>스킬명 축약 알림 — 버프 음성(온/오프/오프 예정)에서 4글자 이상 이름을 <see cref="BuffAbbreviation"/>
+    /// 표의 축약어로 읽는다(예: 빙설의 갑주 → 빙갑). 오버레이 툴팁·버프 목록의 표시 이름은 그대로다. 기본 꺼짐.</summary>
+    public bool BuffTtsAbbrev { get => _buffTtsAbbrev; set => SetBool(ref _buffTtsAbbrev, "buffUi.ttsAbbrev", value); }
+
     private bool _buffUiGrayOnCooldown;
     /// <summary>Gray out a buff overlay icon while the skill that grants it is still on cooldown (from the live
     /// 0x3847 cooldown snapshot), so you can see at a glance when it's re-castable. Off by default.</summary>
@@ -740,6 +747,11 @@ public sealed class MeterSettings : INotifyPropertyChanged
     /// <summary>Set once the catalog's default-off toggle buffs have been merged into the hidden set, so the
     /// one-time default isn't re-applied over the user's later choices.</summary>
     public bool BuffUiDefaultsApplied { get => _buffUiDefaultsApplied; set => SetBool(ref _buffUiDefaultsApplied, "buffUi.defaultsApplied", value); }
+
+    private int _buffUiDefaultsVersion;
+    /// <summary>버프 오버레이 기본값을 어느 버전까지 들였는가(<see cref="BuffUiDefaultsMigration"/>). 0 = 그 이전 출하본.
+    /// 단계가 한 번만 돌게 하는 표식이라 사용자가 나중에 다시 끈 버프를 기동마다 되돌리지 않는다.</summary>
+    public int BuffUiDefaultsVersion { get => _buffUiDefaultsVersion; set => SetInt(ref _buffUiDefaultsVersion, "buffUi.defaultsVersion", value); }
 
     private string _buffUiPresets;
     /// <summary>The three buff-overlay preset slots + the active index, as one Base64(JSON) blob (see

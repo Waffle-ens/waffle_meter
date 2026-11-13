@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json.Nodes;
 using WaffleMeter.Capture;
 using WaffleMeter.Data;
 using Xunit;
@@ -21,7 +22,7 @@ public sealed class SkillChargeTests
     private const int Me = 2641;
     private const int Ally = 2085;
 
-    private const int FocusedBlock = 11_110_000;      // 검성 집중 막기 — 카탈로그 auto=2
+    private const int FocusedBlock = 11_110_000;      // 검성 집중 막기 — 캡처 당시 카탈로그 auto=2(11-11 출하본은 3)
     private const int FocusedBlockWire = 11_110_040;  // 오너 캡처의 특화 변종(와이어가 실제로 싣는 코드)
     private const int FocusedBlockBuff = 111_100_071; // 같은 그룹으로 접히는 9자리 버프 코드(회색 베일 확인용)
     private const int ProtectShield = 12_110_000;     // 수호성 보호의 방패 — 카탈로그 auto=3
@@ -33,7 +34,9 @@ public sealed class SkillChargeTests
     private const int GladiatorJobByte = 5;
     private const int FighterJobByte = 45;
 
-    private static CooldownCatalog ShippedCatalog()
+    private static CooldownCatalog ShippedCatalog() => CooldownCatalog.Load(ShippedCatalogPath());
+
+    private static string ShippedCatalogPath()
     {
         DirectoryInfo? dir = new(AppContext.BaseDirectory);
         while (dir != null)
@@ -41,7 +44,7 @@ public sealed class SkillChargeTests
             string candidate = Path.Combine(dir.FullName, "Assets", "json", "cooldown_catalog.json");
             if (File.Exists(candidate))
             {
-                return CooldownCatalog.Load(candidate);
+                return candidate;
             }
 
             dir = dir.Parent;
@@ -50,10 +53,31 @@ public sealed class SkillChargeTests
         throw new DirectoryNotFoundException("cooldown_catalog.json not found above " + AppContext.BaseDirectory);
     }
 
-    private static DataManager WithSelf(long t0, int jobByte = GladiatorJobByte)
+    /// <summary>오너 캡처(2026-10-16) 당시의 카탈로그: 집중 막기 최대 2회.
+    /// <para>2026-11-11 클라에 3회 변종(11110050)이 생겨 출하 카탈로그는 family 최대치 3을 싣는다. 와이어가 "가득 참"을
+    /// 말하기 전엔 카탈로그가 최대치이므로, 2회 캡처의 진행을 그대로 재생하려면 그 시절 값을 고정해야 한다.
+    /// 나머지 행은 출하본 그대로다.</para></summary>
+    private static CooldownCatalog CaptureEraCatalog()
+    {
+        string shipped = ShippedCatalogPath();
+        JsonNode root = JsonNode.Parse(File.ReadAllText(shipped))!;
+        root["skills"]![FocusedBlock.ToString()]!["auto"] = 2;
+        string path = Path.Combine(Path.GetTempPath(), $"cooldown_catalog_capture_era_{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(path, root.ToJsonString());
+            return CooldownCatalog.Load(path);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    private static DataManager WithSelf(long t0, int jobByte = GladiatorJobByte, CooldownCatalog? catalog = null)
     {
         var dm = new DataManager { Clock = () => t0 };
-        dm.LoadCooldownCatalog(ShippedCatalog());
+        dm.LoadCooldownCatalog(catalog ?? ShippedCatalog());
         dm.SaveNickname(Me, "본인", isExecutor: true, server: 3, jobByte: jobByte);
         return dm;
     }
@@ -66,7 +90,7 @@ public sealed class SkillChargeTests
     {
         // 도착 간격(ms): 첫 시전 0 · 정정 +351 · 두 번째 시전 +10,051 · 정정 +10,401 · 1회 복구 통지 +14,050.
         long t0 = 1_792_083_908_565;
-        DataManager dm = WithSelf(t0);
+        DataManager dm = WithSelf(t0, catalog: CaptureEraCatalog());
 
         dm.SaveSkillCharges(FocusedBlockWire, 1, 14_250, t0, Me);
         SkillCooldownView r = Row(dm, t0 + 100);
@@ -109,7 +133,7 @@ public sealed class SkillChargeTests
     public void Without_any_notice_the_charges_roll_forward_and_stop_at_the_maximum()
     {
         long t0 = 1_000_000;
-        DataManager dm = WithSelf(t0);
+        DataManager dm = WithSelf(t0, catalog: CaptureEraCatalog());
 
         dm.SaveSkillCharges(FocusedBlockWire, 1, 14_250, t0, Me);
         dm.SaveSkillCharges(FocusedBlockWire, 0, 4_100, t0 + 10_050, Me);
@@ -229,7 +253,7 @@ public sealed class SkillChargeTests
         // 존 이동 0x5100: 1회 남음 + 다음 1회까지 9초(_autoload_time). 충전형의 _cooltime 은 0 이다 — 그걸 재충전
         // 잔여로 읽으면 "타이머 없음 = 가득 참"으로 오인해 최대치가 1로 깎이고 9초 뒤에도 2로 안 오른다.
         long t0 = 1_000_000;
-        DataManager dm = WithSelf(t0);
+        DataManager dm = WithSelf(t0, catalog: CaptureEraCatalog());
 
         dm.ApplyMySkillSnapshot([new LearnedSkill(11_110_000, 13, 0), new LearnedSkill(11_110_020, 13, 0, 1, 9_000)], t0);
 

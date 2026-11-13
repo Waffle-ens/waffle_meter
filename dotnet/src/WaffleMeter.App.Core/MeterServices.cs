@@ -577,6 +577,7 @@ public sealed class MeterServices
         if (File.Exists(blacklist))
         {
             Data.LoadBuffBlacklist(ReferenceJson.LoadBuffBlacklist(blacklist));
+            Data.LoadBuffOverlayExclude(ReferenceJson.LoadBuffOverlayExclude(blacklist));
         }
 
         string buffValues = Path.Combine(jsonDir, "buff_values.json");
@@ -594,8 +595,8 @@ public sealed class MeterServices
         string buffCatalog = Path.Combine(jsonDir, "buff_catalog.json");
         if (File.Exists(buffCatalog))
         {
-            (var catalog, var defaultOff) = ReferenceJson.LoadBuffCatalog(buffCatalog);
-            Data.LoadBuffCatalog(catalog, defaultOff);
+            (var catalog, var defaultOff, var stackMax) = ReferenceJson.LoadBuffCatalog(buffCatalog);
+            Data.LoadBuffCatalog(catalog, defaultOff, stackMax);
         }
 
         // Skill-cooldown catalog (names + shared-cooldown groups + order) for the cooldown overlay. Optional in

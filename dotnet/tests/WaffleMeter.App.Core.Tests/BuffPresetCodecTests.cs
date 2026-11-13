@@ -48,6 +48,35 @@ public sealed class BuffPresetCodecTests
         Assert.All(encoded, c => Assert.InRange(c, (char)0x20, (char)0x7E));
     }
 
+    // '스킬명 축약 알림'(TtsAbbrev)보다 먼저 저장된 프리셋 blob 에는 그 필드가 없다. 그런 blob 은 꺼짐으로
+    // 읽혀야 한다 — 업데이트했다고 사용자가 고르지도 않은 축약 음성이 켜지면 안 된다.
+    [Fact]
+    public void A_preset_saved_before_the_abbreviation_toggle_reads_it_as_off()
+    {
+        const string legacyJson =
+            "{\"Active\":0,\"Slots\":[{\"Name\":\"a\",\"TtsOnStart\":true,\"EndWarning3s\":true},{\"Name\":\"b\"},{\"Name\":\"c\"}]}";
+        string blob = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(legacyJson));
+
+        BuffPresetSet? decoded = BuffPresetCodec.Decode(blob);
+
+        Assert.NotNull(decoded);
+        Assert.True(decoded.Slots[0].TtsOnStart);
+        Assert.True(decoded.Slots[0].EndWarning3s);
+        Assert.All(decoded.Slots, slot => Assert.False(slot.TtsAbbrev));
+    }
+
+    [Fact]
+    public void The_abbreviation_toggle_round_trips()
+    {
+        var set = new BuffPresetSet { Slots = [new BuffPreset { TtsAbbrev = true }, new BuffPreset(), new BuffPreset()] };
+
+        BuffPresetSet? decoded = BuffPresetCodec.Decode(BuffPresetCodec.Encode(set));
+
+        Assert.NotNull(decoded);
+        Assert.True(decoded.Slots[0].TtsAbbrev);
+        Assert.False(decoded.Slots[1].TtsAbbrev);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

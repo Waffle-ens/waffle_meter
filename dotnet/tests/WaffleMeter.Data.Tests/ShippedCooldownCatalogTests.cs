@@ -143,6 +143,18 @@ public sealed class ShippedCooldownCatalogTests
         Assert.Equal(7, shared.Count);
     }
 
+    [Theory]
+    [InlineData(12_240_000)] // 심판
+    [InlineData(15_280_000)] // 혹한의 바람
+    public void A_charge_only_skill_keeps_its_row(int baseCode)
+    {
+        // 2026-11-11 부터 이 둘은 일반 쿨이 없고(NeedCoolTime 0) 충전 시간만 남았다. 생성기가 cd<=0 행을
+        // 버리던 시절 그대로 돌리면 쿨 오버레이에서 통째로 사라진다 — 그 회귀를 여기서 잡는다.
+        Assert.True(Shipped().TryGet(baseCode, out CooldownSkillInfo s), $"{baseCode} 행이 없다 — 충전형만 남은 스킬을 생성기가 버렸다");
+        Assert.True(s.AutoLoadCount >= 2, $"{baseCode}({s.Name}) 의 충전 수가 {s.AutoLoadCount}");
+        Assert.True(s.CatalogCooldownMs > 0, $"{baseCode}({s.Name}) 의 cd 가 {s.CatalogCooldownMs}");
+    }
+
     [Fact]
     public void An_absent_catalog_degrades_to_the_plain_fold()
     {

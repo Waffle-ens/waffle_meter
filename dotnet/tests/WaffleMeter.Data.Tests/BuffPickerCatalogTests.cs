@@ -76,4 +76,35 @@ public sealed class BuffPickerCatalogTests
 
         Assert.Contains(dm.BuffPickerCatalog(), c => c.BaseCode == 18250000 && c.Name == "질풍의 권능" && c.Job == "호법성");
     }
+
+    /// <summary>카탈로그 행의 선택 키 <c>"s"</c>(최대 중첩 수)를 읽고, 없는 행은 담지 않는다. 기존 <c>n</c>/<c>j</c>와
+    /// defaultOff 읽기는 그대로여야 한다.</summary>
+    [Fact]
+    public void The_optional_stack_cap_is_read_and_absent_rows_carry_none()
+    {
+        string path = Path.Combine(Path.GetTempPath(), "wm_buffcat_" + Guid.NewGuid().ToString("N") + ".json");
+        File.WriteAllText(path,
+            "{\"buffs\":{\"14330000\":{\"n\":\"난사\",\"j\":\"궁성\",\"s\":10}," +
+            "\"14080000\":{\"n\":\"감응\",\"j\":\"궁성\"}," +
+            "\"15110000\":{\"n\":\"겨울의 파편\",\"j\":\"마도성\",\"s\":0}},\"defaultOff\":[18190000]}");
+        try
+        {
+            var (catalog, defaultOff, stackMax) = ReferenceJson.LoadBuffCatalog(path);
+
+            Assert.Equal(new Dictionary<int, int> { [14330000] = 10 }, stackMax); // 0 은 "없음"
+            Assert.Contains(catalog, c => c.Code == 14080000 && c.Name == "감응" && c.Job == "궁성");
+            Assert.Contains(catalog, c => c.Code == 14330000 && c.Name == "난사");
+            Assert.Equal(new[] { 18190000 }, defaultOff);
+
+            var dm = new DataManager();
+            dm.LoadBuffCatalog(catalog, defaultOff, stackMax);
+            Assert.Equal(10, dm.BuffStackMax(14330000));
+            Assert.Equal(0, dm.BuffStackMax(14080000));
+            Assert.Equal(0, dm.BuffStackMax(15110000));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }

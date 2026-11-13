@@ -85,7 +85,7 @@ public sealed class BuffPickerViewModel : INotifyPropertyChanged
             foreach ((int baseCode, string name, _, _) in g.OrderBy(c => c.BaseCode))
             {
                 // Skip buffs with no bundled icon — they clutter the list and can't render an icon.
-                ImageSource? icon = JoinIcons.Skill(baseCode);
+                ImageSource? icon = JoinIcons.BuffSlot(baseCode); // 오버레이 슬롯과 같은 아이콘
                 if (icon is null)
                 {
                     continue;

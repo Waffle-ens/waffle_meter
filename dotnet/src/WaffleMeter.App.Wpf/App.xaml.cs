@@ -944,19 +944,11 @@ public partial class App : Application
         // Per-job buff picker: seed the observed catalog + hidden selection from persisted settings, and
         // persist the growing catalog back as new buffs are seen.
         services.Data.SeedObservedBuffBases(MeterSettings.ParseCodeSet(_settings.BuffUiObserved));
+        // First run: hide the catalog's toggle/aura buffs (불패의 진언 등) by default — they stay on indefinitely,
+        // so they're noise in the overlay until the user opts them back in. Existing users get each later change
+        // of those defaults once (live hidden + every preset slot) — see BuffUiDefaultsMigration.
+        BuffUiDefaultsMigration.Apply(_settings, services.Data.DefaultOffBuffBases());
         HashSet<int> hidden = MeterSettings.ParseCodeSet(_settings.BuffUiHidden);
-        if (!_settings.BuffUiDefaultsApplied)
-        {
-            // First run: hide the catalog's toggle/aura buffs (질주의 진언 / 불패의 진언 등) by default — they
-            // stay on indefinitely, so they're noise in the overlay until the user opts them back in.
-            foreach (int c in services.Data.DefaultOffBuffBases())
-            {
-                hidden.Add(c);
-            }
-
-            _settings.BuffUiHidden = string.Join(",", hidden);
-            _settings.BuffUiDefaultsApplied = true;
-        }
 
         services.Data.SetHiddenBuffBases(hidden);
         services.Data.SetVoiceBuffBases(MeterSettings.ParseCodeSet(_settings.BuffUiVoice)); // 음성만/오버레이+음성 buffs the store must keep
@@ -3546,11 +3538,15 @@ public partial class App : Application
                 continue; // overlay-only (or off) buff — no voice
             }
 
+            // 스킬명 축약 알림: 읽는 문구만 바꾼다(툴팁·목록은 b.Name 그대로). 종료 문구는 예약 시점에 만들어지므로
+            // 토글을 바꿔도 이미 예약된 경고는 예약 당시 문구로 나간다.
+            string spoken = s.BuffTtsAbbrev ? BuffAbbreviation.Of(b.Name) : b.Name;
+
             // Start once per buff. A same-buff re-cast (base already announced) does NOT re-announce — the later
             // cast silently takes over the earlier one.
             if (s.BuffTtsOnStart && _buffStartAnnounced.Add(b.Code))
             {
-                TtsSpeech.Speak($"{b.Name} 온", s.AlarmVolume, durable: true, chimeFallback: false);
+                TtsSpeech.Speak($"{spoken} 온", s.AlarmVolume, durable: true, chimeFallback: false);
             }
 
             // Pre-warn the end once inside the lead window (skip very short buffs so it doesn't double up with
@@ -3571,7 +3567,7 @@ public partial class App : Application
                 && (!_buffEndAnnouncedFor.TryGetValue(b.Code, out long warnedEnd) || warnedEnd != b.EndMs))
             {
                 _buffEndAnnouncedFor[b.Code] = b.EndMs;
-                string text = warnEarly ? $"{b.Name} 오프 예정" : $"{b.Name} 오프";
+                string text = warnEarly ? $"{spoken} 오프 예정" : $"{spoken} 오프";
                 // Claimed on the tick that spotted it, but spoken at the lead — the tick lands anywhere in the
                 // scan window, so speaking immediately would put the voice up to half a second early.
                 SpeakBuffEnd(b.Code, b.EndMs, text, s.AlarmVolume, b.RemainingMs - lead);

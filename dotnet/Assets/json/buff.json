@@ -35492,24 +35492,24 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_GL_SKILL_008",
     "icon_view": true,
-    "summary": "방어력 감소, 받는 치유량 감소",
-    "effect": "방어력 <desc_point>{abe:1108000011:value02:divide100abs}%</> 감소\n받는 치유량 <desc_point>{abe:1108000012:value02:divide100}%</> 감소"
+    "summary": "방어력 감소, 받는 치유량 감소, 생명력 물약 회복량 감소",
+    "effect": "방어력 <desc_point>{abe:1108000011:value02:divide100abs}%</> 감소\n받는 치유량 <desc_point>{abe:1108000012:value02:divide100}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1108000013:value02:divide100abs}%</> 감소"
   },
   "110800101": {
     "name": "칼날 날리기",
     "type": "DeBuff",
     "icon": "Skill/ICON_GL_SKILL_008",
     "icon_view": true,
-    "summary": "방어력 감소, 받는 치유량 감소",
-    "effect": "방어력 <desc_point>{abe:1108001011:value02:divide100abs}%</> 감소\n받는 치유량 <desc_point>{abe:1108001012:value02:divide100}%</> 감소"
+    "summary": "방어력 감소, 받는 치유량 감소, 생명력 물약 회복량 감소",
+    "effect": "방어력 <desc_point>{abe:1108001011:value02:divide100abs}%</> 감소\n받는 치유량 <desc_point>{abe:1108001012:value02:divide100}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1108001013:value02:divide100abs}%</> 감소"
   },
   "111000071": {
-    "name": "전투준비",
+    "name": "광분",
     "type": "Buff",
-    "icon": "Skill/ICON_GL_SKILL_010",
+    "icon": "Skill/ICON_GL_SKILL_025",
     "icon_view": true,
-    "summary": "PVE 피해 증폭 증가, PVP 피해 증폭 증가, 치명타 증가, 상태이상 적중 증가",
-    "effect": "PVE 피해 증폭 <desc_point>{abe:1110000711:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1110000713:value02:divide100}%</> 증가\n치명타 <desc_point>{abe:1110000712:value02}</> 증가\n상태이상 적중 <desc_point>{abe:1110000714:value02:divide100}%</> 증가"
+    "summary": "PVE 피해 증폭 증가, PVP 피해 증폭 증가, 전방 피해 증폭 증가",
+    "effect": "PVE 피해 증폭 <desc_point>{abe:1110000711:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1110000712:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1110000713:value02:divide100}%</> 증가"
   },
   "111000401": {
     "name": "None",
@@ -35533,7 +35533,7 @@
     "icon": "Skill/ICON_GL_SKILL_011",
     "icon_view": true,
     "summary": "확정 무기막기 상태",
-    "effect": "무기막기 피해감소율 <desc_point>{abe:1111000014:value02:divide100}%</> 증가\n확정 무기막기 상태\n무기막기 성공 시 정신력, 행동력 1회 회복"
+    "effect": "무기막기 피해감소율 <desc_point>{abe:1111000014:value02:divide100}%</> 증가\n확정 무기막기 상태\n무기막기 성공 시 정신력, 행동력 1회 회복\n무기막기 성공 시 [집중 막기] 스킬 재시전 시간 {abe:1111000022:value02:time} 감소"
   },
   "111100002": {
     "name": "None",
@@ -35557,7 +35557,7 @@
     "icon": "Skill/ICON_GL_SKILL_011",
     "icon_view": true,
     "summary": "확정 무기막기 상태",
-    "effect": "무기막기 피해감소율 <desc_point>{abe:1111004014:value02:divide100}%</> 증가\n확정 무기막기 상태\n무기막기 성공 시 생명력, 정신력, 행동력 1회 회복\n무기막기 성공 시 이동 속도 {abe:1111003811:value02:divide100}% 증가"
+    "effect": "무기막기 피해감소율 <desc_point>{abe:1111004014:value02:divide100}%</> 증가\n확정 무기막기 상태\n무기막기 성공 시 생명력, 정신력, 행동력 1회 회복\n무기막기 성공 시 [집중 막기] 스킬 재시전 시간 {abe:1111000022:value02:time} 감소\n무기막기 성공 시 광분 효과 부여"
   },
   "111100403": {
     "name": "None",
@@ -35940,8 +35940,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_GL_SKILL_040",
     "icon_view": true,
-    "summary": "전투 속도 증가, 강타 증가, 이동 속도 증가, 치명 시 재시전 시간 1초 감소, 약점 파악 효과 증가",
-    "effect": "전투 속도 <desc_point>{abe:1140004011:value02:divide100}%</> 증가\n강타 <desc_point>{abe:1140004013:value02:divide100}%</> 증가\n이동 속도 <desc_point>{abe:1140004014:value02:divide100}%</> 증가\n치명타 시 <desc_point>{abe:1140004015:value02:divide100}%</>확률로 재시전 시간 1초 감소\n약점 파악 효과 1.5배 증가"
+    "summary": "전투 속도 증가, 강타 증가, 이동 속도 증가, 치명 시 [돌격 자세] 재시전 시간 1초 감소, 약점 파악 효과 증가",
+    "effect": "전투 속도 <desc_point>{abe:1140004011:value02:divide100}%</> 증가\n강타 <desc_point>{abe:1140004013:value02:divide100}%</> 증가\n이동 속도 <desc_point>{abe:1140004014:value02:divide100}%</> 증가\n치명타 시 <desc_point>{abe:1140004015:value02:divide100}%</>확률로 [돌격 자세] 재시전 시간 1초 감소\n약점 파악 효과 1.5배 증가"
   },
   "114100001": {
     "name": "파동의 갑주",
@@ -36229,7 +36229,7 @@
     "icon": "Skill/ICON_TE_SKILL_011",
     "icon_view": true,
     "summary": "확정 막기 상태",
-    "effect": "막기 피해 감소 <desc_point>{abe:1211000012:value02:divide100}%</> 증가\n확정 막기 상태\n막기 성공 시 정신력, 행동력 1회 회복"
+    "effect": "막기 피해 감소 <desc_point>{abe:1211000012:value02:divide100}%</> 증가\n확정 막기 상태\n막기 성공 시 정신력, 행동력 1회 회복\n막기 성공 시 [보호의 방패] 스킬 재시전 시간 {abe:1211000020:value02:time} 감소"
   },
   "121100002": {
     "name": "None",
@@ -36253,7 +36253,7 @@
     "icon": "Skill/ICON_TE_SKILL_011",
     "icon_view": true,
     "summary": "확정 막기 상태",
-    "effect": "막기 피해 감소 <desc_point>{abe:1211004012:value02:divide100}%</> 증가\n확정 막기 상태\n막기 성공 시 생명력, 정신력, 행동력 1회 회복"
+    "effect": "막기 피해 감소 <desc_point>{abe:1211004012:value02:divide100}%</> 증가\n확정 막기 상태\n막기 성공 시 생명력, 정신력, 행동력 1회 회복\n막기 성공 시 [보호의 방패] 스킬 재시전 시간 {abe:1211004020:value02:time} 감소"
   },
   "121200001": {
     "name": "위축",
@@ -37121,11 +37121,11 @@
   },
   "130000011": {
     "name": "문양",
-    "type": "DeBuff",
+    "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_008",
     "icon_view": true,
-    "summary": "전투 속도 감소",
-    "effect": "전투 속도 <desc_point>{abe:1300000111:value02:divide100abs}%</> 감소"
+    "summary": "문양 각인",
+    "effect": "문양 각인 상태"
   },
   "130200202": {
     "name": "None",
@@ -37157,7 +37157,7 @@
     "icon": "Skill/ICON_AS_SKILL_024",
     "icon_view": true,
     "summary": "확정 회피 상태",
-    "effect": "확정 회피 상태\n회피 성공 시 정신력, 행동력 1회 회복"
+    "effect": "확정 회피 상태\n회피 성공 시 정신력, 행동력 1회 회복\n회피 성공 시 [회피 자세] 스킬 재시전 시간 {abe:1308000015:value02:time} 감소"
   },
   "130800002": {
     "name": "None",
@@ -37173,7 +37173,7 @@
     "icon": "Skill/ICON_AS_SKILL_024",
     "icon_view": true,
     "summary": "확정 회피 상태",
-    "effect": "확정 회피 상태\n회피 성공 시 생명력, 정신력, 행동력 1회 회복"
+    "effect": "확정 회피 상태\n회피 성공 시 생명력, 정신력, 행동력 1회 회복\n회피 성공 시 후방 피해 증폭 증가\n회피 성공 시 [회피 자세] 스킬 재시전 시간 {abe:1308000015:value02:time} 감소"
   },
   "130800402": {
     "name": "None",
@@ -37396,32 +37396,32 @@
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_029",
     "icon_view": true,
-    "summary": "일정 비율만큼 추가 피해, 심장 찌르기 재시전 시간 제거",
-    "effect": "공격의 <desc_point>{abe:1331000011:value01:divide100}%</> 만큼 추가 피해\n심장 찌르기 재시전 시간 제거"
+    "summary": "일정 비율만큼 추가 피해",
+    "effect": "공격의 <desc_point>{abe:1331000011:value01:divide100}%</> 만큼 추가 피해"
   },
   "133100101": {
     "name": "환영 분신",
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_029",
     "icon_view": true,
-    "summary": "상태이상 적중 증가, 일정 비율만큼 추가 피해, 심장 찌르기 재시전 시간 제거",
-    "effect": "상태이상 적중 <desc_point>{abe:1331001012:value02:divide100}%</> 증가\n공격의 <desc_point>{abe:1331001011:value01:divide100}%</> 만큼 추가 피해\n심장 찌르기 재시전 시간 제거"
+    "summary": "상태이상 적중 증가, 일정 비율만큼 추가 피해",
+    "effect": "상태이상 적중 <desc_point>{abe:1331001012:value02:divide100}%</> 증가\n공격의 <desc_point>{abe:1331001011:value01:divide100}%</> 만큼 추가 피해"
   },
   "133100201": {
     "name": "환영 분신",
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_029",
     "icon_view": true,
-    "summary": "상태이상 적중, 치명타 피해 증폭 증가 및 일정 비율만큼 추가 피해, 심장 찌르기 재시전 시간 제거",
-    "effect": "상태이상 적중 <desc_point>{abe:1331002012:value02:divide100}%</> 증가\n치명타 피해 증폭 <desc_point>{abe:1331002013:value02:divide100}%</> 증가\n공격의 <desc_point>{abe:1331002011:value01:divide100}%</> 만큼 추가 피해\n심장 찌르기 재시전 시간 제거"
+    "summary": "상태이상 적중, 치명타 피해 증폭 증가 및 일정 비율만큼 추가 피해",
+    "effect": "상태이상 적중 <desc_point>{abe:1331002012:value02:divide100}%</> 증가\n치명타 피해 증폭 <desc_point>{abe:1331002013:value02:divide100}%</> 증가\n공격의 <desc_point>{abe:1331002011:value01:divide100}%</> 만큼 추가 피해"
   },
   "133100301": {
     "name": "환영 분신",
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_029",
     "icon_view": true,
-    "summary": "상태이상 적중, 치명타 피해 증폭 증가 및 일정 비율만큼 추가 피해, 심장 찌르기 재시전 시간 제거, 빈틈 노리기 효과 증가",
-    "effect": "상태이상 적중 <desc_point>{abe:1331003012:value02:divide100}%</> 증가\n치명타 피해 증폭 <desc_point>{abe:1331003013:value02:divide100}%</> 증가\n공격의 <desc_point>{abe:1331003011:value01:divide100}%</> 만큼 추가 피해\n심장 찌르기 재시전 시간 제거\n빈틈 노리기 효과 1.5배 증가"
+    "summary": "상태이상 적중, 치명타 피해 증폭 증가 및 일정 비율만큼 추가 피해, 빈틈 노리기 효과 증가",
+    "effect": "상태이상 적중 <desc_point>{abe:1331003012:value02:divide100}%</> 증가\n치명타 피해 증폭 <desc_point>{abe:1331003013:value02:divide100}%</> 증가\n공격의 <desc_point>{abe:1331003011:value01:divide100}%</> 만큼 추가 피해\n빈틈 노리기 효과 1.5배 증가"
   },
   "133500071": {
     "name": "None",
@@ -37468,16 +37468,16 @@
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_039",
     "icon_view": true,
-    "summary": "회피, 이동 속도 증가, 둔화/속박 면역, {abe:1337003013:value02:divide100}% 확률로 발사체 면역, 회피 시 50% 확률로 모든 스킬의 재시전 시간 감소",
-    "effect": "회피 <desc_point>{abe:1337003011:value02}</> 증가\n이동 속도 <desc_point>{abe:1337003014:value02:divide100}%</> 증가\n둔화, 속박 면역 상태\n{abe:1337003013:value02:divide100}% 확률로 발사체 면역\n회피 시 50% 확률로 모든 스킬의 재시전 시간 1초 감소"
+    "summary": "회피, 이동 속도 증가, 둔화/속박 면역, {abe:1337003013:value02:divide100}% 확률로 발사체 면역, 회피 시 {abe:1337003015:value04:divide100}% 확률로 [회피의 계약] 스킬 재시전 시간 감소",
+    "effect": "회피 <desc_point>{abe:1337003011:value02}</> 증가\n이동 속도 <desc_point>{abe:1337003014:value02:divide100}%</> 증가\n둔화, 속박 면역 상태\n{abe:1337003013:value02:divide100}% 확률로 발사체 면역\n회피 시 {abe:1337003015:value04:divide100}% 확률로 [회피의 계약] 스킬 재시전 시간 {abe:1337003015:value02:time} 감소"
   },
   "133700401": {
     "name": "회피의 계약",
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_039",
     "icon_view": true,
-    "summary": "회피, 이동 속도 증가, 둔화/속박 면역, {abe:1337004013:value02:divide100}% 확률로 발사체 면역, 회피 시 50% 확률로 모든 스킬의 재시전 시간 감소",
-    "effect": "회피 <desc_point>{abe:1337004011:value02}</> 증가\n이동 속도 <desc_point>{abe:1337004014:value02:divide100}%</> 증가\n둔화, 속박 면역 상태\n{abe:1337004013:value02:divide100}% 확률로 발사체 면역\n회피 시 50% 확률로 모든 스킬의 재시전 시간 1초 감소"
+    "summary": "회피, 이동 속도, 치명타 저항 증가, 둔화/속박 면역, {abe:1337004013:value02:divide100}% 확률로 발사체 면역, 회피 시 {abe:1337004016:value04:divide100}% 확률로 [회피의 계약] 스킬 재시전 시간 감소",
+    "effect": "회피 <desc_point>{abe:1337004011:value02}</> 증가\n이동 속도 <desc_point>{abe:1337004014:value02:divide100}%</> 증가\n치명타 저항 <desc_point>{abe:1337004015:value02}</> 증가\n둔화, 속박 면역 상태\n{abe:1337004013:value02:divide100}% 확률로 발사체 면역\n회피 시 {abe:1337004016:value04:divide100}% 확률로 [회피의 계약] 스킬 재시전 시간 {abe:1337004016:value02:time} 감소"
   },
   "133900001": {
     "name": "신속의 계약",
@@ -37492,32 +37492,32 @@
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_037",
     "icon_view": true,
-    "summary": "전투 속도 증가 및 정신력 소모량 감소",
-    "effect": "전투 속도 <desc_point>{abe:1339001011:value02:divide100}%</> 증가\n정신력 소모량 <desc_point>{abe:1339001012:value02:divide100}%</> 감소"
+    "summary": "전투 속도, 무기 피해 증폭 증가",
+    "effect": "전투 속도 <desc_point>{abe:1339001011:value02:divide100}%</> 증가\n무기 피해 증폭 <desc_point>{abe:1339001012:value02:divide100}%</> 증가"
   },
   "133900201": {
     "name": "신속의 계약",
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_037",
     "icon_view": true,
-    "summary": "전투 속도 증가 및 정신력 소모량 감소, 배후 강타 효과 증가",
-    "effect": "전투 속도 <desc_point>{abe:1339002011:value02:divide100}%</> 증가\n정신력 소모량 <desc_point>{abe:1339002012:value02:divide100}%</> 감소\n배후 강타 효과 1.5배 증가"
+    "summary": "전투 속도, 무기 피해 증폭 증가, 배후 강타 효과 증가",
+    "effect": "전투 속도 <desc_point>{abe:1339002011:value02:divide100}%</> 증가\n무기 피해 증폭 <desc_point>{abe:1339002012:value02:divide100}%</> 증가\n배후 강타 효과 1.5배 증가"
   },
   "133900301": {
     "name": "신속의 계약",
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_037",
     "icon_view": true,
-    "summary": "전투 속도 증가 및 정신력 소모량 감소, 배후 강타 효과 증가, 강습 자세 효과 증가",
-    "effect": "전투 속도 <desc_point>{abe:1339003011:value02:divide100}%</> 증가\n정신력 소모량 <desc_point>{abe:1339003012:value02:divide100}%</> 감소\n배후 강타 효과 1.5배 증가\n강습 자세 효과 1.5배 증가"
+    "summary": "전투 속도, 무기 피해 증폭 증가, 배후 강타 효과 증가, 강습 자세 효과 증가",
+    "effect": "전투 속도 <desc_point>{abe:1339003011:value02:divide100}%</> 증가\n무기 피해 증폭 <desc_point>{abe:1339003012:value02:divide100}%</> 증가\n배후 강타 효과 1.5배 증가\n강습 자세 효과 1.5배 증가"
   },
   "133900401": {
     "name": "신속의 계약",
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_037",
     "icon_view": true,
-    "summary": "전투 속도 증가 및 정신력 소모량 감소, 배후 강타 효과 증가, 강습 자세 효과 증가",
-    "effect": "전투 속도 <desc_point>{abe:1339004011:value02:divide100}%</> 증가\n정신력 소모량 <desc_point>{abe:1339004012:value02:divide100}%</> 감소\n배후 강타 효과 1.5배 증가\n강습 자세 효과 1.5배 증가"
+    "summary": "전투 속도, 무기 피해 증폭 증가, 배후 강타 효과 증가, 강습 자세 효과 증가",
+    "effect": "전투 속도 <desc_point>{abe:1339004011:value02:divide100}%</> 증가\n무기 피해 증폭 <desc_point>{abe:1339004012:value02:divide100}%</> 증가\n배후 강타 효과 1.5배 증가\n강습 자세 효과 1.5배 증가"
   },
   "137100001": {
     "name": "육감 극대화",
@@ -37533,7 +37533,7 @@
     "icon": "Skill/ICON_AS_SKILL_Passive_002",
     "icon_view": false,
     "summary": "치명타 증가 및 치명타 적중 시 일정 확률로 분신 소환",
-    "effect": "치명타 <desc_point>{abe:1372000011:value02}</> 증가\n치명타 적중 시 <desc_point>{abe:1372000023:value02:divide100}%</> 확률로 공격력 <desc_point>{abe:1372001011:value02:divide100}%</> 증가\n치명타 적중 시 <desc_point>{abe:1372000013:value02:divide100}%</> 확률로 최대 5명의 분신이 각각 추가 피해 및 문양 각인"
+    "effect": "치명타 <desc_point>{abe:1372000011:value02}</> 증가\n치명타 적중 시 <desc_point>{abe:1372000023:value02:divide100}%</> 확률로 공격력 <desc_point>{abe:1372001011:value02:divide100}%</> 증가\n치명타 적중 시 <desc_point>{abe:1372000013:value02:divide100}%</> 확률로 최대 5명의 분신이 각각 추가 피해"
   },
   "137300001": {
     "name": "독 바르기",
@@ -37548,8 +37548,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_AS_SKILL_Passive_003",
     "icon_view": true,
-    "summary": "받는 치유량 감소 및 중독 상태",
-    "effect": "받는 치유량 <desc_point>{abe:1373000713:value02:divide100abs}%</> 감소\n지속 피해"
+    "summary": "받는 치유량, 생명력 물약 회복량 감소, 중독 상태",
+    "effect": "받는 치유량 <desc_point>{abe:1373000713:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1373000714:value02:divide100abs}%</> 감소\n지속 피해"
   },
   "137400001": {
     "name": "배후 강타",
@@ -37636,16 +37636,16 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_Common_Abnormal_Bleed",
     "icon_view": true,
-    "summary": "출혈 상태",
-    "effect": "지속 피해를 입는 출혈 상태\n받는 치유량 <desc_point>{abe:1405000013:value02:divide100abs}%</> 감소"
+    "summary": "출혈 상태, 받는 치유량, 생명력 물약 회복량 감소",
+    "effect": "지속 피해를 입는 출혈 상태\n받는 치유량 <desc_point>{abe:1405000013:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1405000014:value02:divide100abs}%</> 감소"
   },
   "140500002": {
     "name": "출혈",
     "type": "DeBuff",
     "icon": "Skill/ICON_Common_Abnormal_Bleed",
     "icon_view": true,
-    "summary": "출혈 상태",
-    "effect": "지속 피해를 입는 출혈 상태\n받는 치유량 <desc_point>{abe:1405000013:value02:divide100abs}%</> 감소"
+    "summary": "출혈 상태, 받는 치유량, 생명력 물약 회복량 감소",
+    "effect": "지속 피해를 입는 출혈 상태\n받는 치유량 <desc_point>{abe:1405000013:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1405000014:value02:divide100abs}%</> 감소"
   },
   "140500071": {
     "name": "None",
@@ -37668,16 +37668,16 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_Common_Abnormal_Bleed",
     "icon_view": true,
-    "summary": "출혈 상태",
-    "effect": "지속 피해를 입는 출혈 상태\n받는 치유량 <desc_point>{abe:1405000013:value02:divide100abs}%</> 감소"
+    "summary": "출혈 상태, 받는 치유량, 생명력 물약 회복량 감소",
+    "effect": "지속 피해를 입는 출혈 상태\n받는 치유량 <desc_point>{abe:1405000013:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1405000014:value02:divide100abs}%</> 감소"
   },
   "140500202": {
     "name": "출혈",
     "type": "DeBuff",
     "icon": "Skill/ICON_Common_Abnormal_Bleed",
     "icon_view": true,
-    "summary": "출혈 상태",
-    "effect": "지속 피해를 입는 출혈 상태\n받는 치유량 <desc_point>{abe:1405000013:value02:divide100abs}%</> 감소"
+    "summary": "출혈 상태, 받는 치유량, 생명력 물약 회복량 감소",
+    "effect": "지속 피해를 입는 출혈 상태\n받는 치유량 <desc_point>{abe:1405000013:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1405000014:value02:divide100abs}%</> 감소"
   },
   "140600001": {
     "name": "홍염",
@@ -37932,16 +37932,16 @@
     "type": "Buff",
     "icon": "Skill/ICON_RA_SKILL_022",
     "icon_view": true,
-    "summary": "공격력, 완벽 증가, 집중의 눈 효과 증가, 사냥꾼의 혼 효과 증가",
-    "effect": "공격력 <desc_point>{abe:1431003011:value02:divide100}%</> 증가\n완벽 <desc_point>{abe:1431003012:value02:divide100}%</> 증가\n집중의 눈 효과 1.5배 증가\n사냥꾼의 혼 효과 1.5배 증가"
+    "summary": "공격력, 완벽 증가, 집중의 눈 효과 증가, 사냥꾼의 결의 효과 증가",
+    "effect": "공격력 <desc_point>{abe:1431003011:value02:divide100}%</> 증가\n완벽 <desc_point>{abe:1431003012:value02:divide100}%</> 증가\n집중의 눈 효과 1.5배 증가\n사냥꾼의 결의 효과 1.5배 증가"
   },
   "143100401": {
     "name": "바이젤의 권능",
     "type": "Buff",
     "icon": "Skill/ICON_RA_SKILL_022",
     "icon_view": true,
-    "summary": "공격력, 완벽 증가, 집중의 눈 효과 증가, 사냥꾼의 혼 효과 증가, 치명타 시 50% 확률로 모든 스킬 재시전 시간 감소",
-    "effect": "공격력 <desc_point>{abe:1431004011:value02:divide100}%</> 증가\n완벽 <desc_point>{abe:1431004012:value02:divide100}%</> 증가\n집중의 눈 효과 1.5배 증가\n사냥꾼의 혼 효과 1.5배 증가\n치명타 시 50% 확률로 모든 스킬 재시전 시간 1초 감소"
+    "summary": "공격력, 완벽 증가, 집중의 눈 효과 증가, 사냥꾼의 결의 효과 증가, 치명타 시 50% 확률로 모든 스킬 재시전 시간 감소",
+    "effect": "공격력 <desc_point>{abe:1431004011:value02:divide100}%</> 증가\n완벽 <desc_point>{abe:1431004012:value02:divide100}%</> 증가\n집중의 눈 효과 1.5배 증가\n사냥꾼의 결의 효과 1.5배 증가\n치명타 시 50% 확률로 모든 스킬 재시전 시간 1초 감소"
   },
   "143500001": {
     "name": "대자연의 숨결",
@@ -38020,8 +38020,8 @@
     "type": "Passive",
     "icon": "Skill/ICON_RA_SKILL_Passive_003",
     "icon_view": false,
-    "summary": "지속 피해를 입는 대상 공격 시 추가 피해",
-    "effect": "지속 피해를 입는 대상 공격 시 추가 피해"
+    "summary": "지속 피해를 입는 대상 공격 시 바람속성 추가 피해",
+    "effect": "지속 피해를 입는 대상 공격 시 바람속성 추가 피해"
   },
   "147300001": {
     "name": "바람의 활력",
@@ -38068,16 +38068,16 @@
     "type": "Passive",
     "icon": "Skill/ICON_RA_SKILL_Passive_008",
     "icon_view": false,
-    "summary": "둔화, 속박 대상 공격 시 추가 피해",
-    "effect": "둔화, 속박 대상 공격 시 추가 피해"
+    "summary": "둔화, 속박 대상 공격 시 바람속성 추가 피해",
+    "effect": "둔화, 속박 대상 공격 시 바람속성 추가 피해"
   },
   "147800001": {
     "name": "근접 사격",
     "type": "Passive",
     "icon": "Skill/ICON_RA_SKILL_Passive_013",
     "icon_view": false,
-    "summary": "대상에게 공격 시 추가 피해, 5m내의 대상에게 공격 시 대상을 밀어냄",
-    "effect": "대상에게 공격 시 추가 피해\n5m내의 대상에게 공격 시 대상을 밀어냄"
+    "summary": "대상에게 공격 시 바람속성 추가 피해, 5m내의 대상에게 공격 시 대상을 밀어냄",
+    "effect": "대상에게 공격 시 바람속성 추가 피해\n5m내의 대상에게 공격 시 대상을 밀어냄"
   },
   "147900001": {
     "name": "회생의 계약",
@@ -38100,8 +38100,8 @@
     "type": "Passive",
     "icon": "Skill/ICON_RA_SKILL_Passive_007",
     "icon_view": false,
-    "summary": "치명타 시 추가 피해",
-    "effect": "치명타 시 추가 피해"
+    "summary": "치명타 시 바람속성 추가 피해",
+    "effect": "치명타 시 바람속성 추가 피해"
   },
   "150000001": {
     "name": "마도성 무기 장착",
@@ -38152,12 +38152,12 @@
     "effect": "이동 속도 <desc_point>{abe:1509002011:value02:divide100abs}%</> 감소\n비행 속도 <desc_point>{abe:1509002012:value02:divide100abs}%</> 감소"
   },
   "151100301": {
-    "name": "겨울의 속박",
+    "name": "겨울의 파편",
     "type": "Buff",
-    "icon": "Skill/ICON_SO_SKILL_011",
+    "icon": "Skill/ICON_SO_SKILL_008",
     "icon_view": true,
-    "summary": "PVE 피해 증폭 증가, PVP 피해 증폭 증가",
-    "effect": "PVE 피해 증폭 <desc_point>{abe:1511003011:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1511003012:value02:divide100}%</> 증가"
+    "summary": "PVE 피해 증폭 증가, PVP 피해 증폭 증가, 물 속성 증폭 증가",
+    "effect": "PVE 피해 증폭 <desc_point>{abe:1511003011:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1511003012:value02:divide100}%</> 증가\n물 속성 증폭 <desc_point>{abe:1511003013:value02:divide100}%</> 증가"
   },
   "151300201": {
     "name": "영혼 동결",
@@ -38172,24 +38172,24 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_Abnormal_Polymorph",
     "icon_view": true,
-    "summary": "행동 불능, 불 속성 저항 감소",
-    "effect": "행동 불능\n불 속성 저항 <desc_point>{abe:1514000014:value02:divide100abs}%</> 감소"
+    "summary": "행동 불능, 불 속성 내성 감소",
+    "effect": "행동 불능\n불 속성 내성 <desc_point>{abe:1514000014:value02:divide100abs}%</> 감소"
   },
   "151400101": {
     "name": "저주: 나무",
     "type": "DeBuff",
     "icon": "Skill/ICON_Abnormal_Polymorph",
     "icon_view": true,
-    "summary": "행동 불능, 불 속성 저항 감소, 변신 해제 조건 완화",
-    "effect": "행동 불능\n불 속성 저항 <desc_point>{abe:1514000014:value02:divide100abs}%</> 감소"
+    "summary": "행동 불능, 불 속성 내성 감소, 변신 해제 조건 완화",
+    "effect": "행동 불능\n불 속성 내성 <desc_point>{abe:1514000014:value02:divide100abs}%</> 감소"
   },
   "151400201": {
     "name": "저주: 나무",
     "type": "DeBuff",
     "icon": "Skill/ICON_Abnormal_Polymorph",
     "icon_view": true,
-    "summary": "행동 불능, 불 속성 저항 감소, 변신 해제 조건 완화, 효과 자연 종료 시 막기, 회피 200 감소",
-    "effect": "행동 불능\n불 속성 저항 <desc_point>{abe:1514002014:value02:divide100abs}%</> 감소"
+    "summary": "행동 불능, 불 속성 내성 감소, 변신 해제 조건 완화, 효과 자연 종료 시 막기, 회피 200 감소",
+    "effect": "행동 불능\n불 속성 내성 <desc_point>{abe:1514002014:value02:divide100abs}%</> 감소"
   },
   "151400271": {
     "name": "저주: 나무",
@@ -38204,8 +38204,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_Abnormal_Polymorph",
     "icon_view": true,
-    "summary": "행동 불능, 불 속성 저항 감소, 변신 해제 조건 완화, 효과 자연 종료 시 막기, 회피 200 감소, 충격계 저항 20% 감소",
-    "effect": "행동 불능\n불 속성 저항 <desc_point>{abe:1514003014:value02:divide100abs}%</> 감소"
+    "summary": "행동 불능, 불 속성 내성 감소, 변신 해제 조건 완화, 효과 자연 종료 시 막기, 회피 200 감소, 충격계 저항 20% 감소",
+    "effect": "행동 불능\n불 속성 내성 <desc_point>{abe:1514003014:value02:divide100abs}%</> 감소"
   },
   "151400371": {
     "name": "저주: 나무",
@@ -38220,8 +38220,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_Abnormal_Polymorph",
     "icon_view": true,
-    "summary": "행동 불능, 불 속성 저항 감소, 변신 해제 조건 완화, 효과 자연 종료 시 막기, 회피 200 감소, 충격계 저항 20% 감소",
-    "effect": "행동 불능\n불 속성 저항 <desc_point>{abe:1514003014:value02:divide100abs}%</> 감소"
+    "summary": "행동 불능, 불 속성 내성 감소, 변신 해제 조건 완화, 효과 자연 종료 시 막기, 회피 200 감소, 충격계 저항 20% 감소",
+    "effect": "행동 불능\n불 속성 내성 <desc_point>{abe:1514003014:value02:divide100abs}%</> 감소"
   },
   "151500001": {
     "name": "빙결 상태",
@@ -38476,8 +38476,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가",
-    "effect": "공격력 <desc_point>{abe:1531005012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531005011:value02}</> 증가"
+    "summary": "공격력 증가, 명중 증가, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531005012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531005011:value02}</> 증가\n모든 속성 증폭 <desc_point>{abe:1531005013:value02:divide100}%</> 증가"
   },
   "153101201": {
     "name": "집중의 기원",
@@ -38508,8 +38508,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가, 정신력 소모량 감소",
-    "effect": "공격력 <desc_point>{abe:1531015012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531015012:value02}</> 증가\n정신력 소모량 <desc_point>{abe:1531015013:value02:divide100}%</> 감소"
+    "summary": "공격력 증가, 명중 증가, 정신력 소모량 감소, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531015012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531015011:value02}</> 증가\n정신력 소모량 <desc_point>{abe:1531015013:value02:divide100}%</> 감소\n모든 속성 증폭 <desc_point>{abe:1531015014:value02:divide100}%</> 증가"
   },
   "153102301": {
     "name": "집중의 기원",
@@ -38532,8 +38532,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가",
-    "effect": "공격력 <desc_point>{abe:1531025012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531025011:value02}</> 증가"
+    "summary": "공격력 증가, 명중 증가, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531025012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531025011:value02}</> 증가\n모든 속성 증폭 <desc_point>{abe:1531025013:value02:divide100}%</> 증가"
   },
   "153103401": {
     "name": "집중의 기원",
@@ -38548,16 +38548,16 @@
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가, 최대 정신력 증가",
-    "effect": "공격력 <desc_point>{abe:1531035012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531035011:value02}</> 증가\n최대 정신력 <desc_point>{abe:1531035013:value02}</> 증가"
+    "summary": "공격력 증가, 명중 증가, 최대 정신력 증가, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531035012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531035011:value02}</> 증가\n최대 정신력 <desc_point>{abe:1531035013:value02}</> 증가\n모든 속성 증폭 <desc_point>{abe:1531035014:value02:divide100}%</> 증가"
   },
   "153104501": {
     "name": "집중의 기원",
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가, 전투 속도 증가",
-    "effect": "공격력 <desc_point>{abe:1531045012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531045011:value02}</> 증가\n전투 속도 <desc_point>{abe:1531045013:value02:divide100}%</> 증가"
+    "summary": "공격력 증가, 명중 증가, 전투 속도 증가, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531045012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531045011:value02}</> 증가\n전투 속도 <desc_point>{abe:1531045013:value02:divide100}%</> 증가\n모든 속성 증폭 <desc_point>{abe:1531045014:value02:divide100}%</> 증가"
   },
   "153112301": {
     "name": "집중의 기원",
@@ -38580,8 +38580,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가, 정신력 소모량 감소",
-    "effect": "공격력 <desc_point>{abe:1531125012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531125011:value02}</> 증가\n정신력 소모량 <desc_point>{abe:1531125013:value02:divide100}%</> 감소"
+    "summary": "공격력 증가, 명중 증가, 정신력 소모량 감소, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531125012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531125011:value02}</> 증가\n정신력 소모량 <desc_point>{abe:1531125013:value02:divide100}%</> 감소\n모든 속성 증폭 <desc_point>{abe:1531125014:value02:divide100}%</> 증가"
   },
   "153113401": {
     "name": "집중의 기원",
@@ -38596,16 +38596,16 @@
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가, 정신력 소모량 감소, 최대 정신력 증가",
-    "effect": "공격력 <desc_point>{abe:1531135012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531135011:value02}</> 증가\n정신력 소모량 <desc_point>{abe:1531135013:value02:divide100}%</> 감소\n최대 정신력 <desc_point>{abe:1531135014:value02}</> 증가"
+    "summary": "공격력 증가, 명중 증가, 정신력 소모량 감소, 최대 정신력 증가, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531135012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531135011:value02}</> 증가\n정신력 소모량 <desc_point>{abe:1531135013:value02:divide100}%</> 감소\n최대 정신력 <desc_point>{abe:1531135014:value02}</> 증가\n모든 속성 증폭 <desc_point>{abe:1531135015:value02:divide100}%</> 증가"
   },
   "153114501": {
     "name": "집중의 기원",
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가, 정신력 소모량 감소, 전투 속도 증가",
-    "effect": "공격력 <desc_point>{abe:1531145012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531145011:value02}</> 증가\n정신력 소모량 <desc_point>{abe:1531145013:value02:divide100}%</> 감소\n전투 속도 <desc_point>{abe:1531145014:value02:divide100}%</> 증가"
+    "summary": "공격력 증가, 명중 증가, 정신력 소모량 감소, 전투 속도 증가, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531145012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531145011:value02}</> 증가\n정신력 소모량 <desc_point>{abe:1531145013:value02:divide100}%</> 감소\n전투 속도 <desc_point>{abe:1531145014:value02:divide100}%</> 증가\n모든 속성 증폭 <desc_point>{abe:1531145015:value02:divide100}%</> 증가"
   },
   "153123401": {
     "name": "집중의 기원",
@@ -38620,24 +38620,24 @@
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가, 최대 정신력 증가",
-    "effect": "공격력 <desc_point>{abe:1531235012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531235011:value02}</> 증가\n최대 정신력 <desc_point>{abe:1531235013:value02}</> 증가"
+    "summary": "공격력 증가, 명중 증가, 최대 정신력 증가, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531235012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531235011:value02}</> 증가\n최대 정신력 <desc_point>{abe:1531235013:value02}</> 증가\n모든 속성 증폭 <desc_point>{abe:1531235014:value02:divide100}%</> 증가"
   },
   "153124501": {
     "name": "집중의 기원",
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가, 전투 속도 증가",
-    "effect": "공격력 <desc_point>{abe:1531245012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531245011:value02}</> 증가\n전투 속도 <desc_point>{abe:1531245013:value02:divide100}%</> 증가"
+    "summary": "공격력 증가, 명중 증가, 전투 속도 증가, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531245012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531245011:value02}</> 증가\n전투 속도 <desc_point>{abe:1531245013:value02:divide100}%</> 증가\n모든 속성 증폭 <desc_point>{abe:1531245014:value02:divide100}%</> 증가"
   },
   "153134501": {
     "name": "집중의 기원",
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_028",
     "icon_view": true,
-    "summary": "공격력 증가, 명중 증가, 최대 정신력 증가, 전투 속도 증가",
-    "effect": "공격력 <desc_point>{abe:1531345012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531345011:value02}</> 증가\n최대 정신력 <desc_point>{abe:1531345013:value02}</> 증가\n전투 속도 <desc_point>{abe:1531345014:value02:divide100}%</> 증가"
+    "summary": "공격력 증가, 명중 증가, 최대 정신력 증가, 전투 속도 증가, 모든 속성 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1531345012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1531345011:value02}</> 증가\n최대 정신력 <desc_point>{abe:1531345013:value02}</> 증가\n전투 속도 <desc_point>{abe:1531345014:value02:divide100}%</> 증가\n모든 속성 증폭 <desc_point>{abe:1531345015:value02:divide100}%</> 증가"
   },
   "153200001": {
     "name": "지연 피해",
@@ -38748,40 +38748,40 @@
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_040",
     "icon_view": true,
-    "summary": "불속성, 물속성 피해 증가",
-    "effect": "불 속성 피해 <desc_point>{abe:1540000011:value02:divide100}%</> 증가\n물 속성 피해 <desc_point>{abe:1540000012:value02:divide100}%</> 증가"
+    "summary": "불 속성, 물 속성 증폭 증가",
+    "effect": "불 속성 증폭 <desc_point>{abe:1540000011:value02:divide100}%</> 증가\n물 속성 증폭 <desc_point>{abe:1540000012:value02:divide100}%</> 증가"
   },
   "154000101": {
     "name": "원소 강화",
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_040",
     "icon_view": true,
-    "summary": "불속성, 물속성 피해 증가, 명중 증가",
-    "effect": "불 속성 피해 <desc_point>{abe:1540001011:value02:divide100}%</> 증가\n물 속성 피해 <desc_point>{abe:1540001012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540001013:value02}</> 증가"
+    "summary": "불 속성, 물 속성 증폭 증가, 명중 증가",
+    "effect": "불 속성 증폭 <desc_point>{abe:1540001011:value02:divide100}%</> 증가\n물 속성 증폭 <desc_point>{abe:1540001012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540001013:value02}</> 증가"
   },
   "154000201": {
     "name": "원소 강화",
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_040",
     "icon_view": true,
-    "summary": "불속성, 물속성 피해 증가, 명중 증가, 불꽃의 로브 효과 증가",
-    "effect": "불 속성 피해 <desc_point>{abe:1540001011:value02:divide100}%</> 증가\n물 속성 피해 <desc_point>{abe:1540001012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540001013:value02}</> 증가\n불꽃의 로브 효과 1.5배 증가"
+    "summary": "불 속성, 물 속성 증폭 증가, 명중 증가, 불꽃의 로브 효과 증가",
+    "effect": "불 속성 증폭 <desc_point>{abe:1540001011:value02:divide100}%</> 증가\n물 속성 증폭 <desc_point>{abe:1540001012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540001013:value02}</> 증가\n불꽃의 로브 효과 1.5배 증가"
   },
   "154000301": {
     "name": "원소 강화",
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_040",
     "icon_view": true,
-    "summary": "불속성, 물속성 피해 증가, 명중 증가, 불꽃의 로브 효과 증가, 강화의 은혜 효과 증가",
-    "effect": "불 속성 피해 <desc_point>{abe:1540001011:value02:divide100}%</> 증가\n물 속성 피해 <desc_point>{abe:1540001012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540001013:value02}</> 증가\n불꽃의 로브 효과 1.5배 증가\n강화의 은혜 효과 1.5배 증가"
+    "summary": "불 속성, 물 속성 증폭 증가, 명중 증가, 불꽃의 로브 효과 증가, 강화의 은혜 효과 증가",
+    "effect": "불 속성 증폭 <desc_point>{abe:1540001011:value02:divide100}%</> 증가\n물 속성 증폭 <desc_point>{abe:1540001012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540001013:value02}</> 증가\n불꽃의 로브 효과 1.5배 증가\n강화의 은혜 효과 1.5배 증가"
   },
   "154000401": {
     "name": "원소 강화",
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_040",
     "icon_view": true,
-    "summary": "불속성, 물속성 피해 추가 증가, 명중 증가, 불꽃의 로브 효과 증가, 강화의 은혜 효과 증가",
-    "effect": "불 속성 피해 <desc_point>{abe:1540004011:value02:divide100}%</> 증가\n물 속성 피해 <desc_point>{abe:1540004012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540004013:value02}</> 증가\n불꽃의 로브 효과 1.5배 증가\n강화의 은혜 효과 1.5배 증가"
+    "summary": "불 속성, 물 속성 증폭 추가 증가, 명중 증가, 불꽃의 로브 효과 증가, 강화의 은혜 효과 증가",
+    "effect": "불 속성 증폭 <desc_point>{abe:1540004011:value02:divide100}%</> 증가\n물 속성 증폭 <desc_point>{abe:1540004012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540004013:value02}</> 증가\n불꽃의 로브 효과 1.5배 증가\n강화의 은혜 효과 1.5배 증가"
   },
   "154100001": {
     "name": "동면",
@@ -39077,7 +39077,7 @@
     "icon": "Skill/ICON_EL_SKILL_003",
     "icon_view": true,
     "summary": "공격력 증가",
-    "effect": "공격력 <desc_point>{abe:1603004011:value02:divide100}%</> 증가, 최대 5중첩 가능"
+    "effect": "공격력 <desc_point>{abe:1603004011:value02:divide100}%</> 증가, 최대 2중첩 가능"
   },
   "160600301": {
     "name": "보호막",
@@ -40796,32 +40796,32 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_EL_SKILL_014",
     "icon_view": true,
-    "summary": "지속적인 피해, 정령성에게 주는 피해 감소",
-    "effect": "1초 간격으로 지속 피해\n정령성에게 주는 피해 10% 감소"
+    "summary": "지속적인 피해, 정령성에게 주는 피해 감소, 받는 치유량 및 생명력 물약 회복량 감소",
+    "effect": "1초 간격으로 지속 피해\n정령성에게 주는 피해 10% 감소\n받는 치유량 {abe:1614000013:value02:divide100abs}% 감소\n생명력 물약 회복량 {abe:1614000014:value02:divide100abs}% 감소"
   },
   "161400003": {
     "name": "저주",
     "type": "DeBuff",
     "icon": "Skill/ICON_EL_SKILL_014",
     "icon_view": true,
-    "summary": "지속적인 피해, 정령성에게 주는 피해 감소",
-    "effect": "1초 간격으로 지속 피해\n정령성에게 주는 피해 10% 감소"
+    "summary": "지속적인 피해, 정령성에게 주는 피해 감소, 받는 치유량 및 생명력 물약 회복량 감소",
+    "effect": "1초 간격으로 지속 피해\n정령성에게 주는 피해 10% 감소\n받는 치유량 {abe:1614000013:value02:divide100abs}% 감소\n생명력 물약 회복량 {abe:1614000014:value02:divide100abs}% 감소"
   },
   "161400005": {
     "name": "저주",
     "type": "DeBuff",
     "icon": "Skill/ICON_EL_SKILL_014",
     "icon_view": true,
-    "summary": "지속적인 피해, 정령성에게 주는 피해 감소",
-    "effect": "1초 간격으로 지속 피해\n정령성에게 주는 피해 10% 감소"
+    "summary": "지속적인 피해, 정령성에게 주는 피해 감소, 받는 치유량 및 생명력 물약 회복량 감소",
+    "effect": "1초 간격으로 지속 피해\n정령성에게 주는 피해 10% 감소\n받는 치유량 {abe:1614000013:value02:divide100abs}% 감소\n생명력 물약 회복량 {abe:1614000014:value02:divide100abs}% 감소"
   },
   "161400007": {
     "name": "저주",
     "type": "DeBuff",
     "icon": "Skill/ICON_EL_SKILL_014",
     "icon_view": true,
-    "summary": "지속적인 피해, 정령성에게 주는 피해 감소",
-    "effect": "1초 간격으로 지속 피해\n정령성에게 주는 피해 10% 감소"
+    "summary": "지속적인 피해, 정령성에게 주는 피해 감소, 받는 치유량 및 생명력 물약 회복량 감소",
+    "effect": "1초 간격으로 지속 피해\n정령성에게 주는 피해 10% 감소\n받는 치유량 {abe:1614000013:value02:divide100abs}% 감소\n생명력 물약 회복량 {abe:1614000014:value02:divide100abs}% 감소"
   },
   "161500001": {
     "name": "부식",
@@ -40844,16 +40844,16 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_EL_SKILL_015",
     "icon_view": true,
-    "summary": "지속 피해, 정령에게 받는 피해 증가, 받는 치유량 감소",
-    "effect": "지속 피해\n정령에게 받는 피해 25% 증가\n받는 치유량 {abe:1615000043:value02:divide100abs}% 감소"
+    "summary": "지속 피해, 정령에게 받는 피해 증가, 상태이상 저항 감소",
+    "effect": "지속 피해\n정령에게 받는 피해 25% 증가\n상태이상 저항 {abe:1615000042:value02:divide100abs}% 감소"
   },
   "161500005": {
     "name": "부식",
     "type": "DeBuff",
     "icon": "Skill/ICON_EL_SKILL_015",
     "icon_view": true,
-    "summary": "지속 피해, 정령에게 받는 피해 증가, 받는 치유량 감소",
-    "effect": "지속 피해\n정령에게 받는 피해 25% 증가\n받는 치유량 {abe:1615000043:value02:divide100abs}% 감소"
+    "summary": "지속 피해, 정령에게 받는 피해 증가, 상태이상 저항 감소",
+    "effect": "지속 피해\n정령에게 받는 피해 25% 증가\n상태이상 저항 {abe:1615000042:value02:divide100abs}% 감소"
   },
   "161531001": {
     "name": "협공: 부식",
@@ -41188,8 +41188,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_EL_SKILL_030",
     "icon_view": true,
-    "summary": "{se:1630002013:effect_value02:time} 후 추가 피해",
-    "effect": "{se:1630002013:effect_value02:time} 후 추가 피해"
+    "summary": "{se:1630002014:effect_value02:time} 후 추가 피해",
+    "effect": "{se:1630002014:effect_value02:time} 후 추가 피해"
   },
   "163000009": {
     "name": "None",
@@ -41348,24 +41348,24 @@
     "type": "Passive",
     "icon": "Skill/ICON_EL_SKILL_Passive_003",
     "icon_view": false,
-    "summary": "공격 시 확률로 추가 피해",
-    "effect": "공격 시 {abe:1673000011:value02:divide100}% 확률로 추가 피해"
+    "summary": "소환 시 모든 속성 피해 증폭 증가",
+    "effect": "정령 소환 시 모든 속성 피해 증폭 {abe:1673000011:value02:divide100}% 증가"
   },
   "167300011": {
     "name": "정령 강림",
     "type": "Buff",
     "icon": "Skill/ICON_EL_SKILL_Passive_003",
     "icon_view": true,
-    "summary": "공격 시 확률로 추가 피해",
-    "effect": "공격 시 {abe:1673000011:value02:divide100}% 확률로 추가 피해"
+    "summary": "소환 시 모든 속성 피해 증폭 증가",
+    "effect": "정령 소환 시 모든 속성 피해 증폭 {abe:1673000011:value02:divide100}% 증가"
   },
   "167300012": {
     "name": "정령 강림",
     "type": "Buff",
     "icon": "Skill/ICON_EL_SKILL_Passive_003",
     "icon_view": true,
-    "summary": "공격 시 증가된 확률로 추가 피해",
-    "effect": "공격 시 {abe:1673000012:value02:divide100}% 확률로 추가 피해"
+    "summary": "소환 시 모든 속성 피해 증폭 증가",
+    "effect": "정령 소환 시 모든 속성 피해 증폭 {abe:1673000011:value02:divide100}% 증가"
   },
   "167400001": {
     "name": "침식",
@@ -41388,8 +41388,8 @@
     "type": "Passive",
     "icon": "Skill/ICON_EL_SKILL_Passive_005",
     "icon_view": false,
-    "summary": "정령의 생명력이 50% 미만일 때 회복, 적중 시 확률로 소환 스킬 재시전 시간 감소",
-    "effect": "정령의 생명력이 50% 미만일 때 최대 생명력의 <desc_point>{se:1675000111:effect_value02:divide100}%</> 회복\n적중 시 <desc_point>{abe:1675000012:value02:divide100}%</> 확률로 정령 소환 스킬의 재시전 시간 {se:1675000211:effect_value02:time} 감소"
+    "summary": "정령의 생명력이 50% 미만일 때 회복, 적중 시 확률로 [소환: 고대의 정령] 스킬 재시전 시간 감소",
+    "effect": "정령의 생명력이 50% 미만일 때 최대 생명력의 <desc_point>{se:1675000111:effect_value02:divide100}%</> 회복\n적중 시 <desc_point>{abe:1675000012:value02:divide100}%</> 확률로 [소환: 고대의 정령] 스킬의 재시전 시간 {se:1675000211:effect_value02:time} 감소"
   },
   "167600001": {
     "name": "정신 집중",
@@ -41413,7 +41413,7 @@
     "icon": "Skill/ICON_EL_SKILL_Passive_008",
     "icon_view": false,
     "summary": "정령 스킬 적중 시 치명타 피해 증폭",
-    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가 (최대 5중첩)"
+    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가\n정령 강림 효과 중 치명타 피해 증폭 <chat_combat>{abe:1678000112:value02:divide100abs}%</> 증가"
   },
   "167800011": {
     "name": "원소 결집",
@@ -41421,7 +41421,7 @@
     "icon": "Skill/ICON_EL_SKILL_Passive_008",
     "icon_view": true,
     "summary": "정령 스킬 적중 시 치명타 피해 증폭",
-    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가 (최대 5중첩)"
+    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가\n정령 강림 효과 중 치명타 피해 증폭 <chat_combat>{abe:1678000112:value02:divide100abs}%</> 증가"
   },
   "167800021": {
     "name": "원소 결집",
@@ -41429,7 +41429,7 @@
     "icon": "Skill/ICON_EL_SKILL_Passive_008",
     "icon_view": false,
     "summary": "정령 스킬 적중 시 치명타 피해 증폭",
-    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가 (최대 5중첩)"
+    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가\n정령 강림 효과 중 치명타 피해 증폭 <chat_combat>{abe:1678000112:value02:divide100abs}%</> 증가"
   },
   "167900001": {
     "name": "회생의 계약",
@@ -41997,31 +41997,31 @@
     "icon": "Skill/ICON_CL_SKILL_029",
     "icon_view": true,
     "summary": "회복 상태",
-    "effect": "생명력의 3%만큼 지속 회복"
+    "effect": "생명력의 1.5%만큼 지속 회복"
   },
   "173000001": {
     "name": "파멸의 목소리",
     "type": "DeBuff",
     "icon": "Skill/ICON_CL_SKILL_030",
     "icon_view": true,
-    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복 감소",
-    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소"
+    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복량 감소",
+    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소"
   },
   "173000301": {
     "name": "파멸의 목소리",
     "type": "DeBuff",
     "icon": "Skill/ICON_CL_SKILL_030",
     "icon_view": true,
-    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복 감소, 치명타 저항 감소",
-    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소\n치명타 저항 <desc_point>{abe:1730003014:value02:noneabs}</> 감소"
+    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복량 감소, 치명타 저항 감소",
+    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소\n치명타 저항 <desc_point>{abe:1730003014:value02:noneabs}</> 감소"
   },
   "173000401": {
     "name": "파멸의 목소리",
     "type": "DeBuff",
     "icon": "Skill/ICON_CL_SKILL_030",
     "icon_view": true,
-    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복 감소, 치명타 저항 감소",
-    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소\n치명타 저항 <desc_point>{abe:1730003014:value02:noneabs}</> 감소"
+    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복량 감소, 치명타 저항 감소",
+    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소\n치명타 저항 <desc_point>{abe:1730003014:value02:noneabs}</> 감소"
   },
   "173900002": {
     "name": "소환 부활",
@@ -42244,24 +42244,24 @@
     "type": "Buff",
     "icon": "Skill/ICON_CL_SKILL_043",
     "icon_view": true,
-    "summary": "공격력 증가, 주신의 은총 효과 증가",
-    "effect": "공격력 <desc_point>{abe:1743000011:value02:divide100}%</> 증가\n주신의 은총 효과 1.5배 증가"
+    "summary": "공격력 증가, PVE 피해 증폭 증가, PVP 피해 증폭 증가, 주신의 은총 효과 증가",
+    "effect": "공격력 <desc_point>{abe:1743000011:value02:divide100}%</> 증가\nPVE 피해 증폭 <desc_point>{abe:1743001012:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1743001013:value02:divide100}%</> 증가\n주신의 은총 효과 1.5배 증가"
   },
   "174300301": {
     "name": "증폭의 기도",
     "type": "Buff",
     "icon": "Skill/ICON_CL_SKILL_043",
     "icon_view": true,
-    "summary": "공격력 증가, 주신의 은총 효과 증가, 대지의 은총 효과 증가",
-    "effect": "공격력 <desc_point>{abe:1743000011:value02:divide100}%</> 증가\n주신의 은총 효과 1.5배 증가\n대지의 은총 효과 1.5배 증가"
+    "summary": "공격력 증가, PVE 피해 증폭 증가, PVP 피해 증폭 증가, 주신의 은총 효과 증가, 대지의 은총 효과 증가",
+    "effect": "공격력 <desc_point>{abe:1743000011:value02:divide100}%</> 증가\nPVE 피해 증폭 <desc_point>{abe:1743001012:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1743001013:value02:divide100}%</> 증가\n주신의 은총 효과 1.5배 증가\n대지의 은총 효과 1.5배 증가"
   },
   "174300401": {
     "name": "증폭의 기도",
     "type": "Buff",
     "icon": "Skill/ICON_CL_SKILL_043",
     "icon_view": true,
-    "summary": "공격력 증가, 주신의 은총 효과 증가, 대지의 은총 효과 증가",
-    "effect": "공격력 <desc_point>{abe:1743004011:value02:divide100}%</> 증가\n주신의 은총 효과 1.5배 증가\n대지의 은총 효과 1.5배 증가"
+    "summary": "공격력 증가, PVE 피해 증폭 증가, PVP 피해 증폭 증가, 주신의 은총 효과 증가, 대지의 은총 효과 증가",
+    "effect": "공격력 <desc_point>{abe:1743004011:value02:divide100}%</> 증가\nPVE 피해 증폭 <desc_point>{abe:1743001012:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1743001013:value02:divide100}%</> 증가\n주신의 은총 효과 1.5배 증가\n대지의 은총 효과 1.5배 증가"
   },
   "174400001": {
     "name": "고결한 기운",
@@ -42349,7 +42349,7 @@
     "icon": "Skill/ICON_CL_SKILL_Passive_012",
     "icon_view": false,
     "summary": "치명타 증가, 강타 증가, 추가 피해",
-    "effect": "치명타 <desc_point>{abe:1773000013:value02:noneabs}</> 증가\n강타 <desc_point>{abe:1773000015:value02:divide100}%</> 증가\n추가 피해"
+    "effect": "치명타 <desc_point>{abe:1773000018:value02:noneabs}</> 증가\n강타 <desc_point>{abe:1773000025:value02:divide100}%</> 증가\n추가 피해"
   },
   "177400001": {
     "name": "치유력 강화",
@@ -42397,15 +42397,15 @@
     "icon": "Skill/ICON_CL_SKILL_Passive_006",
     "icon_view": false,
     "summary": "공격 적중 시 일정 확률로 대상 회복 감소",
-    "effect": "공격 적중 시 7%의 확률로 대상의 받는 치유량 <desc_point>{abe:1776000111:value02:divide100}%</> 감소"
+    "effect": "공격 적중 시 7%의 확률로 대상의 받는 치유량 및 생명력 물약 회복량 <desc_point>{abe:1776000111:value02:divide100}%</> 감소"
   },
   "177600011": {
     "name": "회복 차단",
     "type": "DeBuff",
     "icon": "Skill/ICON_CL_SKILL_Passive_006",
     "icon_view": true,
-    "summary": "받는 치유량 감소",
-    "effect": "받는 치유량 <desc_point>{abe:1776000111:value02:divide100}%</> 감소"
+    "summary": "받는 치유량 및 생명력 물약 회복량 감소",
+    "effect": "받는 치유량 및 생명력 물약 회복량 <desc_point>{abe:1776000111:value02:divide100}%</> 감소"
   },
   "177700001": {
     "name": "집중의 기도",
@@ -42429,7 +42429,7 @@
     "icon": "Skill/ICON_CL_SKILL_Passive_008",
     "icon_view": false,
     "summary": "치명타 피해 증가, 명중 증가",
-    "effect": "치명타 피해 증폭 <desc_point>{abe:1778000011:value02:divide100}%</> 증가\n명중 {abe:1778000013:value02} 증가"
+    "effect": "치명타 피해 증폭 <desc_point>{abe:1778000011:value02:divide100}%</> 증가\n명중 {abe:1778000018:value02} 증가"
   },
   "177800011": {
     "name": "대지의 은총",
@@ -42621,7 +42621,7 @@
     "icon": "Skill/ICON_CH_SKILL_014",
     "icon_view": true,
     "summary": "확정 막기 상태",
-    "effect": "막기 피해감소율 <desc_point>{abe:1814000012:value02:divide100}%</> 증가\n확정 막기 상태\n막기 성공 시 정신력, 행동력 1회 회복"
+    "effect": "막기 피해감소율 <desc_point>{abe:1814000012:value02:divide100}%</> 증가\n확정 막기 상태\n막기 성공 시 정신력, 행동력 1회 회복\n막기 성공 시 [집중 방어] 스킬 재시전 시간 {abe:1814000020:value02:time} 감소"
   },
   "181400002": {
     "name": "None",
@@ -42637,7 +42637,7 @@
     "icon": "Skill/ICON_CH_SKILL_014",
     "icon_view": true,
     "summary": "확정 막기 상태",
-    "effect": "막기 피해감소율 <desc_point>{abe:1814004012:value02:divide100}%</> 증가\n확정 막기 상태\n막기 성공 시 생명력, 정신력, 행동력 1회 회복"
+    "effect": "막기 피해감소율 <desc_point>{abe:1814004012:value02:divide100}%</> 증가\n확정 막기 상태\n막기 성공 시 생명력, 정신력, 행동력 1회 회복\n막기 성공 시 [집중 방어] 스킬 재시전 시간 {abe:1814000020:value02:time} 감소"
   },
   "181400402": {
     "name": "None",
@@ -42656,12 +42656,12 @@
     "effect": ""
   },
   "181600001": {
-    "name": "질주의 진언",
+    "name": "폭풍의 주문",
     "type": "Buff",
-    "icon": "Skill/ICON_CH_SKILL_016",
-    "icon_view": false,
-    "summary": "이동 속도 증가, 공격 적중 시 일정 확률로 생명력 회복",
-    "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복"
+    "icon": "Skill/ICON_CH_SKILL_026",
+    "icon_view": true,
+    "summary": "보스 피해 증폭 증가, 치유 증폭 감소",
+    "effect": "보스 피해 <desc_point>{abe:1816000011:value02:divide100}%</> 증가\n치유 증폭 0% 변경"
   },
   "181600011": {
     "name": "질주의 진언",
@@ -42672,12 +42672,12 @@
     "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복"
   },
   "181600101": {
-    "name": "질주의 진언",
+    "name": "폭풍의 주문",
     "type": "Buff",
-    "icon": "Skill/ICON_CH_SKILL_016",
-    "icon_view": false,
-    "summary": "이동 속도 증가, 공격 적중 시 일정 확률로 생명력 회복, 받는 치유량 증가",
-    "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복\n받는 치유량 <desc_point>{abe:1816001113:value02:divide100}%</> 증가"
+    "icon": "Skill/ICON_CH_SKILL_026",
+    "icon_view": true,
+    "summary": "보스 피해 증폭 증가, 명중 증가, 치유 증폭 감소",
+    "effect": "보스 피해 <desc_point>{abe:1816000011:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1816001013:value02}</> 증가\n치유 증폭 0% 변경"
   },
   "181600111": {
     "name": "질주의 진언",
@@ -42688,12 +42688,12 @@
     "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복\n받는 치유량 <desc_point>{abe:1816001113:value02:divide100}%</> 증가"
   },
   "181600201": {
-    "name": "질주의 진언",
+    "name": "폭풍의 주문",
     "type": "Buff",
-    "icon": "Skill/ICON_CH_SKILL_016",
-    "icon_view": false,
-    "summary": "이동 속도 증가, 공격 적중 시 일정 확률로 생명력 회복, 받는 치유량 증가, 행동력 자연 회복 증가",
-    "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복\n받는 치유량 <desc_point>{abe:1816001113:value02:divide100}%</> 증가\n행동력 자연 회복 <desc_point>{abe:1816002114:value02:divide100}%</> 증가"
+    "icon": "Skill/ICON_CH_SKILL_026",
+    "icon_view": true,
+    "summary": "보스 피해 증폭 증가, 명중 증가, 완벽 증가, 치유 증폭 감소",
+    "effect": "보스 피해 <desc_point>{abe:1816000011:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1816001013:value02}</> 증가\n완벽 <desc_point>{abe:1816002014:value02:divide100}%</> 증가\n치유 증폭 0% 변경"
   },
   "181600211": {
     "name": "질주의 진언",
@@ -42704,12 +42704,12 @@
     "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복\n받는 치유량 <desc_point>{abe:1816001113:value02:divide100}%</> 증가\n행동력 자연 회복 <desc_point>{abe:1816002114:value02:divide100}%</> 증가"
   },
   "181600301": {
-    "name": "질주의 진언",
+    "name": "폭풍의 주문",
     "type": "Buff",
-    "icon": "Skill/ICON_CH_SKILL_016",
-    "icon_view": false,
-    "summary": "이동 속도 증가, 공격 적중 시 일정 확률로 생명력 회복, 받는 치유량 증가, 행동력 자연 회복 증가, 생명력이 50%이하일 경우 추가 회복",
-    "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복\n생명력이 50%이하일 경우 회복 50% 증가\n받는 치유량 <desc_point>{abe:1816001113:value02:divide100}%</> 증가\n행동력 자연 회복 <desc_point>{abe:1816002114:value02:divide100}%</> 증가"
+    "icon": "Skill/ICON_CH_SKILL_026",
+    "icon_view": true,
+    "summary": "보스 피해 증폭 증가, 명중 증가, 완벽 증가, 치유 증폭 감소",
+    "effect": "보스 피해 <desc_point>{abe:1816000011:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1816001013:value02}</> 증가\n완벽 <desc_point>{abe:1816002014:value02:divide100}%</> 증가\n치유 증폭 0% 변경"
   },
   "181600311": {
     "name": "질주의 진언",
@@ -42720,12 +42720,12 @@
     "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복\n생명력이 50%이하일 경우 회복 50% 증가\n받는 치유량 <desc_point>{abe:1816001113:value02:divide100}%</> 증가\n행동력 자연 회복 <desc_point>{abe:1816002114:value02:divide100}%</> 증가"
   },
   "181600401": {
-    "name": "질주의 진언",
+    "name": "폭풍의 주문",
     "type": "Buff",
-    "icon": "Skill/ICON_CH_SKILL_016",
-    "icon_view": false,
-    "summary": "이동 속도 증가, 공격 적중 시 일정 확률로 생명력 회복, 받는 치유량 증가, 행동력 자연 회복 증가, 생명력이 50%이하일 경우 추가 회복, 재생 증가",
-    "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복\n생명력이 50%이하일 경우 회복 50% 증가\n받는 치유량 <desc_point>{abe:1816001113:value02:divide100}%</> 증가\n행동력 자연 회복 <desc_point>{abe:1816002114:value02:divide100}%</> 증가\n재생 <desc_point>{abe:1816004115:value02:divide100}%</> 증가"
+    "icon": "Skill/ICON_CH_SKILL_026",
+    "icon_view": true,
+    "summary": "보스 피해 증폭 증가, 명중 증가, 완벽 증가, 공격력 증가, 치유 증폭 감소",
+    "effect": "보스 피해 <desc_point>{abe:1816000011:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1816001013:value02}</> 증가\n완벽 <desc_point>{abe:1816002014:value02:divide100}%</> 증가\n공격력 <desc_point>{abe:1816004015:value02:divide100}%</> 증가\n치유 증폭 0% 변경"
   },
   "181600411": {
     "name": "질주의 진언",
@@ -42780,8 +42780,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_CH_SKILL_019",
     "icon_view": true,
-    "summary": "PVE 피해 증폭 증가, PVE 피해 내성 증가, PVP 피해 증폭 증가, PVP 피해 내성 증가, 치명타 증가, 명중 증가",
-    "effect": "PVE 피해 증폭 <desc_point>{abe:1819000111:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1819000113:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1819000112:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1819000114:value02:divide100}%</> 증가\n치명타 <desc_point>{abe:1819001115:value02}</> 증가\n명중 <desc_point>{abe:1819002116:value02}</> 증가"
+    "summary": "PVE 피해 증폭 증가, PVE 피해 내성 증가, PVP 피해 증폭 증가, PVP 피해 내성 증가, 치명타 증가, 치명타 피해 증폭 증가",
+    "effect": "PVE 피해 증폭 <desc_point>{abe:1819000111:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1819000113:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1819000112:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1819000114:value02:divide100}%</> 증가\n치명타 <desc_point>{abe:1819001115:value02}</> 증가\n치명타 피해 증폭 <desc_point>{abe:1819002116:value02:divide100}%</> 증가"
   },
   "181900301": {
     "name": "불패의 진언",
@@ -42796,8 +42796,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_CH_SKILL_019",
     "icon_view": true,
-    "summary": "PVE 피해 증폭 증가, PVE 피해 내성 증가, PVP 피해 증폭 증가, PVP 피해 내성 증가, 치명타 증가, 명중 증가, 치명타 피해 증폭 증가",
-    "effect": "PVE 피해 증폭 <desc_point>{abe:1819000111:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1819000113:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1819000112:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1819000114:value02:divide100}%</> 증가\n치명타 <desc_point>{abe:1819001115:value02}</> 증가\n명중 <desc_point>{abe:1819002116:value02}</> 증가\n치명타 피해 증폭 <desc_point>{abe:1819003117:value02:divide100}%</> 증가"
+    "summary": "PVE 피해 증폭 증가, PVE 피해 내성 증가, PVP 피해 증폭 증가, PVP 피해 내성 증가, 치명타 증가, 치명타 피해 증폭 증가, 이동 속도 증가",
+    "effect": "PVE 피해 증폭 <desc_point>{abe:1819000111:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1819000113:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1819000112:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1819000114:value02:divide100}%</> 증가\n치명타 <desc_point>{abe:1819001115:value02}</> 증가\n치명타 피해 증폭 <desc_point>{abe:1819002116:value02:divide100}%</> 증가\n이동 속도 <desc_point>{abe:1819003117:value02:divide100}%</> 증가"
   },
   "181900401": {
     "name": "불패의 진언",
@@ -42812,8 +42812,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_CH_SKILL_019",
     "icon_view": true,
-    "summary": "PVE 피해 증폭 증가, PVE 피해 내성 증가, PVP 피해 증폭 증가, PVP 피해 내성 증가, 치명타 증가, 명중 증가, 치명타 피해 증폭 증가, 강타 증가",
-    "effect": "PVE 피해 증폭 <desc_point>{abe:1819000111:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1819000113:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1819000112:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1819000114:value02:divide100}%</> 증가\n치명타 <desc_point>{abe:1819001115:value02}</> 증가\n명중 <desc_point>{abe:1819002116:value02}</> 증가\n치명타 피해 증폭 <desc_point>{abe:1819003117:value02:divide100}%</> 증가\n강타 <desc_point>{abe:1819004118:value02:divide100}%</> 증가"
+    "summary": "PVE 피해 증폭 증가, PVE 피해 내성 증가, PVP 피해 증폭 증가, PVP 피해 내성 증가, 치명타 증가, 치명타 피해 증폭 증가, 이동 속도 증가, 완벽 증가",
+    "effect": "PVE 피해 증폭 <desc_point>{abe:1819000111:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1819000113:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1819000112:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1819000114:value02:divide100}%</> 증가\n치명타 <desc_point>{abe:1819001115:value02}</> 증가\n치명타 피해 증폭 <desc_point>{abe:1819002116:value02:divide100}%</> 증가\n이동 속도 <desc_point>{abe:1819003117:value02:divide100}%</> 증가\n완벽 <desc_point>{abe:1819004118:value02:divide100}%</> 증가"
   },
   "182300201": {
     "name": "결박의 낙인",
@@ -42916,8 +42916,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_CH_SKILL_033",
     "icon_view": true,
-    "summary": "받는 치유량 및 물약 회복량 감소",
-    "effect": "받는 치유량 및 물약 회복량 <desc_point>{abe:1833003011:value02:divide100abs}%</> 감소"
+    "summary": "받는 치유량 및 생명력 물약 회복량 감소",
+    "effect": "받는 치유량 및 생명력 물약 회복량 <desc_point>{abe:1833003011:value02:divide100abs}%</> 감소"
   },
   "184200001": {
     "name": "수호의 축복",
@@ -43212,208 +43212,208 @@
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가"
   },
   "191300101": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가"
   },
   "191300201": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
   },
   "191300301": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
   },
   "191300401": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191300501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191301201": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
   },
   "191301301": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 강타 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
   },
   "191301401": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191301501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191302301": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
   },
   "191302401": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191302501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191303401": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191303501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191304501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191312301": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
   },
   "191312401": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191312501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191313401": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191313501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191314501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191323401": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191323501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항, 강타 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191324501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191334501": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "190700001": {
     "name": "질풍격-환영각 사용가능 버프",
@@ -43620,8 +43620,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_GT_SKILL_032",
     "icon_view": true,
-    "summary": "받는 치유량 감소",
-    "effect": "받는 치유량 {abe:1932000011:value02:divide100}% 감소"
+    "summary": "받는 치유량 및 생명력 물약 회복량 감소",
+    "effect": "받는 치유량 {abe:1932000011:value02:divide100}% 감소\n생명력 물약 회복량 {abe:1932000012:value02:divide100abs}% 감소"
   },
   "193300001": {
     "name": "분신",
@@ -43693,7 +43693,7 @@
     "icon": "Skill/ICON_GT_SKILL_035",
     "icon_view": true,
     "summary": "막기 피해 감소 및 확정 무기 막기",
-    "effect": "막기 피해 100% 감소\n확정 무기 막기"
+    "effect": "막기 피해 100% 감소\n확정 무기 막기\n무기 막기 성공 시 [집중 막기] 스킬 재시전 시간 {abe:1935000017:value02:time} 감소"
   },
   "193600001": {
     "name": "저지 불가",
@@ -43840,7 +43840,7 @@
     "effect": "상태이상 저항 <chat_combat>{abe:1979000012:value02:divide100}%</> 증가\n기절, 넘어짐, 공중 속박, 빙결, 공포 상태에서 피격 시 상태이상 저항 {abe:1979000021:value02:divide100}% 증가 (최대 10회 중첩)\n생명력이 10% 이하일 때 최대 생명력의 <chat_combat>{se:1979000111:effect_value02:divide100}%</> 즉시 회복"
   },
   "198000001": {
-    "name": "우세",
+    "name": "경량화",
     "type": "Passive",
     "icon": "Skill/ICON_GT_SKILL_Passive_010",
     "icon_view": false,
@@ -46677,7 +46677,7 @@
     "icon": "Skill/ICON_GL_SKILL_011",
     "icon_view": true,
     "summary": "확정 무기막기 상태",
-    "effect": "무기막기 피해감소율 <desc_point>{abe:1111000014:value02:divide100}%</> 증가\n확정 무기막기 상태\n무기막기 성공 시 정신력, 행동력 1회 회복\n무기막기 성공 시 이동 속도 {abe:1111003811:value02:divide100}% 증가"
+    "effect": "무기막기 피해감소율 <desc_point>{abe:1111000014:value02:divide100}%</> 증가\n확정 무기막기 상태\n무기막기 성공 시 정신력, 행동력 1회 회복\n무기막기 성공 시 [집중 막기] 스킬 재시전 시간 {abe:1111000022:value02:time} 감소\n무기막기 성공 시 광분 효과 부여"
   },
   "111100381": {
     "name": "집중 막기",
@@ -46780,8 +46780,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_GL_SKILL_040",
     "icon_view": true,
-    "summary": "전투 속도 증가, 강타 증가, 이동 속도 증가, 치명 시 재시전 시간 1초 감소, 치명 시 추가 피해, 약점 파악 효과 증가",
-    "effect": "전투 속도 <desc_point>{abe:1140005011:value02:divide100}%</> 증가\n강타 <desc_point>{abe:1140005013:value02:divide100}%</> 증가\n이동 속도 <desc_point>{abe:1140005014:value02:divide100}%</> 증가\n치명타 시 <desc_point>{abe:1140005015:value02:divide100}%</>확률로 재시전 시간 1초 감소\n치명타 시 <desc_point>{abe:1140005016:value02:divide100}%</>확률로 추가 피해\n약점 파악 효과 1.5배 증가"
+    "summary": "전투 속도 증가, 강타 증가, 이동 속도 증가, 치명 시 [돌격 자세] 재시전 시간 1초 감소, 치명 시 추가 피해, 약점 파악 효과 증가",
+    "effect": "전투 속도 <desc_point>{abe:1140005011:value02:divide100}%</> 증가\n강타 <desc_point>{abe:1140005013:value02:divide100}%</> 증가\n이동 속도 <desc_point>{abe:1140005014:value02:divide100}%</> 증가\n치명타 시 <desc_point>{abe:1140005015:value02:divide100}%</>확률로 [돌격 자세] 재시전 시간 1초 감소\n치명타 시 <desc_point>{abe:1140005016:value02:divide100}%</>확률로 추가 피해\n약점 파악 효과 1.5배 증가"
   },
   "114100501": {
     "name": "파동의 갑주",
@@ -46868,8 +46868,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_TE_SKILL_011",
     "icon_view": true,
-    "summary": "이동 속도 증가",
-    "effect": "이동 속도 <desc_point>{abe:1211003711:value02:divide100}%</> 증가"
+    "summary": "공격력 증가",
+    "effect": "공격력 <desc_point>{abe:1211003711:value02:divide100}%</> 증가"
   },
   "121200101": {
     "name": "위축",
@@ -47053,7 +47053,7 @@
     "icon": "Skill/ICON_TE_SKILL_022",
     "icon_view": true,
     "summary": "최대 생명력, 방어력, 받는 치유량, PVE 피해 내성, PVP 피해 내성 증가, 모욕의 포효 효과 증가, 격앙 효과 증가",
-    "effect": "최대 생명력 <desc_point>{abe:1223005011:value02:divide100}%</> 증가\n방어력 <desc_point>{abe:1223005012:value02:divide100}%</> 증가\n받는 치유량 <desc_point>{abe:1223005013:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1223005015:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1223005016:value02:divide100}%</> 증가\n모욕의 포효 효과 1.5배 증가\n격앙 효과 1.5배 증가"
+    "effect": "최대 생명력 <desc_point>{abe:1223005011:value02:divide100}%</> 증가\n방어력 <desc_point>{abe:1223005012:value02:divide100}%</> 증가\n받는 치유량 <desc_point>{abe:1223005013:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1223005014:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1223005015:value02:divide100}%</> 증가\n모욕의 포효 효과 1.5배 증가\n격앙 효과 1.5배 증가"
   },
   "122500102": {
     "name": "전우 보호",
@@ -47108,16 +47108,16 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_TE_SKILL_025",
     "icon_view": true,
-    "summary": "방어력, 받는 치유량, 물약 회복량 감소",
-    "effect": "방어력 <desc_point>{abe:1227003021:value02:divide100abs}%</> 감소\n받는 치유량 <desc_point>{abe:1227003022:value02:divide100abs}%</> 감소\n물약 회복량 <desc_point>{abe:1227003023:value02:divide100abs}%</> 감소"
+    "summary": "방어력, 받는 치유량, 생명력 물약 회복량 감소",
+    "effect": "방어력 <desc_point>{abe:1227003021:value02:divide100abs}%</> 감소\n받는 치유량 <desc_point>{abe:1227003022:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1227003023:value02:divide100abs}%</> 감소"
   },
   "122700302": {
     "name": "쇠약",
     "type": "DeBuff",
     "icon": "Skill/ICON_TE_SKILL_025",
     "icon_view": true,
-    "summary": "방어력, 받는 치유량, 물약 회복량 감소",
-    "effect": "방어력 <desc_point>{abe:1227003021:value02:divide100abs}%</> 감소\n받는 치유량 <desc_point>{abe:1227003022:value02:divide100abs}%</> 감소\n물약 회복량 <desc_point>{abe:1227003023:value02:divide100abs}%</> 감소"
+    "summary": "방어력, 받는 치유량, 생명력 물약 회복량 감소",
+    "effect": "방어력 <desc_point>{abe:1227003021:value02:divide100abs}%</> 감소\n받는 치유량 <desc_point>{abe:1227003022:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1227003023:value02:divide100abs}%</> 감소"
   },
   "123200005": {
     "name": "네자칸의 방패",
@@ -47204,8 +47204,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_024",
     "icon_view": true,
-    "summary": "이동 속도 증가",
-    "effect": "이동 속도 <desc_point>{abe:1308003711:value02:divide100}%</> 증가"
+    "summary": "후방 피해 증폭 증가",
+    "effect": "후방 피해 증폭 <desc_point>{abe:1308003711:value02:divide100}%</> 증가"
   },
   "131800201": {
     "name": "은신",
@@ -47252,16 +47252,16 @@
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_039",
     "icon_view": true,
-    "summary": "회피, 이동 속도 증가, 둔화/속박/지속 피해 면역, {abe:1337005014:value02:divide100}% 확률로 발사체 면역, 회피 시 50% 확률로 모든 스킬의 재시전 시간 감소",
-    "effect": "회피 <desc_point>{abe:1337005011:value02}</> 증가\n이동 속도 <desc_point>{abe:1337005015:value02:divide100}%</> 증가\n둔화, 속박, 지속 피해 면역 상태\n{abe:1337005014:value02:divide100}% 확률로 발사체 면역\n회피 시 50% 확률로 모든 스킬의 재시전 시간 1초 감소"
+    "summary": "회피, 이동 속도, 치명타 저항 증가, 둔화/속박/지속 피해 면역, {abe:1337005014:value02:divide100}% 확률로 발사체 면역, 회피 시 {abe:1337005017:value04:divide100}% 확률로 [회피의 계약] 스킬 재시전 시간 감소",
+    "effect": "회피 <desc_point>{abe:1337005011:value02}</> 증가\n이동 속도 <desc_point>{abe:1337005015:value02:divide100}%</> 증가\n치명타 저항 <desc_point>{abe:1337005016:value02}</> 증가\n둔화, 속박, 지속 피해 면역 상태\n{abe:1337005014:value02:divide100}% 확률로 발사체 면역\n회피 시 {abe:1337005017:value04:divide100}% 확률로 [회피의 계약] 스킬 재시전 시간 {abe:1337005017:value02:time} 감소"
   },
   "133900501": {
     "name": "신속의 계약",
     "type": "Buff",
     "icon": "Skill/ICON_AS_SKILL_037",
     "icon_view": true,
-    "summary": "전투 속도, 공격력 증가, 정신력 소모량 감소, 배후 강타 효과 증가, 강습 자세 효과 증가",
-    "effect": "전투 속도 <desc_point>{abe:1339005011:value02:divide100}%</> 증가\n공격력 <desc_point>{abe:1339005013:value02:divide100}%</> 증가\n정신력 소모량 <desc_point>{abe:1339005012:value02:divide100}%</> 감소\n배후 강타 효과 1.5배 증가\n강습 자세 효과 1.5배 증가"
+    "summary": "전투 속도, 무기 피해 증폭, 공격력 증가, 배후 강타 효과 증가, 강습 자세 효과 증가",
+    "effect": "전투 속도 <desc_point>{abe:1339005011:value02:divide100}%</> 증가\n무기 피해 증폭 <desc_point>{abe:1339005012:value02:divide100}%</> 증가\n공격력 <desc_point>{abe:1339005013:value02:divide100}%</> 증가\n배후 강타 효과 1.5배 증가\n강습 자세 효과 1.5배 증가"
   },
   "137200101": {
     "name": "빈틈 노리기",
@@ -47292,16 +47292,16 @@
     "type": "Buff",
     "icon": "Skill/ICON_RA_SKILL_031",
     "icon_view": true,
-    "summary": "치명타 증가",
-    "effect": "치명타 <desc_point>{abe:1409000011:value02:noneabs}</> 증가"
+    "summary": "치명타, 상태이상 적중 증가",
+    "effect": "치명타 <desc_point>{abe:1409000011:value02:noneabs}</> 증가\n상태이상 적중 <desc_point>{abe:1409000012:value02:divide100abs}%</> 증가"
   },
   "140900171": {
     "name": "정밀",
     "type": "Buff",
     "icon": "Skill/ICON_RA_SKILL_031",
     "icon_view": true,
-    "summary": "치명타, 완벽 증가",
-    "effect": "치명타 <desc_point>{abe:1409001011:value02:noneabs}</> 증가\n완벽 <desc_point>{abe:1409001012:value02:divide100abs}%</> 증가"
+    "summary": "치명타, 상태이상 적중, 완벽 증가",
+    "effect": "치명타 <desc_point>{abe:1409001011:value02:noneabs}</> 증가\n상태이상 적중 <desc_point>{abe:1409001013:value02:divide100abs}%</> 증가\n완벽 <desc_point>{abe:1409001012:value02:divide100abs}%</> 증가"
   },
   "141200571": {
     "name": "기습 차기",
@@ -47348,8 +47348,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_RA_SKILL_022",
     "icon_view": true,
-    "summary": "공격력, 완벽, 무기 피해 증폭 증가, 집중의눈 효과 증가, 사냥꾼의 혼 효과 증가, 치명타 시 50% 확률로 모든 스킬 재시전 시간 감소",
-    "effect": "공격력 <desc_point>{abe:1431005011:value02:divide100}%</> 증가\n완벽 <desc_point>{abe:1431005012:value02:divide100}%</> 증가\n무기 피해 증폭 <desc_point>{abe:1431005014:value02:divide100}%</> 증가\n집중의 눈 효과 1.5배 증가\n사냥꾼의 혼 효과 1.5배 증가\n치명타 시 50% 확률로 모든 스킬 재시전 시간 1초 감소"
+    "summary": "공격력, 완벽, 무기 피해 증폭 증가, 집중의눈 효과 증가, 사냥꾼의 결의 효과 증가, 치명타 시 50% 확률로 모든 스킬 재시전 시간 감소",
+    "effect": "공격력 <desc_point>{abe:1431005011:value02:divide100}%</> 증가\n완벽 <desc_point>{abe:1431005012:value02:divide100}%</> 증가\n무기 피해 증폭 <desc_point>{abe:1431005014:value02:divide100}%</> 증가\n집중의 눈 효과 1.5배 증가\n사냥꾼의 결의 효과 1.5배 증가\n치명타 시 50% 확률로 모든 스킬 재시전 시간 1초 감소"
   },
   "143500501": {
     "name": "대자연의 숨결",
@@ -47372,8 +47372,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_SO_SKILL_004",
     "icon_view": true,
-    "summary": "받는 치유량 감소",
-    "effect": "받는 치유량 <desc_point>{abe:1504003711:value02:divide100abs}%</> 감소"
+    "summary": "받는 치유량 감소, 생명력 물약 회복량 감소",
+    "effect": "받는 치유량 <desc_point>{abe:1504003711:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1504003712:value02:divide100abs}%</> 감소"
   },
   "150600261": {
     "name": "화염",
@@ -47500,8 +47500,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_SO_SKILL_040",
     "icon_view": true,
-    "summary": "불속성, 물속성 피해 추가 증가, 명중 증가, 강타 증가, 불꽃의 로브 효과 증가, 강화의 은혜 효과 증가",
-    "effect": "불 속성 피해 <desc_point>{abe:1540005011:value02:divide100}%</> 증가\n물 속성 피해 <desc_point>{abe:1540005012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540005013:value02}</> 증가\n강타 <desc_point>{abe:1540005014:value02:divide100}%</> 증가\n불꽃의 로브 효과 1.5배 증가\n강화의 은혜 효과 1.5배 증가"
+    "summary": "불 속성, 물 속성 증폭 추가 증가, 명중 증가, 강타 증가, 불꽃의 로브 효과 증가, 강화의 은혜 효과 증가",
+    "effect": "불 속성 증폭 <desc_point>{abe:1540005011:value02:divide100}%</> 증가\n물 속성 증폭 <desc_point>{abe:1540005012:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1540005013:value02}</> 증가\n강타 <desc_point>{abe:1540005014:value02:divide100}%</> 증가\n불꽃의 로브 효과 1.5배 증가\n강화의 은혜 효과 1.5배 증가"
   },
   "154100211": {
     "name": "동면",
@@ -47556,8 +47556,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_EL_SKILL_015",
     "icon_view": true,
-    "summary": "지속 피해, 정령성 및 정령에게 받는 피해 증가, 받는 치유량 감소",
-    "effect": "지속 피해\n정령에게 받는 피해 25% 증가\n정령성에게 받는 피해 30% 증가\n받는 치유량 {abe:1615000043:value02:divide100abs}% 감소"
+    "summary": "지속 피해, 정령성 및 정령에게 받는 피해 증가, 상태이상 저항 감소",
+    "effect": "지속 피해\n정령에게 받는 피해 25% 증가\n정령성에게 받는 피해 30% 증가\n상태이상 저항 {abe:1615000042:value02:divide100abs}% 감소"
   },
   "161700006": {
     "name": "명령: 대역",
@@ -47596,8 +47596,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_EL_SKILL_037",
     "icon_view": true,
-    "summary": "적중 시 {abe:1637000041:value02:divide100}% 확률로 추가 피해, 명중 증가, 치명타 증가, 치명타 피해 증폭 증가, 추가 피해 재시전 시간 50% 감소, 행동불가 면역 대상 공격 시 피해량 50% 증가",
-    "effect": "적중 시 {abe:1637000041:value02:divide100}% 확률로 추가 피해\n명중 {abe:1637000022:value02} 증가\n치명타 {abe:1637000033:value02} 증가\n치명타 피해 증폭 {abe:1637000042:value02:divide100}% 증가\n추가 피해 재시전 시간 50% 감소\n행동불가 면역 대상 공격 시 피해량 50% 증가"
+    "summary": "적중 시 {abe:1637000041:value02:divide100}% 확률로 추가 피해, 명중 증가, 치명타 증가, 치명타 피해 증폭 증가, 추가 피해 재시전 시간 50% 감소, 행동불가 면역 대상 공격 시 피해량 100% 증가",
+    "effect": "적중 시 {abe:1637000041:value02:divide100}% 확률로 추가 피해\n명중 {abe:1637000022:value02} 증가\n치명타 {abe:1637000033:value02} 증가\n치명타 피해 증폭 {abe:1637000042:value02:divide100}% 증가\n추가 피해 재시전 시간 50% 감소\n행동불가 면역 대상 공격 시 피해량 100% 증가"
   },
   "167800022": {
     "name": "원소 결집",
@@ -47605,7 +47605,7 @@
     "icon": "Skill/ICON_EL_SKILL_Passive_008",
     "icon_view": false,
     "summary": "정령 스킬 적중 시 치명타 피해 증폭",
-    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가 (최대 5중첩)"
+    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가\n정령 강림 효과 중 치명타 피해 증폭 <chat_combat>{abe:1678000112:value02:divide100abs}%</> 증가"
   },
   "167800023": {
     "name": "원소 결집",
@@ -47613,7 +47613,7 @@
     "icon": "Skill/ICON_EL_SKILL_Passive_008",
     "icon_view": false,
     "summary": "정령 스킬 적중 시 치명타 피해 증폭",
-    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가 (최대 5중첩)"
+    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가\n정령 강림 효과 중 치명타 피해 증폭 <chat_combat>{abe:1678000112:value02:divide100abs}%</> 증가"
   },
   "167800024": {
     "name": "원소 결집",
@@ -47621,7 +47621,7 @@
     "icon": "Skill/ICON_EL_SKILL_Passive_008",
     "icon_view": false,
     "summary": "정령 스킬 적중 시 치명타 피해 증폭",
-    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가 (최대 5중첩)"
+    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가\n정령 강림 효과 중 치명타 피해 증폭 <chat_combat>{abe:1678000112:value02:divide100abs}%</> 증가"
   },
   "167800025": {
     "name": "원소 결집",
@@ -47629,7 +47629,7 @@
     "icon": "Skill/ICON_EL_SKILL_Passive_008",
     "icon_view": false,
     "summary": "정령 스킬 적중 시 치명타 피해 증폭",
-    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가 (최대 5중첩)"
+    "effect": "정령 스킬 적중 시 치명타 피해 증폭 <chat_combat>{abe:1678000111:value02:divide100abs}%</> 증가\n정령 강림 효과 중 치명타 피해 증폭 <chat_combat>{abe:1678000112:value02:divide100abs}%</> 증가"
   },
   "170700301": {
     "name": "고통의 연쇄",
@@ -48053,31 +48053,31 @@
     "icon": "Skill/ICON_CL_SKILL_029",
     "icon_view": true,
     "summary": "회복 상태",
-    "effect": "생명력의 6%만큼 지속 회복"
+    "effect": "생명력의 3%만큼 지속 회복"
   },
   "173000101": {
     "name": "파멸의 목소리",
     "type": "DeBuff",
     "icon": "Skill/ICON_CL_SKILL_030",
     "icon_view": true,
-    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복 감소",
-    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소"
+    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복량 감소",
+    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소"
   },
   "173000201": {
     "name": "파멸의 목소리",
     "type": "DeBuff",
     "icon": "Skill/ICON_CL_SKILL_030",
     "icon_view": true,
-    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복 감소",
-    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소"
+    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복량 감소",
+    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소"
   },
   "173000501": {
     "name": "파멸의 목소리",
     "type": "DeBuff",
     "icon": "Skill/ICON_CL_SKILL_030",
     "icon_view": true,
-    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복 감소, 치명타 저항 감소, 상태이상 저항 감소",
-    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소\n치명타 저항 <desc_point>{abe:1730003014:value02:noneabs}</> 감소\n상태이상 저항 <desc_point>{abe:1730005015:value02:divide100abs}%</> 감소"
+    "summary": "지속 피해 상태, 받는 치유량 감소, 생명력 물약 회복량 감소, 치명타 저항 감소, 상태이상 저항 감소",
+    "effect": "지속 피해\n받는 치유량 <desc_point>{abe:1730000011:value02:divide100abs}%</> 감소\n생명력 물약 회복량 <desc_point>{abe:1730000013:value02:divide100abs}%</> 감소\n치명타 저항 <desc_point>{abe:1730003014:value02:noneabs}</> 감소\n상태이상 저항 <desc_point>{abe:1730005015:value02:divide100abs}%</> 감소"
   },
   "173900501": {
     "name": "환생의 축복",
@@ -48196,8 +48196,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_CL_SKILL_043",
     "icon_view": true,
-    "summary": "공격력 증가, 주신의 은총 효과 증가, 대지의 은총 효과 증가, PVE 피해 증폭 증가, PVP 피해 증폭 증가",
-    "effect": "공격력 <desc_point>{abe:1743004011:value02:divide100}%</> 증가\nPVE 피해 증폭 <desc_point>{abe:1743005012:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1743005013:value02:divide100}%</> 증가\n주신의 은총 효과 1.5배 증가\n대지의 은총 효과 1.5배 증가"
+    "summary": "공격력 증가, PVE 피해 증폭 증가, PVP 피해 증폭 증가, 주신의 은총 효과 증가, 대지의 은총 효과 증가, 모든 속성 피해 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1743004011:value02:divide100}%</> 증가\nPVE 피해 증폭 <desc_point>{abe:1743005012:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1743005013:value02:divide100}%</> 증가\n모든 속성 피해 증폭 <desc_point>{abe:1743005014:value02:divide100}%</> 증가\n주신의 은총 효과 1.5배 증가\n대지의 은총 효과 1.5배 증가"
   },
   "174400501": {
     "name": "고결한 기운",
@@ -48248,12 +48248,12 @@
     "effect": "이동 속도 <desc_point>{abe:1814003711:value02:divide100}%</> 증가"
   },
   "181600501": {
-    "name": "질주의 진언",
+    "name": "폭풍의 주문",
     "type": "Buff",
-    "icon": "Skill/ICON_CH_SKILL_016",
-    "icon_view": false,
-    "summary": "이동 속도 증가, 공격 적중 시 일정 확률로 생명력 회복, 받는 치유량 증가, 행동력 자연 회복 증가, 생명력이 50%이하일 경우 추가 회복, 재생 증가, 철벽 증가",
-    "effect": "이동 속도 <desc_point>{abe:1816000111:value02:divide100}%</> 증가\n공격 적중 시 {abe:1816000112:value02:divide100}%의 확률로 <desc_point>{se_dmg:1816000211:SkillUIHPHealMin}~{se_dmg:1816000211:SkillUIHPHealMax}</> 회복\n생명력이 50%이하일 경우 회복 100% 증가\n받는 치유량 <desc_point>{abe:1816001113:value02:divide100}%</> 증가\n행동력 자연 회복 <desc_point>{abe:1816002114:value02:divide100}%</> 증가\n재생 <desc_point>{abe:1816004115:value02:divide100}%</> 증가\n철벽 <desc_point>{abe:1816005116:value02:divide100}%</> 증가"
+    "icon": "Skill/ICON_CH_SKILL_026",
+    "icon_view": true,
+    "summary": "보스 피해 증폭 증가, 명중 증가, 완벽 증가, 공격력 증가, 강타 증가, 치유 증폭 감소",
+    "effect": "보스 피해 <desc_point>{abe:1816000011:value02:divide100}%</> 증가\n명중 <desc_point>{abe:1816001013:value02}</> 증가\n완벽 <desc_point>{abe:1816002014:value02:divide100}%</> 증가\n공격력 <desc_point>{abe:1816004015:value02:divide100}%</> 증가\n강타 <desc_point>{abe:1816005016:value02:divide100}%</> 증가\n치유 증폭 0% 변경"
   },
   "181600511": {
     "name": "질주의 진언",
@@ -48276,8 +48276,8 @@
     "type": "Buff",
     "icon": "Skill/ICON_CH_SKILL_019",
     "icon_view": true,
-    "summary": "PVE 피해 증폭 증가, PVE 피해 내성 증가, PVP 피해 증폭 증가, PVP 피해 내성 증가, 치명타 증가, 명중 증가, 치명타 피해 증폭 증가, 강타 증가, 완벽 증가",
-    "effect": "PVE 피해 증폭 <desc_point>{abe:1819000111:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1819000113:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1819000112:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1819000114:value02:divide100}%</> 증가\n치명타 <desc_point>{abe:1819001115:value02}</> 증가\n명중 <desc_point>{abe:1819002116:value02}</> 증가\n치명타 피해 증폭 <desc_point>{abe:1819003117:value02:divide100}%</> 증가\n강타 <desc_point>{abe:1819004118:value02:divide100}%</> 증가\n완벽 <desc_point>{abe:1819005119:value02:divide100}%</> 증가"
+    "summary": "PVE 피해 증폭 증가, PVE 피해 내성 증가, PVP 피해 증폭 증가, PVP 피해 내성 증가, 치명타 증가, 치명타 피해 증폭 증가, 이동 속도 증가, 완벽 증가, 강타 증가",
+    "effect": "PVE 피해 증폭 <desc_point>{abe:1819000111:value02:divide100}%</> 증가\nPVE 피해 내성 <desc_point>{abe:1819000113:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1819000112:value02:divide100}%</> 증가\nPVP 피해 내성 <desc_point>{abe:1819000114:value02:divide100}%</> 증가\n치명타 <desc_point>{abe:1819001115:value02}</> 증가\n치명타 피해 증폭 <desc_point>{abe:1819002116:value02:divide100}%</> 증가\n이동 속도 <desc_point>{abe:1819003117:value02:divide100}%</> 증가\n완벽 <desc_point>{abe:1819004118:value02:divide100}%</> 증가\n강타 <desc_point>{abe:1819005119:value02:divide100}%</> 증가"
   },
   "182300501": {
     "name": "결박의 낙인",
@@ -48372,8 +48372,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_CH_SKILL_033",
     "icon_view": true,
-    "summary": "받는 치유량 및 물약 회복량 감소",
-    "effect": "받는 치유량 및 물약 회복량 <desc_point>{abe:1833003011:value02:divide100abs}%</> 감소"
+    "summary": "받는 치유량 및 생명력 물약 회복량 감소",
+    "effect": "받는 치유량 및 생명력 물약 회복량 <desc_point>{abe:1833003011:value02:divide100abs}%</> 감소"
   },
   "184200501": {
     "name": "수호의 축복",
@@ -48436,208 +48436,208 @@
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가"
   },
   "191300102": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가"
   },
   "191300202": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
   },
   "191300302": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
   },
   "191300402": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191300502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191301202": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가"
   },
   "191301302": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 강타 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
   },
   "191301402": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191301502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191302302": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
   },
   "191302402": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191302502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191303402": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191303502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191304502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191312302": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항, 강타 증가",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가"
   },
   "191312402": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191312502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191313402": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191313502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191314502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913001013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913001014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191323402": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항, 강타 증가, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소"
   },
   "191323502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항, 강타 증가, 재시전 시간 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항, 강타 증가, 재시전 시간 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191324502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 상태이상 저항 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 상태이상 저항 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n상태이상 저항 {abe:1913002015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191334502": {
     "name": "폭주",
     "type": "Buff",
     "icon": "Skill/ICON_GT_SKILL_013",
     "icon_view": true,
-    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, 강타 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
-    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
+    "summary": "전투 속도, PVE 피해 증폭, PVP 피해 증폭, PVE 피해 내성, 강타 증가, 재시전 시간 감소, 상태이상 지속 중 분노 소모 50% 감소",
+    "effect": "폭주 상태\n전투 속도 <desc_point>{abe:1913000012:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1913000016:value02:divide100}%</> 증가\nPVE 피해 증폭 {abe:1913000013:value02:divide100}% 증가\nPVP 피해 증폭 {abe:1913000014:value02:divide100}% 증가\nPVE 피해 내성 {abe:1913000031:value02:divide100}% 증가\n강타 {abe:1913003015:value02:divide100}% 증가\n상태이상 지속 중 분노 소모 50% 감소\n재시전 시간 {abe:1913005015:value02:divide100abs}% 감소"
   },
   "191700001": {
     "name": "연환권 사용가능",
@@ -48788,8 +48788,8 @@
     "type": "DeBuff",
     "icon": "Skill/ICON_GT_SKILL_032",
     "icon_view": true,
-    "summary": "받는 치유량 감소",
-    "effect": "받는 치유량 {abe:1932000011:value02:divide100}% 감소"
+    "summary": "받는 치유량 및 생명력 물약 회복량 감소",
+    "effect": "받는 치유량 {abe:1932000011:value02:divide100}% 감소\n생명력 물약 회복량 {abe:1932000012:value02:divide100abs}% 감소"
   },
   "193500002": {
     "name": "집중 막기",
@@ -48797,7 +48797,7 @@
     "icon": "",
     "icon_view": false,
     "summary": "막기 피해 감소 및 확정 무기 막기",
-    "effect": "막기 피해 100% 감소\n확정 무기 막기"
+    "effect": "막기 피해 100% 감소\n확정 무기 막기\n무기 막기 성공 시 [집중 막기] 스킬 재시전 시간 {abe:1935000017:value02:time} 감소"
   },
   "193500303": {
     "name": "집중 막기",
@@ -48846,5 +48846,157 @@
     "icon_view": false,
     "summary": "상태이상 저항 증가, 행동 불가 중 피격 시 상태이상 저항 증가 중첩, 생명력 10% 이하일 때 최대 생명력의 일정 비율만큼 회복",
     "effect": "상태이상 저항 <chat_combat>{abe:1979000012:value02:divide100}%</> 증가\n기절, 넘어짐, 공중 속박, 빙결, 공포 상태에서 피격 시 상태이상 저항 {abe:1979000021:value02:divide100}% 증가 (최대 10회 중첩)\n생명력이 10% 이하일 때 최대 생명력의 <chat_combat>{se:1979000111:effect_value02:divide100}%</> 즉시 회복"
+  },
+  "111900171": {
+    "name": "도약 찍기",
+    "type": "DeBuff",
+    "icon": "Skill/ICON_GL_SKILL_019",
+    "icon_view": true,
+    "summary": "충격계 저항 감소",
+    "effect": "충격계 저항 <desc_point>{abe:1119001711:value02:divide100abs}%</> 감소"
+  },
+  "120900203": {
+    "name": "징벌",
+    "type": "DeBuff",
+    "icon": "Skill/ICON_TE_SKILL_009",
+    "icon_view": true,
+    "summary": "지속 피해",
+    "effect": "지속 피해"
+  },
+  "120900204": {
+    "name": "징벌",
+    "type": "DeBuff",
+    "icon": "Skill/ICON_TE_SKILL_009",
+    "icon_view": true,
+    "summary": "지속 피해",
+    "effect": "지속 피해"
+  },
+  "120900213": {
+    "name": "징벌",
+    "type": "DeBuff",
+    "icon": "Skill/ICON_TE_SKILL_009",
+    "icon_view": true,
+    "summary": "지속 피해",
+    "effect": "지속 피해"
+  },
+  "120900214": {
+    "name": "징벌",
+    "type": "DeBuff",
+    "icon": "Skill/ICON_TE_SKILL_009",
+    "icon_view": true,
+    "summary": "지속 피해",
+    "effect": "지속 피해"
+  },
+  "120900223": {
+    "name": "징벌",
+    "type": "DeBuff",
+    "icon": "Skill/ICON_TE_SKILL_009",
+    "icon_view": true,
+    "summary": "지속 피해",
+    "effect": "지속 피해"
+  },
+  "120900224": {
+    "name": "징벌",
+    "type": "DeBuff",
+    "icon": "Skill/ICON_TE_SKILL_009",
+    "icon_view": true,
+    "summary": "지속 피해",
+    "effect": "지속 피해"
+  },
+  "120900233": {
+    "name": "징벌",
+    "type": "DeBuff",
+    "icon": "Skill/ICON_TE_SKILL_009",
+    "icon_view": true,
+    "summary": "지속 피해",
+    "effect": "지속 피해"
+  },
+  "120900234": {
+    "name": "징벌",
+    "type": "DeBuff",
+    "icon": "Skill/ICON_TE_SKILL_009",
+    "icon_view": true,
+    "summary": "지속 피해",
+    "effect": "지속 피해"
+  },
+  "122400502": {
+    "name": "심판의 권능",
+    "type": "Buff",
+    "icon": "Skill/ICON_TE_SKILL_023",
+    "icon_view": true,
+    "summary": "공격력, 전방 피해 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1224005021:value02:divide100}%</> 증가\n전방 피해 증폭 <desc_point>{abe:1224005022:value02:divide100}%</> 증가"
+  },
+  "131300071": {
+    "name": "살의",
+    "type": "Buff",
+    "icon": "Skill/ICON_AS_SKILL_027",
+    "icon_view": true,
+    "summary": "완벽 증가",
+    "effect": "완벽 <desc_point>{abe:1313000711:value02:divide100}%</> 증가"
+  },
+  "131300371": {
+    "name": "살의",
+    "type": "Buff",
+    "icon": "Skill/ICON_AS_SKILL_027",
+    "icon_view": true,
+    "summary": "완벽 증가",
+    "effect": "완벽 <desc_point>{abe:1313003711:value02:divide100}%</> 증가"
+  },
+  "133100401": {
+    "name": "환영 분신",
+    "type": "Buff",
+    "icon": "Skill/ICON_AS_SKILL_029",
+    "icon_view": true,
+    "summary": "상태이상 적중, 치명타 피해 증폭 증가 및 일정 비율만큼 추가 피해, 빈틈 노리기 효과 증가, 치명타 시 추가 피해",
+    "effect": "상태이상 적중 <desc_point>{abe:1331003012:value02:divide100}%</> 증가\n치명타 피해 증폭 <desc_point>{abe:1331003013:value02:divide100}%</> 증가\n공격의 <desc_point>{abe:1331003011:value01:divide100}%</> 만큼 추가 피해\n빈틈 노리기 효과 1.5배 증가\n치명타 시 추가 피해"
+  },
+  "140800071": {
+    "name": "감응",
+    "type": "Buff",
+    "icon": "Skill/ICON_RA_SKILL_028",
+    "icon_view": true,
+    "summary": "모든 속성 피해 증폭 증가",
+    "effect": "모든 속성 피해 증폭 <desc_point>{abe:1408000711:value02:divide100}%</> 증가"
+  },
+  "143300271": {
+    "name": "난사",
+    "type": "Buff",
+    "icon": "Skill/ICON_RA_SKILL_033",
+    "icon_view": true,
+    "summary": "모든 속성 피해 증폭 증가",
+    "effect": "모든 속성 피해 증폭 <desc_point>{abe:1433002711:value02:divide100}%</> 증가"
+  },
+  "152500471": {
+    "name": "열화",
+    "type": "Buff",
+    "icon": "Skill/ICON_SO_SKILL_023",
+    "icon_view": true,
+    "summary": "불 속성 피해 증폭",
+    "effect": "불 속성 피해 증폭 {abe:1525004711:value02:divide100}% 증가"
+  },
+  "174300101": {
+    "name": "증폭의 기도",
+    "type": "Buff",
+    "icon": "Skill/ICON_CL_SKILL_043",
+    "icon_view": true,
+    "summary": "공격력 증가, PVE 피해 증폭 증가, PVP 피해 증폭 증가",
+    "effect": "공격력 <desc_point>{abe:1743000011:value02:divide100}%</> 증가\nPVE 피해 증폭 <desc_point>{abe:1743001012:value02:divide100}%</> 증가\nPVP 피해 증폭 <desc_point>{abe:1743001013:value02:divide100}%</> 증가"
+  },
+  "190900001": {
+    "name": "투기",
+    "type": "Buff",
+    "icon": "Skill/ICON_TE_SKILL_026",
+    "icon_view": true,
+    "summary": "[승천타], [폭렬권] 피해량 150% 증가",
+    "effect": "[승천타], [폭렬권] 피해량 150% 증가"
+  },
+  "193500003": {
+    "name": "집중 막기",
+    "type": "Buff",
+    "icon": "Skill/ICON_GT_SKILL_035",
+    "icon_view": true,
+    "summary": "막기 피해 감소 및 확정 무기 막기",
+    "effect": "막기 피해 100% 감소\n확정 무기 막기\n무기 막기 성공 시 [집중 막기] 스킬 재시전 시간 {abe:1935000017:value02:time} 감소\n무기 막기 성공 시 [폭렬권], [승천타] 스킬 재시전 시간 초기화"
   }
 }
