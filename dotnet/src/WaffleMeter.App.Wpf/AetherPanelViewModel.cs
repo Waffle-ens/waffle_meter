@@ -493,6 +493,10 @@ public sealed class ServerKinaViewModel
             : line.Server.ToString(CultureInfo.InvariantCulture);
         // Two accounts on one server: each gets its own line, named "서버 · 계정 N".
         ServerText = line.AccountLabel is { } account ? server + " · " + account : server;
+        // Split for the line itself: the server name may truncate at the minimum width, the account never — two
+        // lines both reading "시엘 · …" could not be told apart (third review 2026-11-13).
+        ServerNameText = server;
+        AccountText = line.AccountLabel is { } label ? " · " + label : "";
         TotalText = CurrencyFormat.Compact(line.Total);
         // "창고" rather than "서버 창고" on the line: the line now also carries the account's 슈고 열쇠, and the tooltip
         // spells the warehouse out.
@@ -565,6 +569,8 @@ public sealed class ServerKinaViewModel
     }
 
     public string ServerText { get; }
+    public string ServerNameText { get; }
+    public string AccountText { get; }
     public string TotalText { get; }
     public string StorageText { get; }
 

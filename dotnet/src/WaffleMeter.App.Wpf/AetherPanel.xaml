@@ -477,7 +477,7 @@
                                                    Foreground="{DynamicResource Skin.MutedFg}"/>
                                     </StackPanel>
                                     <!-- 서버·계정 이름 / 창고 / 🔑슈고 열쇠. 창고와 열쇠는 둘 다 계정×서버 공유라 같은 자리에 둔다
-                                         (2026-11-13 오너 선택). 좁아지면 창고 → 서버·계정 이름 순으로 말줄임되고, 열쇠 수와 총액은
+                                         (2026-11-13 오너 선택). 좁아지면 창고 → 서버 이름 순으로 말줄임되고, 계정 라벨·열쇠 수·총액은
                                          잘리지 않는다 — "14(+30)" 이 "14" 로 잘려 보이면 열쇠가 적게 읽힌다. 도킹 순서가 곧 우선순위다.
                                          열쇠 그림·색은 미터 하단 배지와 같다. -->
                                     <DockPanel Grid.Column="1" Margin="5,0,8,0" VerticalAlignment="Center">
@@ -489,10 +489,15 @@
                                             <TextBlock Text="{Binding ShugoText}" FontSize="9" VerticalAlignment="Center"
                                                        Foreground="#FFD98A" Opacity="0.9"/>
                                         </StackPanel>
-                                        <TextBlock DockPanel.Dock="Left" Text="{Binding ServerText}" FontSize="10"
-                                                   VerticalAlignment="Center" Opacity="0.8"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource Skin.MutedFg}"/>
+                                        <DockPanel DockPanel.Dock="Left" VerticalAlignment="Center">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding AccountText}" FontSize="10"
+                                                       VerticalAlignment="Center" Opacity="0.8"
+                                                       Foreground="{DynamicResource Skin.MutedFg}"/>
+                                            <TextBlock Text="{Binding ServerNameText}" FontSize="10"
+                                                       VerticalAlignment="Center" Opacity="0.8"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Skin.MutedFg}"/>
+                                        </DockPanel>
                                         <TextBlock Text="{Binding StorageText}" FontSize="9" TextAlignment="Right" Margin="8,0,0,0"
                                                    VerticalAlignment="Center" Opacity="0.7"
                                                    TextTrimming="CharacterEllipsis"

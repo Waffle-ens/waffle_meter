@@ -3791,7 +3791,8 @@ public sealed class StreamProcessor
     /// <param name="fromSnapshot">True for the 0x610B login/zone-in dump — see the aether overload.</param>
     private void ParseShugoKey(byte[] packet, int bodyStart, bool fromSnapshot)
     {
-        ShugoKeyParse s = ShugoKeyParser.TryParse(packet, bodyStart);
+        // Walked, so the last key spent (a mask-0 record) reads as 0 instead of leaving the previous count standing.
+        ShugoKeyParse s = ShugoKeyParser.TryParse(packet, bodyStart, fromSnapshot);
         if (!s.Ok)
         {
             return;

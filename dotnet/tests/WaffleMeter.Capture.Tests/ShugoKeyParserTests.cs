@@ -83,6 +83,70 @@ public class ShugoKeyParserTests
         Assert.False(ShugoKeyParser.TryParse(packet, BodyStart).Ok);
     }
 
+    // ── Walked frames (third review 2026-11-13): the last key spent is a currency-1 record with no fields ──
+
+    /// <summary>A 0x610B snapshot body: <c>[varint count][records]</c>. The neighbours are the shapes seen in the
+    /// owner's 2026-11-13 dump: a mask-0x03 record (two u64 fields) and an 오드 record (currency 60000001).</summary>
+    private static byte[] Snapshot(params byte[][] records)
+    {
+        var b = new List<byte> { 0x00, 0x0B, 0x61, (byte)records.Length };
+        foreach (byte[] r in records)
+        {
+            b.AddRange(r);
+        }
+
+        return b.ToArray();
+    }
+
+    private static readonly byte[] TimeRecord =
+        [0x03, 0x03, 0x00, 0x00, 0x00, 0x50, 0x8F, 0xCD, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF3, 0x6F, 0x06, 0x00, 0x00, 0x00, 0x00];
+
+    private static readonly byte[] AetherRecord = [0x0C, 0x01, 0x87, 0x93, 0x03, 0x4B, 0xD0, 0x0F];
+
+    [Theory]
+    [InlineData(new byte[] { 0x0C, 0x01, 0x00, 0x00, 0x00, 0x0E, 0x1E }, 14, 30)] // 11-13 account B
+    [InlineData(new byte[] { 0x04, 0x01, 0x00, 0x00, 0x00, 0x0E }, 14, 0)]        // 11-13 account A
+    [InlineData(new byte[] { 0x00, 0x01, 0x00, 0x00, 0x00 }, 0, 0)]               // every key spent: no fields
+    public void A_walked_snapshot_reads_the_key_including_zero(byte[] shugo, int expectedBase, int expectedBonus)
+    {
+        byte[] p = Snapshot(shugo, TimeRecord, AetherRecord);
+
+        ShugoKeyParse s = ShugoKeyParser.TryParse(p, BodyStart, fromSnapshot: true);
+
+        Assert.True(s.Ok);
+        Assert.Equal((expectedBase, expectedBonus), (s.Base, s.Bonus));
+    }
+
+    /// <summary>A 0x610C change notice spending the last key: <c>[optMask][record][reason]</c>.</summary>
+    [Fact]
+    public void A_change_notice_spending_the_last_key_reads_zero()
+    {
+        byte[] p = { 0x00, 0x0C, 0x61, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02 };
+
+        ShugoKeyParse s = ShugoKeyParser.TryParse(p, BodyStart, fromSnapshot: false);
+
+        Assert.True(s.Ok);
+        Assert.Equal(0, s.Total);
+    }
+
+    [Fact]
+    public void A_walked_frame_about_another_resource_says_nothing()
+    {
+        Assert.False(ShugoKeyParser.TryParse(Snapshot(TimeRecord, AetherRecord), BodyStart, fromSnapshot: true).Ok);
+        byte[] notice = { 0x00, 0x0C, 0x61, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x03 };
+        Assert.False(ShugoKeyParser.TryParse(notice, BodyStart, fromSnapshot: false).Ok);
+    }
+
+    /// <summary>A frame that does not end where its records do proves nothing, so a fieldless record in it is never
+    /// read as zero — the fallback scan, which cannot invent a zero, decides.</summary>
+    [Fact]
+    public void A_frame_that_does_not_walk_never_yields_a_zero()
+    {
+        byte[] p = [.. Snapshot([0x00, 0x01, 0x00, 0x00, 0x00], AetherRecord), 0x7F, 0x7F];
+
+        Assert.False(ShugoKeyParser.TryParse(p, BodyStart, fromSnapshot: true).Ok);
+    }
+
     /// <summary>Bonus pool alone (mask 0x08) — the base pool is omitted because it is zero, never because it is
     /// unchanged. Constructed; the aether corpus is what establishes this reading.</summary>
     [Fact]
