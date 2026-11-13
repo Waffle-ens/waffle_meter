@@ -22,7 +22,8 @@ public sealed class BuffAbbreviationTests
 
     [Theory]
     [InlineData("광분")] // 3글자 이하 — 축약 대상 아님
-    [InlineData("격노 폭발")] // 오너가 축약하지 않기로 함
+    [InlineData("지원 사격")] // 오너가 축약하지 않기로 함
+    [InlineData("정밀")] // 스킬명(표적 화살)이 아니라 걸리는 버프 이름으로 카탈로그가 바뀐 행
     [InlineData("회생의 계약")]
     [InlineData("없는 버프 이름")]
     [InlineData("")]
