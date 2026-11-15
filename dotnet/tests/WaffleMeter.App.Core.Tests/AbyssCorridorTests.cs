@@ -80,9 +80,10 @@ public class AbyssCorridorCatalogTests
 }
 
 /// <summary>
-/// The 점령전 boundary. The schedule on Wednesday and Saturday (KST) is 22:10 wipe → 22:20 capture starts →
-/// 22:30 corridors open, so what decides whether a stored reading is still true is not an hour but whether the
-/// meter has HEARD anything since capturing began. 22:25 is only the give-up point for a character it has not.
+/// The 점령전 boundary for a server with no window on file. Its clock follows the LATEST war group (2026-11-11:
+/// 23:00 war → 23:10 wipe → 23:20 capture starts → 23:30 corridors open, Wednesday and Saturday KST), so what
+/// decides whether a stored reading is still true is not an hour but whether the meter has HEARD anything since
+/// capturing began. 23:25 is only the give-up point for a character it has not.
 /// </summary>
 public class AbyssCorridorCycleTests
 {
@@ -91,33 +92,35 @@ public class AbyssCorridorCycleTests
 
     [Theory]
     // Wednesday afternoon — nothing has happened yet today, so last Saturday's capture still stands.
-    [InlineData(2026, 8, 19, 18, 0, 2026, 8, 15, 22, 20)]
-    // 22:22, mid-capture with nothing heard: the old answer is deliberately still shown.
-    [InlineData(2026, 8, 19, 22, 22, 2026, 8, 15, 22, 20)]
-    // 22:24, one minute before the give-up point: still last Saturday's.
-    [InlineData(2026, 8, 19, 22, 24, 2026, 8, 15, 22, 20)]
-    // 22:26 — the give-up point has passed, so the boundary snaps to today's capture start.
-    [InlineData(2026, 8, 19, 22, 26, 2026, 8, 19, 22, 20)]
+    [InlineData(2026, 8, 19, 18, 0, 2026, 8, 15, 23, 20)]
+    // 22:30 — the 22:00 group's capture is over, but this clock follows the 23:00 group: still last Saturday's.
+    [InlineData(2026, 8, 19, 22, 30, 2026, 8, 15, 23, 20)]
+    // 23:22, mid-capture with nothing heard: the old answer is deliberately still shown.
+    [InlineData(2026, 8, 19, 23, 22, 2026, 8, 15, 23, 20)]
+    // 23:24, one minute before the give-up point: still last Saturday's.
+    [InlineData(2026, 8, 19, 23, 24, 2026, 8, 15, 23, 20)]
+    // 23:26 — the give-up point has passed, so the boundary snaps to today's capture start.
+    [InlineData(2026, 8, 19, 23, 26, 2026, 8, 19, 23, 20)]
     // Monday morning, the 08-17 capture: last Saturday's cycle.
-    [InlineData(2026, 8, 17, 8, 38, 2026, 8, 15, 22, 20)]
+    [InlineData(2026, 8, 17, 8, 38, 2026, 8, 15, 23, 20)]
     // Saturday 21:00, before that evening's 점령전: still Wednesday's.
-    [InlineData(2026, 8, 22, 21, 0, 2026, 8, 19, 22, 20)]
-    public void With_nothing_heard_the_answer_is_given_up_at_2225(
+    [InlineData(2026, 8, 22, 21, 0, 2026, 8, 19, 23, 20)]
+    public void With_nothing_heard_the_answer_is_given_up_at_2325(
         int y, int mo, int d, int h, int mi, int ey, int emo, int ed, int eh, int emi) =>
         Assert.Equal(Kst(ey, emo, ed, eh, emi), AbyssCorridorCycle.LastStartAtOrBefore(Kst(y, mo, d, h, mi)));
 
-    /// <summary>The point of the whole design: a reading taken at 22:22 IS this cycle's answer, and it retires
-    /// everything older the moment it lands — without waiting for 22:25, and without 22:25 later invalidating
+    /// <summary>The point of the whole design: a reading taken at 23:22 IS this cycle's answer, and it retires
+    /// everything older the moment it lands — without waiting for 23:25, and without 23:25 later invalidating
     /// the reading itself.</summary>
     [Fact]
     public void A_reading_from_after_capture_began_resets_the_boundary_immediately()
     {
-        long duringCapture = Kst(2026, 8, 19, 22, 22);
-        long captureStart = Kst(2026, 8, 19, 22, 20);
+        long duringCapture = Kst(2026, 8, 19, 23, 22);
+        long captureStart = Kst(2026, 8, 19, 23, 20);
         long lastCycle = Kst(2026, 8, 17, 12, 0);
 
         // Heard nothing: the previous occupation is still what we have.
-        Assert.Equal(Kst(2026, 8, 15, 22, 20), AbyssCorridorCycle.BoundaryFor(lastCycle, duringCapture));
+        Assert.Equal(Kst(2026, 8, 15, 23, 20), AbyssCorridorCycle.BoundaryFor(lastCycle, duringCapture));
 
         // Heard something from after capture began: everything older is last cycle's, right now.
         Assert.Equal(captureStart, AbyssCorridorCycle.BoundaryFor(duringCapture, duringCapture));
@@ -127,10 +130,10 @@ public class AbyssCorridorCycleTests
     [Fact]
     public void A_reading_from_before_the_last_capture_is_no_longer_current()
     {
-        long now = Kst(2026, 8, 19, 23, 0);       // after Wednesday's 점령전
+        long now = Kst(2026, 8, 19, 23, 40);      // after Wednesday's 점령전
 
         Assert.False(AbyssCorridorCycle.IsCurrentCycle(Kst(2026, 8, 19, 18, 0), now));
-        Assert.True(AbyssCorridorCycle.IsCurrentCycle(Kst(2026, 8, 19, 22, 22), now));
+        Assert.True(AbyssCorridorCycle.IsCurrentCycle(Kst(2026, 8, 19, 23, 22), now));
         Assert.False(AbyssCorridorCycle.IsCurrentCycle(0, now));
     }
 
@@ -218,22 +221,22 @@ public class AbyssCorridorStoreTests
     public void A_reading_from_a_previous_cycle_reads_as_unknown()
     {
         var store = AbyssCorridorStore.Parse(null);
-        store.MarkEntered(Hash, Ticket, Kst(2026, 8, 15, 23, 0));
-        store.Upsert(Hash, Ticket, 130_000, Kst(2026, 8, 15, 23, 0), markGranted: true);
+        store.MarkEntered(Hash, Ticket, Kst(2026, 8, 15, 23, 40));
+        store.Upsert(Hash, Ticket, 130_000, Kst(2026, 8, 15, 23, 40), markGranted: true);
 
         Assert.Equal(130_000, store.Standing(Hash, Ticket, Kst(2026, 8, 19, 20, 0)));  // same cycle
-        Assert.Equal(130_000, store.Standing(Hash, Ticket, Kst(2026, 8, 19, 22, 22))); // mid-capture, nothing heard
-        Assert.Null(store.Standing(Hash, Ticket, Kst(2026, 8, 19, 22, 26)));           // gave up at 22:25
+        Assert.Equal(130_000, store.Standing(Hash, Ticket, Kst(2026, 8, 19, 23, 22))); // mid-capture, nothing heard
+        Assert.Null(store.Standing(Hash, Ticket, Kst(2026, 8, 19, 23, 26)));           // gave up at 23:25
     }
 
     /// <summary>Hearing ANY reading from after capturing began retires the rest of this character's records on
-    /// the spot — they describe the occupation that was wiped at 22:10. Without this, a corridor the faction
+    /// the spot — they describe the occupation that was wiped at 23:10. Without this, a corridor the faction
     /// just lost keeps its chip for the five minutes until the give-up point, during 점령전 itself.</summary>
     [Fact]
     public void One_reading_from_the_new_capture_retires_the_others_at_once()
     {
-        long lastCycle = Kst(2026, 8, 15, 23, 0);
-        long duringCapture = Kst(2026, 8, 19, 22, 22);
+        long lastCycle = Kst(2026, 8, 15, 23, 40);
+        long duringCapture = Kst(2026, 8, 19, 23, 22);
 
         var store = AbyssCorridorStore.Parse(null);
         store.MarkEntered(Hash, 10_000_002, lastCycle);                          // held last cycle, now lost
@@ -252,8 +255,8 @@ public class AbyssCorridorStoreTests
     [Fact]
     public void New_capture_evidence_does_not_leak_between_characters()
     {
-        long lastCycle = Kst(2026, 8, 15, 23, 0);
-        long duringCapture = Kst(2026, 8, 19, 22, 22);
+        long lastCycle = Kst(2026, 8, 15, 23, 40);
+        long duringCapture = Kst(2026, 8, 19, 23, 22);
 
         var store = AbyssCorridorStore.Parse(null);
         store.MarkEntered("alt", Ticket, lastCycle);
@@ -318,15 +321,15 @@ public class AbyssCorridorStoreTests
     public void An_entry_expires_with_its_own_occupation_and_is_renewed_by_going_back()
     {
         var store = AbyssCorridorStore.Parse(null);
-        store.MarkEntered(Hash, Ticket, Kst(2026, 8, 15, 23, 0));
+        store.MarkEntered(Hash, Ticket, Kst(2026, 8, 15, 23, 40));
 
-        Assert.False(store.EnteredThisCycle(Hash, Ticket, Kst(2026, 8, 19, 23, 0)));
+        Assert.False(store.EnteredThisCycle(Hash, Ticket, Kst(2026, 8, 19, 23, 40)));
 
-        Assert.True(store.MarkEntered(Hash, Ticket, Kst(2026, 8, 19, 23, 10)));
-        Assert.True(store.EnteredThisCycle(Hash, Ticket, Kst(2026, 8, 19, 23, 30)));
+        Assert.True(store.MarkEntered(Hash, Ticket, Kst(2026, 8, 19, 23, 50)));
+        Assert.True(store.EnteredThisCycle(Hash, Ticket, Kst(2026, 8, 20, 0, 10)));
 
         // An older entry never rewinds the proof.
-        Assert.False(store.MarkEntered(Hash, Ticket, Kst(2026, 8, 19, 23, 5)));
+        Assert.False(store.MarkEntered(Hash, Ticket, Kst(2026, 8, 19, 23, 45)));
     }
 
     /// <summary>A grant stamp must not survive its own cycle. It no longer gates the display — an entry row
@@ -355,7 +358,7 @@ public class AbyssCorridorStoreTests
         Assert.True(store.HasCycleWitness(Hash, Now));
         Assert.False(store.MarkWitness(Hash, Entry - 1)); // an older snapshot changes nothing
 
-        Assert.False(store.HasCycleWitness(Hash, Kst(2026, 8, 19, 23, 0))); // stale after the handover
+        Assert.False(store.HasCycleWitness(Hash, Kst(2026, 8, 19, 23, 40))); // stale after the handover
     }
 
     [Fact]
