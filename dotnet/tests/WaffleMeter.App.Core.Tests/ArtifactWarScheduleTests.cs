@@ -243,10 +243,11 @@ public sealed class ArtifactWarScheduleTests
         Assert.Null(corridors.Reading(Hash, 10_000_002, after, boundaryAfter));
         Assert.False(corridors.HasCycleWitness(Hash, after, boundaryAfter));
 
-        // The old clock, for contrast: still claimed at 21:21 and at 22:24, given up only at its 22:25.
+        // The no-window clock, for contrast: still claimed at 21:21 and at 23:24, given up only at its 23:25
+        // (22:25 when this was written; since 2026-11-11 it follows the 23:00 group).
         Assert.Equal(130_000, corridors.Standing(Hash, 10_000_002, after));
-        Assert.Equal(130_000, corridors.Standing(Hash, 10_000_002, Kst(10, 7, 22, 24)));
-        Assert.Null(corridors.Standing(Hash, 10_000_002, Kst(10, 7, 22, 25)));
+        Assert.Equal(130_000, corridors.Standing(Hash, 10_000_002, Kst(10, 7, 23, 24)));
+        Assert.Null(corridors.Standing(Hash, 10_000_002, Kst(10, 7, 23, 25)));
     }
 
     /// <summary><b>Scenario A, on the panel.</b> At 21:19 the broadcast holds the row (four chips, confirmed). At
@@ -293,9 +294,11 @@ public sealed class ArtifactWarScheduleTests
         Assert.Equal(0, corridors.Reading(Hash, 10_000_002, at2230, boundary));
         Assert.Equal(0, corridors.Standing(Hash, 10_000_002, at2230, boundary));
 
-        // The old clock, for contrast.
-        Assert.False(corridors.EnteredThisCycle(Hash, 10_000_002, at2230));
-        Assert.Null(corridors.Reading(Hash, 10_000_002, at2230));
+        // The no-window clock, for contrast — once past its give-up (23:25 since 2026-11-11, 22:25 before).
+        long at2330 = Kst(10, 7, 23, 30);
+        Assert.True(corridors.EnteredThisCycle(Hash, 10_000_002, at2330, ArtifactWarSchedule.CorridorBoundaryMs(artifacts, Server, at2330)));
+        Assert.False(corridors.EnteredThisCycle(Hash, 10_000_002, at2330));
+        Assert.Null(corridors.Reading(Hash, 10_000_002, at2330));
     }
 
     /// <summary><b>Scenario B, on the panel.</b> The broadcast names the corridors; the 21:47 spend puts 0:00 on
@@ -399,14 +402,14 @@ public sealed class ArtifactWarScheduleTests
         Assert.Equal(Kst(10, 10, 21, 20), boundary);
         Assert.Equal(130_000, corridors.Standing(Hash, 10_000_002, at2230, boundary));
 
-        // The old clock, for contrast: 21:50 is before its 22:20, so it is given up at 22:25.
-        Assert.Null(corridors.Standing(Hash, 10_000_002, at2230));
+        // The no-window clock, for contrast: 21:50 is before its 23:20, so it is given up at 23:25.
+        Assert.Null(corridors.Standing(Hash, 10_000_002, Kst(10, 10, 23, 30)));
     }
 
     // ---- Scenario C: no window, nothing changes ----
 
     /// <summary><b>Scenario C.</b> A server with no window on file — another server's window does not count —
-    /// takes the legacy clock exactly: the same chips at 22:24, gone after the 22:25 give-up, with or without the
+    /// takes the legacy clock exactly: the same chips at 23:24, gone after the 23:25 give-up, with or without the
     /// artifact store passed in.</summary>
     [Fact]
     public void A_server_with_no_window_keeps_the_legacy_clock()
@@ -417,7 +420,7 @@ public sealed class ArtifactWarScheduleTests
         var otherServerOnly = AbyssArtifactStore.Parse(null);
         otherServerOnly.UpsertOwnership(1003, Lower, LowerStart, WarStart, Holdings(Lower, 1, 2, 1), Kst(10, 4, 9, 0));
 
-        foreach (long now in new[] { Kst(10, 7, 21, 21), Kst(10, 7, 22, 24), Kst(10, 7, 22, 26) })
+        foreach (long now in new[] { Kst(10, 7, 21, 21), Kst(10, 7, 23, 24), Kst(10, 7, 23, 26) })
         {
             AetherRosterRow legacy = Row(corridors, artifacts: null, now);
             AetherRosterRow withStore = Row(corridors, otherServerOnly, now);
@@ -428,8 +431,8 @@ public sealed class ArtifactWarScheduleTests
             Assert.Equal(legacy.CorridorsKnown, withStore.CorridorsKnown);
         }
 
-        Assert.Single(Row(corridors, otherServerOnly, Kst(10, 7, 22, 24)).CorridorCells);
-        Assert.Empty(Row(corridors, otherServerOnly, Kst(10, 7, 22, 26)).CorridorCells);
+        Assert.Single(Row(corridors, otherServerOnly, Kst(10, 7, 23, 24)).CorridorCells);
+        Assert.Empty(Row(corridors, otherServerOnly, Kst(10, 7, 23, 26)).CorridorCells);
     }
 
     /// <summary>A window that ended more than two weeks ago is no longer an answer, so the server goes back to
@@ -447,8 +450,8 @@ public sealed class ArtifactWarScheduleTests
     [Theory]
     [InlineData(10, 4, 20, 0)]
     [InlineData(10, 7, 21, 21)]
-    [InlineData(10, 7, 22, 25)]
-    [InlineData(10, 7, 22, 26)]
+    [InlineData(10, 7, 23, 25)]
+    [InlineData(10, 7, 23, 26)]
     public void A_zero_server_boundary_is_the_legacy_rule(int mo, int d, int h, int mi)
     {
         var corridors = AbyssCorridorStore.Parse(null);

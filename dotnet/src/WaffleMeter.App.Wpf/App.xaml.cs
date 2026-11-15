@@ -2579,8 +2579,8 @@ public partial class App : Application
         AbyssCorridorStore store = AbyssCorridorStore.Parse(_settings.AbyssCorridors);
         bool changed = store.MarkEntered(hash, ticketId, atMs);
 
-        // Which cycle "previous" means is this character's SERVER's call, not the Wed/Sat 22:20 clock's: the war
-        // now starts at 21:20, 21:50 or 22:20 depending on the server group. The server is looked up exactly as
+        // Which cycle "previous" means is this character's SERVER's call, not the Wed/Sat 23:20 clock's: the war
+        // starts at 22:00, 22:30 or 23:00 depending on the server group (2026-11-11). The server is looked up exactly as
         // FlushPendingAbyssArtifacts files the window under it; 0 (no server, no window) keeps the old clock.
         int server = services.Data.User(services.Data.ExecutorId())?.Server ?? 0;
         long serverBoundary = ArtifactWarSchedule.CorridorBoundaryMs(

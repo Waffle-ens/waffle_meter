@@ -169,8 +169,16 @@ public static class AbyssCorridorCatalog
 /// occupation on screen until 22:25, and at 22:25 it retired that evening's fresh readings as "last cycle's".
 /// Wherever the server's own window is on file (<see cref="AbyssArtifactStore.LatestWindow(int,long)"/>),
 /// <see cref="ArtifactWarSchedule"/> supplies the boundary and nothing here is consulted. Everything below
-/// describes the pre-patch timetable this fallback was built on, and it is kept exactly as it was so that a
-/// server with no window — an alt's server, a fresh install — behaves as it always did.</para>
+/// describes the pre-patch timetable this fallback was built on; only its clock has moved since (below).</para>
+///
+/// <para><b>2026-11-11: the war moved again — 22:00 / 22:30 / 23:00 by group</b> (patch notice, "수호신장 나흐마와
+/// 같은 시간대", 기존 21:20 / 21:50 / 22:20; client 125 <c>EventSchedule</c> 3001/3002 = Wed/Sat 22:00 for the base
+/// group). The fallback follows the <b>LATEST</b> group: capture 23:20, give-up 23:25 — the same war + 20 / + 25
+/// it always had, on 23:00. It only runs for a server whose group the meter does not know, and the two ways of
+/// being wrong are not equal (see "Why the boundary sits at 22:20" below): a clock set for 22:00 would credit an
+/// entry made at 22:40 under a 23:00 server's OUTGOING occupation as the new one for three days, while a clock
+/// set for 23:00 only costs an earlier group its fresh readings — they read "모름" until the window is heard or
+/// the corridor is entered again. ⚠️ The pre-patch times in the paragraphs below are history, not the clock.</para>
 ///
 /// <para><b>The 점령전 timetable, Wednesday and Saturday (KST) — pre-2026-09-30.</b>
 /// <list type="bullet">
@@ -224,16 +232,17 @@ public static class AbyssCorridorCycle
 {
     private static readonly TimeSpan Kst = TimeSpan.FromHours(9);
 
-    /// <summary>When capturing starts and the new holders begin to be broadcast — under the pre-patch timetable,
-    /// i.e. for the no-window fallback only (see the class doc). A reading stamped at or after this describes the
-    /// CURRENT cycle by construction there; on a server whose war now starts at 21:20 it does not.</summary>
-    public const int OccupationStartHour = 22;
+    /// <summary>When capturing starts and the new holders begin to be broadcast, for the no-window fallback only
+    /// (see the class doc): the latest war group's start (23:00 since 2026-11-11) + 20 min. A reading stamped at
+    /// or after this describes the CURRENT cycle on every group's server; on an earlier group's server so does a
+    /// reading from up to an hour before it, which is the accepted cost.</summary>
+    public const int OccupationStartHour = 23;
     public const int OccupationStartMinute = 20;
 
     /// <summary>When a stored answer is given up if nothing new was ever heard. Deliberately before the
-    /// corridors open at 22:30: by then the previous occupation has been gone for a quarter of an hour, and
-    /// showing "모름" beats showing a corridor the faction may well have lost.</summary>
-    public const int FallbackHour = 22;
+    /// latest group's corridors open at 23:30: by then the previous occupation has been gone for a quarter of an
+    /// hour, and showing "모름" beats showing a corridor the faction may well have lost.</summary>
+    public const int FallbackHour = 23;
     public const int FallbackMinute = 25;
 
     private static readonly DayOfWeek[] Days = [DayOfWeek.Wednesday, DayOfWeek.Saturday];
@@ -245,22 +254,22 @@ public static class AbyssCorridorCycle
     private const long MinPlausibleMs = 1_577_836_800_000L;
     private const long MaxPlausibleMs = 4_102_444_800_000L;
 
-    /// <summary>The most recent 점령 start (Wed/Sat 22:20 KST) at or before <paramref name="atMs"/>, as Unix ms,
+    /// <summary>The most recent 점령 start (Wed/Sat 23:20 KST) at or before <paramref name="atMs"/>, as Unix ms,
     /// or 0 for an unusable timestamp. A reading stamped at or after this is current-cycle evidence.</summary>
     public static long LastOccupationStartAtOrBefore(long atMs) =>
         LastWeeklySlotAtOrBefore(atMs, OccupationStartHour, OccupationStartMinute);
 
     /// <summary>How long after capturing begins the meter waits before giving up on a character it has heard
-    /// nothing from. Five minutes — 22:20 to 22:25 — chosen so the old answer survives the minutes in which the
-    /// new one is most likely to arrive, and is dropped before the corridors actually open at 22:30.</summary>
+    /// nothing from. Five minutes — 23:20 to 23:25 — chosen so the old answer survives the minutes in which the
+    /// new one is most likely to arrive, and is dropped before the corridors actually open at 23:30.</summary>
     public const long FallbackGraceMs = ((FallbackHour * 60 + FallbackMinute)
         - (OccupationStartHour * 60 + OccupationStartMinute)) * 60_000L;
 
     /// <summary>The boundary a stored reading is judged against when NOTHING has been heard since capturing
     /// began — see <see cref="BoundaryFor"/> for the case where something has.
     /// <para>Expressed as the capture start as of five minutes ago, which is the same rule read backwards:
-    /// during 22:20~22:25 that still resolves to the PREVIOUS 점령전, so the old answer stays on screen; from
-    /// 22:25 it resolves to today's 22:20 and retires everything older in one step.</para></summary>
+    /// during 23:20~23:25 that still resolves to the PREVIOUS 점령전, so the old answer stays on screen; from
+    /// 23:25 it resolves to today's 23:20 and retires everything older in one step.</para></summary>
     public static long LastStartAtOrBefore(long atMs) =>
         atMs < MinPlausibleMs || atMs > MaxPlausibleMs
             ? 0
@@ -268,7 +277,7 @@ public static class AbyssCorridorCycle
 
     /// <summary>The boundary for a character the meter HAS heard from, given the newest timestamp on anything
     /// stored for it. Once one reading lands at or after the capture began, that reading is this cycle's answer
-    /// and every older record beside it is last cycle's — so the boundary snaps forward to 22:20 immediately
+    /// and every older record beside it is last cycle's — so the boundary snaps forward to the capture start (23:20) immediately
     /// rather than waiting for the fallback.</summary>
     public static long BoundaryFor(long newestObservedAtMs, long nowMs)
     {
@@ -288,7 +297,7 @@ public static class AbyssCorridorCycle
 
     /// <summary>The most recent Wednesday or Saturday at or before <paramref name="atMs"/> at the KST time of
     /// day <paramref name="anchorMs"/> falls on, as Unix ms, or 0 for an unusable timestamp. The same war-day
-    /// calendar as the clock above, carrying a server's OWN war time instead of 22:20 — see
+    /// calendar as the clock above, carrying a server's OWN war time instead of 23:20 — see
     /// <see cref="ArtifactWarSchedule.CorridorBoundaryMs(AbyssArtifactWindow?,long)"/>.</summary>
     public static long LastWarDayAtSameTimeAtOrBefore(long anchorMs, long atMs)
     {
