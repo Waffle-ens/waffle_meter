@@ -23,9 +23,11 @@ public sealed class FieldBossPickerViewModel
 
         foreach (FieldBossRegion region in FieldBossCatalog.Regions)
         {
-            // 감시자 카이라 has its own clock reminder in the settings, so it is not a row here.
+            // 감시자 카이라 has its own clock reminder in the settings, so it is not a row here — nor is a boss
+            // the game no longer spawns (점령전 뒤 보스 6종, 2026-11-11).
             List<FieldBossInfo> bosses = FieldBossCatalog.InRegion(region)
-                .Where(b => !FieldBossCatalog.HasOwnAlarm(b.Code)).ToList();
+                .Where(b => !FieldBossCatalog.HasOwnAlarm(b.Code) && !FieldBossCatalog.IsRemovedFromGame(b.Code))
+                .ToList();
             if (bosses.Count == 0)
             {
                 continue;

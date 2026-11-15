@@ -133,6 +133,11 @@ public sealed class AlarmController
                 continue; // 감시자 카이라 has its own clock reminder — never double-fire here
             }
 
+            if (FieldBossCatalog.IsRemovedFromGame(d.Code))
+            {
+                continue; // 2026-11-11 패치로 게임에서 빠진 보스 — 남은 0x9101 기록이 있어도 울리지 않는다
+            }
+
             if (disabled.Contains(d.Code))
             {
                 continue; // unchecked in the boss picker
