@@ -141,7 +141,32 @@ public class FieldBossAlarmTests
         // 감시자 카이라는 리젠 타이머가 아니라 시계로 도는 출현 알림으로 다룬다 — 여기에도, picker에도 없다.
         Assert.False(FieldBossFixedSchedule.HasFixedSchedule(FieldBossCatalog.ScheduledSpawnCode));
         Assert.True(FieldBossCatalog.HasOwnAlarm(FieldBossCatalog.ScheduledSpawnCode));
-        Assert.False(FieldBossCatalog.HasOwnAlarm(2600098));   // 집행자 슬롯 카이라는 일반 알림 대상
+        Assert.False(FieldBossCatalog.HasOwnAlarm(2600098));   // 집행자 카이라는 전용 알림이 아니다(11-11 제거됨 — 아래)
+    }
+
+    /// <summary>2026-11-11 패치 공지가 이름으로 적은 제거 보스 6종. 기댓값을 다른 상수에서 파생시키지 않고
+    /// 리터럴로 박는다 — 같이 틀리면 영영 그린이다(카이라 앵커 선례).</summary>
+    [Fact]
+    public void The_six_post_war_bosses_are_removed_from_the_game_but_still_resolve()
+    {
+        int[] removed = [2600096, 2600097, 2600098, 2600520, 2600521, 2600522];
+        string[] names = ["집행자 타마사", "집행자 아그로", "집행자 카이라", "처형관 드라모스", "반역자 듀칼", "파멸자 마라카"];
+
+        Assert.Equal(
+            removed,
+            FieldBossCatalog.All().Where(b => FieldBossCatalog.IsRemovedFromGame(b.Code)).Select(b => b.Code).Order());
+        for (int i = 0; i < removed.Length; i++)
+        {
+            Assert.True(FieldBossCatalog.IsKnown(removed[i]));                 // 행은 남는다 — 옛 기록이 이름으로 풀려야 한다
+            Assert.Equal(names[i], FieldBossCatalog.Name(removed[i]));
+            Assert.True(FieldBossCatalog.IsAbyss(removed[i]));
+        }
+
+        // 이름이 닮은 현역 보스는 건드리지 않는다.
+        Assert.False(FieldBossCatalog.IsRemovedFromGame(2600068));  // 정령왕 아그로 — 매일 09·21시
+        Assert.False(FieldBossCatalog.IsRemovedFromGame(FieldBossCatalog.ScheduledSpawnCode));      // 감시자 카이라
+        Assert.False(FieldBossCatalog.IsRemovedFromGame(FieldBossCatalog.ScheduledSpawnTwinCode));  // 감시자 카이라 둘째
+        Assert.False(FieldBossCatalog.IsRemovedFromGame(2600479));  // 분노한 수호신장 나흐마
     }
 
     /// <summary>클라 125(2026-11-11)의 두 번째 감시자 카이라(2600099). 첫째와 같은 전용 알림에 묶여

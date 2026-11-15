@@ -173,6 +173,20 @@ public static class FieldBossCatalog
     /// <summary>True when this boss is driven by its own alarm instead of the shared respawn-timer one.</summary>
     public static bool HasOwnAlarm(int code) => OwnAlarmCodes.Contains(code);
 
+    /// <summary>아티팩트 점령전에 이어 나오던 보스 6종 — 2026-11-11 패치로 <b>게임에서 제거됐다</b>(패치 공지
+    /// "스케줄 부담 완화를 위해 아티팩트 점령전에 이어서 등장하던 다음 보스 몬스터가 제거됩니다": 하층 집행자
+    /// 카이라·아그로·타마사, 중층 처형관 드라모스·반역자 듀칼·파멸자 마라카). 클라 125 도 같다 — <c>PeriodSpawn</c>
+    /// 1018~1020·1153~1155 행과 두 맵의 스포너가 함께 사라졌다.
+    /// <para>행은 지우지 않는다: 저장된 옛 전투·알림 설정이 이 코드를 이름으로 풀어야 하고, 군중전 스코프
+    /// (<see cref="IsAbyss"/>)도 이 표를 쓴다. 대신 피커에 줄을 만들지 않고 알림도 울리지 않는다 — 안 나오는
+    /// 보스를 "N분 뒤 리젠"이라고 부르는 게 이 표가 막아야 할 일이다.</para></summary>
+    private static readonly HashSet<int> RemovedFromGameCodes =
+        [2600096, 2600097, 2600098, 2600520, 2600521, 2600522];
+
+    /// <summary>True for a boss the game no longer spawns (<see cref="RemovedFromGameCodes"/>) — no picker row,
+    /// no alarm.</summary>
+    public static bool IsRemovedFromGame(int code) => RemovedFromGameCodes.Contains(code);
+
     /// <summary>Wire codes the boss table does not list directly, kept so a record that still carries the old
     /// value resolves. 2101349는 옛 표가 쓰던 "맹목적인 니호그" 코드인데 현행 데이터마인엔 보스가 아니고,
     /// 같은 이름의 실보스는 2101343이라 그쪽을 정본으로 삼되 옛 코드도 받아 준다.</summary>

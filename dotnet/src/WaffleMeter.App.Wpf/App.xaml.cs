@@ -167,9 +167,6 @@ public partial class App : Application
     private AlarmToast? _alarmToast;
     private AlarmToastViewModel? _alarmToastVm;
     private AlarmController? _alarms;
-    /// <summary>The 아티쟁 bosses' derived spawns, remembered for the session so the window filed right after
-    /// the war (which already names the NEXT war) cannot pull today's spawn out from under its 5-minute lead.</summary>
-    private readonly ArtifactWarBossTimers _artifactWarBosses = new();
     private volatile bool _combatActive; // recent damage activity — gates the "mute field-boss alarm in combat" option
     private BuffOverlayPanel? _buffOverlay;
     /// <summary>사용자가 정한 버프 오버레이 위치("집"). 이 창만 SizeToContent 라 폭이 스스로 자라는데,
@@ -936,23 +933,14 @@ public partial class App : Application
             _settings,
             lead => Dispatcher.Invoke(() => ShowShugoAlarm(lead)),
             alarm => Dispatcher.Invoke(() => ShowCustomAlarm(alarm)),
-            // The 0x9101 table, plus the 아티쟁 bosses' spawn derived from the current character's server war
-            // time (R + ArtifactWarSchedule.BossSpawnMinutesAfterWarStart) wherever the server has not timed them
-            // itself — a server time always wins, and with no R on file there is simply no alarm. Same server
-            // lookup as FlushPendingAbyssArtifacts. On top, the daily fixed-spawn bosses (정령왕 아그로 09·21시) get
-            // their next slot from the clock so they ring without the abyss having been visited — again only
-            // where the server has not timed them (DailyFieldBossTimers).
-            fieldBossTimers: () =>
-            {
-                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                return DailyFieldBossTimers.Merge(
-                    _artifactWarBosses.Merge(
-                        services.Data.CurrentFieldBossTimers,
-                        AbyssArtifactStore.Parse(_settings!.AbyssArtifacts),
-                        services.Data.User(services.Data.ExecutorId())?.Server ?? 0,
-                        nowMs),
-                    nowMs);
-            },
+            // The 0x9101 table, plus the daily fixed-spawn bosses (정령왕 아그로 09·21시), whose next slot comes
+            // from the clock so they ring without the abyss having been visited — only where the server has not
+            // timed them (DailyFieldBossTimers).
+            // 점령전 시각에서 파생하던 아티쟁 보스 알림(ArtifactWarBossTimers, R + 25분)은 2026-11-11 에 끊었다:
+            // 그 대상 6마리가 패치로 게임에서 제거됐다(FieldBossCatalog.IsRemovedFromGame). 점령전 뒤에 다시
+            // 보스가 붙으면 그 클래스를 여기 다시 끼우면 된다 — 시각 파생·서버값 우선 규칙은 테스트째 남아 있다.
+            fieldBossTimers: () => DailyFieldBossTimers.Merge(
+                services.Data.CurrentFieldBossTimers, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()),
             onFieldBoss: due => Dispatcher.Invoke(() => ShowFieldBossAlarm(due)),
             combatActive: () => _combatActive,
             onKaira: (lead, spawn) => Dispatcher.Invoke(() => ShowKairaAlarm(lead, spawn)));
