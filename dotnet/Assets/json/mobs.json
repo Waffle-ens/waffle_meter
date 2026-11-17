@@ -41494,6 +41494,101 @@
     "boss": true
   },
   {
+    "code": 2301170,
+    "name": "변이된 정예 지휘관",
+    "boss": false
+  },
+  {
+    "code": 2301171,
+    "name": "변이된 정찰병",
+    "boss": false
+  },
+  {
+    "code": 2301172,
+    "name": "성소 발게스트",
+    "boss": false
+  },
+  {
+    "code": 2301173,
+    "name": "화염 지대",
+    "boss": false
+  },
+  {
+    "code": 2301174,
+    "name": "변이된 치유병",
+    "boss": false
+  },
+  {
+    "code": 2301175,
+    "name": "염화의 수호검",
+    "boss": true
+  },
+  {
+    "code": 2301176,
+    "name": "무스펠 심연 람푸",
+    "boss": false
+  },
+  {
+    "code": 2301177,
+    "name": "무스펠 용암",
+    "boss": false
+  },
+  {
+    "code": 2301178,
+    "name": "무스펠 거대한 용암",
+    "boss": false
+  },
+  {
+    "code": 2301179,
+    "name": "이스카리엘",
+    "boss": true
+  },
+  {
+    "code": 2301180,
+    "name": "칼드릭스",
+    "boss": true
+  },
+  {
+    "code": 2301181,
+    "name": "칼드릭스",
+    "boss": true
+  },
+  {
+    "code": 2301182,
+    "name": "무스펠 수호상",
+    "boss": false
+  },
+  {
+    "code": 2301183,
+    "name": "홍염의 알",
+    "boss": false
+  },
+  {
+    "code": 2301184,
+    "name": "무스펠 심연 괴수",
+    "boss": false
+  },
+  {
+    "code": 2301185,
+    "name": "메테오",
+    "boss": false
+  },
+  {
+    "code": 2301186,
+    "name": "화염",
+    "boss": false
+  },
+  {
+    "code": 2301187,
+    "name": "염화의 수호검",
+    "boss": true
+  },
+  {
+    "code": 2301188,
+    "name": "무스펠 수호상",
+    "boss": false
+  },
+  {
     "code": 2407118,
     "name": "긍지의 모노리스",
     "boss": false
@@ -41597,6 +41692,16 @@
     "code": 2921583,
     "name": "드라토나 덩치",
     "boss": false
+  },
+  {
+    "code": 2921779,
+    "name": "성화의 보호 결계",
+    "boss": false
+  },
+  {
+    "code": 2921780,
+    "name": "무스펠 수호상",
+    "boss": true
   },
   {
     "code": 2350311,
