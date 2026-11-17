@@ -55,8 +55,8 @@ public sealed class ShippedBuffCatalogTests
         Assert.Equal(new[] { 17410000, 18190000 }, Catalog().DefaultOff.OrderBy(c => c));
     }
 
-    /// <summary>최대 중첩 수 <c>"s"</c>는 손으로 정한 값이 아니라 2026-11-11 클라 <c>SkillAbnormal.AbnormalOverlapCount</c>를
-    /// 옮겨 적은 것이다. 이 넷만 중첩 배지를 그린다 — 늘리거나 바꾸려면 클라 값을 다시 확인하고 여기를 함께 고친다.</summary>
+    /// <summary>최대 중첩 수 <c>"s"</c>는 손으로 정한 값이 아니라 클라 <c>SkillAbnormal.AbnormalOverlapCount</c>를
+    /// 옮겨 적은 것이다(2026-11-18 클라 기준). 이 셋만 중첩 배지를 그린다 — 늘리거나 바꾸려면 클라 값을 다시 확인하고 여기를 함께 고친다.</summary>
     [Fact]
     public void The_shipped_stack_caps_are_the_client_overlap_counts()
     {
@@ -64,9 +64,9 @@ public sealed class ShippedBuffCatalogTests
             new Dictionary<int, int>
             {
                 [11100000] = 2,  // 광분
+                [13130000] = 3,  // 살의 (2026-11-18 새 어노멀, 3중첩)
                 [14330000] = 10, // 난사
-                [15110000] = 3,  // 겨울의 파편
-                [16030000] = 2,  // 원소의 흐름
+                // 겨울의 파편·원소의 흐름은 2026-11-18 클라에서 중첩이 1로 내려가 배지를 그리지 않는다.
             },
             Catalog().StackMax);
     }
