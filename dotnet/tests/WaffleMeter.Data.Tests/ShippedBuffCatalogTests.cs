@@ -74,11 +74,18 @@ public sealed class ShippedBuffCatalogTests
     [Theory]
     [InlineData(17400058, "대지의 축복")]
     [InlineData(12240052, "심판의 권능")]
-    [InlineData(12110037, "보호의 방패")]
     [InlineData(13080037, "회피 자세")]
     public void Every_split_display_code_is_catalogued_with_its_in_game_name(int displayCode, string name)
     {
         Assert.Contains(Catalog().Catalog, c => c.Code == displayCode && c.Name == name);
         Assert.Equal(name, Names()[displayCode]);
+    }
+
+    /// <summary>'보호의 방패' 공격력 효과(121100371 → 표시 12110037)는 2026-11-18 클라에서 버프 칸 표시가 꺼졌다
+    /// (<c>bAbnormalIconView=false</c>). 오너 결정으로 게임에 맞춰 목록에서 뺐다 — 다시 넣으려면 클라 표시 여부부터 확인한다.</summary>
+    [Fact]
+    public void The_shield_attack_effect_the_game_hides_is_not_catalogued()
+    {
+        Assert.DoesNotContain(Catalog().Catalog, c => c.Code == 12110037);
     }
 }
