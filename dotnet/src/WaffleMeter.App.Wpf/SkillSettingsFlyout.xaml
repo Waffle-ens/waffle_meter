@@ -65,7 +65,8 @@
                         <DataTemplate>
                             <StackPanel Margin="0,0,0,12">
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <Image Source="{Binding JobIcon}" Width="18" Height="18" Margin="0,0,6,0"/>
+                                    <Image Source="{Binding JobIcon}" Width="18" Height="18" Margin="0,0,6,0"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
                                     <TextBlock Text="{Binding Job}" Foreground="{DynamicResource Skin.Fg}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center"/>
                                 </StackPanel>
 

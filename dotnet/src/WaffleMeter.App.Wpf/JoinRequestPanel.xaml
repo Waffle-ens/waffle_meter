@@ -84,7 +84,8 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <Image Grid.Column="0" Source="{Binding JobIcon}" Width="24" Height="24"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding Nickname}" Foreground="{StaticResource OnCardFg}"
                                                            FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                 <!-- 던전 티어. Collapsed unless the stats web actually returned a
