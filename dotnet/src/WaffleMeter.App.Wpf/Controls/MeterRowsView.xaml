@@ -284,7 +284,11 @@
                                             </Style>
                                         </Border.Style>
                                         <Grid>
-                                            <Image Source="{Binding IconSource}" Stretch="Uniform" Margin="2"/>
+                                            <!-- HighQuality 필수: 40×42 원본을 ~14px 로 3배 넘게 줄인다. 기본(Linear)은
+                                                 사전 필터 없이 표본을 찍어서 위아래 가는 장식(치유성 하단 꼭지 등)이
+                                                 빠지고 몸통만 남아 아이콘이 옆으로 뚱뚱해 보인다. 헤더 문장과 같은 설정. -->
+                                            <Image Source="{Binding IconSource}" Stretch="Uniform" Margin="2"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
                                             <!-- IsHitTestVisible=False: the row is a click target (OnRowClick) and a
                                                  transparent overlay hit-tests per-pixel alpha, so a decorative ring
                                                  must never become clickable. -->
