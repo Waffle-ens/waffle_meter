@@ -3755,8 +3755,14 @@ public partial class App : Application
             string spoken = s.BuffTtsAbbrev ? BuffAbbreviation.Of(b.Name) : b.Name;
 
             // Start once per buff. A same-buff re-cast (base already announced) does NOT re-announce — the later
-            // cast silently takes over the earlier one.
-            if (s.BuffTtsOnStart && _buffStartAnnounced.Add(b.Code))
+            // cast silently takes over the earlier one. 중첩이 늘어나는 것도 같은 칸이라 다시 말하지 않는다.
+            // Silent = 칸 이름의 버프가 되기 전 누적 단계(원소 → 4원소). 시작·종료 모두 건너뛰고, 시작 표시도
+            // 남기지 않아 진짜 버프로 바뀌는 순간 "온"이 나간다.
+            if (b.Silent)
+            {
+                _buffStartAnnounced.Remove(b.Code); // 4원소가 끝나고 칸이 이어진 채 원소가 다시 쌓여도 다음 4원소에 "온"
+            }
+            else if (s.BuffTtsOnStart && _buffStartAnnounced.Add(b.Code))
             {
                 TtsSpeech.Speak($"{spoken} 온", s.AlarmVolume, durable: true, chimeFallback: false);
             }
@@ -3775,7 +3781,7 @@ public partial class App : Application
             long scan = warnEarly ? BuffEndWarnLeadMs + BuffTickMs : BuffEndTtsScanMs;
             long minDuration = warnEarly ? BuffEndWarnMinDurationMs : BuffEndTtsScanMs * 2;
 
-            if (s.BuffTtsOnEnd && !b.Indefinite && b.DurationMs > minDuration && b.RemainingMs > 0 && b.RemainingMs <= scan
+            if (!b.Silent && s.BuffTtsOnEnd && !b.Indefinite && b.DurationMs > minDuration && b.RemainingMs > 0 && b.RemainingMs <= scan
                 && (!_buffEndAnnouncedFor.TryGetValue(b.Code, out long warnedEnd) || warnedEnd != b.EndMs))
             {
                 _buffEndAnnouncedFor[b.Code] = b.EndMs;

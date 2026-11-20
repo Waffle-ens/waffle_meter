@@ -3182,6 +3182,15 @@ public sealed class DataManager : ICaptureGameData
         18190000, // 호법성 불패의 진언
     ];
 
+    // 칸 이름의 버프가 되기 전, 그 칸에 수만 쌓이는 '누적 단계' 효과(raw 코드). 정령성 '원소'(163000003)는 정령 스킬마다
+    // 한 겹씩 쌓여 4겹이 되면 '4원소'(163000002)로 바뀐다 — 오너 결정(2026-11-21)으로 4원소 칸에 원소 중첩을 그린다.
+    // 이 효과가 칸의 대표일 때는 음성을 내지 않는다(OwnerBuffView.Silent). 안 그러면 원소 1겹에 "4원소 온"이 나가고,
+    // 칸이 이미 떠 있으니 정작 4원소가 됐을 때는 조용하다. 스택이 쌓이는 것으로는 알림을 울리지 않는다는 규칙이다.
+    private static readonly HashSet<int> StackPrecursorRawCodes =
+    [
+        163000003, // 정령성 원소 → 4원소 칸
+    ];
+
     // on/off 오라의 유예. 펄스가 선언 만료를 넘겨 늦게 오는 일이 0.2~2.4%(세션별)라 그대로 두면 아이콘이 한두
     // 틱 꺼졌다 켜진다. 대가로, 실제로 끄거나 오라 범위를 벗어나도 아이콘이 이만큼 더 남는다.
     private const long ToggleAuraGraceMs = 3_000;
@@ -3812,6 +3821,7 @@ public sealed class DataManager : ICaptureGameData
                 bool toggle = ToggleAuraBaseCodes.Contains(kv.Key);
                 int stackMax = BuffStackMax(kv.Key);
                 int stacks = stackMax > 0 ? _buffStacks.Count(kv.Key, nowMs, stackMax) : 0;
+                bool silent = stackMax > 0 && StackPrecursorRawCodes.Contains(_buffStacks.RepresentativeRaw(kv.Key));
                 result.Add(new OwnerBuffView(
                     kv.Key, name, kv.Value.End - nowMs, kv.Value.Duration, kv.Value.End,
                     owner != 0 && kv.Value.Actor != owner,
@@ -3821,7 +3831,8 @@ public sealed class DataManager : ICaptureGameData
                     kv.Value.Level,
                     toggle,
                     toggle && _toggleHeldSince.TryGetValue(kv.Key, out long heldSince) ? heldSince : 0,
-                    stacks));
+                    stacks,
+                    silent));
             }
 
             SuppressExclusiveLosers(result, nowMs);

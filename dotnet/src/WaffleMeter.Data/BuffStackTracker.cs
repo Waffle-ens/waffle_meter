@@ -67,6 +67,9 @@ public sealed class BuffStackTracker
     public (int Slot, long End)? Latest(int baseCode, long nowMs) =>
         _bases.TryGetValue(baseCode, out var state) ? Latest(state, nowMs) : null;
 
+    /// <summary>이 base 의 대표 raw(마지막으로 기록된 코드). 기록이 없으면 0.</summary>
+    public int RepresentativeRaw(int baseCode) => _bases.TryGetValue(baseCode, out var state) ? state.Raw : 0;
+
     /// <summary>중첩 수. 기록이 없거나 살아 있는 slot이 없으면 1(아이콘이 떠 있는 한 최소 한 겹이다).
     /// <paramref name="max"/>가 양수면 그 값에서 자른다.</summary>
     public int Count(int baseCode, long nowMs, int max)

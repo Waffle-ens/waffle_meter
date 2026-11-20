@@ -25,6 +25,8 @@ namespace WaffleMeter.Data;
 /// <para><see cref="Stacks"/>는 중첩 수다 — 같은 버프가 서로 다른 인스턴스(slot)로 몇 겹 살아 있는가. 최대 중첩 수가
 /// 카탈로그(<c>buff_catalog.json</c>의 <c>"s"</c>)에 적힌 버프만 1 이상이고, 그 밖의 버프는 0(세지 않음)이다.
 /// <see cref="Level"/>(시전자의 스킬 레벨)과는 다른 값이다. 오버레이는 2 이상일 때만 배지를 그린다.</para>
+/// <para><see cref="Silent"/>는 칸의 대표가 칸 이름의 버프가 아니라 그 버프로 가는 '누적 단계' 효과(정령성 원소 →
+/// 4원소)라는 뜻이다. 오버레이는 그대로 그리되 음성은 내지 않는다 — 시작 알림은 칸 이름의 버프가 실제로 걸렸을 때 나간다.</para>
 /// </summary>
 public readonly record struct OwnerBuffView(
     int Code,
@@ -39,7 +41,8 @@ public readonly record struct OwnerBuffView(
     int Level = 0,
     bool Toggle = false,
     long HeldSinceMs = 0,
-    int Stacks = 0)
+    int Stacks = 0,
+    bool Silent = false)
 {
     /// <summary>중첩 배지를 그릴지. 1겹은 그리지 않는다 — 레벨 배지가 1을 숨기는 것과 같은 규칙이고, 대부분의 시간
     /// 1겹인 버프에 "1"이 상시 붙으면 정보가 아니라 잡음이 된다.</summary>
