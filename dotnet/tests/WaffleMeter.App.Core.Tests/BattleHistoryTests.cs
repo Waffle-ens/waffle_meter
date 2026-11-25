@@ -107,6 +107,20 @@ public class BattleHistoryTests
         Assert.Equal("알 수 없음", items[0].MobName);
     }
 
+    /// <summary>1인 모드는 파티 판과 이름·난이도가 같다 — 안 붙이면 두 기록이 같은 행으로 보인다.</summary>
+    [Fact]
+    public void Build_marks_solo_mode_runs()
+    {
+        (int, DpsReport) solo = Battle(0, "광신의 우루구구", true, 1000, 31_000, 500);
+        solo.Item2.SoloMode = true;
+        (int, DpsReport) party = Battle(1, "광신의 우루구구", true, 100_000, 130_000, 500);
+
+        var items = BattleHistory.Build([solo, party]);
+
+        Assert.Equal("광신의 우루구구 · 1인 모드", items.Single(i => i.Index == 0).MobName);
+        Assert.Equal("광신의 우루구구", items.Single(i => i.Index == 1).MobName);
+    }
+
     [Theory]
     [InlineData(0, "00:00")]
     [InlineData(-5, "00:00")]

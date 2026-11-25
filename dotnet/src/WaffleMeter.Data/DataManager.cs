@@ -350,8 +350,24 @@ public sealed class DataManager : ICaptureGameData
     public void ObserveRoomAffixes(int dungeonId, int roomKey, int[] levels) =>
         TrialDifficulty.ObserveRoomAffixes(dungeonId, roomKey, levels);
 
-    public void SaveInstancePhaseWindow(int mapId, int phase, long startMs, long windowMs) =>
+    public void SaveInstancePhaseWindow(int mapId, int phase, long startMs, long windowMs)
+    {
         TrialDifficulty.ObservePhaseWindow(mapId, phase, startMs, windowMs);
+        SoloMode.ObservePhaseWindow(mapId, phase, startMs, Clock());
+    }
+
+    /// <summary>파티 던전 '1인 모드' 판정. 같은 dungeonId·mobCode를 파티 판과 공유해서 입장 버프로만 가린다.</summary>
+    public SoloModeTracker SoloMode { get; } = new();
+
+    // ⚠️ 패킷 시각(arrivedAt)이 아니라 Clock() 으로 찍는다 — phase 창 쪽은 도착 시각을 안 받으므로 둘을
+    // 같은 시계로 재야 시차 비교(SoloModeTracker.EntryToleranceMs)가 시뮬레이션 시계에서도 맞는다.
+    public void SaveSoloModeBuff(int skillCode, long arrivedAt) => SoloMode.ObserveBuff(Clock());
+
+    /// <summary>이 보스 전투가 1인 모드인가. 카탈로그로 보스의 던전을 찾아 추적기에 대조한다 — 모르는 보스는 false.</summary>
+    public bool IsSoloModeBattle(MobInfo? target) =>
+        target is { } t
+        && Encounters.Lookup(t.Mob.Code) is { } info
+        && SoloMode.AppliesTo(info.DungeonId);
 
     /// <summary>Raised (packet-consumer thread) with the instance map the character just loaded into and when.
     /// Stateless on purpose — the only consumer is the 어비스 회랑 clock, which needs "entered a corridor" and
@@ -4707,6 +4723,9 @@ public sealed class DataManager : ICaptureGameData
             // 상류 어딘가가 스탬프를 빠뜨리면 기록만 조용히 비고, 그건 화면을 봐도 안 보인다.
             // 추적기는 던전을 나갈 때 비워지므로 저장 시점 값이 곧 이 전투의 난이도다.
             TrialDifficulty = TrialDifficulty.Current,
+            // 1인 모드는 라이브 리포트가 실어 온 값을 우선하고, 빠졌으면 추적기에 다시 묻는다(OR). 저장은 유휴
+            // 종료로 늦게 일어날 수 있어 그사이 새 입장으로 추적기가 지워졌을 수 있다 — 리포트 쪽이 1차 소스다.
+            SoloMode = data.SoloMode || IsSoloModeBattle(data.Target),
         };
 
         var log = new DpsLog

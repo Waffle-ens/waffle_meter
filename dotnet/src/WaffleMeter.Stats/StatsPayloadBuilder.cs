@@ -261,7 +261,8 @@ public sealed class StatsPayloadBuilder
                 report.BattleEnd,
                 duration,
                 participantPayloads.Count, // 접힌 인원 — 위 jobCounts 주석 참조
-                report.PartyRosterSize > 0 ? report.PartyRosterSize : null),
+                report.PartyRosterSize > 0 ? report.PartyRosterSize : null,
+                report.SoloMode ? true : null), // false 는 보내지 않는다 — "못 봤다"일 뿐이다
             PartyComposition: new StatsPartyCompositionPayload(jobCounts, synergy),
             Participants: participantPayloads,
             // ⚠️ 최상위 Result·Buffs 도 접힌 값을 써야 한다. 참가자 행은 접힌 합인데 여기만 한쪽 uid 몫이면

@@ -780,8 +780,10 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
             TargetVariantVisibility = string.IsNullOrEmpty(pVariant) ? Visibility.Collapsed : Visibility.Visible;
             // 무대 서브라인 "던전 · 난이도". 페이즈는 여기 넣지 않는다 — 카탈로그가 페이즈를 가른 보스(델트라스)는
             // DisplayParts 가 이름 쪽에 붙여 준다("델트라스 1페이즈").
+            // 1인 모드는 파티 판과 같은 보스 코드라 카탈로그가 말해 주지 않는다 — 리포트에 동결된 플래그로 붙인다.
             TargetSubtitle = string.Join(" · ",
-                new[] { pDungeon, pVariant }.Where(x => !string.IsNullOrWhiteSpace(x)));
+                new[] { pDungeon, pVariant, report.SoloMode ? "1인 모드" : null }
+                    .Where(x => !string.IsNullOrWhiteSpace(x)));
             TargetSubtitleVisibility = TargetSubtitle.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
         else

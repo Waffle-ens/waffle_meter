@@ -663,6 +663,9 @@ public sealed class DpsCalculator
             PartyRosterSize = cachedRosterSize,
             // 이 전투의 시련 난이도를 지금 박아 둔다 — 나중에 몹 코드로는 되짚을 수 없다(DpsReport 주석).
             TrialDifficulty = _dm.TrialDifficulty.Current,
+            // 1인 모드도 같은 이유로 지금 동결한다. ⚠️ 이 리포트가 _recentData 를 교체하므로 여기서 빠뜨리면
+            // 종료 틱에 라이브 경로가 세운 값이 false 로 떨어진다(TargetInstanced 가 겪은 것과 같은 함정).
+            SoloMode = _dm.IsSoloModeBattle(targetInfo),
             // ⚠️ 이 줄을 빼면 <b>보스가 죽는 바로 그 틱</b>에 로스터로 구제한 파티원 행이 사라진다.
             // 이 리포트가 _recentData 를 교체하는데 TargetInstanced 의 대입은 라이브 경로 한 곳뿐이라,
             // 여기서 이월하지 않으면 기본값 false 로 떨어진다 — 그런데 그 플래그가 표시 계층의
@@ -912,6 +915,7 @@ public sealed class DpsCalculator
                     MaxHp = _dm.MobMaxHp(_currentTarget) ?? 0,
                 };
                 report.TargetInstanced = _dm.IsInstancedBoss(mobCode!.Value); // party-scene proof for the roster rescue
+                report.SoloMode = _dm.IsSoloModeBattle(report.Target); // 시련 난이도와 같이 지금 동결한다
             }
         }
 

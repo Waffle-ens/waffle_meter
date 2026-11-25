@@ -295,6 +295,11 @@ public interface ICaptureGameData
     /// different fight sharing one map and one set of boss codes. No-op in capture-only mode.</summary>
     void SaveTrialAffix(TrialAffixGroup group, int level, long arrivedAt) { }
 
+    /// <summary>A 파티 던전 '1인 모드' entry buff (<see cref="SoloModeBuffCatalog"/>) was applied. It says this
+    /// instance is a solo run, which nothing else on the wire does — the dungeonId and boss codes are the party
+    /// run's. No-op in capture-only mode.</summary>
+    void SaveSoloModeBuff(int skillCode, long arrivedAt) { }
+
     /// <summary>A dungeon instance's phase window. Only the trial uses it here: its main phase is the
     /// 제한 시간 affix, which is an instance setting rather than a buff and so has no other carrier.
     /// No-op in capture-only mode.</summary>

@@ -41,6 +41,8 @@ public static class BattleHistory
                 Index: index,
                 MobName: report.Target is { } target
                     ? catalog.DisplayName(target.Mob.Code, target.Mob.Name)
+                      // 1인 모드는 파티 판과 이름·난이도가 같아서, 안 붙이면 두 기록이 똑같은 행으로 보인다.
+                      + (report.SoloMode ? " · 1인 모드" : string.Empty)
                     : "알 수 없음",
                 IsBoss: report.Target?.Mob.Boss ?? false,
                 TotalAmount: report.Information.Values.Sum(i => i.Amount),

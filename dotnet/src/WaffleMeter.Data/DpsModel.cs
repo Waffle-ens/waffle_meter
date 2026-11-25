@@ -341,6 +341,13 @@ public sealed class DpsReport
     /// </summary>
     public TrialDifficulty TrialDifficulty { get; set; }
 
+    /// <summary>
+    /// 이 전투가 파티 던전 '1인 모드'(클라 134~)였는가. <see cref="TrialDifficulty"/> 와 같은 이유로 전투에
+    /// <b>동결</b>한다 — 1인 모드는 파티 판과 같은 보스 코드라 <see cref="Target"/> 으로 되짚을 수 없다.
+    /// <para>false 는 "아니다"와 "못 봤다"를 함께 뜻한다. 이 필드가 생기기 전 저장된 전투는 false 로 읽힌다.</para>
+    /// </summary>
+    public bool SoloMode { get; set; }
+
     public bool FakeTimeFlag { get; set; }
     public List<ParsedDamagePacket>? Packets { get; set; }
 
