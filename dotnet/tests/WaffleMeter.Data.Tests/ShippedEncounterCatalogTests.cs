@@ -401,6 +401,21 @@ public sealed class ShippedEncounterCatalogTests
     }
 
     // The catalog exposes lookups rather than an enumeration, so walk the shipped asset's codes directly.
+    /// <summary>1인 모드 판정은 보스의 dungeonId 를 <see cref="SoloModeTracker.EligibleDungeonIds"/> 에 대조한다.
+    /// 대상 id 가 카탈로그에 없으면 그 던전의 1인 모드 전투는 플래그 없이 파티 전투로 올라간다 — 오타 하나로
+    /// 조용히 죽는 종류라 여기서 고정한다.</summary>
+    [Fact]
+    public void Every_solo_mode_dungeon_is_in_the_catalog()
+    {
+        EncounterCatalog catalog = Shipped();
+        var catalogued = AllCodes(catalog)
+            .Select(code => catalog.Lookup(code)?.DungeonId ?? 0)
+            .ToHashSet();
+
+        var missing = SoloModeTracker.EligibleDungeonIds.Where(id => !catalogued.Contains(id)).ToList();
+        Assert.True(missing.Count == 0, "solo-mode dungeonIds absent from encounters.json: " + string.Join(", ", missing));
+    }
+
     private static IEnumerable<int> AllCodes(EncounterCatalog catalog)
     {
         using var doc = System.Text.Json.JsonDocument.Parse(

@@ -3122,6 +3122,22 @@ public sealed class StreamProcessor
                 return;
             }
 
+            // 파티 던전 '1인 모드' 입장 버프(클라 134). 1743 과 19996x01 은 아래 대역 게이트에서, 무기한인 직업
+            // 버프는 무기한 게이트에서 또 버려지므로 여기서 가로챈다. 버프 저장소로는 보내지 않는다(상시 버프).
+            // 대상 uid 는 거르지 않는다 — 1인 모드 인스턴스엔 본인 말고 플레이어가 없고, 파티 판에는 이 코드가
+            // 아예 안 걸린다. 반면 존 이동 직후엔 본인 uid 가 바뀌어 _executorId 가 낡아 있을 수 있어, 본인 검사를
+            // 걸면 정작 입장 순간의 버프를 놓친다. 대상은 meta 로 남겨 라이브에서 확인한다.
+            if (SoloModeBuffCatalog.IsSoloModeBuff(skillCode))
+            {
+                _data.SaveSoloModeBuff(skillCode, arrivedAt);
+                _sink.Meta("solo-mode",
+                    ("code", skillCode),
+                    ("target", targetInfo.Value),
+                    ("self", _executorId > 0 && targetInfo.Value == _executorId),
+                    ("refresh", refresh));
+                return;
+            }
+
             // Job-buff codes are <2-digit job prefix><...>: 11xxxxxxx(검성)..19xxxxxxx(권성, 2026-07-01 패치).
             // The upper bound was 190_000_000 (8 classes, max 18x); 권성 buffs are 190_000_000..199_999_999,
             // so it must reach 199_999_999 or every 권성 buff/debuff is dropped here.

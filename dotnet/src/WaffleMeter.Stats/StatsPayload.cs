@@ -217,12 +217,19 @@ public sealed record StatsTrialDifficultyPayload(
 /// can report partySize 12. Sent so the site can tell a real 공대 from a field pull that merely had six
 /// dealers — today it infers that from partySize alone, which mislabels a zerg as an "N인 공대". Additive and
 /// omitted when null, so a site that does not read it yet is unaffected (its zod objects strip unknown keys).</param>
+/// <param name="SoloMode">True when this was a 파티 던전 '1인 모드' run (client 134+), which shares the party
+/// run's dungeonId and boss mobCodes and so is invisible to the encounter identity — the meter reads it off the
+/// entry buff. Null (omitted) otherwise: never sent as <c>false</c>, because "not seen" is all the meter can say,
+/// and an absent key is what every older build sends. Additive, so <b>no SchemaVersion bump</b> — a bump would make
+/// the site's zod literal reject the battle outright. Deploy order is site first: until it reads the key, it drops
+/// it silently and 1인 모드 battles stay mixed in exactly as before.</param>
 public sealed record StatsBattlePayload(
     long StartedAt,
     long EndedAt,
     long DurationMs,
     int PartySize,
-    int? RosterSize = null);
+    int? RosterSize = null,
+    bool? SoloMode = null);
 
 public sealed record StatsPartyCompositionPayload(
     IReadOnlyDictionary<string, int> Jobs,

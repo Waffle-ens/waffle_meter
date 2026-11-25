@@ -49030,5 +49030,85 @@
     "icon_view": false,
     "summary": "전투 속도 증가",
     "effect": "전투 속도 {abe:1633000031:value02:divide100abs}% 증가"
+  },
+  "1743": {
+    "name": "군림하는 데바",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 데바에게 버프를 부여합니다.",
+    "effect": "후방 피해 증폭의 <desc_point>{abe:17431:value02:divide100}%</>만큼 전방 피해 증폭 증가"
+  },
+  "19996401": {
+    "name": "군림하는 검성",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 검성에게 버프를 부여합니다.",
+    "effect": "전방 피해 증폭의 <desc_point>{abe:199964011:value02:divide100}%</>만큼 후방 피해 증폭 증가"
+  },
+  "19996501": {
+    "name": "군림하는 수호성",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 수호성에게 버프를 부여합니다.",
+    "effect": "전방 피해 증폭의 <desc_point>{abe:199965011:value02:divide100}%</>만큼 후방 피해 증폭 증가"
+  },
+  "19996601": {
+    "name": "군림하는 궁성",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 궁성에게 버프를 부여합니다.",
+    "effect": "후방 피해 증폭의 <desc_point>{abe:199966011:value02:divide100}%</>만큼 전방 피해 증폭 증가"
+  },
+  "19996701": {
+    "name": "군림하는 살성",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 살성에게 버프를 부여합니다.",
+    "effect": "후방 피해 증폭의 <desc_point>{abe:199967011:value02:divide100}%</>만큼 전방 피해 증폭 증가"
+  },
+  "19996801": {
+    "name": "군림하는 정령성",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 정령성에게 버프를 부여합니다.",
+    "effect": "후방 피해 증폭의 <desc_point>{abe:199968011:value02:divide100}%</>만큼 전방 피해 증폭 증가"
+  },
+  "19996901": {
+    "name": "군림하는 마도성",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 마도성에게 버프를 부여합니다.",
+    "effect": "후방 피해 증폭의 <desc_point>{abe:199969011:value02:divide100}%</>만큼 전방 피해 증폭 증가"
+  },
+  "19997001": {
+    "name": "군림하는 치유성",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 치유성에게 버프를 부여합니다.",
+    "effect": "후방 피해 증폭의 <desc_point>{abe:199970011:value02:divide100}%</>만큼 전방 피해 증폭 증가"
+  },
+  "19997101": {
+    "name": "군림하는 호법성",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 호법성에게 버프를 부여합니다.",
+    "effect": "후방 피해 증폭의 <desc_point>{abe:199971011:value02:divide100}%</>만큼 전방 피해 증폭 증가"
+  },
+  "19997201": {
+    "name": "군림하는 권성",
+    "type": "Buff",
+    "icon": "Abnormal/ICON_Abnormal_StatUp",
+    "icon_view": true,
+    "summary": "1인 모드로 진입한 권성에게 버프를 부여합니다.",
+    "effect": "전방 피해 증폭의 <desc_point>{abe:199972011:value02:divide100}%</>만큼 후방 피해 증폭 증가"
   }
 }

@@ -62,6 +62,15 @@ public static class TierEvaluator
             return result;
         }
 
+        // 1인 모드(클라 134~)는 등급을 매기지 않는다. 컷은 파티 전투로 만든 값이고(partyMode 가 카테고리로 5/10
+        // 고정, 아래), 1인 모드는 보스 체력·피해가 다르고 직업 버프가 전방/후방 피해 증폭을 바꾼다 — 같은 자로
+        // 재면 등급이 뜻을 잃는다. 커리어 등급도 함께 숨긴다: 칩이 전투 등급 없이 커리어만 남으면 이 전투가
+        // 채점된 것처럼 읽힌다.
+        if (report.SoloMode)
+        {
+            return result;
+        }
+
         long durationMs = report.BattleEnd - report.BattleStart;
         if (durationMs < artifact.MinBattleDurationMs) // 서버가 선언한 하한(없으면 20초)
         {
